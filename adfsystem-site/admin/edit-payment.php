@@ -71,6 +71,6 @@ require __DIR__ . '/../includes/admin-header.php';
 
     <h2 class="admin-subheading">Webhook URL</h2>
     <p>Salin URL berikut dan tempelkan di halaman detail proyek Pakasir Anda, pada kolom "Webhook URL", agar status pembayaran otomatis diperbarui:</p>
-    <code style="display:block;background:var(--card-bg);border:1px solid var(--card-border);border-radius:6px;padding:10px 14px;word-break:break-all;"><?php echo htmlspecialchars($webhookUrl); ?></code>
+    <code style="display:block;padding:10px 14px;word-break:break-all;"><?php echo htmlspecialchars($webhookUrl); ?></code>
 </div>
 <?php require __DIR__ . '/../includes/admin-footer.php'; ?>

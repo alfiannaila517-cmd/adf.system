@@ -39,9 +39,9 @@ require __DIR__ . '/../includes/admin-header.php';
     <p class="admin-lead">Daftar pelanggan yang pernah melakukan pemesanan/langganan, dirangkum dari data Pesanan.</p>
 
     <?php if (empty($customers)): ?>
-        <p>Belum ada pelanggan.</p>
+        <div class="payment-table-wrap"><div class="adm-empty">Belum ada pelanggan.</div></div>
     <?php else: ?>
-        <table class="admin-table">
+        <div class="payment-table-wrap"><table class="admin-table">
             <thead>
                 <tr>
                     <th>Nama</th>
@@ -64,7 +64,7 @@ require __DIR__ . '/../includes/admin-header.php';
                     </tr>
                 <?php endforeach; ?>
             </tbody>
-        </table>
+        </table></div>
     <?php endif; ?>
 </div>
 <?php require __DIR__ . '/../includes/admin-footer.php'; ?>

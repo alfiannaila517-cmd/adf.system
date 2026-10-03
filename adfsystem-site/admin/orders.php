@@ -100,7 +100,7 @@ require __DIR__ . '/../includes/admin-header.php';
     <?php endif; ?>
 
     <?php if (empty($orders)): ?>
-        <p>Belum ada pesanan.</p>
+        <div class="payment-table-wrap"><div class="adm-empty">Belum ada pesanan.</div></div>
     <?php else: ?>
         <div class="payment-table-wrap">
             <table class="admin-table payment-table">

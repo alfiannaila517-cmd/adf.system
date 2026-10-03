@@ -1,82 +1,133 @@
 <?php
 require_once __DIR__ . '/../includes/admin-auth.php';
+require_once __DIR__ . '/../includes/orders-store.php';
+require_once __DIR__ . '/../includes/subscription-clients-store.php';
 adf_admin_require_login();
+
+$isAdmin = (adf_admin_current_user()['role'] ?? '') === 'admin';
+
+// Ringkasan angka utama untuk dashboard.
+$orders = adf_orders_load();
+$completedTotal = 0;
+$completedCount = 0;
+$pendingCount = 0;
+$customerKeys = [];
+foreach ($orders as $order) {
+    $status = strtolower((string) ($order['status'] ?? ''));
+    if ($status === 'completed') {
+        $completedTotal += (int) ($order['amount'] ?? 0);
+        $completedCount++;
+    } elseif ($status === 'pending') {
+        $pendingCount++;
+    }
+    $key = trim((string) ($order['whatsapp'] ?? '')) ?: trim((string) ($order['name'] ?? ''));
+    if ($key !== '') {
+        $customerKeys[$key] = true;
+    }
+}
+$clientCount = count(adf_subscription_clients_load());
+$recentOrders = array_slice(array_reverse($orders), 0, 5);
+
+$quickLinks = [
+    'Bisnis' => [
+        ['orders.php', 'receipt', 'Transaksi', 'Pembayaran langganan via Pakasir'],
+        ['customers.php', 'users', 'Pelanggan', 'Daftar pelanggan & riwayat'],
+    ],
+    'Konten Website' => [
+        ['edit-hero.php', 'home', 'Hero Beranda', 'Judul & deskripsi utama'],
+        ['edit-modules.php', 'blocks', 'Modul', 'Fitur yang tampil di beranda'],
+        ['edit-layanan.php', 'layers', 'Layanan', 'Isi halaman Layanan'],
+        ['edit-products.php', 'tag', 'Paket Harga', 'Paket di halaman Harga'],
+        ['edit-portfolio.php', 'folder', 'Portofolio', 'Produk & website contoh'],
+        ['edit-clients.php', 'building', 'Klien', 'Logo perusahaan klien'],
+        ['edit-logo.php', 'image', 'Logo', 'Logo header website & admin'],
+        ['edit-contact.php', 'mail', 'Kontak', 'Email, WhatsApp, alamat'],
+    ],
+];
+if ($isAdmin) {
+    $quickLinks['Bisnis'][] = ['subscription-clients.php', 'link', 'Klien Langganan', 'Tarif & tagihan klien sistem'];
+    $quickLinks['Pengaturan'] = [
+        ['edit-payment.php', 'card', 'Payment Gateway', 'Koneksi Pakasir'],
+        ['users.php', 'user', 'Pengguna', 'Akun yang bisa login admin'],
+    ];
+}
 
 $adminPageTitle = 'Dashboard';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
-<div class="container admin-container">
-    <h1>Dashboard Admin</h1>
-    <p class="admin-lead">Kelola konten yang tampil di website ADF System dari sini.</p>
+<div class="admin-container admin-container-wide">
+    <h1>Dashboard</h1>
+    <p class="admin-lead">Ringkasan transaksi dan akses cepat ke pengaturan website ADF System.</p>
 
-    <div class="admin-card-grid">
-        <a class="admin-panel-card" href="edit-logo.php">
-            <div class="icon-badge c-pink">🎨</div>
-            <h3>Logo Perusahaan</h3>
-            <p>Upload logo perusahaan untuk ditampilkan di header website &amp; admin.</p>
-        </a>
-        <a class="admin-panel-card" href="edit-hero.php">
-            <div class="icon-badge c-orange">🏠</div>
-            <h3>Hero Beranda</h3>
-            <p>Ubah judul &amp; deskripsi utama di halaman depan.</p>
-        </a>
-        <a class="admin-panel-card" href="edit-modules.php">
-            <div class="icon-badge c-blue">🧩</div>
-            <h3>Produk &amp; Modul Utama</h3>
-            <p>Tambah, ubah, atau hapus daftar modul/fitur yang ditampilkan di beranda.</p>
-        </a>
-        <a class="admin-panel-card" href="edit-layanan.php">
-            <div class="icon-badge c-teal">🛠️</div>
-            <h3>Halaman Layanan</h3>
-            <p>Ubah judul halaman dan daftar modul yang tampil di halaman Layanan.</p>
-        </a>
-        <a class="admin-panel-card" href="edit-products.php">
-            <div class="icon-badge c-orange">💳</div>
-            <h3>Paket Harga</h3>
-            <p>Tambah, ubah, atau hapus paket langganan yang tampil di halaman Harga.</p>
-        </a>
-        <a class="admin-panel-card" href="edit-portfolio.php">
-            <div class="icon-badge c-purple">🗂️</div>
-            <h3>Portofolio Produk</h3>
-            <p>Tambah, ubah, atau hapus kartu produk/website yang ditampilkan.</p>
-        </a>
-        <a class="admin-panel-card" href="edit-clients.php">
-            <div class="icon-badge c-orange">🏢</div>
-            <h3>Logo Perusahaan Klien</h3>
-            <p>Tambah, ubah, atau hapus logo perusahaan yang sudah memakai jasa ADF System.</p>
-        </a>
-        <a class="admin-panel-card" href="edit-payment.php">
-            <div class="icon-badge c-purple">💰</div>
-            <h3>Pengaturan Pembayaran</h3>
-            <p>Hubungkan payment gateway Pakasir agar pelanggan bisa bayar langganan otomatis.</p>
-        </a>
-        <a class="admin-panel-card" href="orders.php">
-            <div class="icon-badge c-blue">🧾</div>
-            <h3>Pesanan Langganan</h3>
-            <p>Lihat daftar pesanan/langganan dari pelanggan beserta status pembayarannya.</p>
-        </a>
-        <a class="admin-panel-card" href="customers.php">
-            <div class="icon-badge c-green">👥</div>
-            <h3>Pelanggan</h3>
-            <p>Lihat daftar pelanggan dan riwayat transaksinya.</p>
-        </a>
-        <a class="admin-panel-card" href="edit-contact.php">
-            <div class="icon-badge c-green">✉️</div>
-            <h3>Info Kontak</h3>
-            <p>Ubah email, nomor WhatsApp, dan alamat yang tampil di halaman Kontak.</p>
-        </a>
-        <a class="admin-panel-card" href="change-password.php">
-            <div class="icon-badge c-blue">🔒</div>
-            <h3>Ubah Password</h3>
-            <p>Ganti password login panel admin website ini.</p>
-        </a>
-        <?php if ((adf_admin_current_user()['role'] ?? '') === 'admin'): ?>
-            <a class="admin-panel-card" href="users.php">
-                <div class="icon-badge c-purple">👤</div>
-                <h3>Pengguna</h3>
-                <p>Tambah atau hapus user yang bisa login ke panel admin ini.</p>
-            </a>
+    <div class="adm-stats">
+        <div class="adm-stat adm-tone-green">
+            <span class="adm-stat-label"><span class="adm-stat-ico"><?php echo adf_admin_icon('wallet', 14); ?></span>Uang Terkumpul</span>
+            <span class="adm-stat-value">Rp <?php echo number_format($completedTotal, 0, ',', '.'); ?></span>
+            <span class="adm-stat-sub"><?php echo $completedCount; ?> pembayaran berhasil</span>
+        </div>
+        <div class="adm-stat adm-tone-amber">
+            <span class="adm-stat-label"><span class="adm-stat-ico"><?php echo adf_admin_icon('clock', 14); ?></span>Menunggu Bayar</span>
+            <span class="adm-stat-value"><?php echo $pendingCount; ?></span>
+            <span class="adm-stat-sub">transaksi pending</span>
+        </div>
+        <div class="adm-stat adm-tone-blue">
+            <span class="adm-stat-label"><span class="adm-stat-ico"><?php echo adf_admin_icon('users', 14); ?></span>Pelanggan</span>
+            <span class="adm-stat-value"><?php echo count($customerKeys); ?></span>
+            <span class="adm-stat-sub">dari <?php echo count($orders); ?> pesanan</span>
+        </div>
+        <div class="adm-stat adm-tone-accent">
+            <span class="adm-stat-label"><span class="adm-stat-ico"><?php echo adf_admin_icon('link', 14); ?></span>Klien Langganan</span>
+            <span class="adm-stat-value"><?php echo $clientCount; ?></span>
+            <span class="adm-stat-sub">sistem aktif terhubung</span>
+        </div>
+    </div>
+
+    <div class="admin-subheading" style="display:flex;justify-content:space-between;align-items:center;margin-top:0;">
+        <span>Transaksi Terbaru</span>
+        <a href="orders.php" style="font-size:12px;font-weight:500;">Lihat semua →</a>
+    </div>
+    <div class="payment-table-wrap">
+        <?php if (empty($recentOrders)): ?>
+            <div class="adm-empty">Belum ada transaksi.</div>
+        <?php else: ?>
+            <table class="payment-table">
+                <thead>
+                    <tr>
+                        <th>Nama</th>
+                        <th>Paket</th>
+                        <th>Jumlah</th>
+                        <th>Status</th>
+                        <th>Tanggal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recentOrders as $order): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($order['name'] ?? '-'); ?></td>
+                            <td><?php echo htmlspecialchars($order['product_title'] ?? '-'); ?></td>
+                            <td class="payment-amount">Rp <?php echo number_format((int) ($order['amount'] ?? 0), 0, ',', '.'); ?></td>
+                            <td><span class="payment-status payment-status-<?php echo htmlspecialchars(strtolower((string) ($order['status'] ?? ''))); ?>"><?php echo htmlspecialchars($order['status'] ?? '-'); ?></span></td>
+                            <td class="payment-date"><?php echo !empty($order['created_at']) ? date('d M Y, H:i', strtotime($order['created_at'])) : '-'; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         <?php endif; ?>
     </div>
+
+    <?php foreach ($quickLinks as $groupTitle => $links): ?>
+        <div class="adm-section-title"><?php echo htmlspecialchars($groupTitle); ?></div>
+        <div class="adm-quick-grid">
+            <?php foreach ($links as [$href, $icon, $label, $desc]): ?>
+                <a class="adm-quick" href="<?php echo htmlspecialchars($href); ?>">
+                    <span class="adm-quick-ico"><?php echo adf_admin_icon($icon, 16); ?></span>
+                    <span>
+                        <strong><?php echo htmlspecialchars($label); ?></strong>
+                        <small><?php echo htmlspecialchars($desc); ?></small>
+                    </span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    <?php endforeach; ?>
 </div>
 <?php require __DIR__ . '/../includes/admin-footer.php'; ?>

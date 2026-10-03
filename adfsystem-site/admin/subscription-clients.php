@@ -65,27 +65,6 @@ if (!empty($_GET['edit'])) {
 $adminPageTitle = 'Klien Langganan';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
-<style>
-    .subscription-clients-page .admin-lead,
-    .subscription-clients-page .admin-subheading,
-    .subscription-clients-page .admin-form label,
-    .subscription-clients-page .admin-form input,
-    .subscription-clients-page .admin-form select,
-    .subscription-clients-page .payment-table,
-    .subscription-clients-page .payment-table th,
-    .subscription-clients-page .payment-table td,
-    .subscription-clients-page .btn {
-        font-size: 9px !important;
-    }
-
-    .subscription-clients-page .admin-form input {
-        padding: 5px 7px;
-    }
-
-    .subscription-clients-page .admin-form label {
-        margin-bottom: 8px;
-    }
-</style>
 <div class="container admin-container admin-container-wide subscription-clients-page">
     <h1>Klien Langganan</h1>
     <p class="admin-lead">
@@ -102,7 +81,7 @@ require __DIR__ . '/../includes/admin-header.php';
     <?php endif; ?>
 
     <h2 class="admin-subheading"><?php echo $editClient ? 'Edit Klien: ' . htmlspecialchars($editClient['client_name'] ?? '') : 'Tambah Klien'; ?></h2>
-    <form method="post" class="admin-form">
+    <form method="post" class="admin-form admin-form-grid">
         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
         <input type="hidden" name="existing_token" value="<?php echo htmlspecialchars($editClient['client_token'] ?? ''); ?>">
         <label>Client Key (slug unik, mis. <code>karimunjawa-explore</code>)
@@ -132,13 +111,15 @@ require __DIR__ . '/../includes/admin-header.php';
         <label>Email Notifikasi Pembayaran (dikirim otomatis saat tagihan lunas)
             <input type="email" name="notify_email" placeholder="owner@karimunjawaexplore.com" value="<?php echo htmlspecialchars($editClient['notify_email'] ?? ''); ?>">
         </label>
-        <label style="display:flex;align-items:center;gap:6px;flex-direction:row;">
-            <input type="checkbox" name="regenerate_token" value="1" style="width:auto;"> Buat ulang Client Token
+        <label class="admin-checkbox-line">
+            <input type="checkbox" name="regenerate_token" value="1"> Buat ulang Client Token
         </label>
-        <button type="submit" class="btn btn-primary"><?php echo $editClient ? 'Simpan Perubahan' : 'Simpan Klien'; ?></button>
-        <?php if ($editClient): ?>
-            <a href="subscription-clients.php" class="btn" style="margin-left:8px;">Batal</a>
-        <?php endif; ?>
+        <div class="admin-form-actions">
+            <button type="submit" class="btn btn-primary"><?php echo $editClient ? 'Simpan Perubahan' : 'Simpan Klien'; ?></button>
+            <?php if ($editClient): ?>
+                <a href="subscription-clients.php" class="btn">Batal</a>
+            <?php endif; ?>
+        </div>
     </form>
 
     <h2 class="admin-subheading">Daftar Klien</h2>
@@ -180,7 +161,7 @@ require __DIR__ . '/../includes/admin-header.php';
                 <?php endforeach; ?>
                 <?php if (empty($clients)): ?>
                     <tr>
-                        <td colspan="7" style="text-align:center;">Belum ada klien.</td>
+                        <td colspan="8" class="adm-empty">Belum ada klien.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>

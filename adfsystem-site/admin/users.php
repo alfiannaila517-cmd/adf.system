@@ -59,7 +59,7 @@ require __DIR__ . '/../includes/admin-header.php';
         <div class="admin-alert admin-alert-error"><?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
 
-    <table class="admin-table">
+    <div class="payment-table-wrap"><table class="admin-table">
         <thead>
             <tr>
                 <th>Username</th>
@@ -75,26 +75,26 @@ require __DIR__ . '/../includes/admin-header.php';
                     <td><?php echo htmlspecialchars($u['username']); ?></td>
                     <td><?php echo htmlspecialchars($u['email']); ?></td>
                     <td><?php echo htmlspecialchars($u['role']); ?></td>
-                    <td><?php echo htmlspecialchars($u['created_at']); ?></td>
+                    <td class="payment-date"><?php echo !empty($u['created_at']) ? date('d M Y', strtotime($u['created_at'])) : '-'; ?></td>
                     <td>
                         <?php if ((string) $u['id'] !== (string) $currentUser['id']): ?>
                             <form method="post" style="display:inline;" onsubmit="return confirm('Hapus user ini?');">
                                 <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="<?php echo htmlspecialchars($u['id']); ?>">
-                                <button type="submit" class="btn btn-outline admin-btn-danger" style="padding:4px 10px;font-size:0.75rem;">Hapus</button>
+                                <button type="submit" class="btn btn-outline btn-sm admin-btn-danger">Hapus</button>
                             </form>
                         <?php else: ?>
-                            <span style="font-size:0.75rem;color:var(--text-muted);">Akun Anda</span>
+                            <span class="payment-date">Akun Anda</span>
                         <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
-    </table>
+    </table></div>
 
     <h2 class="admin-subheading">Tambah User Baru</h2>
-    <form method="post" class="admin-form">
+    <form method="post" class="admin-form admin-form-grid">
         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
         <input type="hidden" name="action" value="add">
         <label>Username
