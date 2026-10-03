@@ -68,14 +68,29 @@ $formatDate = static function (?string $date): string {
         return $date;
     }
 };
-$orders = array_reverse($allOrders);
+// Urutkan terbaru di atas berdasarkan waktu bayar (atau waktu dibuat), karena pembayaran
+// dari webhook/klien langganan bisa tercatat tidak berurutan.
+$orders = $allOrders;
+usort($orders, static function (array $a, array $b): int {
+    return strcmp((string) ($b['completed_at'] ?? $b['created_at'] ?? ''), (string) ($a['completed_at'] ?? $a['created_at'] ?? ''));
+});
+$sourceLabel = static function (array $order): string {
+    switch ($order['source'] ?? 'website') {
+        case 'subscription':
+            return 'Klien Langganan';
+        case 'pakasir':
+            return 'Pakasir';
+        default:
+            return 'Checkout Website';
+    }
+};
 $csrf = adf_admin_csrf_token();
 $adminPageTitle = 'Transaksi Pembayaran';
 require __DIR__ . '/../includes/admin-header.php';
 ?>
 <div class="container admin-container admin-container-wide">
     <h1>Transaksi Pembayaran</h1>
-    <p class="admin-lead">Pantau pembayaran langganan dari Pakasir. Status <strong>completed</strong> berarti pembayaran sudah berhasil diterima.</p>
+    <p class="admin-lead">Semua pembayaran yang masuk lewat Pakasir: checkout website, tagihan klien langganan, dan pembayaran lain di proyek Pakasir ADF. Status <strong>completed</strong> berarti uang sudah diterima.</p>
 
     <div class="payment-summary-grid">
         <div class="payment-summary-card payment-summary-card-completed">
@@ -89,9 +104,9 @@ require __DIR__ . '/../includes/admin-header.php';
             <small>Transaksi belum selesai</small>
         </div>
         <div class="payment-summary-card">
-            <span class="payment-summary-label">Total Pesanan</span>
+            <span class="payment-summary-label">Total Transaksi</span>
             <strong><?php echo count($allOrders); ?></strong>
-            <small>Data pelanggan tersimpan</small>
+            <small>Semua sumber pembayaran</small>
         </div>
     </div>
 
@@ -107,7 +122,8 @@ require __DIR__ . '/../includes/admin-header.php';
                 <thead>
                     <tr>
                         <th>Order ID</th>
-                        <th>Paket</th>
+                        <th>Sumber</th>
+                        <th>Keterangan</th>
                         <th>Nama</th>
                         <th>WhatsApp</th>
                         <th>Jumlah</th>
@@ -120,13 +136,15 @@ require __DIR__ . '/../includes/admin-header.php';
                     <?php foreach ($orders as $order): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($order['order_id']); ?></td>
-                            <td><?php echo htmlspecialchars($order['product_title']); ?></td>
-                            <td><?php echo htmlspecialchars($order['name']); ?></td>
-                            <td><?php echo htmlspecialchars($order['whatsapp']); ?></td>
+                            <td><span class="payment-status"><?php echo htmlspecialchars($sourceLabel($order)); ?></span></td>
+                            <td><?php echo htmlspecialchars($order['product_title'] ?? '-'); ?></td>
+                            <td><?php echo htmlspecialchars($order['name'] ?? '-'); ?></td>
+                            <td><?php echo htmlspecialchars(($order['whatsapp'] ?? '') ?: '-'); ?></td>
                             <td class="payment-amount">Rp <?php echo number_format((int) $order['amount'], 0, ',', '.'); ?></td>
                             <td><span class="payment-status payment-status-<?php echo htmlspecialchars(strtolower((string) $order['status'])); ?>"><?php echo htmlspecialchars($order['status']); ?></span></td>
                             <td class="payment-date"><?php echo htmlspecialchars($formatDate($order['completed_at'] ?? null)); ?></td>
                             <td class="payment-actions">
+                                <?php if (!empty($order['txn_id'])): ?>
                                 <form method="post">
                                     <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
                                     <input type="hidden" name="action" value="refresh">
@@ -134,6 +152,7 @@ require __DIR__ . '/../includes/admin-header.php';
                                     <input type="hidden" name="txn_id" value="<?php echo htmlspecialchars($order['txn_id']); ?>">
                                     <button type="submit" class="btn btn-outline payment-btn-sm">Cek Status</button>
                                 </form>
+                                <?php endif; ?>
                                 <?php if (strtolower((string) $order['status']) !== 'completed'): ?>
                                     <form method="post" onsubmit="return confirm('Hapus pesanan <?php echo htmlspecialchars($order['order_id']); ?>?');">
                                         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">

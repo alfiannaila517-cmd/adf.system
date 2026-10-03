@@ -10,6 +10,7 @@
  */
 
 require_once __DIR__ . '/../includes/subscription-clients-store.php';
+require_once __DIR__ . '/../includes/orders-store.php';
 require_once __DIR__ . '/../includes/site-config.php';
 require_once __DIR__ . '/../includes/smtp-mailer.php';
 require_once __DIR__ . '/../includes/subscription-invoice-pdf.php';
@@ -41,14 +42,18 @@ if (!$client || !hash_equals((string) $client['client_token'], $clientToken)) {
     exit;
 }
 
+$clientName = (string) ($client['client_name'] ?? $clientKey);
+
+// Catat pembayaran ini di halaman Transaksi admin, supaya uang langganan klien
+// yang masuk lewat Pakasir ikut terlihat (bukan cuma checkout website).
+$paymentOrderId = adf_subscription_payment_record($client, $payload);
+
 $notifyEmail = trim((string) ($client['notify_email'] ?? ''));
 if ($notifyEmail === '' || !filter_var($notifyEmail, FILTER_VALIDATE_EMAIL)) {
     http_response_code(200);
-    echo json_encode(['ok' => true, 'skipped' => 'no notify_email configured for this client']);
+    echo json_encode(['ok' => true, 'recorded' => $paymentOrderId, 'skipped' => 'no notify_email configured for this client']);
     exit;
 }
-
-$clientName = (string) ($client['client_name'] ?? $clientKey);
 $formattedAmount = 'Rp ' . number_format($totalAmount, 0, ',', '.');
 $paidAtDisplay = date('d M Y H:i', strtotime($paidAt)) . ' WIB';
 $invoiceNumber = 'INV-' . strtoupper($clientKey) . '-' . str_replace('-', '', $period);

@@ -33,7 +33,21 @@ $orderId = (string) $payload['order_id'];
 $status = (string) $payload['status'];
 $completedAt = $payload['completed_at'] ?? null;
 
-adf_orders_update_status($orderId, $status, $completedAt);
+$updated = adf_orders_update_status($orderId, $status, $completedAt);
+
+// Pembayaran sukses yang order_id-nya belum ada (tidak lewat checkout website) tetap dicatat,
+// supaya semua uang masuk di proyek Pakasir ini terlihat di halaman Transaksi.
+if (!$updated && strtolower($status) === 'completed') {
+    adf_orders_record_completed([
+        'order_id' => $orderId,
+        'product_title' => 'Pembayaran Pakasir',
+        'amount' => (int) round((float) ($payload['amount'] ?? 0)),
+        'name' => '-',
+        'payment_method' => (string) ($payload['payment_method'] ?? ''),
+        'source' => 'pakasir',
+        'completed_at' => $completedAt ?? date('c'),
+    ]);
+}
 
 http_response_code(200);
 echo json_encode(['ok' => true]);
