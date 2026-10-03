@@ -791,11 +791,11 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             </div>
         </div>
     <?php elseif ($adfsubShowLock || $adfsubShowReminder):
-        // Developer saat dikunci, atau pengingat jatuh tempo: popup di tengah, bisa ditutup (muncul lagi besok / tagihan baru).
-        $adfsubPopupKey = 'adfsub_popup_' . ($adfsubShowLock ? 'lock' : ($adfsubBill['period'] ?? '')) . '_' . date('Ymd');
+        // Developer saat dikunci, atau pengingat jatuh tempo: popup di tengah. "Nanti saja" hanya menutup sementara;
+        // popup muncul lagi tiap kali halaman dibuka / di-refresh selama tagihan belum dibayar.
         $adfsubOverdue = $adfsubShowLock || ($adfsubDays !== null && $adfsubDays < 0);
     ?>
-        <div class="adfsub-lock adfsub-popup" id="adfsubPopup" style="display:none;">
+        <div class="adfsub-lock adfsub-popup" id="adfsubPopup">
             <div class="adfsub-lock-box<?php echo $adfsubOverdue ? ' adfsub-box-red' : ''; ?>">
                 <div class="adfsub-lock-ico"><?php echo $adfsubShowLock ? '🔒' : ($adfsubOverdue ? '⚠️' : '🧾'); ?></div>
                 <h3>
@@ -816,18 +816,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         : 'Segera selesaikan pembayaran langganan agar sistem tetap bisa digunakan tanpa gangguan.'; ?></p>
                 <?php if ($adfsubBillLine): ?><div class="adfsub-bill"><?php echo $adfsubBillLine; ?></div><?php endif; ?>
                 <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
-                <button type="button" class="adfsub-lock-out" style="background:none;border:none;cursor:pointer;" onclick="document.getElementById('adfsubPopup').style.display='none';try{sessionStorage.setItem('<?php echo $adfsubPopupKey; ?>','1');}catch(e){}">Nanti saja</button>
+                <button type="button" class="adfsub-lock-out" style="background:none;border:none;cursor:pointer;" onclick="document.getElementById('adfsubPopup').style.display='none';">Nanti saja</button>
             </div>
         </div>
-        <script>
-            (function() {
-                var seen = false;
-                try {
-                    seen = sessionStorage.getItem('<?php echo $adfsubPopupKey; ?>') === '1';
-                } catch (e) {}
-                if (!seen) document.getElementById('adfsubPopup').style.display = 'flex';
-            })();
-        </script>
     <?php endif; ?>
     <style>
         .adfsub-lock {
@@ -1949,6 +1940,96 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             <div style="padding:30px;text-align:center;color:#94a3b8;font-size:0.8rem;">Memuat...</div>
                         </div>
                     </div>
+
+                    <!-- Tagihan langganan belum dibayar: selalu tampil di header (tidak bisa ditutup) sampai lunas -->
+                    <?php if (!empty($adfsubState['connected']) && !empty($adfsubState['unpaid']) && $adfsubCanManage):
+                        $adfsubHeadTotal = array_sum(array_map(static fn($i) => (float) $i['total_amount'], $adfsubState['unpaid']));
+                        $adfsubHeadOverdue = false;
+                        foreach ($adfsubState['unpaid'] as $adfsubU) {
+                            if (!empty($adfsubU['due_date']) && $adfsubU['due_date'] < date('Y-m-d')) {
+                                $adfsubHeadOverdue = true;
+                            }
+                        }
+                    ?>
+                        <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-head-pill<?php echo $adfsubHeadOverdue ? ' adfsub-head-overdue' : ''; ?>" title="Tagihan langganan ADF System belum dibayar">
+                            <span class="adfsub-head-dot"></span>
+                            <span class="adfsub-head-text">
+                                <small><?php echo $adfsubHeadOverdue ? 'Tagihan lewat jatuh tempo' : 'Tagihan belum dibayar'; ?></small>
+                                <strong>Rp <?php echo number_format($adfsubHeadTotal, 0, ',', '.'); ?></strong>
+                            </span>
+                            <span class="adfsub-head-cta">Bayar</span>
+                        </a>
+                        <style>
+                            .adfsub-head-pill {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 8px;
+                                margin-right: 1rem;
+                                padding: 5px 6px 5px 10px;
+                                border-radius: 10px;
+                                background: #fffbeb;
+                                border: 1px solid #fcd34d;
+                                text-decoration: none !important;
+                                white-space: nowrap;
+                            }
+
+                            .adfsub-head-pill.adfsub-head-overdue {
+                                background: #fef2f2;
+                                border-color: #fca5a5;
+                            }
+
+                            .adfsub-head-dot {
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 50%;
+                                background: #f59e0b;
+                                animation: adfsubPulse 1.6s infinite;
+                            }
+
+                            .adfsub-head-overdue .adfsub-head-dot {
+                                background: #dc2626;
+                            }
+
+                            .adfsub-head-text {
+                                display: flex;
+                                flex-direction: column;
+                                line-height: 1.15;
+                            }
+
+                            .adfsub-head-text small {
+                                font-size: 10px;
+                                color: #92400e;
+                                -webkit-text-fill-color: #92400e;
+                            }
+
+                            .adfsub-head-text strong {
+                                font-size: 12.5px;
+                                color: #78350f;
+                                -webkit-text-fill-color: #78350f;
+                            }
+
+                            .adfsub-head-overdue .adfsub-head-text small,
+                            .adfsub-head-overdue .adfsub-head-text strong {
+                                color: #991b1b;
+                                -webkit-text-fill-color: #991b1b;
+                            }
+
+                            .adfsub-head-cta {
+                                background: #16a34a;
+                                color: #fff;
+                                -webkit-text-fill-color: #fff;
+                                font-size: 11px;
+                                font-weight: 700;
+                                padding: 5px 9px;
+                                border-radius: 7px;
+                            }
+
+                            @keyframes adfsubPulse {
+                                0%, 100% { opacity: 1; }
+                                50% { opacity: .35; }
+                            }
+                        </style>
+                    <?php endif; ?>
 
                     <!-- Date & Time Display -->
                     <div style="text-align: right; padding-right: 1.5rem; border-right: 1px solid var(--bg-tertiary);">
