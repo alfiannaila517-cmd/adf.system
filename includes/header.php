@@ -513,7 +513,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
     <!-- Elegant Confirm Modal (replaces native window.confirm popups) -->
     <div id="adfConfirmOverlay" class="adf-confirm-overlay">
         <div class="adf-confirm-box">
-            <div class="adf-confirm-icon">
+            <div class="adf-confirm-icon" id="adfConfirmIcon">
                 <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M23 4v6h-6"></path>
                     <path d="M1 20v-6h6"></path>
@@ -583,6 +583,46 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             box-shadow: 0 8px 20px -6px rgba(212, 175, 55, 0.55);
         }
 
+        /* Switch Business: tampilkan logo bisnis tujuan menggantikan ikon sinkronisasi */
+        .adf-confirm-icon.adf-confirm-logo {
+            width: 76px;
+            height: 76px;
+            margin-bottom: 1.1rem;
+            background: #fff;
+            padding: 0;
+            overflow: hidden;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.65), 0 12px 28px -8px rgba(15, 23, 42, 0.45);
+            animation: adfLogoPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .adf-confirm-icon.adf-confirm-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .adf-confirm-icon.adf-confirm-logo .adf-confirm-logo-fallback {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #b8860b;
+            letter-spacing: 0.02em;
+            line-height: 1;
+        }
+
+        @keyframes adfLogoPop {
+            from {
+                transform: scale(0.6);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
         .adf-confirm-title {
             margin: 0 0 0.4rem;
             font-size: 1.1rem;
@@ -637,11 +677,34 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         }
     </style>
     <script>
-        function adfConfirm(message, title) {
+        // opts.logo (URL logo perusahaan) / opts.fallbackText (inisial nama bisnis bila logo belum ada): ganti ikon default.
+        function adfConfirm(message, title, opts) {
+            opts = opts || {};
             return new Promise((resolve) => {
                 const overlay = document.getElementById('adfConfirmOverlay');
                 const okBtn = document.getElementById('adfConfirmOkBtn');
                 const cancelBtn = document.getElementById('adfConfirmCancelBtn');
+                const iconEl = document.getElementById('adfConfirmIcon');
+                if (!iconEl.dataset.defaultIcon) iconEl.dataset.defaultIcon = iconEl.innerHTML;
+                iconEl.classList.remove('adf-confirm-logo');
+                iconEl.innerHTML = iconEl.dataset.defaultIcon;
+                if (opts.logo || opts.fallbackText) {
+                    iconEl.classList.add('adf-confirm-logo');
+                    iconEl.innerHTML = '';
+                    if (opts.logo) {
+                        const img = document.createElement('img');
+                        img.src = opts.logo;
+                        img.alt = opts.logoAlt || '';
+                        img.onerror = function() {
+                            iconEl.innerHTML = '<span class="adf-confirm-logo-fallback"></span>';
+                            iconEl.firstChild.textContent = opts.fallbackText || '';
+                        };
+                        iconEl.appendChild(img);
+                    } else {
+                        iconEl.innerHTML = '<span class="adf-confirm-logo-fallback"></span>';
+                        iconEl.firstChild.textContent = opts.fallbackText;
+                    }
+                }
                 document.getElementById('adfConfirmMessage').textContent = message || 'Are you sure?';
                 document.getElementById('adfConfirmTitle').textContent = title || 'Confirm';
                 overlay.classList.add('active');
@@ -654,10 +717,22 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     document.removeEventListener('keydown', onKeydown);
                     resolve(result);
                 }
-                function onOk() { cleanup(true); }
-                function onCancel() { cleanup(false); }
-                function onOverlay(e) { if (e.target === overlay) cleanup(false); }
-                function onKeydown(e) { if (e.key === 'Escape') cleanup(false); }
+
+                function onOk() {
+                    cleanup(true);
+                }
+
+                function onCancel() {
+                    cleanup(false);
+                }
+
+                function onOverlay(e) {
+                    if (e.target === overlay) cleanup(false);
+                }
+
+                function onKeydown(e) {
+                    if (e.key === 'Escape') cleanup(false);
+                }
 
                 okBtn.addEventListener('click', onOk);
                 cancelBtn.addEventListener('click', onCancel);
@@ -821,6 +896,136 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         // Silent fail if notification fails
     } ?>
 
+    <!-- Unpaid Cafe Invoice Notification Banner (cafe-invoice businesses, e.g. Ben's Cafe) -->
+    <?php
+    $unpaidCafeInvoicesCount = 0;
+    try {
+        if (function_exists('isModuleEnabled') && isModuleEnabled('cafe-invoice')) {
+            $unpaidCafeInvoices = getUnpaidCafeInvoices($db->getConnection());
+            $unpaidCafeInvoicesCount = count($unpaidCafeInvoices);
+            if (!empty($unpaidCafeInvoices)):
+                $cafeMessages = array_map(fn($m) => htmlspecialchars($m), formatUnpaidCafeInvoiceMessages($unpaidCafeInvoices));
+                $cafeCount = count($cafeMessages);
+                $cafeNotificationText = implode('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', $cafeMessages);
+                $cafeScrollDuration = max(4, $cafeCount * 2);
+    ?>
+                <style>
+                    .cafe-invoice-banner {
+                        background: linear-gradient(90deg, var(--primary-dark), var(--primary-color), var(--primary-dark));
+                        background-size: 200% 100%;
+                        animation: cib-bg 4s linear infinite;
+                        color: #ffffff !important;
+                        -webkit-text-fill-color: #ffffff !important;
+                        text-fill-color: #ffffff !important;
+                        padding: 0.5rem 0;
+                        overflow: hidden;
+                        position: relative;
+                        font-weight: 700;
+                        font-size: 0.84rem;
+                        letter-spacing: 0.01em;
+                        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+                        box-shadow: var(--shadow-glow);
+                        border-bottom: 2px solid var(--primary-dark);
+                        z-index: 999;
+                        cursor: pointer;
+                    }
+
+                    .cafe-invoice-banner,
+                    .cafe-invoice-banner * {
+                        -webkit-text-fill-color: unset;
+                        text-fill-color: unset;
+                        opacity: 1 !important;
+                        mix-blend-mode: normal !important;
+                    }
+
+                    @keyframes cib-bg {
+                        0% {
+                            background-position: 0% 50%;
+                        }
+
+                        100% {
+                            background-position: 200% 50%;
+                        }
+                    }
+
+                    .cafe-invoice-banner .cib-label {
+                        position: absolute;
+                        left: 210px;
+                        top: 0;
+                        bottom: 0;
+                        display: flex;
+                        align-items: center;
+                        padding: 0 0.75rem;
+                        background: rgba(0, 0, 0, 0.35);
+                        white-space: nowrap;
+                        font-size: 0.78rem;
+                        gap: 0.3rem;
+                        z-index: 2;
+                        border-right: 1px solid rgba(255, 255, 255, 0.2);
+                        color: #ffffff;
+                    }
+
+                    @media (max-width: 768px) {
+                        .cafe-invoice-banner .cib-label {
+                            left: 0;
+                        }
+                    }
+
+                    .cafe-invoice-banner .cib-label .notif-dot {
+                        width: 9px;
+                        height: 9px;
+                        border-radius: 50%;
+                        background: #ef4444;
+                        box-shadow: 0 0 0 rgba(239, 68, 68, 0.7);
+                        animation: notif-dot-pulse 1.4s ease-out infinite;
+                        flex-shrink: 0;
+                    }
+
+                    .cafe-invoice-banner .cib-ticker {
+                        display: block;
+                        white-space: nowrap;
+                        padding-left: 370px;
+                        color: #ffffff;
+                        animation: cib-ticker-scroll <?php echo $cafeScrollDuration; ?>s linear infinite;
+                    }
+
+                    @media (max-width: 768px) {
+                        .cafe-invoice-banner .cib-ticker {
+                            padding-left: 160px;
+                        }
+                    }
+
+                    @keyframes cib-ticker-scroll {
+                        0% {
+                            transform: translateX(0);
+                        }
+
+                        100% {
+                            transform: translateX(-100%);
+                        }
+                    }
+
+                    .cafe-invoice-banner:hover .cib-ticker {
+                        animation-play-state: paused;
+                    }
+                </style>
+                <div class="cafe-invoice-banner" onclick="window.location.href='<?php echo BASE_URL; ?>/modules/cafe-invoice/index.php?filter=unpaid'" title="Klik untuk lihat detail">
+                    <span class="cib-label">
+                        <span class="notif-dot"></span>
+                        PERHATIAN (<?php echo $cafeCount; ?>)
+                    </span>
+                    <span class="cib-ticker">
+                        <?php echo $cafeNotificationText; ?>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <?php echo $cafeNotificationText; ?>
+                    </span>
+                </div>
+    <?php endif;
+        }
+    } catch (\Throwable $e) {
+        // Silent fail if notification fails
+    } ?>
+
     <div class="main-wrapper">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
@@ -876,7 +1081,10 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             foreach ($userBusinesses as $bizId => $bizConfig):
                                 $selected = ($bizId === ACTIVE_BUSINESS_ID) ? 'selected' : '';
                             ?>
-                                <option value="<?php echo htmlspecialchars($bizId); ?>" <?php echo $selected; ?>>
+                                <option value="<?php echo htmlspecialchars($bizId); ?>" <?php echo $selected; ?>
+                                    data-name="<?php echo htmlspecialchars($bizConfig['name']); ?>"
+                                    data-logo="<?php echo htmlspecialchars((string)getBusinessLogoById($bizId, $bizConfig)); ?>"
+                                    data-initials="<?php echo htmlspecialchars(implode('', array_map(fn($w) => mb_strtoupper(mb_substr($w, 0, 1)), array_slice(preg_split('/\s+/', trim($bizConfig['name'])), 0, 2)))); ?>">
                                     <?php echo htmlspecialchars($bizConfig['name']); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -1621,7 +1829,17 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 <script>
                     // Business Switcher Function
                     async function switchBusiness(businessId) {
-                        const confirmed = await adfConfirm('Current page will reload to load the selected business data.', 'Switch Business?');
+                        const bizSelect = document.querySelector('select[onchange*="switchBusiness"]');
+                        const bizOpt = bizSelect ? bizSelect.querySelector('option[value="' + CSS.escape(businessId) + '"]') : null;
+                        const bizName = bizOpt ? (bizOpt.dataset.name || bizOpt.textContent.trim()) : '';
+                        const confirmed = await adfConfirm(
+                            bizName ? 'Halaman akan dimuat ulang untuk membuka data ' + bizName + '.' : 'Current page will reload to load the selected business data.',
+                            bizName ? 'Pindah ke ' + bizName + '?' : 'Switch Business?', {
+                                logo: bizOpt ? bizOpt.dataset.logo : '',
+                                fallbackText: bizOpt ? bizOpt.dataset.initials : '',
+                                logoAlt: bizName
+                            }
+                        );
                         if (confirmed) {
                             // Send AJAX request to switch business
                             fetch('<?php echo BASE_URL; ?>/api/switch-business.php', {

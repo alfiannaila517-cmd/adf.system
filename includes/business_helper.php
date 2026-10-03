@@ -563,6 +563,90 @@ function getBusinessLogo()
 }
 
 /**
+ * Logo URL for ANY business (not only the active one), e.g. for the Switch Business popup.
+ * Same priority as getBusinessLogo(), but reads the target business's own database.
+ * Cached in session for 10 minutes so the sidebar doesn't open N connections per page.
+ * @return string|null Logo URL or null
+ */
+function getBusinessLogoById(string $businessId, ?array $config = null)
+{
+    $cacheKey = 'adf_biz_logo_cache';
+    if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION[$cacheKey][$businessId])) {
+        $cached = $_SESSION[$cacheKey][$businessId];
+        if (($cached['t'] ?? 0) > time() - 600) {
+            return $cached['url'];
+        }
+    }
+
+    if ($config === null) {
+        $businessFile = __DIR__ . '/../config/businesses/' . basename($businessId) . '.php';
+        $config = file_exists($businessFile) ? require $businessFile : [];
+    }
+
+    // Bisnis yang sedang aktif: pakai logo yang persis sama dengan sidebar.
+    if (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === $businessId) {
+        $url = getBusinessLogo();
+        if ($url && session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION[$cacheKey][$businessId] = ['url' => $url, 't' => time()];
+        }
+        return $url;
+    }
+
+    $toUrl = function ($val) {
+        if (!$val) return null;
+        if (strpos($val, 'http') === 0) return $val;
+        // Nilai setting bisa berupa nama file saja atau path 'uploads/logos/<file>'.
+        $val = preg_replace('#^/?uploads/logos/#', '', $val);
+        $file = __DIR__ . '/../uploads/logos/' . $val;
+        return is_file($file) ? BASE_URL . '/uploads/logos/' . $val . '?v=' . filemtime($file) : null;
+    };
+
+    // Urutan sama dengan getBusinessLogo(): logo khusus bisnis -> logo config -> file <id>_logo.* -> hotel_logo -> company_logo.
+    $settingValues = [];
+    try {
+        if (!empty($config['database'])) {
+            $pdo = new PDO(
+                'mysql:host=' . DB_HOST . ';dbname=' . getDbName($config['database']) . ';charset=utf8mb4',
+                DB_USER,
+                DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 3]
+            );
+            $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('company_logo_" . addslashes($businessId) . "', 'hotel_logo', 'company_logo')");
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $settingValues[$row['setting_key']] = $row['setting_value'];
+            }
+        }
+    } catch (Exception $e) {
+        // Silent fail - fall back to file-based logos below
+    }
+
+    $url = $toUrl($settingValues['company_logo_' . $businessId] ?? null)
+        ?: $toUrl($config['logo'] ?? null);
+    if (!$url) {
+        foreach (['png', 'jpg', 'jpeg', 'gif', 'webp'] as $ext) {
+            if ($url = $toUrl($businessId . '_logo.' . $ext)) break;
+        }
+    }
+    if (!$url) {
+        // File logo bertimestamp, mis. eat-meet_logo_1769239707.png
+        $matches = glob(__DIR__ . '/../uploads/logos/' . $businessId . '_logo_*.{png,jpg,jpeg,gif,webp}', GLOB_BRACE) ?: [];
+        if ($matches) {
+            usort($matches, fn($a, $b) => filemtime($b) <=> filemtime($a));
+            $url = $toUrl(basename($matches[0]));
+        }
+    }
+    if (!$url) {
+        $url = $toUrl($settingValues['hotel_logo'] ?? null) ?: $toUrl($settingValues['company_logo'] ?? null);
+    }
+
+    // Hanya cache kalau ketemu, supaya logo yang baru di-upload langsung kepakai.
+    if ($url && session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION[$cacheKey][$businessId] = ['url' => $url, 't' => time()];
+    }
+    return $url;
+}
+
+/**
  * Get business theme CSS variables
  * @return string CSS variables
  */

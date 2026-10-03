@@ -125,3 +125,39 @@ function formatUnpaidHotelServiceMessages($unpaidInvoices)
 
     return $messages;
 }
+
+// Unpaid cafe invoices (Ben's Cafe / other businesses with the cafe-invoice module)
+// Note: cafe_invoices has no business_id column — each cafe-type business uses its own database.
+function getUnpaidCafeInvoices($pdo)
+{
+    try {
+        $stmt = $pdo->prepare("
+            SELECT invoice_number, customer_name, total_amount, created_at
+            FROM cafe_invoices
+            WHERE status = 'unpaid'
+            ORDER BY created_at ASC
+            LIMIT 50
+        ");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) {
+        error_log("Unpaid cafe invoices query failed: " . $e->getMessage());
+        return [];
+    }
+}
+
+function formatUnpaidCafeInvoiceMessages($unpaidInvoices)
+{
+    if (empty($unpaidInvoices)) {
+        return [];
+    }
+
+    $messages = [];
+    foreach ($unpaidInvoices as $invoice) {
+        $label = trim($invoice['customer_name'] ?? '') ?: ('Invoice ' . ($invoice['invoice_number'] ?? '-'));
+        $amount = number_format((float)($invoice['total_amount'] ?? 0), 0, ',', '.');
+        $messages[] = "☕ {$label} — BELUM LUNAS (Rp {$amount})";
+    }
+
+    return $messages;
+}
