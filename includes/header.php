@@ -584,22 +584,27 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         }
 
         /* Switch Business: tampilkan logo bisnis tujuan menggantikan ikon sinkronisasi */
+        /* Bingkai kotak membulat + object-fit: contain: logo bentuk apa pun (bulat, kotak, lebar)
+           tampil utuh dan presisi di tengah, tanpa terpotong atau sisa pinggiran putih yang miring. */
         .adf-confirm-icon.adf-confirm-logo {
-            width: 76px;
-            height: 76px;
-            margin-bottom: 1.1rem;
+            box-sizing: border-box;
+            width: 72px;
+            height: 72px;
+            margin-bottom: 1rem;
+            padding: 6px;
+            border-radius: 18px;
             background: #fff;
-            padding: 0;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 10px 24px -10px rgba(15, 23, 42, 0.35);
             overflow: hidden;
-            border: 3px solid #fff;
-            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.65), 0 12px 28px -8px rgba(15, 23, 42, 0.45);
-            animation: adfLogoPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: adfLogoPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         .adf-confirm-icon.adf-confirm-logo img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
+            object-position: center;
             display: block;
         }
 
