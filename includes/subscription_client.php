@@ -57,12 +57,70 @@ function adfsub_ensure_schema(PDO $pdo): void
         `payment_link`        VARCHAR(255) NULL,
         `paid_at`             DATETIME NULL,
         `overdue_notified_at` DATE NULL,
+        `invoice_emailed_at`  DATETIME NULL COMMENT 'Email tagihan berhasil dikirim ADF',
+        `paid_emailed_at`     DATETIME NULL COMMENT 'Email invoice lunas berhasil dikirim ADF',
         `created_at`          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         `updated_at`          TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY `uniq_period` (`period`),
         INDEX `idx_adfsub_status` (`status`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    foreach (['invoice_emailed_at', 'paid_emailed_at'] as $col) {
+        $has = $pdo->query("SHOW COLUMNS FROM adf_subscription_invoices LIKE '{$col}'")->fetch();
+        if (!$has) {
+            $pdo->exec("ALTER TABLE adf_subscription_invoices ADD COLUMN `{$col}` DATETIME NULL");
+        }
+    }
     $done = true;
+}
+
+/** Minta ADF kirim email "Tagihan baru"; tandai terkirim hanya kalau ADF benar-benar mengirim email. */
+function adfsub_email_invoice(PDO $pdo, array $inv): bool
+{
+    $resp = adfsub_post_adf(adfsub_config($pdo), 'subscription-invoice-notify.php', [
+        'period' => $inv['period'],
+        'total_amount' => (float) $inv['total_amount'],
+        'due_date' => (string) ($inv['due_date'] ?? ''),
+    ], 6);
+    if (!empty($resp['emailed'])) {
+        $pdo->prepare("UPDATE adf_subscription_invoices SET invoice_emailed_at = NOW() WHERE id = ?")->execute([$inv['id']]);
+        return true;
+    }
+    return false;
+}
+
+/** Minta ADF catat transaksi + kirim email "Pembayaran diterima" (PDF invoice); tandai terkirim kalau berhasil. */
+function adfsub_email_paid(PDO $pdo, array $inv): bool
+{
+    $resp = adfsub_post_adf(adfsub_config($pdo), 'subscription-payment-notify.php', [
+        'period' => $inv['period'],
+        'total_amount' => (float) $inv['total_amount'],
+        'paid_at' => !empty($inv['paid_at']) ? date('c', strtotime($inv['paid_at'])) : date('c'),
+        'order_id' => (string) ($inv['order_id'] ?? ''),
+        'description' => (string) ($inv['description'] ?: ('Langganan ' . $inv['period'])),
+    ], 15);
+    if (!empty($resp['emailed'])) {
+        $pdo->prepare("UPDATE adf_subscription_invoices SET paid_emailed_at = NOW() WHERE id = ?")->execute([$inv['id']]);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Kirim ulang email yang belum terkirim (mis. email notifikasi baru diisi di ADF setelah tagihan dibuat,
+ * atau SMTP sempat gagal): email tagihan untuk tagihan bulanan yang belum dibayar, dan email lunas untuk
+ * pembayaran 14 hari terakhir. Dipanggil bersama sinkron (maks. tiap 5 menit).
+ */
+function adfsub_send_pending_emails(PDO $pdo): void
+{
+    adfsub_ensure_schema($pdo);
+    $pending = $pdo->query("SELECT * FROM adf_subscription_invoices WHERE status = 'unpaid' AND type = 'recurring' AND invoice_emailed_at IS NULL")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($pending as $inv) {
+        adfsub_email_invoice($pdo, $inv);
+    }
+    $paid = $pdo->query("SELECT * FROM adf_subscription_invoices WHERE status = 'paid' AND paid_emailed_at IS NULL AND paid_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($paid as $inv) {
+        adfsub_email_paid($pdo, $inv);
+    }
 }
 
 function adfsub_config(PDO $pdo): array
@@ -158,6 +216,7 @@ function adfsub_sync(PDO $pdo, bool $force = false): bool
     }
 
     adfsub_sync_manual_invoices($pdo);
+    adfsub_send_pending_emails($pdo);
     return true;
 }
 
@@ -226,7 +285,11 @@ function adfsub_get_or_refresh_invoice(PDO $pdo, string $period): ?array
     if (!$row) {
         $pdo->prepare("INSERT INTO adf_subscription_invoices (period, type, description, total_amount, status, due_date) VALUES (?, 'recurring', ?, ?, 'unpaid', ?)")
             ->execute([$period, 'Langganan ' . $period, $cfg['base_fee'], $dueDate]);
-        adfsub_post_adf($cfg, 'subscription-invoice-notify.php', ['period' => $period, 'total_amount' => $cfg['base_fee'], 'due_date' => $dueDate], 5);
+        $stmt->execute([$period]);
+        $newRow = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($newRow) {
+            adfsub_email_invoice($pdo, $newRow);
+        }
         adfsub_push($pdo, '🧾 Tagihan Baru dari ADF System', 'Tagihan langganan ' . $period . ' sebesar Rp ' . number_format($cfg['base_fee'], 0, ',', '.') . ', jatuh tempo ' . date('d M Y', strtotime($dueDate)) . '.');
     } elseif ($row['status'] === 'unpaid' && ((float) $row['total_amount'] !== $cfg['base_fee'] || $row['due_date'] !== $dueDate)) {
         // Tarif / jatuh tempo diubah dari ADF: ikuti selama tagihan belum dibayar.
@@ -326,14 +389,8 @@ function adfsub_reconcile(PDO $pdo, array $inv): bool
     $pdo->prepare("UPDATE adf_subscription_invoices SET status = 'paid', paid_at = ? WHERE id = ? AND status = 'unpaid'")
         ->execute([$paidAtSql, $inv['id']]);
 
-    // ADF: catat di halaman Transaksi + kirim email lunas ke klien.
-    adfsub_post_adf($cfg, 'subscription-payment-notify.php', [
-        'period' => $inv['period'],
-        'total_amount' => (float) $inv['total_amount'],
-        'paid_at' => $paidAt,
-        'order_id' => (string) ($inv['order_id'] ?? ''),
-        'description' => (string) ($inv['description'] ?: ('Langganan ' . $inv['period'])),
-    ]);
+    // ADF: catat di halaman Transaksi + kirim email lunas (PDF invoice) ke klien.
+    adfsub_email_paid($pdo, array_merge($inv, ['status' => 'paid', 'paid_at' => $paidAtSql]));
     adfsub_push($pdo, '✅ Pembayaran Berhasil', 'Tagihan ADF System (' . ($inv['description'] ?: $inv['period']) . ') sebesar Rp ' . number_format((float) $inv['total_amount'], 0, ',', '.') . ' sudah lunas.');
     return true;
 }

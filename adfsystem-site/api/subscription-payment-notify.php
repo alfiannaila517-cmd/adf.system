@@ -56,13 +56,15 @@ if ($notifyEmail === '' || !filter_var($notifyEmail, FILTER_VALIDATE_EMAIL)) {
 }
 $formattedAmount = 'Rp ' . number_format($totalAmount, 0, ',', '.');
 $paidAtDisplay = date('d M Y H:i', strtotime($paidAt)) . ' WIB';
-$invoiceNumber = 'INV-' . strtoupper($clientKey) . '-' . str_replace('-', '', $period);
+$invoiceNumber = 'INV-' . strtoupper($clientKey) . '-' . substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $period)), 0, 16);
+// Label tampil: deskripsi tagihan (mis. "Langganan 2026-10" / nama tagihan manual), bukan kode periode mentah.
+$periodLabel = trim((string) ($payload['description'] ?? '')) ?: $period;
 
-$subject = 'Pembayaran Langganan Diterima - ' . $clientName . ' (Periode ' . $period . ')';
+$subject = 'Pembayaran Langganan Diterima - ' . $clientName . ' (' . $periodLabel . ')';
 
 $textBody = "Halo {$clientName},\n\n"
     . "Pembayaran tagihan langganan ADF System Anda telah kami terima.\n\n"
-    . "Periode      : {$period}\n"
+    . "Tagihan      : {$periodLabel}\n"
     . "Total Dibayar: {$formattedAmount}\n"
     . "Waktu Bayar  : {$paidAtDisplay}\n\n"
     . "Langganan Anda kembali aktif secara penuh. Invoice terlampir dalam bentuk PDF.\n\n"
@@ -77,7 +79,7 @@ $htmlBody = '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;co
     . '<p style="margin:0 0 12px;">Halo <strong>' . htmlspecialchars($clientName) . '</strong>,</p>'
     . '<p style="margin:0 0 16px;">Pembayaran tagihan langganan ADF System Anda telah kami terima. Berikut rinciannya:</p>'
     . '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">'
-    . '<tr><td style="padding:6px 0;color:#64748b;">Periode</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($period) . '</td></tr>'
+    . '<tr><td style="padding:6px 0;color:#64748b;">Tagihan</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($periodLabel) . '</td></tr>'
     . '<tr><td style="padding:6px 0;color:#64748b;">Total Dibayar</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($formattedAmount) . '</td></tr>'
     . '<tr><td style="padding:6px 0;color:#64748b;">Waktu Bayar</td><td style="padding:6px 0;text-align:right;font-weight:bold;">' . htmlspecialchars($paidAtDisplay) . '</td></tr>'
     . '</table>'
@@ -88,7 +90,7 @@ $htmlBody = '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;co
 
 $attachments = [];
 try {
-    $pdfContent = adf_subscription_invoice_pdf($clientName, $period, $totalAmount, $paidAtDisplay, $invoiceNumber);
+    $pdfContent = adf_subscription_invoice_pdf($clientName, $periodLabel, $totalAmount, $paidAtDisplay, $invoiceNumber);
     $attachments[] = [
         'filename' => $invoiceNumber . '.pdf',
         'content' => $pdfContent,

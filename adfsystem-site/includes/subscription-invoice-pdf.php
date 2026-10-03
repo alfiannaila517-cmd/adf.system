@@ -40,7 +40,7 @@ function adf_subscription_invoice_pdf(
         <table class="info">
             <tr><td>No. Invoice</td><td>' . htmlspecialchars($invoiceNumber) . '</td></tr>
             <tr><td>Pelanggan</td><td>' . htmlspecialchars($clientName) . '</td></tr>
-            <tr><td>Periode Langganan</td><td>' . htmlspecialchars($period) . '</td></tr>
+            <tr><td>Tagihan</td><td>' . htmlspecialchars($period) . '</td></tr>
             <tr><td>Waktu Pembayaran</td><td>' . htmlspecialchars($paidAtDisplay) . '</td></tr>
             <tr><td>Metode Pembayaran</td><td>Pakasir Payment Gateway</td></tr>
         </table>
