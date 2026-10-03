@@ -3057,7 +3057,8 @@ if ($healthScore >= 80) {
         $adfsubInv = $adfsubState['reminder']['invoice'] ?? (($adfsubState['unpaid'] ?? [])[0] ?? null);
         $adfsubDays = isset($adfsubState['reminder']['days_left']) ? (int) $adfsubState['reminder']['days_left'] : null;
         $adfsubTitle = $adfsubState['locked'] ? 'Sistem Dikunci oleh ADF System'
-            : ($adfsubDays < 0 ? 'Tagihan Lewat Jatuh Tempo' : ($adfsubDays === 0 ? 'Tagihan Jatuh Tempo Hari Ini' : 'Tagihan Jatuh Tempo ' . $adfsubDays . ' Hari Lagi'));
+            : ($adfsubDays === null || $adfsubDays > 7 ? 'Tagihan Baru dari ADF System'
+            : ($adfsubDays < 0 ? 'Tagihan Lewat Jatuh Tempo' : ($adfsubDays === 0 ? 'Tagihan Jatuh Tempo Hari Ini' : 'Tagihan Jatuh Tempo ' . $adfsubDays . ' Hari Lagi')));
     ?>
         <div id="adfsubPopup" style="display:flex;position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:20px;">
             <div style="max-width:340px;width:100%;background:#fff;color:#1e293b;border-radius:16px;padding:24px 20px;text-align:center;<?php echo ($adfsubState['locked'] || $adfsubDays < 0) ? 'border-top:4px solid #dc2626;' : ''; ?>">

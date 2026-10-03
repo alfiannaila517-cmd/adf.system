@@ -496,22 +496,24 @@ function adfsub_tick(?PDO $pdo = null): array
 
         $state['locked'] = $cfg['locked'];
         $state['unpaid'] = adfsub_unpaid_invoices($pdo);
-        $nearest = $state['unpaid'][0] ?? null;
-        if ($nearest && !empty($nearest['due_date'])) {
-            $daysLeft = (int) floor((strtotime($nearest['due_date']) - strtotime(date('Y-m-d'))) / 86400);
-            if ($daysLeft <= 7) {
-                $state['reminder'] = ['invoice' => $nearest, 'days_left' => $daysLeft];
-                if ($daysLeft < 0 && ($nearest['overdue_notified_at'] ?? '') !== date('Y-m-d')) {
-                    $pdo->prepare("UPDATE adf_subscription_invoices SET overdue_notified_at = CURDATE() WHERE id = ?")->execute([$nearest['id']]);
-                    adfsub_push($pdo, '⚠️ Tagihan Langganan Terlambat', 'Tagihan ' . ($nearest['description'] ?: $nearest['period']) . ' sudah lewat jatuh tempo. Segera lakukan pembayaran.');
-                }
-            }
-        }
-        // Tagihan yang perlu ditampilkan: jatuh tempo ≤ 7 hari lagi / sudah lewat / tanpa tanggal (manual).
+        // Tagihan yang ditampilkan: tagihan manual selalu langsung tampil; tagihan bulanan mulai H-7 jatuh tempo.
         $state['due_soon'] = array_values(array_filter($state['unpaid'], static function ($inv) {
-            return empty($inv['due_date'])
+            return ($inv['type'] ?? '') === 'manual'
+                || empty($inv['due_date'])
                 || (strtotime($inv['due_date']) - strtotime(date('Y-m-d'))) <= 7 * 86400;
         }));
+        $nearest = $state['unpaid'][0] ?? null;
+        $shown = $state['due_soon'][0] ?? null;
+        if ($shown) {
+            $daysLeft = !empty($shown['due_date'])
+                ? (int) floor((strtotime($shown['due_date']) - strtotime(date('Y-m-d'))) / 86400)
+                : null;
+            $state['reminder'] = ['invoice' => $shown, 'days_left' => $daysLeft];
+            if ($daysLeft !== null && $daysLeft < 0 && ($shown['overdue_notified_at'] ?? '') !== date('Y-m-d')) {
+                $pdo->prepare("UPDATE adf_subscription_invoices SET overdue_notified_at = CURDATE() WHERE id = ?")->execute([$shown['id']]);
+                adfsub_push($pdo, '⚠️ Tagihan Langganan Terlambat', 'Tagihan ' . ($shown['description'] ?: $shown['period']) . ' sudah lewat jatuh tempo. Segera lakukan pembayaran.');
+            }
+        }
 
         // Langganan aktif sampai jatuh tempo berikutnya (untuk label "Subscribe Pro").
         $activeUntil = $nearest['due_date'] ?? '';
