@@ -3039,14 +3039,35 @@ if ($healthScore >= 80) {
                 <a href="<?php echo $adfsubBillingUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Lihat &amp; Bayar Tagihan</a>
             </div>
         </div>
-    <?php elseif ($adfsubState['connected'] && $adfsubState['reminder']):
-        $adfsubDays = (int) $adfsubState['reminder']['days_left'];
-        $adfsubInv = $adfsubState['reminder']['invoice'];
+    <?php elseif ($adfsubState['connected'] && ($adfsubState['locked'] || $adfsubState['reminder'])):
+        // Developer saat dikunci, atau pengingat jatuh tempo: popup di tengah layar, bisa ditutup.
+        $adfsubInv = $adfsubState['reminder']['invoice'] ?? (($adfsubState['unpaid'] ?? [])[0] ?? null);
+        $adfsubDays = isset($adfsubState['reminder']['days_left']) ? (int) $adfsubState['reminder']['days_left'] : null;
+        $adfsubTitle = $adfsubState['locked'] ? 'Sistem Dikunci oleh ADF System'
+            : ($adfsubDays < 0 ? 'Tagihan Lewat Jatuh Tempo' : ($adfsubDays === 0 ? 'Tagihan Jatuh Tempo Hari Ini' : 'Tagihan Jatuh Tempo ' . $adfsubDays . ' Hari Lagi'));
+        $adfsubKey = 'adfsub_popup_' . ($adfsubState['locked'] ? 'lock' : ($adfsubInv['period'] ?? '')) . '_' . date('Ymd');
     ?>
-        <a href="<?php echo $adfsubBillingUrl; ?>" style="display:block;margin:8px 12px 0;padding:9px 12px;border-radius:10px;font-size:12px;text-decoration:none;<?php echo $adfsubDays < 0 ? 'background:#fee2e2;color:#991b1b;' : 'background:#fef3c7;color:#92400e;'; ?>">
-            <strong><?php echo $adfsubDays < 0 ? 'Tagihan langganan lewat jatuh tempo' : ($adfsubDays === 0 ? 'Tagihan langganan jatuh tempo hari ini' : 'Tagihan langganan jatuh tempo ' . $adfsubDays . ' hari lagi'); ?></strong><br>
-            Rp <?php echo number_format((float) $adfsubInv['total_amount'], 0, ',', '.'); ?> · <?php echo date('d M Y', strtotime($adfsubInv['due_date'])); ?> — <u>Bayar Sekarang</u>
-        </a>
+        <div id="adfsubPopup" style="display:none;position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.55);align-items:center;justify-content:center;padding:20px;">
+            <div style="max-width:340px;width:100%;background:#fff;color:#1e293b;border-radius:16px;padding:24px 20px;text-align:center;<?php echo ($adfsubState['locked'] || $adfsubDays < 0) ? 'border-top:4px solid #dc2626;' : ''; ?>">
+                <div style="font-size:30px;"><?php echo $adfsubState['locked'] ? '🔒' : ($adfsubDays < 0 ? '⚠️' : '🧾'); ?></div>
+                <h3 style="margin:6px 0 8px;font-size:16px;"><?php echo $adfsubTitle; ?></h3>
+                <p style="margin:0 0 12px;font-size:12.5px;color:#475569;line-height:1.5;"><?php echo $adfsubState['locked'] ? 'Pengguna lain tidak bisa memakai sistem sampai tagihan dibayar. Anda masuk sebagai developer.' : 'Segera selesaikan pembayaran langganan agar sistem tetap bisa digunakan.'; ?></p>
+                <?php if ($adfsubInv): ?>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:14px;font-size:12px;">
+                        <?php echo htmlspecialchars($adfsubInv['description'] ?: $adfsubInv['period']); ?> · <strong>Rp <?php echo number_format((float) $adfsubInv['total_amount'], 0, ',', '.'); ?></strong><?php echo !empty($adfsubInv['due_date']) ? ' · ' . date('d M Y', strtotime($adfsubInv['due_date'])) : ''; ?>
+                    </div>
+                <?php endif; ?>
+                <a href="<?php echo $adfsubBillingUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Bayar Sekarang</a>
+                <button type="button" onclick="document.getElementById('adfsubPopup').style.display='none';try{sessionStorage.setItem('<?php echo $adfsubKey; ?>','1');}catch(e){}" style="margin-top:10px;background:none;border:none;color:#64748b;font-size:12px;cursor:pointer;">Nanti saja</button>
+            </div>
+        </div>
+        <script>
+            (function() {
+                var seen = false;
+                try { seen = sessionStorage.getItem('<?php echo $adfsubKey; ?>') === '1'; } catch (e) {}
+                if (!seen) document.getElementById('adfsubPopup').style.display = 'flex';
+            })();
+        </script>
     <?php endif; ?>
     <?php if ($isDev): ?>
         <div class="dev-badge">DEV</div>

@@ -763,22 +763,25 @@ if (isset($forceTheme) && is_string($forceTheme)) {
     $adfsubCanManage = in_array($adfsubRole, ['developer', 'owner', 'admin', 'manager'], true);
     $adfsubBillingUrl = BASE_URL . '/modules/subscription/index.php';
     ?>
-    <?php if ($adfsubState['connected'] && $adfsubState['reminder'] && $adfsubCanManage && !$adfsubOnBillingPage && !$adfsubState['locked']):
-        $adfsubDays = (int) $adfsubState['reminder']['days_left'];
-        $adfsubInv = $adfsubState['reminder']['invoice'];
+    <?php
+    // Tagihan terdekat yang belum dibayar, untuk ditampilkan di popup tengah layar.
+    $adfsubBill = $adfsubState['reminder']['invoice'] ?? (($adfsubState['unpaid'] ?? [])[0] ?? null);
+    $adfsubDays = isset($adfsubState['reminder']['days_left']) ? (int) $adfsubState['reminder']['days_left'] : null;
+    $adfsubBillLine = $adfsubBill
+        ? htmlspecialchars($adfsubBill['description'] ?: $adfsubBill['period']) . ' · <strong>Rp ' . number_format((float) $adfsubBill['total_amount'], 0, ',', '.') . '</strong>'
+        . (!empty($adfsubBill['due_date']) ? ' · jatuh tempo ' . date('d M Y', strtotime($adfsubBill['due_date'])) : '')
+        : '';
+    $adfsubShowLock = $adfsubState['connected'] && $adfsubState['locked'] && !$adfsubOnBillingPage;
+    $adfsubShowReminder = $adfsubState['connected'] && !$adfsubState['locked'] && $adfsubBill && $adfsubDays !== null && $adfsubCanManage && !$adfsubOnBillingPage;
     ?>
-        <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-banner<?php echo $adfsubDays < 0 ? ' adfsub-banner-overdue' : ''; ?>">
-            <strong><?php echo $adfsubDays < 0 ? 'Tagihan langganan lewat jatuh tempo' : ($adfsubDays === 0 ? 'Tagihan langganan jatuh tempo hari ini' : 'Tagihan langganan jatuh tempo ' . $adfsubDays . ' hari lagi'); ?></strong>
-            <span><?php echo htmlspecialchars($adfsubInv['description'] ?: $adfsubInv['period']); ?> · Rp <?php echo number_format((float) $adfsubInv['total_amount'], 0, ',', '.'); ?> · <?php echo date('d M Y', strtotime($adfsubInv['due_date'])); ?></span>
-            <em>Bayar Sekarang →</em>
-        </a>
-    <?php endif; ?>
-    <?php if ($adfsubState['connected'] && $adfsubState['locked'] && $adfsubRole !== 'developer' && !$adfsubOnBillingPage): ?>
+    <?php if ($adfsubShowLock && $adfsubRole !== 'developer'): ?>
+        <!-- Dikunci dari adfsystem.store: layar ditutup penuh, hanya bisa ke halaman bayar -->
         <div class="adfsub-lock">
             <div class="adfsub-lock-box">
                 <div class="adfsub-lock-ico">🔒</div>
                 <h3>Sistem Sementara Dikunci</h3>
                 <p>Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan. Selesaikan pembayaran untuk membuka kembali.</p>
+                <?php if ($adfsubBillLine): ?><div class="adfsub-bill"><?php echo $adfsubBillLine; ?></div><?php endif; ?>
                 <?php if ($adfsubCanManage): ?>
                     <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-lock-btn">Lihat &amp; Bayar Tagihan</a>
                 <?php else: ?>
@@ -787,41 +790,46 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 <a href="<?php echo BASE_URL; ?>/logout.php" class="adfsub-lock-out">Keluar</a>
             </div>
         </div>
+    <?php elseif ($adfsubShowLock || $adfsubShowReminder):
+        // Developer saat dikunci, atau pengingat jatuh tempo: popup di tengah, bisa ditutup (muncul lagi besok / tagihan baru).
+        $adfsubPopupKey = 'adfsub_popup_' . ($adfsubShowLock ? 'lock' : ($adfsubBill['period'] ?? '')) . '_' . date('Ymd');
+        $adfsubOverdue = $adfsubShowLock || ($adfsubDays !== null && $adfsubDays < 0);
+    ?>
+        <div class="adfsub-lock adfsub-popup" id="adfsubPopup" style="display:none;">
+            <div class="adfsub-lock-box<?php echo $adfsubOverdue ? ' adfsub-box-red' : ''; ?>">
+                <div class="adfsub-lock-ico"><?php echo $adfsubShowLock ? '🔒' : ($adfsubOverdue ? '⚠️' : '🧾'); ?></div>
+                <h3>
+                    <?php
+                    if ($adfsubShowLock) {
+                        echo 'Sistem Dikunci oleh ADF System';
+                    } elseif ($adfsubDays < 0) {
+                        echo 'Tagihan Lewat Jatuh Tempo';
+                    } elseif ($adfsubDays === 0) {
+                        echo 'Tagihan Jatuh Tempo Hari Ini';
+                    } else {
+                        echo 'Tagihan Jatuh Tempo ' . $adfsubDays . ' Hari Lagi';
+                    }
+                    ?>
+                </h3>
+                <p><?php echo $adfsubShowLock
+                        ? 'Pengguna lain tidak bisa memakai sistem sampai tagihan dibayar dan kunci dibuka. Anda tetap bisa masuk karena login sebagai developer.'
+                        : 'Segera selesaikan pembayaran langganan agar sistem tetap bisa digunakan tanpa gangguan.'; ?></p>
+                <?php if ($adfsubBillLine): ?><div class="adfsub-bill"><?php echo $adfsubBillLine; ?></div><?php endif; ?>
+                <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
+                <button type="button" class="adfsub-lock-out" style="background:none;border:none;cursor:pointer;" onclick="document.getElementById('adfsubPopup').style.display='none';try{sessionStorage.setItem('<?php echo $adfsubPopupKey; ?>','1');}catch(e){}">Nanti saja</button>
+            </div>
+        </div>
+        <script>
+            (function() {
+                var seen = false;
+                try {
+                    seen = sessionStorage.getItem('<?php echo $adfsubPopupKey; ?>') === '1';
+                } catch (e) {}
+                if (!seen) document.getElementById('adfsubPopup').style.display = 'flex';
+            })();
+        </script>
     <?php endif; ?>
     <style>
-        .adfsub-banner {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 6px 14px;
-            padding: 8px 18px;
-            background: #fef3c7;
-            color: #92400e !important;
-            -webkit-text-fill-color: #92400e;
-            font-size: 12.5px;
-            text-decoration: none !important;
-            border-bottom: 1px solid #fcd34d;
-            position: relative;
-            z-index: 998;
-        }
-
-        .adfsub-banner span {
-            opacity: .85;
-        }
-
-        .adfsub-banner em {
-            margin-left: auto;
-            font-style: normal;
-            font-weight: 700;
-        }
-
-        .adfsub-banner-overdue {
-            background: #fee2e2;
-            color: #991b1b !important;
-            -webkit-text-fill-color: #991b1b;
-            border-bottom-color: #fca5a5;
-        }
-
         .adfsub-lock {
             position: fixed;
             inset: 0;
@@ -874,6 +882,26 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             font-weight: 700;
             text-decoration: none !important;
             font-size: 13.5px;
+        }
+
+        .adfsub-popup {
+            background: rgba(15, 23, 42, .55);
+        }
+
+        .adfsub-box-red {
+            border-top: 4px solid #dc2626;
+        }
+
+        .adfsub-bill {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 9px 12px;
+            margin: 0 0 16px;
+            font-size: 12.5px;
+            color: #334155;
+            -webkit-text-fill-color: #334155;
+            line-height: 1.5;
         }
 
         .adfsub-lock-out {

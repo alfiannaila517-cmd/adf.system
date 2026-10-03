@@ -186,8 +186,8 @@ function adfsub_sync(PDO $pdo, bool $force = false): bool
     if (!adfsub_is_connected($cfg)) {
         return false;
     }
-    // Saat terkunci sinkron tiap 1 menit, supaya "Buka Kunci" dari ADF cepat terasa.
-    $interval = $cfg['locked'] ? 60 : 300;
+    // Sinkron tiap 1 menit supaya Kunci / Buka Kunci dari ADF cepat terasa (panggilan ringan, timeout 8 detik).
+    $interval = 60;
     if (!$force && $cfg['last_sync_at'] !== '' && strtotime($cfg['last_sync_at']) > time() - $interval) {
         return true;
     }
