@@ -25,6 +25,17 @@ $pdo = adfsub_pdo();
 adfsub_ensure_schema($pdo);
 $flash = null;
 
+// Tombol "Bayar" dari popup / layar kunci / header: langsung buat transaksi & arahkan ke halaman bayar Pakasir
+// (user memilih metode QRIS / Virtual Account di sana). Kalau gagal, tetap di halaman ini dengan pesan.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['pay'])) {
+    $link = adfsub_create_payment($pdo, (string) $_GET['pay']);
+    if ($link) {
+        header('Location: ' . $link);
+        exit;
+    }
+    $flash = ['error', 'Gagal membuat link pembayaran Pakasir. Silakan coba lagi atau hubungi ADF System.'];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 

@@ -3029,6 +3029,9 @@ if ($healthScore >= 80) {
         error_log('owner subscription: ' . $e->getMessage());
     }
     $adfsubBillingUrl = $basePath . '/modules/subscription/index.php';
+    // "Bayar" langsung ke halaman pembayaran Pakasir untuk tagihan terdekat yang belum dibayar.
+    $adfsubPayBill = $adfsubState['reminder']['invoice'] ?? (($adfsubState['unpaid'] ?? [])[0] ?? null);
+    $adfsubPayUrl = $adfsubPayBill ? $adfsubBillingUrl . '?pay=' . urlencode($adfsubPayBill['period']) : $adfsubBillingUrl;
     ?>
     <?php if ($adfsubState['connected'] && $adfsubState['locked'] && !$isDev): ?>
         <div style="position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.85);display:flex;align-items:center;justify-content:center;padding:20px;">
@@ -3036,7 +3039,7 @@ if ($healthScore >= 80) {
                 <div style="font-size:32px;">🔒</div>
                 <h3 style="margin:6px 0 8px;font-size:16px;">Sistem Sementara Dikunci</h3>
                 <p style="margin:0 0 16px;font-size:13px;color:#475569;line-height:1.5;">Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan.</p>
-                <a href="<?php echo $adfsubBillingUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Lihat &amp; Bayar Tagihan</a>
+                <a href="<?php echo $adfsubPayUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Bayar Sekarang</a>
             </div>
         </div>
     <?php elseif ($adfsubState['connected'] && ($adfsubState['locked'] || $adfsubState['reminder'])):
@@ -3056,7 +3059,7 @@ if ($healthScore >= 80) {
                         <?php echo htmlspecialchars($adfsubInv['description'] ?: $adfsubInv['period']); ?> · <strong>Rp <?php echo number_format((float) $adfsubInv['total_amount'], 0, ',', '.'); ?></strong><?php echo !empty($adfsubInv['due_date']) ? ' · ' . date('d M Y', strtotime($adfsubInv['due_date'])) : ''; ?>
                     </div>
                 <?php endif; ?>
-                <a href="<?php echo $adfsubBillingUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Bayar Sekarang</a>
+                <a href="<?php echo $adfsubPayUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Bayar Sekarang</a>
                 <button type="button" onclick="document.getElementById('adfsubPopup').style.display='none';" style="margin-top:10px;background:none;border:none;color:#64748b;font-size:12px;cursor:pointer;">Nanti saja</button>
             </div>
         </div>
@@ -3066,7 +3069,7 @@ if ($healthScore >= 80) {
         $adfsubTotal = array_sum(array_map(static fn($i) => (float) $i['total_amount'], $adfsubState['unpaid']));
         $adfsubLate = count(array_filter($adfsubState['unpaid'], static fn($i) => !empty($i['due_date']) && $i['due_date'] < date('Y-m-d'))) > 0;
     ?>
-        <a href="<?php echo $adfsubBillingUrl; ?>" style="position:sticky;top:0;z-index:9000;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;text-decoration:none;<?php echo $adfsubLate ? 'background:#fef2f2;color:#991b1b;border-bottom:1px solid #fca5a5;' : 'background:#fffbeb;color:#92400e;border-bottom:1px solid #fcd34d;'; ?>">
+        <a href="<?php echo $adfsubPayUrl; ?>" style="position:sticky;top:0;z-index:9000;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;text-decoration:none;<?php echo $adfsubLate ? 'background:#fef2f2;color:#991b1b;border-bottom:1px solid #fca5a5;' : 'background:#fffbeb;color:#92400e;border-bottom:1px solid #fcd34d;'; ?>">
             <span style="width:8px;height:8px;border-radius:50%;background:<?php echo $adfsubLate ? '#dc2626' : '#f59e0b'; ?>;flex-shrink:0;"></span>
             <span style="flex:1;"><?php echo $adfsubLate ? 'Tagihan lewat jatuh tempo' : 'Tagihan belum dibayar'; ?> · <strong>Rp <?php echo number_format($adfsubTotal, 0, ',', '.'); ?></strong></span>
             <span style="background:#16a34a;color:#fff;font-weight:700;padding:4px 10px;border-radius:7px;font-size:11px;">Bayar</span>

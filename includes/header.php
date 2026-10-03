@@ -771,6 +771,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         ? htmlspecialchars($adfsubBill['description'] ?: $adfsubBill['period']) . ' · <strong>Rp ' . number_format((float) $adfsubBill['total_amount'], 0, ',', '.') . '</strong>'
         . (!empty($adfsubBill['due_date']) ? ' · jatuh tempo ' . date('d M Y', strtotime($adfsubBill['due_date'])) : '')
         : '';
+    // "Bayar" langsung ke halaman pembayaran Pakasir untuk tagihan terdekat (tanpa mampir ke halaman tagihan).
+    $adfsubPayBill = $adfsubBill ?: (($adfsubState['unpaid'] ?? [])[0] ?? null);
+    $adfsubPayUrl = $adfsubPayBill ? $adfsubBillingUrl . '?pay=' . urlencode($adfsubPayBill['period']) : $adfsubBillingUrl;
     $adfsubShowLock = $adfsubState['connected'] && $adfsubState['locked'] && !$adfsubOnBillingPage;
     $adfsubShowReminder = $adfsubState['connected'] && !$adfsubState['locked'] && $adfsubBill && $adfsubDays !== null && $adfsubCanManage && !$adfsubOnBillingPage;
     ?>
@@ -783,7 +786,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 <p>Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan. Selesaikan pembayaran untuk membuka kembali.</p>
                 <?php if ($adfsubBillLine): ?><div class="adfsub-bill"><?php echo $adfsubBillLine; ?></div><?php endif; ?>
                 <?php if ($adfsubCanManage): ?>
-                    <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-lock-btn">Lihat &amp; Bayar Tagihan</a>
+                    <a href="<?php echo $adfsubPayUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
                 <?php else: ?>
                     <p style="font-size:12px;opacity:.75;">Silakan hubungi owner / admin.</p>
                 <?php endif; ?>
@@ -815,7 +818,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         ? 'Pengguna lain tidak bisa memakai sistem sampai tagihan dibayar dan kunci dibuka. Anda tetap bisa masuk karena login sebagai developer.'
                         : 'Segera selesaikan pembayaran langganan agar sistem tetap bisa digunakan tanpa gangguan.'; ?></p>
                 <?php if ($adfsubBillLine): ?><div class="adfsub-bill"><?php echo $adfsubBillLine; ?></div><?php endif; ?>
-                <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
+                <a href="<?php echo $adfsubPayUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
                 <button type="button" class="adfsub-lock-out" style="background:none;border:none;cursor:pointer;" onclick="document.getElementById('adfsubPopup').style.display='none';">Nanti saja</button>
             </div>
         </div>
@@ -1951,7 +1954,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             }
                         }
                     ?>
-                        <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-head-pill<?php echo $adfsubHeadOverdue ? ' adfsub-head-overdue' : ''; ?>" title="Tagihan langganan ADF System belum dibayar">
+                        <a href="<?php echo $adfsubPayUrl; ?>" class="adfsub-head-pill<?php echo $adfsubHeadOverdue ? ' adfsub-head-overdue' : ''; ?>" title="Tagihan langganan ADF System belum dibayar">
                             <span class="adfsub-head-dot"></span>
                             <span class="adfsub-head-text">
                                 <small><?php echo $adfsubHeadOverdue ? 'Tagihan lewat jatuh tempo' : 'Tagihan belum dibayar'; ?></small>
