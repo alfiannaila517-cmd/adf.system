@@ -3032,14 +3032,24 @@ if ($healthScore >= 80) {
     // "Bayar" langsung ke halaman pembayaran Pakasir untuk tagihan terdekat yang belum dibayar.
     $adfsubPayBill = $adfsubState['reminder']['invoice'] ?? (($adfsubState['unpaid'] ?? [])[0] ?? null);
     $adfsubPayUrl = $adfsubPayBill ? $adfsubBillingUrl . '?pay=' . urlencode($adfsubPayBill['period']) : $adfsubBillingUrl;
+    $adfsubHasBill = !empty($adfsubState['unpaid']);
+    $adfsubWaUrl = 'https://wa.me/628214400664?text=' . rawurlencode('Halo Developer ADF System, sistem ' . (defined('BUSINESS_NAME') ? BUSINESS_NAME : '') . ' saya terkunci. Mohon bantuannya.');
+    $adfsubWaBtn = '<a href="' . htmlspecialchars($adfsubWaUrl) . '" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:10px;background:#25d366;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13px;">'
+        . '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.480-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.690.63.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.5h-.01a9.4 9.4 0 0 1-4.8-1.31l-.34-.2-3.57.94.95-3.48-.22-.36a9.4 9.4 0 0 1-1.44-5.02c0-5.2 4.23-9.43 9.44-9.43a9.37 9.37 0 0 1 6.67 2.77 9.37 9.37 0 0 1 2.76 6.67c0 5.2-4.23 9.43-9.43 9.43zm8.03-17.46A11.27 11.27 0 0 0 12.05.72C5.8.72.7 5.8.7 12.07c0 2 .52 3.95 1.520 5.67L.6 23.65l6.04-1.59a11.3 11.3 0 0 0 5.4 1.38h.01c6.25 0 11.35-5.09 11.35-11.36 0-3.03-1.18-5.88-3.32-8.03z"/></svg>'
+        . ' Hubungi Developer · 08214400664</a>';
     ?>
     <?php if ($adfsubState['connected'] && $adfsubState['locked'] && !$isDev): ?>
         <div style="position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.85);display:flex;align-items:center;justify-content:center;padding:20px;">
             <div style="max-width:340px;width:100%;background:#fff;color:#1e293b;border-radius:16px;padding:26px 22px;text-align:center;">
                 <div style="font-size:32px;">🔒</div>
                 <h3 style="margin:6px 0 8px;font-size:16px;">Sistem Sementara Dikunci</h3>
-                <p style="margin:0 0 16px;font-size:13px;color:#475569;line-height:1.5;">Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan.</p>
-                <a href="<?php echo $adfsubPayUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Bayar Sekarang</a>
+                <?php if ($adfsubHasBill): ?>
+                    <p style="margin:0 0 16px;font-size:13px;color:#475569;line-height:1.5;">Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan.</p>
+                    <a href="<?php echo $adfsubPayUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Bayar Sekarang</a>
+                <?php else: ?>
+                    <p style="margin:0 0 16px;font-size:13px;color:#475569;line-height:1.5;">Akses ke sistem sedang dikunci oleh ADF System. Silakan hubungi developer untuk membuka kembali.</p>
+                <?php endif; ?>
+                <?php echo $adfsubWaBtn; ?>
             </div>
         </div>
     <?php elseif ($adfsubState['connected'] && ($adfsubState['locked'] || $adfsubState['reminder'])):
@@ -3053,13 +3063,15 @@ if ($healthScore >= 80) {
             <div style="max-width:340px;width:100%;background:#fff;color:#1e293b;border-radius:16px;padding:24px 20px;text-align:center;<?php echo ($adfsubState['locked'] || $adfsubDays < 0) ? 'border-top:4px solid #dc2626;' : ''; ?>">
                 <div style="font-size:30px;"><?php echo $adfsubState['locked'] ? '🔒' : ($adfsubDays < 0 ? '⚠️' : '🧾'); ?></div>
                 <h3 style="margin:6px 0 8px;font-size:16px;"><?php echo $adfsubTitle; ?></h3>
-                <p style="margin:0 0 12px;font-size:12.5px;color:#475569;line-height:1.5;"><?php echo $adfsubState['locked'] ? 'Pengguna lain tidak bisa memakai sistem sampai tagihan dibayar. Anda masuk sebagai developer.' : 'Segera selesaikan pembayaran langganan agar sistem tetap bisa digunakan.'; ?></p>
+                <p style="margin:0 0 12px;font-size:12.5px;color:#475569;line-height:1.5;"><?php echo $adfsubState['locked'] ? 'Pengguna lain tidak bisa memakai sistem sampai kunci dibuka. Anda masuk sebagai developer.' : 'Segera selesaikan pembayaran langganan agar sistem tetap bisa digunakan.'; ?></p>
                 <?php if ($adfsubInv): ?>
                     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:14px;font-size:12px;">
                         <?php echo htmlspecialchars($adfsubInv['description'] ?: $adfsubInv['period']); ?> · <strong>Rp <?php echo number_format((float) $adfsubInv['total_amount'], 0, ',', '.'); ?></strong><?php echo !empty($adfsubInv['due_date']) ? ' · ' . date('d M Y', strtotime($adfsubInv['due_date'])) : ''; ?>
                     </div>
                 <?php endif; ?>
-                <a href="<?php echo $adfsubPayUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Bayar Sekarang</a>
+                <?php if ($adfsubHasBill): ?>
+                    <a href="<?php echo $adfsubPayUrl; ?>" style="display:block;background:#16a34a;color:#fff;padding:10px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13.5px;">Bayar Sekarang</a>
+                <?php endif; ?>
                 <button type="button" onclick="document.getElementById('adfsubPopup').style.display='none';" style="margin-top:10px;background:none;border:none;color:#64748b;font-size:12px;cursor:pointer;">Nanti saja</button>
             </div>
         </div>

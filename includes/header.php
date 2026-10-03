@@ -774,7 +774,11 @@ if (isset($forceTheme) && is_string($forceTheme)) {
     // "Bayar" langsung ke halaman pembayaran Pakasir untuk tagihan terdekat (tanpa mampir ke halaman tagihan).
     $adfsubPayBill = $adfsubBill ?: (($adfsubState['unpaid'] ?? [])[0] ?? null);
     $adfsubPayUrl = $adfsubPayBill ? $adfsubBillingUrl . '?pay=' . urlencode($adfsubPayBill['period']) : $adfsubBillingUrl;
-    $adfsubShowLock = $adfsubState['connected'] && $adfsubState['locked'] && !$adfsubOnBillingPage;
+    $adfsubHasBill = !empty($adfsubState['unpaid']);
+    // Kunci tanpa tagihan (langganan masih aktif) tetap menutup semua halaman, termasuk halaman tagihan.
+    $adfsubShowLock = $adfsubState['connected'] && $adfsubState['locked'] && (!$adfsubOnBillingPage || !$adfsubHasBill);
+    $adfsubWaUrl = 'https://wa.me/628214400664?text=' . rawurlencode('Halo Developer ADF System, sistem ' . (defined('BUSINESS_NAME') ? BUSINESS_NAME : '') . ' saya terkunci. Mohon bantuannya.');
+    $adfsubWaIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.5h-.01a9.4 9.4 0 0 1-4.8-1.31l-.34-.2-3.57.94.95-3.48-.22-.36a9.4 9.4 0 0 1-1.44-5.02c0-5.2 4.23-9.43 9.44-9.43a9.37 9.37 0 0 1 6.67 2.77 9.37 9.37 0 0 1 2.76 6.67c0 5.2-4.23 9.43-9.43 9.43zm8.03-17.46A11.27 11.27 0 0 0 12.05.72C5.8.72.7 5.8.7 12.07c0 2 .52 3.95 1.52 5.67L.6 23.65l6.04-1.59a11.3 11.3 0 0 0 5.4 1.38h.01c6.25 0 11.35-5.09 11.35-11.36 0-3.03-1.18-5.88-3.32-8.03z"/></svg>';
     $adfsubShowReminder = $adfsubState['connected'] && !$adfsubState['locked'] && $adfsubBill && $adfsubDays !== null && $adfsubCanManage && !$adfsubOnBillingPage;
     ?>
     <?php if ($adfsubShowLock && $adfsubRole !== 'developer'): ?>
@@ -783,13 +787,18 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             <div class="adfsub-lock-box">
                 <div class="adfsub-lock-ico">🔒</div>
                 <h3>Sistem Sementara Dikunci</h3>
-                <p>Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan. Selesaikan pembayaran untuk membuka kembali.</p>
-                <?php if ($adfsubBillLine): ?><div class="adfsub-bill"><?php echo $adfsubBillLine; ?></div><?php endif; ?>
-                <?php if ($adfsubCanManage): ?>
-                    <a href="<?php echo $adfsubPayUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
+                <?php if ($adfsubHasBill): ?>
+                    <p>Akses dikunci oleh ADF System karena tagihan langganan belum diselesaikan. Selesaikan pembayaran untuk membuka kembali.</p>
+                    <?php if ($adfsubBillLine): ?><div class="adfsub-bill"><?php echo $adfsubBillLine; ?></div><?php endif; ?>
+                    <?php if ($adfsubCanManage): ?>
+                        <a href="<?php echo $adfsubPayUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
+                    <?php else: ?>
+                        <p style="font-size:12px;opacity:.75;">Silakan hubungi owner / admin.</p>
+                    <?php endif; ?>
                 <?php else: ?>
-                    <p style="font-size:12px;opacity:.75;">Silakan hubungi owner / admin.</p>
+                    <p>Akses ke sistem sedang dikunci oleh ADF System. Silakan hubungi developer untuk membuka kembali.</p>
                 <?php endif; ?>
+                <a href="<?php echo htmlspecialchars($adfsubWaUrl); ?>" target="_blank" rel="noopener" class="adfsub-wa-btn"><?php echo $adfsubWaIcon; ?> Hubungi Developer · 08214400664</a>
                 <a href="<?php echo BASE_URL; ?>/logout.php" class="adfsub-lock-out">Keluar</a>
             </div>
         </div>
@@ -815,10 +824,12 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     ?>
                 </h3>
                 <p><?php echo $adfsubShowLock
-                        ? 'Pengguna lain tidak bisa memakai sistem sampai tagihan dibayar dan kunci dibuka. Anda tetap bisa masuk karena login sebagai developer.'
+                        ? 'Pengguna lain tidak bisa memakai sistem sampai kunci dibuka dari adfsystem.store. Anda tetap bisa masuk karena login sebagai developer.'
                         : 'Segera selesaikan pembayaran langganan agar sistem tetap bisa digunakan tanpa gangguan.'; ?></p>
                 <?php if ($adfsubBillLine): ?><div class="adfsub-bill"><?php echo $adfsubBillLine; ?></div><?php endif; ?>
-                <a href="<?php echo $adfsubPayUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
+                <?php if ($adfsubHasBill): ?>
+                    <a href="<?php echo $adfsubPayUrl; ?>" class="adfsub-lock-btn">Bayar Sekarang</a>
+                <?php endif; ?>
                 <button type="button" class="adfsub-lock-out" style="background:none;border:none;cursor:pointer;" onclick="document.getElementById('adfsubPopup').style.display='none';">Nanti saja</button>
             </div>
         </div>
@@ -876,6 +887,22 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             font-weight: 700;
             text-decoration: none !important;
             font-size: 13.5px;
+        }
+
+        .adfsub-wa-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            margin-top: 10px;
+            background: #25d366;
+            color: #fff !important;
+            -webkit-text-fill-color: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 700;
+            text-decoration: none !important;
+            font-size: 13px;
         }
 
         .adfsub-popup {
