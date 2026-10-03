@@ -1944,11 +1944,60 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         </div>
                     </div>
 
-                    <!-- Tagihan langganan belum dibayar: selalu tampil di header (tidak bisa ditutup) sampai lunas -->
-                    <?php if (!empty($adfsubState['connected']) && !empty($adfsubState['unpaid']) && $adfsubCanManage):
-                        $adfsubHeadTotal = array_sum(array_map(static fn($i) => (float) $i['total_amount'], $adfsubState['unpaid']));
+                    <!-- Tagihan langganan: tampil mulai H-7 jatuh tempo (tidak bisa ditutup) sampai lunas;
+                         sebelum itu cukup label hijau "Subscribe Pro sampai ..." -->
+                    <?php if (!empty($adfsubState['connected']) && empty($adfsubState['due_soon']) && !empty($adfsubState['active_until']) && $adfsubCanManage): ?>
+                        <a href="<?php echo $adfsubBillingUrl; ?>" class="adfsub-pro-pill" title="Langganan ADF System aktif">
+                            <span class="adfsub-pro-dot"></span>
+                            <span class="adfsub-head-text">
+                                <small>Subscribe Pro</small>
+                                <strong>s/d <?php echo date('d M Y', strtotime($adfsubState['active_until'])); ?></strong>
+                            </span>
+                        </a>
+                        <style>
+                            .adfsub-pro-pill {
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 8px;
+                                margin-right: 1rem;
+                                padding: 5px 10px;
+                                border-radius: 10px;
+                                background: #f0fdf4;
+                                border: 1px solid #86efac;
+                                text-decoration: none !important;
+                                white-space: nowrap;
+                            }
+
+                            .adfsub-pro-dot {
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 50%;
+                                background: #16a34a;
+                            }
+
+                            .adfsub-pro-pill .adfsub-head-text {
+                                display: flex;
+                                flex-direction: column;
+                                line-height: 1.15;
+                            }
+
+                            .adfsub-pro-pill .adfsub-head-text small {
+                                font-size: 10px;
+                                font-weight: 600;
+                                color: #16a34a;
+                                -webkit-text-fill-color: #16a34a;
+                            }
+
+                            .adfsub-pro-pill .adfsub-head-text strong {
+                                font-size: 12.5px;
+                                color: #15803d;
+                                -webkit-text-fill-color: #15803d;
+                            }
+                        </style>
+                    <?php elseif (!empty($adfsubState['connected']) && !empty($adfsubState['due_soon']) && $adfsubCanManage):
+                        $adfsubHeadTotal = array_sum(array_map(static fn($i) => (float) $i['total_amount'], $adfsubState['due_soon']));
                         $adfsubHeadOverdue = false;
-                        foreach ($adfsubState['unpaid'] as $adfsubU) {
+                        foreach ($adfsubState['due_soon'] as $adfsubU) {
                             if (!empty($adfsubU['due_date']) && $adfsubU['due_date'] < date('Y-m-d')) {
                                 $adfsubHeadOverdue = true;
                             }

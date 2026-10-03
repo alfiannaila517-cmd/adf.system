@@ -3064,10 +3064,10 @@ if ($healthScore >= 80) {
             </div>
         </div>
     <?php endif; ?>
-    <?php if ($adfsubState['connected'] && !empty($adfsubState['unpaid'])):
+    <?php if ($adfsubState['connected'] && !empty($adfsubState['due_soon'])):
         // Strip tetap di atas: tagihan belum dibayar selalu terlihat walau popup ditutup.
-        $adfsubTotal = array_sum(array_map(static fn($i) => (float) $i['total_amount'], $adfsubState['unpaid']));
-        $adfsubLate = count(array_filter($adfsubState['unpaid'], static fn($i) => !empty($i['due_date']) && $i['due_date'] < date('Y-m-d'))) > 0;
+        $adfsubTotal = array_sum(array_map(static fn($i) => (float) $i['total_amount'], $adfsubState['due_soon']));
+        $adfsubLate = count(array_filter($adfsubState['due_soon'], static fn($i) => !empty($i['due_date']) && $i['due_date'] < date('Y-m-d'))) > 0;
     ?>
         <a href="<?php echo $adfsubPayUrl; ?>" style="position:sticky;top:0;z-index:9000;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;text-decoration:none;<?php echo $adfsubLate ? 'background:#fef2f2;color:#991b1b;border-bottom:1px solid #fca5a5;' : 'background:#fffbeb;color:#92400e;border-bottom:1px solid #fcd34d;'; ?>">
             <span style="width:8px;height:8px;border-radius:50%;background:<?php echo $adfsubLate ? '#dc2626' : '#f59e0b'; ?>;flex-shrink:0;"></span>

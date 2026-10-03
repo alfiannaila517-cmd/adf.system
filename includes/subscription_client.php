@@ -460,7 +460,7 @@ function adfsub_push(PDO $pdo, string $title, string $body): void
  */
 function adfsub_tick(?PDO $pdo = null): array
 {
-    $state = ['connected' => false, 'locked' => false, 'reminder' => null, 'unpaid' => []];
+    $state = ['connected' => false, 'locked' => false, 'reminder' => null, 'unpaid' => [], 'due_soon' => [], 'active_until' => ''];
     try {
         $pdo = $pdo ?? adfsub_pdo();
         $cfg = adfsub_config($pdo);
@@ -507,6 +507,25 @@ function adfsub_tick(?PDO $pdo = null): array
                 }
             }
         }
+        // Tagihan yang perlu ditampilkan: jatuh tempo ≤ 7 hari lagi / sudah lewat / tanpa tanggal (manual).
+        $state['due_soon'] = array_values(array_filter($state['unpaid'], static function ($inv) {
+            return empty($inv['due_date'])
+                || (strtotime($inv['due_date']) - strtotime(date('Y-m-d'))) <= 7 * 86400;
+        }));
+
+        // Langganan aktif sampai jatuh tempo berikutnya (untuk label "Subscribe Pro").
+        $activeUntil = $nearest['due_date'] ?? '';
+        if ($activeUntil === '') {
+            $activeUntil = adfsub_due_date($cfg, date('Y-m'));
+            if ($activeUntil < date('Y-m-d') || ($current['status'] ?? '') === 'paid') {
+                $activeUntil = adfsub_due_date($cfg, date('Y-m', strtotime(date('Y-m-01') . ' +1 month')));
+            }
+            $anchor = adfsub_anchor_due_date($cfg);
+            if ($anchor !== '' && $anchor > $activeUntil) {
+                $activeUntil = $anchor;
+            }
+        }
+        $state['active_until'] = $activeUntil;
         unset($current);
     } catch (Throwable $e) {
         error_log('adfsub_tick error: ' . $e->getMessage());
