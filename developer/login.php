@@ -1,6 +1,6 @@
 <?php
 /**
- * Developer Panel - Login darurat.
+ * Developer Panel - Login darurat (DITUTUP kecuali file home/adf-dev-direct-login.txt ada).
  * Jalur utama: ADF Store → menu Developer (tiket sekali pakai, lihat sso.php).
  * Jalur ini tetap ada sebagai cadangan, dengan: batas percobaan (5x / 15 menit),
  * pesan error umum, dan kode verifikasi ke email akun developer.
@@ -16,6 +16,39 @@ $auth = new DevAuth();
 // Already logged in? Go to dashboard
 if ($auth->isLoggedIn()) {
     header('Location: index.php');
+    exit;
+}
+
+// Satu pintu: tanpa file cadangan di folder home, login password di sini ditutup → masuk lewat ADF Store.
+if (!dev_sec_direct_login_enabled()) {
+    unset($_SESSION['dev_pending']);
+    http_response_code(403);
+    ?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Developer Panel · ADF System</title>
+    <style>
+        body { font-family: Inter, Arial, sans-serif; background: #161925; color: #e5e7eb; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 16px; }
+        .box { background: #1f2333; border: 1px solid #2c3145; border-radius: 14px; padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; }
+        .mark { width: 44px; height: 44px; border-radius: 11px; background: linear-gradient(135deg, #6d4ae0, #8b5cf6); display: grid; place-items: center; margin: 0 auto 12px; font-size: 20px; }
+        h1 { font-size: 17px; margin: 0 0 6px; } p { font-size: 13px; color: #a3a9bb; line-height: 1.55; margin: 0 0 18px; }
+        a.btn { display: block; background: #6d4ae0; color: #fff; text-decoration: none; padding: 11px; border-radius: 10px; font-weight: 600; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="mark">&lt;/&gt;</div>
+        <h1>Developer Panel</h1>
+        <p>Masuk hanya lewat <b>ADF Store</b>. Login di sana (password + kode email), lalu buka menu <b>Developer</b>.</p>
+        <a class="btn" href="https://adfsystem.store/admin/">Masuk lewat ADF Store</a>
+    </div>
+</body>
+</html>
+    <?php
     exit;
 }
 

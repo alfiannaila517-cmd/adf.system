@@ -48,6 +48,16 @@ function dev_sec_json_update(string $path, callable $fn)
     return $result;
 }
 
+/**
+ * Satu pintu: login password langsung ke Developer Panel DITUTUP, masuk hanya lewat ADF Store.
+ * Cadangan (mis. ADF Store sedang rusak): buat file adf-dev-direct-login.txt di folder home lewat cPanel,
+ * lalu hapus lagi setelah selesai.
+ */
+function dev_sec_direct_login_enabled(): bool
+{
+    return is_file(dev_sec_home() . '/adf-dev-direct-login.txt');
+}
+
 function dev_sec_otp_bypassed(): bool
 {
     return is_file(dev_sec_home() . '/adf-otp-disabled.txt');
