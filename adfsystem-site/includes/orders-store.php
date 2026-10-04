@@ -27,8 +27,30 @@ function adf_orders_save(array $orders): bool
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
+    // Status sebelum disimpan, untuk mendeteksi transaksi yang BARU lunas (notifikasi Telegram).
+    $before = [];
+    foreach (adf_orders_load() as $old) {
+        $before[(string) ($old['order_id'] ?? '')] = strtolower((string) ($old['status'] ?? ''));
+    }
+
     $json = json_encode($orders, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    return file_put_contents($path, $json, LOCK_EX) !== false;
+    $ok = file_put_contents($path, $json, LOCK_EX) !== false;
+
+    if ($ok) {
+        $newlyCompleted = array_values(array_filter($orders, static function ($o) use ($before) {
+            $id = (string) ($o['order_id'] ?? '');
+            return strtolower((string) ($o['status'] ?? '')) === 'completed' && ($before[$id] ?? '') !== 'completed';
+        }));
+        if ($newlyCompleted) {
+            try {
+                require_once __DIR__ . '/telegram.php';
+                adf_tg_notify_completed($newlyCompleted, $orders);
+            } catch (Throwable $e) {
+                error_log('telegram notify error: ' . $e->getMessage());
+            }
+        }
+    }
+    return $ok;
 }
 
 function adf_orders_add(array $order): bool
