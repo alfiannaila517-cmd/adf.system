@@ -376,25 +376,11 @@ require_once __DIR__ . '/includes/header.php';
     <?php if ($section === 'dashboard'): ?>
     <!-- ============== DASHBOARD SECTION ============== -->
     
-    <!-- Welcome Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="welcome-card">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2 class="mb-1">Welcome back, <?php echo htmlspecialchars($user['full_name']); ?>!</h2>
-                        <p class="text-muted mb-0">Developer Control Panel - Full System Access</p>
-                    </div>
-                    <div class="welcome-actions">
-                        <a href="index.php?section=user-setup" class="btn btn-primary me-2">
-                            <i class="bi bi-person-plus me-1"></i>Add User
-                        </a>
-                        <a href="businesses.php?action=add" class="btn btn-success">
-                            <i class="bi bi-building-add me-1"></i>Add Business
-                        </a>
-                    </div>
-                </div>
-            </div>
+    <div class="page-head">
+        <p>Halo, <strong><?php echo htmlspecialchars($user['full_name']); ?></strong> — ringkasan semua bisnis dan user ADF System.</p>
+        <div class="actions">
+            <a href="index.php?section=user-setup" class="btn btn-outline-secondary btn-sm"><i class="bi bi-person-plus me-1"></i>Tambah User</a>
+            <a href="businesses.php?action=add" class="btn btn-primary btn-sm"><i class="bi bi-building-add me-1"></i>Tambah Bisnis</a>
         </div>
     </div>
     
@@ -407,9 +393,9 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="stat-info">
                     <h3><?php echo number_format($stats['users']); ?></h3>
-                    <p>Total Users</p>
+                    <p>Total User</p>
                 </div>
-                <a href="index.php?section=user-setup" class="stat-link">View All <i class="bi bi-arrow-right"></i></a>
+                <a href="index.php?section=user-setup" class="stat-link">Lihat <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
         
@@ -420,9 +406,9 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="stat-info">
                     <h3><?php echo number_format($stats['businesses']); ?></h3>
-                    <p>Total Businesses</p>
+                    <p>Total Bisnis</p>
                 </div>
-                <a href="businesses.php" class="stat-link">View All <i class="bi bi-arrow-right"></i></a>
+                <a href="businesses.php" class="stat-link">Lihat <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
         
@@ -433,9 +419,9 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="stat-info">
                     <h3><?php echo number_format($stats['active_businesses']); ?></h3>
-                    <p>Active Businesses</p>
+                    <p>Bisnis Aktif</p>
                 </div>
-                <a href="businesses.php?filter=active" class="stat-link">View Active <i class="bi bi-arrow-right"></i></a>
+                <a href="businesses.php?filter=active" class="stat-link">Lihat <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
         
@@ -446,9 +432,9 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="stat-info">
                     <h3><?php echo number_format($stats['menus']); ?></h3>
-                    <p>System Menus</p>
+                    <p>Menu Aplikasi</p>
                 </div>
-                <a href="menus.php" class="stat-link">Configure <i class="bi bi-arrow-right"></i></a>
+                <a href="menus.php" class="stat-link">Atur <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
     </div>
@@ -459,19 +445,19 @@ require_once __DIR__ . '/includes/header.php';
         <div class="col-lg-8 mb-4">
             <div class="content-card">
                 <div class="card-header-custom">
-                    <h5><i class="bi bi-building me-2"></i>Businesses</h5>
-                    <a href="businesses.php" class="btn btn-sm btn-outline-primary">View All</a>
+                    <h5><i class="bi bi-building me-2"></i>Bisnis</h5>
+                    <a href="businesses.php" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>Business Name</th>
-                                <th>Type</th>
+                                <th>Bisnis</th>
+                                <th>Tipe</th>
                                 <th>Database</th>
-                                <th>Owner</th>
+                                <th>Pemilik</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                <th class="text-end">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -479,7 +465,7 @@ require_once __DIR__ . '/includes/header.php';
                             <tr>
                                 <td colspan="6" class="text-center py-4 text-muted">
                                     <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                    No businesses yet. <a href="businesses.php?action=add">Create one</a>
+                                    Belum ada bisnis. <a href="businesses.php?action=add">Tambah bisnis</a>
                                 </td>
                             </tr>
                             <?php else: ?>
@@ -490,7 +476,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <br><small class="text-muted"><?php echo htmlspecialchars($biz['business_code']); ?></small>
                                 </td>
                                 <td>
-                                    <span class="badge bg-secondary"><?php echo ucfirst($biz['business_type']); ?></span>
+                                    <span class="badge bg-light text-dark border"><?php echo ucwords(str_replace('_', ' ', $biz['business_type'])); ?></span>
                                 </td>
                                 <td>
                                     <code><?php echo htmlspecialchars($biz['database_name']); ?></code>
@@ -498,12 +484,12 @@ require_once __DIR__ . '/includes/header.php';
                                 <td><?php echo htmlspecialchars($biz['owner_name'] ?? '-'); ?></td>
                                 <td>
                                     <?php if ($biz['is_active']): ?>
-                                    <span class="badge bg-success">Active</span>
+                                    <span class="badge bg-success">Aktif</span>
                                     <?php else: ?>
-                                    <span class="badge bg-danger">Inactive</span>
+                                    <span class="badge bg-danger">Nonaktif</span>
                                     <?php endif; ?>
                                 </td>
-                                <td>
+                                <td class="text-end text-nowrap">
                                     <a href="businesses.php?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </a>
@@ -525,24 +511,24 @@ require_once __DIR__ . '/includes/header.php';
             <!-- Quick Actions -->
             <div class="content-card mb-4">
                 <div class="card-header-custom">
-                    <h5><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
+                    <h5><i class="bi bi-lightning-charge me-2"></i>Aksi Cepat</h5>
                 </div>
                 <div class="quick-actions">
                     <a href="index.php?section=user-setup" class="quick-action-btn">
                         <i class="bi bi-person-plus"></i>
-                        <span>User Setup</span>
+                        <span>Tambah User</span>
                     </a>
                     <a href="businesses.php?action=add" class="quick-action-btn">
                         <i class="bi bi-building-add"></i>
-                        <span>Add Business</span>
+                        <span>Tambah Bisnis</span>
                     </a>
                     <a href="menus.php" class="quick-action-btn">
                         <i class="bi bi-grid-3x3-gap"></i>
-                        <span>Configure Menus</span>
+                        <span>Menu Aplikasi</span>
                     </a>
                     <a href="permissions.php" class="quick-action-btn">
                         <i class="bi bi-shield-lock"></i>
-                        <span>Permissions</span>
+                        <span>Hak Akses Menu</span>
                     </a>
                     <a href="database.php" class="quick-action-btn">
                         <i class="bi bi-database"></i>
@@ -554,12 +540,12 @@ require_once __DIR__ . '/includes/header.php';
             <!-- Recent Users -->
             <div class="content-card">
                 <div class="card-header-custom">
-                    <h5><i class="bi bi-clock-history me-2"></i>Recent Users</h5>
-                    <a href="index.php?section=user-setup" class="btn btn-sm btn-outline-primary">View All</a>
+                    <h5><i class="bi bi-clock-history me-2"></i>User Terbaru</h5>
+                    <a href="index.php?section=user-setup" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
                 </div>
                 <div class="recent-list">
                     <?php if (empty($recentUsers)): ?>
-                    <p class="text-muted text-center py-3">No users yet</p>
+                    <p class="text-muted text-center py-3">Belum ada user</p>
                     <?php else: ?>
                     <?php foreach ($recentUsers as $ru): ?>
                     <div class="recent-item">
@@ -590,25 +576,25 @@ require_once __DIR__ . '/includes/header.php';
         <div class="col-12">
             <div class="content-card">
                 <div class="card-header-custom">
-                    <h5><i class="bi bi-journal-text me-2"></i>Recent Activity</h5>
-                    <a href="audit.php" class="btn btn-sm btn-outline-primary">View All Logs</a>
+                    <h5><i class="bi bi-journal-text me-2"></i>Aktivitas Terakhir</h5>
+                    <a href="audit.php" class="btn btn-sm btn-outline-primary">Lihat Log</a>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>Time</th>
+                                <th>Waktu</th>
                                 <th>User</th>
-                                <th>Action</th>
-                                <th>Entity</th>
-                                <th>IP Address</th>
+                                <th>Aksi</th>
+                                <th>Data</th>
+                                <th>Alamat IP</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($auditLogs)): ?>
                             <tr>
                                 <td colspan="5" class="text-center py-4 text-muted">
-                                    No activity logs yet
+                                    Belum ada aktivitas
                                 </td>
                             </tr>
                             <?php else: ?>
@@ -634,9 +620,10 @@ require_once __DIR__ . '/includes/header.php';
     
     <div class="row">
         <div class="col-12">
-            <div class="content-card">
+            <div class="content-card us-card">
                 <div class="card-header-custom">
-                    <h4><i class="bi bi-person-gear me-2"></i>User Setup Wizard</h4>
+                    <h5><i class="bi bi-person-gear me-2"></i>Tambah User &amp; Atur Akses</h5>
+                    <small class="text-muted">1. buat user → 2. pilih bisnis → 3. atur menu yang boleh dibuka</small>
                 </div>
                 
                 <!-- Alert Messages -->
@@ -655,30 +642,30 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
                 
                 <!-- Step Navigation -->
-                <div class="wizard-steps mb-4">
+                <div class="wizard-steps">
                     <div class="step <?php echo $activeStep === 'users' ? 'active' : ''; ?> <?php echo $activeStep !== 'users' ? 'completed' : ''; ?>">
                         <div class="step-number">1</div>
-                        <div class="step-label">Create Users</div>
+                        <div class="step-label">Buat User</div>
                     </div>
                     <div class="step-arrow">→</div>
                     <div class="step <?php echo $activeStep === 'business' ? 'active' : ''; ?> <?php echo ($activeStep === 'permissions') ? 'completed' : ''; ?>">
                         <div class="step-number">2</div>
-                        <div class="step-label">Assign Business</div>
+                        <div class="step-label">Pilih Bisnis</div>
                     </div>
                     <div class="step-arrow">→</div>
                     <div class="step <?php echo $activeStep === 'permissions' ? 'active' : ''; ?>">
                         <div class="step-number">3</div>
-                        <div class="step-label">Set Permissions</div>
+                        <div class="step-label">Atur Menu</div>
                     </div>
                 </div>
                 
                 <?php if ($activeStep === 'users'): ?>
                 <!-- ============== STEP 1: USERS (COMPACT) ============== -->
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">Users Management</h5>
+                    <h5 class="mb-0">Daftar User</h5>
                     <?php if (!$editUser): ?>
                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#userModal">
-                        <i class="bi bi-person-plus me-1"></i>Add User
+                        <i class="bi bi-person-plus me-1"></i>Tambah User
                     </button>
                     <?php endif; ?>
                 </div>
@@ -689,7 +676,7 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="card-title mb-0">Edit User: <strong><?php echo htmlspecialchars($editUser['full_name']); ?></strong></h6>
-                            <a href="?section=user-setup&step=users" class="btn btn-sm btn-outline-secondary">Close</a>
+                            <a href="?section=user-setup&step=users" class="btn btn-sm btn-outline-secondary">Tutup</a>
                         </div>
                         <form method="POST">
                             <input type="hidden" name="user_id" value="<?php echo $editUser['id']; ?>">
@@ -704,14 +691,14 @@ require_once __DIR__ . '/includes/header.php';
                                     <input type="email" name="email" class="form-control" value="<?php echo htmlspecialchars($editUser['email']); ?>" required>
                                 </div>
                                 <div class="col-md-6 col-lg-3">
-                                    <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                                    <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
                                     <input type="text" name="full_name" class="form-control" value="<?php echo htmlspecialchars($editUser['full_name']); ?>" required>
                                 </div>
                                 <div class="col-md-6 col-lg-3">
                                     <label class="form-label">Role <span class="text-danger">*</span></label>
                                     <select name="role_id" class="form-select" required>
-                                        <option value="">Select Role</option>
-                                        <?php foreach ($roles as $role): ?>
+                                        <option value="">Pilih role</option>
+                                        <?php foreach ($roles ?? [] as $role): ?>
                                         <option value="<?php echo $role['id']; ?>" <?php echo $editUser['role_id'] == $role['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($role['role_name']); ?>
                                         </option>
@@ -741,9 +728,9 @@ require_once __DIR__ . '/includes/header.php';
                                     <i class="bi bi-check-lg me-1"></i>Update User
                                 </button>
                                 <button type="submit" name="action" value="delete_user" class="btn btn-danger" onclick="return confirm('Apakah Anda yakin ingin menghapus user ini?')">
-                                    <i class="bi bi-trash me-1"></i>Delete
+                                    <i class="bi bi-trash me-1"></i>Hapus
                                 </button>
-                                <a href="?section=user-setup&step=users" class="btn btn-outline-secondary">Cancel</a>
+                                <a href="?section=user-setup&step=users" class="btn btn-outline-secondary">Batal</a>
                             </div>
                         </form>
                     </div>
@@ -756,16 +743,16 @@ require_once __DIR__ . '/includes/header.php';
                         <thead class="table-light">
                             <tr>
                                 <th style="width:20%;">Username</th>
-                                <th style="width:25%;">Full Name</th>
+                                <th style="width:25%;">Nama Lengkap</th>
                                 <th style="width:25%;">Email</th>
                                 <th style="width:15%;">Role</th>
-                                <th style="width:15%;" class="text-center">Actions</th>
+                                <th style="width:15%;" class="text-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($users)): ?>
                             <tr>
-                                <td colspan="5" class="text-center py-3 text-muted"><small>No users yet</small></td>
+                                <td colspan="5" class="text-center py-3 text-muted"><small>Belum ada user</small></td>
                             </tr>
                             <?php else: ?>
                             <?php foreach ($users as $usr): ?>
@@ -794,7 +781,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if (!$editUser && !empty($users)): ?>
                 <div class="mt-3">
                     <a href="?section=user-setup&step=business" class="btn btn-sm btn-success">
-                        <i class="bi bi-arrow-right me-1"></i>Next: Assign Business
+                        <i class="bi bi-arrow-right me-1"></i>Lanjut: Pilih Bisnis
                     </a>
                 </div>
                 <?php endif; ?>
@@ -805,12 +792,12 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="col-12">
                         <?php if ($selectedUserId && $editUser): ?>
                         <h5 class="mb-3">📦 Assign Businesses for: <strong style="color: #667eea;"><?php echo htmlspecialchars($editUser['full_name']); ?></strong></h5>
-                        <p class="text-muted">Check which businesses this user should have access to:</p>
+                        <p class="text-muted">Centang bisnis yang boleh diakses user ini:</p>
                         
                         <div class="row">
                             <?php if (empty($allBusinesses)): ?>
                             <div class="col-12">
-                                <p class="text-center py-5 text-muted">No businesses available. <a href="businesses.php?action=add">Create one</a></p>
+                                <p class="text-center py-5 text-muted">No businesses available. <a href="businesses.php?action=add">Tambah baru</a></p>
                             </div>
                             <?php else: ?>
                             <?php foreach ($allBusinesses as $biz): ?>
@@ -838,10 +825,10 @@ require_once __DIR__ . '/includes/header.php';
                         <hr>
                         <div class="d-flex gap-2">
                             <a href="?section=user-setup&step=users" class="btn btn-secondary">
-                                <i class="bi bi-arrow-left me-1"></i>Back: Manage Users
+                                <i class="bi bi-arrow-left me-1"></i>Kembali: Daftar User
                             </a>
                             <a href="?section=user-setup&step=permissions&user_id=<?php echo $selectedUserId; ?>" class="btn btn-success">
-                                <i class="bi bi-arrow-right me-1"></i>Next: Set Permissions
+                                <i class="bi bi-arrow-right me-1"></i>Lanjut: Atur Menu
                             </a>
                         </div>
                     </div>
@@ -855,21 +842,21 @@ require_once __DIR__ . '/includes/header.php';
                         <h5 class="mb-3">🔒 Set Permissions for: <strong style="color: #667eea;"><?php echo htmlspecialchars($editUser['full_name']); ?></strong></h5>
                         
                         <?php if (empty($userBusinesses)): ?>
-                        <p class="text-center py-5 text-muted">User has no businesses assigned. <a href="?section=user-setup&step=business&user_id=<?php echo $selectedUserId; ?>">Assign businesses first</a></p>
+                        <p class="text-center py-5 text-muted">User has no businesses assigned. <a href="?section=user-setup&step=business&user_id=<?php echo $selectedUserId; ?>">Pilih bisnis dulu</a></p>
                         <?php else: ?>
                         <form id="permissionsForm" method="POST">
                             <div class="table-responsive">
                                 <table class="table">
                                     <thead>
                                         <tr>
-                                            <th>Business</th>
-                                            <th colspan="4" class="text-center">Permissions</th>
+                                            <th>Bisnis</th>
+                                            <th colspan="4" class="text-center">Hak Akses</th>
                                         </tr>
                                         <tr>
                                             <th></th>
-                                            <th class="text-center"><small>View Only</small></th>
-                                            <th class="text-center"><small>Create/Edit</small></th>
-                                            <th class="text-center"><small>All Access</small></th>
+                                            <th class="text-center"><small>Lihat Saja</small></th>
+                                            <th class="text-center"><small>Buat/Ubah</small></th>
+                                            <th class="text-center"><small>Akses Penuh</small></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -919,295 +906,27 @@ require_once __DIR__ . '/includes/header.php';
     </div>
     
     <style>
-    /* ============ Wizard Steps Styling ============ */
-    .wizard-steps {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 15px;
-        margin: 40px 0;
-        flex-wrap: wrap;
-        padding: 20px;
-        background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    
-    .step {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        opacity: 0.5;
-        transition: all 0.3s ease;
-    }
-    
-    .step:hover {
-        opacity: 0.7;
-    }
-    
-    .step.active {
-        opacity: 1;
-        transform: scale(1.05);
-    }
-    
-    .step.completed {
-        opacity: 0.8;
-    }
-    
-    .step-number {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        background: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 16px;
-        border: 3px solid #ddd;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .step.active .step-number {
-        background: #0d6efd;
-        color: white;
-        border-color: #0d6efd;
-        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
-    }
-    
-    .step.completed .step-number {
-        background: #198754;
-        color: white;
-        border-color: #198754;
-        box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
-    }
-    
-    .step-label {
-        font-size: 14px;
-        font-weight: 600;
-        color: #495057;
-        text-align: center;
-    }
-    
-    .step.active .step-label {
-        color: #0d6efd;
-        font-weight: 700;
-    }
-    
-    .step.completed .step-label {
-        color: #198754;
-    }
-    
-    .step-arrow {
-        color: #adb5bd;
-        font-size: 22px;
-        margin: 0 5px;
-        opacity: 0.6;
-    }
-    
-    /* ============ Form Styling ============ */
-    .content-card {
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        padding: 0;
-        overflow: hidden;
-    }
-    
-    .card-header-custom {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin: 0;
-    }
-    
-    .card-header-custom h4,
-    .card-header-custom h5 {
-        margin: 0;
-        font-weight: 700;
-    }
-    
-    /* ============ Business Card Styling ============ */
-    .business-card {
-        cursor: pointer;
-        transition: all 0.3s ease;
-        border: 2px solid #e0e0e0;
-        background: white;
-        border-radius: 8px;
-    }
-    
-    .business-card:hover {
-        border-color: #0d6efd;
-        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
-        transform: translateY(-2px);
-    }
-    
-    .business-card.selected {
-        border-color: #0d6efd;
-        background: linear-gradient(135deg, #f0f4ff 0%, #f8faff 100%);
-        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
-    }
-    
-    .business-card .card-body {
-        padding: 15px;
-    }
-    
-    .business-card .form-check-label {
-        cursor: pointer;
-        margin-bottom: 0;
-        font-weight: 500;
-    }
-    
-    /* ============ Table Styling ============ */
-    .table {
-        margin-bottom: 0;
-    }
-    
-    .table thead th {
-        background: #f8f9fa;
-        border-bottom: 2px solid #dee2e6;
-        font-weight: 700;
-        color: #495057;
-        padding: 15px;
-    }
-    
-    .table tbody tr:hover {
-        background: #f8f9fa;
-    }
-    
-    .table tbody td {
-        padding: 12px 15px;
-        vertical-align: middle;
-        border-bottom: 1px solid #e9ecef;
-    }
-    
-    /* ============ Alert Messages ============ */
-    .alert {
-        border-radius: 8px;
-        border-left: 4px solid;
-        margin-bottom: 20px;
-        animation: slideIn 0.3s ease;
-    }
-    
-    .alert-success {
-        border-left-color: #198754;
-        background: #f1fffe;
-    }
-    
-    .alert-danger {
-        border-left-color: #dc3545;
-        background: #ffe5e5;
-    }
-    
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    /* ============ Button Styling ============ */
-    .btn {
-        border-radius: 6px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        padding: 10px 16px;
-    }
-    
-    .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-    }
-    
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-    
-    .btn-success {
-        background: #198754;
-        border: none;
-    }
-    
-    .btn-success:hover {
-        background: #157347;
-        transform: translateY(-2px);
-    }
-    
-    .btn-danger {
-        background: #dc3545;
-        border: none;
-    }
-    
-    .btn-danger:hover {
-        background: #bb2d3b;
-        transform: translateY(-2px);
-    }
-    
-    /* ============ Form Groups ============ */
-    .form-control,
-    .form-select {
-        border-radius: 6px;
-        border: 1px solid #dee2e6;
-        padding: 10px 12px;
-        font-size: 14px;
-        transition: all 0.3s ease;
-    }
-    
-    .form-control:focus,
-    .form-select:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-    
-    .form-label {
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 8px;
-    }
-    
-    /* ============ Input Groups ============ */
-    .input-group .btn-outline-secondary {
-        border: 1px solid #dee2e6;
-        color: #6c757d;
-    }
-    
-    .input-group .btn-outline-secondary:hover {
-        background: #f8f9fa;
-        border-color: #667eea;
-        color: #667eea;
-    }
-    
-    /* ============ Responsive ============ */
-    @media (max-width: 768px) {
-        .wizard-steps {
-            gap: 10px;
-            margin: 25px 0;
-        }
-        
-        .step-number {
-            width: 40px;
-            height: 40px;
-            font-size: 14px;
-        }
-        
-        .step-label {
-            font-size: 12px;
-        }
-        
-        .step.active {
-            transform: scale(1.02);
-        }
-    }
+    /* Langkah wizard (1 Buat User → 2 Pilih Bisnis → 3 Atur Menu) — gaya lain mengikuti tema panel */
+    .wizard-steps { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-bottom: 1px solid var(--dev-border); flex-wrap: wrap; }
+    .step { display: flex; align-items: center; gap: 8px; opacity: .55; }
+    .step.active, .step.completed { opacity: 1; }
+    .step-number { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: #fff; border: 2px solid #d6d9e2; color: var(--dev-muted); }
+    .step.active .step-number { background: var(--dev-primary); border-color: var(--dev-primary); color: #fff; }
+    .step.completed .step-number { background: var(--dev-success); border-color: var(--dev-success); color: #fff; }
+    .step-label { font-size: 12.5px; font-weight: 600; color: var(--dev-muted); }
+    .step.active .step-label { color: var(--dev-primary); }
+    .step.completed .step-label { color: var(--dev-success); }
+    .step-arrow { color: #c3c7d1; font-size: 14px; }
+    /* Isi kartu wizard diberi jarak tepi yang sama */
+    .us-card { padding-bottom: 16px; }
+    .us-card > :not(.card-header-custom):not(.wizard-steps) { margin-left: 16px; margin-right: 16px; }
+    .us-card .card-header-custom { flex-direction: column; align-items: flex-start; gap: 2px; }
+
+    .business-card { cursor: pointer; border: 1px solid var(--dev-border); background: #fff; border-radius: 10px; }
+    .business-card:hover { border-color: var(--dev-primary); }
+    .business-card.selected { border-color: var(--dev-primary); background: rgba(109, 74, 224, .05); }
+    .business-card .card-body { padding: 10px 12px; }
+    .business-card .form-check-label { cursor: pointer; margin-bottom: 0; font-weight: 500; }
     </style>
     
     <script>
@@ -1328,7 +1047,7 @@ require_once __DIR__ . '/includes/header.php';
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="userModalLabel">Add New User</h5>
+                <h5 class="modal-title" id="userModalLabel">Tambah User Baru</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST">
@@ -1342,14 +1061,14 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="email" name="email" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
                         <input type="text" name="full_name" class="form-control" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Role <span class="text-danger">*</span></label>
                         <select name="role_id" class="form-select" required>
-                            <option value="">Select Role</option>
-                            <?php foreach ($roles as $role): ?>
+                            <option value="">Pilih role</option>
+                            <?php foreach ($roles ?? [] as $role): ?>
                             <option value="<?php echo $role['id']; ?>"><?php echo htmlspecialchars($role['role_name']); ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -1365,7 +1084,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" name="action" value="save_user" class="btn btn-primary">
                         <i class="bi bi-check-lg me-1"></i>Create User
                     </button>

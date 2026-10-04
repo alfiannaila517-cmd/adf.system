@@ -281,11 +281,11 @@ require_once __DIR__ . '/includes/header.php';
     <div class="content-card mb-4">
         <div class="card-header-custom d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Staff Portal Accounts</h5>
-                <small class="text-muted">Kelola akun staff portal per bisnis</small>
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Pilih Bisnis</h5>
+                <small class="text-muted">Akun login Staff Portal (absensi &amp; slip gaji) per bisnis</small>
             </div>
         </div>
-        <div class="card-body p-4">
+        <div class="card-body">
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-5">
                     <label class="form-label fw-bold">Pilih Bisnis</label>
@@ -436,7 +436,7 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="card-header-custom">
                         <h6 class="mb-0">➕ Buat Akun Baru</h6>
                     </div>
-                    <div class="card-body p-4">
+                    <div class="card-body">
                         <?php if (empty($employees)): ?>
                             <div class="text-center text-muted py-3">
                                 <i class="bi bi-check-circle fs-1 text-success"></i>

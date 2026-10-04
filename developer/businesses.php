@@ -1243,7 +1243,7 @@ require_once __DIR__ . '/includes/header.php';
                 <!-- Wizard Header -->
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4 class="text-white mb-0"><i class="bi bi-rocket-takeoff me-2"></i>Setup: <?= htmlspecialchars($sName) ?></h4>
-                    <a href="businesses.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+                    <a href="businesses.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Kembali</a>
                 </div>
 
                 <!-- Step Indicators (simplified: 3 steps) -->
@@ -1404,7 +1404,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="col-auto">
                                     <div class="instruction-box text-center" style="padding: 1rem 2rem;">
                                         <small class="text-muted d-block">Status</small>
-                                        <span style="color:#10b981; font-weight:600;">Active</span>
+                                        <span style="color:#10b981; font-weight:600;">Aktif</span>
                                         <br><span class="status-badge success mt-1"><i class="bi bi-check-circle"></i> OK</span>
                                     </div>
                                 </div>
@@ -1414,7 +1414,7 @@ require_once __DIR__ . '/includes/header.php';
                             $staffLoginUrl = (defined('BASE_URL') ? BASE_URL : '') . '/login.php?biz=' . $sSlug;
                             ?>
                             <div class="instruction-box">
-                                <div class="step-label">Staff Login Link</div>
+                                <div class="step-label">Link Login Staff</div>
                                 <p>
                                     <code style="font-size:0.9rem;"><?= htmlspecialchars($staffLoginUrl) ?></code>
                                     <button onclick="copyText('<?= htmlspecialchars($staffLoginUrl) ?>')" class="btn btn-sm btn-outline-light ms-2"><i class="bi bi-clipboard"></i></button>
@@ -1423,7 +1423,7 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="instruction-box">
                                 <div class="step-label">Langkah Selanjutnya</div>
-                                <p><i class="bi bi-arrow-right-circle text-info me-1"></i> Buka <strong>Owner Access</strong> untuk assign user ke bisnis ini</p>
+                                <p><i class="bi bi-arrow-right-circle text-info me-1"></i> Buka <strong>Akses Owner</strong> untuk assign user ke bisnis ini</p>
                                 <p><i class="bi bi-arrow-right-circle text-info me-1"></i> Atau buka <strong>User Management</strong> untuk buat user baru untuk bisnis ini</p>
                             </div>
 
@@ -1450,10 +1450,10 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="content-card">
                     <div class="card-header-custom">
                         <h5><i class="bi bi-building-<?php echo $action === 'add' ? 'add' : 'gear'; ?> me-2"></i>
-                            <?php echo $action === 'add' ? 'Add New Business' : 'Edit Business'; ?>
+                            <?php echo $action === 'add' ? 'Tambah Bisnis Baru' : 'Edit Bisnis'; ?>
                         </h5>
                         <a href="businesses.php" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-arrow-left me-1"></i>Back to List
+                            <i class="bi bi-arrow-left me-1"></i>Kembali
                         </a>
                     </div>
 
@@ -1488,15 +1488,15 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Business Code <span class="text-danger">*</span></label>
+                                    <label class="form-label">Kode Bisnis <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control text-uppercase" name="business_code" required
                                         placeholder="e.g., HOTEL_01, CAFE_BENS"
                                         value="<?php echo htmlspecialchars($editBusiness['business_code'] ?? ''); ?>"
                                         <?php echo $action === 'edit' ? 'readonly' : ''; ?>>
-                                    <small class="text-muted">Unique identifier, will be used for database name</small>
+                                    <small class="text-muted">Kode unik, dipakai untuk nama database</small>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Business Name <span class="text-danger">*</span></label>
+                                    <label class="form-label">Nama Bisnis <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="business_name" required
                                         placeholder="e.g., Narayana Hotel, Ben's Cafe"
                                         value="<?php echo htmlspecialchars($editBusiness['business_name'] ?? ''); ?>">
@@ -1505,9 +1505,15 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Business Type <span class="text-danger">*</span></label>
+                                    <label class="form-label">Tipe Bisnis <span class="text-danger">*</span></label>
                                     <select class="form-select" name="business_type" required>
-                                        <?php foreach ($businessTypes as $type): ?>
+                                        <?php
+                                        // Tipe lama yang tidak ada di daftar tetap ditampilkan, supaya tidak berubah diam-diam saat disimpan.
+                                        $typeOptions = $businessTypes;
+                                        if (!empty($editBusiness['business_type']) && !in_array($editBusiness['business_type'], $typeOptions, true)) {
+                                            $typeOptions[] = $editBusiness['business_type'];
+                                        }
+                                        foreach ($typeOptions as $type): ?>
                                             <option value="<?php echo $type; ?>" <?php echo ($editBusiness['business_type'] ?? '') === $type ? 'selected' : ''; ?>>
                                                 <?php echo ucwords(str_replace('_', ' ', $type)); ?>
                                             </option>
@@ -1515,9 +1521,9 @@ require_once __DIR__ . '/includes/header.php';
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Owner <span class="text-danger">*</span></label>
+                                    <label class="form-label">Pemilik <span class="text-danger">*</span></label>
                                     <select class="form-select" name="owner_id" required>
-                                        <option value="">Select Owner</option>
+                                        <option value="">Pilih pemilik</option>
                                         <?php foreach ($owners as $owner): ?>
                                             <option value="<?php echo $owner['id']; ?>" <?php echo ($editBusiness['owner_id'] ?? '') == $owner['id'] ? 'selected' : ''; ?>>
                                                 <?php echo htmlspecialchars($owner['full_name']); ?> (@<?php echo $owner['username']; ?>)
@@ -1528,7 +1534,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Description</label>
+                                <label class="form-label">Deskripsi</label>
                                 <textarea class="form-control" name="description" rows="2"><?php echo htmlspecialchars($editBusiness['description'] ?? ''); ?></textarea>
                             </div>
 
@@ -1548,14 +1554,14 @@ require_once __DIR__ . '/includes/header.php';
 
                             <?php if ($editBusiness): ?>
                                 <div class="mb-3">
-                                    <label class="form-label">Database Name</label>
+                                    <label class="form-label">Nama Database</label>
                                     <input type="text" class="form-control" value="<?php echo htmlspecialchars($editBusiness['database_name']); ?>" readonly>
-                                    <small class="text-muted">Database name cannot be changed after creation</small>
+                                    <small class="text-muted">Nama database tidak bisa diubah setelah dibuat</small>
                                 </div>
                             <?php endif; ?>
 
                             <div class="mb-3">
-                                <label class="form-label">Enable Menus for this Business</label>
+                                <label class="form-label">Menu yang aktif untuk bisnis ini</label>
 
                                 <?php if (!empty($businessListForCopy)): ?>
                                     <div class="input-group input-group-sm mb-3" style="max-width: 420px;">
@@ -1626,16 +1632,16 @@ require_once __DIR__ . '/includes/header.php';
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" name="is_active" id="is_active"
                                             <?php echo ($editBusiness['is_active'] ?? 1) ? 'checked' : ''; ?>>
-                                        <label class="form-check-label" for="is_active">Active Business</label>
+                                        <label class="form-check-label" for="is_active">Bisnis aktif</label>
                                     </div>
                                 </div>
                             <?php endif; ?>
 
                             <div class="d-flex gap-2">
                                 <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-<?php echo $action === 'add' ? 'arrow-right-circle' : 'check-lg'; ?> me-1"></i><?php echo $action === 'add' ? 'Register & Buat Database →' : 'Update Business'; ?>
+                                    <i class="bi bi-<?php echo $action === 'add' ? 'arrow-right-circle' : 'check-lg'; ?> me-1"></i><?php echo $action === 'add' ? 'Daftarkan & Buat Database →' : 'Simpan Perubahan'; ?>
                                 </button>
-                                <a href="businesses.php" class="btn btn-outline-secondary">Cancel</a>
+                                <a href="businesses.php" class="btn btn-outline-secondary">Batal</a>
                             </div>
                         </form>
                     </div>
@@ -1645,14 +1651,10 @@ require_once __DIR__ . '/includes/header.php';
 
     <?php else: ?>
         <!-- Businesses List -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">Business Management</h4>
-                    <a href="?action=add" class="btn btn-primary">
-                        <i class="bi bi-building-add me-1"></i>Add New Business
-                    </a>
-                </div>
+        <div class="page-head">
+            <p>Semua bisnis, database, dan status langganannya di ADF Store.</p>
+            <div class="actions">
+                <a href="?action=add" class="btn btn-primary btn-sm"><i class="bi bi-building-add me-1"></i>Tambah Bisnis</a>
             </div>
         </div>
 
@@ -1661,15 +1663,15 @@ require_once __DIR__ . '/includes/header.php';
                 <table class="table table-hover mb-0">
                     <thead>
                         <tr>
-                            <th>Business</th>
-                            <th>Type</th>
+                            <th>Bisnis</th>
+                            <th>Tipe</th>
                             <th>Database</th>
-                            <th>Owner</th>
-                            <th>Menus</th>
-                            <th>Users</th>
+                            <th>Pemilik</th>
+                            <th class="text-center">Menu</th>
+                            <th class="text-center">User</th>
                             <th>Status</th>
-                            <th>Langganan (ADF Store)</th>
-                            <th>Actions</th>
+                            <th>Langganan</th>
+                            <th class="text-end">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1677,7 +1679,7 @@ require_once __DIR__ . '/includes/header.php';
                             <tr>
                                 <td colspan="9" class="text-center py-5 text-muted">
                                     <i class="bi bi-building fs-1 d-block mb-2"></i>
-                                    No businesses found. <a href="?action=add">Create one</a>
+                                    Belum ada bisnis. <a href="?action=add">Tambah bisnis</a>
                                 </td>
                             </tr>
                         <?php else: ?>
@@ -1693,30 +1695,26 @@ require_once __DIR__ . '/includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary"><?php echo ucwords(str_replace('_', ' ', $biz['business_type'])); ?></span>
+                                        <span class="badge bg-light text-dark border"><?php echo ucwords(str_replace('_', ' ', $biz['business_type'])); ?></span>
                                     </td>
                                     <td>
                                         <code><?php echo htmlspecialchars($biz['database_name']); ?></code>
                                     </td>
                                     <td><?php echo htmlspecialchars($biz['owner_name'] ?? '-'); ?></td>
-                                    <td>
-                                        <span class="badge bg-info"><?php echo $biz['menu_count']; ?> menus</span>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary"><?php echo $biz['user_count']; ?> users</span>
-                                    </td>
+                                    <td class="text-center"><?php echo (int) $biz['menu_count']; ?></td>
+                                    <td class="text-center"><?php echo (int) $biz['user_count']; ?></td>
                                     <td class="biz-status-col">
                                         <?php
                                         $bizSlugCheck = !empty($biz['slug']) ? $biz['slug'] : businessCodeToSlug($biz['business_code']);
                                         $bizConfigExists = file_exists(dirname(dirname(__FILE__)) . '/config/businesses/' . $bizSlugCheck . '.php');
                                         if ($biz['is_active'] && $bizConfigExists): ?>
-                                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                            <span class="badge bg-success">Aktif</span>
                                         <?php elseif (!$biz['is_active'] && !$bizConfigExists): ?>
-                                            <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Setup Needed</span>
+                                            <span class="badge bg-warning text-dark">Perlu Setup</span>
                                         <?php elseif (!$biz['is_active']): ?>
-                                            <span class="badge bg-danger">Inactive</span>
+                                            <span class="badge bg-danger">Nonaktif</span>
                                         <?php else: ?>
-                                            <span class="badge bg-info">Partial</span>
+                                            <span class="badge bg-info">Sebagian</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="biz-sub-col">
@@ -1755,31 +1753,31 @@ require_once __DIR__ . '/includes/header.php';
                                         <?php endif; ?>
                                         <input type="hidden" value="<?php echo htmlspecialchars($staffLoginUrl); ?>" id="bizLoginLink<?php echo $biz['id']; ?>">
                                     </td>
-                                    <td>
+                                    <td class="text-end text-nowrap">
                                         <?php if (!$biz['is_active'] || !$bizConfigExists): ?>
                                             <a href="?action=setup&id=<?php echo $biz['id']; ?>&step=2" class="btn btn-sm btn-warning" title="Continue Setup">
-                                                <i class="bi bi-gear"></i> Setup
+                                                <i class="bi bi-gear"></i>
                                             </a>
                                         <?php endif; ?>
                                         <a href="../developer-access.php?dev_access=<?php echo base64_encode($biz['database_name']); ?>"
-                                            class="btn btn-sm btn-success" title="Open Business (Developer Access)" target="_blank">
+                                            class="btn btn-sm btn-success" title="Buka sistem bisnis ini" target="_blank">
                                             <i class="bi bi-box-arrow-up-right"></i>
                                         </a>
                                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyBizLoginLink(<?php echo $biz['id']; ?>)" title="Salin link login staff">
                                             <i class="bi bi-clipboard"></i>
                                         </button>
-                                        <a href="?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-primary" title="Edit">
+                                        <a href="?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-primary" title="Edit bisnis">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        <a href="?action=copy&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-success" title="Copy Business (buat bisnis baru + database baru meniru bisnis ini)"
+                                        <a href="?action=copy&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Copy bisnis (buat bisnis + database baru meniru bisnis ini)"
                                             onclick="return confirm('Buat bisnis baru sebagai salinan dari &quot;<?php echo addslashes($biz['business_name']); ?>&quot;?\n\nTipe, owner, deskripsi, dan menu yang aktif akan disalin, lalu sistem otomatis membuat database baru untuk bisnis hasil copy ini.');">
-                                            <i class="bi bi-clipboard-check"></i> Copy
+                                            <i class="bi bi-files"></i>
                                         </a>
-                                        <a href="permissions.php?business_id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-info" title="User Permissions">
+                                        <a href="permissions.php?business_id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Hak akses menu">
                                             <i class="bi bi-shield-lock"></i>
                                         </a>
                                         <button onclick="confirmDeleteBusiness('?action=delete&id=<?php echo $biz['id']; ?>', '<?php echo addslashes($biz['business_name']); ?>')"
-                                            class="btn btn-sm btn-outline-danger" title="Delete">
+                                            class="btn btn-sm btn-outline-danger" title="Hapus bisnis">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </td>

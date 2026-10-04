@@ -109,10 +109,8 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <div class="container-fluid py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h4 class="mb-0"><i class="bi bi-database me-2"></i>Database Management</h4>
-        </div>
+    <div class="page-head">
+        <p>Backup, cek tabel, dan inisialisasi database master &amp; database tiap bisnis.</p>
     </div>
     
     <?php if ($error): ?>
@@ -141,14 +139,14 @@ require_once __DIR__ . '/includes/header.php';
         <div class="col-lg-4 mb-4">
             <div class="content-card h-100">
                 <div class="card-header-custom">
-                    <h5><i class="bi bi-lightning me-2"></i>Quick Actions</h5>
+                    <h5><i class="bi bi-lightning me-2"></i>Aksi Cepat</h5>
                 </div>
                 <div class="p-4">
                     <form method="POST" class="mb-3">
                         <input type="hidden" name="action" value="init_master">
                         <button type="submit" class="btn btn-outline-primary w-100 mb-2" 
                                 onclick="return confirm('This will initialize/reset the master database. Continue?')">
-                            <i class="bi bi-database-add me-2"></i>Initialize Master DB
+                            <i class="bi bi-database-add me-2"></i>Inisialisasi DB Master
                         </button>
                     </form>
                     
@@ -156,12 +154,12 @@ require_once __DIR__ . '/includes/header.php';
                     
                     <div class="alert alert-warning small">
                         <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Master Database:</strong> adf_system<br>
-                        Contains: users, roles, businesses, menus, permissions, audit logs
+                        <strong>Database Master:</strong> adf_system<br>
+                        Berisi: user, role, bisnis, menu, hak akses, audit log
                     </div>
                     
                     <p class="small text-muted mb-0">
-                        Business databases are created automatically when you add a new business via the Businesses page.
+                        Database bisnis dibuat otomatis saat menambah bisnis di halaman Bisnis.
                     </p>
                 </div>
             </div>
@@ -171,19 +169,19 @@ require_once __DIR__ . '/includes/header.php';
         <div class="col-lg-8 mb-4">
             <div class="content-card">
                 <div class="card-header-custom">
-                    <h5><i class="bi bi-stack me-2"></i>Business Databases</h5>
-                    <span class="badge bg-primary"><?php echo count($databases); ?> databases</span>
+                    <h5><i class="bi bi-stack me-2"></i>Database Bisnis</h5>
+                    <span class="badge bg-light text-dark border"><?php echo count($databases); ?> database</span>
                 </div>
                 
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>Business</th>
+                                <th>Bisnis</th>
                                 <th>Database</th>
-                                <th>Users</th>
+                                <th>User</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -204,9 +202,9 @@ require_once __DIR__ . '/includes/header.php';
                                 <td><span class="badge bg-secondary"><?php echo $db['users_count']; ?></span></td>
                                 <td>
                                     <?php if ($db['is_active']): ?>
-                                    <span class="badge bg-success">Active</span>
+                                    <span class="badge bg-success">Aktif</span>
                                     <?php else: ?>
-                                    <span class="badge bg-danger">Inactive</span>
+                                    <span class="badge bg-danger">Nonaktif</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -244,22 +242,22 @@ require_once __DIR__ . '/includes/header.php';
         <div class="col-12">
             <div class="content-card">
                 <div class="card-header-custom">
-                    <h5><i class="bi bi-archive me-2"></i>Recent Backups</h5>
+                    <h5><i class="bi bi-archive me-2"></i>Backup Terakhir</h5>
                 </div>
                 
                 <?php if (empty($backups)): ?>
                 <div class="text-center py-4 text-muted">
-                    No backups found
+                    Belum ada backup
                 </div>
                 <?php else: ?>
                 <div class="table-responsive">
                     <table class="table table-sm mb-0">
                         <thead>
                             <tr>
-                                <th>Filename</th>
-                                <th>Size</th>
-                                <th>Date</th>
-                                <th>Action</th>
+                                <th>Nama File</th>
+                                <th>Ukuran</th>
+                                <th>Tanggal</th>
+                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -299,7 +297,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="database_name" id="reset_db_name">
                     
                     <div class="alert alert-danger">
-                        <strong>Warning!</strong> This will delete ALL data in the database <code id="reset_db_display"></code> 
+                        <strong>Perhatian!</strong> This will delete ALL data in the database <code id="reset_db_display"></code> 
                         for business <span id="reset_biz_name"></span> and recreate it with fresh tables.
                     </div>
                     
@@ -311,7 +309,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
                 <div class="modal-footer border-secondary">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Database
                     </button>

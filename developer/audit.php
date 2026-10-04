@@ -198,15 +198,11 @@ require_once __DIR__ . '/includes/header.php';
 
 <div class="container-fluid py-4">
     <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h4 class="mb-0"><i class="bi bi-journal-text me-2"></i>Audit Logs & Active Users</h4>
-                <div>
-                    <span class="badge bg-success me-2"><span class="online-indicator"></span><?php echo count($activeUsers); ?> Online</span>
-                    <span class="badge bg-primary"><?php echo number_format($totalLogs); ?> records</span>
-                </div>
-            </div>
+    <div class="page-head">
+        <p>Riwayat aktivitas user dan siapa yang sedang online (30 menit terakhir).</p>
+        <div class="actions">
+            <span class="badge bg-success"><span class="online-indicator"></span><?php echo count($activeUsers); ?> online</span>
+            <span class="badge bg-light text-dark border"><?php echo number_format($totalLogs); ?> catatan</span>
         </div>
     </div>
     
@@ -251,7 +247,7 @@ require_once __DIR__ . '/includes/header.php';
     <div class="content-card mb-4">
         <div class="p-4 text-center text-muted">
             <i class="bi bi-person-slash fs-1 d-block mb-2"></i>
-            No active users in the last 30 minutes
+            Tidak ada user aktif dalam 30 menit terakhir
         </div>
     </div>
     <?php endif; ?>
@@ -259,12 +255,12 @@ require_once __DIR__ . '/includes/header.php';
     <!-- Filters -->
     <div class="content-card mb-4">
         <div class="p-3">
-            <h6 class="mb-3"><i class="bi bi-funnel me-2"></i>Filter Activity Logs</h6>
+            <h6 class="mb-3"><i class="bi bi-funnel me-2"></i>Filter Log Aktivitas</h6>
             <form method="GET" action="" class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="form-label small">Action Type</label>
+                    <label class="form-label small">Jenis Aksi</label>
                     <select class="form-select form-select-sm" name="action_type">
-                        <option value="">All Actions</option>
+                        <option value="">Semua aksi</option>
                         <?php foreach ($actions as $act): ?>
                         <option value="<?php echo htmlspecialchars($act); ?>" <?php echo $filterAction === $act ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($act); ?>
@@ -275,7 +271,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="col-md-3">
                     <label class="form-label small">User</label>
                     <select class="form-select form-select-sm" name="user_id">
-                        <option value="">All Users</option>
+                        <option value="">Semua user</option>
                         <?php foreach ($users as $u): ?>
                         <option value="<?php echo $u['id']; ?>" <?php echo $filterUser == $u['id'] ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($u['full_name']); ?>
@@ -284,14 +280,14 @@ require_once __DIR__ . '/includes/header.php';
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label small">Date</label>
+                    <label class="form-label small">Tanggal</label>
                     <input type="date" class="form-control form-control-sm" name="date" value="<?php echo htmlspecialchars($filterDate); ?>">
                 </div>
                 <div class="col-md-auto">
                     <button type="submit" class="btn btn-sm btn-primary">
                         <i class="bi bi-funnel me-1"></i>Filter
                     </button>
-                    <a href="audit.php" class="btn btn-sm btn-outline-secondary">Clear</a>
+                    <a href="audit.php" class="btn btn-sm btn-outline-secondary">Reset</a>
                 </div>
             </form>
         </div>
@@ -303,13 +299,13 @@ require_once __DIR__ . '/includes/header.php';
             <table class="table table-hover table-sm mb-0">
                 <thead>
                     <tr>
-                        <th>Time</th>
+                        <th>Waktu</th>
                         <th>User</th>
-                        <th>Action</th>
-                        <th>Table</th>
-                        <th>Record ID</th>
-                        <th>IP Address</th>
-                        <th>New Data</th>
+                        <th>Aksi</th>
+                        <th>Tabel</th>
+                        <th>ID Data</th>
+                        <th>Alamat IP</th>
+                        <th>Data Baru</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -317,7 +313,7 @@ require_once __DIR__ . '/includes/header.php';
                     <tr>
                         <td colspan="7" class="text-center py-5 text-muted">
                             <i class="bi bi-journal fs-1 d-block mb-2"></i>
-                            No audit logs found
+                            Belum ada log aktivitas
                         </td>
                     </tr>
                     <?php else: ?>
@@ -341,7 +337,7 @@ require_once __DIR__ . '/includes/header.php';
                             <strong><?php echo htmlspecialchars($log['full_name']); ?></strong>
                             <br><small class="text-muted">@<?php echo htmlspecialchars($log['username'] ?? ''); ?></small>
                             <?php else: ?>
-                            <span class="text-muted">System</span>
+                            <span class="text-muted">Sistem</span>
                             <?php endif; ?>
                         </td>
                         <td>

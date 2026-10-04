@@ -286,7 +286,10 @@ if ($businessId) {
     // Get business
     $bizStmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
     $bizStmt->execute([$businessId]);
-    $selectedBusiness = $bizStmt->fetch(PDO::FETCH_ASSOC);
+    $selectedBusiness = $bizStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    if (!$selectedBusiness) {
+        $businessId = 0; // ID tidak ada (mis. bisnis sudah dihapus): tampilkan "Pilih Bisnis"
+    }
 
     if ($selectedBusiness) {
         // Get enabled menus for this business
@@ -340,29 +343,22 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <div class="container-fluid py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h4 class="mb-0">
-                    <i class="bi bi-shield-lock me-2"></i>User Permissions
-                    <?php if ($selectedBusiness): ?>
-                        <small class="text-muted">- <?php echo htmlspecialchars($selectedBusiness['business_name']); ?></small>
-                    <?php endif; ?>
-                </h4>
-
-                <!-- Business Selector -->
-                <div class="d-flex gap-2 align-items-center">
-                    <label class="text-muted">Select Business:</label>
-                    <select class="form-select form-select-sm" style="width:250px" onchange="location.href='permissions.php?business_id='+this.value">
-                        <option value="">Choose Business...</option>
+    <div class="page-head">
+        <p>
+            Atur menu apa saja yang boleh dibuka tiap user di satu bisnis.
+            <?php if ($selectedBusiness): ?>
+                Bisnis: <strong><?php echo htmlspecialchars($selectedBusiness['business_name']); ?></strong>
+            <?php endif; ?>
+        </p>
+        <div class="actions">
+                    <select class="form-select form-select-sm" onchange="location.href='permissions.php?business_id='+this.value">
+                        <option value="">Pilih bisnis…</option>
                         <?php foreach ($businesses as $biz): ?>
                             <option value="<?php echo $biz['id']; ?>" <?php echo $businessId == $biz['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($biz['business_name']); ?> (<?php echo $biz['business_code']; ?>)
                             </option>
                         <?php endforeach; ?>
                     </select>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -371,8 +367,8 @@ require_once __DIR__ . '/includes/header.php';
         <div class="content-card">
             <div class="text-center py-5">
                 <i class="bi bi-building fs-1 text-muted mb-3 d-block"></i>
-                <h5>Select a Business</h5>
-                <p class="text-muted">Choose a business from the dropdown above to manage user permissions</p>
+                <h5>Pilih Bisnis</h5>
+                <p class="text-muted">Pilih bisnis di kanan atas untuk mengatur hak akses menu user.</p>
             </div>
         </div>
 
@@ -456,9 +452,9 @@ require_once __DIR__ . '/includes/header.php';
 
                             <div class="d-flex gap-2 mt-4">
                                 <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-check-lg me-1"></i>Save Permissions
+                                    <i class="bi bi-check-lg me-1"></i>Simpan Hak Akses
                                 </button>
-                                <a href="permissions.php?business_id=<?php echo $businessId; ?>" class="btn btn-outline-secondary">Cancel</a>
+                                <a href="permissions.php?business_id=<?php echo $businessId; ?>" class="btn btn-outline-secondary">Batal</a>
                             </div>
                         </form>
                     </div>
@@ -487,8 +483,8 @@ require_once __DIR__ . '/includes/header.php';
             <div class="col-lg-8">
                 <div class="content-card">
                     <div class="card-header-custom">
-                        <h5><i class="bi bi-people me-2"></i>Assigned Users</h5>
-                        <span class="badge bg-primary"><?php echo count($assignedUsers); ?> users</span>
+                        <h5><i class="bi bi-people me-2"></i>User di Bisnis Ini</h5>
+                        <span class="badge bg-light text-dark border"><?php echo count($assignedUsers); ?> user</span>
                     </div>
 
                     <div class="table-responsive">
@@ -497,9 +493,9 @@ require_once __DIR__ . '/includes/header.php';
                                 <tr>
                                     <th>User</th>
                                     <th>Role</th>
-                                    <th>Menu Access</th>
-                                    <th>Assigned</th>
-                                    <th>Actions</th>
+                                    <th>Akses Menu</th>
+                                    <th>Ditambahkan</th>
+                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -507,7 +503,7 @@ require_once __DIR__ . '/includes/header.php';
                                     <tr>
                                         <td colspan="5" class="text-center py-4 text-muted">
                                             <i class="bi bi-person-x fs-3 d-block mb-2"></i>
-                                            No users assigned to this business yet
+                                            Belum ada user di bisnis ini
                                         </td>
                                     </tr>
                                 <?php else: ?>
@@ -549,7 +545,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="col-lg-4">
                 <div class="content-card">
                     <div class="card-header-custom">
-                        <h5><i class="bi bi-person-plus me-2"></i>Assign User</h5>
+                        <h5><i class="bi bi-person-plus me-2"></i>Tambah User ke Bisnis</h5>
                     </div>
 
                     <div class="p-4">
@@ -565,9 +561,9 @@ require_once __DIR__ . '/includes/header.php';
                             <input type="hidden" name="business_id" value="<?php echo $businessId; ?>">
 
                             <div class="mb-3">
-                                <label class="form-label">Select User</label>
+                                <label class="form-label">Pilih User</label>
                                 <select class="form-select" name="user_id" required>
-                                    <option value="">Choose User...</option>
+                                    <option value="">Pilih user…</option>
                                     <?php
                                     $assignedIds = array_column($assignedUsers, 'id');
                                     foreach ($users as $u):
@@ -584,7 +580,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">Initial Menu Access</label>
+                                <label class="form-label">Menu yang Diizinkan</label>
                                 <div class="border rounded p-2" style="max-height:200px;overflow-y:auto">
                                     <?php foreach ($businessMenus as $menu): ?>
                                         <div class="form-check">
@@ -597,11 +593,11 @@ require_once __DIR__ . '/includes/header.php';
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
-                                <small class="text-muted">User will have full permissions on selected menus</small>
+                                <small class="text-muted">User mendapat akses penuh ke menu yang dicentang</small>
                             </div>
 
                             <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-person-plus me-1"></i>Assign User
+                                <i class="bi bi-person-plus me-1"></i>Tambah User
                             </button>
                         </form>
                     </div>
@@ -610,13 +606,13 @@ require_once __DIR__ . '/includes/header.php';
                 <!-- Business Info -->
                 <div class="content-card mt-3">
                     <div class="card-header-custom">
-                        <h6><i class="bi bi-info-circle me-2"></i>Business Info</h6>
+                        <h6><i class="bi bi-info-circle me-2"></i>Info Bisnis</h6>
                     </div>
                     <div class="p-3">
-                        <p class="mb-1"><strong>Code:</strong> <?php echo htmlspecialchars($selectedBusiness['business_code']); ?></p>
+                        <p class="mb-1"><strong>Kode:</strong> <?php echo htmlspecialchars($selectedBusiness['business_code']); ?></p>
                         <p class="mb-1"><strong>Database:</strong> <code><?php echo htmlspecialchars($selectedBusiness['database_name']); ?></code></p>
-                        <p class="mb-1"><strong>Type:</strong> <?php echo ucfirst($selectedBusiness['business_type']); ?></p>
-                        <p class="mb-0"><strong>Enabled Menus:</strong> <?php echo count($businessMenus); ?></p>
+                        <p class="mb-1"><strong>Tipe:</strong> <?php echo ucfirst($selectedBusiness['business_type']); ?></p>
+                        <p class="mb-0"><strong>Menu aktif:</strong> <?php echo count($businessMenus); ?></p>
                     </div>
                 </div>
             </div>

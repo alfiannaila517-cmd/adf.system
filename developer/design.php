@@ -58,11 +58,8 @@ require_once __DIR__ . '/includes/header.php';
     <!-- ═══════════════════════════════════ -->
     <!-- DESIGN TOOLS OVERVIEW              -->
     <!-- ═══════════════════════════════════ -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h4 class="mb-1"><i class="bi bi-palette me-2"></i>Design Tools</h4>
-            <p class="text-muted mb-0">Tools untuk desain aset visual hotel & restoran</p>
-        </div>
+    <div class="page-head">
+        <p>Alat desain aset visual Narayana: menu restoran dan papan nomor kamar.</p>
     </div>
     
     <div class="row g-4">

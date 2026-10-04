@@ -486,26 +486,11 @@ require_once __DIR__ . '/includes/header.php';
 
 <div class="container-fluid py-4">
     <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>
-                    <h4 class="mb-1">
-                        <i class="bi bi-eye me-2"></i>Owner Monitoring Access
-                    </h4>
-                    <p class="text-muted mb-0" style="font-size: 0.85rem;">
-                        Kelola akses monitoring owner ke masing-masing bisnis
-                    </p>
-                </div>
-                <div class="d-flex gap-2">
-                    <span class="badge bg-light text-dark border" style="font-size: 0.8rem; padding: 8px 15px;">
-                        <i class="bi bi-people me-1"></i> <?php echo count($owners); ?> User
-                    </span>
-                    <span class="badge bg-light text-dark border" style="font-size: 0.8rem; padding: 8px 15px;">
-                        <i class="bi bi-building me-1"></i> <?php echo count($businesses); ?> Bisnis
-                    </span>
-                </div>
-            </div>
+    <div class="page-head">
+        <p>Bisnis mana saja yang bisa dipantau tiap owner/user di Owner Dashboard, dan menu footer-nya.</p>
+        <div class="actions">
+            <span class="badge bg-light text-dark border"><i class="bi bi-people me-1"></i><?php echo count($owners); ?> user</span>
+            <span class="badge bg-light text-dark border"><i class="bi bi-building me-1"></i><?php echo count($businesses); ?> bisnis</span>
         </div>
     </div>
     

@@ -162,7 +162,7 @@ require_once __DIR__ . '/includes/header.php';
                         <?php echo $action === 'add' ? 'Add New Menu Item' : 'Edit Menu Item'; ?>
                     </h5>
                     <a href="menus.php" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-1"></i>Back to List
+                        <i class="bi bi-arrow-left me-1"></i>Kembali
                     </a>
                 </div>
                 
@@ -182,7 +182,7 @@ require_once __DIR__ . '/includes/header.php';
                         
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Menu Code <span class="text-danger">*</span></label>
+                                <label class="form-label">Kode Menu <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="menu_code" required
                                        placeholder="e.g., dashboard, reports"
                                        value="<?php echo htmlspecialchars($editMenu['menu_code'] ?? ''); ?>">
@@ -212,7 +212,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label">Icon</label>
+                            <label class="form-label">Ikon</label>
                             <div class="input-group">
                                 <span class="input-group-text" id="icon-preview">
                                     <i class="<?php echo htmlspecialchars($editMenu['menu_icon'] ?? 'bi bi-circle'); ?>"></i>
@@ -222,7 +222,7 @@ require_once __DIR__ . '/includes/header.php';
                                        placeholder="bi bi-house-door">
                             </div>
                             <div class="mt-2">
-                                <small class="text-muted">Common icons: </small>
+                                <small class="text-muted">Ikon umum: </small>
                                 <?php foreach (array_slice($commonIcons, 0, 10) as $icon): ?>
                                 <button type="button" class="btn btn-sm btn-outline-secondary me-1 mb-1 icon-picker" data-icon="<?php echo $icon; ?>">
                                     <i class="<?php echo $icon; ?>"></i>
@@ -232,7 +232,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                         
                         <div class="mb-3">
-                            <label class="form-label">Description</label>
+                            <label class="form-label">Deskripsi</label>
                             <textarea class="form-control" name="description" rows="2"><?php echo htmlspecialchars($editMenu['description'] ?? ''); ?></textarea>
                         </div>
                         
@@ -240,7 +240,7 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" name="is_active" id="is_active"
                                        <?php echo ($editMenu['is_active'] ?? 1) ? 'checked' : ''; ?>>
-                                <label class="form-check-label" for="is_active">Active Menu</label>
+                                <label class="form-check-label" for="is_active">Menu aktif</label>
                             </div>
                         </div>
                         
@@ -248,7 +248,7 @@ require_once __DIR__ . '/includes/header.php';
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-check-lg me-1"></i><?php echo $action === 'add' ? 'Create Menu' : 'Update Menu'; ?>
                             </button>
-                            <a href="menus.php" class="btn btn-outline-secondary">Cancel</a>
+                            <a href="menus.php" class="btn btn-outline-secondary">Batal</a>
                         </div>
                     </form>
                 </div>
@@ -258,14 +258,10 @@ require_once __DIR__ . '/includes/header.php';
     
     <?php else: ?>
     <!-- Menus List -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <h4 class="mb-0">Menu Configuration</h4>
-                <a href="?action=add" class="btn btn-primary">
-                    <i class="bi bi-plus-lg me-1"></i>Add New Menu
-                </a>
-            </div>
+    <div class="page-head">
+        <p>Daftar menu yang tersedia di aplikasi. Menu diaktifkan per bisnis di halaman Bisnis / Hak Akses Menu.</p>
+        <div class="actions">
+            <a href="?action=add" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Tambah Menu</a>
         </div>
     </div>
     
@@ -274,13 +270,13 @@ require_once __DIR__ . '/includes/header.php';
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th style="width:50px">Order</th>
+                        <th style="width:50px">Urutan</th>
                         <th>Menu</th>
-                        <th>Code</th>
+                        <th>Kode</th>
                         <th>URL</th>
-                        <th>Businesses</th>
+                        <th>Bisnis</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -288,7 +284,7 @@ require_once __DIR__ . '/includes/header.php';
                     <tr>
                         <td colspan="7" class="text-center py-5 text-muted">
                             <i class="bi bi-menu-button fs-1 d-block mb-2"></i>
-                            No menu items found. <a href="?action=add">Create one</a>
+                            No menu items found. <a href="?action=add">Tambah baru</a>
                         </td>
                     </tr>
                     <?php else: ?>
@@ -302,13 +298,13 @@ require_once __DIR__ . '/includes/header.php';
                         <td><code><?php echo htmlspecialchars($menu['menu_code']); ?></code></td>
                         <td class="text-muted small"><?php echo htmlspecialchars($menu['menu_url'] ?: '-'); ?></td>
                         <td>
-                            <span class="badge bg-info"><?php echo $menu['business_count']; ?> businesses</span>
+                            <span class="badge bg-light text-dark border"><?php echo $menu['business_count']; ?> bisnis</span>
                         </td>
                         <td>
                             <?php if ($menu['is_active']): ?>
-                            <span class="badge bg-success">Active</span>
+                            <span class="badge bg-success">Aktif</span>
                             <?php else: ?>
-                            <span class="badge bg-danger">Inactive</span>
+                            <span class="badge bg-danger">Nonaktif</span>
                             <?php endif; ?>
                         </td>
                         <td>

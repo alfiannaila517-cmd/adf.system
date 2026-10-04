@@ -187,6 +187,12 @@ $devIsActive = static function (array $item) use ($devCurrent, $devSection): boo
         .main-content > .p-4,
         .main-content > .content-wrapper { padding: 20px 24px !important; }
 
+        /* ── Kepala halaman: keterangan singkat + tombol aksi (judul sudah ada di topbar) ── */
+        .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+        .page-head p { margin: 0; font-size: 12.5px; color: var(--dev-muted); }
+        .page-head .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .page-head .actions .form-select { width: auto; min-width: 220px; }
+
         /* ── Kartu & statistik ─────────────────────────────── */
         .welcome-card {
             background: linear-gradient(135deg, var(--dev-primary), var(--dev-secondary));
@@ -285,7 +291,8 @@ $devIsActive = static function (array $item) use ($devCurrent, $devSection): boo
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); }
             .sidebar.show + .sidebar-backdrop { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .4); z-index: 1030; }
-            .main-content { margin-left: 0; }
+            .main-content { margin-left: 0; width: 100%; overflow-x: hidden; }
+            .content-card .table-responsive, .content-card > .table { overflow-x: auto; }
             .nav-toggle { display: inline-block; }
             .top-navbar { padding: 0 14px; }
             .user-info, .navbar-right .store-link span { display: none; }
