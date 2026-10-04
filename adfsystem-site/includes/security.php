@@ -13,6 +13,7 @@
  */
 
 require_once __DIR__ . '/smtp-mailer.php';
+require_once __DIR__ . '/telegram.php';
 
 const ADF_SEC_MAX_FAILS = 5;
 const ADF_SEC_FAIL_WINDOW = 900;      // 15 menit
@@ -92,7 +93,7 @@ function adf_sec_is_locked(string $username): bool
 function adf_sec_record_fail(string $username): void
 {
     $keys = adf_sec_fail_keys($username);
-    adf_sec_json_update(adf_sec_data_path('login-attempts.json'), static function (array $data) use ($keys) {
+    $justLocked = adf_sec_json_update(adf_sec_data_path('login-attempts.json'), static function (array $data) use ($keys) {
         $since = time() - ADF_SEC_FAIL_WINDOW;
         foreach ($data as $k => $times) {
             $data[$k] = array_values(array_filter((array) $times, static fn($t) => $t >= $since));
@@ -100,11 +101,21 @@ function adf_sec_record_fail(string $username): void
                 unset($data[$k]);
             }
         }
+        $locked = false;
         foreach ($keys as $key) {
             $data[$key][] = time();
+            if (count($data[$key]) === ADF_SEC_MAX_FAILS) {
+                $locked = true; // baru saja mencapai batas → kirim peringatan sekali
+            }
         }
-        return [$data, null];
+        return [$data, $locked];
     });
+    if ($justLocked) {
+        adf_tg_security('🚨', 'Login ADF Store dikunci 15 menit', [
+            'Akun dicoba' => $username !== '' ? $username : '-',
+            'Sebab' => ADF_SEC_MAX_FAILS . 'x password / kode salah',
+        ]);
+    }
 }
 
 function adf_sec_clear_fails(string $username): void
@@ -249,6 +260,7 @@ function adf_sec_login_alert(array $user, string $how): void
     if (!adf_smtp_send_html((string) $user['email'], 'Login baru ke Admin ADF Store', $html)) {
         error_log('login alert mail failed: ' . adf_mail_last_error());
     }
+    adf_tg_security('🔐', 'Login ADF Store', ['Akun' => (string) $user['username'], 'Lewat' => $how]);
 }
 
 /* ── Tiket sekali pakai ke Developer Panel (SSO) ─────────────────── */

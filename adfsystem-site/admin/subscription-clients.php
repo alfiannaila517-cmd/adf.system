@@ -10,17 +10,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!adf_admin_csrf_check($_POST['csrf'] ?? null)) {
         $error = 'Sesi form kedaluwarsa, silakan coba lagi.';
     } elseif (($_POST['action'] ?? '') === 'delete') {
+        require_once __DIR__ . '/../includes/telegram.php';
+        $delClient = adf_subscription_client_find((string) ($_POST['client_key'] ?? ''));
         adf_subscription_client_delete((string) ($_POST['client_key'] ?? ''));
+        if ($delClient) {
+            adf_tg_security('🗑️', 'Klien langganan dihapus', ['Klien' => (string) ($delClient['client_name'] ?? $delClient['client_key']), 'Oleh' => (string) (adf_admin_current_user()['username'] ?? '-')]);
+        }
         header('Location: subscription-clients.php');
         exit;
     } elseif (in_array($_POST['action'] ?? '', ['lock', 'unlock'], true)) {
         // Kunci / buka sistem klien dari sini. Klien membaca status ini saat sinkron (maks. 1 menit).
         $lockKey = (string) ($_POST['client_key'] ?? '');
-        if (adf_subscription_client_find($lockKey)) {
+        if ($lockClient = adf_subscription_client_find($lockKey)) {
             adf_subscription_client_upsert([
                 'client_key' => $lockKey,
                 'locked' => $_POST['action'] === 'lock',
                 'locked_at' => $_POST['action'] === 'lock' ? date('c') : null,
+            ]);
+            require_once __DIR__ . '/../includes/telegram.php';
+            adf_tg_security($_POST['action'] === 'lock' ? '🔒' : '🔓', $_POST['action'] === 'lock' ? 'Sistem klien DIKUNCI' : 'Sistem klien DIBUKA', [
+                'Klien' => (string) ($lockClient['client_name'] ?? $lockKey),
+                'Oleh' => (string) (adf_admin_current_user()['username'] ?? '-'),
             ]);
         }
         header('Location: subscription-clients.php');

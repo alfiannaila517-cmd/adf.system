@@ -25,6 +25,7 @@ if ($resetUserId === null) {
             if (adf_users_update_password($resetUserId, $newHash)) {
                 adf_admin_clear_reset_token();
                 adf_sec_revoke_devices((string) $resetUserId); // semua perangkat harus verifikasi email lagi
+                adf_tg_security('🔑', 'Password admin di-reset lewat email (Lupa password)', ['User' => (string) ((adf_users_find_by_id((string) $resetUserId) ?? [])['username'] ?? $resetUserId)]);
                 $saved = true;
             } else {
                 $error = 'Gagal menyimpan password baru. Periksa izin tulis folder data/.';

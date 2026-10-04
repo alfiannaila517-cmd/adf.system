@@ -85,6 +85,37 @@ function adf_tg_e(string $s): string
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/** Ringkas user-agent jadi "Chrome · Windows" supaya pesan pendek. */
+function adf_tg_device(): string
+{
+    $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+    if ($ua === '') {
+        return '-';
+    }
+    $browser = preg_match('/Edg\//', $ua) ? 'Edge' : (preg_match('/OPR\//', $ua) ? 'Opera' : (preg_match('/Chrome\//', $ua) ? 'Chrome' : (preg_match('/Firefox\//', $ua) ? 'Firefox' : (preg_match('/Safari\//', $ua) ? 'Safari' : 'Browser'))));
+    $os = preg_match('/Android/', $ua) ? 'Android' : (preg_match('/iPhone|iPad/', $ua) ? 'iOS' : (preg_match('/Windows/', $ua) ? 'Windows' : (preg_match('/Mac OS/', $ua) ? 'macOS' : (preg_match('/Linux/', $ua) ? 'Linux' : '?'))));
+    return $browser . ' · ' . $os;
+}
+
+/**
+ * Notifikasi keamanan (login, percobaan gagal, perubahan penting).
+ * $lines: [label => nilai]; IP, perangkat, dan waktu ditambahkan otomatis.
+ */
+function adf_tg_security(string $icon, string $title, array $lines = []): void
+{
+    try {
+        $msg = $icon . ' <b>' . adf_tg_e($title) . "</b>\n";
+        foreach ($lines as $label => $value) {
+            $msg .= adf_tg_e((string) $label) . ': <b>' . adf_tg_e((string) $value) . "</b>\n";
+        }
+        $msg .= '🌐 IP ' . adf_tg_e((string) ($_SERVER['REMOTE_ADDR'] ?? '-')) . ' · ' . adf_tg_e(adf_tg_device()) . "\n"
+            . '🕒 ' . date('d M Y H:i:s');
+        adf_tg_send($msg);
+    } catch (Throwable $e) {
+        error_log('adf_tg_security: ' . $e->getMessage());
+    }
+}
+
 /**
  * Kirim notifikasi untuk transaksi yang BARU berstatus completed.
  * Pembayaran lama (dicatat ulang saat sinkron/backfill, > 2 hari) tidak dikirim satu per satu.

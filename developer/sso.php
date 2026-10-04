@@ -19,6 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['ticket'])) {
     [$payload, $reason] = dev_sec_verify_ticket((string) $_POST['ticket']);
     if (!$payload) {
         $error = $reason;
+        // Tiket kedaluwarsa biasa tidak perlu alarm; tiket palsu / dipakai ulang = mencurigakan.
+        if (stripos($reason, 'kedaluwarsa') === false) {
+            dev_sec_tg('🚫', 'Tiket masuk Developer Panel ditolak', ['Alasan' => $reason]);
+        }
     } else {
         $stmt = $pdo->prepare("
             SELECT u.*, r.role_code FROM users u JOIN roles r ON u.role_id = r.id
@@ -31,8 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['ticket'])) {
             $error = 'Tidak ada akun developer aktif dengan email ' . $payload['email']
                 . '. Samakan email akun developer (User & Akses Bisnis) dengan email admin ADF Store.';
             error_log('SSO rejected: no developer for ' . $payload['email'] . ' from ' . dev_sec_ip());
+            dev_sec_tg('🚫', 'Masuk Developer Panel ditolak', ['Email' => (string) $payload['email'], 'Alasan' => 'tidak ada akun developer dengan email ini']);
         } else {
+            $wasLoggedIn = $auth->isLoggedIn() && (int) ($_SESSION['dev_user_id'] ?? 0) === (int) $devUser['id'];
             $auth->completeLogin($devUser, 'sso');
+            if (!$wasLoggedIn) dev_sec_tg('🛠️', 'Masuk Developer Panel', ['Akun' => (string) $devUser['username'], 'Lewat' => 'ADF Store (' . ($payload['user'] ?? '-') . ')']);
             $next = (string) ($payload['next'] ?? 'index.php');
             if (!preg_match('/^[a-z0-9_-]+\.php(\?[A-Za-z0-9=&_-]*)?$/', $next)) {
                 $next = 'index.php';

@@ -76,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($devUser) {
                 dev_sec_clear_fails($pendingName);
                 $auth->completeLogin($devUser);
+                dev_sec_tg('⚠️', 'Masuk Developer lewat LOGIN DARURAT', ['Akun' => (string) $devUser['username'], 'Catatan' => 'hapus adf-dev-direct-login.txt bila sudah selesai']);
                 header('Location: index.php');
                 exit;
             }
@@ -105,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Mode darurat (file adf-otp-disabled.txt dibuat lewat cPanel): tanpa kode email.
                 dev_sec_clear_fails($username);
                 $auth->completeLogin($result['user']);
+                dev_sec_tg('⚠️', 'Masuk Developer lewat LOGIN DARURAT tanpa kode email', ['Akun' => (string) $result['user']['username']]);
                 header('Location: index.php');
                 exit;
             } else {

@@ -53,6 +53,20 @@ function dev_sec_json_update(string $path, callable $fn)
  * Cadangan (mis. ADF Store sedang rusak): buat file adf-dev-direct-login.txt di folder home lewat cPanel,
  * lalu hapus lagi setelah selesai.
  */
+/** Notifikasi keamanan ke Telegram (memakai pengaturan bot di ADF Store). Tidak pernah membuat halaman gagal. */
+function dev_sec_tg(string $icon, string $title, array $lines = []): void
+{
+    try {
+        $root = adfstore_root();
+        if ($root && is_file($root . '/includes/telegram.php')) {
+            require_once $root . '/includes/telegram.php';
+            adf_tg_security($icon, $title, $lines);
+        }
+    } catch (Throwable $e) {
+        error_log('dev_sec_tg: ' . $e->getMessage());
+    }
+}
+
 function dev_sec_direct_login_enabled(): bool
 {
     return is_file(dev_sec_home() . '/adf-dev-direct-login.txt');
@@ -136,7 +150,7 @@ function dev_sec_is_locked(string $username): bool
 function dev_sec_record_fail(string $username): void
 {
     $keys = dev_sec_fail_keys($username);
-    dev_sec_json_update(dev_sec_home() . '/adf-dev-login.json', static function (array $data) use ($keys) {
+    $justLocked = dev_sec_json_update(dev_sec_home() . '/adf-dev-login.json', static function (array $data) use ($keys) {
         $since = time() - DEV_SEC_FAIL_WINDOW;
         foreach ($data as $k => $times) {
             $data[$k] = array_values(array_filter((array) $times, static fn($t) => $t >= $since));
@@ -144,11 +158,18 @@ function dev_sec_record_fail(string $username): void
                 unset($data[$k]);
             }
         }
+        $locked = false;
         foreach ($keys as $k) {
             $data[$k][] = time();
+            if (count($data[$k]) === DEV_SEC_MAX_FAILS) {
+                $locked = true;
+            }
         }
-        return [$data, null];
+        return [$data, $locked];
     });
+    if (!empty($justLocked)) {
+        dev_sec_tg('🚨', 'Login darurat Developer dikunci 15 menit', ['Akun dicoba' => $username !== '' ? $username : '-']);
+    }
 }
 
 function dev_sec_clear_fails(string $username): void

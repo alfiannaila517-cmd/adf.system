@@ -15,6 +15,7 @@ if ($email !== null) {
         adf_sec_record_fail($email);
         error_log('google login rejected for ' . $email . ' from ' . adf_sec_client_ip());
         $reason = 'Akun Google ' . $email . ' tidak terdaftar sebagai admin ADF Store.';
+        adf_tg_security('🚫', 'Login Google ditolak (akun tidak terdaftar)', ['Google' => $email]);
     } elseif (adf_sec_is_locked((string) $user['username'])) {
         $reason = 'Akun sedang dikunci karena terlalu banyak percobaan gagal. Coba lagi dalam 15 menit.';
     } else {

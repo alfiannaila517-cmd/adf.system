@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hash = password_hash($password, PASSWORD_BCRYPT);
                 if (adf_users_add($username, $email, $hash, $role)) {
                     $saved = 'User baru berhasil ditambahkan.';
+                    adf_tg_security('👤', 'User admin baru ditambahkan', ['User' => $username, 'Email' => $email, 'Role' => $role, 'Oleh' => (string) $currentUser['username']]);
                 } else {
                     $error = 'Username atau email sudah dipakai user lain.';
                 }
@@ -45,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['adf_admin']['email'] = $email;
                 }
                 $saved = 'Email berhasil diubah.';
+                adf_tg_security('✉️', 'Email user admin diubah', ['User' => (string) ((adf_users_find_by_id($id) ?? [])['username'] ?? $id), 'Email baru' => $email, 'Oleh' => (string) $currentUser['username']]);
             } else {
                 $error = 'Gagal mengubah email (mungkin sudah dipakai user lain).';
             }
@@ -59,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Password Anda salah. Password user tidak diubah.';
             } elseif (adf_users_update_password($id, password_hash($newPassword, PASSWORD_BCRYPT))) {
                 adf_sec_revoke_devices($id); // perangkat user itu wajib verifikasi email lagi
+                adf_tg_security('🔑', 'Password user admin diganti', ['User' => (string) ((adf_users_find_by_id($id) ?? [])['username'] ?? $id), 'Oleh' => (string) $currentUser['username']]);
                 $saved = 'Password berhasil diganti. Berikan password baru ke user tersebut lewat jalur yang aman.';
             } else {
                 $error = 'Gagal mengganti password.';
@@ -67,8 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id = (string) ($_POST['id'] ?? '');
             if ($id === (string) $currentUser['id']) {
                 $error = 'Tidak bisa menghapus akun yang sedang login.';
-            } elseif (adf_users_delete($id)) {
+            } elseif (($deletedUser = adf_users_find_by_id($id)) !== null && adf_users_delete($id)) {
                 $saved = 'User berhasil dihapus.';
+                adf_tg_security('🗑️', 'User admin dihapus', ['User' => (string) $deletedUser['username'], 'Oleh' => (string) $currentUser['username']]);
             } else {
                 $error = 'Gagal menghapus user (minimal harus ada 1 admin).';
             }

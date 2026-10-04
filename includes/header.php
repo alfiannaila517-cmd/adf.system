@@ -760,6 +760,13 @@ if (isset($forceTheme) && is_string($forceTheme)) {
     } catch (Throwable $e) {
         error_log('subscription header: ' . $e->getMessage());
     }
+    // Laporan Telegram developer (ringkasan 21:00 & pengingat jatuh tempo 08:00) — cadangan bila cron belum dipasang.
+    try {
+        require_once __DIR__ . '/adf_report.php';
+        adf_report_maybe_run();
+    } catch (Throwable $e) {
+        error_log('adf report header: ' . $e->getMessage());
+    }
     $adfsubCanManage = in_array($adfsubRole, ['developer', 'owner', 'admin', 'manager'], true);
     $adfsubBillingUrl = BASE_URL . '/modules/subscription/index.php';
     ?>

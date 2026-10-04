@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (adf_sec_otp_bypassed()) {
                 adf_sec_clear_fails($username);
                 adf_admin_complete_login($user);
+                adf_tg_security('⚠️', 'Login ADF Store TANPA kode (mode darurat aktif)', ['Akun' => (string) $user['username'], 'Catatan' => 'hapus adf-otp-disabled.txt bila sudah normal']);
                 header('Location: index.php');
                 exit;
             }

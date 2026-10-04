@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @unlink(adf_google_config_path());
         $cfg = null;
         $saved = true;
+        adf_tg_security('⚙️', 'Login Google DIMATIKAN', ['Oleh' => (string) (adf_admin_current_user()['username'] ?? '-')]);
     } else {
         $clientId = trim((string) ($_POST['client_id'] ?? ''));
         $clientSecret = trim((string) ($_POST['client_secret'] ?? ''));
@@ -33,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $cfg = adf_google_config();
             $saved = true;
+            adf_tg_security('⚙️', 'Pengaturan Login Google diubah', ['Oleh' => (string) (adf_admin_current_user()['username'] ?? '-')]);
         }
     }
 }

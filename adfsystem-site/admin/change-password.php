@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
             if (adf_users_update_password($user['id'], $newHash)) {
                 adf_sec_revoke_devices((string) $user['id']); // perangkat lain harus verifikasi email lagi
+                adf_tg_security('🔑', 'Password admin diganti (Ubah Password)', ['User' => (string) $user['username']]);
                 $saved = true;
             } else {
                 $error = 'Gagal menyimpan password baru. Periksa izin tulis folder data/.';
