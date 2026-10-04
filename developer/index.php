@@ -130,7 +130,10 @@ if ($section === 'user-setup') {
                 }
             } elseif ($action === 'delete_user') {
                 try {
-                    $deleteUserId = $_POST['user_id'];
+                    $deleteUserId = (int) ($_POST['user_id'] ?? 0);
+                    if ($deleteUserId <= 0 || $deleteUserId === (int) $user['id']) {
+                        throw new Exception('Tidak bisa menghapus akun yang sedang dipakai login.');
+                    }
                     
                     // Disable FK checks
                     $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
@@ -146,14 +149,19 @@ if ($section === 'user-setup') {
                     }
                     
                     // Delete references
-                    $pdo->prepare("DELETE FROM user_menu_permissions WHERE user_id = ?")->execute([$deleteUserId]);
-                    $pdo->prepare("DELETE FROM user_preferences WHERE user_id = ?")->execute([$deleteUserId]);
+                    // Hapus semua relasi user (tabel yang belum ada di-skip)
+                    foreach (['user_menu_permissions', 'user_business_assignment', 'user_preferences'] as $relTable) {
+                        try {
+                            $pdo->prepare("DELETE FROM {$relTable} WHERE user_id = ?")->execute([$deleteUserId]);
+                        } catch (Exception $e) {
+                        }
+                    }
                     $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$deleteUserId]);
                     
                     $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
                     
                     $auth->logAction('delete_user', 'users', $deleteUserId);
-                    $_SESSION['success_message'] = '✅ User deleted successfully!';
+                    $_SESSION['success_message'] = 'User berhasil dihapus.';
                     $selectedUserId = null;
                 } catch (Exception $e) {
                     $_SESSION['error_message'] = '❌ Error: ' . $e->getMessage();
@@ -718,10 +726,21 @@ require_once __DIR__ . '/includes/header.php';
                                         <a href="?section=user-setup&step=users&user_id=<?php echo $usr['id']; ?>" class="btn btn-outline-primary" title="Edit">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        <a href="?section=user-setup&step=business&user_id=<?php echo $usr['id']; ?>" class="btn btn-outline-success" title="Assign">
+                                        <a href="?section=user-setup&step=business&user_id=<?php echo $usr['id']; ?>" class="btn btn-outline-success" title="Pilih bisnis untuk user ini">
                                             <i class="bi bi-building"></i>
                                         </a>
+                                        <?php if ((int) $usr['id'] !== (int) $user['id']): ?>
+                                            <button type="submit" form="delUser<?php echo (int) $usr['id']; ?>" class="btn btn-outline-danger" title="Hapus user">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        <?php endif; ?>
                                     </div>
+                                    <form method="POST" id="delUser<?php echo (int) $usr['id']; ?>" class="d-none" onsubmit="return confirm('Hapus user <?php echo htmlspecialchars(addslashes($usr['full_name'] ?: $usr['username'])); ?>?
+
+Akses ke semua bisnis ikut dihapus. Bisnis milik user ini dipindah ke akun Anda.');">
+                                        <input type="hidden" name="action" value="delete_user">
+                                        <input type="hidden" name="user_id" value="<?php echo (int) $usr['id']; ?>">
+                                    </form>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

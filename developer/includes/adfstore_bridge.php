@@ -36,17 +36,40 @@ function adfstore_root(): ?string
     return $root;
 }
 
-/** Koneksi PDO ke DB bisnis (null kalau DB tidak bisa dibuka). */
-function adfstore_biz_pdo(string $dbName): ?PDO
+/**
+ * Koneksi PDO ke DB bisnis (null kalau DB tidak bisa dibuka).
+ * Nama DB dicari dengan cara yang sama seperti aplikasi: database di config/businesses/{slug}.php
+ * lewat getDbName() (mis. adf_benscafe → adfb2574_Adf_Bens), lalu nama di tabel businesses.
+ */
+function adfstore_biz_pdo(array $biz): ?PDO
 {
-    try {
-        return new PDO('mysql:host=' . DB_HOST . ';dbname=' . $dbName . ';charset=utf8mb4', DB_USER, DB_PASS, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-    } catch (Throwable $e) {
-        return null;
+    $candidates = [];
+    $slug = (string) ($biz['slug'] ?? '');
+    $cfgFile = dirname(__DIR__, 2) . '/config/businesses/' . $slug . '.php';
+    if ($slug !== '' && is_file($cfgFile)) {
+        $cfg = include $cfgFile;
+        if (is_array($cfg) && !empty($cfg['database'])) {
+            $candidates[] = function_exists('getDbName') ? getDbName($cfg['database']) : $cfg['database'];
+        }
     }
+    $raw = (string) ($biz['database_name'] ?? '');
+    if ($raw !== '') {
+        $candidates[] = $raw;
+        if (function_exists('getDbName')) {
+            $candidates[] = getDbName($raw);
+        }
+    }
+    foreach (array_unique($candidates) as $dbName) {
+        try {
+            return new PDO('mysql:host=' . DB_HOST . ';dbname=' . $dbName . ';charset=utf8mb4', DB_USER, DB_PASS, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+        } catch (Throwable $e) {
+            // coba kandidat berikutnya
+        }
+    }
+    return null;
 }
 
 function adfstore_biz_setting(PDO $bizPdo, string $key): string
@@ -80,7 +103,7 @@ function adfstore_status(array $biz): array
     if (!adfstore_root()) {
         return ['code' => 'no_store', 'label' => 'ADF Store tidak ditemukan'];
     }
-    $bizPdo = adfstore_biz_pdo((string) ($biz['database_name'] ?? ''));
+    $bizPdo = adfstore_biz_pdo($biz);
     if (!$bizPdo) {
         return ['code' => 'no_db', 'label' => 'DB belum siap'];
     }
@@ -129,7 +152,7 @@ function adfstore_connect(array $biz, float $fee = ADFSTORE_DEFAULT_FEE): array
     if (!adfstore_root()) {
         return [false, 'Folder adfsystem.store tidak ditemukan di hosting.'];
     }
-    $bizPdo = adfstore_biz_pdo((string) ($biz['database_name'] ?? ''));
+    $bizPdo = adfstore_biz_pdo($biz);
     if (!$bizPdo) {
         return [false, 'Database bisnis belum bisa dibuka. Selesaikan Setup dulu.'];
     }
