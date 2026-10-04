@@ -43,7 +43,7 @@ $manualInvoices = array_map(static function (array $inv): array {
         'due_date' => $inv['due_date'],
         'created_at' => $inv['created_at'],
     ];
-}, adf_manual_invoices_for_client($clientKey));
+}, adf_manual_invoices_for_client((string) $client['client_key']));
 
 http_response_code(200);
 echo json_encode(['manual_invoices' => $manualInvoices]);

@@ -495,6 +495,7 @@ function adfsub_tick(?PDO $pdo = null): array
         }
 
         $state['locked'] = $cfg['locked'];
+        $state['sync_error'] = adfsub_setting($pdo, 'subscription_last_sync_error');
         $state['unpaid'] = adfsub_unpaid_invoices($pdo);
         // Tagihan yang ditampilkan: tagihan manual selalu langsung tampil; tagihan bulanan mulai H-7 jatuh tempo.
         $state['due_soon'] = array_values(array_filter($state['unpaid'], static function ($inv) {

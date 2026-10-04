@@ -34,10 +34,26 @@ function adf_subscription_clients_save(array $clients): bool
     return file_put_contents($path, $json, LOCK_EX) !== false;
 }
 
+/** Bandingkan client key tanpa peduli huruf besar/kecil, spasi, '-' atau '_' ("Bens Cafe" = "bens-cafe"). */
+function adf_subscription_client_key_norm(string $key): string
+{
+    return (string) preg_replace('/[\s_-]+/', '', strtolower(trim($key)));
+}
+
 function adf_subscription_client_find(string $clientKey): ?array
 {
-    foreach (adf_subscription_clients_load() as $client) {
+    $clients = adf_subscription_clients_load();
+    foreach ($clients as $client) {
         if (($client['client_key'] ?? '') === $clientKey) {
+            return $client;
+        }
+    }
+    $norm = adf_subscription_client_key_norm($clientKey);
+    if ($norm === '') {
+        return null;
+    }
+    foreach ($clients as $client) {
+        if (adf_subscription_client_key_norm((string) ($client['client_key'] ?? '')) === $norm) {
             return $client;
         }
     }
