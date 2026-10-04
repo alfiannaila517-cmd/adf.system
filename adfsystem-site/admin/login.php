@@ -30,8 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Penghitung gagal baru di-reset setelah login benar-benar selesai (termasuk kode email),
             // supaya orang yang tahu password tetap tidak bisa menebak kode berulang-ulang.
-            if (adf_sec_device_is_trusted($user['id']) || adf_sec_otp_bypassed()) {
-                // Perangkat ini sudah pernah diverifikasi lewat email (≤ 30 hari), atau mode darurat aktif.
+            // Login dengan password (username ATAU email) SELALU minta kode verifikasi email,
+            // kecuali mode darurat (file adf-otp-disabled.txt di folder home) sedang aktif.
+            if (adf_sec_otp_bypassed()) {
                 adf_sec_clear_fails($username);
                 adf_admin_complete_login($user);
                 header('Location: index.php');

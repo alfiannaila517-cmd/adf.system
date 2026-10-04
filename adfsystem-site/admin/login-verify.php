@@ -43,9 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($ok) {
             adf_sec_clear_fails((string) $pendingUser['username']);
             adf_admin_complete_login($pendingUser);
-            if (!empty($_POST['remember'])) {
-                adf_sec_trust_device($pendingUser['id']);
-            }
             adf_sec_login_alert($pendingUser, 'verifikasi email');
             header('Location: index.php');
             exit;
@@ -98,7 +95,6 @@ $csrf = adf_admin_csrf_token();
                 <label>Kode Verifikasi
                     <input type="text" name="code" class="otp-input" inputmode="numeric" pattern="\d{6}" maxlength="6" required autofocus autocomplete="one-time-code">
                 </label>
-                <label class="otp-row"><input type="checkbox" name="remember" value="1"> Ingat perangkat ini 30 hari</label>
                 <button type="submit" class="btn btn-primary admin-login-btn">Verifikasi &amp; Masuk</button>
             </form>
             <form method="post" style="margin-top:10px;text-align:center;">
