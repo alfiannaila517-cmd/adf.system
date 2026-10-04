@@ -128,6 +128,7 @@ $adminInitial = strtoupper(substr((string) ($adminUser['username'] ?? 'A'), 0, 1
                     <div class="admin-nav-group-title">Pengaturan</div>
                     <?php adf_admin_nav('edit-payment.php', 'Payment Gateway', 'card'); ?>
                     <?php adf_admin_nav('users.php', 'Pengguna', 'user'); ?>
+                    <?php adf_admin_nav('google-settings.php', 'Login Google', 'lock'); ?>
 
                     <!-- Masuk Developer Panel lewat tiket sekali pakai (tanpa login ulang), buka di tab baru -->
                     <div class="admin-nav-group-title">Developer</div>
