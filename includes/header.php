@@ -523,12 +523,13 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             <h3 class="adf-confirm-title" id="adfConfirmTitle">Switch Business?</h3>
             <p class="adf-confirm-message" id="adfConfirmMessage">Current page will reload.</p>
             <div class="adf-confirm-actions">
-                <button type="button" class="adf-confirm-btn adf-confirm-cancel" id="adfConfirmCancelBtn">Batal</button>
-                <button type="button" class="adf-confirm-btn adf-confirm-ok" id="adfConfirmOkBtn">Ya, Ganti</button>
+                <button type="button" class="adf-confirm-btn adf-confirm-cancel" id="adfConfirmCancelBtn">Batal <kbd>Esc</kbd></button>
+                <button type="button" class="adf-confirm-btn adf-confirm-ok" id="adfConfirmOkBtn">Ya, Ganti <kbd>Enter ↵</kbd></button>
             </div>
         </div>
     </div>
     <style>
+        /* Popup konfirmasi bergaya kaca (glass): latar diburamkan, kartu transparan dengan tepi bercahaya. */
         .adf-confirm-overlay {
             position: fixed;
             inset: 0;
@@ -536,9 +537,10 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(15, 23, 42, 0.55);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
+            padding: 16px;
+            background: radial-gradient(circle at 50% 40%, rgba(30, 41, 59, 0.18), rgba(15, 23, 42, 0.42));
+            backdrop-filter: blur(10px) saturate(140%);
+            -webkit-backdrop-filter: blur(10px) saturate(140%);
             opacity: 0;
             visibility: hidden;
             transition: opacity 0.25s ease, visibility 0.25s ease;
@@ -550,20 +552,36 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         }
 
         .adf-confirm-box {
-            width: 90%;
-            max-width: 360px;
-            background: var(--bg-secondary);
-            border: 1px solid rgba(212, 175, 55, 0.3);
-            border-radius: 1.25rem;
-            padding: 2rem 1.75rem 1.5rem;
+            position: relative;
+            width: 100%;
+            max-width: 370px;
+            padding: 2rem 1.6rem 1.35rem;
             text-align: center;
-            box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
-            transform: translateY(16px) scale(0.96);
-            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border-radius: 24px;
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            backdrop-filter: blur(28px) saturate(170%);
+            -webkit-backdrop-filter: blur(28px) saturate(170%);
+            box-shadow: 0 30px 70px -20px rgba(2, 6, 23, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+            transform: translateY(14px) scale(0.96);
+            transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+            overflow: hidden;
+        }
+
+        /* Kilau kaca di bagian atas kartu */
+        .adf-confirm-box::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 55%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent);
+            pointer-events: none;
         }
 
         body[data-theme="light"] .adf-confirm-box {
-            box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.04);
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
+            border-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 30px 70px -20px rgba(15, 23, 42, 0.35), inset 0 1px 0 #fff, 0 0 0 1px rgba(15, 23, 42, 0.05);
         }
 
         .adf-confirm-overlay.active .adf-confirm-box {
@@ -571,33 +589,33 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         }
 
         .adf-confirm-icon {
-            width: 52px;
-            height: 52px;
+            position: relative;
+            width: 54px;
+            height: 54px;
             margin: 0 auto 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #f5d67d, #d4af37);
-            color: #1e293b;
-            box-shadow: 0 8px 20px -6px rgba(212, 175, 55, 0.55);
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(99, 102, 241, 0.9), rgba(37, 99, 235, 0.9));
+            color: #fff;
+            box-shadow: 0 12px 24px -10px rgba(37, 99, 235, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.35);
         }
 
-        /* Switch Business: tampilkan logo bisnis tujuan menggantikan ikon sinkronisasi */
-        /* Bingkai kotak membulat + object-fit: contain: logo bentuk apa pun (bulat, kotak, lebar)
-           tampil utuh dan presisi di tengah, tanpa terpotong atau sisa pinggiran putih yang miring. */
+        /* Switch Business: logo bisnis tujuan di bingkai kaca. object-fit: contain supaya logo bentuk
+           apa pun (bulat, kotak, lebar) tampil utuh dan presisi di tengah. */
         .adf-confirm-icon.adf-confirm-logo {
             box-sizing: border-box;
-            width: 72px;
-            height: 72px;
-            margin-bottom: 1rem;
-            padding: 6px;
-            border-radius: 18px;
-            background: #fff;
-            border: 1px solid rgba(15, 23, 42, 0.08);
-            box-shadow: 0 10px 24px -10px rgba(15, 23, 42, 0.35);
+            width: 78px;
+            height: 78px;
+            margin-bottom: 1.1rem;
+            padding: 7px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 16px 34px -14px rgba(2, 6, 23, 0.55), 0 0 0 6px rgba(255, 255, 255, 0.08);
             overflow: hidden;
-            animation: adfLogoPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: adfLogoPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         .adf-confirm-icon.adf-confirm-logo img {
@@ -611,7 +629,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         .adf-confirm-icon.adf-confirm-logo .adf-confirm-logo-fallback {
             font-size: 1.6rem;
             font-weight: 800;
-            color: #b8860b;
+            color: #1e3a8a;
             letter-spacing: 0.02em;
             line-height: 1;
         }
@@ -629,56 +647,105 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         }
 
         .adf-confirm-title {
+            position: relative;
             margin: 0 0 0.4rem;
-            font-size: 1.1rem;
+            font-size: 1.12rem;
             font-weight: 700;
+            letter-spacing: -0.01em;
             color: var(--text-heading);
         }
 
         .adf-confirm-message {
-            margin: 0 0 1.5rem;
+            position: relative;
+            margin: 0 0 1.4rem;
             font-size: 0.85rem;
             color: var(--text-secondary);
             line-height: 1.5;
         }
 
         .adf-confirm-actions {
+            position: relative;
             display: flex;
-            gap: 0.75rem;
+            gap: 0.65rem;
         }
 
         .adf-confirm-btn {
             flex: 1;
-            padding: 0.65rem 1rem;
-            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            padding: 0.7rem 1rem;
+            font-size: 0.86rem;
             font-weight: 600;
-            border-radius: 0.65rem;
-            border: none;
+            border-radius: 14px;
             cursor: pointer;
-            transition: transform 0.15s ease, filter 0.15s ease;
+            transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
             font-family: inherit;
         }
 
         .adf-confirm-btn:active {
-            transform: scale(0.96);
+            transform: scale(0.97);
+        }
+
+        .adf-confirm-btn kbd {
+            font-family: inherit;
+            font-size: 0.62rem;
+            font-weight: 600;
+            line-height: 1;
+            padding: 3px 6px;
+            border-radius: 6px;
+            opacity: 0.8;
         }
 
         .adf-confirm-cancel {
-            background: var(--bg-tertiary);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: var(--text-primary);
         }
 
+        .adf-confirm-cancel kbd {
+            background: rgba(148, 163, 184, 0.22);
+        }
+
+        body[data-theme="light"] .adf-confirm-cancel {
+            background: rgba(255, 255, 255, 0.7);
+            border-color: rgba(15, 23, 42, 0.1);
+        }
+
         .adf-confirm-cancel:hover {
-            filter: brightness(1.15);
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        body[data-theme="light"] .adf-confirm-cancel:hover {
+            background: #fff;
         }
 
         .adf-confirm-ok {
-            background: linear-gradient(135deg, #d4af37, #b8860b);
-            color: #1e293b;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.95), rgba(37, 99, 235, 0.95));
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #fff;
+            box-shadow: 0 12px 26px -12px rgba(37, 99, 235, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .adf-confirm-ok kbd {
+            background: rgba(255, 255, 255, 0.2);
         }
 
         .adf-confirm-ok:hover {
-            filter: brightness(1.08);
+            box-shadow: 0 16px 30px -12px rgba(37, 99, 235, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+        }
+
+        .adf-confirm-btn:focus-visible {
+            outline: 2px solid rgba(99, 102, 241, 0.7);
+            outline-offset: 2px;
+        }
+
+        /* Di HP (tanpa keyboard) petunjuk tombol disembunyikan */
+        @media (hover: none) {
+            .adf-confirm-btn kbd {
+                display: none;
+            }
         }
     </style>
     <script>
@@ -713,6 +780,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 document.getElementById('adfConfirmMessage').textContent = message || 'Are you sure?';
                 document.getElementById('adfConfirmTitle').textContent = title || 'Confirm';
                 overlay.classList.add('active');
+                setTimeout(() => okBtn.focus({ preventScroll: true }), 60);
 
                 function cleanup(result) {
                     overlay.classList.remove('active');
@@ -735,8 +803,15 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     if (e.target === overlay) cleanup(false);
                 }
 
+                // Enter = setuju (mis. langsung masuk ke bisnis pilihan), Esc = batal.
                 function onKeydown(e) {
-                    if (e.key === 'Escape') cleanup(false);
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cleanup(false);
+                    } else if (e.key === 'Enter' && !e.isComposing) {
+                        e.preventDefault();
+                        cleanup(true);
+                    }
                 }
 
                 okBtn.addEventListener('click', onOk);
