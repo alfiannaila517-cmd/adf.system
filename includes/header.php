@@ -1314,8 +1314,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 ['modules/procurement/gudang-nasita.php', 'archive', 'Stok Gudang', ['gudang-nasita.php', 'stock.php']],
                                 ['modules/procurement/gudang-produk.php', 'database', 'Daftar Barang', ['gudang-produk.php']],
                             ]],
-                            ['label' => 'Barang Masuk · dari supplier', 'items' => [
+                            ['label' => 'Barang Masuk', 'items' => [
                                 ['modules/procurement/gudang-po-supplier.php', 'shopping-cart', 'Order ke Supplier', ['gudang-po-supplier.php']],
+                                ['modules/procurement/gudang-ambil-outlet.php', 'download', 'Ambil dari Outlet', ['gudang-ambil-outlet.php']],
                                 ['modules/procurement/gudang-riwayat-masuk.php', 'log-in', 'Riwayat Barang Masuk', ['gudang-riwayat-masuk.php']],
                             ]],
                             ['label' => 'Barang Keluar · ke bisnis', 'items' => [

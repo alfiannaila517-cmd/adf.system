@@ -3193,8 +3193,16 @@ function gudangNasitaEnsureSupplyPaymentsTable($gudangDb): void
             business_cash_book_id INT NULL,
             gudang_cash_book_id INT NULL,
             paid_by INT NULL,
-            paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            payment_kind VARCHAR(20) NOT NULL DEFAULT 'bill'
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+    }
+    // 'bill' = bayar tagihan barang masuk, 'direct' = dibayar langsung saat Gudang ambil barang dari outlet.
+    try {
+        if (!$gudangDb->fetchOne("SHOW COLUMNS FROM gudang_nasita_supply_payments LIKE 'payment_kind'")) {
+            $gudangDb->getConnection()->exec("ALTER TABLE gudang_nasita_supply_payments ADD COLUMN payment_kind VARCHAR(20) NOT NULL DEFAULT 'bill'");
+        }
     } catch (Throwable $e) {
     }
 }
@@ -3218,7 +3226,7 @@ function getGudangNasitaIncomingSupplyBills(): array
             $paidMonths[gudangNormalizeBizSlug((string)$pm['business_slug']) . '|' . $pm['bill_month']] = true;
         }
         $paidTotals = [];
-        foreach ($gudangDb->fetchAll('SELECT source_business_slug, COALESCE(SUM(amount),0) AS total_paid FROM gudang_nasita_supply_payments GROUP BY source_business_slug') ?: [] as $pr) {
+        foreach ($gudangDb->fetchAll("SELECT source_business_slug, COALESCE(SUM(amount),0) AS total_paid FROM gudang_nasita_supply_payments WHERE payment_kind = 'bill' GROUP BY source_business_slug") ?: [] as $pr) {
             $s = gudangNormalizeBizSlug((string)$pr['source_business_slug']);
             $paidTotals[$s] = ($paidTotals[$s] ?? 0.0) + (float)$pr['total_paid'];
         }
@@ -3236,12 +3244,13 @@ function getGudangNasitaIncomingSupplyBills(): array
                 continue;
             }
 
+            $isDirect = strpos((string)($row['notes'] ?? ''), GUDANG_TAKE_MARK) === 0;
             $credited = 0.0;
             $month = substr((string)$row['created_at'], 0, 7);
             if ($row['stored_nilai'] > 0 && isset($paidMonths[$src . '|' . $month])) {
                 $credited = $row['stored_nilai'];
             }
-            $payable = max(0.0, $row['nilai'] - $credited);
+            $payable = $isDirect ? 0.0 : max(0.0, $row['nilai'] - $credited);
 
             if (!isset($grouped[$src])) {
                 $grouped[$src] = [
@@ -3276,8 +3285,9 @@ function getGudangNasitaIncomingSupplyBills(): array
                 'quantity'  => (float)$row['quantity'],
                 'unit'      => (string)$row['unit'],
                 'target'    => $targetName,
-                'value'     => $payable,
+                'value'     => $isDirect ? $row['nilai'] : $payable,
                 'credited'  => $credited > 0,
+                'direct'    => $isDirect,
                 'estimated' => !empty($row['is_estimated']),
             ];
             if ($row['created_at'] > $g['last_created_at']) {
@@ -3295,8 +3305,8 @@ function getGudangNasitaIncomingSupplyBills(): array
             });
             $paidLeft = $g['total_paid'];
             foreach ($g['items'] as &$it) {
-                if ($it['credited'] || $it['value'] <= 0) {
-                    $it['status'] = $it['credited'] ? 'dipotong' : 'lunas';
+                if ($it['direct'] || $it['credited'] || $it['value'] <= 0) {
+                    $it['status'] = $it['direct'] ? 'diambil' : ($it['credited'] ? 'dipotong' : 'lunas');
                     continue;
                 }
                 $covered = min($paidLeft, $it['value']);
@@ -3404,6 +3414,222 @@ function gudangNasitaPayIncomingSupplyBill(string $slug, int $userId): string
     }
 
     return 'Pembayaran Rp ' . number_format($totalAmount, 0, ',', '.') . ' ke ' . $bizName . ' berhasil — tercatat sebagai pendapatan di buku kas ' . $bizName . '.';
+}
+
+/**
+ * ============================================================
+ * GUDANG NASITA — AMBIL BARANG DARI OUTLET (langsung dibayar)
+ * Gudang mengambil barang dari stok outlet (mis. pisang dari Narayana) tanpa perlu admin outlet.
+ * Dalam satu transaksi: stok outlet berkurang (business_inter_stock_transfers, outlet → gudang),
+ * uang keluar dari rekening bank Gudang dan masuk sebagai PENDAPATAN di buku kas outlet, dan
+ * pembayaran dicatat (payment_kind = 'direct'). Setelah itu stok Gudang ditambah.
+ * Baris transfer diberi awalan catatan GUDANG_TAKE_MARK supaya tidak ditagih ulang di
+ * "Gudang membayar bisnis pengirim".
+ * ============================================================
+ */
+const GUDANG_TAKE_MARK = '[Ambil Gudang]';
+
+// Barang yang tersedia di outlet + harga saran (harga beli katalog/stok Gudang).
+function gudangOutletStockForTake(string $slug): array
+{
+    $cfg = gudangBizConfig(gudangNormalizeBizSlug($slug));
+    $stockSlug = (string)($cfg['business_id'] ?? $cfg['_config_slug']);
+    $items = getBusinessStockSummaryForStaff($stockSlug);
+
+    $prices = [];
+    try {
+        $masterPdo = gudangMasterPdo();
+        foreach ($masterPdo->query('SELECT nama_barang, harga_beli FROM gudang_nasita_barang WHERE harga_beli > 0')->fetchAll() as $r) {
+            $prices[strtolower(trim((string)$r['nama_barang']))] = (float)$r['harga_beli'];
+        }
+        foreach ($masterPdo->query('SELECT item_name, harga_beli FROM gudang_nasita_stock WHERE harga_beli > 0')->fetchAll() as $r) {
+            $prices[strtolower(trim((string)$r['item_name']))] = $prices[strtolower(trim((string)$r['item_name']))] ?? (float)$r['harga_beli'];
+        }
+    } catch (Throwable $e) {
+    }
+
+    $result = [];
+    foreach ($items as $it) {
+        if ((float)$it['current_qty'] <= 0) {
+            continue;
+        }
+        $result[] = [
+            'item_name' => (string)$it['item_name'],
+            'unit'      => (string)$it['unit'],
+            'available' => (float)$it['current_qty'],
+            'price'     => $prices[strtolower(trim((string)$it['item_name']))] ?? 0.0,
+        ];
+    }
+    return $result;
+}
+
+/**
+ * @param array $lines [['item_name' => .., 'unit' => .., 'quantity' => .., 'price' => ..], ...]
+ */
+function gudangTakeFromOutlet(string $slug, array $lines, string $notes, int $userId): string
+{
+    gudangEnsureInterTransferTable(gudangMasterPdo());
+    $slug = gudangNormalizeBizSlug($slug);
+    $tracked = array_column(gudangTrackedBizList(), 'name', 'slug');
+    if (!isset($tracked[$slug])) {
+        throw new Exception('Outlet tidak dikenali.');
+    }
+    $bizCfg = gudangBizConfig($slug);
+    $outletSlug = (string)($bizCfg['business_id'] ?? $bizCfg['_config_slug']);
+    $outletName = (string)($bizCfg['name'] ?? $tracked[$slug]);
+
+    // Validasi jumlah terhadap stok outlet saat ini.
+    $available = [];
+    foreach (gudangOutletStockForTake($slug) as $it) {
+        $available[strtolower(trim($it['item_name'])) . '||' . strtolower(trim($it['unit']))] = $it;
+    }
+    $clean = [];
+    $total = 0.0;
+    foreach ($lines as $ln) {
+        $qty = round((float)($ln['quantity'] ?? 0), 2);
+        if ($qty <= 0) {
+            continue;
+        }
+        $key = strtolower(trim((string)($ln['item_name'] ?? ''))) . '||' . strtolower(trim((string)($ln['unit'] ?? '')));
+        if (!isset($available[$key])) {
+            throw new Exception('Barang "' . ($ln['item_name'] ?? '') . '" tidak ada di stok ' . $outletName . '.');
+        }
+        $stock = $available[$key];
+        if ($qty > $stock['available'] + 0.0001) {
+            throw new Exception('Stok ' . $stock['item_name'] . ' di ' . $outletName . ' hanya ' . rtrim(rtrim(number_format($stock['available'], 2, '.', ''), '0'), '.') . ' ' . $stock['unit'] . '.');
+        }
+        $price = max(0.0, round((float)($ln['price'] ?? 0), 2));
+        if ($price <= 0) {
+            throw new Exception('Harga ' . $stock['item_name'] . ' belum diisi.');
+        }
+        $subtotal = round($qty * $price, 2);
+        $total += $subtotal;
+        $clean[] = ['item_name' => $stock['item_name'], 'unit' => $stock['unit'], 'quantity' => $qty, 'price' => $price, 'subtotal' => $subtotal];
+    }
+    if (!$clean) {
+        throw new Exception('Isi jumlah barang yang diambil.');
+    }
+
+    $bizNumericId = getNumericBusinessId($slug) ?: getNumericBusinessId($bizCfg['_config_slug']);
+    $gudangNumericId = getNumericBusinessId('gudang-nasita');
+    if (!$bizNumericId || !$gudangNumericId) {
+        throw new Exception('ID bisnis tidak ditemukan di master.');
+    }
+
+    $masterPdo = gudangMasterPdo();
+    $lockName = 'gdn_supply_pay';
+    if ((int)$masterPdo->query("SELECT GET_LOCK('{$lockName}', 15)")->fetchColumn() !== 1) {
+        throw new Exception('Transaksi lain sedang diproses, coba lagi sebentar.');
+    }
+    [, $originDb, $gudangDbName] = gudangTagihanGetGudangDb();
+    $stockWarnings = [];
+    try {
+        $bizBankId = gudangMoneyBankAccount($masterPdo, (int)$bizNumericId, $outletName);
+        $gudangBankId = gudangMoneyBankAccount($masterPdo, (int)$gudangNumericId, 'Gudang Nasita');
+        $bizDbReal = gudangMoneyPrepareDb((string)$bizCfg['database']);
+        $gudangDbReal = gudangMoneyPrepareDb($gudangDbName ?: MASTER_DB_NAME);
+        Database::switchDatabase($gudangDbName ?: MASTER_DB_NAME);
+        gudangNasitaEnsureSupplyPaymentsTable(Database::getInstance());
+
+        $itemText = implode(', ', array_map(function ($c) {
+            return $c['item_name'] . ' ' . rtrim(rtrim(number_format($c['quantity'], 2, '.', ''), '0'), '.') . ' ' . $c['unit'] . ' @Rp ' . number_format($c['price'], 0, ',', '.');
+        }, $clean));
+        $expenseDesc = 'Ambil barang dari ' . $outletName . ': ' . $itemText;
+        $incomeDesc  = 'Pembayaran Gudang Nasita (barang diambil Gudang): ' . $itemText;
+        $noteText = GUDANG_TAKE_MARK . ' Diambil Gudang' . ($notes !== '' ? ' — ' . $notes : '');
+
+        $masterPdo->beginTransaction();
+        try {
+            // Nomor transfer BST-YYYYMM-NNNN, satu nomor per baris barang (kolom transfer_number UNIQUE).
+            $prefix = 'BST-' . date('Ym') . '-';
+            $last = $masterPdo->prepare('SELECT transfer_number FROM business_inter_stock_transfers WHERE transfer_number LIKE ? ORDER BY transfer_number DESC LIMIT 1 FOR UPDATE');
+            $last->execute([$prefix . '%']);
+            $next = (int)substr((string)$last->fetchColumn(), -4) + 1;
+
+            $ins = $masterPdo->prepare(
+                'INSERT INTO business_inter_stock_transfers
+                    (transfer_number, source_business_slug, source_business_name, target_business_slug, target_business_name,
+                     item_name, unit, quantity, unit_price, subtotal, notes, created_by)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            $numbers = [];
+            foreach ($clean as $c) {
+                $number = $prefix . str_pad((string)$next++, 4, '0', STR_PAD_LEFT);
+                $numbers[] = $number;
+                $ins->execute([$number, $outletSlug, $outletName, 'gudang-nasita', 'Gudang Nasita', $c['item_name'], $c['unit'], $c['quantity'], $c['price'], $c['subtotal'], $noteText, $userId ?: null]);
+            }
+
+            $gudangCashBookId = gudangMoneyCashEntry($masterPdo, $gudangDbReal, 'expense', 'Bayar Barang Masuk Bisnis', $total, $expenseDesc, $gudangBankId, $userId, 'gudang_supply_payment');
+            $bizCashBookId = gudangMoneyCashEntry($masterPdo, $bizDbReal, 'income', 'Uang Masuk dari Gudang Nasita', $total, $incomeDesc, $bizBankId, $userId, 'gudang_supply_income');
+            gudangMoneyLedgerMove($masterPdo, $gudangBankId, $bizBankId, $total, $expenseDesc, $incomeDesc);
+            $masterPdo->prepare(
+                "INSERT INTO `{$gudangDbReal}`.gudang_nasita_supply_payments
+                    (source_business_slug, source_business_name, amount, business_cash_book_id, gudang_cash_book_id, paid_by, payment_kind)
+                 VALUES (?, ?, ?, ?, ?, ?, 'direct')"
+            )->execute([$slug, $outletName, $total, $bizCashBookId, $gudangCashBookId, $userId ?: null]);
+            $masterPdo->commit();
+        } catch (Throwable $e) {
+            if ($masterPdo->inTransaction()) {
+                $masterPdo->rollBack();
+            }
+            throw $e;
+        }
+
+        // Stok Gudang bertambah (kategori barang yang sudah ada dipertahankan).
+        $gudangDb = Database::switchDatabase($gudangDbName ?: MASTER_DB_NAME);
+        foreach ($clean as $i => $c) {
+            $existing = $gudangDb->fetchOne('SELECT category FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1', [$c['item_name']]);
+            $res = addGudangNasitaManualStock($c['item_name'], $c['unit'], $c['quantity'], $userId, [
+                'notes'    => 'Diambil Gudang dari ' . $outletName . ' — ' . $numbers[$i],
+                'category' => !empty($existing['category']) ? (string)$existing['category'] : 'lainnya',
+            ]);
+            if (empty($res['success'])) {
+                $stockWarnings[] = $c['item_name'] . ': ' . ($res['message'] ?? 'gagal');
+            }
+        }
+    } finally {
+        try {
+            $masterPdo->query("SELECT RELEASE_LOCK('{$lockName}')");
+        } catch (Throwable $e) {
+        }
+        if ($originDb) {
+            Database::switchDatabase($originDb);
+        }
+    }
+
+    $msg = 'Berhasil ambil ' . count($clean) . ' barang dari ' . $outletName . '. Rp ' . number_format($total, 0, ',', '.')
+        . ' sudah dibayar ke rekening ' . $outletName . ' dan tercatat sebagai pendapatan outlet.';
+    if ($stockWarnings) {
+        $msg .= ' PERHATIAN: stok Gudang belum bertambah untuk ' . implode('; ', $stockWarnings) . ' — tambahkan manual di Stok Gudang.';
+    }
+    return $msg;
+}
+
+// Tabel transfer antar bisnis (master DB) beserta kolom harga & catatan — dibuat bila belum ada.
+function gudangEnsureInterTransferTable(PDO $masterPdo): void
+{
+    $masterPdo->exec("CREATE TABLE IF NOT EXISTS business_inter_stock_transfers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        transfer_number VARCHAR(60) NOT NULL UNIQUE,
+        source_business_slug VARCHAR(60) NOT NULL,
+        source_business_name VARCHAR(255) NULL,
+        target_business_slug VARCHAR(60) NOT NULL,
+        target_business_name VARCHAR(255) NULL,
+        item_name VARCHAR(255) NOT NULL,
+        unit VARCHAR(50) NOT NULL,
+        quantity DECIMAL(15,2) NOT NULL DEFAULT 0,
+        notes TEXT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_source_item (source_business_slug, item_name, unit),
+        INDEX idx_target_item (target_business_slug, item_name, unit)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $cols = array_column($masterPdo->query('SHOW COLUMNS FROM business_inter_stock_transfers')->fetchAll(PDO::FETCH_ASSOC), 'Field');
+    foreach (['unit_price' => 'DECIMAL(15,2) NULL', 'subtotal' => 'DECIMAL(15,2) NULL', 'notes' => 'TEXT NULL', 'created_by' => 'INT NULL'] as $col => $def) {
+        if (!in_array($col, $cols, true)) {
+            $masterPdo->exec("ALTER TABLE business_inter_stock_transfers ADD COLUMN `{$col}` {$def}");
+        }
+    }
 }
 
 /**

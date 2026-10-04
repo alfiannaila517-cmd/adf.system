@@ -615,6 +615,7 @@ $selectedMonthLabel = date('F Y', strtotime($monthStart));
                         'sebagian' => ['#fef3c7', '#92400e', 'Sebagian'],
                         'belum'    => ['#fee2e2', '#991b1b', 'Belum dibayar'],
                         'dipotong' => ['#e0e7ff', '#3730a3', 'Dipotong tagihan'],
+                        'diambil'  => ['#dbeafe', '#1e40af', 'Diambil Gudang · lunas'],
                     ];
                     foreach ($incomingSupplyBills as $sup):
                         $supKey = preg_replace('/[^a-z0-9-]/', '', $sup['slug']);
