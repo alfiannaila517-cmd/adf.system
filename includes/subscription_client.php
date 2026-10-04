@@ -169,6 +169,14 @@ function adfsub_post_adf(array $cfg, string $endpoint, array $payload, int $time
         curl_close($ch);
         if ($response === false || $httpCode < 200 || $httpCode >= 300) {
             error_log("adfsub_post_adf {$endpoint} failed: http={$httpCode} resp=" . substr((string) $response, 0, 200));
+            // Alasan gagal yang mudah dipahami, ditampilkan di halaman Tagihan Langganan.
+            if ($response === false) {
+                $GLOBALS['adfsub_last_fail'] = 'tidak bisa terhubung ke adfsystem.store';
+            } elseif ($httpCode === 403) {
+                $GLOBALS['adfsub_last_fail'] = 'Client Key / Client Token tidak cocok dengan adfsystem.store';
+            } else {
+                $GLOBALS['adfsub_last_fail'] = 'adfsystem.store membalas HTTP ' . $httpCode;
+            }
             return null;
         }
         $data = json_decode((string) $response, true);
@@ -195,7 +203,8 @@ function adfsub_sync(PDO $pdo, bool $force = false): bool
 
     $data = adfsub_post_adf($cfg, 'subscription-config.php', []);
     if (!$data || !array_key_exists('base_fee', $data)) {
-        adfsub_set_setting($pdo, 'subscription_last_sync_error', 'Gagal sinkron dengan ADF System (' . date('d/m H:i') . ')');
+        $reason = $GLOBALS['adfsub_last_fail'] ?? '';
+        adfsub_set_setting($pdo, 'subscription_last_sync_error', 'Gagal sinkron dengan ADF System' . ($reason !== '' ? ': ' . $reason : '') . ' (' . date('d/m H:i') . ')');
         return false;
     }
 
