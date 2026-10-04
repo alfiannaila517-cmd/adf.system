@@ -401,577 +401,221 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <style>
-    /* Kartu pengaturan (hanya untuk halaman ini, tidak menimpa gaya global) */
-    .settings-card { background: #fff; border: 1px solid var(--dev-border); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
-    .settings-card-header { padding: 10px 14px; border-bottom: 1px solid var(--dev-border); display: flex; align-items: center; gap: 10px; }
-    .settings-card-header .icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-size: 14px; flex-shrink: 0; }
-    .settings-card-header h5 { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.3; }
-    .settings-card-header small { color: var(--dev-muted); font-size: 11.5px; font-weight: 400; }
-    .settings-card-body { padding: 14px; }
-    .settings-card-body .form-text { font-size: 11px; }
-    .preview-box { background: var(--dev-light); border: 1px solid var(--dev-border); border-radius: 8px; padding: 10px; text-align: center; margin-bottom: 10px; }
-    .preview-box img { max-width: 80px; max-height: 80px; border-radius: 6px; }
-    .current-value { background: var(--dev-light); border-left: 3px solid var(--dev-primary); padding: 8px 10px; border-radius: 0 8px 8px 0; margin-top: 10px; }
-    .current-value small { color: var(--dev-muted); font-size: 11px; }
-    .current-value strong { display: block; color: var(--dev-dark); margin-top: 2px; font-size: 12.5px; }
+    /* Pengaturan & Branding — tata letak ringkas (hanya untuk halaman ini) */
+    .ds-section { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--dev-muted); margin: 18px 0 8px; }
+    .ds-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .ds-grid-5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+    .ds-card { background: #fff; border: 1px solid var(--dev-border); border-radius: 10px; padding: 12px 14px; }
+    .ds-card h6 { margin: 0; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .ds-card h6 i { color: var(--dev-primary); font-size: 13px; }
+    .ds-card .hint { font-size: 11px; color: var(--dev-muted); margin: 2px 0 8px; }
+    .ds-inline { display: flex; gap: 6px; }
+    .ds-inline .form-control { height: 30px; padding: 4px 9px; font-size: 12px; }
+    .ds-inline .btn { white-space: nowrap; }
+    .ds-two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+    .ds-two label { font-size: 11px; color: var(--dev-muted); margin-bottom: 2px; display: block; }
+    .ds-two .form-control { height: 30px; padding: 4px 9px; font-size: 12px; }
+    .ds-preview-line { margin-top: 8px; font-size: 11px; color: var(--dev-muted); }
+
+    /* Kartu gambar/ikon */
+    .ds-asset { display: flex; flex-direction: column; }
+    .ds-thumb { height: 64px; border-radius: 8px; background: var(--dev-light); border: 1px solid var(--dev-border); display: grid; place-items: center; overflow: hidden; margin-bottom: 8px; }
+    .ds-thumb img { max-height: 52px; max-width: 80%; object-fit: contain; }
+    .ds-thumb img.cover { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
+    .ds-thumb .ph { font-size: 20px; color: #b6bcc9; }
+    .ds-asset .ds-actions { display: flex; gap: 6px; margin-top: auto; }
+    .ds-asset input[type="file"] { font-size: 11px; padding: 3px 6px; height: 28px; }
+    .ds-asset .btn { padding: 3px 9px; font-size: 11.5px; }
+    .ds-del { font-size: 11px; color: var(--dev-danger); background: none; border: 0; padding: 0; margin-top: 6px; }
+
+    /* Background Staff Portal per bisnis */
+    .ds-biz { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f0f1f5; }
+    .ds-biz:last-of-type { border-bottom: 0; }
+    .ds-biz .t { width: 44px; height: 30px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: var(--dev-light); border: 1px solid var(--dev-border); display: grid; place-items: center; color: #b6bcc9; }
+    .ds-biz .t img { width: 100%; height: 100%; object-fit: cover; }
+    .ds-biz .n { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; }
+    .ds-biz .n small { display: block; font-weight: 400; font-size: 10.5px; color: var(--dev-muted); }
+    .ds-biz form { display: flex; gap: 6px; align-items: center; margin: 0; }
+    .ds-biz input[type="file"] { font-size: 11px; padding: 3px 6px; height: 28px; width: 210px; }
+    .ds-biz .btn { padding: 3px 9px; font-size: 11.5px; }
+
+    @media (max-width: 1200px) { .ds-grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 768px) { .ds-grid, .ds-grid-5 { grid-template-columns: 1fr 1fr; } .ds-biz { flex-wrap: wrap; } .ds-biz input[type="file"] { width: 100%; } }
 </style>
 
 <div class="container-fluid py-4">
-    <div>
-        <!-- Page Header -->
-        <div class="page-head">
-            <p>Nama &amp; logo developer, background login, ikon aplikasi, WhatsApp, dan teks footer.</p>
-            <a href="settings.php" class="btn btn-outline-secondary btn-sm" title="Editor semua setting sistem (key/value)">
-                <i class="bi bi-gear me-1"></i>Pengaturan Lanjutan
-            </a>
+    <div class="page-head">
+        <p>Identitas developer, gambar login, ikon aplikasi, dan teks footer. Perubahan langsung dipakai di semua bisnis.</p>
+        <div class="actions">
+            <a href="settings.php" class="btn btn-outline-secondary btn-sm" title="Editor semua setting sistem (key/value)"><i class="bi bi-gear me-1"></i>Pengaturan Lanjutan</a>
         </div>
-
-        <?php if ($error): ?>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle me-2"></i><?php echo htmlspecialchars($error); ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($success): ?>
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle me-2"></i><?php echo htmlspecialchars($success); ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
-        <!-- Warning Notice -->
-        <div class="alert alert-warning mb-4" style="border-left: 4px solid #f59e0b;">
-            <div class="d-flex align-items-start">
-                <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i>
-                <div>
-                    <strong>Perhatian:</strong> Beberapa perubahan akan mengupdate file <code>config/config.php</code>.
-                    Pastikan file memiliki permission writable pada hosting.
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <!-- Column 1: Developer Name & Logo -->
-            <div class="col-lg-6">
-
-                <!-- Developer Name -->
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <div class="icon" style="background: rgba(111,66,193,0.15); color: var(--dev-primary);">
-                            <i class="bi bi-person-badge"></i>
-                        </div>
-                        <div>
-                            <h5>Nama Developer</h5>
-                            <small>Tampil di footer sidebar</small>
-                        </div>
-                    </div>
-                    <div class="settings-card-body">
-                        <form method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Nama Developer</label>
-                                <input type="text" name="developer_name" class="form-control"
-                                    value="<?php echo htmlspecialchars($currentDevName); ?>"
-                                    required maxlength="50" placeholder="DevTeam Studio">
-                                <div class="form-text">Maksimal 50 karakter</div>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-check-lg me-1"></i>Simpan Nama
-                            </button>
-                        </form>
-                        <div class="current-value">
-                            <small>Nama saat ini:</small>
-                            <strong><?php echo htmlspecialchars($currentDevName); ?></strong>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Developer Logo -->
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <div class="icon" style="background: rgba(239,68,68,0.15); color: var(--dev-danger);">
-                            <i class="bi bi-image"></i>
-                        </div>
-                        <div>
-                            <h5>Logo Developer</h5>
-                            <small>Ukuran rekomendasi 100x100px</small>
-                        </div>
-                    </div>
-                    <div class="settings-card-body">
-                        <div class="preview-box mb-3">
-                            <?php
-                            $logoFullPath = BASE_PATH . '/' . $currentDevLogo;
-                            if (file_exists($logoFullPath)):
-                            ?>
-                                <img src="<?php echo BASE_URL . '/' . $currentDevLogo; ?>?v=<?php echo filemtime($logoFullPath); ?>" alt="Developer Logo">
-                            <?php else: ?>
-                                <div style="width:80px;height:80px;background:var(--dev-primary);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:white;font-size:1.5rem;font-weight:700;">&lt;/&gt;</div>
-                            <?php endif; ?>
-                        </div>
-                        <form method="POST" enctype="multipart/form-data">
-                            <div class="mb-3">
-                                <label class="form-label">Upload Logo Baru</label>
-                                <input type="file" name="developer_logo" class="form-control" accept="image/*" required>
-                                <div class="form-text">Format: JPG, PNG, SVG, GIF • Maksimal 1MB</div>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-upload me-1"></i>Upload Logo
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Column 2: Login Background & WhatsApp -->
-            <div class="col-lg-6">
-
-                <!-- Login Background -->
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <div class="icon" style="background: rgba(16,185,129,0.15); color: var(--dev-success);">
-                            <i class="bi bi-card-image"></i>
-                        </div>
-                        <div>
-                            <h5>Background Login</h5>
-                            <small>Custom background halaman login</small>
-                        </div>
-                    </div>
-                    <div class="settings-card-body">
-                        <?php
-                        $loginBgUrl = null;
-                        if ($currentLoginBg) {
-                            $cl = CloudinaryHelper::getInstance();
-                            $loginBgUrl = $cl->getDisplayUrl($currentLoginBg, 'uploads/backgrounds/');
-                        }
-                        ?>
-                        <?php if ($loginBgUrl): ?>
-                            <div class="preview-box mb-3" style="padding:0;overflow:hidden;border:0;">
-                                <img src="<?php echo $loginBgUrl; ?>?v=<?php echo time(); ?>"
-                                    alt="Login Background" style="width:100%;height:150px;object-fit:cover;border-radius:10px;">
-                            </div>
-                        <?php else: ?>
-                            <div class="preview-box mb-3">
-                                <i class="bi bi-image text-muted" style="font-size:2rem;"></i>
-                                <div class="text-muted mt-2" style="font-size:0.85rem;">Belum ada background</div>
-                            </div>
-                        <?php endif; ?>
-                        <form method="POST" enctype="multipart/form-data">
-                            <div class="mb-3">
-                                <label class="form-label">Upload Background</label>
-                                <input type="file" name="login_background" class="form-control" accept="image/*" required>
-                                <div class="form-text">Format: JPG, PNG • Maksimal 2MB • Rekomendasi: 1920x1080px</div>
-                            </div>
-                            <button type="submit" class="btn btn-success w-100">
-                                <i class="bi bi-upload me-1"></i>Upload Background
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Login Background per Bisnis (Staff Portal) -->
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <div class="icon" style="background: rgba(13,31,60,0.15); color: var(--dev-primary, #0d1f3c);">
-                            <i class="bi bi-images"></i>
-                        </div>
-                        <div>
-                            <h5>Background Login Staff Portal (Per Bisnis)</h5>
-                            <small>Background berbeda untuk tiap bisnis di halaman login Staff Portal</small>
-                        </div>
-                    </div>
-                    <div class="settings-card-body">
-                        <?php if (!$staffBusinesses): ?>
-                            <div class="text-muted" style="font-size:0.85rem;">Belum ada bisnis terdaftar di <code>config/businesses/</code>.</div>
-                        <?php else: ?>
-                            <?php foreach ($staffBusinesses as $bizId => $bizName): ?>
-                                <?php
-                                $bizBgStored = $staffLoginBgSettings[$bizId] ?? null;
-                                $bizBgUrl = null;
-                                if ($bizBgStored) {
-                                    $cl = CloudinaryHelper::getInstance();
-                                    $bizBgUrl = $cl->getDisplayUrl($bizBgStored, 'uploads/backgrounds/');
-                                }
-                                ?>
-                                <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06);">
-                                    <div style="width:64px;height:44px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--dev-primary,#0d1f3c);display:flex;align-items:center;justify-content:center;">
-                                        <?php if ($bizBgUrl): ?>
-                                            <img src="<?php echo htmlspecialchars($bizBgUrl); ?>&v=<?php echo time(); ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
-                                        <?php else: ?>
-                                            <i class="bi bi-image text-white-50"></i>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div style="flex:1;min-width:0;">
-                                        <div style="font-size:12.5px;font-weight:600;" class="text-truncate"><?php echo htmlspecialchars($bizName); ?></div>
-                                        <div style="font-size:10.5px;color:var(--dev-muted,#94a3b8);"><?php echo $bizBgUrl ? 'Custom background aktif' : 'Pakai gradient default'; ?></div>
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#staffBg_<?php echo htmlspecialchars($bizId); ?>">
-                                        <i class="bi bi-upload"></i>
-                                    </button>
-                                    <?php if ($bizBgUrl): ?>
-                                        <form method="POST" onsubmit="return confirm('Hapus background staff portal untuk <?php echo htmlspecialchars(addslashes($bizName)); ?>?');" style="margin:0;">
-                                            <input type="hidden" name="delete_staff_login_bg" value="<?php echo htmlspecialchars($bizId); ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="collapse" id="staffBg_<?php echo htmlspecialchars($bizId); ?>">
-                                    <form method="POST" enctype="multipart/form-data" style="padding:10px 0 4px;">
-                                        <input type="hidden" name="staff_biz_id" value="<?php echo htmlspecialchars($bizId); ?>">
-                                        <div class="mb-2">
-                                            <input type="file" name="staff_login_bg" class="form-control form-control-sm" accept="image/*" required>
-                                            <div class="form-text">JPG/PNG/WEBP • Maksimal 3MB • Rekomendasi: 1080x1920px (potrait/mobile)</div>
-                                        </div>
-                                        <button type="submit" class="btn btn-sm btn-primary w-100">
-                                            <i class="bi bi-upload me-1"></i>Upload untuk <?php echo htmlspecialchars($bizName); ?>
-                                        </button>
-                                    </form>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-
-                <!-- Login Logo -->
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <div class="icon" style="background: rgba(59,130,246,0.15); color: #3b82f6;">
-                            <i class="bi bi-building"></i>
-                        </div>
-                        <div>
-                            <h5>Logo Login Page</h5>
-                            <small>Logo tampil di halaman login (mengganti emoji)</small>
-                        </div>
-                    </div>
-                    <div class="settings-card-body">
-                        <?php
-                        $loginLogoUrl = null;
-                        if ($currentLoginLogo) {
-                            $cl = CloudinaryHelper::getInstance();
-                            $loginLogoUrl = $cl->getDisplayUrl($currentLoginLogo, 'uploads/logos/');
-                        }
-                        ?>
-                        <?php if ($loginLogoUrl): ?>
-                            <div class="preview-box mb-3">
-                                <img src="<?php echo $loginLogoUrl; ?>?v=<?php echo time(); ?>"
-                                    alt="Login Logo" style="max-width:100px;max-height:100px;border-radius:8px;">
-                                <div class="mt-2">
-                                    <form method="POST" style="display:inline;">
-                                        <input type="hidden" name="delete_login_logo" value="1">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash me-1"></i>Hapus Logo
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        <?php else: ?>
-                            <div class="preview-box mb-3">
-                                <div style="width:80px;height:80px;background:#e5e7eb;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:2.5rem;">🏢</div>
-                                <div class="text-muted mt-2" style="font-size:0.85rem;">Default: Emoji icon</div>
-                            </div>
-                        <?php endif; ?>
-                        <form method="POST" enctype="multipart/form-data">
-                            <div class="mb-3">
-                                <label class="form-label">Upload Logo</label>
-                                <input type="file" name="login_logo" class="form-control" accept="image/*" required>
-                                <div class="form-text">Format: JPG, PNG, SVG • Maksimal 1MB • Rekomendasi: 100x100px</div>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-upload me-1"></i>Upload Logo
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Favicon Browser -->
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <div class="icon" style="background: rgba(245,158,11,0.15); color: #f59e0b;">
-                            <i class="bi bi-window"></i>
-                        </div>
-                        <div>
-                            <h5>Favicon Browser</h5>
-                            <small>Icon di tab browser (favicon)</small>
-                        </div>
-                    </div>
-                    <div class="settings-card-body">
-                        <?php
-                        $faviconUrl = null;
-                        if ($currentFavicon) {
-                            $cl = CloudinaryHelper::getInstance();
-                            $faviconUrl = $cl->getDisplayUrl($currentFavicon, 'uploads/icons/');
-                        }
-                        ?>
-                        <?php if ($faviconUrl): ?>
-                            <div class="preview-box mb-3">
-                                <img src="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>"
-                                    alt="Favicon" style="width:48px;height:48px;border-radius:4px;">
-                                <div class="mt-2" style="font-size:0.75rem;color:#888;">
-                                    Preview di tab:
-                                    <span style="display:inline-flex;align-items:center;background:#f1f5f9;padding:4px 10px;border-radius:6px;margin-left:5px;">
-                                        <img src="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>" style="width:16px;height:16px;margin-right:6px;">
-                                        <span style="font-size:0.7rem;color:#333;">ADF System</span>
-                                    </span>
-                                </div>
-                                <div class="mt-2">
-                                    <form method="POST" style="display:inline;">
-                                        <input type="hidden" name="delete_favicon" value="1">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash me-1"></i>Hapus Favicon
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        <?php else: ?>
-                            <div class="preview-box mb-3">
-                                <div style="width:48px;height:48px;background:#e5e7eb;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;">
-                                    <i class="bi bi-globe text-muted" style="font-size:1.5rem;"></i>
-                                </div>
-                                <div class="text-muted mt-2" style="font-size:0.85rem;">Belum ada favicon custom</div>
-                            </div>
-                        <?php endif; ?>
-                        <form method="POST" enctype="multipart/form-data">
-                            <div class="mb-3">
-                                <label class="form-label">Upload Favicon</label>
-                                <input type="file" name="site_favicon" class="form-control" accept=".ico,.png,.svg,image/x-icon,image/png,image/svg+xml" required>
-                                <div class="form-text">Format: ICO, PNG, SVG • Maksimal 500KB • Rekomendasi: 32x32px atau 64x64px</div>
-                            </div>
-                            <button type="submit" class="btn btn-warning w-100">
-                                <i class="bi bi-upload me-1"></i>Upload Favicon
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- PWA App Icon -->
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <div class="icon" style="background: rgba(99,102,241,0.15); color: #6366f1;">
-                            <i class="bi bi-phone"></i>
-                        </div>
-                        <div>
-                            <h5>App Icon (PWA)</h5>
-                            <small>Icon untuk install app di Android/iOS</small>
-                        </div>
-                    </div>
-                    <div class="settings-card-body">
-                        <?php if ($currentPwaIcon): ?>
-                            <?php
-                            $cl = CloudinaryHelper::getInstance();
-                            $pwaIconUrl = $cl->getDisplayUrl($currentPwaIcon, 'uploads/icons/');
-                            ?>
-                            <div class="preview-box mb-3">
-                                <img src="<?php echo $pwaIconUrl; ?>?v=<?php echo time(); ?>"
-                                    alt="PWA Icon" style="width:96px;height:96px;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.15);">
-                                <div class="mt-2" style="font-size:0.75rem;color:#888;">
-                                    Preview di home screen:
-                                    <div style="display:inline-flex;flex-direction:column;align-items:center;background:#f1f5f9;padding:8px 14px;border-radius:10px;margin-left:5px;margin-top:5px;">
-                                        <img src="<?php echo $pwaIconUrl; ?>?v=<?php echo time(); ?>" style="width:48px;height:48px;border-radius:10px;margin-bottom:4px;">
-                                        <span style="font-size:0.6rem;color:#333;">Staff Portal</span>
-                                    </div>
-                                </div>
-                                <div class="mt-2">
-                                    <form method="POST" style="display:inline;">
-                                        <input type="hidden" name="delete_pwa_icon" value="1">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash me-1"></i>Hapus Icon (kembali default)
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        <?php else: ?>
-                            <div class="preview-box mb-3">
-                                <img src="../modules/payroll/absen-icon.php?size=192"
-                                    alt="Default Icon" style="width:96px;height:96px;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.15);opacity:.5;">
-                                <div class="text-muted mt-2" style="font-size:0.85rem;">Menggunakan icon default (auto-generated)</div>
-                            </div>
-                        <?php endif; ?>
-                        <form method="POST" enctype="multipart/form-data">
-                            <div class="mb-3">
-                                <label class="form-label">Upload App Icon</label>
-                                <input type="file" name="pwa_app_icon" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
-                                <div class="form-text">Format: PNG atau JPG &bull; Maksimal 2MB &bull; Rekomendasi: <strong>512x512px</strong> (persegi)</div>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-upload me-1"></i>Upload App Icon
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- WhatsApp Developer -->
-                <div class="settings-card">
-                    <div class="settings-card-header">
-                        <div class="icon" style="background: rgba(37,211,102,0.15); color: #25D366;">
-                            <i class="bi bi-whatsapp"></i>
-                        </div>
-                        <div>
-                            <h5>WhatsApp Developer</h5>
-                            <small>Notifikasi trial expired</small>
-                        </div>
-                    </div>
-                    <div class="settings-card-body">
-                        <form method="POST">
-                            <div class="mb-3">
-                                <label class="form-label">Nomor WhatsApp</label>
-                                <input type="text" name="whatsapp_number" class="form-control"
-                                    value="<?php echo htmlspecialchars($currentWA); ?>"
-                                    placeholder="628123456789" required>
-                                <div class="form-text">Format: 628xxx (tanpa +, tanpa spasi)</div>
-                            </div>
-                            <button type="submit" class="btn btn-success w-100">
-                                <i class="bi bi-check-lg me-1"></i>Simpan WhatsApp
-                            </button>
-                        </form>
-                        <div class="current-value">
-                            <small>Nomor saat ini:</small>
-                            <strong><?php echo $currentWA ? htmlspecialchars($currentWA) : '-'; ?></strong>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Footer Text - Full Width -->
-        <div class="settings-card">
-            <div class="settings-card-header">
-                <div class="icon" style="background: rgba(139,92,246,0.15); color: #8b5cf6;">
-                    <i class="bi bi-card-text"></i>
-                </div>
-                <div>
-                    <h5>Teks Footer</h5>
-                    <small>Edit copyright dan versi di footer halaman sistem</small>
-                </div>
-            </div>
-            <div class="settings-card-body">
-                <form method="POST">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Copyright Text</label>
-                            <input type="text" name="footer_copyright" class="form-control"
-                                value="<?php echo htmlspecialchars($currentFooterCopyright ?: '© ' . APP_YEAR . ' ' . APP_NAME . '. All rights reserved.'); ?>"
-                                placeholder="© 2026 ADF System. All rights reserved." maxlength="100">
-                            <div class="form-text">Teks copyright di footer. Kosongkan untuk default.</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Version Text</label>
-                            <input type="text" name="footer_version" class="form-control"
-                                value="<?php echo htmlspecialchars($currentFooterVersion ?: 'Version ' . APP_VERSION); ?>"
-                                placeholder="Version 1.0.0" maxlength="50">
-                            <div class="form-text">Teks versi aplikasi. Kosongkan untuk default.</div>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-1"></i>Simpan Footer Text
-                    </button>
-                </form>
-
-                <!-- Preview -->
-                <div class="mt-4 pt-3 border-top">
-                    <small class="text-muted d-block mb-2"><i class="bi bi-eye me-1"></i>Preview Footer:</small>
-                    <div class="text-center p-3 rounded" style="background:#f8f9fa;">
-                        <div class="text-muted" style="font-size:0.875rem;">
-                            <?php echo htmlspecialchars($currentFooterCopyright ?: '© ' . APP_YEAR . ' ' . APP_NAME . '. All rights reserved.'); ?>
-                        </div>
-                        <div class="text-muted" style="font-size:0.8rem;">
-                            <?php echo htmlspecialchars($currentFooterVersion ?: 'Version ' . APP_VERSION); ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Demo Credentials Settings -->
-        <div class="settings-card">
-            <div class="settings-card-header">
-                <div class="icon" style="background: rgba(236,72,153,0.15); color: #ec4899;">
-                    <i class="bi bi-key-fill"></i>
-                </div>
-                <div>
-                    <h5>🎯 Demo Credentials</h5>
-                    <small>Konfigurasi username dan password yang tampil di login page</small>
-                </div>
-            </div>
-            <div class="settings-card-body">
-                <form method="POST">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Demo Username</label>
-                            <input type="text" name="demo_username" class="form-control"
-                                value="<?php echo htmlspecialchars($currentDemoUsername); ?>"
-                                placeholder="admin" required maxlength="50">
-                            <div class="form-text">Username yang tampil di halaman login</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Demo Password</label>
-                            <input type="text" name="demo_password" class="form-control"
-                                value="<?php echo htmlspecialchars($currentDemoPassword); ?>"
-                                placeholder="admin" required maxlength="50">
-                            <div class="form-text">Password yang tampil di halaman login</div>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-1"></i>Simpan Demo Credentials
-                    </button>
-                </form>
-
-                <!-- Preview -->
-                <div class="mt-4 pt-3 border-top">
-                    <small class="text-muted d-block mb-2"><i class="bi bi-eye me-1"></i>Preview di Login Page:</small>
-                    <div class="p-3 rounded" style="background:#1e293b; color: #cbd5e1; font-size: 0.85rem;">
-                        <div style="text-align: center; margin-bottom: 0.5rem;"><strong>🎯 Demo Credentials (Click to Fill)</strong></div>
-                        <div>👤 Username: <strong style="color: #818cf8;"><?php echo htmlspecialchars($currentDemoUsername); ?></strong></div>
-                        <div>🔑 Password: <strong style="color: #818cf8;"><?php echo htmlspecialchars($currentDemoPassword); ?></strong></div>
-                    </div>
-                    <small class="text-muted d-block mt-2">
-                        <i class="bi bi-info-circle me-1"></i>User bisa klik box ini untuk auto-fill username & password
-                    </small>
-                </div>
-            </div>
-        </div>
-
-        <!-- Technical Info -->
-        <div class="settings-card" style="background: linear-gradient(135deg, rgba(111,66,193,0.05), rgba(139,92,246,0.05));">
-            <div class="settings-card-header">
-                <div class="icon" style="background: rgba(111,66,193,0.15); color: var(--dev-primary);">
-                    <i class="bi bi-code-slash"></i>
-                </div>
-                <div>
-                    <h5>Informasi Teknis</h5>
-                    <small>Path dan konstanta yang digunakan</small>
-                </div>
-            </div>
-            <div class="settings-card-body">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <small class="text-muted d-block">File Konfigurasi</small>
-                        <code class="text-primary">config/config.php</code>
-                    </div>
-                    <div class="col-md-4">
-                        <small class="text-muted d-block">Konstanta Nama</small>
-                        <code class="text-success">DEVELOPER_NAME</code>
-                    </div>
-                    <div class="col-md-4">
-                        <small class="text-muted d-block">Konstanta Logo</small>
-                        <code class="text-success">DEVELOPER_LOGO</code>
-                    </div>
-                    <div class="col-md-6">
-                        <small class="text-muted d-block">Path Logo Saat Ini</small>
-                        <code class="text-warning"><?php echo htmlspecialchars($currentDevLogo); ?></code>
-                    </div>
-                    <div class="col-md-6">
-                        <small class="text-muted d-block">File Exists</small>
-                        <?php if (file_exists($logoFullPath)): ?>
-                            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Yes</span>
-                        <?php else: ?>
-                            <span class="text-danger"><i class="bi bi-x-circle me-1"></i>No (using fallback)</span>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
+
+    <?php if ($error): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i><?php echo htmlspecialchars($error); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+    <?php if ($success): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-2"></i><?php echo htmlspecialchars($success); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <!-- ── Identitas ─────────────────────────────── -->
+    <div class="ds-section" style="margin-top:0;">Identitas</div>
+    <div class="ds-grid">
+        <div class="ds-card">
+            <h6><i class="bi bi-person-badge"></i>Nama Developer</h6>
+            <div class="hint">Tampil di footer sidebar semua bisnis.</div>
+            <form method="POST" class="ds-inline">
+                <input type="text" name="developer_name" class="form-control" value="<?php echo htmlspecialchars($currentDevName); ?>" required maxlength="50" placeholder="DevTeam Studio">
+                <button type="submit" class="btn btn-primary btn-sm">Simpan</button>
+            </form>
+        </div>
+
+        <div class="ds-card">
+            <h6><i class="bi bi-whatsapp"></i>WhatsApp Developer</h6>
+            <div class="hint">Format 628xxx (tanpa + dan spasi). Dipakai untuk notifikasi &amp; tombol hubungi developer.</div>
+            <form method="POST" class="ds-inline">
+                <input type="text" name="whatsapp_number" class="form-control" value="<?php echo htmlspecialchars($currentWA); ?>" placeholder="628123456789" required>
+                <button type="submit" class="btn btn-primary btn-sm">Simpan</button>
+            </form>
+        </div>
+
+        <div class="ds-card">
+            <h6><i class="bi bi-card-text"></i>Teks Footer</h6>
+            <div class="hint">Kosongkan untuk memakai teks bawaan.</div>
+            <form method="POST">
+                <div class="ds-two">
+                    <div>
+                        <label>Copyright</label>
+                        <input type="text" name="footer_copyright" class="form-control" maxlength="100"
+                            value="<?php echo htmlspecialchars($currentFooterCopyright ?: '© ' . APP_YEAR . ' ' . APP_NAME . '. All rights reserved.'); ?>">
+                    </div>
+                    <div>
+                        <label>Versi</label>
+                        <input type="text" name="footer_version" class="form-control" maxlength="50"
+                            value="<?php echo htmlspecialchars($currentFooterVersion ?: 'Version ' . APP_VERSION); ?>">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Simpan Footer</button>
+            </form>
+        </div>
+
+        <div class="ds-card">
+            <h6><i class="bi bi-key"></i>Akun Demo di Halaman Login</h6>
+            <div class="hint">Ditampilkan di halaman login; pengunjung bisa klik untuk mengisi otomatis.</div>
+            <form method="POST">
+                <div class="ds-two">
+                    <div>
+                        <label>Username</label>
+                        <input type="text" name="demo_username" class="form-control" value="<?php echo htmlspecialchars($currentDemoUsername); ?>" required maxlength="50">
+                    </div>
+                    <div>
+                        <label>Password</label>
+                        <input type="text" name="demo_password" class="form-control" value="<?php echo htmlspecialchars($currentDemoPassword); ?>" required maxlength="50">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Simpan Akun Demo</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Gambar & Ikon ─────────────────────────────── -->
+    <?php
+    $cl = CloudinaryHelper::getInstance();
+    $logoFullPath = BASE_PATH . '/' . $currentDevLogo;
+    $devLogoUrl = file_exists($logoFullPath) ? BASE_URL . '/' . $currentDevLogo . '?v=' . filemtime($logoFullPath) : null;
+    $loginBgUrl = $currentLoginBg ? $cl->getDisplayUrl($currentLoginBg, 'uploads/backgrounds/') : null;
+    $loginLogoUrl = $currentLoginLogo ? $cl->getDisplayUrl($currentLoginLogo, 'uploads/logos/') : null;
+    $faviconUrl = $currentFavicon ? $cl->getDisplayUrl($currentFavicon, 'uploads/icons/') : null;
+    $pwaIconUrl = $currentPwaIcon ? $cl->getDisplayUrl($currentPwaIcon, 'uploads/icons/') : null;
+    // [judul, petunjuk, nama input file, accept, url preview, gambar cover?, nama field hapus (atau null), ikon placeholder]
+    $assets = [
+        ['Logo Developer', 'Persegi ±100×100 · maks 1MB', 'developer_logo', 'image/*', $devLogoUrl, false, null, 'code-slash'],
+        ['Logo Halaman Login', 'Persegi ±100×100 · maks 1MB', 'login_logo', 'image/*', $loginLogoUrl, false, 'delete_login_logo', 'building'],
+        ['Background Login', '1920×1080 · JPG/PNG · maks 2MB', 'login_background', 'image/*', $loginBgUrl, true, null, 'image'],
+        ['Favicon (tab browser)', '32 / 64px · ICO/PNG/SVG · maks 500KB', 'site_favicon', '.ico,.png,.svg,image/x-icon,image/png,image/svg+xml', $faviconUrl, false, 'delete_favicon', 'window'],
+        ['Ikon Aplikasi (PWA)', '512×512 · PNG/JPG · maks 2MB', 'pwa_app_icon', '.jpg,.jpeg,.png,image/jpeg,image/png', $pwaIconUrl ?: '../modules/payroll/absen-icon.php?size=192', false, $pwaIconUrl ? 'delete_pwa_icon' : null, 'phone'],
+    ];
+    ?>
+    <div class="ds-section">Gambar &amp; Ikon</div>
+    <div class="ds-grid-5">
+        <?php foreach ($assets as [$title, $hint, $field, $accept, $url, $cover, $deleteField, $icon]): ?>
+            <div class="ds-card ds-asset">
+                <div class="ds-thumb">
+                    <?php if ($url): ?>
+                        <img src="<?php echo htmlspecialchars($url) . (strpos($url, '?') === false ? '?v=' . time() : ''); ?>" alt="" class="<?php echo $cover ? 'cover' : ''; ?>">
+                    <?php else: ?>
+                        <i class="bi bi-<?php echo $icon; ?> ph"></i>
+                    <?php endif; ?>
+                </div>
+                <h6><?php echo $title; ?></h6>
+                <div class="hint"><?php echo $hint; ?></div>
+                <form method="POST" enctype="multipart/form-data" class="ds-actions">
+                    <!-- Pilih file langsung mengunggah -->
+                    <label class="btn btn-outline-primary btn-sm w-100 mb-0">
+                        <i class="bi bi-upload me-1"></i><?php echo $url ? 'Ganti' : 'Upload'; ?>
+                        <input type="file" name="<?php echo $field; ?>" accept="<?php echo $accept; ?>" hidden onchange="this.form.submit()">
+                    </label>
+                </form>
+                <?php if ($deleteField && $url): ?>
+                    <form method="POST" onsubmit="return confirm('Hapus <?php echo $title; ?> dan kembali ke bawaan?');">
+                        <input type="hidden" name="<?php echo $deleteField; ?>" value="1">
+                        <button type="submit" class="ds-del"><i class="bi bi-trash me-1"></i>Hapus</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+
+    <!-- ── Background login Staff Portal per bisnis ─────────────────────────────── -->
+    <div class="ds-section">Background Login Staff Portal (per bisnis)</div>
+    <div class="ds-card">
+        <?php if (!$staffBusinesses): ?>
+            <div class="hint" style="margin:0;">Belum ada bisnis terdaftar di <code>config/businesses/</code>.</div>
+        <?php else: ?>
+            <?php foreach ($staffBusinesses as $bizId => $bizName):
+                $bizBgStored = $staffLoginBgSettings[$bizId] ?? null;
+                $bizBgUrl = $bizBgStored ? $cl->getDisplayUrl($bizBgStored, 'uploads/backgrounds/') : null;
+            ?>
+                <div class="ds-biz">
+                    <div class="t">
+                        <?php if ($bizBgUrl): ?>
+                            <img src="<?php echo htmlspecialchars($bizBgUrl); ?>" alt="">
+                        <?php else: ?>
+                            <i class="bi bi-image"></i>
+                        <?php endif; ?>
+                    </div>
+                    <div class="n">
+                        <?php echo htmlspecialchars($bizName); ?>
+                        <small><?php echo $bizBgUrl ? 'Background khusus aktif' : 'Pakai gradasi bawaan'; ?> · 1080×1920 (potret) · maks 3MB</small>
+                    </div>
+                    <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="staff_biz_id" value="<?php echo htmlspecialchars($bizId); ?>">
+                        <label class="btn btn-outline-primary btn-sm mb-0">
+                            <i class="bi bi-upload me-1"></i><?php echo $bizBgUrl ? 'Ganti' : 'Upload'; ?>
+                            <input type="file" name="staff_login_bg" accept="image/*" hidden onchange="this.form.submit()">
+                        </label>
+                    </form>
+                    <?php if ($bizBgUrl): ?>
+                        <form method="POST" onsubmit="return confirm('Hapus background staff portal untuk <?php echo htmlspecialchars(addslashes($bizName)); ?>?');">
+                            <input type="hidden" name="delete_staff_login_bg" value="<?php echo htmlspecialchars($bizId); ?>">
+                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus"><i class="bi bi-trash"></i></button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+
+    <p class="ds-preview-line">
+        <i class="bi bi-info-circle me-1"></i>Nama &amp; logo developer disimpan ke <code>config/config.php</code> (konstanta <code>DEVELOPER_NAME</code> / <code>DEVELOPER_LOGO</code>) — file itu harus bisa ditulis di hosting.
+        Logo saat ini: <code><?php echo htmlspecialchars($currentDevLogo); ?></code> <?php echo $devLogoUrl ? '<span class="text-success">✓ ada</span>' : '<span class="text-danger">✗ tidak ditemukan (pakai bawaan)</span>'; ?>
+    </p>
+</div>
 
     <?php require_once __DIR__ . '/includes/footer.php'; ?>
