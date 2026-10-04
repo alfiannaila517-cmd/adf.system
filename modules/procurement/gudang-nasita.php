@@ -16,7 +16,7 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
 
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
-$pageTitle = 'Gudang Nasita';
+$pageTitle = 'Stok Gudang';
 
 function gudangImportNormalizeHeader(string $value): string
 {
@@ -1074,6 +1074,17 @@ include '../../includes/header.php';
         height: 13px !important;
     }
 
+    .gudang-more { position: relative; }
+    .gudang-more > summary { list-style: none; cursor: pointer; }
+    .gudang-more > summary::-webkit-details-marker { display: none; }
+    .gudang-more-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; width: 300px; background: #fff; border: 1px solid #e2e8f0; border-radius: 0.75rem; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14); padding: 0.4rem; }
+    .gudang-more-menu > a, .gudang-more-menu > button, .gudang-more-menu form > button.danger { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.6rem; border: 0; background: none; border-radius: 0.5rem; font-size: 0.82rem; color: #1e293b; text-decoration: none; cursor: pointer; text-align: left; }
+    .gudang-more-menu > a:hover, .gudang-more-menu > button:hover { background: #f1f5f9; }
+    .gudang-more-menu form > button.danger { color: #dc2626; }
+    .gudang-more-menu form > button.danger:hover { background: #fef2f2; }
+    .gudang-more-label { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #94a3b8; padding: 0.45rem 0.6rem 0.15rem; }
+    .gudang-more-print { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; padding: 0.3rem 0.6rem 0.5rem; margin: 0; font-size: 0.75rem; color: #64748b; }
+    .gudang-more-print span:first-of-type { width: 100%; color: #1e293b; font-size: 0.82rem; }
     .gudang-top-actions input[type="date"] {
         min-height: 32px !important;
         width: 112px !important;
@@ -1229,59 +1240,57 @@ include '../../includes/header.php';
     <div style="margin-bottom: 0.85rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
         <div>
             <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.2rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-                Gudang Nasita
+                Stok Gudang
                 <?php if ($pendingPoCount > 0): ?>
                     <span style="background:#ef4444; color:#fff; border-radius:999px; padding:0.2rem 0.55rem; font-size:0.75rem; font-weight:800;">PO Masuk: <?php echo (int)$pendingPoCount; ?></span>
                 <?php endif; ?>
             </h2>
-            <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Stok pusat, penerimaan supplier, dan kontrol barang keluar</p>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Semua barang di gudang pusat. Catat pemakaian harian atau kirim barang ke bisnis.</p>
         </div>
         <div class="gudang-top-actions">
+            <!-- Aksi harian ditampilkan langsung; ekspor/cetak/reset dikumpulkan di menu "Lainnya". -->
             <button type="button" class="btn btn-warning" onclick="document.getElementById('doCurrentQty').textContent=''; document.getElementById('dailyOutModal').style.display='flex'">
                 <i data-feather="minus-square"></i>
-                Stock Keluar
+                Catat Stok Keluar
             </button>
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('importStockModal').style.display='flex'">
-                <i data-feather="download"></i>
-                Import Stock
-            </button>
-            <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-success">
-                <i data-feather="upload"></i>
-                Export Excel
+            <a href="gudang-transfer.php" class="btn btn-primary">
+                <i data-feather="send"></i>
+                Kirim ke Bisnis
             </a>
-            <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>" class="btn btn-danger">
-                <i data-feather="file-text"></i>
-                Export PDF
-            </a>
-            <a href="gudang-nasita.php?print_stock=1" target="_blank" class="btn btn-primary">
-                <i data-feather="printer"></i>
-                Print Semua Stock
-            </a>
-            <form method="GET" target="_blank" style="display:flex; gap:0.3rem; align-items:center; flex-wrap:wrap; margin:0;">
-                <input type="hidden" name="print_stock_out" value="1">
-                <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
-                <span style="font-size:0.7rem; color:var(--text-muted);">s/d</span>
-                <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
-                <button type="submit" class="btn btn-secondary">
-                    <i data-feather="printer"></i>
-                    Print
-                </button>
-            </form>
-            <a href="gudang-po-supplier.php" class="btn btn-primary" style="display:none;">
-                <i data-feather="file-plus"></i>
-                PO Supplier
-            </a>
-            <a href="gudang-transfer.php" class="btn btn-secondary">
-                <i data-feather="shuffle"></i>
-                Transfer ke Bisnis
-            </a>
-            <form method="POST" style="display:inline;" onsubmit="return confirm('Reset stok Gudang ke 0? Data item tetap ada, hanya qty di-nolkan.')">
-                <input type="hidden" name="action" value="reset_stock_zero">
-                <button type="submit" class="btn btn-danger">
-                    <i data-feather="rotate-ccw"></i>
-                    Reset Stok 0
-                </button>
-            </form>
+            <details class="gudang-more">
+                <summary class="btn btn-secondary"><i data-feather="more-horizontal"></i> Lainnya</summary>
+                <div class="gudang-more-menu">
+                    <div class="gudang-more-label">Data</div>
+                    <button type="button" onclick="document.getElementById('importStockModal').style.display='flex'"><i data-feather="download"></i> Import stok dari Excel</button>
+                    <a href="gudang-nasita.php?export_excel=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>"><i data-feather="file"></i> Export Excel</a>
+                    <a href="gudang-nasita.php?export_pdf=1&q_item=<?php echo urlencode($searchItemName); ?>&low_stock=<?php echo $filterLowStockOnly ? '1' : '0'; ?>&category=<?php echo urlencode($selectedCategory); ?>"><i data-feather="file-text"></i> Export PDF</a>
+                    <div class="gudang-more-label">Cetak</div>
+                    <a href="gudang-nasita.php?print_stock=1" target="_blank"><i data-feather="printer"></i> Cetak semua stok</a>
+                    <form method="GET" target="_blank" class="gudang-more-print">
+                        <input type="hidden" name="print_stock_out" value="1">
+                        <span>Barang keluar</span>
+                        <input type="date" name="from_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                        <span>s/d</span>
+                        <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                        <button type="submit" class="btn btn-sm btn-secondary">Cetak</button>
+                    </form>
+                    <div class="gudang-more-label">Bahaya</div>
+                    <form method="POST" onsubmit="return confirm('Reset SEMUA stok Gudang ke 0?
+
+Data barang tetap ada, hanya jumlah stok yang di-nolkan. Tindakan ini tidak bisa dibatalkan.')">
+                        <input type="hidden" name="action" value="reset_stock_zero">
+                        <button type="submit" class="danger"><i data-feather="rotate-ccw"></i> Reset semua stok ke 0</button>
+                    </form>
+                </div>
+            </details>
+            <script>
+                // Tutup menu "Lainnya" saat klik di luar.
+                document.addEventListener('click', function (e) {
+                    document.querySelectorAll('details.gudang-more[open]').forEach(function (d) {
+                        if (!d.contains(e.target)) d.removeAttribute('open');
+                    });
+                });
+            </script>
         </div>
     </div>
 

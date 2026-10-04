@@ -17,7 +17,7 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse_t
 
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
-$pageTitle = 'Transfer Gudang Nasita';
+$pageTitle = 'Kirim ke Bisnis';
 
 function normalizeGudangStockName($value)
 {
@@ -486,8 +486,8 @@ include '../../includes/header.php';
 
 <div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">Transfer Gudang Nasita</h2>
-        <p style="color: var(--text-muted); font-size: 0.875rem;">Kirim stok dari gudang pusat ke bisnis tujuan</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem;">Kirim ke Bisnis</h2>
+        <p style="color: var(--text-muted); font-size: 0.875rem;">Kirim barang dari gudang ke Narayana, Bens Cafe, atau Eat Meet. Stok gudang berkurang dan nilainya masuk ke tagihan bulanan bisnis penerima.</p>
     </div>
     <a href="gudang-nasita.php" class="btn btn-secondary">
         <i data-feather="archive" style="width: 16px; height: 16px;"></i>

@@ -15,7 +15,7 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
 }
 
 $db = Database::getInstance();
-$pageTitle = 'Tagihan Gudang';
+$pageTitle = 'Tagihan Bisnis';
 $currentUser = $auth->getCurrentUser();
 
 // ── Ensure TKBM table exists ─────────────────────────────────────────────────
@@ -473,105 +473,182 @@ $statusColors = [
 ];
 ?>
 
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:1rem;">
+<?php
+$recapPaidTotal = 0.0;
+$recapUnpaidTotal = 0.0;
+foreach ($monthlyRecap as $mrecSum) {
+    if ($mrecSum['is_paid']) {
+        $recapPaidTotal += $mrecSum['total'];
+    } else {
+        $recapUnpaidTotal += $mrecSum['total'];
+    }
+}
+$selectedMonthLabel = date('F Y', strtotime($monthStart));
+?>
+<style>
+    .tg-kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:0.75rem; margin-bottom:1.25rem; }
+    .tg-kpi { background:#fff; border:1px solid #e2e8f0; border-radius:0.75rem; padding:0.75rem 0.9rem; }
+    .tg-kpi small { display:block; font-size:0.7rem; color:var(--text-muted); font-weight:600; }
+    .tg-kpi b { display:block; font-size:1.1rem; margin-top:0.15rem; }
+    .tg-kpi span { font-size:0.68rem; color:var(--text-muted); }
+    .tg-step { display:inline-block !important; width:22px; height:22px; line-height:22px; text-align:center; border-radius:50%; background:#1e40af; color:#fff !important; font-size:0.72rem !important; font-weight:800; margin-right:0.4rem; }
+    @media (max-width: 900px) { .tg-kpis { grid-template-columns:repeat(2, 1fr); } }
+</style>
+
+<div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
     <div>
-        <h2 style="font-size:1.4rem; font-weight:700; margin:0; color:var(--text-primary);">Tagihan Gudang Nasita</h2>
-        <p style="color:var(--text-muted); font-size:0.875rem; margin:0.25rem 0 0;">Rekap tagihan ke supplier dan tagihan ke bisnis berdasarkan PO / transfer</p>
+        <h2 style="font-size:1.3rem; font-weight:700; margin:0; color:var(--text-primary);">Tagihan Bisnis</h2>
+        <p style="color:var(--text-muted); font-size:0.82rem; margin:0.25rem 0 0; max-width:720px;">Uang antara Gudang dan bisnis: <b>(1)</b> tagihan bulanan yang dibayar bisnis ke Gudang, dan <b>(2)</b> pembayaran Gudang ke bisnis yang mengirim barang. Tagihan supplier &amp; biaya TKBM ada di <a href="<?php echo BASE_URL; ?>/modules/gudang/finance.php">Kas &amp; Biaya Gudang</a>.</p>
     </div>
-    <a href="gudang-nasita.php" class="btn btn-secondary" style="font-size:0.85rem;">← Kembali ke Stock Gudang</a>
+    <form method="GET" style="display:flex; gap:0.5rem; align-items:center;">
+        <input type="month" name="bulan" class="form-control" style="width:160px;" value="<?php echo htmlspecialchars($selectedMonth); ?>" onchange="this.form.submit()">
+    </form>
 </div>
 
-<div style="margin-bottom:1.25rem; padding:0.85rem 1.1rem; background:linear-gradient(135deg,#0f9d6a,#0b7a52); border-radius:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; color:#fff;">
-    <div>
-        <div style="font-size:0.8rem; font-weight:600; opacity:0.9;">💰 Total Uang Diterima Gudang Nasita (dari pembayaran tagihan bisnis)</div>
-        <div style="font-size:0.72rem; opacity:0.8; margin-top:0.15rem;">Uang ini tersedia di rekening bank Gudang Nasita untuk dibayarkan ke semua supplier</div>
-    </div>
-    <div style="font-size:1.3rem; font-weight:800;">Rp&nbsp;<?php echo number_format($totalReceivedFromBusinesses, 0, ',', '.'); ?></div>
+<div class="tg-kpis">
+    <div class="tg-kpi"><small>Tagihan ke bisnis · <?php echo $selectedMonthLabel; ?></small><b>Rp&nbsp;<?php echo number_format($monthlyRecapGrandTotal, 0, ',', '.'); ?></b><span>3 bisnis</span></div>
+    <div class="tg-kpi"><small>Sudah dibayar bisnis</small><b style="color:#0f9d6a;">Rp&nbsp;<?php echo number_format($recapPaidTotal, 0, ',', '.'); ?></b><span>bulan ini</span></div>
+    <div class="tg-kpi"><small>Belum dibayar bisnis</small><b style="color:#d97706;">Rp&nbsp;<?php echo number_format($recapUnpaidTotal, 0, ',', '.'); ?></b><span>bulan ini</span></div>
+    <div class="tg-kpi"><small>Gudang harus bayar ke pengirim</small><b style="color:#7c3aed;">Rp&nbsp;<?php echo number_format($incomingSupplyOutstandingTotal, 0, ',', '.'); ?></b><span>semua periode</span></div>
 </div>
 
-<div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; align-items:start;">
+<script>
+    function toggleBizDetail(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+    if (typeof feather !== 'undefined') feather.replace();
+</script>
 
-    <!-- ── KIRI: Tagihan ke Supplier ───────────────────────────────────────── -->
-    <div>
-        <div class="card" style="margin-bottom:1rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
-                <div>
-                    <h3 style="font-size:1rem; font-weight:700; margin:0;">Tagihan ke Supplier</h3>
-                    <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">PO yang dibuat ke supplier Gudang Nasita</p>
-                </div>
-                <div style="display:flex; gap:0.5rem;">
-                    <a href="suppliers.php" class="btn btn-sm btn-secondary" style="font-size:0.78rem;">Kelola Supplier</a>
-                    <a href="gudang-po-supplier.php" class="btn btn-sm btn-primary">Buat PO Baru</a>
-                </div>
-            </div>
-            <?php
-            $totalSupplier = array_sum(array_column($supplierBills, 'total_amount'));
-            ?>
-            <div class="table-responsive" style="max-height:480px; overflow-y:auto;">
-                <table class="table" style="font-size:0.82rem;">
-                    <thead>
-                        <tr>
-                            <th>No PO</th>
-                            <th>Tanggal</th>
-                            <th>Supplier</th>
-                            <th>Status</th>
-                            <th class="text-right" style="color:#94a3b8;">Dipesan</th>
-                            <th class="text-right" style="color:#0f9d6a;">Diterima</th>
-                            <th class="text-right">Tagihan</th>
-                            <th class="text-center">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($supplierBills)): ?>
-                            <tr>
-                                <td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada barang yang diterima dari supplier</td>
-                            </tr>
-                            <?php else: foreach ($supplierBills as $bill):
-                                $st = $bill['status'] ?? '-';
-                                [$bg, $fc] = $statusColors[$st] ?? ['#f1f5f9', '#475569'];
-                            ?>
-                                <tr>
-                                    <td style="font-weight:700; color:#4f46e5;"><?php echo htmlspecialchars($bill['po_number']); ?></td>
-                                    <td><?php echo !empty($bill['po_date']) ? date('d M Y', strtotime($bill['po_date'])) : '-'; ?></td>
-                                    <td style="font-weight:600;"><?php echo htmlspecialchars($bill['supplier_name']); ?></td>
-                                    <td>
-                                        <span style="background:<?php echo $bg; ?>; color:<?php echo $fc; ?>; padding:2px 8px; border-radius:999px; font-size:0.73rem; font-weight:600; white-space:nowrap;">
-                                            <?php echo ucfirst(str_replace('_', ' ', $st)); ?>
-                                        </span>
-                                    </td>
-                                    <td class="text-right" style="color:#94a3b8;"><?php echo number_format((float)$bill['ordered_qty'], 2); ?></td>
-                                    <td class="text-right" style="font-weight:600; color:#0f9d6a;"><?php echo number_format((float)$bill['received_qty'], 2); ?></td>
-                                    <td class="text-right" style="font-weight:700; color:<?php echo (float)$bill['total_amount'] > 0 ? '#0f9d6a' : '#94a3b8'; ?>;">
-                                        <?php echo (float)$bill['total_amount'] > 0 ? 'Rp&nbsp;' . number_format((float)$bill['total_amount'], 0, ',', '.') : '—'; ?>
-                                    </td>
-                                    <td class="text-center">
-                                        <a href="gudang-po-supplier.php?view=<?php echo (int)$bill['id']; ?>" class="btn btn-sm btn-secondary" style="font-size:0.73rem; padding:2px 8px;">Lihat</a>
-                                    </td>
-                                </tr>
-                        <?php endforeach;
-                        endif; ?>
-                    </tbody>
-                    <?php if ($totalSupplier > 0): ?>
-                        <tfoot>
-                            <tr style="background:#f8fafc; font-weight:700;">
-                                <td colspan="6">Total Tagihan (diterima)</td>
-                                <td class="text-right" style="color:#0f9d6a;">Rp&nbsp;<?php echo number_format($totalSupplier, 0, ',', '.'); ?></td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    <?php endif; ?>
-                </table>
-            </div>
+<!-- ── Tagihan Bulanan per Bisnis (transfer + share TKBM bulan berjalan) ─────── -->
+<div class="card" style="margin-top:1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.75rem;">
+        <div>
+            <h3 style="font-size:1rem; font-weight:700; margin:0;"><b class="tg-step">1</b>Tagihan bulanan — bisnis membayar ke Gudang</h3>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Barang dari Gudang Nasita + barang yang diterima dari bisnis lain bulan ini + bagian TKBM (dibagi 3 bisnis)</p>
         </div>
     </div>
 
-    <!-- ── KANAN: Tagihan ke Bisnis ────────────────────────────────────────── -->
-    <div>
-        <div class="card" style="margin-bottom:1rem;">
-            <div style="margin-bottom:1rem;">
-                <h3 style="font-size:1rem; font-weight:700; margin:0;">Tagihan ke Bisnis</h3>
-                <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Berdasarkan transfer barang dari Gudang Nasita ke tiap bisnis</p>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0; border:1px solid #e2e8f0; border-radius:0.75rem; overflow:hidden;">
+        <?php foreach ($monthlyRecap as $i => $mrec):
+            $mrDetail = [
+                'title'    => $mrec['name'],
+                'subtitle' => 'Periode ' . date('F Y', strtotime($monthStart)),
+                'logo_url' => $mrec['logo_url'],
+                'columns'  => [['label' => 'No Transfer'], ['label' => 'Tanggal'], ['label' => 'Qty', 'right' => true], ['label' => 'Nilai', 'right' => true], ['label' => 'Status']],
+                'rows'     => $mrec['detail_rows'],
+                'total'    => 'Rp ' . number_format($mrec['total'], 0, ',', '.'),
+                'slug'     => $mrec['slug'],
+                'bulan'    => $selectedMonth,
+                'is_paid'  => $mrec['is_paid'],
+                'paid_at'  => $mrec['paid_at'],
+            ];
+        ?>
+            <div class="gt-monthly-card" style="padding:1rem; cursor:pointer; position:relative; <?php echo $i > 0 ? 'border-left:1px solid #e2e8f0;' : ''; ?>"
+                data-detail="<?php echo htmlspecialchars(json_encode($mrDetail), ENT_QUOTES); ?>" onclick="openTagihanBulananDetail(this)">
+                <?php if ($mrec['is_paid']): ?>
+                    <span style="position:absolute; top:0.6rem; right:0.6rem; background:#d1fae5; color:#065f46; font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:999px;">✅ Lunas</span>
+                <?php endif; ?>
+                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;">
+                    <?php if ($mrec['logo_url']): ?>
+                        <img src="<?php echo htmlspecialchars($mrec['logo_url']); ?>" alt="" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">
+                    <?php else: ?>
+                        <span style="font-size:1.6rem;"><?php echo $mrec['icon']; ?></span>
+                    <?php endif; ?>
+                    <div style="font-weight:700; font-size:0.95rem;"><?php echo htmlspecialchars($mrec['name']); ?></div>
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+                    <span>Barang bulan ini (<?php echo $mrec['transfer_count']; ?>x, <?php echo number_format($mrec['transfer_qty'], 2); ?> qty)</span>
+                    <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['transfer_nilai'], 0, ',', '.'); ?></span>
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.6rem;">
+                    <span>Share TKBM bulan ini</span>
+                    <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['tkbm_share'], 0, ',', '.'); ?></span>
+                </div>
+                <div style="border-top:1px dashed #e2e8f0; padding-top:0.6rem; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.82rem; font-weight:700;">Total Tagihan Bulan Ini</span>
+                    <span style="font-size:1.05rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($mrec['total'], 0, ',', '.'); ?></span>
+                </div>
+                <div style="margin-top:0.5rem; font-size:0.7rem; color:#94a3b8; text-align:center;"><?php echo $mrec['is_paid'] ? 'Klik untuk lihat detail &amp; cetak tagihan' : 'Klik untuk lihat detail, bayar &amp; cetak tagihan'; ?></div>
             </div>
+        <?php endforeach; ?>
+    </div>
+
+    <div style="margin-top:1rem; padding:0.65rem 1rem; background:#f0fdf4; border-radius:0.6rem; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.85rem; font-weight:700; color:#065f46;">Total Tagihan Bulan Ini (3 Bisnis)</span>
+        <span style="font-size:1rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($monthlyRecapGrandTotal, 0, ',', '.'); ?></span>
+    </div>
+</div>
+
+<!-- ── Bayar ke Bisnis Pengirim (barang dikirim ke Gudang / ke bisnis lain) ──────── -->
+<div class="card" id="bayar-pengirim" style="margin-top:1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.85rem; flex-wrap:wrap; gap:0.75rem;">
+        <div>
+            <h3 style="font-size:1rem; font-weight:700; margin:0;"><b class="tg-step">2</b>Gudang membayar bisnis pengirim</h3>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Barang yang dikirim bisnis ke Gudang atau ke bisnis lain. Klik <b>Bayar</b> → uang keluar dari rekening Gudang dan masuk sebagai <b>pendapatan</b> di buku kas bisnis pengirim. Kiriman ke bisnis lain ditagihkan ke bisnis penerima lewat tagihan bulanan di atas.</p>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-size:0.72rem; color:var(--text-muted);">Total belum dibayar</div>
+            <div style="font-size:1.05rem; font-weight:800; color:#7c3aed;">Rp&nbsp;<?php echo number_format($incomingSupplyOutstandingTotal, 0, ',', '.'); ?></div>
+        </div>
+    </div>
+    <?php if (empty($incomingSupplyBills)): ?>
+        <div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Belum ada barang kiriman dari bisnis.</div>
+    <?php else: ?>
+        <div class="table-responsive">
+            <table class="table" style="font-size:0.82rem;">
+                <thead>
+                    <tr>
+                        <th>Bisnis Pengirim</th>
+                        <th>Dikirim ke</th>
+                        <th style="text-align:right;">Total Nilai</th>
+                        <th style="text-align:right;">Sudah Dibayar</th>
+                        <th style="text-align:right;">Sisa</th>
+                        <th style="text-align:center;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($incomingSupplyBills as $sup): ?>
+                        <tr>
+                            <td style="font-weight:600;"><?php echo htmlspecialchars($sup['name']); ?>
+                                <div style="font-size:0.7rem; color:var(--text-muted); font-weight:400;"><?php echo (int)$sup['total_items']; ?> kiriman · terakhir <?php echo date('d M Y', strtotime((string)$sup['last_created_at'])); ?></div>
+                            </td>
+                            <td style="font-size:0.76rem; color:var(--text-muted);">
+                                <?php foreach ($sup['targets'] as $tName => $tVal): if ($tVal <= 0) continue; ?>
+                                    <div><?php echo htmlspecialchars($tName); ?>: Rp <?php echo number_format($tVal, 0, ',', '.'); ?></div>
+                                <?php endforeach; ?>
+                                <?php if ($sup['credited'] > 0): ?>
+                                    <div title="Sudah dikreditkan lewat potongan tagihan bulanan yang lunas (aturan lama)">Sudah dipotong dari tagihan: Rp <?php echo number_format($sup['credited'], 0, ',', '.'); ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td style="text-align:right;">Rp <?php echo number_format($sup['total_nilai'], 0, ',', '.'); ?></td>
+                            <td style="text-align:right; color:#0f9d6a;">Rp <?php echo number_format($sup['total_paid'], 0, ',', '.'); ?></td>
+                            <td style="text-align:right; font-weight:700; color:#7c3aed;">Rp <?php echo number_format($sup['outstanding'], 0, ',', '.'); ?></td>
+                            <td style="text-align:center;">
+                                <?php if ($sup['outstanding'] > 0): ?>
+                                    <form method="POST" style="display:inline;" onsubmit="this.querySelector('button').disabled=true; return true;">
+                                        <input type="hidden" name="action" value="pay_supply_bill">
+                                        <input type="hidden" name="slug" value="<?php echo htmlspecialchars($sup['slug']); ?>">
+                                        <input type="hidden" name="bulan" value="<?php echo htmlspecialchars($selectedMonth); ?>">
+                                        <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm(<?php echo htmlspecialchars(json_encode('Bayar Rp ' . number_format($sup['outstanding'], 0, ',', '.') . ' ke ' . $sup['name'] . '?' . "\n\n" . 'Uang keluar dari rekening Gudang Nasita dan masuk sebagai pendapatan di buku kas ' . $sup['name'] . '.'), ENT_QUOTES); ?>);">Bayar</button>
+                                    </form>
+                                <?php else: ?>
+                                    <span style="background:#dcfce7; color:#166534; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">Lunas</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<!-- ── Rekap seluruh pengiriman Gudang per bisnis (semua periode) ── -->
+<details class="card" style="margin-top:1.5rem;">
+    <summary style="cursor:pointer; font-weight:700; font-size:0.92rem;">Rekap seluruh pengiriman Gudang per bisnis <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;">(semua periode — klik untuk buka)</span></summary>
+        <div style="padding-top:0.75rem;">
             <?php if (empty($bizBills)): ?>
                 <div style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada transfer ke bisnis</div>
             <?php else: ?>
@@ -643,231 +720,9 @@ $statusColors = [
                 </div>
             <?php endif; ?>
         </div>
-    </div>
+</details>
 
-</div>
-
-<script>
-    function toggleBizDetail(id) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.style.display = el.style.display === 'none' ? 'block' : 'none';
-    }
-    if (typeof feather !== 'undefined') feather.replace();
-</script>
-
-<!-- ── Tagihan Bulanan per Bisnis (transfer + share TKBM bulan berjalan) ─────── -->
-<div class="card" style="margin-top:1.5rem;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.75rem;">
-        <div>
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">📅 Tagihan Bulanan per Bisnis</h3>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Barang dari Gudang Nasita + barang yang diterima dari bisnis lain bulan ini + bagian TKBM (dibagi 3 bisnis)</p>
-        </div>
-        <form method="GET" style="display:flex; gap:0.5rem; align-items:center;">
-            <input type="month" name="bulan" class="form-control" style="width:160px;" value="<?php echo htmlspecialchars($selectedMonth); ?>" onchange="this.form.submit()">
-            <button type="submit" class="btn btn-sm btn-secondary">Tampilkan</button>
-        </form>
-    </div>
-
-    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0; border:1px solid #e2e8f0; border-radius:0.75rem; overflow:hidden;">
-        <?php foreach ($monthlyRecap as $i => $mrec):
-            $mrDetail = [
-                'title'    => $mrec['name'],
-                'subtitle' => 'Periode ' . date('F Y', strtotime($monthStart)),
-                'logo_url' => $mrec['logo_url'],
-                'columns'  => [['label' => 'No Transfer'], ['label' => 'Tanggal'], ['label' => 'Qty', 'right' => true], ['label' => 'Nilai', 'right' => true], ['label' => 'Status']],
-                'rows'     => $mrec['detail_rows'],
-                'total'    => 'Rp ' . number_format($mrec['total'], 0, ',', '.'),
-                'slug'     => $mrec['slug'],
-                'bulan'    => $selectedMonth,
-                'is_paid'  => $mrec['is_paid'],
-                'paid_at'  => $mrec['paid_at'],
-            ];
-        ?>
-            <div class="gt-monthly-card" style="padding:1rem; cursor:pointer; position:relative; <?php echo $i > 0 ? 'border-left:1px solid #e2e8f0;' : ''; ?>"
-                data-detail="<?php echo htmlspecialchars(json_encode($mrDetail), ENT_QUOTES); ?>" onclick="openTagihanBulananDetail(this)">
-                <?php if ($mrec['is_paid']): ?>
-                    <span style="position:absolute; top:0.6rem; right:0.6rem; background:#d1fae5; color:#065f46; font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:999px;">✅ Lunas</span>
-                <?php endif; ?>
-                <div style="display:flex; align-items:center; gap:0.6rem; margin-bottom:0.75rem;">
-                    <?php if ($mrec['logo_url']): ?>
-                        <img src="<?php echo htmlspecialchars($mrec['logo_url']); ?>" alt="" style="width:32px; height:32px; object-fit:contain; border-radius:4px;">
-                    <?php else: ?>
-                        <span style="font-size:1.6rem;"><?php echo $mrec['icon']; ?></span>
-                    <?php endif; ?>
-                    <div style="font-weight:700; font-size:0.95rem;"><?php echo htmlspecialchars($mrec['name']); ?></div>
-                </div>
-                <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.3rem;">
-                    <span>Transfer bulan ini (<?php echo $mrec['transfer_count']; ?>x, <?php echo number_format($mrec['transfer_qty'], 2); ?> qty)</span>
-                    <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['transfer_nilai'], 0, ',', '.'); ?></span>
-                </div>
-                <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.6rem;">
-                    <span>Share TKBM bulan ini</span>
-                    <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['tkbm_share'], 0, ',', '.'); ?></span>
-                </div>
-                <div style="border-top:1px dashed #e2e8f0; padding-top:0.6rem; display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:0.82rem; font-weight:700;">Total Tagihan Bulan Ini</span>
-                    <span style="font-size:1.05rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($mrec['total'], 0, ',', '.'); ?></span>
-                </div>
-                <div style="margin-top:0.5rem; font-size:0.7rem; color:#94a3b8; text-align:center;"><?php echo $mrec['is_paid'] ? 'Klik untuk lihat detail &amp; cetak tagihan' : 'Klik untuk lihat detail, bayar &amp; cetak tagihan'; ?></div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-
-    <div style="margin-top:1rem; padding:0.65rem 1rem; background:#f0fdf4; border-radius:0.6rem; display:flex; justify-content:space-between; align-items:center;">
-        <span style="font-size:0.85rem; font-weight:700; color:#065f46;">Total Tagihan Bulan Ini (3 Bisnis)</span>
-        <span style="font-size:1rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($monthlyRecapGrandTotal, 0, ',', '.'); ?></span>
-    </div>
-</div>
-
-<!-- ── Bayar ke Bisnis Pengirim (barang dikirim ke Gudang / ke bisnis lain) ──────── -->
-<div class="card" id="bayar-pengirim" style="margin-top:1.5rem;">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.85rem; flex-wrap:wrap; gap:0.75rem;">
-        <div>
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">💸 Bayar ke Bisnis Pengirim</h3>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Barang yang dikirim bisnis ke Gudang atau ke bisnis lain. Klik <b>Bayar</b> → uang keluar dari rekening Gudang dan masuk sebagai <b>pendapatan</b> di buku kas bisnis pengirim. Kiriman ke bisnis lain ditagihkan ke bisnis penerima lewat tagihan bulanan di atas.</p>
-        </div>
-        <div style="text-align:right;">
-            <div style="font-size:0.72rem; color:var(--text-muted);">Total belum dibayar</div>
-            <div style="font-size:1.05rem; font-weight:800; color:#7c3aed;">Rp&nbsp;<?php echo number_format($incomingSupplyOutstandingTotal, 0, ',', '.'); ?></div>
-        </div>
-    </div>
-    <?php if (empty($incomingSupplyBills)): ?>
-        <div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Belum ada barang kiriman dari bisnis.</div>
-    <?php else: ?>
-        <div class="table-responsive">
-            <table class="table" style="font-size:0.82rem;">
-                <thead>
-                    <tr>
-                        <th>Bisnis Pengirim</th>
-                        <th>Dikirim ke</th>
-                        <th style="text-align:right;">Total Nilai</th>
-                        <th style="text-align:right;">Sudah Dibayar</th>
-                        <th style="text-align:right;">Sisa</th>
-                        <th style="text-align:center;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($incomingSupplyBills as $sup): ?>
-                        <tr>
-                            <td style="font-weight:600;"><?php echo htmlspecialchars($sup['name']); ?>
-                                <div style="font-size:0.7rem; color:var(--text-muted); font-weight:400;"><?php echo (int)$sup['total_items']; ?> kiriman · terakhir <?php echo date('d M Y', strtotime((string)$sup['last_created_at'])); ?></div>
-                            </td>
-                            <td style="font-size:0.76rem; color:var(--text-muted);">
-                                <?php foreach ($sup['targets'] as $tName => $tVal): if ($tVal <= 0) continue; ?>
-                                    <div><?php echo htmlspecialchars($tName); ?>: Rp <?php echo number_format($tVal, 0, ',', '.'); ?></div>
-                                <?php endforeach; ?>
-                                <?php if ($sup['credited'] > 0): ?>
-                                    <div title="Sudah dikreditkan lewat potongan tagihan bulanan yang lunas (aturan lama)">Sudah dipotong dari tagihan: Rp <?php echo number_format($sup['credited'], 0, ',', '.'); ?></div>
-                                <?php endif; ?>
-                            </td>
-                            <td style="text-align:right;">Rp <?php echo number_format($sup['total_nilai'], 0, ',', '.'); ?></td>
-                            <td style="text-align:right; color:#0f9d6a;">Rp <?php echo number_format($sup['total_paid'], 0, ',', '.'); ?></td>
-                            <td style="text-align:right; font-weight:700; color:#7c3aed;">Rp <?php echo number_format($sup['outstanding'], 0, ',', '.'); ?></td>
-                            <td style="text-align:center;">
-                                <?php if ($sup['outstanding'] > 0): ?>
-                                    <form method="POST" style="display:inline;" onsubmit="this.querySelector('button').disabled=true; return true;">
-                                        <input type="hidden" name="action" value="pay_supply_bill">
-                                        <input type="hidden" name="slug" value="<?php echo htmlspecialchars($sup['slug']); ?>">
-                                        <input type="hidden" name="bulan" value="<?php echo htmlspecialchars($selectedMonth); ?>">
-                                        <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm(<?php echo htmlspecialchars(json_encode('Bayar Rp ' . number_format($sup['outstanding'], 0, ',', '.') . ' ke ' . $sup['name'] . '?' . "\n\n" . 'Uang keluar dari rekening Gudang Nasita dan masuk sebagai pendapatan di buku kas ' . $sup['name'] . '.'), ENT_QUOTES); ?>);">Bayar</button>
-                                    </form>
-                                <?php else: ?>
-                                    <span style="background:#dcfce7; color:#166534; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">Lunas</span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-</div>
-
-<!-- ── TKBM Section ──────────────────────────────────────────────────────── -->
-<div class="card" style="margin-top:1.5rem;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.75rem;">
-        <div>
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">Tagihan TKBM <span style="font-size:0.78rem; color:var(--text-muted); font-weight:400;">(Tenaga Kerja Bongkar Muat)</span></h3>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Biaya jasa angkut dari pelabuhan ke Gudang Nasita — dibagi rata ke semua bisnis</p>
-        </div>
-        <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('tkbmAddForm').style.display='flex'">+ Tambah TKBM</button>
-    </div>
-
-    <!-- Add TKBM form -->
-    <form id="tkbmAddForm" method="POST" style="display:none; gap:0.65rem; flex-wrap:wrap; align-items:flex-end; background:#f8fafc; padding:0.85rem 1rem; border-radius:0.65rem; margin-bottom:1rem;">
-        <input type="hidden" name="action" value="add_tkbm">
-        <div>
-            <label class="form-label" style="font-size:0.78rem;">Tanggal</label>
-            <input type="date" name="tanggal" class="form-control" style="width:140px;" value="<?php echo date('Y-m-d'); ?>" required>
-        </div>
-        <div>
-            <label class="form-label" style="font-size:0.78rem;">Total Biaya TKBM (Rp)</label>
-            <input type="number" name="total_biaya" class="form-control" style="width:160px;" placeholder="0" min="1" step="1" required>
-        </div>
-        <div>
-            <label class="form-label" style="font-size:0.78rem;">Dibagi ke (bisnis)</label>
-            <input type="number" name="jumlah_bisnis" class="form-control" style="width:80px;" value="3" min="1" max="10">
-        </div>
-        <div style="flex:1; min-width:180px;">
-            <label class="form-label" style="font-size:0.78rem;">Keterangan</label>
-            <input type="text" name="keterangan" class="form-control" placeholder="Mis: pengiriman Jepara 17 Agt">
-        </div>
-        <div style="display:flex; gap:0.5rem;">
-            <button type="submit" class="btn btn-sm btn-success">Simpan</button>
-            <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('tkbmAddForm').style.display='none'">Batal</button>
-        </div>
-    </form>
-
-    <div class="table-responsive">
-        <table class="table" style="font-size:0.83rem;">
-            <thead>
-                <tr>
-                    <th>Tanggal</th>
-                    <th>Keterangan</th>
-                    <th class="text-right">Total Biaya</th>
-                    <th class="text-center">Dibagi</th>
-                    <th class="text-right" style="color:#0f9d6a;">Per Bisnis</th>
-                    <th class="text-center">Hapus</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($tkbmRows)): ?>
-                    <tr>
-                        <td colspan="6" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Belum ada data TKBM</td>
-                    </tr>
-                    <?php else: foreach ($tkbmRows as $tkbm):
-                        $perBisnis = (float)$tkbm['total_biaya'] / max(1, (int)$tkbm['jumlah_bisnis']);
-                    ?>
-                        <tr>
-                            <td><?php echo date('d M Y', strtotime($tkbm['tanggal'])); ?></td>
-                            <td><?php echo htmlspecialchars($tkbm['keterangan'] ?? '-'); ?></td>
-                            <td class="text-right" style="font-weight:700;">Rp&nbsp;<?php echo number_format((float)$tkbm['total_biaya'], 0, ',', '.'); ?></td>
-                            <td class="text-center" style="color:#64748b;"><?php echo (int)$tkbm['jumlah_bisnis']; ?> bisnis</td>
-                            <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($perBisnis, 0, ',', '.'); ?></td>
-                            <td class="text-center">
-                                <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus entri TKBM ini?')">
-                                    <input type="hidden" name="action" value="delete_tkbm">
-                                    <input type="hidden" name="tkbm_id" value="<?php echo (int)$tkbm['id']; ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.73rem;">Hapus</button>
-                                </form>
-                            </td>
-                        </tr>
-                <?php endforeach;
-                endif; ?>
-            </tbody>
-            <?php if ($tkbmTotal > 0): ?>
-                <tfoot>
-                    <tr style="background:#f8fafc; font-weight:700;">
-                        <td colspan="2">Total TKBM</td>
-                        <td class="text-right" style="color:#0f9d6a;">Rp&nbsp;<?php echo number_format($tkbmTotal, 0, ',', '.'); ?></td>
-                        <td colspan="3"></td>
-                    </tr>
-                </tfoot>
-            <?php endif; ?>
-        </table>
-    </div>
-</div>
+<p style="margin-top:1rem; font-size:0.78rem; color:var(--text-muted);">Biaya TKBM (bongkar muat) dicatat di <a href="<?php echo BASE_URL; ?>/modules/gudang/finance.php?bulan=<?php echo urlencode($selectedMonth); ?>">Kas &amp; Biaya Gudang</a> dan otomatis dibagi ke tagihan bulanan 3 bisnis.</p>
 
 <!-- Detail tagihan bulanan / cetak tagihan modal -->
 <div id="tagihanBulananModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.55); z-index:9999; align-items:center; justify-content:center;">

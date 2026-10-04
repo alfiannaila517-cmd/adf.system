@@ -9,6 +9,9 @@ $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
     strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
 
 return [
+    'business_id'           => 'gudang-nasita',
+    'business_type'         => 'warehouse',
+    'theme'                 => ['color_primary' => '#1e40af', 'color_secondary' => '#2563eb', 'icon' => '🏬'],
     'name'                  => 'Gudang Nasita',
     'slug'                  => 'gudang-nasita',
     'code'                  => 'gudang-nasita',

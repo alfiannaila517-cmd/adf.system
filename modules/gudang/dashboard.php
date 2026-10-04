@@ -221,9 +221,27 @@ include __DIR__ . '/../../includes/header.php';
         <p style="font-size:.85rem;color:var(--text-muted);margin:.2rem 0 0;">Ringkasan operasional gudang hari ini &mdash; <?php echo date('l, d F Y'); ?></p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-        <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="btn btn-primary" style="font-size:.82rem;"><i data-feather="archive" style="width:14px;height:14px;"></i> Stock Gudang</a>
-        <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-transfer.php" class="btn btn-success" style="font-size:.82rem;"><i data-feather="send" style="width:14px;height:14px;"></i> Transfer</a>
+        <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="btn btn-primary" style="font-size:.82rem;"><i data-feather="archive" style="width:14px;height:14px;"></i> Stok Gudang</a>
+        <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-transfer.php" class="btn btn-success" style="font-size:.82rem;"><i data-feather="send" style="width:14px;height:14px;"></i> Kirim ke Bisnis</a>
     </div>
+</div>
+
+<!-- Alur kerja gudang: membantu pengguna baru memahami urutan menu -->
+<style>
+    .gd-flow { display:grid; grid-template-columns:repeat(4, 1fr); gap:.6rem; margin-bottom:1.25rem; }
+    .gd-flow a { position:relative; display:block; background:#fff; border:1px solid #e2e8f0; border-radius:.75rem; padding:.7rem .85rem; text-decoration:none; color:inherit; transition:border-color .15s, box-shadow .15s; }
+    .gd-flow a:hover { border-color:#93c5fd; box-shadow:0 6px 16px rgba(37,99,235,.08); }
+    .gd-flow b { display:flex; align-items:center; gap:.45rem; font-size:.84rem; color:var(--text-primary); }
+    .gd-flow b i { display:inline-grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#1e40af; color:#fff; font-style:normal; font-size:.7rem; }
+    .gd-flow span { display:block; font-size:.72rem; color:var(--text-muted); margin-top:.25rem; line-height:1.4; }
+    .gd-flow a:not(:last-child)::after { content:'→'; position:absolute; right:-.55rem; top:50%; transform:translateY(-50%); color:#94a3b8; font-weight:700; z-index:1; }
+    @media (max-width: 900px) { .gd-flow { grid-template-columns:repeat(2, 1fr); } .gd-flow a::after { display:none; } }
+</style>
+<div class="gd-flow">
+    <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-po-supplier.php"><b><i>1</i> Order ke Supplier</b><span>Pesan barang. Saat datang, terima barangnya → stok bertambah.</span></a>
+    <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php"><b><i>2</i> Stok Gudang</b><span>Cek stok, catat pemakaian harian, lihat barang menipis.</span></a>
+    <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-transfer.php"><b><i>3</i> Kirim ke Bisnis</b><span>Proses PO dari Narayana, Bens Cafe, Eat Meet → stok berkurang.</span></a>
+    <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-tagihan.php"><b><i>4</i> Tagihan Bisnis</b><span>Bisnis bayar barang ke Gudang; Gudang bayar bisnis pengirim.</span></a>
 </div>
 
 <!-- PO Masuk dari Bisnis (lonceng) -->

@@ -23,7 +23,7 @@ if (!($auth->hasPermission('gudang_finance') || $auth->hasPermission('gudang_nas
 
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
-$pageTitle = 'Finance Gudang';
+$pageTitle = 'Kas & Biaya Gudang';
 
 gudangNasitaEnsureAccountingTables($db);
 
@@ -311,9 +311,9 @@ include __DIR__ . '/../../includes/header.php';
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem;">
     <div>
         <h2 style="font-size:1.4rem;font-weight:800;margin:0;color:var(--text-primary);display:flex;align-items:center;gap:.55rem;">
-            <i data-feather="dollar-sign"></i> Finance Gudang Nasita
+            <i data-feather="dollar-sign"></i> Kas &amp; Biaya Gudang
         </h2>
-        <p style="font-size:.82rem;color:var(--text-muted);margin:.2rem 0 0;">Pemasukan tagihan bisnis, biaya TKBM, tagihan supplier, dan laporan keuangan gudang.</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:.2rem 0 0;">Uang masuk-keluar Gudang: pemasukan dari bisnis, tagihan supplier, dan biaya TKBM. Tagihan ke bisnis &amp; pembayaran ke bisnis pengirim ada di <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-tagihan.php">Tagihan Bisnis</a>.</p>
     </div>
     <form method="GET" style="display:flex;align-items:center;gap:.5rem;">
         <input type="month" name="bulan" value="<?php echo htmlspecialchars($selectedMonth); ?>" class="form-control" style="width:auto;">
@@ -338,11 +338,11 @@ include __DIR__ . '/../../includes/header.php';
         <div class="fin-stat-value">Rp <?php echo number_format($supplierBillsTotal, 0, ',', '.'); ?></div>
         <div class="fin-stat-sub">Belum dibayar &middot; semua periode</div>
     </div>
-    <div class="fin-stat" style="--fin-accent:#7c3aed;">
-        <div class="fin-stat-label">Tagihan Barang Masuk</div>
+    <a class="fin-stat" style="--fin-accent:#7c3aed; text-decoration:none; color:inherit;" href="<?php echo BASE_URL; ?>/modules/procurement/gudang-tagihan.php#bayar-pengirim">
+        <div class="fin-stat-label">Harus Dibayar ke Bisnis Pengirim</div>
         <div class="fin-stat-value">Rp <?php echo number_format($incomingSupplyOutstandingTotal, 0, ',', '.'); ?></div>
-        <div class="fin-stat-sub">Belum dibayar ke bisnis &middot; semua periode</div>
-    </div>
+        <div class="fin-stat-sub">Semua periode &middot; bayar di Tagihan Bisnis →</div>
+    </a>
     <div class="fin-stat" style="--fin-accent:#2563eb;">
         <div class="fin-stat-label">Saldo &middot; <?php echo $monthLabel; ?></div>
         <div class="fin-stat-value">Rp <?php echo number_format($summary['saldo'], 0, ',', '.'); ?></div>
@@ -458,59 +458,6 @@ include __DIR__ . '/../../includes/header.php';
             </table>
         <?php endif; ?>
     </div>
-</div>
-
-<!-- ── Tagihan Barang Masuk dari Bisnis (uang keluar untuk bayar bisnis pemasok) ────── -->
-<div class="fin-card" style="margin-bottom:1rem;">
-    <div class="fin-section-head">
-        <h3 class="fin-section-title"><i data-feather="package" style="width:16px;height:16px;color:#7c3aed;"></i> Tagihan Barang Masuk dari Bisnis</h3>
-    </div>
-    <div class="fin-section-sub" style="margin-bottom:.6rem;">Barang yang dikirim bisnis ke Gudang atau ke bisnis lain (mis. roti dari Narayana). Bayar dari sini, uang masuk sebagai pendapatan di buku kas bisnis pengirim.</div>
-    <?php if (empty($incomingSupplyBills)): ?>
-        <div class="fin-empty">Belum ada barang masuk dari bisnis yang tercatat.</div>
-    <?php else: ?>
-        <table class="fin-table">
-            <thead>
-                <tr>
-                    <th>Bisnis</th>
-                    <th style="text-align:center;">Item</th>
-                    <th style="text-align:right;">Total Nilai</th>
-                    <th style="text-align:right;">Sudah Dibayar</th>
-                    <th style="text-align:right;">Sisa Tagihan</th>
-                    <th style="text-align:center;">Aksi</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($incomingSupplyBills as $sup): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($sup['name']); ?></td>
-                        <td style="text-align:center;color:#64748b;"><?php echo (int)$sup['total_items']; ?></td>
-                        <td style="text-align:right;"><?php echo number_format((float)$sup['total_nilai'], 0, ',', '.'); ?></td>
-                        <td style="text-align:right;color:#0f9d6a;"><?php echo number_format((float)$sup['total_paid'], 0, ',', '.'); ?></td>
-                        <td style="text-align:right;font-weight:700;color:#7c3aed;">Rp <?php echo number_format((float)$sup['outstanding'], 0, ',', '.'); ?></td>
-                        <td style="text-align:center;">
-                            <?php if ((float)$sup['outstanding'] > 0): ?>
-                                <form method="POST" style="display:inline;" onsubmit="return confirm('Bayar tagihan barang masuk <?php echo htmlspecialchars(addslashes($sup['name'])); ?> sebesar Rp <?php echo number_format((float)$sup['outstanding'], 0, ',', '.'); ?>?\n\nUang akan masuk ke buku kas bisnis tsb.');">
-                                    <input type="hidden" name="action" value="pay_supply_bill">
-                                    <input type="hidden" name="slug" value="<?php echo htmlspecialchars($sup['slug']); ?>">
-                                    <button type="submit" class="btn btn-sm btn-primary">Bayar</button>
-                                </form>
-                            <?php else: ?>
-                                <span class="fin-badge" style="background:#dcfce7;color:#166534;">Lunas</span>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="4">Total Sisa Tagihan Barang Masuk</td>
-                    <td style="text-align:right;color:#7c3aed;">Rp <?php echo number_format($incomingSupplyOutstandingTotal, 0, ',', '.'); ?></td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        </table>
-    <?php endif; ?>
 </div>
 
 <!-- ── Biaya TKBM ─────────────────────────────────────────────────────── -->

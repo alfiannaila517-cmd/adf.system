@@ -14,7 +14,7 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
 }
 
 $db = Database::getInstance();
-$pageTitle = 'Database Produk Gudang';
+$pageTitle = 'Daftar Barang';
 
 // Ensure table exists with unique constraint on nama_barang
 try {
@@ -188,8 +188,8 @@ include '../../includes/header.php';
 
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; gap:1rem;">
     <div>
-        <h2 style="font-size:1.4rem; font-weight:700; margin:0; color:var(--text-primary);">Database Produk Gudang</h2>
-        <p style="color:var(--text-muted); font-size:0.875rem; margin:0.25rem 0 0;">Master barang terpusat — cegah nama ganda seperti "Beer" vs "Bir"</p>
+        <h2 style="font-size:1.4rem; font-weight:700; margin:0; color:var(--text-primary);">Daftar Barang</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem; margin:0.25rem 0 0;">Daftar resmi semua barang gudang (nama, satuan, harga beli). Dipakai saat order ke supplier dan kirim ke bisnis — cegah nama ganda seperti "Beer" vs "Bir".</p>
     </div>
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         <button type="button" class="btn" style="background:#7c3aed;color:#fff;" onclick="openProdukModal(0)">

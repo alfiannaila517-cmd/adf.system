@@ -15,7 +15,7 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
 }
 
 $db = Database::getInstance();
-$pageTitle = 'Histori Barang Masuk';
+$pageTitle = 'Riwayat Barang Masuk';
 
 if (function_exists('ensureGudangNasitaOperationalTablesCompatibility')) {
     ensureGudangNasitaOperationalTablesCompatibility();
@@ -77,8 +77,8 @@ include '../../includes/header.php';
 
 <div style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
     <div>
-        <h2 style="font-size:1.5rem; font-weight:700; color:var(--text-primary); margin-bottom:0.2rem;">Histori Barang Masuk</h2>
-        <p style="color:var(--text-muted); font-size:0.875rem;">Riwayat barang yang diterima dari supplier via PO Supplier Gudang</p>
+        <h2 style="font-size:1.5rem; font-weight:700; color:var(--text-primary); margin-bottom:0.2rem;">Riwayat Barang Masuk</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem;">Semua barang yang sudah diterima dari supplier (dari menu Order ke Supplier).</p>
     </div>
     <a href="gudang-nasita.php" class="btn btn-secondary">
         <i data-feather="arrow-left" style="width:16px;height:16px;"></i> Kembali ke Gudang

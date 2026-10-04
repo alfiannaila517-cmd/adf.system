@@ -47,7 +47,7 @@ $businessDatabases = [
 // Get active business config
 $businessConfig = getActiveBusinessConfig();
 $currentUser = $auth->getCurrentUser();
-$pageTitle = 'Purchase Orders';
+$pageTitle = $isGudang ? 'Riwayat Pengiriman' : 'Purchase Orders';
 
 // For gudang users: will fetch from all DBs below
 // For regular users: fetch from active business DB only
@@ -420,6 +420,15 @@ include '../../includes/header.php';
     }
 </style>
 
+<?php if ($isGudang): ?>
+<div style="margin-bottom: 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+    <div>
+        <h2 style="font-size: 1.3rem; font-weight: 700; color: var(--text-primary); margin: 0 0 0.2rem;">Riwayat Pengiriman ke Bisnis</h2>
+        <p style="color: var(--text-muted); font-size: 0.8rem; margin: 0;">Semua barang yang sudah dikirim gudang ke bisnis. Nilainya masuk ke tagihan bulanan bisnis penerima.</p>
+    </div>
+    <a href="gudang-transfer.php" class="btn btn-primary"><i data-feather="send" style="width: 16px; height: 16px;"></i> Kirim ke Bisnis</a>
+</div>
+<?php else: ?>
 <div style="margin-bottom: 1.25rem;">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
@@ -444,11 +453,12 @@ include '../../includes/header.php';
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <?php if ($isGudang): ?>
     <div class="card" style="margin-bottom:1.25rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.9rem;">
-            <h3 style="font-size:1rem; font-weight:700; margin:0;">Riwayat Transfer Gudang (3 Bisnis)</h3>
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">Daftar Pengiriman</h3>
             <span style="font-size:0.8rem; color:var(--text-muted);">History langsung ter-update setelah transfer sukses</span>
         </div>
 

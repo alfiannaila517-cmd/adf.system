@@ -1303,70 +1303,48 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 <ul class="nav-menu">
                     <?php $isGudangNasitaContext = (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'gudang-nasita'); ?>
                     <?php if ($isGudangNasitaContext): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/gudang/dashboard.php" class="nav-link <?php echo activeMenu('dashboard.php'); ?>">
-                                <i data-feather="grid" class="nav-icon"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php" class="nav-link <?php echo (activeMenu('gudang-nasita.php') || activeMenu('stock.php')) ? 'active' : ''; ?>">
-                                <i data-feather="archive" class="nav-icon"></i>
-                                <span>Stock Gudang</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-produk.php" class="nav-link <?php echo activeMenu('gudang-produk.php'); ?>">
-                                <i data-feather="database" class="nav-icon"></i>
-                                <span>Database Produk</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-po-supplier.php" class="nav-link <?php echo activeMenu('gudang-po-supplier.php'); ?>">
-                                <i data-feather="shopping-cart" class="nav-icon"></i>
-                                <span>PO Supplier</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-riwayat-masuk.php" class="nav-link <?php echo activeMenu('gudang-riwayat-masuk.php'); ?>">
-                                <i data-feather="log-in" class="nav-icon"></i>
-                                <span>Histori Barang Masuk</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/procurement/purchase-orders.php" class="nav-link <?php echo activeMenu('purchase-orders.php'); ?>">
-                                <i data-feather="send" class="nav-icon"></i>
-                                <span>History Terkirim</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-transfer.php" class="nav-link <?php echo activeMenu('gudang-transfer.php'); ?>">
-                                <i data-feather="repeat" class="nav-icon"></i>
-                                <span>Transfer ke Bisnis</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-tagihan.php" class="nav-link <?php echo activeMenu('gudang-tagihan.php'); ?>">
-                                <i data-feather="file-text" class="nav-icon"></i>
-                                <span>Tagihan</span>
-                            </a>
-                        </li>
-
-                        <?php if ($auth->hasPermission('gudang_finance') || $auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')): ?>
-                            <li class="nav-item">
-                                <a href="<?php echo BASE_URL; ?>/modules/gudang/finance.php" class="nav-link <?php echo activeMenu('finance.php'); ?>">
-                                    <i data-feather="dollar-sign" class="nav-icon"></i>
-                                    <span>Finance</span>
-                                </a>
-                            </li>
-                        <?php endif; ?>
+                        <?php
+                        // Menu Gudang Nasita dikelompokkan mengikuti alur barang:
+                        // stok → barang masuk (dari supplier) → barang keluar (ke bisnis) → keuangan.
+                        $gudangNavGroups = [
+                            ['label' => null, 'items' => [
+                                ['modules/gudang/dashboard.php', 'grid', 'Dashboard', ['dashboard.php']],
+                            ]],
+                            ['label' => 'Stok', 'items' => [
+                                ['modules/procurement/gudang-nasita.php', 'archive', 'Stok Gudang', ['gudang-nasita.php', 'stock.php']],
+                                ['modules/procurement/gudang-produk.php', 'database', 'Daftar Barang', ['gudang-produk.php']],
+                            ]],
+                            ['label' => 'Barang Masuk · dari supplier', 'items' => [
+                                ['modules/procurement/gudang-po-supplier.php', 'shopping-cart', 'Order ke Supplier', ['gudang-po-supplier.php']],
+                                ['modules/procurement/gudang-riwayat-masuk.php', 'log-in', 'Riwayat Barang Masuk', ['gudang-riwayat-masuk.php']],
+                            ]],
+                            ['label' => 'Barang Keluar · ke bisnis', 'items' => [
+                                ['modules/procurement/gudang-transfer.php', 'send', 'Kirim ke Bisnis', ['gudang-transfer.php']],
+                                ['modules/procurement/purchase-orders.php', 'list', 'Riwayat Pengiriman', ['purchase-orders.php']],
+                            ]],
+                            ['label' => 'Keuangan', 'items' => [
+                                ['modules/procurement/gudang-tagihan.php', 'file-text', 'Tagihan Bisnis', ['gudang-tagihan.php']],
+                                ['modules/gudang/finance.php', 'dollar-sign', 'Kas & Biaya Gudang', ['finance.php']],
+                            ]],
+                        ];
+                        $gudangCurrentPage = basename($_SERVER['PHP_SELF']);
+                        ?>
+                        <?php foreach ($gudangNavGroups as $navGroup): ?>
+                            <?php if ($navGroup['label']): ?>
+                                <li class="gudang-nav-group"><?php echo htmlspecialchars($navGroup['label']); ?></li>
+                            <?php endif; ?>
+                            <?php foreach ($navGroup['items'] as [$navHref, $navIcon, $navText, $navPages]): ?>
+                                <li class="nav-item">
+                                    <a href="<?php echo BASE_URL . '/' . $navHref; ?>" class="nav-link <?php echo in_array($gudangCurrentPage, $navPages, true) ? 'active' : ''; ?>">
+                                        <i data-feather="<?php echo $navIcon; ?>" class="nav-icon"></i>
+                                        <span><?php echo $navText; ?></span>
+                                    </a>
+                                </li>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                        <style>
+                            .gudang-nav-group { list-style: none; margin: 0.85rem 0 0.2rem; padding: 0 0.9rem; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted, #94a3b8); }
+                        </style>
                     <?php else: ?>
                         <?php if ($auth->hasPermission('dashboard')): ?>
                             <li class="nav-item">

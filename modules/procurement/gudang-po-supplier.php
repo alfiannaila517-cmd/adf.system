@@ -16,7 +16,7 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
 
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
-$pageTitle = 'PO Supplier Gudang';
+$pageTitle = 'Order ke Supplier';
 
 // Read-only: item detail for a PO, shown in the "Hapus" confirmation modal so the user
 // can see exactly what they're about to delete before confirming.
@@ -679,8 +679,8 @@ include '../../includes/header.php';
 
 <div style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
     <div>
-        <h2 style="font-size:1.5rem; font-weight:700; color:var(--text-primary); margin-bottom:0.2rem;">PO Supplier Gudang</h2>
-        <p style="color:var(--text-muted); font-size:0.875rem;">Centang barang di kiri → isi qty di kanan → Buat PO</p>
+        <h2 style="font-size:1.5rem; font-weight:700; color:var(--text-primary); margin-bottom:0.2rem;">Order ke Supplier</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem;">Pesan barang ke supplier: centang barang di kiri → isi jumlah di kanan → Buat PO. Saat barang datang, buka PO-nya lalu isi <b>Terima Barang</b> agar stok bertambah.</p>
     </div>
     <a href="gudang-nasita.php" class="btn btn-secondary">
         <i data-feather="arrow-left" style="width:16px;height:16px;"></i> Kembali ke Gudang
