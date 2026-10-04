@@ -1,16 +1,15 @@
 <?php
 
 /**
- * TAGIHAN BISNIS & GUDANG
+ * TAGIHAN BISNIS & GUDANG (dilihat dari outlet: Narayana / Bens Cafe / Eat Meet)
  *
- * Setiap kali satu bisnis mengirim barang ke bisnis lain (termasuk Gudang Nasita),
- * transaksi itu tercatat di tabel master `business_inter_stock_transfers`.
- * Logikanya:
- * - Bisnis PENGIRIM (source) berarti PIUTANG — bisnis lain berhutang ke kita.
- *   Contoh: Narayana kirim 1 botol Amer ke Bens Cafe -> Bens Cafe berhutang ke Narayana.
- * - Bisnis PENERIMA (target) berarti HUTANG — kita harus membayar ke pengirim.
- *   Contoh: Narayana kirim roti ke Gudang Nasita -> Gudang berhutang ke Narayana,
- *   begitu juga sebaliknya jika Gudang/bisnis lain yang mengirim ke kita.
+ * Semua uang antar bisnis lewat Gudang Nasita, dipisah PER BULAN:
+ *  A) Tagihan dari Gudang — yang harus DIBAYAR outlet: barang dari Gudang + barang yang diterima
+ *     dari bisnis lain + bagian TKBM. Angka dari gudangMonthlyBillBreakdown() (sama persis dengan
+ *     halaman Tagihan Bisnis di Gudang dan proses bayar).
+ *  B) Barang yang kami kirim — yang akan DITERIMA outlet: kiriman ke Gudang / bisnis lain, dibayar
+ *     Gudang (getGudangNasitaIncomingSupplyBills), termasuk barang yang diambil langsung oleh Gudang.
+ *  C) Uang masuk dari Gudang — pembayaran yang sudah masuk ke buku kas outlet bulan ini.
  */
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
@@ -18,10 +17,10 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/business_helper.php';
+require_once '../../includes/procurement_functions.php';
 
 $auth = new Auth();
 $auth->requireLogin();
-
 if (!$auth->hasPermission('bills')) {
     header('Location: ' . BASE_URL . '/index.php');
     exit;
@@ -32,747 +31,318 @@ $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Tagihan Bisnis & Gudang';
 
 $bizConfig = getActiveBusinessConfig();
-$activeSlug = strtolower(trim((string)($bizConfig['business_id'] ?? '')));
+$activeSlug = gudangNormalizeBizSlug((string)($bizConfig['business_id'] ?? ''));
 $activeName = (string)($bizConfig['name'] ?? '');
+$isTracked = in_array($activeSlug, array_column(gudangTrackedBizList(), 'slug'), true);
 
-// Banyak transfer lama tersimpan dengan unit_price/subtotal = 0 (barang belum
-// pernah diberi harga saat dikirim). Izinkan siapa saja dari bisnis terkait
-// (pengirim atau penerima) mengisi harga langsung dari halaman ini.
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'set_transfer_price') {
-    $transferId = (int)($_POST['transfer_id'] ?? 0);
-    $newUnitPrice = (float)str_replace(['.', ','], ['', '.'], (string)($_POST['unit_price'] ?? '0'));
-    if ($transferId > 0 && $newUnitPrice > 0) {
-        try {
-            $masterDsnSet = 'mysql:host=' . DB_HOST . ';dbname=' . (defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME) . ';charset=' . DB_CHARSET;
-            $masterPdoSet = new PDO($masterDsnSet, DB_USER, DB_PASS, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]);
-            $rowToUpdate = $masterPdoSet->prepare(
-                "SELECT * FROM business_inter_stock_transfers WHERE id = ? AND (source_business_slug = ? OR target_business_slug = ?) LIMIT 1"
-            );
-            $rowToUpdate->execute([$transferId, $activeSlug, $activeSlug]);
-            $row = $rowToUpdate->fetch();
-            if ($row) {
-                $newSubtotal = $newUnitPrice * (float)($row['quantity'] ?? 0);
-                $upd = $masterPdoSet->prepare("UPDATE business_inter_stock_transfers SET unit_price = ?, subtotal = ? WHERE id = ?");
-                $upd->execute([$newUnitPrice, $newSubtotal, $transferId]);
-            }
-        } catch (Throwable $e) {
-            error_log('business-warehouse set_transfer_price error: ' . $e->getMessage());
-        }
+$month = preg_match('/^\d{4}-\d{2}$/', (string)($_GET['bulan'] ?? '')) ? $_GET['bulan'] : date('Y-m');
+$monthStart = $month . '-01';
+$monthEnd = date('Y-m-t', strtotime($monthStart));
+$monthLabel = date('F Y', strtotime($monthStart));
+$prevMonth = date('Y-m', strtotime($monthStart . ' -1 month'));
+$nextMonth = date('Y-m', strtotime($monthStart . ' +1 month'));
+
+// ── POST: bayar tagihan Gudang bulan ini (rekening bank outlet → rekening Gudang) ──
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'pay_gudang_bill') {
+    $payMonth = preg_match('/^\d{4}-\d{2}$/', (string)($_POST['bulan'] ?? '')) ? $_POST['bulan'] : $month;
+    try {
+        setFlash('success', gudangTagihanPayMonthlyBill($activeSlug, $payMonth, (int)($currentUser['id'] ?? 0)));
+    } catch (Throwable $e) {
+        setFlash('error', 'Gagal membayar: ' . $e->getMessage());
     }
-    header('Location: business-warehouse.php');
+    header('Location: business-warehouse.php?bulan=' . urlencode($payMonth));
     exit;
 }
 
-// Friendly names for every known business, used as fallback when a transfer's
-// stored name is missing/blank.
-$knownBusinessNames = [];
-foreach (glob(__DIR__ . '/../../config/businesses/*.php') as $cfgFile) {
-    $cfg = require $cfgFile;
-    if (!empty($cfg['business_id'])) {
-        $knownBusinessNames[strtolower($cfg['business_id'])] = $cfg['name'] ?? $cfg['business_id'];
-    }
-}
-
-$transfers = [];
-try {
-    $masterDsn = 'mysql:host=' . DB_HOST . ';dbname=' . (defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME) . ';charset=' . DB_CHARSET;
-    $masterPdo = new PDO($masterDsn, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-    $stmt = $masterPdo->prepare(
-        "SELECT * FROM business_inter_stock_transfers
-         WHERE source_business_slug = ? OR target_business_slug = ?
-         ORDER BY created_at DESC
-         LIMIT 300"
-    );
-    $stmt->execute([$activeSlug, $activeSlug]);
-    $transfers = $stmt->fetchAll();
-} catch (Throwable $e) {
-    error_log('business-warehouse tagihan error: ' . $e->getMessage());
-    $transfers = [];
-}
-
-// Split into piutang (kita pengirim -> orang lain berhutang ke kita)
-// dan hutang (kita penerima -> kita berhutang ke pengirim), dikelompokkan per mitra bisnis.
-$piutangByPartner = [];
-$hutangByPartner = [];
-$piutangTotal = 0.0;
-$hutangTotal = 0.0;
-
-// Nama database Gudang Nasita, dipakai untuk menebak harga item yang belum
-// punya unit_price/subtotal (mis. barang baru seperti "roti" yang belum
-// pernah diberi harga saat dikirim). Tanpa ini, transfer dengan harga 0
-// disembunyikan total dari daftar tagihan padahal transfernya nyata terjadi.
-$gudangDbNameForPricing = '';
-try {
-    $gudangCfgPathForPricing = __DIR__ . '/../../config/businesses/gudang-nasita.php';
-    if (file_exists($gudangCfgPathForPricing)) {
-        $gudangCfgForPricing = include $gudangCfgPathForPricing;
-        $gudangDbNameForPricing = (string)($gudangCfgForPricing['database'] ?? '');
-    }
-} catch (Throwable $e) {
-    $gudangDbNameForPricing = '';
-}
-
-foreach ($transfers as $t) {
-    $qty = (float)($t['quantity'] ?? 0);
-    $unitPrice = (float)($t['unit_price'] ?? 0);
-    $value = isset($t['subtotal']) && $t['subtotal'] !== null ? (float)$t['subtotal'] : ($qty * $unitPrice);
-    $isEstimated = false;
-
-    if ($value <= 0 && $gudangDbNameForPricing !== '') {
+// ── POST: isi harga barang kiriman yang belum berharga (hanya oleh bisnis PENGIRIM) ──
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'set_transfer_price') {
+    $transferId = (int)($_POST['transfer_id'] ?? 0);
+    $newUnitPrice = (float)($_POST['unit_price'] ?? 0);
+    if ($transferId > 0 && $newUnitPrice > 0) {
         try {
-            $originDbForPricing = Database::getCurrentDatabase();
-            $gudangDbForPricing = Database::switchDatabase($gudangDbNameForPricing);
-
-            // Cari dulu di katalog master "Database Produk" (gudang_nasita_barang) berdasarkan
-            // NAMA barang langsung — jangan mengandalkan barang_id di gudang_nasita_stock, karena
-            // link itu bisa kosong/salah meski harga aslinya sudah ada di katalog.
-            $estimatedPrice = 0.0;
-            $hasBarangTable = (bool)$gudangDbForPricing->fetchOne("SHOW TABLES LIKE 'gudang_nasita_barang'");
-            if ($hasBarangTable) {
-                $barangPriceRow = $gudangDbForPricing->fetchOne(
-                    "SELECT harga_beli FROM gudang_nasita_barang WHERE LOWER(TRIM(nama_barang)) = LOWER(TRIM(?)) LIMIT 1",
-                    [(string)($t['item_name'] ?? '')]
-                );
-                $estimatedPrice = (float)($barangPriceRow['harga_beli'] ?? 0);
-            }
-
-            // Fallback: harga_beli yang tersimpan di stok gudang saat ini.
-            if ($estimatedPrice <= 0) {
-                $stockPriceRow = $gudangDbForPricing->fetchOne(
-                    "SELECT harga_beli FROM gudang_nasita_stock
-                     WHERE LOWER(TRIM(item_name)) = LOWER(TRIM(?)) AND LOWER(TRIM(unit)) = LOWER(TRIM(?))
-                     LIMIT 1",
-                    [(string)($t['item_name'] ?? ''), (string)($t['unit'] ?? '')]
-                );
-                $estimatedPrice = (float)($stockPriceRow['harga_beli'] ?? 0);
-            }
-
-            if ($estimatedPrice > 0) {
-                $value = $estimatedPrice * $qty;
-                $isEstimated = true;
-            }
-            if ($originDbForPricing !== '') {
-                Database::switchDatabase($originDbForPricing);
+            $pdo = gudangMasterPdo();
+            $row = $pdo->prepare('SELECT source_business_slug, quantity, subtotal FROM business_inter_stock_transfers WHERE id = ? LIMIT 1');
+            $row->execute([$transferId]);
+            $t = $row->fetch();
+            // Harga yang sudah terisi tidak boleh diubah dari sini (bisa mengubah tagihan yang sudah dibayar).
+            if ($t && gudangNormalizeBizSlug((string)$t['source_business_slug']) === $activeSlug && (float)$t['subtotal'] <= 0) {
+                $pdo->prepare('UPDATE business_inter_stock_transfers SET unit_price = ?, subtotal = ? WHERE id = ?')
+                    ->execute([$newUnitPrice, $newUnitPrice * (float)$t['quantity'], $transferId]);
+                setFlash('success', 'Harga tersimpan.');
             }
         } catch (Throwable $e) {
-            error_log('business-warehouse estimasi harga error: ' . $e->getMessage());
+            error_log('business-warehouse set_transfer_price: ' . $e->getMessage());
         }
     }
-
-    $t['_bw_value'] = $value;
-    $t['_bw_estimated'] = $isEstimated;
-
-    $sourceSlug = strtolower((string)($t['source_business_slug'] ?? ''));
-    $targetSlug = strtolower((string)($t['target_business_slug'] ?? ''));
-
-    if ($sourceSlug === $activeSlug) {
-        $partnerSlug = $targetSlug;
-        $partnerName = $t['target_business_name'] ?: ($knownBusinessNames[$partnerSlug] ?? $partnerSlug);
-        if (!isset($piutangByPartner[$partnerSlug])) {
-            $piutangByPartner[$partnerSlug] = ['name' => $partnerName, 'total' => 0.0, 'items' => []];
-        }
-        $piutangByPartner[$partnerSlug]['total'] += $value;
-        $piutangByPartner[$partnerSlug]['items'][] = $t;
-        $piutangTotal += $value;
-    } elseif ($targetSlug === $activeSlug) {
-        $partnerSlug = $sourceSlug;
-        $partnerName = $t['source_business_name'] ?: ($knownBusinessNames[$partnerSlug] ?? $partnerSlug);
-        if (!isset($hutangByPartner[$partnerSlug])) {
-            $hutangByPartner[$partnerSlug] = ['name' => $partnerName, 'total' => 0.0, 'items' => []];
-        }
-        $hutangByPartner[$partnerSlug]['total'] += $value;
-        $hutangByPartner[$partnerSlug]['items'][] = $t;
-        $hutangTotal += $value;
-    }
+    header('Location: business-warehouse.php?bulan=' . urlencode($month));
+    exit;
 }
 
-// Barang yang diterima lewat alur transfer resmi Gudang Nasita (tabel
-// gudang_nasita_transfers/gudang_nasita_transfer_items, tersimpan di database
-// Gudang sendiri) TIDAK pernah masuk ke business_inter_stock_transfers, jadi
-// tanpa blok ini "Hutang" bisnis penerima akan diam-diam melewatkan barang
-// yang benar-benar sudah diterima dari Gudang Nasita.
-if ($activeSlug !== 'gudang-nasita' && $activeSlug !== '') {
+// ── A) Tagihan dari Gudang ──
+$bill = null;
+if ($isTracked) {
     try {
-        $gudangCfgPathForTransfers = __DIR__ . '/../../config/businesses/gudang-nasita.php';
-        if (file_exists($gudangCfgPathForTransfers)) {
-            $gudangCfgForTransfers = require $gudangCfgPathForTransfers;
-            $gudangDbNameForTransfers = (string)($gudangCfgForTransfers['database'] ?? '');
-            if ($gudangDbNameForTransfers !== '') {
-                $originDbForGudangTransfers = Database::getCurrentDatabase();
-                $gudangDbForTransfers = Database::switchDatabase($gudangDbNameForTransfers);
+        $bill = gudangMonthlyBillBreakdown($activeSlug, $month);
+    } catch (Throwable $e) {
+        error_log('business-warehouse bill: ' . $e->getMessage());
+    }
+}
+$billPaid = $bill && $bill['paid'] !== null;
+$billAmount = $bill ? ($billPaid ? $bill['paid']['amount'] : $bill['total']) : 0.0;
 
-                $activeBusinessNumericId = (int)getNumericBusinessId($activeSlug);
-
-                $hasTargetBusinessIdCol = false;
-                foreach ($gudangDbForTransfers->fetchAll('SHOW COLUMNS FROM gudang_nasita_transfers') as $col) {
-                    if (strtolower((string)($col['Field'] ?? '')) === 'target_business_id') {
-                        $hasTargetBusinessIdCol = true;
-                        break;
-                    }
-                }
-
-                $targetNamePredicate = 'LOWER(TRIM(gt.target_business_name)) LIKE LOWER(?)';
-                $targetNameParam = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $activeName) . '%';
-                $targetFilterSql = $hasTargetBusinessIdCol
-                    ? '(gt.target_business_id = ? OR (' . $targetNamePredicate . '))'
-                    : '(' . $targetNamePredicate . ')';
-                $targetFilterParams = $hasTargetBusinessIdCol
-                    ? [$activeBusinessNumericId, $targetNameParam]
-                    : [$targetNameParam];
-
-                $gudangTransferRows = $gudangDbForTransfers->fetchAll(
-                    "SELECT gti.id, gti.item_name, gti.unit, gti.quantity, gti.unit_price, gti.subtotal,
-                            COALESCE(gt.tanggal_transfer, gt.created_at) AS created_at
-                     FROM gudang_nasita_transfer_items gti
-                     JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
-                     WHERE {$targetFilterSql}
-                     ORDER BY gt.id DESC
-                     LIMIT 300",
-                    $targetFilterParams
-                ) ?: [];
-
-                foreach ($gudangTransferRows as $row) {
-                    $qty = (float)($row['quantity'] ?? 0);
-                    $value = isset($row['subtotal']) && $row['subtotal'] !== null
-                        ? (float)$row['subtotal']
-                        : $qty * (float)($row['unit_price'] ?? 0);
-
-                    if (!isset($hutangByPartner['gudang-nasita'])) {
-                        $hutangByPartner['gudang-nasita'] = ['name' => 'Gudang Nasita', 'total' => 0.0, 'items' => []];
-                    }
-                    $hutangByPartner['gudang-nasita']['total'] += $value;
-                    $hutangByPartner['gudang-nasita']['items'][] = [
-                        'id' => (int)$row['id'],
-                        'item_name' => $row['item_name'],
-                        'unit' => $row['unit'],
-                        'quantity' => $qty,
-                        'created_at' => $row['created_at'] ?: date('Y-m-d'),
-                        '_bw_value' => $value,
-                        '_bw_estimated' => false,
-                        '_bw_from_gudang_transfer' => true,
-                    ];
-                    $hutangTotal += $value;
-                }
-
-                if ($originDbForGudangTransfers !== '') {
-                    Database::switchDatabase($originDbForGudangTransfers);
-                }
+// ── B) Barang yang kami kirim bulan ini ──
+$sentItems = [];
+$sentTotal = 0.0;
+$sentUnpaid = 0.0;
+$owedAllPeriods = 0.0;
+try {
+    foreach (getGudangNasitaIncomingSupplyBills() as $sup) {
+        if ($sup['slug'] !== $activeSlug) {
+            continue;
+        }
+        $owedAllPeriods = (float)$sup['outstanding'];
+        foreach ($sup['items'] as $it) {
+            if (substr((string)$it['date'], 0, 7) !== $month) {
+                continue;
+            }
+            $sentItems[] = $it;
+            $sentTotal += $it['value'];
+            if (in_array($it['status'], ['belum', 'sebagian'], true)) {
+                $sentUnpaid += $it['value'];
             }
         }
-    } catch (Throwable $e) {
-        error_log('business-warehouse gudang transfer read error: ' . $e->getMessage());
     }
+} catch (Throwable $e) {
+    error_log('business-warehouse sent: ' . $e->getMessage());
 }
 
-uasort($piutangByPartner, function ($a, $b) {
-    return $b['total'] <=> $a['total'];
-});
-uasort($hutangByPartner, function ($a, $b) {
-    return $b['total'] <=> $a['total'];
-});
+// ── C) Uang masuk dari Gudang bulan ini (buku kas outlet) ──
+$receivedRows = [];
+try {
+    $receivedRows = $db->fetchAll(
+        "SELECT transaction_date, amount, description FROM cash_book
+         WHERE source_type = 'gudang_supply_income' AND transaction_date BETWEEN ? AND ?
+         ORDER BY transaction_date DESC, id DESC",
+        [$monthStart, $monthEnd]
+    ) ?: [];
+} catch (Throwable $e) {
+}
+$receivedTotal = array_sum(array_column($receivedRows, 'amount'));
 
-$netPosition = $piutangTotal - $hutangTotal;
+$statusStyle = [
+    'lunas'    => ['#dcfce7', '#166534', 'Sudah dibayar'],
+    'sebagian' => ['#fef3c7', '#92400e', 'Dibayar sebagian'],
+    'belum'    => ['#fee2e2', '#991b1b', 'Belum dibayar'],
+    'dipotong' => ['#e0e7ff', '#3730a3', 'Dipotong tagihan'],
+    'diambil'  => ['#dbeafe', '#1e40af', 'Diambil Gudang · lunas'],
+];
+$fmt = function ($n) {
+    return 'Rp ' . number_format((float)$n, 0, ',', '.');
+};
+$qtyFmt = function ($q) {
+    return rtrim(rtrim(number_format((float)$q, 2, '.', ''), '0'), '.');
+};
 
 include '../../includes/header.php';
 ?>
 
 <style>
-    .bw-container {
-        max-width: 1280px;
-        margin: 0 auto;
-        padding: 1.25rem 1rem 2rem;
-        font-size: 0.875rem;
-    }
-
-    .bw-header {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.85rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .bw-header .bw-header-icon {
-        flex-shrink: 0;
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark, var(--primary-color)));
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.3rem;
-    }
-
-    .bw-header h1 {
-        font-size: 1.35rem;
-        font-weight: 800;
-        color: var(--text-primary);
-        margin: 0 0 0.2rem;
-        letter-spacing: -0.01em;
-    }
-
-    .bw-header p {
-        color: var(--text-secondary);
-        font-size: 0.875rem;
-        margin: 0;
-        max-width: 620px;
-        line-height: 1.5;
-    }
-
-    .bw-summary {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    @media (max-width: 760px) {
-        .bw-summary {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    .bw-summary-card {
-        position: relative;
-        background: var(--card-bg, #fff);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 1.1rem 1.25rem;
-        overflow: hidden;
-    }
-
-    .bw-summary-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-    }
-
-    .bw-summary-card.piutang::before {
-        background: #059669;
-    }
-
-    .bw-summary-card.hutang::before {
-        background: #dc2626;
-    }
-
-    .bw-summary-card.net::before {
-        background: <?php echo $netPosition >= 0 ? '#059669' : '#dc2626'; ?>;
-    }
-
-    .bw-summary-card .label {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.875rem;
-        font-weight: 700;
-        color: var(--text-secondary);
-        margin-bottom: 0.5rem;
-    }
-
-    .bw-summary-card .value {
-        font-size: 1.5rem;
-        font-weight: 800;
-        letter-spacing: -0.01em;
-    }
-
-    .bw-summary-card .sub {
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        margin-top: 0.25rem;
-    }
-
-    .bw-summary-card.piutang .value {
-        color: #059669;
-    }
-
-    .bw-summary-card.hutang .value {
-        color: #dc2626;
-    }
-
-    .bw-summary-card.net .value {
-        color: <?php echo $netPosition >= 0 ? '#059669' : '#dc2626'; ?>;
-    }
-
-    .bw-columns {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.5rem;
-        align-items: start;
-    }
-
-    @media (max-width: 900px) {
-        .bw-columns {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    .bw-section-title {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-        font-weight: 800;
-        margin: 0 0 0.9rem;
-        padding-bottom: 0.6rem;
-        border-bottom: 2px solid var(--border-color);
-    }
-
-    .bw-section-title .count {
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-        background: var(--card-bg, #f3f4f6);
-        border: 1px solid var(--border-color);
-        border-radius: 999px;
-        padding: 0.1rem 0.55rem;
-        margin-left: auto;
-    }
-
-    .bw-section-title.piutang {
-        color: #059669;
-    }
-
-    .bw-section-title.hutang {
-        color: #dc2626;
-    }
-
-    .bw-partner-card {
-        background: var(--card-bg, #fff);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        margin-bottom: 0.75rem;
-        overflow: hidden;
-        transition: box-shadow 0.15s ease, transform 0.15s ease;
-    }
-
-    .bw-partner-card.open {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-    }
-
-    .bw-partner-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.85rem 1rem;
-        cursor: pointer;
-        gap: 0.75rem;
-    }
-
-    .bw-partner-name-wrap {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        min-width: 0;
-    }
-
-    .bw-partner-avatar {
-        flex-shrink: 0;
-        width: 32px;
-        height: 32px;
-        border-radius: 9px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        font-size: 0.875rem;
-        color: #fff;
-    }
-
-    .bw-partner-card.piutang .bw-partner-avatar {
-        background: #059669;
-    }
-
-    .bw-partner-card.hutang .bw-partner-avatar {
-        background: #dc2626;
-    }
-
-    .bw-partner-name {
-        font-weight: 700;
-        font-size: 0.875rem;
-        color: var(--text-primary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .bw-partner-name small {
-        display: block;
-        font-weight: 500;
-        font-size: 0.875rem;
-        color: var(--text-secondary);
-    }
-
-    .bw-partner-total {
-        font-weight: 800;
-        font-size: 0.875rem;
-        white-space: nowrap;
-    }
-
-    .bw-partner-card.piutang .bw-partner-total {
-        color: #059669;
-    }
-
-    .bw-partner-card.hutang .bw-partner-total {
-        color: #dc2626;
-    }
-
-    .bw-partner-items {
-        display: none;
-        border-top: 1px solid var(--border-color);
-        background: rgba(0, 0, 0, 0.012);
-    }
-
-    .bw-partner-card.open .bw-partner-items {
-        display: block;
-    }
-
-    .bw-item-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.65rem 1rem;
-        font-size: 0.875rem;
-        border-bottom: 1px solid var(--border-color);
-        gap: 0.75rem;
-    }
-
-    .bw-item-row:last-child {
-        border-bottom: none;
-    }
-
-    .bw-item-name {
-        color: var(--text-primary);
-        font-weight: 600;
-    }
-
-    .bw-item-meta {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.35rem;
-        color: var(--text-secondary);
-        font-size: 0.875rem;
-        margin-top: 0.15rem;
-    }
-
-    .bw-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-size: 0.875rem;
-        font-weight: 700;
-        padding: 0.1rem 0.55rem;
-        border-radius: 999px;
-        white-space: nowrap;
-    }
-
-    .bw-badge.warn {
-        background: #fef3c7;
-        color: #b45309;
-    }
-
-    .bw-badge.danger {
-        background: #fee2e2;
-        color: #b91c1c;
-    }
-
-    .bw-item-value {
-        font-weight: 700;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .bw-price-form {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        margin-top: 0.5rem;
-    }
-
-    .bw-price-form input[type="text"] {
-        width: 120px;
-        padding: 0.3rem 0.55rem;
-        font-size: 0.875rem;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-    }
-
-    .bw-price-form button {
-        font-size: 0.875rem;
-        font-weight: 700;
-        padding: 0.3rem 0.75rem;
-        border-radius: 8px;
-        border: 1px solid var(--primary-color);
-        background: var(--primary-color);
-        color: #fff;
-        cursor: pointer;
-        transition: opacity 0.15s ease;
-    }
-
-    .bw-price-form button:hover {
-        opacity: 0.88;
-    }
-
-    .bw-empty {
-        color: var(--text-secondary);
-        font-size: 0.875rem;
-        padding: 1.5rem 1rem;
-        background: var(--card-bg, #fff);
-        border: 1px dashed var(--border-color);
-        border-radius: 14px;
-        text-align: center;
-    }
-
-    .bw-chevron {
-        transition: transform 0.15s ease;
-        color: var(--text-secondary);
-        flex-shrink: 0;
-    }
-
-    .bw-partner-card.open .bw-chevron {
-        transform: rotate(180deg);
-    }
+    .bw { --line:rgba(148,163,184,.3); --muted:#94a3b8; }
+    .bw-head { display:flex; justify-content:space-between; align-items:flex-end; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .bw-month { display:flex; align-items:center; gap:.4rem; }
+    .bw-month a { display:inline-grid; place-items:center; width:34px; height:34px; border:1px solid var(--line); border-radius:.5rem; background:transparent; color:var(--text-primary); text-decoration:none; font-weight:700; }
+    .bw-kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:.75rem; margin-bottom:1rem; }
+    .bw-kpi { background:var(--bg-primary, #fff); border:1px solid var(--line); border-top:3px solid var(--k); border-radius:.75rem; padding:.8rem .95rem; }
+    .bw-kpi small { display:block; font-size:.68rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+    .bw-kpi b { display:block; font-size:1.2rem; margin:.2rem 0 .1rem; color:var(--text-primary); }
+    .bw-kpi span { font-size:.72rem; color:var(--muted); }
+    .bw-card { background:var(--bg-primary, #fff); border:1px solid var(--line); border-radius:.85rem; padding:1rem 1.1rem; margin-bottom:1rem; }
+    .bw-card h3 { font-size:1rem; font-weight:700; margin:0; display:flex; align-items:center; gap:.45rem; color:var(--text-primary); }
+    .bw-card .sub { font-size:.78rem; color:var(--muted); margin:.2rem 0 .75rem; }
+    .bw-tag { display:inline-block; font-size:.66rem; font-weight:700; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+    .bw-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+    .bw-table th { text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); padding:.45rem .5rem; border-bottom:1px solid var(--line); }
+    .bw-table td { padding:.5rem; border-bottom:1px solid rgba(148,163,184,.18); color:var(--text-primary); }
+    .bw-table .r { text-align:right; white-space:nowrap; }
+    .bw-group { font-size:.74rem; font-weight:700; color:var(--text-primary) !important; background:rgba(148,163,184,.14); }
+    .bw-total { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-top:.75rem; padding:.75rem .9rem; border-radius:.65rem; background:rgba(148,163,184,.12); color:var(--text-primary); }
+    .bw-empty { padding:1rem; text-align:center; color:var(--muted); font-size:.84rem; }
+    .bw-step { display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:#1e40af; color:#fff !important; font-size:.72rem; font-weight:800; }
+    @media (max-width: 900px) { .bw-kpis { grid-template-columns:repeat(2, 1fr); } }
 </style>
 
-<div class="bw-container">
-    <div class="bw-header">
-        <div class="bw-header-icon">📊</div>
+<div class="bw">
+    <div class="bw-head">
         <div>
-            <h1>Tagihan Bisnis &amp; Gudang</h1>
-            <p>Rekap piutang &amp; hutang antar bisnis dari transfer barang <strong><?php echo htmlspecialchars($activeName); ?></strong> ke/dari bisnis lain (termasuk Gudang Nasita).</p>
-            <p style="margin-top:4px;font-size:0.8rem;opacity:.85;">Semua pembayaran lewat Gudang Nasita: <b>piutang</b> (barang yang Anda kirim) dibayar Gudang dan masuk sebagai pendapatan di buku kas Anda; <b>hutang</b> ke bisnis lain ikut tagihan bulanan Gudang.</p>
+            <h2 style="font-size:1.3rem;font-weight:800;margin:0;color:var(--text-primary);">Tagihan Bisnis &amp; Gudang</h2>
+            <p style="font-size:.82rem;color:var(--muted);margin:.25rem 0 0;max-width:760px;">Semua uang antar bisnis lewat Gudang Nasita, per bulan. <b>(1)</b> Tagihan dari Gudang yang harus dibayar <?php echo htmlspecialchars($activeName); ?>. <b>(2)</b> Barang yang kami kirim, dibayar oleh Gudang. <b>(3)</b> Uang yang sudah masuk dari Gudang.</p>
+        </div>
+        <form method="GET" class="bw-month">
+            <a href="?bulan=<?php echo $prevMonth; ?>" title="Bulan sebelumnya">‹</a>
+            <input type="month" name="bulan" value="<?php echo htmlspecialchars($month); ?>" class="form-control" style="width:auto;" onchange="this.form.submit()">
+            <a href="?bulan=<?php echo $nextMonth; ?>" title="Bulan berikutnya">›</a>
+        </form>
+    </div>
+
+    <div class="bw-kpis">
+        <div class="bw-kpi" style="--k:#e11d48;">
+            <small>Tagihan dari Gudang · <?php echo $monthLabel; ?></small>
+            <b><?php echo $fmt($billAmount); ?></b>
+            <span><?php echo !$isTracked ? 'Tidak ditagih bulanan' : ($billPaid ? '✅ Sudah dibayar' : ($billAmount > 0 ? 'Belum dibayar' : 'Tidak ada tagihan')); ?></span>
+        </div>
+        <div class="bw-kpi" style="--k:#7c3aed;">
+            <small>Barang kami kirim · <?php echo $monthLabel; ?></small>
+            <b><?php echo $fmt($sentTotal); ?></b>
+            <span>Belum dibayar Gudang <?php echo $fmt($sentUnpaid); ?></span>
+        </div>
+        <div class="bw-kpi" style="--k:#059669;">
+            <small>Uang masuk dari Gudang · <?php echo $monthLabel; ?></small>
+            <b><?php echo $fmt($receivedTotal); ?></b>
+            <span>Tercatat di buku kas sebagai pendapatan</span>
+        </div>
+        <div class="bw-kpi" style="--k:#2563eb;">
+            <small>Gudang masih berhutang ke kami</small>
+            <b><?php echo $fmt($owedAllPeriods); ?></b>
+            <span>Semua periode</span>
         </div>
     </div>
 
-    <div class="bw-summary">
-        <div class="bw-summary-card piutang">
-            <div class="label">💰 Total Piutang (Ditagih)</div>
-            <div class="value">Rp <?php echo number_format($piutangTotal, 0, ',', '.'); ?></div>
-            <div class="sub">Bisnis lain berhutang ke kami</div>
+    <!-- (1) Tagihan dari Gudang -->
+    <div class="bw-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+            <div>
+                <h3><span class="bw-step">1</span> Tagihan dari Gudang · <?php echo $monthLabel; ?></h3>
+                <p class="sub">Barang yang kami terima dari Gudang dan dari bisnis lain bulan ini, ditambah bagian biaya TKBM. Dibayar ke Gudang (Gudang meneruskan ke bisnis pengirim).</p>
+            </div>
+            <?php if ($billPaid): ?>
+                <span class="bw-tag" style="background:#dcfce7;color:#166534;font-size:.75rem;">✅ Lunas · <?php echo date('d M Y', strtotime((string)$bill['paid']['paid_at'])); ?></span>
+            <?php endif; ?>
         </div>
-        <div class="bw-summary-card hutang">
-            <div class="label">📥 Total Hutang (Harus Dibayar)</div>
-            <div class="value">Rp <?php echo number_format($hutangTotal, 0, ',', '.'); ?></div>
-            <div class="sub">Kami berhutang ke bisnis lain</div>
-        </div>
-        <div class="bw-summary-card net">
-            <div class="label">⚖️ Posisi Bersih</div>
-            <div class="value">Rp <?php echo number_format(abs($netPosition), 0, ',', '.'); ?></div>
-            <div class="sub"><?php echo $netPosition >= 0 ? 'Bersih menerima (Piutang)' : 'Bersih membayar (Hutang)'; ?></div>
-        </div>
+        <?php if (!$isTracked): ?>
+            <div class="bw-empty">Bisnis ini tidak termasuk tagihan bulanan Gudang.</div>
+        <?php elseif (!$bill || (!$billPaid && empty($bill['gudang_items']) && empty($bill['from_biz_items']) && $bill['tkbm_share'] <= 0)): ?>
+            <div class="bw-empty">Tidak ada tagihan dari Gudang pada <?php echo $monthLabel; ?>.</div>
+        <?php else: ?>
+            <?php if (empty($bill['gudang_items']) && empty($bill['from_biz_items']) && $bill['tkbm_share'] <= 0): ?>
+                <div class="bw-empty">Rincian barang bulan ini tidak tersedia (tagihan lama).</div>
+            <?php else: ?>
+            <div style="max-height:420px;overflow-y:auto;">
+                <table class="bw-table">
+                    <thead><tr><th>Tanggal</th><th>Barang</th><th class="r">Qty</th><th>No.</th><th class="r">Nilai</th></tr></thead>
+                    <tbody>
+                        <?php if (!empty($bill['gudang_items'])): ?>
+                            <tr><td colspan="5" class="bw-group">Dari Gudang Nasita · <?php echo $fmt($bill['gudang_total']); ?></td></tr>
+                            <?php foreach ($bill['gudang_items'] as $it): ?>
+                                <tr>
+                                    <td><?php echo date('d M', strtotime($it['date'])); ?></td>
+                                    <td style="font-weight:600;"><?php echo htmlspecialchars($it['item_name']); ?></td>
+                                    <td class="r"><?php echo $qtyFmt($it['quantity']) . ' ' . htmlspecialchars($it['unit']); ?></td>
+                                    <td style="color:var(--muted);font-size:.72rem;"><?php echo htmlspecialchars($it['number']); ?></td>
+                                    <td class="r"><?php echo $fmt($it['value']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                        <?php if (!empty($bill['from_biz_items'])): ?>
+                            <tr><td colspan="5" class="bw-group">Dari bisnis lain (dibayar lewat Gudang) · <?php echo $fmt($bill['from_biz_total']); ?></td></tr>
+                            <?php foreach ($bill['from_biz_items'] as $it): ?>
+                                <tr>
+                                    <td><?php echo date('d M', strtotime($it['date'])); ?></td>
+                                    <td style="font-weight:600;"><?php echo htmlspecialchars($it['item_name']); ?> <span style="color:var(--muted);font-weight:400;font-size:.72rem;">dari <?php echo htmlspecialchars($it['from']); ?></span><?php if ($it['estimated']): ?> <span class="bw-tag" style="background:#fef3c7;color:#92400e;">estimasi harga</span><?php endif; ?></td>
+                                    <td class="r"><?php echo $qtyFmt($it['quantity']) . ' ' . htmlspecialchars($it['unit']); ?></td>
+                                    <td style="color:var(--muted);font-size:.72rem;"><?php echo htmlspecialchars($it['number']); ?></td>
+                                    <td class="r"><?php echo $fmt($it['value']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                        <?php if ($bill['tkbm_share'] > 0): ?>
+                            <tr><td colspan="4" class="bw-group">Bagian biaya TKBM (bongkar muat) — <?php echo $fmt($bill['tkbm_total']); ?> ÷ 3 bisnis</td><td class="r bw-group"><?php echo $fmt($bill['tkbm_share']); ?></td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+            <div class="bw-total">
+                <div>
+                    <div style="font-size:.74rem;color:var(--muted);"><?php echo $billPaid ? 'Jumlah yang dibayar' : 'Total harus dibayar ke Gudang'; ?></div>
+                    <div style="font-size:1.2rem;font-weight:800;color:<?php echo $billPaid ? '#10b981' : '#f43f5e'; ?>;"><?php echo $fmt($billAmount); ?></div>
+                    <?php if ($billPaid && $bill['total'] > 0 && abs($bill['paid']['amount'] - $bill['total']) > 1): ?>
+                        <div style="font-size:.7rem;color:#92400e;">Rincian sekarang Rp <?php echo number_format($bill['total'], 0, ',', '.'); ?> (ada perubahan setelah dibayar) — hubungi Gudang.</div>
+                    <?php endif; ?>
+                </div>
+                <?php if (!$billPaid && $billAmount > 0): ?>
+                    <form method="POST" onsubmit="if (confirm('Bayar tagihan Gudang <?php echo $monthLabel; ?> sebesar <?php echo $fmt($billAmount); ?>?\n\nUang dipotong dari rekening bank <?php echo htmlspecialchars(addslashes($activeName), ENT_QUOTES); ?> dan tercatat sebagai pengeluaran.')) { this.querySelector('button').disabled = true; return true; } return false;">
+                        <input type="hidden" name="action" value="pay_gudang_bill">
+                        <input type="hidden" name="bulan" value="<?php echo htmlspecialchars($month); ?>">
+                        <button type="submit" class="btn btn-primary" style="font-weight:700;">Bayar Tagihan <?php echo $monthLabel; ?></button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
     </div>
 
-    <div class="bw-columns">
-        <div>
-            <div class="bw-section-title piutang">💰 Piutang — Berhutang ke Kami <span class="count"><?php echo count($piutangByPartner); ?> mitra</span></div>
-            <?php if (empty($piutangByPartner)): ?>
-                <div class="bw-empty">Belum ada barang yang kami kirim ke bisnis lain.</div>
-            <?php else: ?>
-                <?php foreach ($piutangByPartner as $partner): ?>
-                    <div class="bw-partner-card piutang">
-                        <div class="bw-partner-header" onclick="this.closest('.bw-partner-card').classList.toggle('open')">
-                            <div class="bw-partner-name-wrap">
-                                <div class="bw-partner-avatar"><?php echo htmlspecialchars(strtoupper(substr($partner['name'], 0, 1))); ?></div>
-                                <div class="bw-partner-name">
-                                    <?php echo htmlspecialchars($partner['name']); ?>
-                                    <small><?php echo count($partner['items']); ?> item transfer</small>
-                                </div>
-                            </div>
-                            <span style="display:flex; align-items:center; gap:0.5rem;">
-                                <span class="bw-partner-total">Rp <?php echo number_format($partner['total'], 0, ',', '.'); ?></span>
-                                <span class="bw-chevron">&#9662;</span>
-                            </span>
-                        </div>
-                        <div class="bw-partner-items">
-                            <?php foreach ($partner['items'] as $item): ?>
-                                <?php $itemValue = (float)($item['_bw_value'] ?? 0); ?>
-                                <div class="bw-item-row">
-                                    <div style="min-width:0;">
-                                        <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                        <div class="bw-item-meta">
-                                            <span><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?></span>
-                                            <span>&middot;</span>
-                                            <span><?php echo date('d M Y', strtotime($item['created_at'])); ?></span>
-                                            <?php if (!empty($item['_bw_estimated'])): ?><span class="bw-badge warn">Harga diperkirakan</span><?php endif; ?>
-                                            <?php if ($itemValue <= 0): ?><span class="bw-badge danger">Belum ada harga</span><?php endif; ?>
-                                        </div>
-                                        <?php if ($itemValue <= 0 && empty($item['_bw_from_gudang_transfer'])): ?>
-                                        <form method="post" class="bw-price-form">
+    <!-- (2) Barang yang kami kirim -->
+    <div class="bw-card">
+        <h3><span class="bw-step">2</span> Barang yang kami kirim · <?php echo $monthLabel; ?></h3>
+        <p class="sub">Kiriman <?php echo htmlspecialchars($activeName); ?> ke Gudang atau ke bisnis lain, termasuk barang yang diambil langsung oleh Gudang. Semuanya dibayar oleh Gudang dan masuk sebagai pendapatan kami.</p>
+        <?php if (empty($sentItems)): ?>
+            <div class="bw-empty">Tidak ada barang yang kami kirim pada <?php echo $monthLabel; ?>.</div>
+        <?php else: ?>
+            <div style="max-height:420px;overflow-y:auto;">
+                <table class="bw-table">
+                    <thead><tr><th>Tanggal</th><th>Barang</th><th class="r">Qty</th><th>Dikirim ke</th><th class="r">Nilai</th><th>Status</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($sentItems as $it):
+                            [$sBg, $sFg, $sText] = $statusStyle[$it['status']] ?? $statusStyle['belum']; ?>
+                            <tr>
+                                <td><?php echo date('d M', strtotime($it['date'])); ?></td>
+                                <td style="font-weight:600;"><?php echo htmlspecialchars($it['item_name']); ?> <span style="color:var(--muted);font-weight:400;font-size:.7rem;"><?php echo htmlspecialchars($it['number']); ?></span></td>
+                                <td class="r"><?php echo $qtyFmt($it['quantity']) . ' ' . htmlspecialchars($it['unit']); ?></td>
+                                <td><?php echo htmlspecialchars($it['target']); ?></td>
+                                <td class="r">
+                                    <?php echo $fmt($it['value']); ?>
+                                    <?php if ($it['estimated'] && !empty($it['id'])): ?>
+                                        <form method="POST" style="display:flex;gap:.25rem;justify-content:flex-end;margin-top:.25rem;">
                                             <input type="hidden" name="action" value="set_transfer_price">
-                                            <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
-                                            <input type="text" name="unit_price" placeholder="Harga per unit" required>
-                                            <button type="submit">Simpan</button>
+                                            <input type="hidden" name="transfer_id" value="<?php echo (int)$it['id']; ?>">
+                                            <input type="number" name="unit_price" min="1" step="any" placeholder="Harga/<?php echo htmlspecialchars($it['unit']); ?>" class="form-control" style="width:110px;height:26px;font-size:.72rem;padding:0 .35rem;" required>
+                                            <button type="submit" class="btn btn-sm btn-secondary" style="font-size:.68rem;padding:0 .45rem;">Simpan</button>
                                         </form>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
+                                        <div style="font-size:.66rem;color:#92400e;">harga belum diisi — memakai estimasi</div>
+                                    <?php endif; ?>
+                                </td>
+                                <td><span class="bw-tag" style="background:<?php echo $sBg; ?>;color:<?php echo $sFg; ?>;"><?php echo $sText; ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="bw-total">
+                <div><div style="font-size:.74rem;color:var(--muted);">Total kiriman <?php echo $monthLabel; ?></div><div style="font-size:1.1rem;font-weight:800;"><?php echo $fmt($sentTotal); ?></div></div>
+                <div style="text-align:right;"><div style="font-size:.74rem;color:var(--muted);">Belum dibayar Gudang</div><div style="font-size:1.1rem;font-weight:800;color:#7c3aed;"><?php echo $fmt($sentUnpaid); ?></div></div>
+            </div>
+        <?php endif; ?>
+    </div>
 
-        <div>
-            <div class="bw-section-title hutang">📥 Hutang — Kami Berhutang <span class="count"><?php echo count($hutangByPartner); ?> mitra</span></div>
-            <?php if (empty($hutangByPartner)): ?>
-                <div class="bw-empty">Belum ada barang yang kami terima dari bisnis lain.</div>
-            <?php else: ?>
-                <?php foreach ($hutangByPartner as $partner): ?>
-                    <div class="bw-partner-card hutang">
-                        <div class="bw-partner-header" onclick="this.closest('.bw-partner-card').classList.toggle('open')">
-                            <div class="bw-partner-name-wrap">
-                                <div class="bw-partner-avatar"><?php echo htmlspecialchars(strtoupper(substr($partner['name'], 0, 1))); ?></div>
-                                <div class="bw-partner-name">
-                                    <?php echo htmlspecialchars($partner['name']); ?>
-                                    <small><?php echo count($partner['items']); ?> item transfer</small>
-                                </div>
-                            </div>
-                            <span style="display:flex; align-items:center; gap:0.5rem;">
-                                <span class="bw-partner-total">Rp <?php echo number_format($partner['total'], 0, ',', '.'); ?></span>
-                                <span class="bw-chevron">&#9662;</span>
-                            </span>
-                        </div>
-                        <div class="bw-partner-items">
-                            <?php foreach ($partner['items'] as $item): ?>
-                                <?php $itemValue = (float)($item['_bw_value'] ?? 0); ?>
-                                <div class="bw-item-row">
-                                    <div style="min-width:0;">
-                                        <div class="bw-item-name"><?php echo htmlspecialchars($item['item_name']); ?></div>
-                                        <div class="bw-item-meta">
-                                            <span><?php echo number_format((float)$item['quantity'], 0, ',', '.'); ?> <?php echo htmlspecialchars($item['unit']); ?></span>
-                                            <span>&middot;</span>
-                                            <span><?php echo date('d M Y', strtotime($item['created_at'])); ?></span>
-                                            <?php if (!empty($item['_bw_estimated'])): ?><span class="bw-badge warn">Harga diperkirakan</span><?php endif; ?>
-                                            <?php if ($itemValue <= 0): ?><span class="bw-badge danger">Belum ada harga</span><?php endif; ?>
-                                        </div>
-                                        <?php if ($itemValue <= 0 && empty($item['_bw_from_gudang_transfer'])): ?>
-                                        <form method="post" class="bw-price-form">
-                                            <input type="hidden" name="action" value="set_transfer_price">
-                                            <input type="hidden" name="transfer_id" value="<?php echo (int)$item['id']; ?>">
-                                            <input type="text" name="unit_price" placeholder="Harga per unit" required>
-                                            <button type="submit">Simpan</button>
-                                        </form>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="bw-item-value">Rp <?php echo number_format($itemValue, 0, ',', '.'); ?></div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
+    <!-- (3) Uang masuk dari Gudang -->
+    <div class="bw-card">
+        <h3><span class="bw-step">3</span> Uang masuk dari Gudang · <?php echo $monthLabel; ?></h3>
+        <p class="sub">Pembayaran Gudang yang sudah masuk ke rekening &amp; buku kas <?php echo htmlspecialchars($activeName); ?>.</p>
+        <?php if (empty($receivedRows)): ?>
+            <div class="bw-empty">Belum ada uang masuk dari Gudang pada <?php echo $monthLabel; ?>.</div>
+        <?php else: ?>
+            <table class="bw-table">
+                <thead><tr><th>Tanggal</th><th>Keterangan</th><th class="r">Jumlah</th></tr></thead>
+                <tbody>
+                    <?php foreach ($receivedRows as $rr): ?>
+                        <tr>
+                            <td style="white-space:nowrap;"><?php echo date('d M Y', strtotime($rr['transaction_date'])); ?></td>
+                            <td style="font-size:.76rem;color:var(--muted);"><?php echo htmlspecialchars((string)$rr['description']); ?></td>
+                            <td class="r" style="font-weight:700;color:#10b981;"><?php echo $fmt($rr['amount']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
     </div>
 </div>
 

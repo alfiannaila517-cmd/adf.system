@@ -3050,6 +3050,88 @@ function gudangMoneyLedgerMove(PDO $pdo, int $fromAccountId, int $toAccountId, f
     $pdo->prepare('UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?')->execute([$amount, $toAccountId]);
 }
 
+// Rincian tagihan bulanan satu bisnis ke Gudang — SATU sumber angka untuk halaman Gudang,
+// halaman Tagihan Bisnis & Gudang di outlet, API rekap, dan proses bayar:
+//   barang dari Gudang (transfer GNT) + barang diterima dari bisnis lain + bagian TKBM.
+function gudangMonthlyBillBreakdown(string $slug, string $month): array
+{
+    $slug = gudangNormalizeBizSlug($slug);
+    $monthStart = $month . '-01';
+    $monthEnd = date('Y-m-t', strtotime($monthStart));
+    $from = $monthStart . ' 00:00:00';
+    $to = $monthEnd . ' 23:59:59';
+    $result = [
+        'slug' => $slug, 'month' => $month,
+        'gudang_items' => [], 'gudang_total' => 0.0,
+        'from_biz_items' => [], 'from_biz_total' => 0.0,
+        'tkbm_total' => 0.0, 'tkbm_share' => 0.0,
+        'total' => 0.0, 'paid' => null,
+    ];
+
+    [$gudangDb, $originDb] = gudangTagihanGetGudangDb();
+    try {
+        $rows = $gudangDb->fetchAll(
+            "SELECT gt.transfer_number, gt.target_business_name, gt.created_at,
+                    gti.item_name, gti.unit, gti.quantity,
+                    COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0)) AS nilai
+             FROM gudang_nasita_transfers gt
+             JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+             WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
+             ORDER BY gt.created_at ASC, gti.id ASC",
+            [$from, $to]
+        ) ?: [];
+        foreach ($rows as $r) {
+            if (gudangTagihanMatchBizSlug((string)$r['target_business_name']) !== $slug) {
+                continue;
+            }
+            $result['gudang_items'][] = [
+                'date' => $r['created_at'], 'number' => (string)$r['transfer_number'],
+                'item_name' => (string)$r['item_name'], 'quantity' => (float)$r['quantity'],
+                'unit' => (string)$r['unit'], 'value' => (float)$r['nilai'],
+            ];
+            $result['gudang_total'] += (float)$r['nilai'];
+        }
+
+        $tkbm = $gudangDb->fetchOne('SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?', [$monthStart, $monthEnd]);
+        $result['tkbm_total'] = (float)($tkbm['t'] ?? 0);
+        $result['tkbm_share'] = $result['tkbm_total'] / count(gudangTrackedBizList());
+
+        try {
+            gudangTagihanEnsurePaymentsTable($gudangDb);
+            $paid = $gudangDb->fetchOne('SELECT amount, paid_at FROM gudang_nasita_tagihan_payments WHERE business_slug = ? AND bill_month = ? LIMIT 1', [$slug, $month]);
+            if ($paid) {
+                $result['paid'] = ['amount' => (float)$paid['amount'], 'paid_at' => $paid['paid_at']];
+            }
+        } catch (Throwable $e) {
+        }
+    } finally {
+        if ($originDb) {
+            Database::switchDatabase($originDb);
+        }
+    }
+
+    // Barang yang diterima dari bisnis lain (sama dengan getBusinessInterStockTransferBillAdjustments).
+    try {
+        foreach (gudangInterTransferValuedRows(gudangMasterPdo(), $from, $to) as $r) {
+            if ($r['target_slug'] !== $slug || $r['source_slug'] === $slug || $r['nilai'] <= 0) {
+                continue;
+            }
+            $result['from_biz_items'][] = [
+                'date' => $r['created_at'], 'number' => (string)($r['transfer_number'] ?? ''),
+                'from' => (string)($r['source_business_name'] ?: $r['source_business_slug']),
+                'item_name' => (string)$r['item_name'], 'quantity' => (float)$r['quantity'],
+                'unit' => (string)$r['unit'], 'value' => $r['nilai'], 'estimated' => $r['is_estimated'],
+            ];
+            $result['from_biz_total'] += $r['nilai'];
+        }
+    } catch (Throwable $e) {
+        error_log('gudangMonthlyBillBreakdown inter: ' . $e->getMessage());
+    }
+
+    $result['total'] = round($result['gudang_total'] + $result['from_biz_total'] + $result['tkbm_share'], 2);
+    return $result;
+}
+
 // Records a business paying its monthly bill: writes an expense to the business' own cash_book
 // (taken from its bank account), an income entry to Gudang Nasita's cash_book (money received),
 // moves both accounts' balances in the master ledger, and marks the bill as paid — atomically.
@@ -3083,33 +3165,11 @@ function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): 
             throw new Exception('Tagihan bulan ini untuk ' . $bizInfo['name'] . ' sudah dibayar.');
         }
 
-        // Recompute the amount server-side (never trust the client) using the same logic as the recap.
-        $monthRows = $gudangDb->fetchAll(
-            "SELECT gt.target_business_name,
-                    COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
-             FROM gudang_nasita_transfers gt
-             LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
-             WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
-             GROUP BY gt.target_business_name",
-            [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']
-        ) ?: [];
-        $transferNilai = 0.0;
-        foreach ($monthRows as $mr) {
-            if (gudangTagihanMatchBizSlug((string)($mr['target_business_name'] ?? '')) === $slug) {
-                $transferNilai += (float)$mr['total_nilai'];
-            }
-        }
-
-        // Barang yang DITERIMA dari bisnis lain bulan ini ikut ditagih (diteruskan Gudang ke pengirim).
-        $interBizAdj = getBusinessInterStockTransferBillAdjustments([$slug], $monthStart . ' 00:00:00', $monthEnd . ' 23:59:59');
-        $transferNilai += $interBizAdj[$slug] ?? 0.0;
-
-        $tkbmRow = $gudangDb->fetchOne(
-            'SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?',
-            [$monthStart, $monthEnd]
-        );
-        $tkbmShare = (float)($tkbmRow['t'] ?? 0) / count(gudangTrackedBizList());
-        $totalAmount = round($transferNilai + $tkbmShare, 2);
+        // Hitung ulang di server (jangan percaya angka dari browser) — rumus yang sama dengan semua rekap.
+        $breakdown = gudangMonthlyBillBreakdown($slug, $month);
+        $transferNilai = $breakdown['gudang_total'] + $breakdown['from_biz_total'];
+        $tkbmShare = $breakdown['tkbm_share'];
+        $totalAmount = $breakdown['total'];
         if ($totalAmount <= 0) {
             throw new Exception('Tidak ada tagihan untuk dibayarkan bulan ini.');
         }
@@ -3279,13 +3339,14 @@ function getGudangNasitaIncomingSupplyBills(): array
             }
             $g['targets'][$targetName] = ($g['targets'][$targetName] ?? 0.0) + $payable;
             $g['items'][] = [
+                'id'        => (int)$row['id'],
                 'date'      => $row['created_at'],
                 'number'    => (string)($row['transfer_number'] ?? ''),
                 'item_name' => (string)$row['item_name'],
                 'quantity'  => (float)$row['quantity'],
                 'unit'      => (string)$row['unit'],
                 'target'    => $targetName,
-                'value'     => $isDirect ? $row['nilai'] : $payable,
+                'value'     => ($isDirect || $credited > 0) ? $row['nilai'] : $payable,
                 'credited'  => $credited > 0,
                 'direct'    => $isDirect,
                 'estimated' => !empty($row['is_estimated']),

@@ -1,7 +1,7 @@
 <?php
-// Read-only monthly Gudang Nasita bill recap for the CURRENT active business (Bens Cafe / Eat Meet).
-// Mirrors the per-business calculation used in modules/procurement/gudang-tagihan.php's
-// "Tagihan Bulanan per Bisnis" section, but scoped to a single business for the Tagihan menu.
+// Read-only monthly Gudang Nasita bill recap for the CURRENT active business (Tagihan menu, tab Gudang).
+// Angka diambil dari gudangMonthlyBillBreakdown() — sumber yang sama dengan halaman Tagihan Bisnis
+// Gudang, halaman Tagihan Bisnis & Gudang di outlet, dan proses bayar.
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
@@ -12,9 +12,8 @@ header('Content-Type: application/json');
 $auth = new Auth();
 $auth->requireLogin();
 
-$slug = (string)($_SESSION['active_business_id'] ?? '');
-$allowedSlugs = ['bens-cafe', 'eaat-meet', 'narayana-hotel'];
-if (!in_array($slug, $allowedSlugs, true)) {
+$slug = gudangNormalizeBizSlug((string)($_SESSION['active_business_id'] ?? ''));
+if (!in_array($slug, array_column(gudangTrackedBizList(), 'slug'), true)) {
     echo json_encode(['success' => false, 'message' => 'Tagihan Gudang tidak tersedia untuk bisnis ini']);
     exit;
 }
@@ -23,96 +22,28 @@ $month = (string)($_GET['month'] ?? '');
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
     $month = date('Y-m');
 }
-$monthStart = $month . '-01';
-$monthEnd = date('Y-m-t', strtotime($monthStart));
-
-// Matches the business a gudang transfer/target_business_name row belongs to (lowercase FIRST,
-// then strip non-alphanumeric — see repo memory note on the Aug 2026 slug-matching bug).
-function gudangBillNameMatchesSlug(string $businessName, string $slug): bool
-{
-    $norm = preg_replace('/[^a-z0-9]/', '', strtolower($businessName));
-    if ($slug === 'narayana-hotel') {
-        return strpos($norm, 'narayana') !== false || strpos($norm, 'hotel') !== false;
-    }
-    if ($slug === 'bens-cafe') {
-        return strpos($norm, 'bens') !== false || strpos($norm, 'cafe') !== false;
-    }
-    if ($slug === 'eaat-meet') {
-        return strpos($norm, 'eat') !== false || strpos($norm, 'meet') !== false;
-    }
-    return false;
-}
 
 try {
-    $gudangCfgPath = __DIR__ . '/../config/businesses/gudang-nasita.php';
-    $gudangDbName = '';
-    if (file_exists($gudangCfgPath)) {
-        $gc = require $gudangCfgPath;
-        $gudangDbName = (string)($gc['database'] ?? '');
-    }
-    $db = Database::getInstance();
-    $originDb = Database::getCurrentDatabase();
-    $gudangDb = ($gudangDbName && $gudangDbName !== $originDb) ? Database::switchDatabase($gudangDbName) : $db;
-
-    $rows = $gudangDb->fetchAll(
-        "SELECT gt.target_business_name,
-                COUNT(DISTINCT gt.id) AS transfer_count,
-                COALESCE(SUM(gti.quantity), 0) AS total_qty,
-                COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
-         FROM gudang_nasita_transfers gt
-         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
-         WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
-         GROUP BY gt.target_business_name",
-        [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']
-    ) ?: [];
-
-    $transferCount = 0;
-    $transferQty = 0.0;
-    $transferNilai = 0.0;
-    foreach ($rows as $r) {
-        if (gudangBillNameMatchesSlug((string)($r['target_business_name'] ?? ''), $slug)) {
-            $transferCount += (int)$r['transfer_count'];
-            $transferQty += (float)$r['total_qty'];
-            $transferNilai += (float)$r['total_nilai'];
-        }
-    }
-
-    $tkbmRow = $gudangDb->fetchOne(
-        'SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?',
-        [$monthStart, $monthEnd]
-    );
-    $tkbmShare = (float)(is_array($tkbmRow) ? ($tkbmRow['t'] ?? 0) : 0) / 3;
-
-    $interAdj = getBusinessInterStockTransferBillAdjustments([$slug], $monthStart . ' 00:00:00', $monthEnd . ' 23:59:59');
-    $transferNilai = max(0, $transferNilai + (float)($interAdj[$slug] ?? 0));
-
-    $total = $transferNilai + $tkbmShare;
-
-    $paidRow = $gudangDb->fetchOne(
-        'SELECT amount, paid_at FROM gudang_nasita_tagihan_payments WHERE business_slug = ? AND bill_month = ?',
-        [$slug, $month]
-    );
-    $isPaid = is_array($paidRow);
-    if ($isPaid) {
-        // Bulan yang sudah lunas menampilkan jumlah yang benar-benar dibayar.
-        $total = (float)$paidRow['amount'];
-    }
-
-    if ($gudangDbName && $gudangDbName !== $originDb) {
-        Database::switchDatabase($originDb);
-    }
+    $bill = gudangMonthlyBillBreakdown($slug, $month);
+    $transferNumbers = array_unique(array_merge(
+        array_column($bill['gudang_items'], 'number'),
+        array_column($bill['from_biz_items'], 'number')
+    ));
+    $qty = array_sum(array_column($bill['gudang_items'], 'quantity')) + array_sum(array_column($bill['from_biz_items'], 'quantity'));
+    $isPaid = $bill['paid'] !== null;
 
     echo json_encode([
         'success' => true,
         'recap' => [
-            'month'           => $month,
-            'transfer_count'  => $transferCount,
-            'transfer_qty'    => $transferQty,
-            'transfer_nilai'  => $transferNilai,
-            'tkbm_share'      => $tkbmShare,
-            'total'           => $total,
-            'is_paid'         => $isPaid,
-            'paid_at'         => $isPaid ? date('d M Y H:i', strtotime((string)$paidRow['paid_at'])) : null,
+            'month'          => $month,
+            'transfer_count' => count($transferNumbers),
+            'transfer_qty'   => $qty,
+            'transfer_nilai' => $bill['gudang_total'] + $bill['from_biz_total'],
+            'tkbm_share'     => $bill['tkbm_share'],
+            // Bulan yang sudah lunas menampilkan jumlah yang benar-benar dibayar.
+            'total'          => $isPaid ? $bill['paid']['amount'] : $bill['total'],
+            'is_paid'        => $isPaid,
+            'paid_at'        => $isPaid ? date('d M Y H:i', strtotime((string)$bill['paid']['paid_at'])) : null,
         ],
     ]);
 } catch (Throwable $e) {
