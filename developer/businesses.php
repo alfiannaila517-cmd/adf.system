@@ -9,6 +9,7 @@ define('APP_ACCESS', true);
 require_once dirname(dirname(__FILE__)) . '/config/config.php';
 require_once __DIR__ . '/includes/dev_auth.php';
 require_once dirname(dirname(__FILE__)) . '/includes/DatabaseManager.php';
+require_once __DIR__ . '/includes/adfstore_bridge.php';
 
 $auth = new DevAuth();
 $auth->requireLogin();
@@ -21,6 +22,21 @@ $action = $_GET['action'] ?? 'list';
 $editId = $_GET['id'] ?? null;
 $error = '';
 $success = '';
+
+// Hubungkan bisnis ke adfsystem.store (Klien Langganan): buat klien bila belum ada + isi koneksi di DB bisnis.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['form_action'] ?? '') === 'adfstore_connect') {
+    $st = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
+    $st->execute([(int) ($_POST['business_id'] ?? 0)]);
+    $connBiz = $st->fetch(PDO::FETCH_ASSOC);
+    $fee = (float) preg_replace('/[^0-9]/', '', (string) ($_POST['base_fee'] ?? '')) ?: ADFSTORE_DEFAULT_FEE;
+    [$ok, $msg] = $connBiz ? adfstore_connect($connBiz, $fee) : [false, 'Bisnis tidak ditemukan.'];
+    $_SESSION[$ok ? 'success_message' : 'error_message'] = $msg;
+    if ($ok) {
+        $auth->logAction('adfstore_connect', 'businesses', (int) $connBiz['id']);
+    }
+    header('Location: businesses.php');
+    exit;
+}
 
 // Detect hosting environment
 $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
@@ -651,6 +667,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                 } catch (Exception $e) {
+                }
+
+                // Daftarkan otomatis sebagai klien langganan di adfsystem.store.
+                try {
+                    $autoBiz = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
+                    $autoBiz->execute([$setupBizId]);
+                    if ($autoBizRow = $autoBiz->fetch(PDO::FETCH_ASSOC)) {
+                        adfstore_connect($autoBizRow);
+                    }
+                } catch (Throwable $e) {
+                    error_log('adfstore auto connect: ' . $e->getMessage());
                 }
 
                 header('Location: businesses.php?action=setup&id=' . $setupBizId . '&step=done');
@@ -1641,7 +1668,7 @@ require_once __DIR__ . '/includes/header.php';
                             <th>Menus</th>
                             <th>Users</th>
                             <th>Status</th>
-                            <th>Staff Login Link</th>
+                            <th>Langganan (ADF Store)</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -1692,17 +1719,41 @@ require_once __DIR__ . '/includes/header.php';
                                             <span class="badge bg-info">Partial</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td>
+                                    <td class="biz-sub-col">
                                         <?php
                                         $businessSlug = !empty($biz['slug']) ? $biz['slug'] : businessCodeToSlug($biz['business_code']);
                                         $staffLoginUrl = BASE_URL . '/login.php?biz=' . $businessSlug;
+                                        // Status langganan dibaca dari adfsystem.store + DB bisnis.
+                                        $sub = $biz['is_active'] ? adfstore_status($biz) : ['code' => 'no_db', 'label' => 'Setup dulu'];
+                                        $subBadge = [
+                                            'active' => 'bg-success', 'locked' => 'bg-danger', 'token_mismatch' => 'bg-warning text-dark',
+                                            'not_in_store' => 'bg-warning text-dark', 'not_connected' => 'bg-light text-muted border',
+                                        ][$sub['code']] ?? 'bg-light text-muted border';
                                         ?>
-                                        <div class="input-group input-group-sm" style="max-width: 350px;">
-                                            <input type="text" class="form-control form-control-sm" value="<?php echo htmlspecialchars($staffLoginUrl); ?>" readonly id="bizLoginLink<?php echo $biz['id']; ?>" style="font-size: 0.75rem;">
-                                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="copyBizLoginLink(<?php echo $biz['id']; ?>)" title="Copy Link">
-                                                <i class="bi bi-clipboard"></i>
-                                            </button>
-                                        </div>
+                                        <span class="badge <?php echo $subBadge; ?>"><?php echo htmlspecialchars($sub['label']); ?></span>
+                                        <?php if (in_array($sub['code'], ['active', 'locked'], true)): ?>
+                                            <small class="d-block text-muted mt-1">
+                                                Rp <?php echo number_format($sub['fee'], 0, ',', '.'); ?>/bln
+                                                <?php if ($sub['unpaid_count'] > 0): ?>
+                                                    · <span class="text-danger fw-semibold"><?php echo $sub['unpaid_count']; ?> tagihan (Rp <?php echo number_format($sub['unpaid'], 0, ',', '.'); ?>)</span>
+                                                <?php else: ?>
+                                                    · <span class="text-success">lunas</span>
+                                                <?php endif; ?>
+                                            </small>
+                                            <?php if (!empty($sub['sync_error'])): ?>
+                                                <small class="d-block text-danger" title="<?php echo htmlspecialchars($sub['sync_error']); ?>"><i class="bi bi-exclamation-triangle"></i> sinkron gagal</small>
+                                            <?php endif; ?>
+                                        <?php elseif (in_array($sub['code'], ['not_connected', 'not_in_store', 'token_mismatch'], true)): ?>
+                                            <form method="post" class="d-block mt-1" onsubmit="<?php echo $sub['code'] === 'token_mismatch' ? '' : "var f=prompt('Biaya langganan per bulan (Rp):','350000');if(f===null)return false;this.base_fee.value=f;"; ?>">
+                                                <input type="hidden" name="form_action" value="adfstore_connect">
+                                                <input type="hidden" name="business_id" value="<?php echo (int) $biz['id']; ?>">
+                                                <input type="hidden" name="base_fee" value="">
+                                                <button type="submit" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:11px;">
+                                                    <i class="bi bi-link-45deg"></i> <?php echo $sub['code'] === 'token_mismatch' ? 'Perbaiki Token' : 'Hubungkan'; ?>
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <input type="hidden" value="<?php echo htmlspecialchars($staffLoginUrl); ?>" id="bizLoginLink<?php echo $biz['id']; ?>">
                                     </td>
                                     <td>
                                         <?php if (!$biz['is_active'] || !$bizConfigExists): ?>
@@ -1714,6 +1765,9 @@ require_once __DIR__ . '/includes/header.php';
                                             class="btn btn-sm btn-success" title="Open Business (Developer Access)" target="_blank">
                                             <i class="bi bi-box-arrow-up-right"></i>
                                         </a>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyBizLoginLink(<?php echo $biz['id']; ?>)" title="Salin link login staff">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
                                         <a href="?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                             <i class="bi bi-pencil"></i>
                                         </a>
