@@ -22,7 +22,7 @@ $devAuth = new DevAuth();
 $devAuth->requireLogin();
 
 $db = Database::getInstance();
-$pageTitle = 'Web Settings';
+$pageTitle = 'Website Narayana';
 $currentPage = 'web-settings';
 
 $error = '';

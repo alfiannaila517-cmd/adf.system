@@ -13,7 +13,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = 'Owner Monitoring Access';
+$pageTitle = 'Akses Owner';
 
 $success = '';
 $error = '';

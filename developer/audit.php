@@ -13,7 +13,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = 'Audit Logs';
+$pageTitle = 'Audit Log';
 
 // Filters
 $filterAction = $_GET['action_type'] ?? '';

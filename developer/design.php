@@ -13,7 +13,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = '🎨 Design Tools';
+$pageTitle = 'Design Tools';
 
 $section = $_GET['section'] ?? 'overview';
 

@@ -14,7 +14,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = 'Staff Portal Accounts';
+$pageTitle = 'Akun Staff Portal';
 
 $error = '';
 $success = '';

@@ -1,125 +1,157 @@
+<?php
+// Sidebar Developer Panel: dikelompokkan supaya mudah dipahami.
+// [file, label, ikon, file lain yang ikut menandai menu aktif]
+$devCurrent = basename($_SERVER['PHP_SELF']);
+$devSection = $_GET['section'] ?? '';
+$devNav = [
+    'Utama' => [
+        ['index.php', 'Dashboard', 'speedometer2', []],
+        ['businesses.php', 'Bisnis', 'building', ['debug-business-status.php']],
+    ],
+    'Akses & User' => [
+        ['index.php?section=user-setup', 'User & Akses Bisnis', 'person-plus', []],
+        ['permissions.php', 'Hak Akses Menu', 'shield-lock', []],
+        ['owner-access.php', 'Akses Owner', 'eye', []],
+        ['staff-accounts.php', 'Akun Staff Portal', 'person-badge', []],
+        ['menus.php', 'Daftar Menu Aplikasi', 'grid-3x3-gap', []],
+    ],
+    'Sistem' => [
+        ['developer-settings.php', 'Pengaturan & Branding', 'sliders', ['settings.php']],
+        ['database.php', 'Database', 'database', []],
+        ['audit.php', 'Audit Log', 'journal-text', []],
+    ],
+    'Khusus Narayana' => [
+        ['web-settings.php', 'Website Narayana', 'globe', []],
+        ['design.php', 'Design Tools', 'palette', ['design-room-image.php']],
+    ],
+];
+$devIsActive = static function (array $item) use ($devCurrent, $devSection): bool {
+    [$href, , , $also] = $item;
+    if ($href === 'index.php?section=user-setup') {
+        return $devCurrent === 'index.php' && $devSection === 'user-setup';
+    }
+    if ($href === 'index.php') {
+        return $devCurrent === 'index.php' && $devSection !== 'user-setup';
+    }
+    return $devCurrent === $href || in_array($devCurrent, $also, true);
+};
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Developer Panel - ADF System</title>
+    <title><?php echo htmlspecialchars($pageTitle ?? 'Developer Panel'); ?> · ADF Developer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --dev-primary: #6f42c1;
+            --dev-primary: #6d4ae0;
             --dev-secondary: #8b5cf6;
             --dev-success: #10b981;
             --dev-warning: #f59e0b;
             --dev-danger: #ef4444;
             --dev-info: #3b82f6;
-            --dev-dark: #1e1e2d;
-            --dev-darker: #151521;
-            --dev-light: #f8f9fa;
-            --sidebar-width: 260px;
+            --dev-dark: #1f2333;
+            --dev-darker: #161925;
+            --dev-light: #f8f9fb;
+            --dev-border: #e8eaf0;
+            --dev-muted: #6b7280;
+            --sidebar-width: 228px;
         }
-        
-        * {
-            font-family: 'Inter', sans-serif;
-        }
-        
+
+        * { font-family: 'Inter', sans-serif; }
+
         body {
-            background: #f0f2f5;
+            background: #f4f5f8;
             min-height: 100vh;
+            font-size: 13px;
+            color: var(--dev-dark);
         }
-        
-        /* Sidebar */
+
+        /* ── Sidebar ─────────────────────────────── */
         .sidebar {
             position: fixed;
-            top: 0;
-            left: 0;
+            inset: 0 auto 0 0;
             width: var(--sidebar-width);
-            height: 100vh;
-            background: linear-gradient(180deg, var(--dev-dark) 0%, var(--dev-darker) 100%);
-            z-index: 1000;
-            transition: all 0.3s;
-            overflow-y: auto;
+            background: var(--dev-darker);
+            z-index: 1040;
+            display: flex;
+            flex-direction: column;
+            transition: transform .2s;
         }
-        
+
         .sidebar-header {
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 16px 16px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, .06);
         }
-        
-        .sidebar-header .logo {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 5px;
-        }
-        
-        .sidebar-header .dev-badge {
+
+        .sidebar-header .mark {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
             background: linear-gradient(135deg, var(--dev-primary), var(--dev-secondary));
-            color: white;
-            padding: 3px 10px;
-            border-radius: 10px;
-            font-size: 0.6rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            color: #fff;
+            display: grid;
+            place-items: center;
+            font-size: 14px;
         }
-        
-        .sidebar-menu {
-            padding: 15px 0;
-        }
-        
+
+        .sidebar-header .logo { color: #fff; font-weight: 700; font-size: 14px; line-height: 1.1; }
+        .sidebar-header .logo small { display: block; color: rgba(255, 255, 255, .45); font-size: 10.5px; font-weight: 500; }
+
+        .sidebar-menu { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+        .sidebar-menu::-webkit-scrollbar { width: 4px; }
+        .sidebar-menu::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 4px; }
+
         .menu-section {
-            padding: 8px 16px;
-            color: rgba(255,255,255,0.4);
-            font-size: 0.65rem;
+            padding: 12px 10px 4px;
+            color: rgba(255, 255, 255, .35);
+            font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: .06em;
         }
-        
+
         .sidebar-menu a {
             display: flex;
             align-items: center;
-            padding: 10px 16px;
-            color: rgba(255,255,255,0.7);
+            gap: 9px;
+            padding: 7px 10px;
+            margin: 1px 0;
+            border-radius: 7px;
+            color: rgba(255, 255, 255, .68);
             text-decoration: none;
-            transition: all 0.3s;
-            border-left: 3px solid transparent;
-            font-size: 0.875rem;
+            font-size: 12.5px;
+            font-weight: 500;
         }
-        
-        .sidebar-menu a:hover {
-            background: rgba(255,255,255,0.05);
-            color: white;
-            border-left-color: var(--dev-secondary);
+
+        .sidebar-menu a i { font-size: 14px; width: 16px; text-align: center; opacity: .85; }
+        .sidebar-menu a:hover { background: rgba(255, 255, 255, .05); color: #fff; }
+        .sidebar-menu a.active { background: rgba(109, 74, 224, .28); color: #fff; }
+        .sidebar-menu a .ext { margin-left: auto; font-size: 11px; opacity: .5; }
+
+        .sidebar-footer { padding: 10px 8px; border-top: 1px solid rgba(255, 255, 255, .06); }
+        .sidebar-footer a {
+            display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 7px;
+            color: #f87171; text-decoration: none; font-size: 12.5px; font-weight: 500;
         }
-        
-        .sidebar-menu a.active {
-            background: rgba(111, 66, 193, 0.2);
-            color: white;
-            border-left-color: var(--dev-primary);
-        }
-        
-        .sidebar-menu a i {
-            width: 18px;
-            margin-right: 10px;
-            font-size: 0.95rem;
-        }
-        
-        /* Main Content */
-        .main-content {
-            margin-left: var(--sidebar-width);
-            min-height: 100vh;
-        }
-        
-        /* Top Navbar */
+        .sidebar-footer a:hover { background: rgba(248, 113, 113, .08); }
+
+        .sidebar-backdrop { display: none; }
+
+        /* ── Main ─────────────────────────────── */
+        .main-content { margin-left: var(--sidebar-width); min-height: 100vh; }
+
         .top-navbar {
-            background: white;
-            padding: 15px 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            background: #fff;
+            height: 54px;
+            padding: 0 24px;
+            border-bottom: 1px solid var(--dev-border);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -127,442 +159,193 @@
             top: 0;
             z-index: 100;
         }
-        
-        .navbar-left h4 {
-            margin: 0;
-            font-weight: 600;
-            color: var(--dev-dark);
+
+        .navbar-left { display: flex; align-items: center; gap: 10px; }
+        .navbar-left h4 { margin: 0; font-weight: 700; font-size: 15px; color: var(--dev-dark); }
+        .nav-toggle { display: none; border: 0; background: none; font-size: 20px; padding: 0; color: var(--dev-dark); }
+
+        .navbar-right { display: flex; align-items: center; gap: 12px; }
+        .navbar-right .store-link {
+            display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px;
+            border: 1px solid var(--dev-border); border-radius: 7px; font-size: 12px; font-weight: 500;
+            color: var(--dev-dark); text-decoration: none;
         }
-        
-        .navbar-left .breadcrumb {
-            margin: 0;
-            font-size: 0.85rem;
-        }
-        
-        .navbar-right {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        .user-dropdown {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-        }
-        
+        .navbar-right .store-link:hover { background: var(--dev-light); }
+
+        .user-dropdown { display: flex; align-items: center; gap: 8px; cursor: pointer; }
         .user-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+            width: 30px; height: 30px; border-radius: 8px;
             background: linear-gradient(135deg, var(--dev-primary), var(--dev-secondary));
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 0.8rem;
+            color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px;
         }
-        
-        .user-info {
-            text-align: right;
-        }
-        
-        .user-info .name {
-            font-weight: 600;
-            font-size: 0.8rem;
-            color: var(--dev-dark);
-        }
-        
-        .user-info .role {
-            font-size: 0.7rem;
-            color: #666;
-        }
-        
-        /* Cards */
+        .user-info { text-align: right; line-height: 1.2; }
+        .user-info .name { font-weight: 600; font-size: 12px; color: var(--dev-dark); }
+        .user-info .role { font-size: 10.5px; color: var(--dev-muted); }
+
+        /* Isi halaman: padding seragam di semua halaman */
+        .main-content > .container-fluid,
+        .main-content > .p-4,
+        .main-content > .content-wrapper { padding: 20px 24px !important; }
+
+        /* ── Kartu & statistik ─────────────────────────────── */
         .welcome-card {
             background: linear-gradient(135deg, var(--dev-primary), var(--dev-secondary));
-            border-radius: 16px;
-            padding: 30px;
-            color: white;
+            border-radius: 12px;
+            padding: 18px 22px;
+            color: #fff;
         }
-        
-        .welcome-card h2 {
-            font-weight: 600;
-        }
-        
-        .welcome-card p {
-            color: rgba(255,255,255,0.8);
-        }
-        
+        .welcome-card h2 { font-weight: 700; font-size: 18px; }
+        .welcome-card p, .welcome-card .text-muted { color: rgba(255, 255, 255, .8) !important; font-size: 12.5px; }
+
         .stat-card {
-            background: white;
-            border-radius: 16px;
-            padding: 25px;
+            background: #fff;
+            border: 1px solid var(--dev-border);
+            border-radius: 12px;
+            padding: 14px 16px;
             position: relative;
-            overflow: hidden;
-            transition: all 0.3s;
             height: 100%;
         }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        
         .stat-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            margin-bottom: 12px;
+            width: 32px; height: 32px; border-radius: 8px;
+            display: grid; place-items: center; font-size: 15px; margin-bottom: 8px;
         }
-        
-        .stat-users .stat-icon { background: rgba(111, 66, 193, 0.15); color: var(--dev-primary); }
-        .stat-businesses .stat-icon { background: rgba(59, 130, 246, 0.15); color: var(--dev-info); }
-        .stat-active .stat-icon { background: rgba(16, 185, 129, 0.15); color: var(--dev-success); }
-        .stat-menus .stat-icon { background: rgba(245, 158, 11, 0.15); color: var(--dev-warning); }
-        
-        .stat-info h3 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 5px;
-            color: var(--dev-dark);
-        }
-        
-        .stat-info p {
-            color: #666;
-            margin: 0;
-            font-size: 0.8rem;
-        }
-        
-        .stat-link {
-            position: absolute;
-            bottom: 15px;
-            right: 20px;
-            font-size: 0.85rem;
-            color: var(--dev-primary);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .stat-link:hover {
-            color: var(--dev-secondary);
-        }
-        
-        .content-card {
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-        }
-        
+        .stat-users .stat-icon { background: rgba(109, 74, 224, .12); color: var(--dev-primary); }
+        .stat-businesses .stat-icon { background: rgba(59, 130, 246, .12); color: var(--dev-info); }
+        .stat-active .stat-icon { background: rgba(16, 185, 129, .12); color: var(--dev-success); }
+        .stat-menus .stat-icon { background: rgba(245, 158, 11, .12); color: var(--dev-warning); }
+        .stat-info h3 { font-size: 20px; font-weight: 700; margin-bottom: 2px; color: var(--dev-dark); }
+        .stat-info p { color: var(--dev-muted); margin: 0; font-size: 11.5px; }
+        .stat-link { position: absolute; bottom: 12px; right: 14px; font-size: 11.5px; color: var(--dev-primary); text-decoration: none; font-weight: 500; }
+
+        .content-card { background: #fff; border: 1px solid var(--dev-border); border-radius: 12px; overflow: hidden; }
         .card-header-custom {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 25px;
-            border-bottom: 1px solid #eee;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; border-bottom: 1px solid var(--dev-border);
         }
-        
-        .card-header-custom h5 {
-            margin: 0;
-            font-weight: 600;
-            color: var(--dev-dark);
-        }
-        
-        /* Table Styles */
-        .table {
-            margin: 0;
-        }
-        
+        .card-header-custom h5 { margin: 0; font-weight: 600; font-size: 13.5px; color: var(--dev-dark); }
+
+        .card { border: 1px solid var(--dev-border); border-radius: 12px; }
+        .card-header { background: #fff; border-bottom: 1px solid var(--dev-border); padding: 10px 16px; font-size: 13px; }
+        .card-body { padding: 14px 16px; }
+        .card-title { font-size: 14px; }
+
+        /* ── Tabel ─────────────────────────────── */
+        .table { margin: 0; font-size: 12.5px; }
         .table th {
-            background: #f8f9fa;
-            font-weight: 600;
-            font-size: 0.75rem;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            padding: 10px 12px;
-            border: none;
+            background: var(--dev-light); font-weight: 600; font-size: 10.5px; color: var(--dev-muted);
+            text-transform: uppercase; letter-spacing: .04em; padding: 8px 12px; border: none; white-space: nowrap;
         }
-        
-        .table td {
-            padding: 10px 12px;
-            vertical-align: middle;
-            border-color: #f0f0f0;
-            font-size: 0.85rem;
-        }
-        
-        /* Quick Actions */
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            padding: 20px;
-        }
-        
+        .table td { padding: 8px 12px; vertical-align: middle; border-color: #f0f1f5; }
+        .table-sm th, .table-sm td { padding: 6px 10px; }
+
+        /* ── Quick actions & daftar ─────────────────────────────── */
+        .quick-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px; }
         .quick-action-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px 15px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            text-decoration: none;
-            color: var(--dev-dark);
-            transition: all 0.3s;
+            display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+            background: var(--dev-light); border: 1px solid var(--dev-border); border-radius: 9px;
+            text-decoration: none; color: var(--dev-dark); font-size: 12px; font-weight: 500;
         }
-        
-        .quick-action-btn:hover {
-            background: var(--dev-primary);
-            color: white;
-            transform: translateY(-3px);
-        }
-        
-        .quick-action-btn i {
-            font-size: 1.5rem;
-            margin-bottom: 8px;
-        }
-        
-        .quick-action-btn span {
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        
-        /* Recent List */
-        .recent-list {
-            padding: 10px 0;
-        }
-        
-        .recent-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 20px;
-            transition: background 0.3s;
-        }
-        
-        .recent-item:hover {
-            background: #f8f9fa;
-        }
-        
+        .quick-action-btn:hover { border-color: var(--dev-primary); color: var(--dev-primary); }
+        .quick-action-btn i { font-size: 15px; margin: 0; }
+
+        .recent-list { padding: 4px 0; }
+        .recent-item { display: flex; align-items: center; padding: 8px 16px; }
+        .recent-item:hover { background: var(--dev-light); }
         .recent-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 30px; height: 30px; border-radius: 8px;
             background: linear-gradient(135deg, var(--dev-primary), var(--dev-secondary));
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            margin-right: 12px;
+            color: #fff; display: grid; place-items: center; font-weight: 600; font-size: 12px; margin-right: 10px;
         }
-        
-        .recent-info {
-            flex: 1;
-        }
-        
-        .recent-info strong {
-            display: block;
-            font-size: 0.9rem;
-            color: var(--dev-dark);
-        }
-        
-        .recent-info small {
-            color: #666;
-        }
-        
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-        }
-        
+        .recent-info { flex: 1; }
+        .recent-info strong { display: block; font-size: 12.5px; color: var(--dev-dark); }
+        .recent-info small { color: var(--dev-muted); font-size: 11px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
         .status-dot.active { background: var(--dev-success); }
         .status-dot.inactive { background: var(--dev-danger); }
-        
-        /* Forms */
-        .form-label {
-            font-weight: 500;
-            color: var(--dev-dark);
-            margin-bottom: 8px;
-        }
-        
-        .form-control, .form-select {
-            border-radius: 10px;
-            padding: 12px 15px;
-            border: 1px solid #e0e0e0;
-            transition: all 0.3s;
-        }
-        
-        .form-control:focus, .form-select:focus {
-            border-color: var(--dev-primary);
-            box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.15);
-        }
-        
-        /* Buttons */
-        .btn {
-            border-radius: 10px;
-            padding: 10px 20px;
-            font-weight: 500;
-            transition: all 0.3s;
-        }
-        
-        .btn-primary {
-            background: var(--dev-primary);
-            border-color: var(--dev-primary);
-        }
-        
-        .btn-primary:hover {
-            background: var(--dev-secondary);
-            border-color: var(--dev-secondary);
-            transform: translateY(-2px);
-        }
-        
-        .btn-success {
-            background: var(--dev-success);
-            border-color: var(--dev-success);
-        }
-        
-        /* Responsive */
+
+        /* ── Form & tombol (compact) ─────────────────────────────── */
+        .form-label, .form-label-sm { font-weight: 500; font-size: 12px; color: var(--dev-dark); margin-bottom: 4px; }
+        .form-control, .form-select { border-radius: 7px; padding: 6px 10px; font-size: 12.5px; border: 1px solid #dfe2ea; }
+        .form-control-sm, .form-select-sm { font-size: 12px; padding: 4px 8px; height: 30px; }
+        .form-control:focus, .form-select:focus { border-color: var(--dev-primary); box-shadow: 0 0 0 3px rgba(109, 74, 224, .12); }
+
+        .btn { border-radius: 7px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; }
+        .btn-sm, .btn-group-sm .btn { padding: 3px 9px; font-size: 11.5px; }
+        .btn-lg { padding: 8px 16px; font-size: 13.5px; }
+        .btn-primary { background: var(--dev-primary); border-color: var(--dev-primary); }
+        .btn-primary:hover { background: var(--dev-secondary); border-color: var(--dev-secondary); }
+        .btn-success { background: var(--dev-success); border-color: var(--dev-success); }
+        .badge { font-weight: 600; font-size: 10.5px; }
+        .alert { padding: 9px 14px; font-size: 12.5px; border-radius: 9px; }
+        h1, .h1 { font-size: 20px; } h2, .h2 { font-size: 18px; } h3, .h3 { font-size: 16px; }
+        h4, .h4 { font-size: 15px; } h5, .h5 { font-size: 13.5px; } h6, .h6 { font-size: 12.5px; }
+
+        /* ── HP / tablet: sidebar jadi laci ─────────────────────────────── */
         @media (max-width: 991px) {
-            .sidebar {
-                transform: translateX(-100%);
-            }
-            
-            .sidebar.show {
-                transform: translateX(0);
-            }
-            
-            .main-content {
-                margin-left: 0;
-            }
-        }
-        
-        /* Compact Form Styling */
-        .form-label-sm {
-            font-size: 0.8rem;
-            margin-bottom: 0.25rem;
-            font-weight: 500;
-            display: block;
-        }
-        
-        .form-control-sm, .form-select-sm {
-            font-size: 0.8rem;
-            padding: 0.35rem 0.5rem;
-            height: 2rem;
-        }
-        
-        .table-sm {
-            font-size: 0.8rem;
-            margin-bottom: 0;
-        }
-        
-        .table-sm th, .table-sm td {
-            padding: 0.6rem 0.75rem;
-            vertical-align: middle;
-        }
-        
-        .btn-group-sm .btn {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.8rem;
-        }
-        
-        .card {
-            border: 1px solid #e9ecef;
-            border-radius: 0.5rem;
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.show { transform: translateX(0); }
+            .sidebar.show + .sidebar-backdrop { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .4); z-index: 1030; }
+            .main-content { margin-left: 0; }
+            .nav-toggle { display: inline-block; }
+            .top-navbar { padding: 0 14px; }
+            .user-info, .navbar-right .store-link span { display: none; }
+            .main-content > .container-fluid,
+            .main-content > .p-4,
+            .main-content > .content-wrapper { padding: 14px !important; }
         }
     </style>
 </head>
 <body>
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="devSidebar">
         <div class="sidebar-header">
-            <div class="logo">ADF System</div>
-            <span class="dev-badge"><i class="bi bi-code-slash"></i> Developer</span>
+            <div class="mark"><i class="bi bi-code-slash"></i></div>
+            <div class="logo">ADF System<small>Developer Panel</small></div>
         </div>
-        
+
         <nav class="sidebar-menu">
-            <div class="menu-section">Main</div>
-            <a href="index.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>">
-                <i class="bi bi-speedometer2"></i>Dashboard
-            </a>
-            
-            <div class="menu-section">Management</div>
-            <a href="index.php?section=user-setup" class="<?php echo isset($_GET['section']) && $_GET['section'] == 'user-setup' ? 'active' : ''; ?>">
-                <i class="bi bi-person-plus"></i>User Setup
-            </a>
-            <a href="businesses.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'businesses.php' ? 'active' : ''; ?>">
-                <i class="bi bi-building"></i>Businesses
-            </a>
-            <a href="menus.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'menus.php' ? 'active' : ''; ?>">
-                <i class="bi bi-grid-3x3-gap"></i>Menu Items
-            </a>
-            <a href="permissions.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'permissions.php' ? 'active' : ''; ?>">
-                <i class="bi bi-shield-lock"></i>Permissions
-            </a>
-            <a href="owner-access.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'owner-access.php' ? 'active' : ''; ?>">
-                <i class="bi bi-eye"></i>Owner Monitoring
-            </a>
-            <a href="staff-accounts.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'staff-accounts.php' ? 'active' : ''; ?>">
-                <i class="bi bi-person-badge"></i>Staff Portal
-            </a>
-            
-            <div class="menu-section">System</div>
-            <a href="database.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'database.php' ? 'active' : ''; ?>">
-                <i class="bi bi-database"></i>Database
-            </a>
-            <a href="settings.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>">
-                <i class="bi bi-gear"></i>Settings
-            </a>
-            <a href="audit.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'audit.php' ? 'active' : ''; ?>">
-                <i class="bi bi-journal-text"></i>Audit Logs
-            </a>
-            <a href="developer-settings.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'developer-settings.php' ? 'active' : ''; ?>">
-                <i class="bi bi-sliders"></i>Developer Settings
-            </a>
-            <a href="web-settings.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'web-settings.php' ? 'active' : ''; ?>">
-                <i class="bi bi-globe"></i>Web Settings
-            </a>
-            <a href="design.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'design.php' || basename($_SERVER['PHP_SELF']) == 'design-room-image.php' ? 'active' : ''; ?>">
-                <i class="bi bi-palette"></i>Design Tools
-            </a>
-            
-            <div class="menu-section">Account</div>
-            <a href="logout.php">
-                <i class="bi bi-box-arrow-left"></i>Logout
-            </a>
+            <?php foreach ($devNav as $group => $items): ?>
+                <div class="menu-section"><?php echo htmlspecialchars($group); ?></div>
+                <?php foreach ($items as $item): ?>
+                    <a href="<?php echo htmlspecialchars($item[0]); ?>" class="<?php echo $devIsActive($item) ? 'active' : ''; ?>">
+                        <i class="bi bi-<?php echo $item[2]; ?>"></i><?php echo htmlspecialchars($item[1]); ?>
+                    </a>
+                <?php endforeach; ?>
+                <?php if ($group === 'Utama'): ?>
+                    <a href="https://adfsystem.store/admin/" target="_blank" rel="noopener">
+                        <i class="bi bi-shop"></i>ADF Store<i class="bi bi-box-arrow-up-right ext"></i>
+                    </a>
+                <?php endif; ?>
+            <?php endforeach; ?>
         </nav>
+
+        <div class="sidebar-footer">
+            <a href="logout.php"><i class="bi bi-box-arrow-left"></i>Logout</a>
+        </div>
     </aside>
-    
+    <div class="sidebar-backdrop" onclick="document.getElementById('devSidebar').classList.remove('show')"></div>
+
     <!-- Main Content -->
     <main class="main-content">
-        <!-- Top Navbar -->
         <div class="top-navbar">
             <div class="navbar-left">
-                <h4><?php echo $pageTitle ?? 'Dashboard'; ?></h4>
+                <button type="button" class="nav-toggle" onclick="document.getElementById('devSidebar').classList.toggle('show')" aria-label="Menu"><i class="bi bi-list"></i></button>
+                <h4><?php echo htmlspecialchars($pageTitle ?? 'Dashboard'); ?></h4>
             </div>
             <div class="navbar-right">
+                <a href="https://adfsystem.store/admin/" target="_blank" rel="noopener" class="store-link"><i class="bi bi-shop"></i><span>ADF Store</span></a>
                 <div class="user-dropdown dropdown">
-                    <div data-bs-toggle="dropdown">
-                        <div class="d-flex align-items-center">
-                            <div class="user-info me-2">
-                                <div class="name"><?php echo htmlspecialchars($user['full_name'] ?? 'Developer'); ?></div>
-                                <div class="role">Developer Admin</div>
-                            </div>
-                            <div class="user-avatar">
-                                <?php echo strtoupper(substr($user['full_name'] ?? 'D', 0, 1)); ?>
-                            </div>
+                    <div data-bs-toggle="dropdown" class="d-flex align-items-center gap-2">
+                        <div class="user-info">
+                            <div class="name"><?php echo htmlspecialchars($user['full_name'] ?? 'Developer'); ?></div>
+                            <div class="role">Developer</div>
                         </div>
+                        <div class="user-avatar"><?php echo strtoupper(substr($user['full_name'] ?? 'D', 0, 1)); ?></div>
                     </div>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="profile.php"><i class="bi bi-person me-2"></i>Profile</a></li>
+                    <ul class="dropdown-menu dropdown-menu-end" style="font-size:12.5px;">
+                        <li><a class="dropdown-item" href="https://adfsystem.store/admin/" target="_blank" rel="noopener"><i class="bi bi-shop me-2"></i>ADF Store</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="logout.php"><i class="bi bi-box-arrow-left me-2"></i>Logout</a></li>
+                        <li><a class="dropdown-item text-danger" href="logout.php"><i class="bi bi-box-arrow-left me-2"></i>Logout</a></li>
                     </ul>
                 </div>
             </div>

@@ -13,7 +13,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = 'Menu Configuration';
+$pageTitle = 'Daftar Menu Aplikasi';
 
 $action = $_GET['action'] ?? 'list';
 $editId = $_GET['id'] ?? null;

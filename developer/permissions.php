@@ -14,7 +14,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = 'User Permissions';
+$pageTitle = 'Hak Akses Menu';
 
 // Ensure Gudang Nasita menu appears in Developer Permissions for target businesses.
 try {

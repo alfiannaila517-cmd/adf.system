@@ -52,13 +52,13 @@ function syncPasswordToBusinesses($username, $hashedPassword, $mainPdo) {
 
 // Determine which section to display
 $section = $_GET['section'] ?? 'dashboard';
-$pageTitle = 'Developer Panel';
+$pageTitle = 'Dashboard';
 
 // =============================================
 // SECTION: USER SETUP (3-step wizard)
 // =============================================
 if ($section === 'user-setup') {
-    $pageTitle = '👤 User Management';
+    $pageTitle = 'User & Akses Bisnis';
     
     $activeStep = $_GET['step'] ?? 'users';
     $selectedUserId = $_GET['user_id'] ?? null;
@@ -386,7 +386,7 @@ require_once __DIR__ . '/includes/header.php';
                         <p class="text-muted mb-0">Developer Control Panel - Full System Access</p>
                     </div>
                     <div class="welcome-actions">
-                        <a href="users.php?action=add" class="btn btn-primary me-2">
+                        <a href="index.php?section=user-setup" class="btn btn-primary me-2">
                             <i class="bi bi-person-plus me-1"></i>Add User
                         </a>
                         <a href="businesses.php?action=add" class="btn btn-success">
@@ -409,7 +409,7 @@ require_once __DIR__ . '/includes/header.php';
                     <h3><?php echo number_format($stats['users']); ?></h3>
                     <p>Total Users</p>
                 </div>
-                <a href="users.php" class="stat-link">View All <i class="bi bi-arrow-right"></i></a>
+                <a href="index.php?section=user-setup" class="stat-link">View All <i class="bi bi-arrow-right"></i></a>
             </div>
         </div>
         
@@ -532,10 +532,6 @@ require_once __DIR__ . '/includes/header.php';
                         <i class="bi bi-person-plus"></i>
                         <span>User Setup</span>
                     </a>
-                    <a href="users.php?action=add" class="quick-action-btn">
-                        <i class="bi bi-person-plus"></i>
-                        <span>Add User</span>
-                    </a>
                     <a href="businesses.php?action=add" class="quick-action-btn">
                         <i class="bi bi-building-add"></i>
                         <span>Add Business</span>
@@ -559,7 +555,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="content-card">
                 <div class="card-header-custom">
                     <h5><i class="bi bi-clock-history me-2"></i>Recent Users</h5>
-                    <a href="users.php" class="btn btn-sm btn-outline-primary">View All</a>
+                    <a href="index.php?section=user-setup" class="btn btn-sm btn-outline-primary">View All</a>
                 </div>
                 <div class="recent-list">
                     <?php if (empty($recentUsers)): ?>

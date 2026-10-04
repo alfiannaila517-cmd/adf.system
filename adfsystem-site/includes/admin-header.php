@@ -128,6 +128,18 @@ $adminInitial = strtoupper(substr((string) ($adminUser['username'] ?? 'A'), 0, 1
                     <div class="admin-nav-group-title">Pengaturan</div>
                     <?php adf_admin_nav('edit-payment.php', 'Payment Gateway', 'card'); ?>
                     <?php adf_admin_nav('users.php', 'Pengguna', 'user'); ?>
+
+                    <!-- Pintasan ke Developer Panel (adfsystem.online/developer), buka di tab baru -->
+                    <div class="admin-nav-group-title">Developer</div>
+                    <?php foreach ([
+                        ['index.php', 'Developer Panel', 'dashboard'],
+                        ['businesses.php', 'Bisnis & Database', 'building'],
+                        ['index.php?section=user-setup', 'User & Akses', 'users'],
+                    ] as [$devFile, $devLabel, $devIcon]): ?>
+                        <a href="https://adfsystem.online/developer/<?php echo $devFile; ?>" target="_blank" rel="noopener" class="admin-nav-link">
+                            <?php echo adf_admin_icon($devIcon); ?><span><?php echo $devLabel; ?></span><?php echo adf_admin_icon('external', 12); ?>
+                        </a>
+                    <?php endforeach; ?>
                 <?php endif; ?>
             </nav>
 

@@ -15,7 +15,7 @@ $devAuth = new DevAuth();
 $devAuth->requireLogin();
 
 $db = Database::getInstance();
-$pageTitle = 'Developer Settings';
+$pageTitle = 'Pengaturan & Branding';
 $currentPage = 'developer-settings';
 
 $error = '';
@@ -647,67 +647,15 @@ require_once __DIR__ . '/includes/header.php';
 
 <div class="container-fluid py-4">
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    </style>
-
     <div class="container-fluid py-4">
         <!-- Page Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h4 class="mb-1"><i class="bi bi-sliders me-2"></i>Developer Settings</h4>
+                <h4 class="mb-1"><i class="bi bi-sliders me-2"></i>Pengaturan & Branding</h4>
                 <p class="text-muted mb-0" style="font-size: 0.875rem;">Konfigurasi developer name, logo, background login, WhatsApp, dan footer</p>
             </div>
-            <a href="index.php" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Kembali
+            <a href="settings.php" class="btn btn-outline-secondary btn-sm" title="Editor semua setting sistem (key/value)">
+                <i class="bi bi-gear me-1"></i>Pengaturan Lanjutan
             </a>
         </div>
 

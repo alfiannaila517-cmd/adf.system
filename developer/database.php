@@ -14,7 +14,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = 'Database Management';
+$pageTitle = 'Database';
 
 $error = '';
 $success = '';

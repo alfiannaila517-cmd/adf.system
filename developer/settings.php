@@ -12,7 +12,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = 'System Settings';
+$pageTitle = 'Pengaturan Lanjutan';
 
 $error = '';
 $success = '';
@@ -52,7 +52,8 @@ require_once __DIR__ . '/includes/header.php';
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h4 class="mb-0"><i class="bi bi-sliders me-2"></i>System Settings</h4>
+            <a href="developer-settings.php" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left me-1"></i>Pengaturan & Branding</a>
+            <h4 class="mb-0"><i class="bi bi-gear me-2"></i>Pengaturan Lanjutan</h4>
         </div>
     </div>
     

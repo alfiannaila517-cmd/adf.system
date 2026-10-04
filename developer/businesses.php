@@ -15,7 +15,7 @@ $auth->requireLogin();
 
 $user = $auth->getCurrentUser();
 $pdo = $auth->getConnection();
-$pageTitle = 'Business Management';
+$pageTitle = 'Bisnis';
 
 $action = $_GET['action'] ?? 'list';
 $editId = $_GET['id'] ?? null;
