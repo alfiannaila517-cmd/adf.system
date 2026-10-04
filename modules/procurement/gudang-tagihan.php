@@ -589,7 +589,7 @@ $selectedMonthLabel = date('F Y', strtotime($monthStart));
     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.85rem; flex-wrap:wrap; gap:0.75rem;">
         <div>
             <h3 style="font-size:1rem; font-weight:700; margin:0;"><b class="tg-step">2</b>Gudang membayar bisnis pengirim</h3>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Barang yang dikirim bisnis ke Gudang atau ke bisnis lain. Klik <b>Bayar</b> → uang keluar dari rekening Gudang dan masuk sebagai <b>pendapatan</b> di buku kas bisnis pengirim. Kiriman ke bisnis lain ditagihkan ke bisnis penerima lewat tagihan bulanan di atas.</p>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Barang yang dikirim bisnis ke Gudang atau ke bisnis lain. Klik <b>Bayar</b> → uang keluar dari rekening Gudang ke bisnis pengirim: <b>penjualan</b> dicatat sebagai pendapatan bisnis, <b>refund retur</b> sebagai pengurangan biaya (bukan pendapatan). Kiriman ke bisnis lain ditagihkan ke bisnis penerima lewat tagihan bulanan di atas.</p>
         </div>
         <div style="text-align:right;">
             <div style="font-size:0.72rem; color:var(--text-muted);">Total belum dibayar</div>
@@ -646,7 +646,10 @@ $selectedMonthLabel = date('F Y', strtotime($monthStart));
                                         <input type="hidden" name="action" value="pay_supply_bill">
                                         <input type="hidden" name="slug" value="<?php echo htmlspecialchars($sup['slug']); ?>">
                                         <input type="hidden" name="bulan" value="<?php echo htmlspecialchars($selectedMonth); ?>">
-                                        <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm(<?php echo htmlspecialchars(json_encode('Bayar Rp ' . number_format($sup['outstanding'], 0, ',', '.') . ' ke ' . $sup['name'] . '?' . "\n\n" . 'Uang keluar dari rekening Gudang Nasita dan masuk sebagai pendapatan di buku kas ' . $sup['name'] . '.'), ENT_QUOTES); ?>);">Bayar</button>
+                                        <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm(<?php echo htmlspecialchars(json_encode('Bayar Rp ' . number_format($sup['outstanding'], 0, ',', '.') . ' ke ' . $sup['name'] . '?' . "\n\n"
+                                            . ($sup['outstanding_sales'] > 0 ? '• Penjualan Rp ' . number_format($sup['outstanding_sales'], 0, ',', '.') . ' → pendapatan ' . $sup['name'] . "\n" : '')
+                                            . ($sup['outstanding_refund'] > 0 ? '• Refund retur Rp ' . number_format($sup['outstanding_refund'], 0, ',', '.') . ' → mengurangi biaya ' . $sup['name'] . ' (bukan pendapatan)' . "\n" : '')
+                                            . "\nUang keluar dari rekening Gudang Nasita."), ENT_QUOTES); ?>);">Bayar</button>
                                     </form>
                                 <?php else: ?>
                                     <span style="background:#dcfce7; color:#166534; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">Lunas</span>

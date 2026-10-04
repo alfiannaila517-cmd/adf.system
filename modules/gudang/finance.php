@@ -183,6 +183,7 @@ $cashKinds = [
     'from_biz' => ['Diterima dari bisnis', '#047857', '#d1fae5'],
     'to_biz'   => ['Dibayar ke bisnis', '#6d28d9', '#ede9fe'],
     'tkbm'     => ['Biaya TKBM', '#b45309', '#fef3c7'],
+    'refund'   => ['Refund retur ke bisnis', '#0f766e', '#ccfbf1'],
     'other_in' => ['Pemasukan lain', '#0369a1', '#e0f2fe'],
     'other_out' => ['Pengeluaran lain', '#be123c', '#ffe4e6'],
 ];
@@ -192,6 +193,7 @@ $cashOut = 0.0;
 $outToBiz = 0.0;
 $outTkbm = 0.0;
 $outOther = 0.0;
+$outRefund = 0.0;
 $perBiz = []; // slug bisnis => ['in' => .., 'out' => ..]
 try {
     $rawCash = $db->fetchAll(
@@ -208,7 +210,12 @@ try {
         $amount = (float)$cb['amount'];
         $isIn = $cb['transaction_type'] === 'income';
         $source = (string)($cb['source_type'] ?? '');
-        if ($source === 'gudang_tagihan_income') {
+        if ($source === 'gudang_retur_refund') {
+            // Refund retur dicatat sebagai pengurangan pendapatan (nilai minus); di buku kas tampil sebagai uang keluar.
+            $kind = 'refund';
+            $isIn = false;
+            $amount = abs($amount);
+        } elseif ($source === 'gudang_tagihan_income') {
             $kind = 'from_biz';
         } elseif ($source === 'gudang_supply_payment') {
             $kind = 'to_biz';
@@ -230,7 +237,9 @@ try {
         } else {
             $cashOut += $amount;
             $running -= $amount;
-            if ($kind === 'to_biz') {
+            if ($kind === 'refund') {
+                $outRefund += $amount;
+            } elseif ($kind === 'to_biz') {
                 $outToBiz += $amount;
             } elseif ($kind === 'tkbm') {
                 $outTkbm += $amount;
@@ -238,7 +247,7 @@ try {
                 $outOther += $amount;
             }
         }
-        if ($partySlug !== '' && in_array($kind, ['from_biz', 'to_biz'], true)) {
+        if ($partySlug !== '' && in_array($kind, ['from_biz', 'to_biz', 'refund'], true)) {
             $perBiz[$partySlug] = $perBiz[$partySlug] ?? ['in' => 0.0, 'out' => 0.0];
             $perBiz[$partySlug][$kind === 'from_biz' ? 'in' : 'out'] += $amount;
         }
@@ -450,7 +459,7 @@ include __DIR__ . '/../../includes/header.php';
     <div class="kas-kpi" style="--k:#e11d48;">
         <small>Uang keluar · <?php echo $monthLabel; ?></small>
         <b>Rp <?php echo number_format($cashOut, 0, ',', '.'); ?></b>
-        <span>Bayar ke bisnis Rp <?php echo number_format($outToBiz, 0, ',', '.'); ?> · TKBM Rp <?php echo number_format($outTkbm, 0, ',', '.'); ?><?php if ($outOther > 0): ?> · lain Rp <?php echo number_format($outOther, 0, ',', '.'); ?><?php endif; ?></span>
+        <span>Bayar ke bisnis Rp <?php echo number_format($outToBiz, 0, ',', '.'); ?> · TKBM Rp <?php echo number_format($outTkbm, 0, ',', '.'); ?><?php if ($outRefund > 0): ?> · refund retur Rp <?php echo number_format($outRefund, 0, ',', '.'); ?><?php endif; ?><?php if ($outOther > 0): ?> · lain Rp <?php echo number_format($outOther, 0, ',', '.'); ?><?php endif; ?></span>
     </div>
     <div class="kas-kpi" style="--k:#2563eb;">
         <small>Saldo bulan ini</small>

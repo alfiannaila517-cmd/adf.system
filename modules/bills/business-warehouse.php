@@ -120,14 +120,21 @@ try {
 $receivedRows = [];
 try {
     $receivedRows = $db->fetchAll(
-        "SELECT transaction_date, amount, description FROM cash_book
-         WHERE source_type = 'gudang_supply_income' AND transaction_date BETWEEN ? AND ?
+        "SELECT transaction_date, ABS(amount) AS amount, description, source_type FROM cash_book
+         WHERE source_type IN ('gudang_supply_income', 'gudang_retur_refund') AND transaction_date BETWEEN ? AND ?
          ORDER BY transaction_date DESC, id DESC",
         [$monthStart, $monthEnd]
     ) ?: [];
 } catch (Throwable $e) {
 }
 $receivedTotal = array_sum(array_column($receivedRows, 'amount'));
+// Refund retur = uang pembelian yang kembali (pengurangan biaya), bukan pendapatan.
+$refundTotal = 0.0;
+foreach ($receivedRows as $rr) {
+    if ($rr['source_type'] === 'gudang_retur_refund') {
+        $refundTotal += (float)$rr['amount'];
+    }
+}
 
 $statusStyle = [
     'lunas'    => ['#dcfce7', '#166534', 'Sudah dibayar'],
@@ -199,7 +206,7 @@ include '../../includes/header.php';
         <div class="bw-kpi" style="--k:#059669;">
             <small>Uang masuk dari Gudang · <?php echo $monthLabel; ?></small>
             <b><?php echo $fmt($receivedTotal); ?></b>
-            <span>Tercatat di buku kas sebagai pendapatan</span>
+            <span><?php if ($refundTotal > 0): ?>Penjualan <?php echo $fmt($receivedTotal - $refundTotal); ?> · refund retur <?php echo $fmt($refundTotal); ?><?php else: ?>Penjualan ke Gudang (pendapatan)<?php endif; ?></span>
         </div>
         <div class="bw-kpi" style="--k:#2563eb;">
             <small>Gudang masih berhutang ke kami</small>
@@ -339,7 +346,7 @@ include '../../includes/header.php';
     <!-- (3) Uang masuk dari Gudang -->
     <div class="bw-card">
         <h3><span class="bw-step">3</span> Uang masuk dari Gudang · <?php echo $monthLabel; ?></h3>
-        <p class="sub">Pembayaran Gudang yang sudah masuk ke rekening &amp; buku kas <?php echo htmlspecialchars($activeName); ?>.</p>
+        <p class="sub">Pembayaran Gudang yang sudah masuk ke rekening <?php echo htmlspecialchars($activeName); ?>. <b>Penjualan</b> tercatat sebagai pendapatan (kategori Penjualan ke Gudang); <b>refund retur</b> tercatat sebagai pengurangan biaya tagihan Gudang — bukan pendapatan.</p>
         <?php if (empty($receivedRows)): ?>
             <div class="bw-empty">Belum ada uang masuk dari Gudang pada <?php echo $monthLabel; ?>.</div>
         <?php else: ?>
@@ -349,7 +356,7 @@ include '../../includes/header.php';
                     <?php foreach ($receivedRows as $rr): ?>
                         <tr>
                             <td style="white-space:nowrap;"><?php echo date('d M Y', strtotime($rr['transaction_date'])); ?></td>
-                            <td style="font-size:.76rem;color:var(--muted);"><?php echo htmlspecialchars((string)$rr['description']); ?></td>
+                            <td style="font-size:.76rem;color:var(--muted);"><?php if ($rr['source_type'] === 'gudang_retur_refund'): ?><span class="bw-tag" style="background:#ccfbf1;color:#0f766e;">Refund retur · mengurangi biaya</span> <?php else: ?><span class="bw-tag" style="background:#dcfce7;color:#166534;">Penjualan</span> <?php endif; ?><?php echo htmlspecialchars((string)$rr['description']); ?></td>
                             <td class="r" style="font-weight:700;color:#10b981;"><?php echo $fmt($rr['amount']); ?></td>
                         </tr>
                     <?php endforeach; ?>

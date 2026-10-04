@@ -3326,10 +3326,15 @@ function getGudangNasitaIncomingSupplyBills(): array
         foreach ($gudangDb->fetchAll('SELECT business_slug, bill_month FROM gudang_nasita_tagihan_payments WHERE rule_version = 1') ?: [] as $pm) {
             $paidMonths[gudangNormalizeBizSlug((string)$pm['business_slug']) . '|' . $pm['bill_month']] = true;
         }
-        $paidTotals = [];
-        foreach ($gudangDb->fetchAll("SELECT source_business_slug, COALESCE(SUM(amount),0) AS total_paid FROM gudang_nasita_supply_payments WHERE payment_kind = 'bill' GROUP BY source_business_slug") ?: [] as $pr) {
+        $paidTotals = [];   // pembayaran penjualan (payment_kind 'bill')
+        $refundPaid = [];   // refund retur yang sudah dibayar (payment_kind 'refund')
+        foreach ($gudangDb->fetchAll("SELECT source_business_slug, payment_kind, COALESCE(SUM(amount),0) AS total_paid FROM gudang_nasita_supply_payments WHERE payment_kind IN ('bill', 'refund') GROUP BY source_business_slug, payment_kind") ?: [] as $pr) {
             $s = gudangNormalizeBizSlug((string)$pr['source_business_slug']);
-            $paidTotals[$s] = ($paidTotals[$s] ?? 0.0) + (float)$pr['total_paid'];
+            if ($pr['payment_kind'] === 'refund') {
+                $refundPaid[$s] = ($refundPaid[$s] ?? 0.0) + (float)$pr['total_paid'];
+            } else {
+                $paidTotals[$s] = ($paidTotals[$s] ?? 0.0) + (float)$pr['total_paid'];
+            }
         }
 
         $grouped = [];
@@ -3368,6 +3373,7 @@ function getGudangNasitaIncomingSupplyBills(): array
                     'to_business'     => 0.0,
                     'credited'        => 0.0,
                     'total_nilai'     => 0.0,
+                    'refund_total'    => 0.0,
                     'targets'         => [],
                     'items'           => [],
                     'last_created_at' => $row['created_at'],
@@ -3397,6 +3403,7 @@ function getGudangNasitaIncomingSupplyBills(): array
                 'credited'  => $credited > 0,
                 'direct'    => $isDirect,
                 'retur'     => $isRetur && $credited <= 0,
+                'refund'    => false,
                 'estimated' => !empty($row['is_estimated']),
             ];
             if ($row['created_at'] > $g['last_created_at']) {
@@ -3414,31 +3421,38 @@ function getGudangNasitaIncomingSupplyBills(): array
                 }
                 $label = 'Refund retur ' . date('M Y', strtotime($m . '-01'));
                 $grouped[$src]['total_nilai'] += $leftover;
+                $grouped[$src]['refund_total'] += $leftover;
                 $grouped[$src]['to_gudang'] += $leftover;
                 $grouped[$src]['targets']['Refund retur'] = ($grouped[$src]['targets']['Refund retur'] ?? 0.0) + $leftover;
                 $grouped[$src]['items'][] = [
                     'id' => 0, 'date' => date('Y-m-t 23:59:59', strtotime($m . '-01')), 'number' => '',
                     'item_name' => $label, 'quantity' => 0.0, 'unit' => '', 'target' => 'Refund retur',
-                    'value' => $leftover, 'credited' => false, 'direct' => false, 'retur' => false, 'estimated' => false,
+                    'value' => $leftover, 'credited' => false, 'direct' => false, 'retur' => false, 'refund' => true, 'estimated' => false,
                 ];
             }
         }
 
         foreach ($grouped as $src => $g) {
-            $g['total_paid'] = $paidTotals[$src] ?? 0.0;
-            $g['outstanding'] = round(max(0.0, $g['total_nilai'] - $g['total_paid']), 2);
+            // Penjualan (pendapatan outlet) dan refund retur (pengurangan biaya outlet) dihitung terpisah.
+            $paidSales = $paidTotals[$src] ?? 0.0;
+            $paidRefund = $refundPaid[$src] ?? 0.0;
+            $g['total_paid'] = $paidSales + $paidRefund;
+            $g['outstanding_sales'] = round(max(0.0, $g['total_nilai'] - $g['refund_total'] - $paidSales), 2);
+            $g['outstanding_refund'] = round(max(0.0, $g['refund_total'] - $paidRefund), 2);
+            $g['outstanding'] = $g['outstanding_sales'] + $g['outstanding_refund'];
             // Status per barang: pembayaran dialokasikan ke kiriman paling lama dulu (FIFO).
             usort($g['items'], function ($x, $y) {
                 return strcmp((string)$x['date'], (string)$y['date']);
             });
-            $paidLeft = $g['total_paid'];
+            $paidLeft = ['sales' => $paidSales, 'refund' => $paidRefund];
             foreach ($g['items'] as &$it) {
                 if ($it['direct'] || $it['credited'] || $it['retur'] || $it['value'] <= 0) {
                     $it['status'] = $it['direct'] ? 'diambil' : ($it['credited'] ? 'dipotong' : ($it['retur'] ? 'retur' : 'lunas'));
                     continue;
                 }
-                $covered = min($paidLeft, $it['value']);
-                $paidLeft -= $covered;
+                $pool = $it['refund'] ? 'refund' : 'sales';
+                $covered = min($paidLeft[$pool], $it['value']);
+                $paidLeft[$pool] -= $covered;
                 $it['status'] = $covered >= $it['value'] - 0.5 ? 'lunas' : ($covered > 0 ? 'sebagian' : 'belum');
             }
             unset($it);
@@ -3483,7 +3497,9 @@ function gudangNasitaPayIncomingSupplyBill(string $slug, int $userId): string
         if (!$bill) {
             throw new Exception('Tagihan untuk bisnis ini tidak ditemukan.');
         }
-        $totalAmount = (float)$bill['outstanding'];
+        $salesAmount = (float)$bill['outstanding_sales'];
+        $refundAmount = (float)$bill['outstanding_refund'];
+        $totalAmount = $salesAmount + $refundAmount;
         if ($totalAmount <= 0) {
             throw new Exception('Tidak ada tagihan yang perlu dibayar untuk bisnis ini.');
         }
@@ -3503,27 +3519,42 @@ function gudangNasitaPayIncomingSupplyBill(string $slug, int $userId): string
         Database::switchDatabase($gudangDbName ?: MASTER_DB_NAME);
         gudangNasitaEnsureSupplyPaymentsTable(Database::getInstance());
 
-        // Rincian tujuan kiriman, mis. "Gudang Nasita Rp 200.000, Bens Cafe Rp 50.000".
+        // Keterangan = barang yang dibayar SAAT INI (belum/sebagian dibayar), mis. "Roti Tawar 3 pcs ke Gudang Nasita".
+        // Hanya karakter ASCII: kolom buku kas sebagian bisnis masih charset lama.
         $parts = [];
-        foreach ($bill['targets'] as $targetName => $value) {
-            if ($value > 0) {
-                $parts[] = $targetName . ' Rp ' . number_format($value, 0, ',', '.');
+        foreach ($bill['items'] as $it) {
+            if (!$it['refund'] && in_array($it['status'] ?? '', ['belum', 'sebagian'], true)) {
+                $parts[] = $it['item_name'] . ' ' . rtrim(rtrim(number_format($it['quantity'], 2, '.', ''), '0'), '.') . ' ' . $it['unit'] . ' ke ' . $it['target'];
             }
         }
-        $detail = $parts ? ' (' . implode(', ', $parts) . ')' : '';
+        $detail = $parts ? ' (' . implode(', ', array_slice($parts, 0, 8)) . (count($parts) > 8 ? ', dll' : '') . ')' : '';
         $expenseDesc = 'Bayar Barang Kiriman ' . $bizName . $detail;
         $incomeDesc  = 'Pembayaran barang kiriman dari Gudang Nasita' . $detail;
 
         $masterPdo->beginTransaction();
         try {
-            $gudangCashBookId = gudangMoneyCashEntry($masterPdo, $gudangDbReal, 'expense', 'Bayar Barang Masuk Bisnis', $totalAmount, $expenseDesc, $gudangBankId, $userId, 'gudang_supply_payment');
-            $bizCashBookId = gudangMoneyCashEntry($masterPdo, $bizDbReal, 'income', 'Uang Masuk dari Gudang Nasita', $totalAmount, $incomeDesc, $bizBankId, $userId, 'gudang_supply_income');
-            gudangMoneyLedgerMove($masterPdo, $gudangBankId, $bizBankId, $totalAmount, $expenseDesc, $incomeDesc);
-            $masterPdo->prepare(
+            $recordPayment = $masterPdo->prepare(
                 "INSERT INTO `{$gudangDbReal}`.gudang_nasita_supply_payments
-                    (source_business_slug, source_business_name, amount, business_cash_book_id, gudang_cash_book_id, paid_by)
-                 VALUES (?, ?, ?, ?, ?, ?)"
-            )->execute([$slug, $bizName, $totalAmount, $bizCashBookId, $gudangCashBookId, $userId ?: null]);
+                    (source_business_slug, source_business_name, amount, business_cash_book_id, gudang_cash_book_id, paid_by, payment_kind)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)"
+            );
+            // Penjualan barang ke Gudang (roti, barang milik outlet) = PENDAPATAN outlet, biaya Gudang.
+            if ($salesAmount > 0) {
+                $gudangCashBookId = gudangMoneyCashEntry($masterPdo, $gudangDbReal, 'expense', 'Bayar Barang Masuk Bisnis', $salesAmount, $expenseDesc, $gudangBankId, $userId, 'gudang_supply_payment');
+                $bizCashBookId = gudangMoneyCashEntry($masterPdo, $bizDbReal, 'income', 'Penjualan ke Gudang', $salesAmount, $incomeDesc, $bizBankId, $userId, 'gudang_supply_income');
+                gudangMoneyLedgerMove($masterPdo, $gudangBankId, $bizBankId, $salesAmount, $expenseDesc, $incomeDesc);
+                $recordPayment->execute([$slug, $bizName, $salesAmount, $bizCashBookId, $gudangCashBookId, $userId ?: null, 'bill']);
+            }
+            // Refund retur = uang pembelian yang kembali, BUKAN pendapatan: dicatat sebagai pengurangan
+            // biaya (nilai minus) di kategori tagihan Gudang outlet, dan pengurangan pendapatan Gudang.
+            if ($refundAmount > 0) {
+                $refundDesc = 'Refund retur ke Gudang Nasita (pengurangan biaya, bukan pendapatan)';
+                $gudangRefundDesc = 'Refund retur ke ' . $bizName . ' (pengurangan pendapatan tagihan)';
+                $gudangCashBookId = gudangMoneyCashEntry($masterPdo, $gudangDbReal, 'income', 'Pendapatan Tagihan Bisnis', -$refundAmount, $gudangRefundDesc, $gudangBankId, $userId, 'gudang_retur_refund');
+                $bizCashBookId = gudangMoneyCashEntry($masterPdo, $bizDbReal, 'expense', 'Bayar Tagihan Gudang Nasita', -$refundAmount, $refundDesc, $bizBankId, $userId, 'gudang_retur_refund');
+                gudangMoneyLedgerMove($masterPdo, $gudangBankId, $bizBankId, $refundAmount, $gudangRefundDesc, $refundDesc);
+                $recordPayment->execute([$slug, $bizName, $refundAmount, $bizCashBookId, $gudangCashBookId, $userId ?: null, 'refund']);
+            }
             $masterPdo->commit();
         } catch (Throwable $e) {
             if ($masterPdo->inTransaction()) {
@@ -3541,7 +3572,14 @@ function gudangNasitaPayIncomingSupplyBill(string $slug, int $userId): string
         }
     }
 
-    return 'Pembayaran Rp ' . number_format($totalAmount, 0, ',', '.') . ' ke ' . $bizName . ' berhasil — tercatat sebagai pendapatan di buku kas ' . $bizName . '.';
+    $msg = [];
+    if ($salesAmount > 0) {
+        $msg[] = 'penjualan Rp ' . number_format($salesAmount, 0, ',', '.') . ' (pendapatan ' . $bizName . ')';
+    }
+    if ($refundAmount > 0) {
+        $msg[] = 'refund retur Rp ' . number_format($refundAmount, 0, ',', '.') . ' (mengurangi biaya ' . $bizName . ', bukan pendapatan)';
+    }
+    return 'Pembayaran Rp ' . number_format($totalAmount, 0, ',', '.') . ' ke ' . $bizName . ' berhasil: ' . implode(' + ', $msg) . '.';
 }
 
 /**
@@ -3720,7 +3758,7 @@ function gudangTakeFromOutlet(string $slug, array $lines, string $notes, int $us
                 $expenseDesc = 'Ambil barang dari ' . $outletName . ': ' . $describe($buyRows);
                 $incomeDesc  = 'Pembayaran Gudang Nasita (barang diambil Gudang): ' . $describe($buyRows);
                 $gudangCashBookId = gudangMoneyCashEntry($masterPdo, $gudangDbReal, 'expense', 'Bayar Barang Masuk Bisnis', $buyTotal, $expenseDesc, $gudangBankId, $userId, 'gudang_supply_payment');
-                $bizCashBookId = gudangMoneyCashEntry($masterPdo, $bizDbReal, 'income', 'Uang Masuk dari Gudang Nasita', $buyTotal, $incomeDesc, $bizBankId, $userId, 'gudang_supply_income');
+                $bizCashBookId = gudangMoneyCashEntry($masterPdo, $bizDbReal, 'income', 'Penjualan ke Gudang', $buyTotal, $incomeDesc, $bizBankId, $userId, 'gudang_supply_income');
                 gudangMoneyLedgerMove($masterPdo, $gudangBankId, $bizBankId, $buyTotal, $expenseDesc, $incomeDesc);
                 $masterPdo->prepare(
                     "INSERT INTO `{$gudangDbReal}`.gudang_nasita_supply_payments
