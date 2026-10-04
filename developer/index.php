@@ -310,61 +310,93 @@ if ($section === 'user-setup') {
         }
     }
 } else {
-    // SECTION: DASHBOARD (default)
-    
-    // Get statistics
-    $stats = [
-        'users' => 0,
-        'businesses' => 0,
-        'active_businesses' => 0,
-        'menus' => 0
-    ];
+    // SECTION: DASHBOARD (default) — ringkasan yang perlu dipantau developer
+    require_once __DIR__ . '/includes/adfstore_bridge.php';
 
+    $stats = ['users' => 0, 'users_active' => 0, 'online' => 0, 'businesses' => 0, 'active_businesses' => 0];
     try {
-        $stats['users'] = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-        $stats['businesses'] = $pdo->query("SELECT COUNT(*) FROM businesses")->fetchColumn();
-        $stats['active_businesses'] = $pdo->query("SELECT COUNT(*) FROM businesses WHERE is_active = 1")->fetchColumn();
-        $stats['menus'] = $pdo->query("SELECT COUNT(*) FROM menu_items WHERE is_active = 1")->fetchColumn();
+        $stats['users'] = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $stats['users_active'] = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE is_active = 1")->fetchColumn();
+        $stats['businesses'] = (int) $pdo->query("SELECT COUNT(*) FROM businesses")->fetchColumn();
+        $stats['active_businesses'] = (int) $pdo->query("SELECT COUNT(*) FROM businesses WHERE is_active = 1")->fetchColumn();
+        $stats['online'] = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE is_active = 1 AND last_login >= DATE_SUB(NOW(), INTERVAL 30 MINUTE)")->fetchColumn();
     } catch (Exception $e) {
         // Tables might not exist yet
     }
 
-    // Get recent audit logs
-    $auditLogs = [];
-    try {
-        $stmt = $pdo->query("
-            SELECT al.*, u.username 
-            FROM audit_logs al 
-            LEFT JOIN users u ON al.user_id = u.id 
-            ORDER BY al.created_at DESC 
-            LIMIT 10
-        ");
-        $auditLogs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        // Table might not exist yet
-    }
-
-    // Get recent users
-    $recentUsers = [];
-    try {
-        $stmt = $pdo->query("SELECT * FROM users ORDER BY created_at DESC LIMIT 5");
-        $recentUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        // Table might not exist
-    }
-
-    // Get businesses list
+    // Bisnis + jumlah user + status langganan ADF Store
     $businesses = [];
     try {
-        $stmt = $pdo->query("
-            SELECT b.*, u.full_name as owner_name 
-            FROM businesses b 
-            LEFT JOIN users u ON b.owner_id = u.id 
-            ORDER BY b.created_at DESC
-        ");
-        $businesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $businesses = $pdo->query("
+            SELECT b.*, u.full_name AS owner_name,
+                   (SELECT COUNT(*) FROM user_business_assignment uba WHERE uba.business_id = b.id) AS user_count
+            FROM businesses b
+            LEFT JOIN users u ON b.owner_id = u.id
+            ORDER BY b.is_active DESC, b.business_name ASC
+        ")->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
         // Table might not exist
+    }
+
+    $sub = ['active' => 0, 'locked' => 0, 'unpaid' => 0.0, 'unpaid_count' => 0];
+    $attention = []; // [ikon, warna, teks, link]
+    foreach ($businesses as &$biz) {
+        $biz['sub'] = $biz['is_active'] ? adfstore_status($biz) : ['code' => 'inactive', 'label' => 'Nonaktif'];
+        $code = $biz['sub']['code'];
+        $name = htmlspecialchars($biz['business_name']);
+        if ($code === 'active' || $code === 'locked') {
+            $sub[$code]++;
+            $sub['unpaid'] += $biz['sub']['unpaid'];
+            $sub['unpaid_count'] += $biz['sub']['unpaid_count'];
+            if ($code === 'locked') {
+                $attention[] = ['lock-fill', 'danger', "<b>$name</b> sedang dikunci", 'https://adfsystem.store/admin/subscription-clients.php'];
+            }
+            if ($biz['sub']['unpaid_count'] > 0) {
+                $attention[] = ['receipt', 'warning', "<b>$name</b> punya " . $biz['sub']['unpaid_count'] . ' tagihan belum dibayar (Rp ' . number_format($biz['sub']['unpaid'], 0, ',', '.') . ')', 'businesses.php'];
+            }
+            if (!empty($biz['sub']['sync_error'])) {
+                $attention[] = ['exclamation-triangle', 'danger', "<b>$name</b> gagal sinkron ke ADF Store", 'businesses.php'];
+            }
+        } elseif ($code === 'token_mismatch' || $code === 'not_in_store' || $code === 'not_connected') {
+            $attention[] = ['link-45deg', 'warning', "<b>$name</b> " . strtolower($biz['sub']['label']) . ' — klik Hubungkan di halaman Bisnis', 'businesses.php'];
+        } elseif ($code === 'no_db' && $biz['is_active']) {
+            $attention[] = ['database-exclamation', 'danger', "<b>$name</b>: database tidak bisa dibuka", 'database.php'];
+        }
+        if (!$biz['is_active']) {
+            $attention[] = ['gear', 'secondary', "<b>$name</b> nonaktif / belum selesai setup", 'businesses.php?action=setup&id=' . $biz['id'] . '&step=2'];
+        } elseif ((int) $biz['user_count'] === 0) {
+            $attention[] = ['person-x', 'secondary', "<b>$name</b> belum punya user", 'permissions.php?business_id=' . $biz['id']];
+        }
+    }
+    unset($biz);
+
+    // User aktif yang belum diberi akses ke bisnis mana pun (tidak bisa login ke bisnis)
+    try {
+        $orphans = $pdo->query("
+            SELECT u.full_name FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            WHERE u.is_active = 1 AND COALESCE(r.role_code, '') <> 'developer'
+              AND NOT EXISTS (SELECT 1 FROM user_business_assignment uba WHERE uba.user_id = u.id)
+            ORDER BY u.full_name
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        if ($orphans) {
+            $attention[] = ['person-exclamation', 'secondary', count($orphans) . ' user belum punya akses bisnis: ' . htmlspecialchars(implode(', ', array_slice($orphans, 0, 4))) . (count($orphans) > 4 ? ', …' : ''), 'index.php?section=user-setup'];
+        }
+    } catch (Exception $e) {
+    }
+
+    // Aktivitas terakhir
+    $auditLogs = [];
+    try {
+        $auditLogs = $pdo->query("
+            SELECT al.*, u.full_name, u.username
+            FROM audit_logs al
+            LEFT JOIN users u ON al.user_id = u.id
+            ORDER BY al.created_at DESC
+            LIMIT 8
+        ")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Table might not exist yet
     }
 }
 
@@ -373,248 +405,168 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <div class="container-fluid py-4">
-    <?php if ($section === 'dashboard'): ?>
+    <?php if ($section === 'dashboard'):
+        $ago = static function ($ts) {
+            $d = time() - strtotime($ts);
+            if ($d < 60) return 'baru saja';
+            if ($d < 3600) return floor($d / 60) . ' mnt lalu';
+            if ($d < 86400) return floor($d / 3600) . ' jam lalu';
+            return date('d M H:i', strtotime($ts));
+        };
+        $subBadge = ['active' => 'success', 'locked' => 'danger', 'token_mismatch' => 'warning', 'not_in_store' => 'warning', 'not_connected' => 'light', 'no_db' => 'light', 'no_store' => 'light', 'inactive' => 'light'];
+    ?>
     <!-- ============== DASHBOARD SECTION ============== -->
-    
+    <style>
+        .dx-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .dx-kpi { background: #fff; border: 1px solid var(--dev-border); border-radius: 10px; padding: 10px 12px; text-decoration: none; color: inherit; display: block; }
+        .dx-kpi:hover { border-color: var(--dev-primary); color: inherit; }
+        .dx-kpi small { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--dev-muted); }
+        .dx-kpi b { display: block; font-size: 18px; line-height: 1.3; margin-top: 2px; }
+        .dx-kpi span { font-size: 11px; color: var(--dev-muted); }
+        .dx-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
+        .dx-card { background: #fff; border: 1px solid var(--dev-border); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+        .dx-card-h { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid var(--dev-border); }
+        .dx-card-h h6 { margin: 0; font-size: 12.5px; font-weight: 600; }
+        .dx-card-h a { font-size: 11.5px; text-decoration: none; }
+        .dx-table td, .dx-table th { padding: 7px 12px; font-size: 12px; }
+        .dx-table td small { display: block; font-size: 10.5px; color: var(--dev-muted); }
+        .dx-list { list-style: none; margin: 0; padding: 4px 0; }
+        .dx-list li { display: flex; gap: 9px; align-items: flex-start; padding: 7px 14px; font-size: 12px; line-height: 1.4; }
+        .dx-list li + li { border-top: 1px solid #f2f3f7; }
+        .dx-list li i { font-size: 13px; margin-top: 1px; }
+        .dx-list li a { color: inherit; text-decoration: none; flex: 1; }
+        .dx-list li a:hover { color: var(--dev-primary); }
+        .dx-list .meta { color: var(--dev-muted); font-size: 10.5px; white-space: nowrap; }
+        .dx-empty { padding: 16px; text-align: center; font-size: 12px; color: var(--dev-muted); }
+        @media (max-width: 1100px) { .dx-grid { grid-template-columns: 1fr; } .dx-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 600px) { .dx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    </style>
+
     <div class="page-head">
-        <p>Halo, <strong><?php echo htmlspecialchars($user['full_name']); ?></strong> — ringkasan semua bisnis dan user ADF System.</p>
+        <p>Halo, <strong><?php echo htmlspecialchars($user['full_name']); ?></strong> — kondisi semua bisnis ADF System hari ini.</p>
         <div class="actions">
             <a href="index.php?section=user-setup" class="btn btn-outline-secondary btn-sm"><i class="bi bi-person-plus me-1"></i>Tambah User</a>
             <a href="businesses.php?action=add" class="btn btn-primary btn-sm"><i class="bi bi-building-add me-1"></i>Tambah Bisnis</a>
         </div>
     </div>
-    
-    <!-- Stats Cards -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="stat-card stat-users">
-                <div class="stat-icon">
-                    <i class="bi bi-people-fill"></i>
-                </div>
-                <div class="stat-info">
-                    <h3><?php echo number_format($stats['users']); ?></h3>
-                    <p>Total User</p>
-                </div>
-                <a href="index.php?section=user-setup" class="stat-link">Lihat <i class="bi bi-arrow-right"></i></a>
-            </div>
-        </div>
-        
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="stat-card stat-businesses">
-                <div class="stat-icon">
-                    <i class="bi bi-building"></i>
-                </div>
-                <div class="stat-info">
-                    <h3><?php echo number_format($stats['businesses']); ?></h3>
-                    <p>Total Bisnis</p>
-                </div>
-                <a href="businesses.php" class="stat-link">Lihat <i class="bi bi-arrow-right"></i></a>
-            </div>
-        </div>
-        
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="stat-card stat-active">
-                <div class="stat-icon">
-                    <i class="bi bi-check-circle-fill"></i>
-                </div>
-                <div class="stat-info">
-                    <h3><?php echo number_format($stats['active_businesses']); ?></h3>
-                    <p>Bisnis Aktif</p>
-                </div>
-                <a href="businesses.php?filter=active" class="stat-link">Lihat <i class="bi bi-arrow-right"></i></a>
-            </div>
-        </div>
-        
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="stat-card stat-menus">
-                <div class="stat-icon">
-                    <i class="bi bi-grid-3x3-gap-fill"></i>
-                </div>
-                <div class="stat-info">
-                    <h3><?php echo number_format($stats['menus']); ?></h3>
-                    <p>Menu Aplikasi</p>
-                </div>
-                <a href="menus.php" class="stat-link">Atur <i class="bi bi-arrow-right"></i></a>
-            </div>
-        </div>
+
+    <!-- Angka utama -->
+    <div class="dx-kpis">
+        <a class="dx-kpi" href="businesses.php">
+            <small><i class="bi bi-building"></i>Bisnis aktif</small>
+            <b><?php echo $stats['active_businesses']; ?></b>
+            <span>dari <?php echo $stats['businesses']; ?> terdaftar</span>
+        </a>
+        <a class="dx-kpi" href="index.php?section=user-setup">
+            <small><i class="bi bi-people"></i>User aktif</small>
+            <b><?php echo $stats['users_active']; ?></b>
+            <span><?php echo $stats['online']; ?> online (30 menit)</span>
+        </a>
+        <a class="dx-kpi" href="businesses.php">
+            <small><i class="bi bi-patch-check"></i>Langganan aktif</small>
+            <b class="text-success"><?php echo $sub['active']; ?></b>
+            <span>terhubung ke ADF Store</span>
+        </a>
+        <a class="dx-kpi" href="https://adfsystem.store/admin/subscription-clients.php" target="_blank" rel="noopener">
+            <small><i class="bi bi-lock"></i>Terkunci</small>
+            <b class="<?php echo $sub['locked'] ? 'text-danger' : ''; ?>"><?php echo $sub['locked']; ?></b>
+            <span>bisnis dikunci</span>
+        </a>
+        <a class="dx-kpi" href="https://adfsystem.store/admin/orders.php" target="_blank" rel="noopener">
+            <small><i class="bi bi-receipt"></i>Tagihan belum dibayar</small>
+            <b class="<?php echo $sub['unpaid_count'] ? 'text-warning' : ''; ?>">Rp <?php echo number_format($sub['unpaid'], 0, ',', '.'); ?></b>
+            <span><?php echo $sub['unpaid_count']; ?> tagihan</span>
+        </a>
     </div>
-    
-    <!-- Main Content Row -->
-    <div class="row">
-        <!-- Businesses List -->
-        <div class="col-lg-8 mb-4">
-            <div class="content-card">
-                <div class="card-header-custom">
-                    <h5><i class="bi bi-building me-2"></i>Bisnis</h5>
-                    <a href="businesses.php" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>Bisnis</th>
-                                <th>Tipe</th>
-                                <th>Database</th>
-                                <th>Pemilik</th>
-                                <th>Status</th>
-                                <th class="text-end">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($businesses)): ?>
-                            <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">
-                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                    Belum ada bisnis. <a href="businesses.php?action=add">Tambah bisnis</a>
-                                </td>
-                            </tr>
-                            <?php else: ?>
-                            <?php foreach ($businesses as $biz): ?>
-                            <tr>
+
+    <div class="dx-grid">
+        <!-- Bisnis -->
+        <div class="dx-card">
+            <div class="dx-card-h">
+                <h6><i class="bi bi-building me-1"></i>Bisnis</h6>
+                <a href="businesses.php">Kelola →</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table dx-table mb-0">
+                    <thead>
+                        <tr><th>Bisnis</th><th>Tipe</th><th class="text-center">User</th><th>Langganan</th><th class="text-end"></th></tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!$businesses): ?>
+                            <tr><td colspan="5" class="dx-empty">Belum ada bisnis. <a href="businesses.php?action=add">Tambah bisnis</a></td></tr>
+                        <?php endif; ?>
+                        <?php foreach ($businesses as $biz): $s = $biz['sub']; ?>
+                            <tr class="<?php echo $biz['is_active'] ? '' : 'text-muted'; ?>">
                                 <td>
                                     <strong><?php echo htmlspecialchars($biz['business_name']); ?></strong>
-                                    <br><small class="text-muted"><?php echo htmlspecialchars($biz['business_code']); ?></small>
+                                    <small><?php echo htmlspecialchars($biz['addon_domain'] ?? '' ?: ($biz['owner_name'] ?? '-')); ?></small>
                                 </td>
+                                <td><?php echo ucwords(str_replace('_', ' ', $biz['business_type'])); ?></td>
+                                <td class="text-center"><?php echo (int) $biz['user_count']; ?></td>
                                 <td>
-                                    <span class="badge bg-light text-dark border"><?php echo ucwords(str_replace('_', ' ', $biz['business_type'])); ?></span>
-                                </td>
-                                <td>
-                                    <code><?php echo htmlspecialchars($biz['database_name']); ?></code>
-                                </td>
-                                <td><?php echo htmlspecialchars($biz['owner_name'] ?? '-'); ?></td>
-                                <td>
-                                    <?php if ($biz['is_active']): ?>
-                                    <span class="badge bg-success">Aktif</span>
-                                    <?php else: ?>
-                                    <span class="badge bg-danger">Nonaktif</span>
+                                    <span class="badge bg-<?php echo $subBadge[$s['code']] ?? 'light'; ?> <?php echo in_array($subBadge[$s['code']] ?? 'light', ['light', 'warning'], true) ? 'text-dark' : ''; ?> <?php echo ($subBadge[$s['code']] ?? 'light') === 'light' ? 'border' : ''; ?>"><?php echo htmlspecialchars($s['label']); ?></span>
+                                    <?php if (!empty($s['unpaid_count'])): ?>
+                                        <small class="text-danger">Rp <?php echo number_format($s['unpaid'], 0, ',', '.'); ?> belum dibayar</small>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end text-nowrap">
-                                    <a href="businesses.php?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-primary" title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <a href="permissions.php?business_id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-info" title="Permissions">
-                                        <i class="bi bi-shield-lock"></i>
-                                    </a>
+                                    <a href="../developer-access.php?dev_access=<?php echo base64_encode($biz['database_name']); ?>" target="_blank" class="btn btn-sm btn-outline-secondary" title="Buka sistem bisnis"><i class="bi bi-box-arrow-up-right"></i></a>
+                                    <a href="businesses.php?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Edit bisnis"><i class="bi bi-pencil"></i></a>
                                 </td>
                             </tr>
-                            <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
-        
-        <!-- Quick Actions & Recent Activity -->
-        <div class="col-lg-4 mb-4">
-            <!-- Quick Actions -->
-            <div class="content-card mb-4">
-                <div class="card-header-custom">
-                    <h5><i class="bi bi-lightning-charge me-2"></i>Aksi Cepat</h5>
+
+        <div>
+            <!-- Perlu perhatian -->
+            <div class="dx-card">
+                <div class="dx-card-h">
+                    <h6><i class="bi bi-bell me-1"></i>Perlu Perhatian</h6>
+                    <span class="badge <?php echo $attention ? 'bg-warning text-dark' : 'bg-success'; ?>"><?php echo count($attention); ?></span>
                 </div>
-                <div class="quick-actions">
-                    <a href="index.php?section=user-setup" class="quick-action-btn">
-                        <i class="bi bi-person-plus"></i>
-                        <span>Tambah User</span>
-                    </a>
-                    <a href="businesses.php?action=add" class="quick-action-btn">
-                        <i class="bi bi-building-add"></i>
-                        <span>Tambah Bisnis</span>
-                    </a>
-                    <a href="menus.php" class="quick-action-btn">
-                        <i class="bi bi-grid-3x3-gap"></i>
-                        <span>Menu Aplikasi</span>
-                    </a>
-                    <a href="permissions.php" class="quick-action-btn">
-                        <i class="bi bi-shield-lock"></i>
-                        <span>Hak Akses Menu</span>
-                    </a>
-                    <a href="database.php" class="quick-action-btn">
-                        <i class="bi bi-database"></i>
-                        <span>Database</span>
-                    </a>
-                </div>
+                <?php if (!$attention): ?>
+                    <div class="dx-empty"><i class="bi bi-check-circle text-success me-1"></i>Semua aman, tidak ada yang perlu ditindaklanjuti.</div>
+                <?php else: ?>
+                    <ul class="dx-list">
+                        <?php foreach ($attention as [$icon, $color, $text, $link]): ?>
+                            <li>
+                                <i class="bi bi-<?php echo $icon; ?> text-<?php echo $color; ?>"></i>
+                                <a href="<?php echo htmlspecialchars($link); ?>" <?php echo strpos($link, 'http') === 0 ? 'target="_blank" rel="noopener"' : ''; ?>><?php echo $text; ?></a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
             </div>
-            
-            <!-- Recent Users -->
-            <div class="content-card">
-                <div class="card-header-custom">
-                    <h5><i class="bi bi-clock-history me-2"></i>User Terbaru</h5>
-                    <a href="index.php?section=user-setup" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+
+            <!-- Aktivitas terakhir -->
+            <div class="dx-card">
+                <div class="dx-card-h">
+                    <h6><i class="bi bi-clock-history me-1"></i>Aktivitas Terakhir</h6>
+                    <a href="audit.php">Semua →</a>
                 </div>
-                <div class="recent-list">
-                    <?php if (empty($recentUsers)): ?>
-                    <p class="text-muted text-center py-3">Belum ada user</p>
-                    <?php else: ?>
-                    <?php foreach ($recentUsers as $ru): ?>
-                    <div class="recent-item">
-                        <div class="recent-avatar">
-                            <?php echo strtoupper(substr($ru['full_name'], 0, 1)); ?>
-                        </div>
-                        <div class="recent-info">
-                            <strong><?php echo htmlspecialchars($ru['full_name']); ?></strong>
-                            <small><?php echo htmlspecialchars($ru['username']); ?></small>
-                        </div>
-                        <div class="recent-status">
-                            <?php if ($ru['is_active']): ?>
-                            <span class="status-dot active"></span>
-                            <?php else: ?>
-                            <span class="status-dot inactive"></span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
+                <?php if (!$auditLogs): ?>
+                    <div class="dx-empty">Belum ada aktivitas.</div>
+                <?php else: ?>
+                    <ul class="dx-list">
+                        <?php foreach ($auditLogs as $log):
+                            $act = str_replace('_', ' ', (string) ($log['action_type'] ?? $log['action'] ?? '-'));
+                            $tbl = (string) ($log['table_name'] ?? $log['entity_type'] ?? '');
+                        ?>
+                            <li>
+                                <i class="bi bi-dot text-muted"></i>
+                                <span style="flex:1;"><b><?php echo htmlspecialchars($log['full_name'] ?? $log['username'] ?? 'Sistem'); ?></b> · <?php echo htmlspecialchars($act); ?><?php echo $tbl ? ' <span class="text-muted">(' . htmlspecialchars($tbl) . ')</span>' : ''; ?></span>
+                                <span class="meta"><?php echo $ago($log['created_at']); ?></span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
             </div>
         </div>
     </div>
-    
-    <!-- Audit Logs -->
-    <div class="row">
-        <div class="col-12">
-            <div class="content-card">
-                <div class="card-header-custom">
-                    <h5><i class="bi bi-journal-text me-2"></i>Aktivitas Terakhir</h5>
-                    <a href="audit.php" class="btn btn-sm btn-outline-primary">Lihat Log</a>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>Waktu</th>
-                                <th>User</th>
-                                <th>Aksi</th>
-                                <th>Data</th>
-                                <th>Alamat IP</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($auditLogs)): ?>
-                            <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">
-                                    Belum ada aktivitas
-                                </td>
-                            </tr>
-                            <?php else: ?>
-                            <?php foreach ($auditLogs as $log): ?>
-                            <tr>
-                                <td><?php echo date('M d, H:i', strtotime($log['created_at'])); ?></td>
-                                <td><?php echo htmlspecialchars($log['username'] ?? 'System'); ?></td>
-                                <td><span class="badge bg-info"><?php echo htmlspecialchars($log['action']); ?></span></td>
-                                <td><?php echo htmlspecialchars($log['entity_type'] ?? '-'); ?></td>
-                                <td><code><?php echo htmlspecialchars($log['ip_address']); ?></code></td>
-                            </tr>
-                            <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    
+
     <?php elseif ($section === 'user-setup'): ?>
     <!-- ============== USER SETUP SECTION ============== -->
     
