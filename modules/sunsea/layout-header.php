@@ -1273,7 +1273,28 @@ if (empty($sunseaNavItemsVisible)) {
         </nav>
 
         <div class="ss-sidebar-footer">
-            <a href="<?php echo BASE_URL; ?>/travel-site/home.php" target="_blank" rel="noopener" class="ss-website-btn">
+            <?php
+            // "Buka Website" ke domain milik bisnis ini (addon_domain, mis. linewisatakarimunjawa.com),
+            // bukan domain yang sedang dipakai login (adfsystem.online menampilkan bisnis aktif di sesi).
+            $__siteUrl = BASE_URL . '/travel-site/home.php';
+            try {
+                $__bizSlug = (string) ($_SESSION['active_business_id'] ?? '');
+                if ($__bizSlug !== '' && defined('DB_HOST') && defined('DB_NAME')) {
+                    $__mPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                    $__st = $__mPdo->prepare("SELECT addon_domain FROM businesses WHERE slug = ? LIMIT 1");
+                    $__st->execute([$__bizSlug]);
+                    $__domain = strtolower(trim((string) $__st->fetchColumn()));
+                    $__domain = preg_replace('#^https?://#', '', rtrim($__domain, '/'));
+                    if ($__domain !== '' && strpos($__domain, 'localhost') === false) {
+                        $__siteUrl = 'https://' . $__domain . '/travel-site/home.php';
+                    }
+                }
+            } catch (Throwable $__e) {
+                // Tanpa addon_domain / kolom belum ada: tetap pakai domain saat ini.
+            }
+            unset($__bizSlug, $__mPdo, $__st, $__domain, $__e);
+            ?>
+            <a href="<?php echo htmlspecialchars($__siteUrl); ?>" target="_blank" rel="noopener" class="ss-website-btn">
                 <i data-feather="external-link"></i> Buka Website
             </a>
             <div class="ss-user-block">
