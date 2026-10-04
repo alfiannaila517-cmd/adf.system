@@ -546,11 +546,34 @@ function adfsub_all_invoices(PDO $pdo, int $limit = 24): array
 }
 
 /** Push notif ke owner/admin/developer bisnis aktif. Tidak pernah membuat halaman gagal. */
+/** Kirim push yang tertunda dari penagihan otomatis (maks. 3 hari terakhir). */
+function adfsub_flush_push_queue(PDO $pdo): void
+{
+    $queue = json_decode(adfsub_setting($pdo, 'subscription_push_queue', '[]'), true) ?: [];
+    if (!$queue) {
+        return;
+    }
+    adfsub_set_setting($pdo, 'subscription_push_queue', '[]');
+    foreach ($queue as $item) {
+        if (($item['at'] ?? 0) >= time() - 3 * 86400) {
+            adfsub_push($pdo, (string) $item['title'], (string) $item['body']);
+        }
+    }
+}
+
 function adfsub_push(PDO $pdo, string $title, string $body): void
 {
-    // Saat penagihan otomatis lintas bisnis (cron), push tidak dikirim: helper push memakai
-    // bisnis aktif di sesi, jadi bisa salah alamat. Email tetap terkirim.
+    // Saat penagihan otomatis lintas bisnis (cron), push belum dikirim (helper push memakai bisnis
+    // aktif di sesi, bisa salah alamat) — disimpan di antrean bisnis ini dan dikirim begitu sistem
+    // bisnis itu dibuka (adfsub_flush_push_queue). Email tetap langsung terkirim.
     if (!empty($GLOBALS['adfsub_no_push'])) {
+        try {
+            $queue = json_decode(adfsub_setting($pdo, 'subscription_push_queue', '[]'), true) ?: [];
+            $queue[] = ['title' => $title, 'body' => $body, 'at' => time()];
+            adfsub_set_setting($pdo, 'subscription_push_queue', json_encode(array_slice($queue, -20)));
+        } catch (Throwable $e) {
+            error_log('adfsub push queue: ' . $e->getMessage());
+        }
         return;
     }
     try {
@@ -578,6 +601,9 @@ function adfsub_tick(?PDO $pdo = null): array
             return $state;
         }
         $state['connected'] = true;
+        if (empty($GLOBALS['adfsub_no_push'])) {
+            adfsub_flush_push_queue($pdo); // push yang tertunda dari penagihan otomatis
+        }
         adfsub_sync($pdo);
         $cfg = adfsub_config($pdo);
 

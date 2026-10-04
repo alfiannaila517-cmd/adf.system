@@ -86,6 +86,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
+            // Notifikasi Telegram ke developer: tagihan manual dibuat + status email ke klien.
+            require_once __DIR__ . '/../includes/telegram.php';
+            adf_tg_send("🧾 <b>Tagihan manual dibuat</b>
+"
+                . '<b>' . adf_tg_e('Rp ' . number_format($amount, 0, ',', '.')) . "</b>
+"
+                . adf_tg_e((string) ($client['client_name'] ?? $clientKey)) . ' · ' . adf_tg_e($description) . "
+"
+                . '📅 Jatuh tempo ' . date('d M Y', strtotime($dueDate)) . "
+"
+                . ['ok' => '✉️ Email terkirim ke ' . adf_tg_e($notifyEmail), 'fail' => '❌ Email ke klien GAGAL dikirim', 'none' => '⚠️ Email notifikasi klien kosong'][$mailStatus]);
+
             header('Location: subscription-manual-invoice.php?client=' . urlencode($clientKey) . '&saved=1&mail=' . $mailStatus);
             exit;
         }
