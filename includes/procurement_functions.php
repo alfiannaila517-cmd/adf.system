@@ -727,13 +727,93 @@ function gudangNasitaBackfillZeroPriceTransferItems($db = null): void
     }
 }
 
-// Net bill adjustment for direct business-to-business stock transfers (table
-// business_inter_stock_transfers, master DB — see modules/procurement/business-stock-incoming.php's
-// "Transfer Stock Antar Bisnis" feature). When Business A hands stock (originally received from
-// Gudang Nasita) directly to Business B, Gudang's billing must "follow" the goods: A's bill goes
-// DOWN by that value, B's bill goes UP by the same value. Returning stock to Gudang itself only
-// reduces the source business' bill (no one else gets billed for stock that came back to Gudang).
-// Returns [slug => netAdjustment] for the given tracked slugs, optionally restricted to a date range.
+// ── Transfer stok antar bisnis (tabel master business_inter_stock_transfers) ──────────────
+// Gudang Nasita bertindak sebagai "kasir tengah" (clearing house) untuk SEMUA perpindahan barang:
+//   • Bisnis A kirim barang ke Gudang        → Gudang membayar A (tagihan barang masuk).
+//   • Bisnis A kirim barang ke Bisnis B      → B membayar lewat tagihan bulanan Gudang (+nilai),
+//                                              Gudang membayar A (tagihan barang masuk).
+// Jadi setiap kali Gudang klik "Bayar", uangnya masuk sebagai PENDAPATAN di buku kas bisnis pengirim.
+// Dulu nilai kiriman A hanya MEMOTONG tagihan bulanan A (tanpa uang masuk, dan hilang bila
+// potongannya lebih besar dari tagihan). Potongan itu masih dihormati untuk bulan yang sudah
+// LUNAS (lihat getGudangNasitaIncomingSupplyBills) agar tidak dibayar dua kali.
+
+// Satu bisnis bisa punya dua alias config (eat-meet / eaat-meet). Samakan ke slug tagihan.
+function gudangNormalizeBizSlug(string $slug): string
+{
+    $slug = strtolower(trim($slug));
+    return $slug === 'eat-meet' ? 'eaat-meet' : $slug;
+}
+
+// Semua baris transfer antar bisnis beserta nilainya. Harga diambil berurutan dari:
+// subtotal tersimpan → unit_price × qty → harga stok Gudang saat ini → harga katalog Gudang.
+// 'stored_nilai' = nilai yang benar-benar tersimpan (dipakai potongan tagihan versi lama).
+function gudangInterTransferValuedRows(PDO $masterPdo, ?string $fromDateTime = null, ?string $toDateTime = null): array
+{
+    if (!$masterPdo->query("SHOW TABLES LIKE 'business_inter_stock_transfers'")->fetch()) {
+        return [];
+    }
+    $cols = array_column($masterPdo->query('SHOW COLUMNS FROM business_inter_stock_transfers')->fetchAll(PDO::FETCH_ASSOC), 'Field');
+    $select = 'id, source_business_slug, target_business_slug, item_name, unit, quantity, created_at'
+        . (in_array('source_business_name', $cols, true) ? ', source_business_name' : ', NULL AS source_business_name')
+        . (in_array('target_business_name', $cols, true) ? ', target_business_name' : ', NULL AS target_business_name')
+        . (in_array('unit_price', $cols, true) ? ', unit_price' : ', NULL AS unit_price')
+        . (in_array('subtotal', $cols, true) ? ', subtotal' : ', NULL AS subtotal');
+
+    $sql = "SELECT {$select} FROM business_inter_stock_transfers";
+    $params = [];
+    if ($fromDateTime !== null && $toDateTime !== null) {
+        $sql .= ' WHERE created_at BETWEEN ? AND ?';
+        $params = [$fromDateTime, $toDateTime];
+    }
+    $stmt = $masterPdo->prepare($sql . ' ORDER BY created_at DESC');
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // Peta harga cadangan dari stok & katalog Gudang (Gudang memakai master DB).
+    $stockPrice = [];
+    $catalogPrice = [];
+    try {
+        foreach ($masterPdo->query('SELECT item_name, unit, harga_beli FROM gudang_nasita_stock')->fetchAll(PDO::FETCH_ASSOC) as $sp) {
+            if ((float)$sp['harga_beli'] > 0) {
+                $stockPrice[strtolower(trim((string)$sp['item_name'])) . '||' . strtolower(trim((string)$sp['unit']))] = (float)$sp['harga_beli'];
+            }
+        }
+    } catch (Throwable $e) {
+    }
+    try {
+        foreach ($masterPdo->query('SELECT nama_barang, harga_beli FROM gudang_nasita_barang')->fetchAll(PDO::FETCH_ASSOC) as $cp) {
+            if ((float)$cp['harga_beli'] > 0) {
+                $catalogPrice[strtolower(trim((string)$cp['nama_barang']))] = (float)$cp['harga_beli'];
+            }
+        }
+    } catch (Throwable $e) {
+    }
+
+    foreach ($rows as &$row) {
+        $qty = (float)$row['quantity'];
+        $stored = $row['subtotal'] !== null ? (float)$row['subtotal'] : $qty * (float)($row['unit_price'] ?? 0);
+        $nilai = $stored;
+        $estimated = false;
+        if ($nilai <= 0) {
+            $name = strtolower(trim((string)$row['item_name']));
+            $price = $stockPrice[$name . '||' . strtolower(trim((string)$row['unit']))] ?? ($catalogPrice[$name] ?? 0.0);
+            $nilai = $price * $qty;
+            $estimated = $nilai > 0;
+        }
+        $row['source_slug'] = gudangNormalizeBizSlug((string)$row['source_business_slug']);
+        $row['target_slug'] = gudangNormalizeBizSlug((string)$row['target_business_slug']);
+        $row['stored_nilai'] = max(0.0, $stored);
+        $row['nilai'] = max(0.0, $nilai);
+        $row['is_estimated'] = $estimated;
+    }
+    unset($row);
+    return $rows;
+}
+
+// Tambahan tagihan bulanan untuk bisnis PENERIMA transfer antar bisnis: B menerima barang dari A,
+// maka B membayar nilainya ke Gudang (Gudang lalu meneruskannya ke A lewat tagihan barang masuk).
+// Pengirim TIDAK lagi dipotong tagihannya — pengirim dibayar tunai oleh Gudang.
+// Returns [slug => tambahan] untuk slug yang diminta, opsional dibatasi rentang tanggal.
 function getBusinessInterStockTransferBillAdjustments(array $trackedSlugs, $fromDateTime = null, $toDateTime = null): array
 {
     $adjustments = array_fill_keys($trackedSlugs, 0.0);
@@ -744,47 +824,13 @@ function getBusinessInterStockTransferBillAdjustments(array $trackedSlugs, $from
             DB_PASS,
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
         );
-
-        $hasTable = $masterPdo->query("SHOW TABLES LIKE 'business_inter_stock_transfers'")->fetch();
-        if (!$hasTable) {
-            return $adjustments;
-        }
-
-        $cols = $masterPdo->query("SHOW COLUMNS FROM business_inter_stock_transfers")->fetchAll();
-        $colNames = array_column($cols, 'Field');
-        $hasPriceCols = in_array('unit_price', $colNames, true) || in_array('subtotal', $colNames, true);
-        if (!$hasPriceCols) {
-            // Legacy rows have no price info at all — nothing reliable to adjust with.
-            return $adjustments;
-        }
-
-        $nilaiExpr = in_array('subtotal', $colNames, true)
-            ? 'COALESCE(subtotal, quantity * COALESCE(unit_price, 0))'
-            : 'quantity * COALESCE(unit_price, 0)';
-
-        $sql = "SELECT source_business_slug, target_business_slug, {$nilaiExpr} AS nilai
-                FROM business_inter_stock_transfers";
-        $params = [];
-        if ($fromDateTime !== null && $toDateTime !== null) {
-            $sql .= " WHERE created_at BETWEEN ? AND ?";
-            $params = [$fromDateTime, $toDateTime];
-        }
-        $stmt = $masterPdo->prepare($sql);
-        $stmt->execute($params);
-
-        foreach ($stmt->fetchAll() as $row) {
-            $nilai = (float)($row['nilai'] ?? 0);
-            if ($nilai <= 0) {
+        foreach (gudangInterTransferValuedRows($masterPdo, $fromDateTime, $toDateTime) as $row) {
+            $target = $row['target_slug'];
+            if ($row['nilai'] <= 0 || $target === 'gudang-nasita' || $target === $row['source_slug']) {
                 continue;
             }
-            $sourceSlug = strtolower(trim((string)($row['source_business_slug'] ?? '')));
-            $targetSlug = strtolower(trim((string)($row['target_business_slug'] ?? '')));
-
-            if (isset($adjustments[$sourceSlug])) {
-                $adjustments[$sourceSlug] -= $nilai;
-            }
-            if ($targetSlug !== 'gudang-nasita' && isset($adjustments[$targetSlug])) {
-                $adjustments[$targetSlug] += $nilai;
+            if (isset($adjustments[$target])) {
+                $adjustments[$target] += $row['nilai'];
             }
         }
     } catch (Throwable $e) {
@@ -2776,8 +2822,17 @@ function gudangTagihanEnsurePaymentsTable($gudangDb): void
             gudang_cash_book_id INT NULL,
             paid_by INT NULL,
             paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            rule_version TINYINT NOT NULL DEFAULT 1,
             UNIQUE KEY uniq_biz_month (business_slug, bill_month)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } catch (Throwable $e) {
+    }
+    // rule_version 1 = aturan lama (kiriman bisnis memotong tagihan bulanannya sendiri),
+    // 2 = aturan baru (kiriman dibayar tunai oleh Gudang). Lihat getGudangNasitaIncomingSupplyBills().
+    try {
+        if (!$gudangDb->fetchOne("SHOW COLUMNS FROM gudang_nasita_tagihan_payments LIKE 'rule_version'")) {
+            $gudangDb->getConnection()->exec('ALTER TABLE gudang_nasita_tagihan_payments ADD COLUMN rule_version TINYINT NOT NULL DEFAULT 1');
+        }
     } catch (Throwable $e) {
     }
 }
@@ -2866,19 +2921,140 @@ function gudangTagihanGetGudangDb(): array
     return [$gudangDb, $originDb, $dbName];
 }
 
-// Records a business paying its monthly bill: writes an expense to the business' own cash_book
-// (taken from its bank account), an income entry to Gudang Nasita's cash_book (money received),
-// moves both accounts' balances in the master ledger, and marks the bill as paid.
-function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): string
+// ── Helper pembayaran (dipakai tagihan bulanan & tagihan barang masuk) ───────────────────────
+// Semua database bisnis ada di server MySQL yang sama dan memakai user yang sama, jadi satu
+// koneksi PDO bisa menulis ke beberapa database dalam SATU transaksi. Dengan begitu buku kas
+// bisnis, buku kas Gudang, saldo rekening, dan status lunas selalu tercatat bersamaan — atau
+// tidak sama sekali (tidak ada lagi uang terpotong tapi tagihan masih "belum dibayar").
+
+// Bisnis yang ditagih bulanan oleh Gudang Nasita.
+function gudangTrackedBizList(): array
 {
-    $gudangMonthlyBizList = [
+    return [
         ['slug' => 'narayana-hotel', 'name' => 'Narayana Hotel', 'icon' => '🏨'],
         ['slug' => 'bens-cafe',      'name' => 'Bens Cafe',      'icon' => '☕'],
         ['slug' => 'eaat-meet',      'name' => 'Eat Meet',       'icon' => '🍽️'],
     ];
+}
 
+// Config bisnis berdasarkan slug tagihan (termasuk alias eat-meet ↔ eaat-meet).
+function gudangBizConfig(string $slug): array
+{
+    $candidates = [$slug];
+    if ($slug === 'eaat-meet') {
+        $candidates[] = 'eat-meet';
+    } elseif ($slug === 'eat-meet') {
+        $candidates[] = 'eaat-meet';
+    }
+    foreach ($candidates as $c) {
+        $path = __DIR__ . '/../config/businesses/' . $c . '.php';
+        if (file_exists($path)) {
+            $cfg = require $path;
+            if (!empty($cfg['database'])) {
+                $cfg['_config_slug'] = $c;
+                return $cfg;
+            }
+        }
+    }
+    throw new Exception('Konfigurasi bisnis "' . $slug . '" tidak ditemukan.');
+}
+
+function gudangMasterPdo(): PDO
+{
+    return new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . MASTER_DB_NAME . ';charset=' . DB_CHARSET,
+        DB_USER,
+        DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+}
+
+// Siapkan tabel buku kas di database tujuan (DDL harus di LUAR transaksi karena MySQL
+// auto-commit pada DDL) lalu kembalikan nama database aslinya (sudah dipetakan ke nama hosting).
+function gudangMoneyPrepareDb(string $configDbName): string
+{
+    $origin = Database::getCurrentDatabase();
+    $db = Database::switchDatabase($configDbName);
+    $resolved = (string)Database::getCurrentDatabase();
+    gudangNasitaEnsureAccountingTables($db);
+    foreach ([
+        'ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`',
+        'ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL',
+        'ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL',
+    ] as $ddl) {
+        try {
+            $db->getConnection()->exec($ddl);
+        } catch (Throwable $e) {
+        }
+    }
+    if ($origin && $origin !== $resolved) {
+        Database::switchDatabase($origin);
+    }
+    if (!preg_match('/^[A-Za-z0-9_]+$/', $resolved)) {
+        throw new Exception('Nama database tidak valid.');
+    }
+    return $resolved;
+}
+
+function gudangMoneyBankAccount(PDO $masterPdo, int $numericBizId, string $label): int
+{
+    $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY is_default_account DESC, id LIMIT 1");
+    try {
+        $stmt->execute([$numericBizId]);
+    } catch (Throwable $e) {
+        // Kolom is_default_account belum ada di skema lama.
+        $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY id LIMIT 1");
+        $stmt->execute([$numericBizId]);
+    }
+    $id = (int)$stmt->fetchColumn();
+    if (!$id) {
+        throw new Exception('Rekening bank untuk ' . $label . ' belum tersedia.');
+    }
+    return $id;
+}
+
+// Satu baris buku kas (income/expense) di database $db, memakai koneksi transaksi $pdo.
+function gudangMoneyCashEntry(PDO $pdo, string $db, string $type, string $categoryName, float $amount, string $desc, int $cashAccountId, int $userId, string $sourceType): int
+{
+    $q = '`' . $db . '`.';
+    $st = $pdo->prepare("SELECT id FROM {$q}categories WHERE LOWER(category_name) = LOWER(?) AND category_type = ? LIMIT 1");
+    $st->execute([$categoryName, $type]);
+    $categoryId = (int)$st->fetchColumn();
+    $divisionId = $pdo->query("SELECT id FROM {$q}divisions ORDER BY id LIMIT 1")->fetchColumn() ?: null;
+    if (!$categoryId) {
+        $pdo->prepare("INSERT INTO {$q}categories (division_id, category_name, category_type, is_active) VALUES (?, ?, ?, 1)")
+            ->execute([$divisionId, $categoryName, $type]);
+        $categoryId = (int)$pdo->lastInsertId();
+    }
+    $pdo->prepare(
+        "INSERT INTO {$q}cash_book (transaction_date, transaction_time, division_id, category_id, transaction_type, amount,
+                                    description, payment_method, cash_account_id, created_by, source_type, is_editable)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'transfer', ?, ?, ?, 0)"
+    )->execute([date('Y-m-d'), date('H:i:s'), $divisionId, $categoryId, $type, $amount, $desc, $cashAccountId, $userId ?: null, $sourceType]);
+    return (int)$pdo->lastInsertId();
+}
+
+// Pindahkan saldo antar rekening di ledger master (koneksi $pdo terhubung ke master DB).
+function gudangMoneyLedgerMove(PDO $pdo, int $fromAccountId, int $toAccountId, float $amount, string $descFrom, string $descTo): void
+{
+    $trx = $pdo->prepare(
+        "INSERT INTO cash_account_transactions (cash_account_id, transaction_type, amount, description, transaction_date, created_at)
+         VALUES (?, ?, ?, ?, CURDATE(), NOW())"
+    );
+    $trx->execute([$fromAccountId, 'expense', $amount, $descFrom]);
+    $pdo->prepare('UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?')->execute([$amount, $fromAccountId]);
+    $trx->execute([$toAccountId, 'income', $amount, $descTo]);
+    $pdo->prepare('UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?')->execute([$amount, $toAccountId]);
+}
+
+// Records a business paying its monthly bill: writes an expense to the business' own cash_book
+// (taken from its bank account), an income entry to Gudang Nasita's cash_book (money received),
+// moves both accounts' balances in the master ledger, and marks the bill as paid — atomically.
+function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): string
+{
+    $slug = gudangNormalizeBizSlug($slug);
     $bizInfo = null;
-    foreach ($gudangMonthlyBizList as $b) {
+    foreach (gudangTrackedBizList() as $b) {
         if ($b['slug'] === $slug) {
             $bizInfo = $b;
             break;
@@ -2893,213 +3069,100 @@ function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): 
     $periodLabel = date('F Y', strtotime($monthStart));
 
     [$gudangDb, $originDb, $gudangDbName] = gudangTagihanGetGudangDb();
-    gudangTagihanEnsurePaymentsTable($gudangDb);
+    try {
+        gudangTagihanEnsurePaymentsTable($gudangDb);
 
-    $existing = $gudangDb->fetchOne(
-        'SELECT id FROM gudang_nasita_tagihan_payments WHERE business_slug = ? AND bill_month = ? LIMIT 1',
-        [$slug, $month]
-    );
-    if ($existing) {
-        throw new Exception('Tagihan bulan ini untuk ' . $bizInfo['name'] . ' sudah dibayar.');
-    }
-
-    // Recompute the amount server-side (never trust the client) using the same logic as the recap.
-    $monthRows = $gudangDb->fetchAll(
-        "SELECT gt.target_business_name,
-                COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
-         FROM gudang_nasita_transfers gt
-         LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
-         WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
-         GROUP BY gt.target_business_name",
-        [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']
-    ) ?: [];
-    $transferNilai = 0.0;
-    foreach ($monthRows as $mr) {
-        if (gudangTagihanMatchBizSlug((string)($mr['target_business_name'] ?? '')) === $slug) {
-            $transferNilai += (float)$mr['total_nilai'];
+        $existing = $gudangDb->fetchOne(
+            'SELECT id FROM gudang_nasita_tagihan_payments WHERE business_slug = ? AND bill_month = ? LIMIT 1',
+            [$slug, $month]
+        );
+        if ($existing) {
+            throw new Exception('Tagihan bulan ini untuk ' . $bizInfo['name'] . ' sudah dibayar.');
         }
-    }
 
-    // Perpindahan barang antar bisnis (di luar Gudang) juga ikut menggeser tagihan bulan ini.
-    $interBizAdj = getBusinessInterStockTransferBillAdjustments(
-        [$slug],
-        $monthStart . ' 00:00:00',
-        $monthEnd . ' 23:59:59'
-    );
-    $transferNilai = max(0, $transferNilai + ($interBizAdj[$slug] ?? 0.0));
+        // Recompute the amount server-side (never trust the client) using the same logic as the recap.
+        $monthRows = $gudangDb->fetchAll(
+            "SELECT gt.target_business_name,
+                    COALESCE(SUM(COALESCE(gti.subtotal, gti.quantity * COALESCE(gti.unit_price, 0))), 0) AS total_nilai
+             FROM gudang_nasita_transfers gt
+             LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+             WHERE gt.status NOT IN ('cancelled') AND gt.created_at BETWEEN ? AND ?
+             GROUP BY gt.target_business_name",
+            [$monthStart . ' 00:00:00', $monthEnd . ' 23:59:59']
+        ) ?: [];
+        $transferNilai = 0.0;
+        foreach ($monthRows as $mr) {
+            if (gudangTagihanMatchBizSlug((string)($mr['target_business_name'] ?? '')) === $slug) {
+                $transferNilai += (float)$mr['total_nilai'];
+            }
+        }
 
-    $tkbmRow = $gudangDb->fetchOne(
-        'SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?',
-        [$monthStart, $monthEnd]
-    );
-    $tkbmShare = (float)($tkbmRow['t'] ?? 0) / count($gudangMonthlyBizList);
-    $totalAmount = $transferNilai + $tkbmShare;
+        // Barang yang DITERIMA dari bisnis lain bulan ini ikut ditagih (diteruskan Gudang ke pengirim).
+        $interBizAdj = getBusinessInterStockTransferBillAdjustments([$slug], $monthStart . ' 00:00:00', $monthEnd . ' 23:59:59');
+        $transferNilai += $interBizAdj[$slug] ?? 0.0;
 
-    if ($totalAmount <= 0) {
-        throw new Exception('Tidak ada tagihan untuk dibayarkan bulan ini.');
-    }
+        $tkbmRow = $gudangDb->fetchOne(
+            'SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?',
+            [$monthStart, $monthEnd]
+        );
+        $tkbmShare = (float)($tkbmRow['t'] ?? 0) / count(gudangTrackedBizList());
+        $totalAmount = round($transferNilai + $tkbmShare, 2);
+        if ($totalAmount <= 0) {
+            throw new Exception('Tidak ada tagihan untuk dibayarkan bulan ini.');
+        }
 
-    $bizCfgPath = __DIR__ . '/../config/businesses/' . $slug . '.php';
-    if (!file_exists($bizCfgPath)) {
-        throw new Exception('Konfigurasi bisnis tidak ditemukan.');
-    }
-    $bizCfg = require $bizCfgPath;
-    $bizDbName = (string)($bizCfg['database'] ?? '');
-    if ($bizDbName === '') {
-        throw new Exception('Database bisnis tidak ditemukan.');
-    }
+        $bizCfg = gudangBizConfig($slug);
+        $bizNumericId = getNumericBusinessId($slug) ?: getNumericBusinessId($bizCfg['_config_slug']);
+        $gudangNumericId = getNumericBusinessId('gudang-nasita');
+        if (!$bizNumericId || !$gudangNumericId) {
+            throw new Exception('ID bisnis tidak ditemukan di master.');
+        }
 
-    $bizNumericId = getNumericBusinessId($slug);
-    $gudangNumericId = getNumericBusinessId('gudang-nasita');
-    if (!$bizNumericId || !$gudangNumericId) {
-        throw new Exception('ID bisnis tidak ditemukan di master.');
-    }
+        $masterPdo = gudangMasterPdo();
+        $bizBankId = gudangMoneyBankAccount($masterPdo, (int)$bizNumericId, $bizInfo['name']);
+        $gudangBankId = gudangMoneyBankAccount($masterPdo, (int)$gudangNumericId, 'Gudang Nasita');
 
-    $masterPdo = new PDO(
-        'mysql:host=' . DB_HOST . ';dbname=' . MASTER_DB_NAME . ';charset=' . DB_CHARSET,
-        DB_USER,
-        DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
+        $bizDbReal = gudangMoneyPrepareDb((string)$bizCfg['database']);
+        $gudangDbReal = gudangMoneyPrepareDb($gudangDbName ?: MASTER_DB_NAME);
 
-    $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY id LIMIT 1");
-    $stmt->execute([$bizNumericId]);
-    $bizBankAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$bizBankAccount) {
-        throw new Exception('Rekening bank untuk ' . $bizInfo['name'] . ' belum tersedia.');
-    }
-    $stmt->execute([$gudangNumericId]);
-    $gudangBankAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$gudangBankAccount) {
-        throw new Exception('Rekening bank Gudang Nasita belum tersedia.');
-    }
+        $paymentDesc = 'Bayar Tagihan Gudang Nasita - Periode ' . $periodLabel;
+        $incomeDesc  = 'Diterima dari ' . $bizInfo['name'] . ' - Tagihan Bulan ' . $periodLabel;
 
-    $paymentDesc = 'Bayar Tagihan Gudang Nasita - Periode ' . $periodLabel;
-    $incomeDesc  = 'Diterima dari ' . $bizInfo['name'] . ' - Tagihan Bulan ' . $periodLabel;
-
-    // 1) Expense di buku kas bisnis pembayar, dipotong dari rekening bank bisnis tsb.
-    $bizDb = Database::switchDatabase($bizDbName);
-    gudangNasitaEnsureAccountingTables($bizDb);
-    try {
-        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
-    } catch (Throwable $e) {
-    }
-    try {
-        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
-        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
-    } catch (Throwable $e) {
-    }
-
-    $expCat = $bizDb->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'bayar tagihan gudang nasita' AND category_type = 'expense' LIMIT 1");
-    $expCategoryId = $expCat['id'] ?? null;
-    if (!$expCategoryId) {
-        $divForCat = $bizDb->fetchOne('SELECT id FROM divisions LIMIT 1');
-        $expCategoryId = $bizDb->insert('categories', [
-            'division_id'    => $divForCat['id'] ?? null,
-            'category_name'  => 'Bayar Tagihan Gudang Nasita',
-            'category_type'  => 'expense',
-            'is_active'      => 1,
-        ]);
-    }
-    $bizDiv = $bizDb->fetchOne('SELECT id FROM divisions LIMIT 1');
-
-    $bizCashBookId = $bizDb->insert('cash_book', [
-        'transaction_date' => date('Y-m-d'),
-        'transaction_time' => date('H:i:s'),
-        'division_id'      => $bizDiv['id'] ?? null,
-        'category_id'      => $expCategoryId,
-        'transaction_type' => 'expense',
-        'amount'           => $totalAmount,
-        'description'      => $paymentDesc,
-        'payment_method'   => 'transfer',
-        'cash_account_id'  => $bizBankAccount['id'],
-        'created_by'       => $userId ?: null,
-        'source_type'      => 'gudang_tagihan_payment',
-        'is_editable'      => 0,
-    ]);
-
-    // 2) Income di buku kas Gudang Nasita, masuk ke rekening bank Gudang Nasita.
-    $gudangDb = Database::switchDatabase($gudangDbName);
-    gudangNasitaEnsureAccountingTables($gudangDb);
-    try {
-        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
-    } catch (Throwable $e) {
-    }
-    try {
-        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
-        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
-    } catch (Throwable $e) {
-    }
-
-    $incCat = $gudangDb->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'pendapatan tagihan bisnis' AND category_type = 'income' LIMIT 1");
-    $incCategoryId = $incCat['id'] ?? null;
-    if (!$incCategoryId) {
-        $divForCat2 = $gudangDb->fetchOne('SELECT id FROM divisions LIMIT 1');
-        $incCategoryId = $gudangDb->insert('categories', [
-            'division_id'    => $divForCat2['id'] ?? null,
-            'category_name'  => 'Pendapatan Tagihan Bisnis',
-            'category_type'  => 'income',
-            'is_active'      => 1,
-        ]);
-    }
-    $gudangDiv = $gudangDb->fetchOne('SELECT id FROM divisions LIMIT 1');
-
-    $gudangCashBookId = $gudangDb->insert('cash_book', [
-        'transaction_date' => date('Y-m-d'),
-        'transaction_time' => date('H:i:s'),
-        'division_id'      => $gudangDiv['id'] ?? null,
-        'category_id'      => $incCategoryId,
-        'transaction_type' => 'income',
-        'amount'           => $totalAmount,
-        'description'      => $incomeDesc,
-        'payment_method'   => 'transfer',
-        'cash_account_id'  => $gudangBankAccount['id'],
-        'created_by'       => $userId ?: null,
-        'source_type'      => 'gudang_tagihan_income',
-        'is_editable'      => 0,
-    ]);
-
-    // 3) Pindahkan saldo di ledger master (rekening bank bisnis berkurang, rekening bank Gudang Nasita bertambah).
-    try {
         $masterPdo->beginTransaction();
-        $trx = $masterPdo->prepare(
-            "INSERT INTO cash_account_transactions (cash_account_id, transaction_type, amount, description, transaction_date, created_at)
-             VALUES (?, 'expense', ?, ?, CURDATE(), NOW())"
-        );
-        $trx->execute([$bizBankAccount['id'], $totalAmount, $paymentDesc]);
-        $masterPdo->prepare('UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?')
-            ->execute([$totalAmount, $bizBankAccount['id']]);
+        try {
+            // Tanda lunas ditulis PERTAMA: UNIQUE (business_slug, bill_month) membuat klik ganda /
+            // request bersamaan langsung gagal sebelum ada uang yang berpindah.
+            try {
+                $masterPdo->prepare(
+                    "INSERT INTO `{$gudangDbReal}`.gudang_nasita_tagihan_payments
+                        (business_slug, bill_month, transfer_nilai, tkbm_share, amount, paid_by, rule_version)
+                     VALUES (?, ?, ?, ?, ?, ?, 2)"
+                )->execute([$slug, $month, $transferNilai, $tkbmShare, $totalAmount, $userId ?: null]);
+            } catch (PDOException $e) {
+                if ($e->getCode() === '23000') {
+                    throw new Exception('Tagihan bulan ini untuk ' . $bizInfo['name'] . ' sudah dibayar.');
+                }
+                throw $e;
+            }
+            $paymentId = (int)$masterPdo->lastInsertId();
 
-        $trx2 = $masterPdo->prepare(
-            "INSERT INTO cash_account_transactions (cash_account_id, transaction_type, amount, description, transaction_date, created_at)
-             VALUES (?, 'income', ?, ?, CURDATE(), NOW())"
-        );
-        $trx2->execute([$gudangBankAccount['id'], $totalAmount, $incomeDesc]);
-        $masterPdo->prepare('UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?')
-            ->execute([$totalAmount, $gudangBankAccount['id']]);
+            $bizCashBookId = gudangMoneyCashEntry($masterPdo, $bizDbReal, 'expense', 'Bayar Tagihan Gudang Nasita', $totalAmount, $paymentDesc, $bizBankId, $userId, 'gudang_tagihan_payment');
+            $gudangCashBookId = gudangMoneyCashEntry($masterPdo, $gudangDbReal, 'income', 'Pendapatan Tagihan Bisnis', $totalAmount, $incomeDesc, $gudangBankId, $userId, 'gudang_tagihan_income');
+            gudangMoneyLedgerMove($masterPdo, $bizBankId, $gudangBankId, $totalAmount, $paymentDesc, $incomeDesc);
 
-        $masterPdo->commit();
-    } catch (Throwable $e) {
-        if ($masterPdo->inTransaction()) {
-            $masterPdo->rollBack();
+            $masterPdo->prepare("UPDATE `{$gudangDbReal}`.gudang_nasita_tagihan_payments SET business_cash_book_id = ?, gudang_cash_book_id = ? WHERE id = ?")
+                ->execute([$bizCashBookId, $gudangCashBookId, $paymentId]);
+            $masterPdo->commit();
+        } catch (Throwable $e) {
+            if ($masterPdo->inTransaction()) {
+                $masterPdo->rollBack();
+            }
+            throw $e;
         }
-        throw new Exception('Gagal memindahkan saldo rekening: ' . $e->getMessage());
-    }
-
-    // 4) Catat status lunas supaya tidak bisa dibayar dobel.
-    $gudangDb->insert('gudang_nasita_tagihan_payments', [
-        'business_slug'         => $slug,
-        'bill_month'            => $month,
-        'transfer_nilai'        => $transferNilai,
-        'tkbm_share'            => $tkbmShare,
-        'amount'                => $totalAmount,
-        'business_cash_book_id' => $bizCashBookId ?: null,
-        'gudang_cash_book_id'   => $gudangCashBookId ?: null,
-        'paid_by'               => $userId ?: null,
-    ]);
-
-    if ($originDb) {
-        Database::switchDatabase($originDb);
+    } finally {
+        if ($originDb) {
+            Database::switchDatabase($originDb);
+        }
     }
 
     return 'Tagihan ' . $bizInfo['name'] . ' bulan ' . $periodLabel . ' sebesar Rp ' . number_format($totalAmount, 0, ',', '.') . ' berhasil dibayar dan tercatat di buku kas.';
@@ -3107,13 +3170,11 @@ function gudangTagihanPayMonthlyBill(string $slug, string $month, int $userId): 
 
 /**
  * ============================================================
- * GUDANG NASITA — TAGIHAN BARANG MASUK DARI BISNIS (reverse flow)
- * A business (e.g. Narayana) supplies goods it produces (roti, pisang, dll)
- * directly into Gudang Nasita's stock via the "Transfer Stock Antar Bisnis"
- * feature (business_inter_stock_transfers, target_business_slug =
- * 'gudang-nasita'). Gudang owes that business for the value of those goods.
- * These helpers build the recap and let Gudang pay the business, with the
- * money landing in the business' own buku kas as income.
+ * GUDANG NASITA — TAGIHAN BARANG MASUK DARI BISNIS (Gudang membayar bisnis pengirim)
+ * Lewat fitur "Transfer Stock Antar Bisnis" (business_inter_stock_transfers), bisnis A bisa
+ * mengirim barang ke Gudang Nasita ATAU ke bisnis lain (B). Untuk keduanya Gudang yang membayar
+ * A, dan uangnya masuk sebagai PENDAPATAN di buku kas A. Kiriman ke B ditagihkan ke B lewat
+ * tagihan bulanan Gudang (getBusinessInterStockTransferBillAdjustments).
  * ============================================================
  */
 
@@ -3135,311 +3196,183 @@ function gudangNasitaEnsureSupplyPaymentsTable($gudangDb): void
     }
 }
 
-// Recap of goods sent INTO Gudang Nasita by businesses, grouped per business,
-// with the outstanding (unpaid) amount after subtracting past payments.
+// Rekap barang yang dikirim tiap bisnis (ke Gudang atau ke bisnis lain) yang harus dibayar Gudang,
+// dikurangi pembayaran sebelumnya. Kiriman yang dulu sudah "dibayar" lewat potongan tagihan bulanan
+// (aturan lama, bulan yang sudah LUNAS) dicatat sebagai 'credited' dan tidak ditagih lagi.
 function getGudangNasitaIncomingSupplyBills(): array
 {
     [$gudangDb, $originDb, $gudangDbName] = gudangTagihanGetGudangDb();
-    gudangNasitaEnsureSupplyPaymentsTable($gudangDb);
-
     $result = [];
     try {
-        $masterPdo = new PDO(
-            'mysql:host=' . DB_HOST . ';dbname=' . MASTER_DB_NAME . ';charset=' . DB_CHARSET,
-            DB_USER,
-            DB_PASS,
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
-        );
+        gudangNasitaEnsureSupplyPaymentsTable($gudangDb);
+        gudangTagihanEnsurePaymentsTable($gudangDb);
+        $masterPdo = gudangMasterPdo();
 
-        $hasTable = $masterPdo->query("SHOW TABLES LIKE 'business_inter_stock_transfers'")->fetch();
-        if (!$hasTable) {
-            return [];
+        $tracked = array_column(gudangTrackedBizList(), 'name', 'slug');
+        $paidMonths = [];
+        // Hanya pembayaran versi lama yang sudah memotong nilai kiriman pengirim.
+        foreach ($gudangDb->fetchAll('SELECT business_slug, bill_month FROM gudang_nasita_tagihan_payments WHERE rule_version = 1') ?: [] as $pm) {
+            $paidMonths[gudangNormalizeBizSlug((string)$pm['business_slug']) . '|' . $pm['bill_month']] = true;
         }
-
-        // Fetch item-level rows instead of a pre-aggregated SUM: many legacy/manual transfers
-        // were recorded with unit_price = 0 (item had no known price yet at transfer time), which
-        // silently dropped them out of the recap entirely. We enrich those rows below using
-        // Gudang's CURRENT stock price, so real transfers are never hidden just because the price
-        // was learned later.
-        $rows = $masterPdo->query(
-            "SELECT source_business_slug, source_business_name, item_name, unit, quantity, unit_price, subtotal, created_at
-             FROM business_inter_stock_transfers
-             WHERE target_business_slug = 'gudang-nasita'
-               AND source_business_slug IS NOT NULL AND source_business_slug <> ''
-             ORDER BY created_at DESC"
-        )->fetchAll();
-
-        // Build a live item price map from Gudang's own stock, for rows missing a stored price.
-        $livePriceMap = [];
-        try {
-            $stockCols = array_column($gudangDb->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock'), 'Field');
-            $priceCol = null;
-            foreach (['unit_price', 'purchase_price', 'harga_beli', 'cost_price'] as $candidate) {
-                if (in_array($candidate, $stockCols, true)) {
-                    $priceCol = $candidate;
-                    break;
-                }
-            }
-            if ($priceCol !== null) {
-                $stockPriceRows = $gudangDb->fetchAll("SELECT item_name, unit, `{$priceCol}` AS unit_price FROM gudang_nasita_stock") ?: [];
-                foreach ($stockPriceRows as $sp) {
-                    $key = strtolower(trim((string)$sp['item_name'])) . '||' . strtolower(trim((string)$sp['unit']));
-                    if ((float)$sp['unit_price'] > 0) {
-                        $livePriceMap[$key] = (float)$sp['unit_price'];
-                    }
-                }
-            }
-        } catch (Throwable $e) {
-        }
-
         $paidTotals = [];
-        $paidRows = $gudangDb->fetchAll('SELECT source_business_slug, COALESCE(SUM(amount),0) AS total_paid FROM gudang_nasita_supply_payments GROUP BY source_business_slug') ?: [];
-        foreach ($paidRows as $pr) {
-            $paidTotals[$pr['source_business_slug']] = (float)$pr['total_paid'];
+        foreach ($gudangDb->fetchAll('SELECT source_business_slug, COALESCE(SUM(amount),0) AS total_paid FROM gudang_nasita_supply_payments GROUP BY source_business_slug') ?: [] as $pr) {
+            $s = gudangNormalizeBizSlug((string)$pr['source_business_slug']);
+            $paidTotals[$s] = ($paidTotals[$s] ?? 0.0) + (float)$pr['total_paid'];
         }
 
         $grouped = [];
-        foreach ($rows as $row) {
-            $slug = (string)$row['source_business_slug'];
-            $qty = (float)$row['quantity'];
-            $value = (float)($row['subtotal'] ?? 0);
-            if ($value <= 0) {
-                $value = (float)($row['unit_price'] ?? 0) * $qty;
+        foreach (gudangInterTransferValuedRows($masterPdo) as $row) {
+            $src = $row['source_slug'];
+            $tgt = $row['target_slug'];
+            if ($src === '' || $src === 'gudang-nasita' || $src === $tgt) {
+                continue;
             }
-            if ($value <= 0) {
-                $key = strtolower(trim((string)$row['item_name'])) . '||' . strtolower(trim((string)$row['unit']));
-                if (isset($livePriceMap[$key])) {
-                    $value = $livePriceMap[$key] * $qty;
-                }
+            $toGudang = $tgt === 'gudang-nasita';
+            // Kiriman ke bisnis yang tidak ditagih Gudang tidak bisa diteruskan → bukan urusan Gudang.
+            if (!$toGudang && !isset($tracked[$tgt])) {
+                continue;
             }
-            if (!isset($grouped[$slug])) {
-                $grouped[$slug] = [
-                    'slug'            => $slug,
-                    'name'            => (string)($row['source_business_name'] ?: $slug),
+
+            $credited = 0.0;
+            $month = substr((string)$row['created_at'], 0, 7);
+            if ($row['stored_nilai'] > 0 && isset($paidMonths[$src . '|' . $month])) {
+                $credited = $row['stored_nilai'];
+            }
+            $payable = max(0.0, $row['nilai'] - $credited);
+
+            if (!isset($grouped[$src])) {
+                $grouped[$src] = [
+                    'slug'            => $src,
+                    'name'            => (string)($row['source_business_name'] ?: ($tracked[$src] ?? $src)),
                     'total_items'     => 0,
+                    'to_gudang'       => 0.0,
+                    'to_business'     => 0.0,
+                    'credited'        => 0.0,
                     'total_nilai'     => 0.0,
+                    'targets'         => [],
                     'last_created_at' => $row['created_at'],
                 ];
             }
-            $grouped[$slug]['total_items']++;
-            $grouped[$slug]['total_nilai'] += $value;
-            if ($row['created_at'] > $grouped[$slug]['last_created_at']) {
-                $grouped[$slug]['last_created_at'] = $row['created_at'];
+            $g = &$grouped[$src];
+            $g['total_items']++;
+            $g['credited'] += $credited;
+            $g['total_nilai'] += $payable;
+            if ($toGudang) {
+                $g['to_gudang'] += $payable;
+                $targetName = 'Gudang Nasita';
+            } else {
+                $g['to_business'] += $payable;
+                $targetName = (string)($row['target_business_name'] ?: ($tracked[$tgt] ?? $tgt));
             }
+            $g['targets'][$targetName] = ($g['targets'][$targetName] ?? 0.0) + $payable;
+            if ($row['created_at'] > $g['last_created_at']) {
+                $g['last_created_at'] = $row['created_at'];
+            }
+            unset($g);
         }
 
-        foreach ($grouped as $slug => $g) {
-            $totalPaid = $paidTotals[$slug] ?? 0.0;
-            $outstanding = max(0, $g['total_nilai'] - $totalPaid);
-            $result[] = [
-                'slug'            => $g['slug'],
-                'name'            => $g['name'],
-                'total_items'     => $g['total_items'],
-                'total_nilai'     => $g['total_nilai'],
-                'total_paid'      => $totalPaid,
-                'outstanding'     => $outstanding,
-                'last_created_at' => $g['last_created_at'],
-            ];
+        foreach ($grouped as $src => $g) {
+            $g['total_paid'] = $paidTotals[$src] ?? 0.0;
+            $g['outstanding'] = round(max(0.0, $g['total_nilai'] - $g['total_paid']), 2);
+            $result[] = $g;
         }
         usort($result, function ($a, $b) {
-            return $b['total_nilai'] <=> $a['total_nilai'];
+            return $b['outstanding'] <=> $a['outstanding'];
         });
     } catch (Throwable $e) {
         error_log('getGudangNasitaIncomingSupplyBills: ' . $e->getMessage());
-    }
-
-    if ($originDb) {
-        Database::switchDatabase($originDb);
+    } finally {
+        if ($originDb) {
+            Database::switchDatabase($originDb);
+        }
     }
     return $result;
 }
 
-// Gudang pays a business for the goods it supplied into the warehouse: expense
-// in Gudang's own cash_book (paid from Gudang's bank account), income in the
-// business' cash_book (received into that business' bank account), plus a
-// matching balance transfer in the master ledger.
+// Gudang membayar bisnis pengirim: expense di buku kas Gudang (dari rekening bank Gudang),
+// PENDAPATAN di buku kas bisnis pengirim (masuk ke rekening bank bisnis tsb), pindah saldo
+// di ledger master, dan catat pembayaran — semuanya dalam satu transaksi.
 function gudangNasitaPayIncomingSupplyBill(string $slug, int $userId): string
 {
-    $bills = getGudangNasitaIncomingSupplyBills();
-    $bill = null;
-    foreach ($bills as $b) {
-        if ($b['slug'] === $slug) {
-            $bill = $b;
-            break;
+    $slug = gudangNormalizeBizSlug($slug);
+    $masterPdo = gudangMasterPdo();
+    $lockName = 'gdn_supply_pay';
+    // Kunci global supaya dua klik "Bayar" bersamaan tidak membayar sisa tagihan yang sama dua kali.
+    if ((int)$masterPdo->query("SELECT GET_LOCK('{$lockName}', 15)")->fetchColumn() !== 1) {
+        throw new Exception('Pembayaran lain sedang diproses, coba lagi sebentar.');
+    }
+
+    [, $originDb, $gudangDbName] = gudangTagihanGetGudangDb();
+    try {
+        $bill = null;
+        foreach (getGudangNasitaIncomingSupplyBills() as $b) {
+            if ($b['slug'] === $slug) {
+                $bill = $b;
+                break;
+            }
         }
-    }
-    if (!$bill) {
-        throw new Exception('Tagihan untuk bisnis ini tidak ditemukan.');
-    }
-    $totalAmount = (float)$bill['outstanding'];
-    if ($totalAmount <= 0) {
-        throw new Exception('Tidak ada tagihan yang perlu dibayar untuk bisnis ini.');
-    }
-    $bizName = $bill['name'];
+        if (!$bill) {
+            throw new Exception('Tagihan untuk bisnis ini tidak ditemukan.');
+        }
+        $totalAmount = (float)$bill['outstanding'];
+        if ($totalAmount <= 0) {
+            throw new Exception('Tidak ada tagihan yang perlu dibayar untuk bisnis ini.');
+        }
+        $bizName = $bill['name'];
 
-    $bizCfgPath = __DIR__ . '/../config/businesses/' . $slug . '.php';
-    if (!file_exists($bizCfgPath)) {
-        throw new Exception('Konfigurasi bisnis tidak ditemukan.');
-    }
-    $bizCfg = require $bizCfgPath;
-    $bizDbName = (string)($bizCfg['database'] ?? '');
-    if ($bizDbName === '') {
-        throw new Exception('Database bisnis tidak ditemukan.');
-    }
+        $bizCfg = gudangBizConfig($slug);
+        $bizNumericId = getNumericBusinessId($slug) ?: getNumericBusinessId($bizCfg['_config_slug']);
+        $gudangNumericId = getNumericBusinessId('gudang-nasita');
+        if (!$bizNumericId || !$gudangNumericId) {
+            throw new Exception('ID bisnis tidak ditemukan di master.');
+        }
+        $bizBankId = gudangMoneyBankAccount($masterPdo, (int)$bizNumericId, $bizName);
+        $gudangBankId = gudangMoneyBankAccount($masterPdo, (int)$gudangNumericId, 'Gudang Nasita');
 
-    $bizNumericId = getNumericBusinessId($slug);
-    $gudangNumericId = getNumericBusinessId('gudang-nasita');
-    if (!$bizNumericId || !$gudangNumericId) {
-        throw new Exception('ID bisnis tidak ditemukan di master.');
-    }
+        $bizDbReal = gudangMoneyPrepareDb((string)$bizCfg['database']);
+        $gudangDbReal = gudangMoneyPrepareDb($gudangDbName ?: MASTER_DB_NAME);
+        Database::switchDatabase($gudangDbName ?: MASTER_DB_NAME);
+        gudangNasitaEnsureSupplyPaymentsTable(Database::getInstance());
 
-    $masterPdo = new PDO(
-        'mysql:host=' . DB_HOST . ';dbname=' . MASTER_DB_NAME . ';charset=' . DB_CHARSET,
-        DB_USER,
-        DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
+        // Rincian tujuan kiriman, mis. "Gudang Nasita Rp 200.000, Bens Cafe Rp 50.000".
+        $parts = [];
+        foreach ($bill['targets'] as $targetName => $value) {
+            if ($value > 0) {
+                $parts[] = $targetName . ' Rp ' . number_format($value, 0, ',', '.');
+            }
+        }
+        $detail = $parts ? ' (' . implode(', ', $parts) . ')' : '';
+        $expenseDesc = 'Bayar Barang Kiriman ' . $bizName . $detail;
+        $incomeDesc  = 'Pembayaran barang kiriman dari Gudang Nasita' . $detail;
 
-    $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1 ORDER BY id LIMIT 1");
-    $stmt->execute([$bizNumericId]);
-    $bizBankAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$bizBankAccount) {
-        throw new Exception('Rekening bank untuk ' . $bizName . ' belum tersedia.');
-    }
-    $stmt->execute([$gudangNumericId]);
-    $gudangBankAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$gudangBankAccount) {
-        throw new Exception('Rekening bank Gudang Nasita belum tersedia.');
-    }
-
-    $expenseDesc = 'Bayar Tagihan Barang Masuk - ' . $bizName;
-    $incomeDesc  = 'Uang Masuk dari Gudang Nasita by Transfer - Pembayaran Barang Masuk Gudang';
-
-    [$gudangDb, $originDb, $gudangDbName] = gudangTagihanGetGudangDb();
-
-    // 1) Expense di buku kas Gudang Nasita, dipotong dari rekening bank Gudang.
-    gudangNasitaEnsureAccountingTables($gudangDb);
-    try {
-        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
-    } catch (Throwable $e) {
-    }
-    try {
-        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
-        $gudangDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
-    } catch (Throwable $e) {
-    }
-
-    $expCat = $gudangDb->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'bayar barang masuk bisnis' AND category_type = 'expense' LIMIT 1");
-    $expCategoryId = $expCat['id'] ?? null;
-    if (!$expCategoryId) {
-        $divForCat = $gudangDb->fetchOne('SELECT id FROM divisions LIMIT 1');
-        $expCategoryId = $gudangDb->insert('categories', [
-            'division_id'    => $divForCat['id'] ?? null,
-            'category_name'  => 'Bayar Barang Masuk Bisnis',
-            'category_type'  => 'expense',
-            'is_active'      => 1,
-        ]);
-    }
-    $gudangDiv = $gudangDb->fetchOne('SELECT id FROM divisions LIMIT 1');
-
-    $gudangCashBookId = $gudangDb->insert('cash_book', [
-        'transaction_date' => date('Y-m-d'),
-        'transaction_time' => date('H:i:s'),
-        'division_id'      => $gudangDiv['id'] ?? null,
-        'category_id'      => $expCategoryId,
-        'transaction_type' => 'expense',
-        'amount'           => $totalAmount,
-        'description'      => $expenseDesc,
-        'payment_method'   => 'transfer',
-        'cash_account_id'  => $gudangBankAccount['id'],
-        'created_by'       => $userId ?: null,
-        'source_type'      => 'gudang_supply_payment',
-        'is_editable'      => 0,
-    ]);
-
-    // 2) Income di buku kas bisnis penerima, masuk ke rekening bank bisnis tsb.
-    $bizDb = Database::switchDatabase($bizDbName);
-    gudangNasitaEnsureAccountingTables($bizDb);
-    try {
-        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
-    } catch (Throwable $e) {
-    }
-    try {
-        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
-        $bizDb->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
-    } catch (Throwable $e) {
-    }
-
-    $incCat = $bizDb->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'uang masuk dari gudang nasita' AND category_type = 'income' LIMIT 1");
-    $incCategoryId = $incCat['id'] ?? null;
-    if (!$incCategoryId) {
-        $divForCat2 = $bizDb->fetchOne('SELECT id FROM divisions LIMIT 1');
-        $incCategoryId = $bizDb->insert('categories', [
-            'division_id'    => $divForCat2['id'] ?? null,
-            'category_name'  => 'Uang Masuk dari Gudang Nasita',
-            'category_type'  => 'income',
-            'is_active'      => 1,
-        ]);
-    }
-    $bizDiv = $bizDb->fetchOne('SELECT id FROM divisions LIMIT 1');
-
-    $bizCashBookId = $bizDb->insert('cash_book', [
-        'transaction_date' => date('Y-m-d'),
-        'transaction_time' => date('H:i:s'),
-        'division_id'      => $bizDiv['id'] ?? null,
-        'category_id'      => $incCategoryId,
-        'transaction_type' => 'income',
-        'amount'           => $totalAmount,
-        'description'      => $incomeDesc,
-        'payment_method'   => 'transfer',
-        'cash_account_id'  => $bizBankAccount['id'],
-        'created_by'       => $userId ?: null,
-        'source_type'      => 'gudang_supply_income',
-        'is_editable'      => 0,
-    ]);
-
-    // 3) Pindahkan saldo di ledger master (rekening bank Gudang berkurang, rekening bank bisnis bertambah).
-    try {
         $masterPdo->beginTransaction();
-        $trx = $masterPdo->prepare(
-            "INSERT INTO cash_account_transactions (cash_account_id, transaction_type, amount, description, transaction_date, created_at)
-             VALUES (?, 'expense', ?, ?, CURDATE(), NOW())"
-        );
-        $trx->execute([$gudangBankAccount['id'], $totalAmount, $expenseDesc]);
-        $masterPdo->prepare('UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?')
-            ->execute([$totalAmount, $gudangBankAccount['id']]);
-
-        $trx2 = $masterPdo->prepare(
-            "INSERT INTO cash_account_transactions (cash_account_id, transaction_type, amount, description, transaction_date, created_at)
-             VALUES (?, 'income', ?, ?, CURDATE(), NOW())"
-        );
-        $trx2->execute([$bizBankAccount['id'], $totalAmount, $incomeDesc]);
-        $masterPdo->prepare('UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?')
-            ->execute([$totalAmount, $bizBankAccount['id']]);
-
-        $masterPdo->commit();
-    } catch (Throwable $e) {
-        if ($masterPdo->inTransaction()) {
-            $masterPdo->rollBack();
+        try {
+            $gudangCashBookId = gudangMoneyCashEntry($masterPdo, $gudangDbReal, 'expense', 'Bayar Barang Masuk Bisnis', $totalAmount, $expenseDesc, $gudangBankId, $userId, 'gudang_supply_payment');
+            $bizCashBookId = gudangMoneyCashEntry($masterPdo, $bizDbReal, 'income', 'Uang Masuk dari Gudang Nasita', $totalAmount, $incomeDesc, $bizBankId, $userId, 'gudang_supply_income');
+            gudangMoneyLedgerMove($masterPdo, $gudangBankId, $bizBankId, $totalAmount, $expenseDesc, $incomeDesc);
+            $masterPdo->prepare(
+                "INSERT INTO `{$gudangDbReal}`.gudang_nasita_supply_payments
+                    (source_business_slug, source_business_name, amount, business_cash_book_id, gudang_cash_book_id, paid_by)
+                 VALUES (?, ?, ?, ?, ?, ?)"
+            )->execute([$slug, $bizName, $totalAmount, $bizCashBookId, $gudangCashBookId, $userId ?: null]);
+            $masterPdo->commit();
+        } catch (Throwable $e) {
+            if ($masterPdo->inTransaction()) {
+                $masterPdo->rollBack();
+            }
+            throw $e;
         }
-        throw new Exception('Gagal memindahkan saldo rekening: ' . $e->getMessage());
+    } finally {
+        try {
+            $masterPdo->query("SELECT RELEASE_LOCK('{$lockName}')");
+        } catch (Throwable $e) {
+        }
+        if ($originDb) {
+            Database::switchDatabase($originDb);
+        }
     }
 
-    // 4) Catat pembayaran supaya tagihan berikutnya menghitung sisa dengan benar.
-    $gudangDb->insert('gudang_nasita_supply_payments', [
-        'source_business_slug' => $slug,
-        'source_business_name' => $bizName,
-        'amount'               => $totalAmount,
-        'business_cash_book_id' => $bizCashBookId ?: null,
-        'gudang_cash_book_id'   => $gudangCashBookId ?: null,
-        'paid_by'               => $userId ?: null,
-    ]);
-
-    if ($originDb) {
-        Database::switchDatabase($originDb);
-    }
-
-    return 'Tagihan barang masuk dari ' . $bizName . ' sebesar Rp ' . number_format($totalAmount, 0, ',', '.') . ' berhasil dibayar dan tercatat di buku kas ' . $bizName . '.';
+    return 'Pembayaran Rp ' . number_format($totalAmount, 0, ',', '.') . ' ke ' . $bizName . ' berhasil — tercatat sebagai pendapatan di buku kas ' . $bizName . '.';
 }
 
 /**

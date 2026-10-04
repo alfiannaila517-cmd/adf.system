@@ -93,6 +93,10 @@ try {
         [$slug, $month]
     );
     $isPaid = is_array($paidRow);
+    if ($isPaid) {
+        // Bulan yang sudah lunas menampilkan jumlah yang benar-benar dibayar.
+        $total = (float)$paidRow['amount'];
+    }
 
     if ($gudangDbName && $gudangDbName !== $originDb) {
         Database::switchDatabase($originDb);

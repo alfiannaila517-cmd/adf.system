@@ -649,6 +649,7 @@ include '../../includes/header.php';
         <div>
             <h1>Tagihan Bisnis &amp; Gudang</h1>
             <p>Rekap piutang &amp; hutang antar bisnis dari transfer barang <strong><?php echo htmlspecialchars($activeName); ?></strong> ke/dari bisnis lain (termasuk Gudang Nasita).</p>
+            <p style="margin-top:4px;font-size:0.8rem;opacity:.85;">Semua pembayaran lewat Gudang Nasita: <b>piutang</b> (barang yang Anda kirim) dibayar Gudang dan masuk sebagai pendapatan di buku kas Anda; <b>hutang</b> ke bisnis lain ikut tagihan bulanan Gudang.</p>
         </div>
     </div>
 

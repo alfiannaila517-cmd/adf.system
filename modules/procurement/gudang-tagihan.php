@@ -262,6 +262,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'pay_m
     exit;
 }
 
+// ── POST: Gudang membayar bisnis pengirim (barang dikirim ke Gudang / ke bisnis lain) ─────
+// Uang keluar dari rekening Gudang dan masuk sebagai PENDAPATAN di buku kas bisnis pengirim.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'pay_supply_bill') {
+    $supplySlug = trim((string)($_POST['slug'] ?? ''));
+    $backMonth = preg_match('/^\d{4}-\d{2}$/', (string)($_POST['bulan'] ?? '')) ? $_POST['bulan'] : date('Y-m');
+    try {
+        setFlash('success', gudangNasitaPayIncomingSupplyBill($supplySlug, (int)($currentUser['id'] ?? 0)));
+    } catch (Throwable $e) {
+        error_log('gudang-tagihan pay supply bill: ' . $e->getMessage());
+        setFlash('error', 'Gagal membayar: ' . $e->getMessage());
+    }
+    header('Location: gudang-tagihan.php?bulan=' . urlencode($backMonth) . '#bayar-pengirim');
+    exit;
+}
+
 // ── Rekap Tagihan Bulanan per Bisnis (transfer bulan berjalan + share TKBM) ──────
 $selectedMonth = trim((string)($_GET['bulan'] ?? date('Y-m')));
 if (!preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
@@ -272,11 +287,16 @@ $monthEnd = date('Y-m-t', strtotime($monthStart));
 
 $tkbmMonthTotal = 0.0;
 try {
-    $tkbmRow = $db->fetchOne(
+    // Selalu baca dari DB Gudang (sama dengan yang dipakai saat pembayaran), bukan DB bisnis aktif.
+    [$tkbmGudangDb, $tkbmOriginDb] = gudangTagihanGetGudangDb();
+    $tkbmRow = $tkbmGudangDb->fetchOne(
         'SELECT COALESCE(SUM(total_biaya), 0) AS t FROM gudang_nasita_tkbm WHERE tanggal BETWEEN ? AND ?',
         [$monthStart, $monthEnd]
     );
     $tkbmMonthTotal = (float)($tkbmRow['t'] ?? 0);
+    if ($tkbmOriginDb) {
+        Database::switchDatabase($tkbmOriginDb);
+    }
 } catch (Throwable $e) {
     error_log('gudang-tagihan tkbm month total: ' . $e->getMessage());
 }
@@ -393,7 +413,9 @@ $monthlyRecapGrandTotal = 0.0;
 foreach ($gudangMonthlyBizList as $bizInfo) {
     $mr = $monthlyTransferBySlug[$bizInfo['slug']] ?? null;
     $transferNilai = (float)($mr['total_nilai'] ?? 0);
-    $total = $transferNilai + $tkbmShareThisMonth;
+    $paidInfo = $paidMapThisMonth[$bizInfo['slug']] ?? null;
+    // Bulan yang sudah lunas menampilkan jumlah yang benar-benar dibayar (tidak dihitung ulang).
+    $total = $paidInfo ? (float)$paidInfo['amount'] : $transferNilai + $tkbmShareThisMonth;
     $monthlyRecapGrandTotal += $total;
 
     $bizTransferRows = $monthlyTransferRowsBySlug[$bizInfo['slug']] ?? [];
@@ -411,15 +433,13 @@ foreach ($gudangMonthlyBizList as $bizInfo) {
     $bizInterAdj = $interBizAdjThisMonth[$bizInfo['slug']] ?? 0.0;
     if ($bizInterAdj != 0.0) {
         $detailRows[] = [
-            '— Transfer Antar Bisnis —',
+            '— Barang diterima dari bisnis lain —',
             '-',
             '-',
-            ($bizInterAdj > 0 ? '+' : '') . 'Rp ' . number_format($bizInterAdj, 0, ',', '.'),
+            '+Rp ' . number_format($bizInterAdj, 0, ',', '.'),
             'ANTAR BISNIS',
         ];
     }
-
-    $paidInfo = $paidMapThisMonth[$bizInfo['slug']] ?? null;
 
     $monthlyRecap[] = [
         'slug'            => $bizInfo['slug'],
@@ -436,6 +456,10 @@ foreach ($gudangMonthlyBizList as $bizInfo) {
         'paid_at'         => $paidInfo ? date('d M Y H:i', strtotime((string)$paidInfo['paid_at'])) : null,
     ];
 }
+
+// ── Barang kiriman bisnis yang harus dibayar Gudang (ke Gudang / ke bisnis lain) ─────────
+$incomingSupplyBills = getGudangNasitaIncomingSupplyBills();
+$incomingSupplyOutstandingTotal = array_sum(array_column($incomingSupplyBills, 'outstanding'));
 
 $forceTheme = 'light';
 include '../../includes/header.php';
@@ -637,7 +661,7 @@ $statusColors = [
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.75rem;">
         <div>
             <h3 style="font-size:1rem; font-weight:700; margin:0;">📅 Tagihan Bulanan per Bisnis</h3>
-            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Total PO/transfer dari Gudang Nasita ke tiap bisnis bulan ini + bagian TKBM (dibagi 3 bisnis)</p>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Barang dari Gudang Nasita + barang yang diterima dari bisnis lain bulan ini + bagian TKBM (dibagi 3 bisnis)</p>
         </div>
         <form method="GET" style="display:flex; gap:0.5rem; align-items:center;">
             <input type="month" name="bulan" class="form-control" style="width:160px;" value="<?php echo htmlspecialchars($selectedMonth); ?>" onchange="this.form.submit()">
@@ -694,6 +718,70 @@ $statusColors = [
         <span style="font-size:0.85rem; font-weight:700; color:#065f46;">Total Tagihan Bulan Ini (3 Bisnis)</span>
         <span style="font-size:1rem; font-weight:800; color:#0f9d6a;">Rp&nbsp;<?php echo number_format($monthlyRecapGrandTotal, 0, ',', '.'); ?></span>
     </div>
+</div>
+
+<!-- ── Bayar ke Bisnis Pengirim (barang dikirim ke Gudang / ke bisnis lain) ──────── -->
+<div class="card" id="bayar-pengirim" style="margin-top:1.5rem;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.85rem; flex-wrap:wrap; gap:0.75rem;">
+        <div>
+            <h3 style="font-size:1rem; font-weight:700; margin:0;">💸 Bayar ke Bisnis Pengirim</h3>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0.15rem 0 0;">Barang yang dikirim bisnis ke Gudang atau ke bisnis lain. Klik <b>Bayar</b> → uang keluar dari rekening Gudang dan masuk sebagai <b>pendapatan</b> di buku kas bisnis pengirim. Kiriman ke bisnis lain ditagihkan ke bisnis penerima lewat tagihan bulanan di atas.</p>
+        </div>
+        <div style="text-align:right;">
+            <div style="font-size:0.72rem; color:var(--text-muted);">Total belum dibayar</div>
+            <div style="font-size:1.05rem; font-weight:800; color:#7c3aed;">Rp&nbsp;<?php echo number_format($incomingSupplyOutstandingTotal, 0, ',', '.'); ?></div>
+        </div>
+    </div>
+    <?php if (empty($incomingSupplyBills)): ?>
+        <div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Belum ada barang kiriman dari bisnis.</div>
+    <?php else: ?>
+        <div class="table-responsive">
+            <table class="table" style="font-size:0.82rem;">
+                <thead>
+                    <tr>
+                        <th>Bisnis Pengirim</th>
+                        <th>Dikirim ke</th>
+                        <th style="text-align:right;">Total Nilai</th>
+                        <th style="text-align:right;">Sudah Dibayar</th>
+                        <th style="text-align:right;">Sisa</th>
+                        <th style="text-align:center;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($incomingSupplyBills as $sup): ?>
+                        <tr>
+                            <td style="font-weight:600;"><?php echo htmlspecialchars($sup['name']); ?>
+                                <div style="font-size:0.7rem; color:var(--text-muted); font-weight:400;"><?php echo (int)$sup['total_items']; ?> kiriman · terakhir <?php echo date('d M Y', strtotime((string)$sup['last_created_at'])); ?></div>
+                            </td>
+                            <td style="font-size:0.76rem; color:var(--text-muted);">
+                                <?php foreach ($sup['targets'] as $tName => $tVal): if ($tVal <= 0) continue; ?>
+                                    <div><?php echo htmlspecialchars($tName); ?>: Rp <?php echo number_format($tVal, 0, ',', '.'); ?></div>
+                                <?php endforeach; ?>
+                                <?php if ($sup['credited'] > 0): ?>
+                                    <div title="Sudah dikreditkan lewat potongan tagihan bulanan yang lunas (aturan lama)">Sudah dipotong dari tagihan: Rp <?php echo number_format($sup['credited'], 0, ',', '.'); ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td style="text-align:right;">Rp <?php echo number_format($sup['total_nilai'], 0, ',', '.'); ?></td>
+                            <td style="text-align:right; color:#0f9d6a;">Rp <?php echo number_format($sup['total_paid'], 0, ',', '.'); ?></td>
+                            <td style="text-align:right; font-weight:700; color:#7c3aed;">Rp <?php echo number_format($sup['outstanding'], 0, ',', '.'); ?></td>
+                            <td style="text-align:center;">
+                                <?php if ($sup['outstanding'] > 0): ?>
+                                    <form method="POST" style="display:inline;" onsubmit="this.querySelector('button').disabled=true; return true;">
+                                        <input type="hidden" name="action" value="pay_supply_bill">
+                                        <input type="hidden" name="slug" value="<?php echo htmlspecialchars($sup['slug']); ?>">
+                                        <input type="hidden" name="bulan" value="<?php echo htmlspecialchars($selectedMonth); ?>">
+                                        <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm(<?php echo htmlspecialchars(json_encode('Bayar Rp ' . number_format($sup['outstanding'], 0, ',', '.') . ' ke ' . $sup['name'] . '?' . "\n\n" . 'Uang keluar dari rekening Gudang Nasita dan masuk sebagai pendapatan di buku kas ' . $sup['name'] . '.'), ENT_QUOTES); ?>);">Bayar</button>
+                                    </form>
+                                <?php else: ?>
+                                    <span style="background:#dcfce7; color:#166534; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px;">Lunas</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </div>
 
 <!-- ── TKBM Section ──────────────────────────────────────────────────────── -->

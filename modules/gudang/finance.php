@@ -465,7 +465,7 @@ include __DIR__ . '/../../includes/header.php';
     <div class="fin-section-head">
         <h3 class="fin-section-title"><i data-feather="package" style="width:16px;height:16px;color:#7c3aed;"></i> Tagihan Barang Masuk dari Bisnis</h3>
     </div>
-    <div class="fin-section-sub" style="margin-bottom:.6rem;">Barang yang dikirim bisnis (mis. roti, pisang dari Narayana) langsung ke stok Gudang. Bayar dari sini, uang otomatis masuk ke buku kas bisnis tsb.</div>
+    <div class="fin-section-sub" style="margin-bottom:.6rem;">Barang yang dikirim bisnis ke Gudang atau ke bisnis lain (mis. roti dari Narayana). Bayar dari sini, uang masuk sebagai pendapatan di buku kas bisnis pengirim.</div>
     <?php if (empty($incomingSupplyBills)): ?>
         <div class="fin-empty">Belum ada barang masuk dari bisnis yang tercatat.</div>
     <?php else: ?>
