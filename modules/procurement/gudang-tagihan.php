@@ -410,46 +410,43 @@ try {
 
 $monthlyRecap = [];
 $monthlyRecapGrandTotal = 0.0;
+$rp = function ($n) {
+    return 'Rp ' . number_format((float)$n, 0, ',', '.');
+};
 foreach ($gudangMonthlyBizList as $bizInfo) {
-    $mr = $monthlyTransferBySlug[$bizInfo['slug']] ?? null;
-    $transferNilai = (float)($mr['total_nilai'] ?? 0);
-    $paidInfo = $paidMapThisMonth[$bizInfo['slug']] ?? null;
+    // Angka dari gudangMonthlyBillBreakdown() — sama dengan halaman outlet & proses bayar.
+    $bd = gudangMonthlyBillBreakdown($bizInfo['slug'], $selectedMonth);
+    $paidInfo = $bd['paid'];
+    $transferNilai = $bd['gudang_total'] + $bd['from_biz_total']; // potongan retur tampil di baris sendiri
     // Bulan yang sudah lunas menampilkan jumlah yang benar-benar dibayar (tidak dihitung ulang).
-    $total = $paidInfo ? (float)$paidInfo['amount'] : $transferNilai + $tkbmShareThisMonth;
+    $total = $paidInfo ? (float)$paidInfo['amount'] : $bd['total'];
     $monthlyRecapGrandTotal += $total;
 
-    $bizTransferRows = $monthlyTransferRowsBySlug[$bizInfo['slug']] ?? [];
-    $detailRows = array_map(function ($tr) {
-        return [
-            (string)($tr['transfer_number'] ?? '-'),
-            $tr['created_at'] ? date('d M Y', strtotime((string)$tr['created_at'])) : '-',
-            number_format((float)($tr['total_qty'] ?? 0), 2),
-            'Rp ' . number_format((float)($tr['total_nilai'] ?? 0), 0, ',', '.'),
-            strtoupper((string)($tr['status'] ?? '-')),
-        ];
-    }, $bizTransferRows);
-    $detailRows[] = ['— Share TKBM —', '-', '-', 'Rp ' . number_format($tkbmShareThisMonth, 0, ',', '.'), 'TKBM'];
-
-    $bizInterAdj = $interBizAdjThisMonth[$bizInfo['slug']] ?? 0.0;
-    if ($bizInterAdj != 0.0) {
-        $detailRows[] = [
-            '— Barang diterima dari bisnis lain —',
-            '-',
-            '-',
-            '+Rp ' . number_format($bizInterAdj, 0, ',', '.'),
-            'ANTAR BISNIS',
-        ];
+    $detailRows = [];
+    foreach ($bd['gudang_items'] as $it) {
+        $detailRows[] = [$it['number'] . ' · ' . $it['item_name'], date('d M Y', strtotime((string)$it['date'])), number_format($it['quantity'], 2) . ' ' . $it['unit'], $rp($it['value']), 'DARI GUDANG'];
     }
+    foreach ($bd['from_biz_items'] as $it) {
+        $detailRows[] = [$it['item_name'] . ' (dari ' . $it['from'] . ')', date('d M Y', strtotime((string)$it['date'])), number_format($it['quantity'], 2) . ' ' . $it['unit'], $rp($it['value']), 'ANTAR BISNIS'];
+    }
+    foreach ($bd['retur_items'] as $it) {
+        $detailRows[] = ['Retur ' . $it['item_name'], date('d M Y', strtotime((string)$it['date'])), number_format($it['quantity'], 2) . ' ' . $it['unit'], '−' . $rp($it['value']), 'RETUR'];
+    }
+    if ($bd['retur_total'] > $bd['retur_credit'] + 0.5) {
+        $detailRows[] = ['— Sisa retur (dikembalikan Gudang) —', '-', '-', $rp($bd['retur_total'] - $bd['retur_credit']), 'REFUND'];
+    }
+    $detailRows[] = ['— Share TKBM —', '-', '-', $rp($bd['tkbm_share']), 'TKBM'];
 
     $monthlyRecap[] = [
         'slug'            => $bizInfo['slug'],
         'icon'            => $bizInfo['icon'],
         'name'            => $bizInfo['name'],
         'logo_url'        => gudangTagihanResolveBizLogoUrl($bizInfo['slug']),
-        'transfer_count'  => (int)($mr['transfer_count'] ?? 0),
-        'transfer_qty'    => (float)($mr['total_qty'] ?? 0),
+        'transfer_count'  => count(array_unique(array_column($bd['gudang_items'], 'number'))) + count($bd['from_biz_items']),
+        'transfer_qty'    => array_sum(array_column($bd['gudang_items'], 'quantity')) + array_sum(array_column($bd['from_biz_items'], 'quantity')),
         'transfer_nilai'  => $transferNilai,
-        'tkbm_share'      => $tkbmShareThisMonth,
+        'retur_credit'    => $bd['retur_credit'],
+        'tkbm_share'      => $bd['tkbm_share'],
         'total'           => $total,
         'detail_rows'     => $detailRows,
         'is_paid'         => $paidInfo !== null,
@@ -562,6 +559,12 @@ $selectedMonthLabel = date('F Y', strtotime($monthStart));
                     <span>Barang bulan ini (<?php echo $mrec['transfer_count']; ?>x, <?php echo number_format($mrec['transfer_qty'], 2); ?> qty)</span>
                     <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['transfer_nilai'], 0, ',', '.'); ?></span>
                 </div>
+                <?php if ($mrec['retur_credit'] > 0): ?>
+                <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.3rem;">
+                    <span>Retur ke Gudang (sudah dipotong)</span>
+                    <span style="font-weight:600; color:#0f9d6a;">−Rp&nbsp;<?php echo number_format($mrec['retur_credit'], 0, ',', '.'); ?></span>
+                </div>
+                <?php endif; ?>
                 <div style="font-size:0.78rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:0.6rem;">
                     <span>Share TKBM bulan ini</span>
                     <span style="font-weight:600; color:var(--text-primary);">Rp&nbsp;<?php echo number_format($mrec['tkbm_share'], 0, ',', '.'); ?></span>
@@ -616,6 +619,7 @@ $selectedMonthLabel = date('F Y', strtotime($monthStart));
                         'belum'    => ['#fee2e2', '#991b1b', 'Belum dibayar'],
                         'dipotong' => ['#e0e7ff', '#3730a3', 'Dipotong tagihan'],
                         'diambil'  => ['#dbeafe', '#1e40af', 'Diambil Gudang · lunas'],
+                        'retur'    => ['#f1f5f9', '#475569', 'Retur · potong tagihan'],
                     ];
                     foreach ($incomingSupplyBills as $sup):
                         $supKey = preg_replace('/[^a-z0-9-]/', '', $sup['slug']);
@@ -677,7 +681,7 @@ $selectedMonthLabel = date('F Y', strtotime($monthStart));
                                                     <td><?php echo date('d M Y', strtotime((string)$it['date'])); ?></td>
                                                     <td style="color:var(--text-muted);"><?php echo htmlspecialchars($it['number'] ?: '-'); ?></td>
                                                     <td style="font-weight:600;"><?php echo htmlspecialchars($it['item_name']); ?></td>
-                                                    <td class="text-right"><?php echo number_format($it['quantity'], 2); ?> <?php echo htmlspecialchars($it['unit']); ?></td>
+                                                    <td class="text-right"><?php echo $it['quantity'] > 0 ? number_format($it['quantity'], 2) . ' ' . htmlspecialchars($it['unit']) : '—'; ?></td>
                                                     <td><?php echo htmlspecialchars($it['target']); ?></td>
                                                     <td class="text-right" style="font-weight:700;">Rp <?php echo number_format($it['value'], 0, ',', '.'); ?><?php if ($it['estimated']): ?><div style="font-size:0.64rem; color:#d97706; font-weight:400;">estimasi harga</div><?php endif; ?></td>
                                                     <td class="text-center"><span style="background:<?php echo $stBg; ?>; color:<?php echo $stFg; ?>; font-size:0.66rem; font-weight:700; padding:2px 7px; border-radius:999px;"><?php echo $stText; ?></span></td>

@@ -1156,9 +1156,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
                     $transferNo = $prefix . str_pad((string)$next, 4, '0', STR_PAD_LEFT);
 
+                    // Jenis transfer disimpan tegas: retur (barang Gudang dikembalikan → potong tagihan),
+                    // suplai (produksi outlet → dibayar Gudang), antar_bisnis (ke bisnis lain).
+                    gudangEnsureInterTransferTable($masterPdo);
+                    $transferType = $targetSlug !== 'gudang-nasita' ? 'antar_bisnis' : ($isSupplyToGudang ? 'suplai' : 'retur');
                     $ins = $masterPdo->prepare("INSERT INTO business_inter_stock_transfers
-                        (transfer_number, source_business_slug, source_business_name, target_business_slug, target_business_name, item_name, unit, quantity, unit_price, subtotal, notes, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        (transfer_number, source_business_slug, source_business_name, target_business_slug, target_business_name, item_name, unit, quantity, unit_price, subtotal, notes, created_by, transfer_type)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $ins->execute([
                         $transferNo,
                         $activeBusinessSlug,
@@ -1171,7 +1175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $unitPriceForTransfer,
                         $subtotalForTransfer,
                         $notes,
-                        (int)($currentUser['id'] ?? 0)
+                        (int)($currentUser['id'] ?? 0),
+                        $transferType
                     ]);
                 }
 
@@ -1232,7 +1237,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 } else {
                     $_SESSION['success'] = $isSupplyToGudang
                         ? ('Suplai ke Gudang berhasil: ' . $transferNo . '. Gudang tercatat berhutang Rp ' . number_format($subtotalForTransfer, 0, ',', '.') . ' ke ' . $activeBusinessName . '.')
-                        : ('Transfer stok berhasil: ' . $transferNo);
+                        : ($targetSlug === 'gudang-nasita'
+                            ? ('Retur ke Gudang berhasil: ' . $transferNo . '. Tagihan Gudang bulan ini berkurang Rp ' . number_format($subtotalForTransfer, 0, ',', '.') . '.')
+                            : ('Transfer stok berhasil: ' . $transferNo));
                 }
             } catch (Throwable $e) {
                 $_SESSION['error'] = 'Gagal transfer stok antar bisnis: ' . $e->getMessage();
@@ -1851,7 +1858,7 @@ include '../../includes/header.php';
                                 <td class="text-right" style="font-weight:600;"><?php echo number_format((float)$transfer['total_qty'], 2); ?></td>
                                 <td class="text-right" style="font-weight:700; color:#0f9d6a;">Rp <?php echo number_format((float)$transfer['total_value'], 0, ',', '.'); ?></td>
                                 <td style="font-size:0.875rem;">
-                                    <?php echo htmlspecialchars($transfer['is_inter_business'] ? ($transfer['source_business_name'] ?? '-') : ($transfer['created_by_name'] ?? '-')); ?>
+                                    <?php echo htmlspecialchars(!empty($transfer['is_inter_business']) ? ($transfer['source_business_name'] ?? '-') : ($transfer['created_by_name'] ?? '-')); ?>
                                 </td>
                                 <td class="text-center">
                                     <?php if (empty($transfer['is_inter_business'])): ?>

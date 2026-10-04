@@ -135,12 +135,13 @@ $statusStyle = [
     'belum'    => ['#fee2e2', '#991b1b', 'Belum dibayar'],
     'dipotong' => ['#e0e7ff', '#3730a3', 'Dipotong tagihan'],
     'diambil'  => ['#dbeafe', '#1e40af', 'Diambil Gudang · lunas'],
+    'retur'    => ['#e2e8f0', '#334155', 'Retur · potong tagihan'],
 ];
 $fmt = function ($n) {
     return 'Rp ' . number_format((float)$n, 0, ',', '.');
 };
 $qtyFmt = function ($q) {
-    return rtrim(rtrim(number_format((float)$q, 2, '.', ''), '0'), '.');
+    return (float)$q > 0 ? rtrim(rtrim(number_format((float)$q, 2, '.', ''), '0'), '.') : '—';
 };
 
 include '../../includes/header.php';
@@ -220,10 +221,10 @@ include '../../includes/header.php';
         </div>
         <?php if (!$isTracked): ?>
             <div class="bw-empty">Bisnis ini tidak termasuk tagihan bulanan Gudang.</div>
-        <?php elseif (!$bill || (!$billPaid && empty($bill['gudang_items']) && empty($bill['from_biz_items']) && $bill['tkbm_share'] <= 0)): ?>
+        <?php elseif (!$bill || (!$billPaid && empty($bill['gudang_items']) && empty($bill['from_biz_items']) && empty($bill['retur_items']) && $bill['tkbm_share'] <= 0)): ?>
             <div class="bw-empty">Tidak ada tagihan dari Gudang pada <?php echo $monthLabel; ?>.</div>
         <?php else: ?>
-            <?php if (empty($bill['gudang_items']) && empty($bill['from_biz_items']) && $bill['tkbm_share'] <= 0): ?>
+            <?php if (empty($bill['gudang_items']) && empty($bill['from_biz_items']) && empty($bill['retur_items']) && $bill['tkbm_share'] <= 0): ?>
                 <div class="bw-empty">Rincian barang bulan ini tidak tersedia (tagihan lama).</div>
             <?php else: ?>
             <div style="max-height:420px;overflow-y:auto;">
@@ -251,6 +252,18 @@ include '../../includes/header.php';
                                     <td class="r"><?php echo $qtyFmt($it['quantity']) . ' ' . htmlspecialchars($it['unit']); ?></td>
                                     <td style="color:var(--muted);font-size:.72rem;"><?php echo htmlspecialchars($it['number']); ?></td>
                                     <td class="r"><?php echo $fmt($it['value']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                        <?php if (!empty($bill['retur_items'])): ?>
+                            <tr><td colspan="5" class="bw-group">Retur ke Gudang (mengurangi tagihan) · −<?php echo $fmt($bill['retur_credit']); ?><?php if ($bill['retur_total'] > $bill['retur_credit'] + 0.5): ?> <span style="font-weight:400;">— sisa <?php echo $fmt($bill['retur_total'] - $bill['retur_credit']); ?> dikembalikan Gudang</span><?php endif; ?></td></tr>
+                            <?php foreach ($bill['retur_items'] as $it): ?>
+                                <tr>
+                                    <td><?php echo date('d M', strtotime($it['date'])); ?></td>
+                                    <td style="font-weight:600;">Retur <?php echo htmlspecialchars($it['item_name']); ?></td>
+                                    <td class="r"><?php echo $qtyFmt($it['quantity']) . ' ' . htmlspecialchars($it['unit']); ?></td>
+                                    <td style="color:var(--muted);font-size:.72rem;"><?php echo htmlspecialchars($it['number']); ?></td>
+                                    <td class="r" style="color:#10b981;">−<?php echo $fmt($it['value']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -283,7 +296,7 @@ include '../../includes/header.php';
     <!-- (2) Barang yang kami kirim -->
     <div class="bw-card">
         <h3><span class="bw-step">2</span> Barang yang kami kirim · <?php echo $monthLabel; ?></h3>
-        <p class="sub">Kiriman <?php echo htmlspecialchars($activeName); ?> ke Gudang atau ke bisnis lain, termasuk barang yang diambil langsung oleh Gudang. Semuanya dibayar oleh Gudang dan masuk sebagai pendapatan kami.</p>
+        <p class="sub">Kiriman <?php echo htmlspecialchars($activeName); ?> ke Gudang atau ke bisnis lain, termasuk barang yang diambil langsung oleh Gudang. Suplai/pembelian dibayar Gudang (pendapatan kami); <b>retur</b> barang yang dulu dari Gudang tidak dibayar tunai, tapi mengurangi tagihan Gudang kami.</p>
         <?php if (empty($sentItems)): ?>
             <div class="bw-empty">Tidak ada barang yang kami kirim pada <?php echo $monthLabel; ?>.</div>
         <?php else: ?>

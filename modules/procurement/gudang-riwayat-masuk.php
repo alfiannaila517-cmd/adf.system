@@ -108,7 +108,7 @@ if ($source !== 'supplier') {
                 'unit_price'  => $qty > 0 ? $r['nilai'] / $qty : 0,
                 'subtotal'    => $r['nilai'],
                 'kind'        => 'bisnis',
-                'taken'       => strpos((string)($r['notes'] ?? ''), GUDANG_TAKE_MARK) === 0,
+                'type'        => $r['type'],
                 'slug'        => $r['source_slug'],
                 'ref'         => $r['transfer_number'] ?: 'Kiriman bisnis',
                 'from'        => $r['source_business_name'] ?: $r['source_business_slug'],
@@ -227,7 +227,7 @@ include '../../includes/header.php';
                             <?php if ($r['kind'] === 'supplier'): ?>
                                 <span style="font-size:0.75rem;"><?php echo htmlspecialchars($r['ref']); ?></span>
                             <?php else: ?>
-                                <span style="background:#ede9fe; color:#5b21b6; padding:0.15rem 0.45rem; border-radius:4px; font-size:0.7rem; font-weight:700;"><?php echo !empty($r['taken']) ? 'Diambil Gudang' : 'Kiriman bisnis'; ?></span>
+                                <span style="background:#ede9fe; color:#5b21b6; padding:0.15rem 0.45rem; border-radius:4px; font-size:0.7rem; font-weight:700;"><?php echo ['retur' => 'Retur dari outlet', 'ambil_gudang' => 'Diambil Gudang', 'suplai' => 'Suplai bisnis'][$r['type'] ?? ''] ?? 'Kiriman bisnis'; ?></span>
                                 <div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;"><?php echo htmlspecialchars($r['ref']); ?></div>
                             <?php endif; ?>
                         </td>

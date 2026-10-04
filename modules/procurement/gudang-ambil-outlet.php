@@ -67,7 +67,7 @@ if ($aoOutlet !== '') {
 $recentTakes = [];
 try {
     $stmt = gudangMasterPdo()->prepare(
-        "SELECT t.created_at, t.source_business_name, t.item_name, t.unit, t.quantity, t.subtotal, t.transfer_number, u.full_name
+        "SELECT t.created_at, t.source_business_name, t.item_name, t.unit, t.quantity, t.subtotal, t.transfer_number, t.transfer_type, u.full_name
          FROM business_inter_stock_transfers t
          LEFT JOIN users u ON u.id = t.created_by
          WHERE t.target_business_slug = 'gudang-nasita' AND t.notes LIKE ?
@@ -101,7 +101,7 @@ include '../../includes/header.php';
 <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;">
     <div>
         <h2 style="font-size:1.3rem;font-weight:700;margin:0;color:var(--text-primary);">Ambil Barang dari Outlet</h2>
-        <p style="color:var(--text-muted);font-size:.82rem;margin:.25rem 0 0;max-width:760px;">Gudang bisa mengambil barang langsung dari stok outlet — walau admin outlet sedang libur. Stok outlet berkurang, stok gudang bertambah, dan pembayarannya langsung masuk ke rekening outlet sebagai pendapatan.</p>
+        <p style="color:var(--text-muted);font-size:.82rem;margin:.25rem 0 0;max-width:760px;">Gudang bisa mengambil barang langsung dari stok outlet — walau admin outlet sedang libur. Barang yang dulu dikirim Gudang dihitung <b>retur</b> (mengurangi tagihan outlet, tanpa uang keluar); barang milik outlet dihitung <b>pembelian</b> dan langsung dibayar ke rekening outlet.</p>
     </div>
     <a href="gudang-riwayat-masuk.php?sumber=bisnis" class="btn btn-secondary" style="font-size:.82rem;">Riwayat barang dari bisnis</a>
 </div>
@@ -138,6 +138,7 @@ include '../../includes/header.php';
                             <tr>
                                 <th>Barang</th>
                                 <th class="text-right">Stok outlet</th>
+                                <th>Asal barang</th>
                                 <th style="width:130px;">Ambil</th>
                                 <th style="width:150px;">Harga / satuan (Rp)</th>
                                 <th class="text-right">Subtotal</th>
@@ -145,12 +146,20 @@ include '../../includes/header.php';
                         </thead>
                         <tbody>
                             <?php foreach ($stockItems as $i => $it): ?>
-                                <tr data-name="<?php echo htmlspecialchars(strtolower($it['item_name'])); ?>">
+                                <tr data-name="<?php echo htmlspecialchars(strtolower($it['item_name'])); ?>" data-returnable="<?php echo (float)$it['returnable']; ?>" data-retur-price="<?php echo (float)$it['retur_price']; ?>">
                                     <td style="font-weight:600;"><?php echo htmlspecialchars($it['item_name']); ?>
                                         <input type="hidden" name="item_name[<?php echo $i; ?>]" value="<?php echo htmlspecialchars($it['item_name']); ?>">
                                         <input type="hidden" name="unit[<?php echo $i; ?>]" value="<?php echo htmlspecialchars($it['unit']); ?>">
                                     </td>
                                     <td class="text-right"><?php echo rtrim(rtrim(number_format($it['available'], 2, '.', ''), '0'), '.'); ?> <?php echo htmlspecialchars($it['unit']); ?></td>
+                                    <td style="font-size:.74rem;">
+                                        <?php if ($it['returnable'] > 0): ?>
+                                            <span style="background:#e2e8f0;color:#334155;font-weight:700;padding:2px 7px;border-radius:999px;">Dari Gudang</span>
+                                            <div style="color:var(--text-muted);margin-top:2px;">s/d <?php echo rtrim(rtrim(number_format($it['returnable'], 2, '.', ''), '0'), '.'); ?> dihitung retur</div>
+                                        <?php else: ?>
+                                            <span style="background:#dcfce7;color:#166534;font-weight:700;padding:2px 7px;border-radius:999px;">Milik outlet</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><input type="number" class="form-control ao-qty" name="qty[<?php echo $i; ?>]" min="0" max="<?php echo $it['available']; ?>" step="any" placeholder="0" data-unit="<?php echo htmlspecialchars($it['unit']); ?>"></td>
                                     <td><input type="number" class="form-control ao-price" name="price[<?php echo $i; ?>]" min="0" step="any" value="<?php echo $it['price'] > 0 ? (float)$it['price'] : ''; ?>" placeholder="Isi harga"></td>
                                     <td class="text-right ao-sub" style="font-weight:700;color:#0f9d6a;">—</td>
@@ -166,11 +175,12 @@ include '../../includes/header.php';
             <div class="ao-bar">
                 <div style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;">
                     <div><small>Barang diambil</small><b id="aoCount">0</b></div>
-                    <div><small>Total dibayar ke <?php echo htmlspecialchars($aoOutletName); ?></small><b id="aoTotal">Rp 0</b></div>
+                    <div><small>Retur (potong tagihan <?php echo htmlspecialchars($aoOutletName); ?>)</small><b id="aoRetur">Rp 0</b></div>
+                    <div><small>Dibayar ke <?php echo htmlspecialchars($aoOutletName); ?></small><b id="aoTotal">Rp 0</b></div>
                 </div>
                 <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
                     <input type="text" name="notes" class="form-control" placeholder="Catatan (opsional), mis. untuk stok Bens" style="width:260px;height:36px;font-size:.82rem;">
-                    <button type="submit" class="btn btn-success" id="aoSubmit" disabled style="font-weight:700;">✓ Konfirmasi &amp; Bayar</button>
+                    <button type="submit" class="btn btn-success" id="aoSubmit" disabled style="font-weight:700;">✓ Konfirmasi</button>
                 </div>
             </div>
         <?php endif; ?>
@@ -185,7 +195,7 @@ include '../../includes/header.php';
         <div class="table-responsive">
             <table class="table" style="font-size:.8rem;margin:0;">
                 <thead>
-                    <tr><th>Tanggal</th><th>Outlet</th><th>Barang</th><th class="text-right">Qty</th><th class="text-right">Dibayar</th><th>Oleh</th></tr>
+                    <tr><th>Tanggal</th><th>Outlet</th><th>Barang</th><th class="text-right">Qty</th><th class="text-right">Nilai</th><th>Jenis</th><th>Oleh</th></tr>
                 </thead>
                 <tbody>
                     <?php foreach ($recentTakes as $rt): ?>
@@ -195,6 +205,7 @@ include '../../includes/header.php';
                             <td style="font-weight:600;"><?php echo htmlspecialchars($rt['item_name']); ?> <span style="color:var(--text-muted);font-weight:400;font-size:.72rem;"><?php echo htmlspecialchars((string)$rt['transfer_number']); ?></span></td>
                             <td class="text-right"><?php echo rtrim(rtrim(number_format((float)$rt['quantity'], 2, '.', ''), '0'), '.'); ?> <?php echo htmlspecialchars($rt['unit']); ?></td>
                             <td class="text-right" style="font-weight:700;color:#0f9d6a;">Rp <?php echo number_format((float)$rt['subtotal'], 0, ',', '.'); ?></td>
+                            <td><?php echo ($rt['transfer_type'] ?? '') === 'retur' ? '<span style="font-size:.7rem;font-weight:700;color:#334155;background:#e2e8f0;padding:2px 7px;border-radius:999px;">Retur</span>' : '<span style="font-size:.7rem;font-weight:700;color:#166534;background:#dcfce7;padding:2px 7px;border-radius:999px;">Dibayar</span>'; ?></td>
                             <td><?php echo htmlspecialchars((string)($rt['full_name'] ?? '-')); ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -212,18 +223,31 @@ include '../../includes/header.php';
 
         // Hitung subtotal per baris dan total di bar bawah.
         function recalc() {
-            var total = 0, count = 0, missingPrice = false;
+            var total = 0, retur = 0, count = 0, missingPrice = false;
             form.querySelectorAll('tbody tr').forEach(function (tr) {
                 var qtyEl = tr.querySelector('.ao-qty');
                 var qty = parseFloat(qtyEl.value) || 0;
                 var price = parseFloat(tr.querySelector('.ao-price').value) || 0;
                 var max = parseFloat(qtyEl.max) || 0;
                 if (qty > max) { qtyEl.value = max; qty = max; }
+                // Barang yang dulu dari Gudang dihitung retur (harga = harga tagihan Gudang), sisanya dibeli.
+                var returQty = Math.min(qty, parseFloat(tr.dataset.returnable) || 0);
+                var buyQty = qty - returQty;
+                var returPrice = parseFloat(tr.dataset.returPrice) || price;
                 tr.classList.toggle('picked', qty > 0);
-                tr.querySelector('.ao-sub').textContent = qty > 0 ? rupiah(qty * price) : '—';
-                if (qty > 0) { count++; total += qty * price; if (price <= 0) missingPrice = true; }
+                var parts = [];
+                if (returQty > 0) parts.push('Retur ' + rupiah(returQty * returPrice));
+                if (buyQty > 0) parts.push('Bayar ' + rupiah(buyQty * price));
+                tr.querySelector('.ao-sub').textContent = qty > 0 ? parts.join(' · ') : '—';
+                if (qty > 0) {
+                    count++;
+                    retur += returQty * returPrice;
+                    total += buyQty * price;
+                    if ((buyQty > 0 && price <= 0) || (returQty > 0 && returPrice <= 0)) missingPrice = true;
+                }
             });
             document.getElementById('aoCount').textContent = count;
+            document.getElementById('aoRetur').textContent = rupiah(retur);
             document.getElementById('aoTotal').textContent = rupiah(total);
             var btn = document.getElementById('aoSubmit');
             btn.disabled = count === 0 || missingPrice;
@@ -239,7 +263,8 @@ include '../../includes/header.php';
                 lines.push('• ' + tr.querySelector('td').childNodes[0].textContent.trim() + ' ' + qty.value + ' ' + qty.dataset.unit);
             });
             var ok = confirm('Ambil barang dari <?php echo htmlspecialchars(addslashes($aoOutletName), ENT_QUOTES); ?>:\n\n' + lines.join('\n') +
-                '\n\nTotal ' + document.getElementById('aoTotal').textContent + ' langsung dibayar dari rekening Gudang ke rekening outlet.\nLanjutkan?');
+                '\n\nRetur ' + document.getElementById('aoRetur').textContent + ' → mengurangi tagihan outlet (tidak ada uang keluar).' +
+                '\nDibayar ' + document.getElementById('aoTotal').textContent + ' → dari rekening Gudang ke rekening outlet.\n\nLanjutkan?');
             if (ok) document.getElementById('aoSubmit').disabled = true;
             return ok;
         };
