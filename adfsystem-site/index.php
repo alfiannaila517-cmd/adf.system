@@ -21,6 +21,7 @@ if (!empty($siteContent['hero']['background'])) {
         <div class="cta-row">
             <a href="harga.php" class="btn btn-primary">Lihat Paket Harga</a>
             <a href="kontak.php" class="btn btn-outline">Hubungi Kami</a>
+            <a href="demo/travel/" class="btn btn-outline">▶ Tonton Demo Biro Wisata</a>
         </div>
         <div class="badge-row">
             <span class="badge">Manajemen Hotel</span>
