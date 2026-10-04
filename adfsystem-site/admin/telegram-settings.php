@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $found = null;
             foreach (array_reverse($upd['result'] ?? []) as $u) {
-                $chat = $u['message']['chat'] ?? $u['my_chat_member']['chat'] ?? null;
+                $chat = $u['message']['chat'] ?? $u['edited_message']['chat'] ?? $u['my_chat_member']['chat'] ?? $u['channel_post']['chat'] ?? $u['callback_query']['message']['chat'] ?? null;
                 if ($chat && isset($chat['id'])) {
                     $found = $chat;
                     break;
