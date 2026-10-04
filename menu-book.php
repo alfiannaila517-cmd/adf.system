@@ -5,49 +5,35 @@ require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/database.php';
 
 $biz = trim((string)($_GET['biz'] ?? ''));
-$allowedBiz = ['narayana-hotel', 'bens-cafe', 'eaat-meet'];
+$allowedBiz = ['narayana-hotel', 'bens-cafe', 'eaat-meet', 'eat-meet'];
 if (!in_array($biz, $allowedBiz, true)) {
     http_response_code(404);
     echo 'Menu tidak ditemukan.';
     exit;
 }
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-$bizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $biz));
-$activeBiz = (string)($_SESSION['active_business_id'] ?? '');
-$activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBiz));
-$isDev = isset($_SESSION['role']) && $_SESSION['role'] === 'developer';
-$isAllowedInternal = $isDev || $activeBizNorm === $bizNorm;
-if (!$isAllowedInternal) {
-    http_response_code(403);
-    echo 'Akses halaman menu ini dibatasi.';
+// Halaman PUBLIK untuk tamu yang scan QR (tanpa login). Hanya membaca halaman menu yang aktif.
+// Database & nama selalu diambil dari bisnis di URL (?biz=), bukan dari sesi login yang sedang aktif,
+// supaya QR Bens Cafe selalu menampilkan menu Bens Cafe.
+$bizCfgPath = __DIR__ . '/config/businesses/' . $biz . '.php';
+$bizCfg = file_exists($bizCfgPath) ? (require $bizCfgPath) : [];
+if (empty($bizCfg['database'])) {
+    http_response_code(404);
+    echo 'Menu tidak ditemukan.';
     exit;
 }
 
-require_once __DIR__ . '/config/businesses/' . $biz . '.php';
+$pages = [];
+try {
+    $pdo = Database::switchDatabase((string)$bizCfg['database'])->getConnection();
+    $stmt = $pdo->query('SELECT title, image_path FROM menu_book_pages WHERE is_active = 1 ORDER BY page_order ASC, id ASC');
+    $pages = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (Throwable $e) {
+    // Tabel belum dibuat (belum ada halaman yang diunggah) → tampil "menu belum tersedia".
+    error_log('menu-book public [' . $biz . ']: ' . $e->getMessage());
+}
 
-$db = Database::getInstance();
-$pdo = $db->getConnection();
-$pdo->exec("CREATE TABLE IF NOT EXISTS menu_book_pages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) DEFAULT NULL,
-    image_path VARCHAR(255) NOT NULL,
-    page_order INT NOT NULL DEFAULT 0,
-    is_active TINYINT(1) NOT NULL DEFAULT 1,
-    created_by INT DEFAULT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-    KEY idx_order (page_order),
-    KEY idx_active (is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-$stmt = $pdo->query('SELECT title, image_path FROM menu_book_pages WHERE is_active = 1 ORDER BY page_order ASC, id ASC');
-$pages = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-$bizTitle = defined('BUSINESS_NAME') ? BUSINESS_NAME : strtoupper(str_replace('-', ' ', $biz));
+$bizTitle = (string)($bizCfg['name'] ?? strtoupper(str_replace('-', ' ', $biz)));
 ?>
 <!doctype html>
 <html lang="en">
