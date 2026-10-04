@@ -757,7 +757,10 @@ function gudangInterTransferValuedRows(PDO $masterPdo, ?string $fromDateTime = n
         . (in_array('source_business_name', $cols, true) ? ', source_business_name' : ', NULL AS source_business_name')
         . (in_array('target_business_name', $cols, true) ? ', target_business_name' : ', NULL AS target_business_name')
         . (in_array('unit_price', $cols, true) ? ', unit_price' : ', NULL AS unit_price')
-        . (in_array('subtotal', $cols, true) ? ', subtotal' : ', NULL AS subtotal');
+        . (in_array('subtotal', $cols, true) ? ', subtotal' : ', NULL AS subtotal')
+        . (in_array('transfer_number', $cols, true) ? ', transfer_number' : ', NULL AS transfer_number')
+        . (in_array('notes', $cols, true) ? ', notes' : ', NULL AS notes')
+        . (in_array('created_by', $cols, true) ? ', created_by' : ', NULL AS created_by');
 
     $sql = "SELECT {$select} FROM business_inter_stock_transfers";
     $params = [];
