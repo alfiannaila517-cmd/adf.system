@@ -312,7 +312,7 @@ $devIsActive = static function (array $item) use ($devCurrent, $devSection): boo
                     </a>
                 <?php endforeach; ?>
                 <?php if ($group === 'Utama'): ?>
-                    <a href="https://adfsystem.store/admin/" target="_blank" rel="noopener">
+                    <a href="https://adfsystem.store/admin/index.php" target="_blank" rel="noopener">
                         <i class="bi bi-shop"></i>ADF Store<i class="bi bi-box-arrow-up-right ext"></i>
                     </a>
                 <?php endif; ?>
@@ -333,7 +333,7 @@ $devIsActive = static function (array $item) use ($devCurrent, $devSection): boo
                 <h4><?php echo htmlspecialchars($pageTitle ?? 'Dashboard'); ?></h4>
             </div>
             <div class="navbar-right">
-                <a href="https://adfsystem.store/admin/" target="_blank" rel="noopener" class="store-link"><i class="bi bi-shop"></i><span>ADF Store</span></a>
+                <a href="https://adfsystem.store/admin/index.php" target="_blank" rel="noopener" class="store-link"><i class="bi bi-shop"></i><span>ADF Store</span></a>
                 <div class="user-dropdown dropdown">
                     <div data-bs-toggle="dropdown" class="d-flex align-items-center gap-2">
                         <div class="user-info">
@@ -343,7 +343,7 @@ $devIsActive = static function (array $item) use ($devCurrent, $devSection): boo
                         <div class="user-avatar"><?php echo strtoupper(substr($user['full_name'] ?? 'D', 0, 1)); ?></div>
                     </div>
                     <ul class="dropdown-menu dropdown-menu-end" style="font-size:12.5px;">
-                        <li><a class="dropdown-item" href="https://adfsystem.store/admin/" target="_blank" rel="noopener"><i class="bi bi-shop me-2"></i>ADF Store</a></li>
+                        <li><a class="dropdown-item" href="https://adfsystem.store/admin/index.php" target="_blank" rel="noopener"><i class="bi bi-shop me-2"></i>ADF Store</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item text-danger" href="logout.php"><i class="bi bi-box-arrow-left me-2"></i>Logout</a></li>
                     </ul>

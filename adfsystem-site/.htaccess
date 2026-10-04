@@ -1,0 +1,10 @@
+# adfsystem.store (addon domain di public_html/adfsystem.store)
+# RewriteEngine On di sini menghentikan aturan rewrite dari .htaccess adfsystem.online (folder induk),
+# mis. "admin/ -> login.php" untuk website travel, yang membuat /admin/ di sini jadi 404.
+Options -Indexes
+DirectoryIndex index.php index.html
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^\.git - [F,L]
+</IfModule>
