@@ -108,6 +108,7 @@ if ($source !== 'supplier') {
                 'unit_price'  => $qty > 0 ? $r['nilai'] / $qty : 0,
                 'subtotal'    => $r['nilai'],
                 'kind'        => 'bisnis',
+                'slug'        => $r['source_slug'],
                 'ref'         => $r['transfer_number'] ?: 'Kiriman bisnis',
                 'from'        => $r['source_business_name'] ?: $r['source_business_slug'],
                 'received_by' => $userNames[(int)$r['created_by']] ?? 'System',
@@ -240,7 +241,7 @@ include '../../includes/header.php';
                                     <i data-feather="eye" style="width:14px;height:14px;"></i> Lihat PO
                                 </a>
                             <?php elseif ($r['kind'] === 'bisnis'): ?>
-                                <a href="gudang-tagihan.php#bayar-pengirim" class="btn btn-sm btn-secondary" style="padding:0.375rem 0.75rem; font-size:0.75rem;">Tagihan</a>
+                                <a href="gudang-tagihan.php#rincian-<?php echo htmlspecialchars(preg_replace('/[^a-z0-9-]/', '', (string)$r['slug'])); ?>" class="btn btn-sm btn-secondary" style="padding:0.375rem 0.75rem; font-size:0.75rem;">Tagihan</a>
                             <?php endif; ?>
                         </td>
                     </tr>

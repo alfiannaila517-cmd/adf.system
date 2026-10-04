@@ -609,10 +609,20 @@ $selectedMonthLabel = date('F Y', strtotime($monthStart));
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($incomingSupplyBills as $sup): ?>
-                        <tr>
+                    <?php
+                    $supStatusStyle = [
+                        'lunas'    => ['#dcfce7', '#166534', 'Lunas'],
+                        'sebagian' => ['#fef3c7', '#92400e', 'Sebagian'],
+                        'belum'    => ['#fee2e2', '#991b1b', 'Belum dibayar'],
+                        'dipotong' => ['#e0e7ff', '#3730a3', 'Dipotong tagihan'],
+                    ];
+                    foreach ($incomingSupplyBills as $sup):
+                        $supKey = preg_replace('/[^a-z0-9-]/', '', $sup['slug']);
+                    ?>
+                        <tr class="sup-row" style="cursor:pointer;" title="Klik untuk lihat rincian barang" onclick="toggleSupplyDetail(event, '<?php echo $supKey; ?>')">
                             <td style="font-weight:600;"><?php echo htmlspecialchars($sup['name']); ?>
                                 <div style="font-size:0.7rem; color:var(--text-muted); font-weight:400;"><?php echo (int)$sup['total_items']; ?> kiriman · terakhir <?php echo date('d M Y', strtotime((string)$sup['last_created_at'])); ?></div>
+                                <div class="sup-toggle" id="sup-toggle-<?php echo $supKey; ?>" style="font-size:0.7rem; color:#2563eb; font-weight:600; margin-top:2px;">▸ Lihat rincian barang</div>
                             </td>
                             <td style="font-size:0.76rem; color:var(--text-muted);">
                                 <?php foreach ($sup['targets'] as $tName => $tVal): if ($tVal <= 0) continue; ?>
@@ -638,12 +648,72 @@ $selectedMonthLabel = date('F Y', strtotime($monthStart));
                                 <?php endif; ?>
                             </td>
                         </tr>
+                        <!-- Rincian barang (dibuka dengan klik baris pengirim) -->
+                        <tr class="sup-detail" id="sup-detail-<?php echo htmlspecialchars($supKey); ?>" style="display:none;">
+                            <td colspan="6" style="background:#f8fafc; padding:0.6rem 0.9rem 0.9rem;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
+                                    <b style="font-size:0.8rem;">Rincian barang dari <?php echo htmlspecialchars($sup['name']); ?> (<?php echo count($sup['items']); ?> baris)</b>
+                                    <span style="font-size:0.7rem; color:var(--text-muted);">Status dihitung dari total yang sudah dibayar, mulai kiriman paling lama.</span>
+                                </div>
+                                <div style="max-height:320px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:0.5rem; background:#fff;">
+                                    <table class="table" style="font-size:0.76rem; margin:0;">
+                                        <thead style="position:sticky; top:0; background:#fff;">
+                                            <tr>
+                                                <th>Tanggal</th>
+                                                <th>No. Kiriman</th>
+                                                <th>Barang</th>
+                                                <th class="text-right">Qty</th>
+                                                <th>Dikirim ke</th>
+                                                <th class="text-right">Nilai</th>
+                                                <th class="text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($sup['items'] as $it):
+                                                [$stBg, $stFg, $stText] = $supStatusStyle[$it['status']] ?? $supStatusStyle['belum'];
+                                            ?>
+                                                <tr>
+                                                    <td><?php echo date('d M Y', strtotime((string)$it['date'])); ?></td>
+                                                    <td style="color:var(--text-muted);"><?php echo htmlspecialchars($it['number'] ?: '-'); ?></td>
+                                                    <td style="font-weight:600;"><?php echo htmlspecialchars($it['item_name']); ?></td>
+                                                    <td class="text-right"><?php echo number_format($it['quantity'], 2); ?> <?php echo htmlspecialchars($it['unit']); ?></td>
+                                                    <td><?php echo htmlspecialchars($it['target']); ?></td>
+                                                    <td class="text-right" style="font-weight:700;">Rp <?php echo number_format($it['value'], 0, ',', '.'); ?><?php if ($it['estimated']): ?><div style="font-size:0.64rem; color:#d97706; font-weight:400;">estimasi harga</div><?php endif; ?></td>
+                                                    <td class="text-center"><span style="background:<?php echo $stBg; ?>; color:<?php echo $stFg; ?>; font-size:0.66rem; font-weight:700; padding:2px 7px; border-radius:999px;"><?php echo $stText; ?></span></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
     <?php endif; ?>
 </div>
+<script>
+    // Buka/tutup rincian barang per bisnis pengirim (klik tombol Bayar tidak ikut membuka).
+    function toggleSupplyDetail(e, key) {
+        if (e.target.closest('form, button, a')) return;
+        var row = document.getElementById('sup-detail-' + key);
+        var label = document.getElementById('sup-toggle-' + key);
+        if (!row) return;
+        var open = row.style.display === 'none';
+        row.style.display = open ? 'table-row' : 'none';
+        if (label) label.textContent = open ? '▾ Tutup rincian' : '▸ Lihat rincian barang';
+    }
+    // Link langsung: gudang-tagihan.php#rincian-narayana-hotel membuka rincian bisnis tsb.
+    (function () {
+        var m = location.hash.match(/^#rincian-([a-z0-9-]+)$/);
+        var row = m && document.getElementById('sup-detail-' + m[1]);
+        if (!row) return;
+        toggleSupplyDetail({ target: document.body }, m[1]);
+        row.previousElementSibling.scrollIntoView({ block: 'center' });
+    })();
+</script>
+<style>.sup-row:hover td { background:#f1f5f9; }</style>
 
 <!-- ── Rekap seluruh pengiriman Gudang per bisnis (semua periode) ── -->
 <details class="card" style="margin-top:1.5rem;">

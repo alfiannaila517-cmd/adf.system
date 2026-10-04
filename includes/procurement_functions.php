@@ -3253,6 +3253,7 @@ function getGudangNasitaIncomingSupplyBills(): array
                     'credited'        => 0.0,
                     'total_nilai'     => 0.0,
                     'targets'         => [],
+                    'items'           => [],
                     'last_created_at' => $row['created_at'],
                 ];
             }
@@ -3268,6 +3269,17 @@ function getGudangNasitaIncomingSupplyBills(): array
                 $targetName = (string)($row['target_business_name'] ?: ($tracked[$tgt] ?? $tgt));
             }
             $g['targets'][$targetName] = ($g['targets'][$targetName] ?? 0.0) + $payable;
+            $g['items'][] = [
+                'date'      => $row['created_at'],
+                'number'    => (string)($row['transfer_number'] ?? ''),
+                'item_name' => (string)$row['item_name'],
+                'quantity'  => (float)$row['quantity'],
+                'unit'      => (string)$row['unit'],
+                'target'    => $targetName,
+                'value'     => $payable,
+                'credited'  => $credited > 0,
+                'estimated' => !empty($row['is_estimated']),
+            ];
             if ($row['created_at'] > $g['last_created_at']) {
                 $g['last_created_at'] = $row['created_at'];
             }
@@ -3277,6 +3289,22 @@ function getGudangNasitaIncomingSupplyBills(): array
         foreach ($grouped as $src => $g) {
             $g['total_paid'] = $paidTotals[$src] ?? 0.0;
             $g['outstanding'] = round(max(0.0, $g['total_nilai'] - $g['total_paid']), 2);
+            // Status per barang: pembayaran dialokasikan ke kiriman paling lama dulu (FIFO).
+            usort($g['items'], function ($x, $y) {
+                return strcmp((string)$x['date'], (string)$y['date']);
+            });
+            $paidLeft = $g['total_paid'];
+            foreach ($g['items'] as &$it) {
+                if ($it['credited'] || $it['value'] <= 0) {
+                    $it['status'] = $it['credited'] ? 'dipotong' : 'lunas';
+                    continue;
+                }
+                $covered = min($paidLeft, $it['value']);
+                $paidLeft -= $covered;
+                $it['status'] = $covered >= $it['value'] - 0.5 ? 'lunas' : ($covered > 0 ? 'sebagian' : 'belum');
+            }
+            unset($it);
+            $g['items'] = array_reverse($g['items']);
             $result[] = $g;
         }
         usort($result, function ($a, $b) {
