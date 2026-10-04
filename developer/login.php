@@ -1,12 +1,15 @@
 <?php
 /**
- * Developer Panel - Login Page
- * Special access for system developers only
+ * Developer Panel - Login darurat.
+ * Jalur utama: ADF Store → menu Developer (tiket sekali pakai, lihat sso.php).
+ * Jalur ini tetap ada sebagai cadangan, dengan: batas percobaan (5x / 15 menit),
+ * pesan error umum, dan kode verifikasi ke email akun developer.
  */
 
 define('APP_ACCESS', true);
 require_once dirname(dirname(__FILE__)) . '/config/config.php';
 require_once __DIR__ . '/includes/dev_auth.php';
+require_once __DIR__ . '/includes/sso_lib.php';
 
 $auth = new DevAuth();
 
@@ -16,26 +19,74 @@ if ($auth->isLoggedIn()) {
     exit;
 }
 
-$error = '';
-$success = '';
+if (empty($_SESSION['dev_csrf'])) {
+    $_SESSION['dev_csrf'] = bin2hex(random_bytes(32));
+}
+$csrfOk = hash_equals($_SESSION['dev_csrf'], (string) ($_POST['csrf'] ?? ''));
 
-// Handle login form
+$error = '';
+$step = !empty($_SESSION['dev_pending']) ? 'otp' : 'password';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-    
-    if (empty($username) || empty($password)) {
-        $error = 'Username dan password harus diisi';
-    } else {
-        $result = $auth->login($username, $password);
-        if ($result['success']) {
-            header('Location: index.php');
-            exit;
+    if (!$csrfOk) {
+        $error = 'Sesi form kedaluwarsa, silakan coba lagi.';
+    } elseif (($_POST['step'] ?? '') === 'cancel') {
+        unset($_SESSION['dev_pending']);
+        $step = 'password';
+    } elseif ($step === 'otp') {
+        $pendingName = (string) $_SESSION['dev_pending']['username'];
+        [$ok, $msg] = dev_sec_otp_verify(preg_replace('/\D/', '', (string) ($_POST['code'] ?? '')));
+        if ($ok) {
+            $res = $auth->getConnection()->prepare("SELECT u.*, r.role_code FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = ? AND u.is_active = 1 AND r.role_code = 'developer'");
+            $res->execute([(int) $_SESSION['dev_pending']['user_id']]);
+            $devUser = $res->fetch(PDO::FETCH_ASSOC);
+            if ($devUser) {
+                dev_sec_clear_fails($pendingName);
+                $auth->completeLogin($devUser);
+                header('Location: index.php');
+                exit;
+            }
+            unset($_SESSION['dev_pending']);
+            $error = 'Akun tidak lagi aktif.';
         } else {
-            $error = $result['message'];
+            dev_sec_record_fail($pendingName);
+            if (dev_sec_is_locked($pendingName)) {
+                unset($_SESSION['dev_pending']);
+            }
+            $error = $msg;
+        }
+        $step = !empty($_SESSION['dev_pending']) ? 'otp' : 'password';
+    } else {
+        $username = trim($_POST['username'] ?? '');
+        $password = (string) ($_POST['password'] ?? '');
+        if ($username === '' || $password === '') {
+            $error = 'Username dan password harus diisi';
+        } elseif (dev_sec_is_locked($username)) {
+            $error = 'Terlalu banyak percobaan gagal. Coba lagi dalam 15 menit.';
+        } else {
+            $result = $auth->verifyCredentials($username, $password);
+            if (!$result['success']) {
+                dev_sec_record_fail($username);
+                $error = $result['message'];
+            } elseif (dev_sec_otp_bypassed()) {
+                // Mode darurat (file adf-otp-disabled.txt dibuat lewat cPanel): tanpa kode email.
+                dev_sec_clear_fails($username);
+                $auth->completeLogin($result['user']);
+                header('Location: index.php');
+                exit;
+            } else {
+                session_regenerate_id(true);
+                if (dev_sec_otp_send($result['user'])) {
+                    $step = 'otp';
+                } else {
+                    unset($_SESSION['dev_pending']);
+                    $error = 'Kode verifikasi tidak bisa dikirim (email akun developer belum diisi / SMTP bermasalah). Masuk lewat ADF Store.';
+                }
+            }
         }
     }
 }
+$csrf = $_SESSION['dev_csrf'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -235,30 +286,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <?php endif; ?>
         
+        <?php if ($step === 'otp'): ?>
+        <form method="POST" action="" autocomplete="off">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+            <p style="font-size:13px;color:rgba(255,255,255,.7);">Kode 6 digit sudah dikirim ke email akun developer. Berlaku 10 menit.</p>
+            <div class="mb-4">
+                <label class="form-label">Kode Verifikasi</label>
+                <input type="text" class="form-control" name="code" inputmode="numeric" pattern="\d{6}" maxlength="6" required autofocus autocomplete="one-time-code" style="font-size:22px;letter-spacing:8px;text-align:center;">
+            </div>
+            <button type="submit" class="btn btn-login">
+                <i class="bi bi-shield-check me-2"></i>Verifikasi &amp; Masuk
+            </button>
+        </form>
+        <form method="POST" action="" style="text-align:center;margin-top:10px;">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+            <input type="hidden" name="step" value="cancel">
+            <button type="submit" style="background:none;border:0;color:rgba(255,255,255,.6);font-size:12px;text-decoration:underline;">Batal / ganti akun</button>
+        </form>
+        <?php else: ?>
         <form method="POST" action="">
+            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
             <div class="mb-3">
                 <label class="form-label">Username</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-person"></i></span>
-                    <input type="text" class="form-control" name="username" placeholder="Enter username" required autofocus>
+                    <input type="text" class="form-control" name="username" placeholder="Enter username" required autofocus autocomplete="username">
                 </div>
             </div>
-            
+
             <div class="mb-4">
                 <label class="form-label">Password</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                    <input type="password" class="form-control" id="passwordField" name="password" placeholder="Enter password" required>
+                    <input type="password" class="form-control" id="passwordField" name="password" placeholder="Enter password" required autocomplete="current-password">
                     <button type="button" class="btn btn-outline-light" id="togglePassword" style="border: 1px solid rgba(255,255,255,0.15); border-left: none; border-radius: 0 12px 12px 0;">
                         <i class="bi bi-eye"></i>
                     </button>
                 </div>
             </div>
-            
+
             <button type="submit" class="btn btn-login">
-                <i class="bi bi-box-arrow-in-right me-2"></i>Login to Developer Panel
+                <i class="bi bi-box-arrow-in-right me-2"></i>Lanjut
             </button>
         </form>
+        <p style="font-size:12px;color:rgba(255,255,255,.55);text-align:center;margin:14px 0 0;">
+            Disarankan masuk lewat <a href="https://adfsystem.store/admin/" style="color:#a78bfa;">ADF Store</a> → menu Developer.
+        </p>
+        <?php endif; ?>
         
         <div class="back-link">
             <a href="../login.php"><i class="bi bi-arrow-left me-1"></i>Back to Main Login</a>
@@ -268,7 +342,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Toggle password visibility
-        document.getElementById('togglePassword').addEventListener('click', function() {
+        document.getElementById('togglePassword') && document.getElementById('togglePassword').addEventListener('click', function() {
             const passwordField = document.getElementById('passwordField');
             const icon = this.querySelector('i');
             

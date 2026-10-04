@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/admin-auth.php';
+require_once __DIR__ . '/../includes/security.php';
 adf_admin_require_login();
 
 $currentUser = adf_admin_current_user();
@@ -24,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
             if (adf_users_update_password($user['id'], $newHash)) {
+                adf_sec_revoke_devices((string) $user['id']); // perangkat lain harus verifikasi email lagi
                 $saved = true;
             } else {
                 $error = 'Gagal menyimpan password baru. Periksa izin tulis folder data/.';

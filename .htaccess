@@ -35,6 +35,9 @@ RewriteRule ^admin/?$ login.php?view=system [L,QSA]
 # Block access to config directory from web
 <IfModule mod_rewrite.c>
 RewriteRule ^config/ - [F,L]
+# adfsystem-site/ hanya sumber kode untuk adfsystem.store (disalin oleh adfstore-update.php);
+# jangan bisa dibuka sebagai admin kedua lewat adfsystem.online/adfsystem-site/
+RewriteRule ^adfsystem-site/ - [F,L]
 </IfModule>
 
 # Security Headers

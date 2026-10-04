@@ -33,9 +33,11 @@ class DevAuth {
     }
     
     /**
-     * Authenticate developer login
+     * Cek username + password developer TANPA membuat sesi (dipakai login 2 langkah).
+     * Pesan error sengaja umum supaya tidak membocorkan username mana yang terdaftar.
+     * @return array{success: bool, message: string, user?: array}
      */
-    public function login($username, $password) {
+    public function verifyCredentials($username, $password) {
         try {
             $stmt = $this->pdo->prepare("
                 SELECT u.*, r.role_code 
@@ -45,54 +47,61 @@ class DevAuth {
             ");
             $stmt->execute([$username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$user) {
-                return ['success' => false, 'message' => 'Username tidak ditemukan'];
+
+            $generic = ['success' => false, 'message' => 'Username atau password salah.'];
+            if (!$user || $user['role_code'] !== 'developer') {
+                password_verify((string) $password, '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG');
+                return $generic;
             }
-            
-            // Only developer role can access
-            if ($user['role_code'] !== 'developer') {
-                return ['success' => false, 'message' => 'Akses ditolak. Hanya developer yang bisa login.'];
-            }
-            
-            // Check password (support both hash and md5)
-            $passwordValid = false;
+
+            // Password bcrypt; hash md5 lama masih diterima sekali lalu langsung di-upgrade ke bcrypt.
             if (password_verify($password, $user['password'])) {
-                $passwordValid = true;
-            } elseif ($user['password'] === md5($password)) {
-                $passwordValid = true;
+                // ok
+            } elseif (hash_equals((string) $user['password'], md5($password))) {
+                try {
+                    $this->pdo->prepare("UPDATE users SET password = ? WHERE id = ?")
+                        ->execute([password_hash($password, PASSWORD_BCRYPT), $user['id']]);
+                } catch (Exception $e) {
+                }
+            } else {
+                return $generic;
             }
-            
-            if (!$passwordValid) {
-                return ['success' => false, 'message' => 'Password salah'];
-            }
-            
-            // Set session
-            $_SESSION['dev_user_id'] = $user['id'];
-            $_SESSION['dev_username'] = $user['username'];
-            $_SESSION['dev_full_name'] = $user['full_name'];
-            $_SESSION['dev_logged_in'] = true;
-            $_SESSION['dev_login_time'] = time();
-            
-            // Update last login
-            try {
-                $this->pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
-            } catch (Exception $e) {
-                // Ignore if column doesn't exist
-            }
-            
-            // Log to audit_logs
-            try {
-                $stmt = $this->pdo->prepare("INSERT INTO audit_logs (user_id, action_type, table_name, record_id, ip_address, created_at) VALUES (?, 'login', 'users', ?, ?, NOW())");
-                $stmt->execute([$user['id'], $user['id'], $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1']);
-            } catch (Exception $e) {
-                // Ignore if table doesn't exist
-            }
-            
-            return ['success' => true, 'message' => 'Login berhasil', 'user' => $user];
+            return ['success' => true, 'message' => 'OK', 'user' => $user];
         } catch (PDOException $e) {
-            return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+            error_log('DevAuth verifyCredentials: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Terjadi kesalahan database.'];
         }
+    }
+
+    /** Buat sesi developer (setelah lolos verifikasi email, atau lewat tiket SSO ADF Store). */
+    public function completeLogin(array $user, $via = 'login') {
+        session_regenerate_id(true);
+        unset($_SESSION['dev_pending']);
+        $_SESSION['dev_user_id'] = $user['id'];
+        $_SESSION['dev_username'] = $user['username'];
+        $_SESSION['dev_full_name'] = $user['full_name'];
+        $_SESSION['dev_logged_in'] = true;
+        $_SESSION['dev_login_time'] = time();
+        $_SESSION['dev_last_activity_update'] = time();
+
+        try {
+            $this->pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
+        } catch (Exception $e) {
+            // Ignore if column doesn't exist
+        }
+        $this->logAction($via === 'sso' ? 'login_sso' : 'login', 'users', $user['id']);
+    }
+
+    /**
+     * Authenticate developer login (satu langkah; dipertahankan untuk kompatibilitas).
+     */
+    public function login($username, $password) {
+        $result = $this->verifyCredentials($username, $password);
+        if (!$result['success']) {
+            return $result;
+        }
+        $this->completeLogin($result['user']);
+        return ['success' => true, 'message' => 'Login berhasil', 'user' => $result['user']];
     }
     
     /**

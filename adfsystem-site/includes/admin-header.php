@@ -129,16 +129,20 @@ $adminInitial = strtoupper(substr((string) ($adminUser['username'] ?? 'A'), 0, 1
                     <?php adf_admin_nav('edit-payment.php', 'Payment Gateway', 'card'); ?>
                     <?php adf_admin_nav('users.php', 'Pengguna', 'user'); ?>
 
-                    <!-- Pintasan ke Developer Panel (adfsystem.online/developer), buka di tab baru -->
+                    <!-- Masuk Developer Panel lewat tiket sekali pakai (tanpa login ulang), buka di tab baru -->
                     <div class="admin-nav-group-title">Developer</div>
                     <?php foreach ([
                         ['index.php', 'Developer Panel', 'dashboard'],
                         ['businesses.php', 'Bisnis & Database', 'building'],
                         ['index.php?section=user-setup', 'User & Akses', 'users'],
                     ] as [$devFile, $devLabel, $devIcon]): ?>
-                        <a href="https://adfsystem.online/developer/<?php echo $devFile; ?>" target="_blank" rel="noopener" class="admin-nav-link">
-                            <?php echo adf_admin_icon($devIcon); ?><span><?php echo $devLabel; ?></span><?php echo adf_admin_icon('external', 12); ?>
-                        </a>
+                        <form method="post" action="developer-sso.php" target="_blank" style="margin:0;">
+                            <input type="hidden" name="csrf" value="<?php echo htmlspecialchars(adf_admin_csrf_token()); ?>">
+                            <input type="hidden" name="next" value="<?php echo htmlspecialchars($devFile); ?>">
+                            <button type="submit" class="admin-nav-link" style="width:100%;background:none;border:0;text-align:left;cursor:pointer;font:inherit;">
+                                <?php echo adf_admin_icon($devIcon); ?><span><?php echo $devLabel; ?></span><?php echo adf_admin_icon('external', 12); ?>
+                            </button>
+                        </form>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </nav>

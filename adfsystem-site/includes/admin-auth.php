@@ -7,10 +7,20 @@
 require_once __DIR__ . '/admin-config.php';
 require_once __DIR__ . '/users-store.php';
 
+const ADF_ADMIN_IDLE_TIMEOUT = 7200; // keluar otomatis setelah 2 jam tidak aktif
+
 function adf_admin_session_start(): void
 {
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_name('adf_admin_sess');
+        // Cookie sesi tidak bisa dibaca JavaScript, hanya lewat HTTPS, dan tidak dikirim dari situs lain.
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
         session_start();
     }
 }
@@ -18,13 +28,21 @@ function adf_admin_session_start(): void
 function adf_admin_is_logged_in(): bool
 {
     adf_admin_session_start();
-    return !empty($_SESSION['adf_admin']['id']);
+    // Hanya sesi yang sudah lolos verifikasi email (mfa) yang dianggap login.
+    if (empty($_SESSION['adf_admin']['id']) || empty($_SESSION['adf_admin']['mfa'])) {
+        return false;
+    }
+    if (time() - (int) ($_SESSION['adf_admin']['last_seen'] ?? 0) > ADF_ADMIN_IDLE_TIMEOUT) {
+        adf_admin_logout();
+        return false;
+    }
+    $_SESSION['adf_admin']['last_seen'] = time();
+    return true;
 }
 
 function adf_admin_require_login(): void
 {
-    adf_admin_session_start();
-    if (empty($_SESSION['adf_admin']['id'])) {
+    if (!adf_admin_is_logged_in()) {
         header('Location: login.php');
         exit;
     }
@@ -49,21 +67,33 @@ function adf_admin_current_user(): ?array
     return $_SESSION['adf_admin'] ?? null;
 }
 
-function adf_admin_attempt_login(string $usernameOrEmail, string $password): bool
+/** Langkah 1: cek username/email + password. Return user kalau benar (belum login). */
+function adf_admin_check_password(string $usernameOrEmail, string $password): ?array
 {
-    adf_admin_session_start();
     $user = adf_users_find_by_username($usernameOrEmail) ?? adf_users_find_by_email($usernameOrEmail);
     if ($user !== null && password_verify($password, $user['password_hash'])) {
-        session_regenerate_id(true);
-        $_SESSION['adf_admin'] = [
-            'id' => $user['id'],
-            'username' => $user['username'],
-            'email' => $user['email'],
-            'role' => $user['role'],
-        ];
-        return true;
+        return $user;
     }
-    return false;
+    // Tetap hitung hash walau user tidak ada, supaya waktu respons tidak membocorkan username yang terdaftar.
+    password_verify($password, '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG');
+    return null;
+}
+
+/** Langkah terakhir: buat sesi login (setelah lolos verifikasi email / perangkat tepercaya). */
+function adf_admin_complete_login(array $user): void
+{
+    adf_admin_session_start();
+    session_regenerate_id(true);
+    unset($_SESSION['adf_pending_login']);
+    $_SESSION['adf_admin'] = [
+        'id' => $user['id'],
+        'username' => $user['username'],
+        'email' => $user['email'],
+        'role' => $user['role'],
+        'mfa' => true,
+        'login_at' => time(),
+        'last_seen' => time(),
+    ];
 }
 
 function adf_admin_logout(): void

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/admin-auth.php';
+require_once __DIR__ . '/../includes/security.php';
 adf_admin_session_start();
 
 $token = trim($_GET['token'] ?? $_POST['token'] ?? '');
@@ -23,6 +24,7 @@ if ($resetUserId === null) {
             $newHash = password_hash($newPassword, PASSWORD_BCRYPT);
             if (adf_users_update_password($resetUserId, $newHash)) {
                 adf_admin_clear_reset_token();
+                adf_sec_revoke_devices((string) $resetUserId); // semua perangkat harus verifikasi email lagi
                 $saved = true;
             } else {
                 $error = 'Gagal menyimpan password baru. Periksa izin tulis folder data/.';
