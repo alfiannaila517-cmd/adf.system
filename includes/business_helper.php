@@ -164,7 +164,7 @@ function autoSyncBusinessConfigs()
  * Get the set of local database names (adf_ prefix) for businesses still
  * active in the master `businesses` table. Used to prune config files left
  * behind after a business was deleted via the developer panel.
- * @return array|null Set of local db names (keys), or null if the check couldn't run
+ * @return array|null [db name => business name] (lokal adf_ & hosting), or null if the check couldn't run
  */
 function getActiveBusinessLocalDatabases()
 {
@@ -176,16 +176,18 @@ function getActiveBusinessLocalDatabases()
             DB_PASS,
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
         );
-        $dbNames = $pdo->query("SELECT database_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
+        $rows = $pdo->query("SELECT database_name, business_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
 
+        // Kunci = nama database (lokal adf_ dan nama hosting), nilai = nama bisnis di Developer → Bisnis.
         $localNames = [];
-        foreach ($dbNames as $dbName) {
+        foreach ($rows as $row) {
+            $dbName = $row['database_name'];
             $localDbName = $dbName;
             if (defined('DB_USER') && strpos($dbName, explode('_', DB_USER)[0] . '_') === 0) {
                 $localDbName = 'adf_' . substr($dbName, strlen(explode('_', DB_USER)[0] . '_'));
             }
-            $localNames[$localDbName] = true;
-            $localNames[$dbName] = true; // also keep the raw hosting name, just in case
+            $localNames[$localDbName] = (string) $row['business_name'];
+            $localNames[$dbName] = (string) $row['business_name']; // also keep the raw hosting name, just in case
         }
         return $localNames;
     } catch (Exception $e) {
@@ -221,6 +223,11 @@ function getAvailableBusinesses()
                 if ($activeDbs !== null && !empty($config['database']) && !isset($activeDbs[$config['database']])) {
                     @unlink($businessesPath . $file);
                     continue;
+                }
+
+                // Nama mengikuti Developer → Bisnis (file config bisa menyimpan nama lama, mis. "... (Copy)").
+                if ($activeDbs !== null && !empty($activeDbs[$config['database'] ?? ''])) {
+                    $config['name'] = $activeDbs[$config['database']];
                 }
 
                 // Add ID to config
