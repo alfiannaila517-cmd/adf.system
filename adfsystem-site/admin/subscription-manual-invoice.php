@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $notifyEmail = trim((string) ($client['notify_email'] ?? ''));
+            $mailStatus = 'none'; // tidak ada email notifikasi di data klien
             if ($notifyEmail !== '' && filter_var($notifyEmail, FILTER_VALIDATE_EMAIL)) {
                 $clientName = (string) ($client['client_name'] ?? $clientKey);
                 $formattedAmount = 'Rp ' . number_format($amount, 0, ',', '.');
@@ -78,12 +79,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . '<p style="margin:20px 0 0;color:#64748b;font-size:12px;">Salam,<br>' . htmlspecialchars(SITE_NAME) . '</p>'
                     . '</div></div>';
                 $sentOk = adf_smtp_send_html($notifyEmail, $subject, $htmlBody, $textBody);
+                $mailStatus = $sentOk ? 'ok' : 'fail';
                 if (!$sentOk) {
                     error_log('subscription-manual-invoice mail failed: ' . adf_mail_last_error());
+                    $_SESSION['adf_manual_mail_error'] = adf_mail_last_error();
                 }
             }
 
-            header('Location: subscription-manual-invoice.php?client=' . urlencode($clientKey) . '&saved=1');
+            header('Location: subscription-manual-invoice.php?client=' . urlencode($clientKey) . '&saved=1&mail=' . $mailStatus);
             exit;
         }
     }
@@ -113,7 +116,16 @@ require __DIR__ . '/../includes/admin-header.php';
             <div class="admin-alert admin-alert-error"><?php echo htmlspecialchars($error); ?></div>
         <?php endif; ?>
         <?php if ($saved): ?>
-            <div class="admin-alert admin-alert-success">Tagihan manual berhasil dibuat.</div>
+            <div class="admin-alert admin-alert-success">Tagihan manual berhasil dibuat.
+                <?php if (($_GET['mail'] ?? '') === 'ok'): ?>
+                    Email tagihan <strong>sudah terkirim</strong> ke <?php echo htmlspecialchars((string) ($client['notify_email'] ?? '')); ?>.
+                <?php endif; ?>
+            </div>
+            <?php if (($_GET['mail'] ?? '') === 'fail'): ?>
+                <div class="admin-alert admin-alert-error">Email tagihan GAGAL dikirim ke <?php echo htmlspecialchars((string) ($client['notify_email'] ?? '')); ?>: <?php echo htmlspecialchars((string) ($_SESSION['adf_manual_mail_error'] ?? 'SMTP error')); unset($_SESSION['adf_manual_mail_error']); ?>. Tagihan tetap muncul di sistem klien.</div>
+            <?php elseif (($_GET['mail'] ?? '') === 'none'): ?>
+                <div class="admin-alert admin-alert-error">Email tagihan tidak dikirim karena <strong>Email Notifikasi</strong> klien ini kosong. Isi di Klien Langganan → Edit.</div>
+            <?php endif; ?>
         <?php endif; ?>
 
         <form method="post" class="admin-form">

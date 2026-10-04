@@ -548,6 +548,11 @@ function adfsub_all_invoices(PDO $pdo, int $limit = 24): array
 /** Push notif ke owner/admin/developer bisnis aktif. Tidak pernah membuat halaman gagal. */
 function adfsub_push(PDO $pdo, string $title, string $body): void
 {
+    // Saat penagihan otomatis lintas bisnis (cron), push tidak dikirim: helper push memakai
+    // bisnis aktif di sesi, jadi bisa salah alamat. Email tetap terkirim.
+    if (!empty($GLOBALS['adfsub_no_push'])) {
+        return;
+    }
     try {
         require_once __DIR__ . '/PushNotificationHelper.php';
         (new PushNotificationHelper())->sendToAdmins($title, $body, [

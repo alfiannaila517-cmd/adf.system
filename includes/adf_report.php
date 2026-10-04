@@ -20,22 +20,100 @@ function adf_report_state_path(): string
     return dirname(__DIR__, 2) . '/adf-tg-report-state.json'; // folder home (di luar public_html)
 }
 
-/** Cadangan tanpa cron: dipanggil dari header halaman ADF; murah (hanya cek file) kalau sudah terkirim. */
+/**
+ * Cadangan tanpa cron: dipanggil dari header halaman ADF. Hanya membaca satu file; kalau ada pekerjaan
+ * (laporan / penagihan otomatis), dikerjakan SETELAH halaman terkirim ke browser supaya tidak lambat.
+ */
 function adf_report_maybe_run(): void
 {
     try {
         $hour = (int) date('G');
         $today = date('Y-m-d');
         $state = is_file(adf_report_state_path()) ? (json_decode((string) file_get_contents(adf_report_state_path()), true) ?: []) : [];
+        $jobs = [];
+        if ((int) ($state['billing_at'] ?? 0) < time() - 1800) {
+            $jobs[] = 'billing';
+        }
         if ($hour >= ADF_REPORT_DUE_HOUR && ($state['due'] ?? '') !== $today) {
-            adf_report_run('due');
+            $jobs[] = 'due';
         }
         if ($hour >= ADF_REPORT_SUMMARY_HOUR && ($state['summary'] ?? '') !== $today) {
-            adf_report_run('summary');
+            $jobs[] = 'summary';
         }
+        if (!$jobs) {
+            return;
+        }
+        register_shutdown_function(static function () use ($jobs) {
+            // Lepas sesi & kirim halaman ke browser dulu, baru kerjakan di belakang.
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
+            if (function_exists('litespeed_finish_request')) {
+                litespeed_finish_request();
+            } elseif (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            }
+            ignore_user_abort(true);
+            @set_time_limit(120);
+            foreach ($jobs as $job) {
+                try {
+                    $job === 'billing' ? adf_billing_sweep() : adf_report_run($job);
+                } catch (Throwable $e) {
+                    error_log('adf background job ' . $job . ': ' . $e->getMessage());
+                }
+            }
+        });
     } catch (Throwable $e) {
         error_log('adf_report_maybe_run: ' . $e->getMessage());
     }
+}
+
+/**
+ * Penagihan otomatis untuk SEMUA bisnis yang terhubung ke ADF Store, tanpa perlu ada yang membuka
+ * sistem bisnis itu: sinkron tarif/kunci, terbitkan tagihan bulanan, kirim email tagihan baru,
+ * cek pembayaran Pakasir, kirim email lunas. Maks. sekali per 25 menit (dikunci file).
+ */
+function adf_billing_sweep(bool $force = false): string
+{
+    $fh = @fopen(adf_report_state_path(), 'c+');
+    if (!$fh || !flock($fh, LOCK_EX | LOCK_NB)) {
+        return 'sedang dijalankan proses lain';
+    }
+    $state = json_decode((string) stream_get_contents($fh), true) ?: [];
+    if (!$force && (int) ($state['billing_at'] ?? 0) > time() - 1500) {
+        flock($fh, LOCK_UN);
+        fclose($fh);
+        return 'baru saja dijalankan';
+    }
+    $state['billing_at'] = time();
+    ftruncate($fh, 0);
+    rewind($fh);
+    fwrite($fh, json_encode($state));
+    flock($fh, LOCK_UN);
+    fclose($fh);
+
+    require_once __DIR__ . '/subscription_client.php';
+    $GLOBALS['adfsub_no_push'] = true;
+    $done = [];
+    try {
+        $master = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+        foreach ($master->query("SELECT * FROM businesses WHERE is_active = 1")->fetchAll() as $biz) {
+            $bizPdo = adfstore_biz_pdo($biz);
+            if (!$bizPdo || adfstore_biz_setting($bizPdo, 'subscription_client_key') === '') {
+                continue;
+            }
+            $_SESSION['adfsub_reconcile_at'] = 0; // izinkan cek pembayaran untuk tiap bisnis
+            adfsub_tick($bizPdo);
+            $done[] = $biz['business_name'];
+        }
+    } catch (Throwable $e) {
+        error_log('adf_billing_sweep: ' . $e->getMessage());
+    }
+    $GLOBALS['adfsub_no_push'] = false;
+    return 'diproses: ' . ($done ? implode(', ', $done) : '-');
 }
 
 /**
