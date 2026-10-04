@@ -73,6 +73,7 @@ function adf_tg_send(string $html): bool
         'disable_web_page_preview' => 'true',
     ]);
     if (empty($res['ok'])) {
+        $GLOBALS['adf_tg_last_error'] = (string) ($res['description'] ?? 'tidak bisa menghubungi Telegram');
         error_log('telegram send failed: ' . substr(json_encode($res), 0, 200));
         return false;
     }

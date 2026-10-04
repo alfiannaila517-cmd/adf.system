@@ -58,8 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = 'Chat ID ditemukan: ' . $found['id'] . ($who !== '' ? ' (' . $who . ')' : '') . '. Klik "Kirim Tes" untuk mencoba.';
             }
         } elseif ($action === 'test' && $cfg) {
+            $botName = adf_tg_api($cfg['bot_token'], 'getMe', [], 4)['result']['username'] ?? 'bot';
             $ok = adf_tg_send("✅ <b>Notifikasi ADF Store aktif</b>\nAnda akan menerima pesan di sini setiap ada transaksi masuk.\n🕒 " . date('d M Y H:i'));
-            $ok ? $msg = 'Pesan tes terkirim. Cek Telegram Anda.' : $err = 'Gagal mengirim. Pastikan Chat ID benar dan Anda sudah menekan /start di bot.';
+            $ok ? $msg = 'Pesan tes terkirim. Cek Telegram Anda.' : $err = (stripos($GLOBALS['adf_tg_last_error'] ?? '', 'chat not found') !== false || stripos($GLOBALS['adf_tg_last_error'] ?? '', 'blocked') !== false || stripos($GLOBALS['adf_tg_last_error'] ?? '', 'initiate') !== false)
+                ? 'Telegram: akun dengan Chat ID ini belum menekan START di bot Anda (atau memblokir bot). Buka t.me/' . ($botName ?? 'bot') . ' dari HP yang sama → tekan START → klik Kirim Tes lagi.'
+                : 'Gagal mengirim. Telegram: ' . ($GLOBALS['adf_tg_last_error'] ?? '-');
         } elseif ($action === 'disable') {
             @unlink(adf_tg_config_path());
             $msg = 'Notifikasi Telegram dimatikan.';
