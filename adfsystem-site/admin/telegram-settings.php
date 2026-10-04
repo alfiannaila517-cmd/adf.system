@@ -17,21 +17,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $action = $_POST['action'] ?? 'save';
         if ($action === 'save') {
-            $token = trim((string) ($_POST['bot_token'] ?? '')) ?: ($cfg['bot_token'] ?? '');
-            $chatId = trim((string) ($_POST['chat_id'] ?? ''));
+            $token = trim((string) ($_POST['tg_bot_key'] ?? '')) ?: ($cfg['bot_token'] ?? '');
+            $chatId = preg_replace('/\s+/', '', (string) ($_POST['tg_chat'] ?? ''));
             $me = adf_tg_api($token, 'getMe');
             if (empty($me['ok'])) {
                 $err = 'Bot token tidak valid. Salin ulang dari @BotFather.';
             } elseif ($chatId !== '' && !preg_match('/^-?\d{5,20}$/', $chatId)) {
-                $err = 'Chat ID harus berupa angka.';
+                $err = 'Chat ID harus berupa ANGKA (mis. 123456789), bukan email. Kosongkan saja lalu pakai tombol Deteksi Chat ID.';
             } elseif (!adf_tg_save_config($token, $chatId)) {
                 $err = 'Gagal menyimpan. Folder home hosting tidak bisa ditulis.';
             } else {
                 $msg = 'Tersimpan. Bot: @' . ($me['result']['username'] ?? '?') . ($chatId === '' ? ' — sekarang kirim /start ke bot lalu klik "Deteksi Chat ID".' : '');
             }
         } elseif ($action === 'detect' && $cfg) {
+            $botNameNow = adf_tg_api($cfg['bot_token'], 'getMe', [], 4)['result']['username'] ?? 'bot';
             // Ambil pesan terakhir yang dikirim ke bot (setelah Anda mengirim /start).
             $upd = adf_tg_api($cfg['bot_token'], 'getUpdates', ['limit' => 20, 'timeout' => 0]);
+            if (!empty($upd['description']) && stripos($upd['description'], 'webhook') !== false) {
+                // Bot masih punya webhook lama → getUpdates ditolak. Hapus webhook lalu coba lagi.
+                adf_tg_api($cfg['bot_token'], 'deleteWebhook');
+                $upd = adf_tg_api($cfg['bot_token'], 'getUpdates', ['limit' => 20, 'timeout' => 0]);
+            }
             $found = null;
             foreach (array_reverse($upd['result'] ?? []) as $u) {
                 $chat = $u['message']['chat'] ?? $u['my_chat_member']['chat'] ?? null;
@@ -40,8 +46,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     break;
                 }
             }
-            if (!$found) {
-                $err = 'Belum ada pesan. Buka bot Anda di Telegram, kirim /start, lalu klik Deteksi lagi.';
+            if ($upd === null) {
+                $err = 'Server tidak bisa menghubungi Telegram (koneksi diblokir / timeout). Isi Chat ID manual lalu Simpan.';
+            } elseif (empty($upd['ok'])) {
+                $err = 'Telegram menolak: ' . ($upd['description'] ?? 'tidak diketahui') . '. Isi Chat ID manual lalu Simpan.';
+            } elseif (!$found) {
+                $err = 'Belum ada pesan untuk bot ini. Buka @' . ($botNameNow ?? 'bot') . ' → kirim /start (atau ketik pesan apa saja) → klik Deteksi lagi. Atau isi Chat ID manual.';
             } else {
                 adf_tg_save_config($cfg['bot_token'], (string) $found['id']);
                 $who = trim(($found['first_name'] ?? '') . ' ' . ($found['last_name'] ?? '')) ?: ($found['title'] ?? $found['username'] ?? '');
@@ -86,14 +96,14 @@ require __DIR__ . '/../includes/admin-header.php';
         <?php endif; ?>
     </p>
 
-    <form method="post" class="admin-form">
+    <form method="post" class="admin-form" autocomplete="off">
         <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
         <input type="hidden" name="action" value="save">
         <label>Bot Token (dari @BotFather) <?php echo $cfg ? '<small>(kosongkan untuk tetap memakai yang lama)</small>' : ''; ?>
-            <input type="password" name="bot_token" autocomplete="off" <?php echo $cfg ? '' : 'required'; ?> placeholder="<?php echo $cfg ? '•••••••• tersimpan' : '1234567890:AA…'; ?>">
+            <input type="password" name="tg_bot_key" autocomplete="new-password" data-lpignore="true" <?php echo $cfg ? '' : 'required'; ?> placeholder="<?php echo $cfg ? '•••••••• tersimpan' : '1234567890:AA…'; ?>">
         </label>
         <label>Chat ID <small>(boleh dikosongkan, pakai tombol Deteksi)</small>
-            <input type="text" name="chat_id" value="<?php echo htmlspecialchars($cfg['chat_id'] ?? ''); ?>" placeholder="123456789">
+            <input type="text" name="tg_chat" inputmode="numeric" autocomplete="off" data-lpignore="true" value="<?php echo htmlspecialchars($cfg['chat_id'] ?? ''); ?>" placeholder="angka, mis. 123456789">
         </label>
         <div class="admin-form-actions">
             <button type="submit" class="btn btn-primary">Simpan</button>
