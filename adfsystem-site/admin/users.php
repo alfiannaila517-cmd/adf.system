@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/admin-auth.php';
+require_once __DIR__ . '/../includes/security.php';
 adf_admin_require_role('admin');
 
 $currentUser = adf_admin_current_user();
@@ -46,6 +47,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $saved = 'Email berhasil diubah.';
             } else {
                 $error = 'Gagal mengubah email (mungkin sudah dipakai user lain).';
+            }
+        } elseif ($action === 'password') {
+            // Ganti password user (termasuk user lain); wajib konfirmasi password admin yang sedang login.
+            $id = (string) ($_POST['id'] ?? '');
+            $newPassword = (string) ($_POST['new_password'] ?? '');
+            $me = adf_users_find_by_id((string) $currentUser['id']);
+            if (strlen($newPassword) < 8) {
+                $error = 'Password baru minimal 8 karakter.';
+            } elseif (!$me || !password_verify((string) ($_POST['confirm_password'] ?? ''), $me['password_hash'])) {
+                $error = 'Password Anda salah. Password user tidak diubah.';
+            } elseif (adf_users_update_password($id, password_hash($newPassword, PASSWORD_BCRYPT))) {
+                adf_sec_revoke_devices($id); // perangkat user itu wajib verifikasi email lagi
+                $saved = 'Password berhasil diganti. Berikan password baru ke user tersebut lewat jalur yang aman.';
+            } else {
+                $error = 'Gagal mengganti password.';
             }
         } elseif ($action === 'delete') {
             $id = (string) ($_POST['id'] ?? '');
@@ -109,6 +125,28 @@ require __DIR__ . '/../includes/admin-header.php';
                                 <button type="submit" class="btn btn-primary btn-sm">Simpan Email</button>
                             </form>
                         </details>
+                        <details style="display:inline-block;vertical-align:middle;margin-right:6px;">
+                            <summary class="btn btn-outline btn-sm" style="list-style:none;cursor:pointer;">Ganti Password</summary>
+                            <form method="post" class="admin-form" style="position:absolute;z-index:5;margin-top:6px;padding:12px;background:#151821;border:1px solid rgba(255,255,255,.12);border-radius:10px;width:300px;">
+                                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                                <input type="hidden" name="action" value="password">
+                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($u['id']); ?>">
+                                <label>Password baru untuk <b><?php echo htmlspecialchars($u['username']); ?></b>
+                                    <span style="display:flex;gap:4px;">
+                                        <input type="password" name="new_password" required minlength="8" autocomplete="new-password" class="pw-new" style="flex:1;">
+                                        <button type="button" class="btn btn-outline btn-sm" title="Lihat / sembunyikan password" onclick="var i=this.parentNode.querySelector('.pw-new');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'Lihat':'Tutup';">Lihat</button>
+                                    </span>
+                                </label>
+                                <span style="display:flex;gap:6px;margin:-4px 0 8px;">
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="adfGenPw(this)">Buat Acak</button>
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="var i=this.closest('form').querySelector('.pw-new');navigator.clipboard.writeText(i.value);this.textContent='Tersalin';setTimeout(()=>this.textContent='Salin',1500);">Salin</button>
+                                </span>
+                                <label>Password Anda (konfirmasi)
+                                    <input type="password" name="confirm_password" required autocomplete="current-password">
+                                </label>
+                                <button type="submit" class="btn btn-primary btn-sm">Simpan Password</button>
+                            </form>
+                        </details>
                         <?php if ((string) $u['id'] !== (string) $currentUser['id']): ?>
                             <form method="post" style="display:inline;" onsubmit="return confirm('Hapus user ini?');">
                                 <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
@@ -147,4 +185,16 @@ require __DIR__ . '/../includes/admin-header.php';
         <button type="submit" class="btn btn-primary">Tambah User</button>
     </form>
 </div>
+<script>
+// Password acak 14 karakter (huruf besar/kecil, angka, simbol) dari generator kriptografis browser
+function adfGenPw(btn) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*?';
+    const buf = new Uint32Array(14);
+    crypto.getRandomValues(buf);
+    const pw = Array.from(buf, n => chars[n % chars.length]).join('');
+    const input = btn.closest('form').querySelector('.pw-new');
+    input.value = pw;
+    input.type = 'text';
+}
+</script>
 <?php require __DIR__ . '/../includes/admin-footer.php'; ?>
