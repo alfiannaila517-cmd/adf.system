@@ -127,6 +127,24 @@ function adf_users_update_password(string $id, string $newHash): bool
     return adf_users_save($users);
 }
 
+/** Ubah email user (email dipakai untuk kode login, reset password, dan Login Google). Harus unik. */
+function adf_users_update_email(string $id, string $email): bool
+{
+    $users = adf_users_load();
+    $found = false;
+    foreach ($users as &$user) {
+        if ((string) $user['id'] !== $id && strcasecmp((string) $user['email'], $email) === 0) {
+            return false;
+        }
+        if ((string) $user['id'] === $id) {
+            $user['email'] = $email;
+            $found = true;
+        }
+    }
+    unset($user);
+    return $found && adf_users_save($users);
+}
+
 /**
  * Deletes a user. Refuses to delete the last remaining admin to avoid lockout.
  */

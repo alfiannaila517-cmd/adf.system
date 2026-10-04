@@ -30,6 +30,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'Username atau email sudah dipakai user lain.';
                 }
             }
+        } elseif ($action === 'email') {
+            // Ganti email wajib konfirmasi password admin yang sedang login.
+            $id = (string) ($_POST['id'] ?? '');
+            $email = trim((string) ($_POST['email'] ?? ''));
+            $me = adf_users_find_by_id((string) $currentUser['id']);
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $error = 'Email tidak valid.';
+            } elseif (!$me || !password_verify((string) ($_POST['confirm_password'] ?? ''), $me['password_hash'])) {
+                $error = 'Password Anda salah. Email tidak diubah.';
+            } elseif (adf_users_update_email($id, $email)) {
+                if ($id === (string) $currentUser['id']) {
+                    $_SESSION['adf_admin']['email'] = $email;
+                }
+                $saved = 'Email berhasil diubah.';
+            } else {
+                $error = 'Gagal mengubah email (mungkin sudah dipakai user lain).';
+            }
         } elseif ($action === 'delete') {
             $id = (string) ($_POST['id'] ?? '');
             if ($id === (string) $currentUser['id']) {
@@ -76,7 +93,22 @@ require __DIR__ . '/../includes/admin-header.php';
                     <td><?php echo htmlspecialchars($u['email']); ?></td>
                     <td><?php echo htmlspecialchars($u['role']); ?></td>
                     <td class="payment-date"><?php echo !empty($u['created_at']) ? date('d M Y', strtotime($u['created_at'])) : '-'; ?></td>
-                    <td>
+                    <td style="white-space:nowrap;">
+                        <details style="display:inline-block;vertical-align:middle;margin-right:6px;">
+                            <summary class="btn btn-outline btn-sm" style="list-style:none;cursor:pointer;">Ubah Email</summary>
+                            <form method="post" class="admin-form" style="position:absolute;z-index:5;margin-top:6px;padding:12px;background:#151821;border:1px solid rgba(255,255,255,.12);border-radius:10px;width:280px;">
+                                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
+                                <input type="hidden" name="action" value="email">
+                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($u['id']); ?>">
+                                <label>Email baru
+                                    <input type="email" name="email" required value="<?php echo htmlspecialchars($u['email']); ?>">
+                                </label>
+                                <label>Password Anda (konfirmasi)
+                                    <input type="password" name="confirm_password" required autocomplete="current-password">
+                                </label>
+                                <button type="submit" class="btn btn-primary btn-sm">Simpan Email</button>
+                            </form>
+                        </details>
                         <?php if ((string) $u['id'] !== (string) $currentUser['id']): ?>
                             <form method="post" style="display:inline;" onsubmit="return confirm('Hapus user ini?');">
                                 <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
