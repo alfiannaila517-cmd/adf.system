@@ -523,8 +523,8 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             <h3 class="adf-confirm-title" id="adfConfirmTitle">Switch Business?</h3>
             <p class="adf-confirm-message" id="adfConfirmMessage">Current page will reload.</p>
             <div class="adf-confirm-actions">
-                <button type="button" class="adf-confirm-btn adf-confirm-cancel" id="adfConfirmCancelBtn">Batal <kbd>Esc</kbd></button>
-                <button type="button" class="adf-confirm-btn adf-confirm-ok" id="adfConfirmOkBtn">Ya, Ganti <kbd>Enter ↵</kbd></button>
+                <button type="button" class="adf-confirm-btn adf-confirm-cancel" id="adfConfirmCancelBtn">Batal</button>
+                <button type="button" class="adf-confirm-btn adf-confirm-ok" id="adfConfirmOkBtn">Ya, Ganti</button>
             </div>
         </div>
     </div>
@@ -688,24 +688,10 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             transform: scale(0.97);
         }
 
-        .adf-confirm-btn kbd {
-            font-family: inherit;
-            font-size: 0.62rem;
-            font-weight: 600;
-            line-height: 1;
-            padding: 3px 6px;
-            border-radius: 6px;
-            opacity: 0.8;
-        }
-
         .adf-confirm-cancel {
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             color: var(--text-primary);
-        }
-
-        .adf-confirm-cancel kbd {
-            background: rgba(148, 163, 184, 0.22);
         }
 
         body[data-theme="light"] .adf-confirm-cancel {
@@ -728,10 +714,6 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             box-shadow: 0 12px 26px -12px rgba(37, 99, 235, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
 
-        .adf-confirm-ok kbd {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
         .adf-confirm-ok:hover {
             box-shadow: 0 16px 30px -12px rgba(37, 99, 235, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.35);
         }
@@ -741,12 +723,6 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             outline-offset: 2px;
         }
 
-        /* Di HP (tanpa keyboard) petunjuk tombol disembunyikan */
-        @media (hover: none) {
-            .adf-confirm-btn kbd {
-                display: none;
-            }
-        }
     </style>
     <script>
         // opts.logo (URL logo perusahaan) / opts.fallbackText (inisial nama bisnis bila logo belum ada): ganti ikon default.
