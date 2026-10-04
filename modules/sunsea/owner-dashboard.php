@@ -83,6 +83,7 @@ $monthBalance = $monthIncome - $monthExpense;
 $userName = $currentUser['full_name'] ?? $currentUser['username'] ?? 'Owner';
 
 $companyLogoPath = sunseaSetting($pdo, 'company_logo', '');
+$ownerCompanyName = sunseaSetting($pdo, 'company_name', 'Karimunjawa Explore');
 $companyLogoSrc  = $companyLogoPath ? sunseaAssetUrl($companyLogoPath) : '';
 
 // Pie 1: status booking (confirmed vs pending) - sudah tidak dipakai, diganti grafik Total Pax Bulan Ini
@@ -114,7 +115,7 @@ $paxDayTotalsJson = json_encode($paxDayTotals);
 
 <head>
     <meta charset="UTF-8">
-    <title>Owner Dashboard - Karimunjawa Explore</title>
+    <title>Owner Dashboard - <?php echo htmlspecialchars($ownerCompanyName); ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0369A1">
     <link rel="manifest" href="owner-manifest.php">
@@ -574,7 +575,7 @@ $paxDayTotalsJson = json_encode($paxDayTotals);
                         🌊
                     <?php endif; ?>
                 </div>
-                Karimunjawa Explore
+                <?php echo htmlspecialchars($ownerCompanyName); ?>
             </div>
             <div class="ob-user">
                 <div class="ob-avatar"><?php echo strtoupper(substr($userName, 0, 1)); ?></div>

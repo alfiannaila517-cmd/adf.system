@@ -1188,9 +1188,9 @@ if ($action === 'print' && $invoice):
             <div class="thanks-note">Terima kasih atas kepercayaan Anda memilih <?php echo htmlspecialchars($companyName); ?></div>
 
             <div class="footer-note">
-                <div>Dokumen ini merupakan bukti pembayaran yang sah dan dicetak melalui sistem Karimunjawa Explore. Jika Anda mengalami kendala atau membutuhkan bantuan, silakan hubungi:</div>
+                <div>Dokumen ini merupakan bukti pembayaran yang sah dan dicetak melalui sistem <?php echo htmlspecialchars($companyName); ?>. Jika Anda mengalami kendala atau membutuhkan bantuan, silakan hubungi:</div>
                 <div class="footer-contact">
-                    <div class="footer-contact-name">Karimunjawa Explore</div>
+                    <div class="footer-contact-name"><?php echo htmlspecialchars($companyName); ?></div>
                     <?php if ($companyPhone): ?><div>&#9742; <?php echo htmlspecialchars($companyPhone); ?></div><?php endif; ?>
                     <?php if ($companyEmail): ?><div>&#9993; <?php echo htmlspecialchars($companyEmail); ?></div><?php endif; ?>
                 </div>

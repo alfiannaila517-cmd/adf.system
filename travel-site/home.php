@@ -345,7 +345,7 @@ require __DIR__ . '/../includes/website-header.php';
         <div class="we-container">
             <div class="we-section-title">
                 <h2>Galeri Tamu Kami</h2>
-                <p>Galeri tamu yang sudah dilayani Karimunjawa Explore — momen bahagia mereka menjelajah Karimunjawa bersama kami</p>
+                <p>Galeri tamu yang sudah dilayani <?php echo htmlspecialchars($weCompanyName); ?> — momen bahagia mereka berlibur bersama kami</p>
             </div>
 
             <div class="we-carousel we-carousel-gallery" data-autoplay="<?php echo $weGalleryIntervalMs; ?>">

@@ -68,7 +68,7 @@ if (isset($pdo)) {
         foreach ($__s->fetchAll() as $__row) {
             if ($__row['setting_key'] === 'company_logo' && $__row['setting_value']) {
                 $__proto = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-                $_sidebarLogoSrc = $__proto . '://' . $_SERVER['HTTP_HOST'] . '/' . ltrim($__row['setting_value'], '/');
+                $_sidebarLogoSrc = rtrim(BASE_URL, '/') . '/' . ltrim($__row['setting_value'], '/');
             }
             if ($__row['setting_key'] === 'company_name' && $__row['setting_value']) {
                 $_sidebarCompanyName = $__row['setting_value'];
@@ -124,7 +124,7 @@ if (empty($sunseaNavItemsVisible)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle ?? 'Karimunjawa Explore'); ?> — Karimunjawa Explore</title>
+    <title><?php echo htmlspecialchars($pageTitle ?? $_sidebarCompanyName); ?> — <?php echo htmlspecialchars($_sidebarCompanyName); ?></title>
     <?php if (isset($pdo)):
         $__systemFavicon = sunseaSetting($pdo, 'system_favicon', '');
         if ($__systemFavicon): ?>
@@ -1200,7 +1200,7 @@ if (empty($sunseaNavItemsVisible)) {
                     <div class="ss-brand-icon">🌊</div>
                     <div>
                         <div class="ss-brand-name"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
-                        <div class="ss-brand-sub">Karimunjawa Explore</div>
+                        <div class="ss-brand-sub"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
                     </div>
                 </a>
             <?php endif; ?>
@@ -1301,7 +1301,7 @@ if (empty($sunseaNavItemsVisible)) {
                 <div class="ss-user-avatar"><?php echo strtoupper(substr($userName, 0, 1)); ?></div>
                 <div>
                     <div class="ss-user-name"><?php echo htmlspecialchars($userName); ?></div>
-                    <div class="ss-user-role">Karimunjawa Explore</div>
+                    <div class="ss-user-role"><?php echo htmlspecialchars($_sidebarCompanyName); ?></div>
                 </div>
             </div>
             <a href="<?php echo BASE_URL; ?>/logout.php" class="ss-logout-btn">
@@ -1319,11 +1319,11 @@ if (empty($sunseaNavItemsVisible)) {
                     id="sidebarToggle">
                     <i data-feather="menu" style="width:20px;height:20px;"></i>
                 </button>
-                <span class="ss-page-title"><?php echo htmlspecialchars($pageTitle ?? 'Karimunjawa Explore'); ?></span>
+                <span class="ss-page-title"><?php echo htmlspecialchars($pageTitle ?? $_sidebarCompanyName); ?></span>
             </div>
             <div class="ss-topbar-actions">
                 <span class="ss-badge ss-badge-ocean" id="ssLiveClock">🕒 --:--:--</span>
-                <span class="ss-badge ss-badge-ocean">🌊 Karimunjawa Explore</span>
+                <span class="ss-badge ss-badge-ocean">🌊 <?php echo htmlspecialchars($_sidebarCompanyName); ?></span>
                 <a href="<?php echo BASE_URL; ?>/logout.php" style="color:var(--ss-muted);text-decoration:none;font-size:12px;">
                     <i data-feather="log-out" style="width:15px;height:15px;vertical-align:middle;"></i>
                 </a>
