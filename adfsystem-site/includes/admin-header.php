@@ -74,7 +74,8 @@ $adminInitial = strtoupper(substr((string) ($adminUser['username'] ?? 'A'), 0, 1
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <?php require __DIR__ . '/pwa-head.php'; ?>
     <meta name="robots" content="noindex, nofollow">
     <title><?php echo htmlspecialchars($adminPageTitle); ?> — Admin ADF System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">

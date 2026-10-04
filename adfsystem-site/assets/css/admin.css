@@ -1035,3 +1035,87 @@
 .adm-table-card::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* =====================================================================
+   HP / iPhone (≤ 640px): rapat, ringkas, aman untuk notch & home bar
+   ===================================================================== */
+/* Area aman iPhone saat dibuka sebagai aplikasi (layar penuh) */
+.admin-topbar {
+  padding-top: env(safe-area-inset-top);
+  height: calc(56px + env(safe-area-inset-top));
+}
+.admin-sidebar {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.admin-main {
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 640px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body.admin-body { font-size: 14px; }
+
+  .admin-main { padding: 14px 12px calc(32px + env(safe-area-inset-bottom)) !important; }
+  .admin-container, .admin-container-wide { padding: 0 !important; max-width: 100% !important; }
+  .admin-main h1 { font-size: 19px; margin-bottom: 4px; }
+  .admin-lead { font-size: 12.5px !important; line-height: 1.5; }
+  .admin-subheading { font-size: 14px; margin-top: 18px; }
+  .admin-topbar { gap: 8px; }
+  .admin-breadcrumb, .admin-topbar-crumb { font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Kartu ringkasan: 2 kolom, lebih pendek */
+  .payment-summary-grid, .adm-stats { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .payment-summary-card, .adm-stat { padding: 10px 12px !important; }
+  .payment-summary-card strong, .adm-stat-value { font-size: 16px !important; }
+  .payment-summary-card small, .adm-stat-sub { font-size: 11px !important; }
+
+  /* Tombol & input: ukuran jari, font ≥16px agar iPhone tidak auto-zoom saat mengetik */
+  .admin-form input, .admin-form select, .admin-form textarea,
+  .admin-body input[type="text"], .admin-body input[type="email"], .admin-body input[type="password"],
+  .admin-body input[type="number"], .admin-body input[type="date"], .admin-body select, .admin-body textarea {
+    font-size: 16px !important;
+  }
+  .admin-body .btn { min-height: 38px; }
+
+  /* Tabel → kartu (label di kiri, nilai di kanan). data-label diisi otomatis oleh admin-footer.php */
+  table.m-cards { border: 0 !important; background: none !important; }
+  table.m-cards thead { display: none; }
+  table.m-cards, table.m-cards tbody, table.m-cards tr, table.m-cards td { display: block; width: 100%; }
+  table.m-cards tr {
+    background: var(--adm-surface, #121722);
+    border: 1px solid var(--adm-border, rgba(255,255,255,.08));
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+  /* Label di kolom kiri, isi (teks + keterangan kecil) bertumpuk rata kanan di kolom kanan */
+  table.m-cards td {
+    display: grid; grid-template-columns: minmax(84px, auto) minmax(0, 1fr); column-gap: 12px; align-items: center;
+    padding: 5px 0 !important; border: 0 !important; text-align: right; white-space: normal !important;
+    min-height: 26px; overflow-wrap: anywhere;
+  }
+  table.m-cards td > * { grid-column: 2; justify-self: end; max-width: 100%; }
+  table.m-cards td::before {
+    content: attr(data-label); grid-column: 1; grid-row: 1 / span 6; align-self: center;
+    text-align: left; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em; color: var(--adm-text-3, #7c8597);
+  }
+  table.m-cards td:first-child { font-weight: 600; }
+  table.m-cards td small { display: block; font-weight: 400; }
+  /* Sel tombol aksi (tanpa judul kolom / kolom Aksi): tombol berjajar, boleh turun baris */
+  table.m-cards td[data-label=""], table.m-cards td[data-label="Aksi"], table.m-cards td[data-label="AKSI"] {
+    display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; padding-top: 8px !important;
+  }
+  table.m-cards td[data-label=""]::before { display: none; }
+  table.m-cards td[data-label="Aksi"]::before, table.m-cards td[data-label="AKSI"]::before { margin-right: auto; }
+  table.m-cards td[colspan] { display: block; text-align: center; }
+  table.m-cards td[colspan]::before { display: none; }
+  .payment-table-wrap, .sc-table-card, .table-responsive { overflow: visible !important; border: 0 !important; background: none !important; }
+  .payment-actions, .sc-actions { flex-wrap: wrap; }
+  table.m-cards td.sc-email { max-width: none; overflow: visible; }
+  /* Popup kecil (Ubah Email / Ganti Password) menempel di bawah tombol, selebar layar */
+  table.m-cards td details[open] { width: 100%; text-align: left; order: 9; }
+  table.m-cards td details > summary { display: inline-flex; }
+  table.m-cards td details > form { position: static !important; width: 100% !important; margin-top: 8px; }
+}

@@ -41,7 +41,8 @@ $csrf = adf_admin_csrf_token();
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <?php require __DIR__ . '/../includes/pwa-head.php'; ?>
     <meta name="robots" content="noindex, nofollow">
     <title>Reset Password — Admin ADF System</title>
     <link rel="stylesheet" href="../assets/css/style.css">

@@ -1,6 +1,21 @@
     </main>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // HP: tabel biasa tampil sebagai kartu (label dari judul kolom). Tabel matrix centang
+        // (Akses Owner) dan tabel yang diberi data-no-cards tetap berbentuk tabel.
+        document.querySelectorAll('.main-content table').forEach(function (table) {
+            if (table.classList.contains('oa-table') || table.hasAttribute('data-no-cards')) return;
+            var heads = Array.prototype.map.call(table.querySelectorAll('thead th'), function (th) { return th.textContent.trim(); });
+            if (!heads.length) return;
+            table.classList.add('m-cards');
+            table.querySelectorAll('tbody tr').forEach(function (tr) {
+                Array.prototype.forEach.call(tr.children, function (td, i) {
+                    if (!td.hasAttribute('data-label')) td.setAttribute('data-label', td.hasAttribute('colspan') ? '' : (heads[i] || ''));
+                });
+            });
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // Confirm delete

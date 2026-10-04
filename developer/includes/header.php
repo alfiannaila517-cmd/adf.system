@@ -40,7 +40,10 @@ $devIsActive = static function (array $item) use ($devCurrent, $devSection): boo
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#161925">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title><?php echo htmlspecialchars($pageTitle ?? 'Developer Panel'); ?> · ADF Developer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -299,6 +302,40 @@ $devIsActive = static function (array $item) use ($devCurrent, $devSection): boo
             .main-content > .container-fluid,
             .main-content > .p-4,
             .main-content > .content-wrapper { padding: 14px !important; }
+        }
+        /* ── iPhone: area aman notch / home bar ─────────────────────────────── */
+        .top-navbar { padding-top: env(safe-area-inset-top); height: calc(54px + env(safe-area-inset-top)); }
+        .sidebar { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+
+        /* ── HP (≤ 640px): tabel jadi kartu, input ≥16px agar iPhone tidak auto-zoom ── */
+        @media (max-width: 640px) {
+            body { font-size: 13.5px; }
+            .main-content > .container-fluid, .main-content > .p-4, .main-content > .content-wrapper { padding: 12px 12px calc(28px + env(safe-area-inset-bottom)) !important; }
+            .page-head { margin-bottom: 12px; }
+            .page-head .actions { width: 100%; }
+            .form-control, .form-select, input, select, textarea { font-size: 16px !important; }
+            .btn { min-height: 36px; }
+
+            table.m-cards, table.m-cards tbody, table.m-cards tr, table.m-cards td { display: block; width: 100%; }
+            table.m-cards thead { display: none; }
+            table.m-cards tr { background: #fff; border: 1px solid var(--dev-border); border-radius: 12px; padding: 8px 12px; margin: 0 0 8px; }
+            .content-card table.m-cards tr, .card table.m-cards tr { margin: 8px; width: auto; }
+            table.m-cards td {
+                display: grid; grid-template-columns: minmax(84px, auto) minmax(0, 1fr); column-gap: 12px; align-items: center;
+                padding: 5px 0 !important; border: 0 !important; text-align: right !important; white-space: normal !important; overflow-wrap: anywhere;
+            }
+            table.m-cards td > * { grid-column: 2; justify-self: end; max-width: 100%; }
+            table.m-cards td::before {
+                content: attr(data-label); grid-column: 1; grid-row: 1 / span 6; align-self: center; text-align: left;
+                font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--dev-muted);
+            }
+            table.m-cards td:first-child { font-weight: 600; }
+            table.m-cards td[data-label=""], table.m-cards td[data-label="Aksi"] { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; padding-top: 8px !important; }
+            table.m-cards td[data-label=""]::before { display: none; }
+            table.m-cards td[data-label="Aksi"]::before { margin-right: auto; }
+            table.m-cards td[colspan] { display: block; text-align: center; }
+            table.m-cards td[colspan]::before { display: none; }
+            .table-responsive:has(table.m-cards) { overflow: visible; }
         }
     </style>
 </head>
