@@ -64,10 +64,21 @@ function adfsub_ensure_schema(PDO $pdo): void
         UNIQUE KEY `uniq_period` (`period`),
         INDEX `idx_adfsub_status` (`status`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    foreach (['invoice_emailed_at', 'paid_emailed_at'] as $col) {
+    $extraCols = [
+        'invoice_emailed_at' => 'DATETIME NULL',
+        'paid_emailed_at' => 'DATETIME NULL',
+        // Pembayaran langsung (halaman bayar sendiri, bukan halaman Pakasir)
+        'pay_method' => 'VARCHAR(30) NULL',
+        'pay_code' => 'TEXT NULL',          // QR string / nomor VA
+        'pay_total' => 'DECIMAL(15,2) NULL',
+        'pay_fee' => 'DECIMAL(15,2) NULL',
+        'pay_expires' => 'DATETIME NULL',
+        'prev_txn_ids' => 'TEXT NULL',      // transaksi lama saat ganti metode, tetap dicek
+    ];
+    foreach ($extraCols as $col => $def) {
         $has = $pdo->query("SHOW COLUMNS FROM adf_subscription_invoices LIKE '{$col}'")->fetch();
         if (!$has) {
-            $pdo->exec("ALTER TABLE adf_subscription_invoices ADD COLUMN `{$col}` DATETIME NULL");
+            $pdo->exec("ALTER TABLE adf_subscription_invoices ADD COLUMN `{$col}` {$def}");
         }
     }
     $done = true;
@@ -392,6 +403,82 @@ function adfsub_pakasir_status(array $cfg, string $txnId): ?array
     return is_array($data) ? $data : null;
 }
 
+/** Metode bayar langsung yang didukung Pakasir v2: kode => [label, minimal nominal]. */
+function adfsub_pay_methods(): array
+{
+    return [
+        'qris' => ['QRIS', 500],
+        'bri_va' => ['BRI Virtual Account', 10000],
+        'bni_va' => ['BNI Virtual Account', 10000],
+        'permata_va' => ['Permata Virtual Account', 10000],
+        'cimb_niaga_va' => ['CIMB Niaga Virtual Account', 10000],
+        'maybank_va' => ['Maybank Virtual Account', 10000],
+        'bnc_va' => ['Bank Neo Commerce VA', 10000],
+        'artha_graha_va' => ['Artha Graha Virtual Account', 10000],
+        'sampoerna_va' => ['Bank Sahabat Sampoerna VA', 10000],
+    ];
+}
+
+/**
+ * Buat (atau pakai ulang yang masih berlaku) transaksi QRIS / VA untuk satu tagihan.
+ * Return baris tagihan terbaru (pay_method, pay_code, pay_total, pay_expires, ...) atau null.
+ */
+function adfsub_create_direct_payment(PDO $pdo, string $period, string $method): ?array
+{
+    $methods = adfsub_pay_methods();
+    if (!isset($methods[$method])) {
+        return null;
+    }
+    $cfg = adfsub_config($pdo);
+    adfsub_ensure_schema($pdo);
+    $stmt = $pdo->prepare("SELECT * FROM adf_subscription_invoices WHERE period = ? AND status = 'unpaid'");
+    $stmt->execute([$period]);
+    $inv = $stmt->fetch(PDO::FETCH_ASSOC);
+    $amount = $inv ? (int) round((float) $inv['total_amount']) : 0;
+    if (!$inv || $amount < $methods[$method][1] || $cfg['pakasir_slug'] === '' || $cfg['pakasir_api_key'] === '') {
+        return null;
+    }
+    // Masih ada kode yang berlaku untuk metode yang sama → pakai itu (tidak membuat transaksi baru).
+    if ($inv['pay_method'] === $method && !empty($inv['pay_code']) && !empty($inv['pay_expires']) && strtotime($inv['pay_expires']) > time() + 60) {
+        return $inv;
+    }
+
+    $bizCode = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : 'BIZ')));
+    $orderId = 'SUB' . substr($bizCode, 0, 6) . str_replace('-', '', substr($period, 0, 20)) . strtoupper(bin2hex(random_bytes(3)));
+    $ch = curl_init('https://app.pakasir.com/api/v2/create-transaction/' . rawurlencode($cfg['pakasir_slug']) . '/' . rawurlencode($orderId));
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode(['method' => $method, 'amount' => $amount]),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-Api-Key: ' . $cfg['pakasir_api_key']],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $data = json_decode((string) $response, true);
+    $code = (string) ($data['qr_string'] ?? '') ?: (string) ($data['va_number'] ?? '') ?: (string) ($data['payment_number'] ?? '');
+    if ($httpCode < 200 || $httpCode >= 300 || empty($data['txn_id']) || $code === '') {
+        error_log('adfsub_create_direct_payment failed: http=' . $httpCode . ' resp=' . substr((string) $response, 0, 200));
+        return null;
+    }
+
+    // Transaksi lama tetap dicek saat rekonsiliasi (kalau klien sudah terlanjur membayar yang lama).
+    $prev = array_filter(array_unique(array_merge(explode(',', (string) ($inv['prev_txn_ids'] ?? '')), [(string) $inv['txn_id']])));
+    $expires = !empty($data['expired_at']) ? date('Y-m-d H:i:s', strtotime((string) $data['expired_at'])) : date('Y-m-d H:i:s', time() + 86400);
+    $pdo->prepare("UPDATE adf_subscription_invoices
+        SET order_id = ?, txn_id = ?, payment_link = NULL, pay_method = ?, pay_code = ?, pay_total = ?, pay_fee = ?, pay_expires = ?, prev_txn_ids = ?
+        WHERE id = ?")
+        ->execute([
+            $orderId, (string) $data['txn_id'], $method, $code,
+            (float) ($data['total_payment'] ?? $amount), (float) ($data['fee'] ?? 0), $expires,
+            implode(',', array_slice($prev, -10)), $inv['id'],
+        ]);
+    $stmt->execute([$period]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
 /** Buat link pembayaran Pakasir baru untuk satu tagihan. Return URL atau null. */
 function adfsub_create_payment(PDO $pdo, string $period): ?string
 {
@@ -409,8 +496,9 @@ function adfsub_create_payment(PDO $pdo, string $period): ?string
     if (!$result) {
         return null;
     }
-    $pdo->prepare("UPDATE adf_subscription_invoices SET order_id = ?, txn_id = ?, payment_link = ? WHERE id = ?")
-        ->execute([$orderId, $result['txn_id'], $result['payment_link'], $inv['id']]);
+    $prev = array_filter(array_unique(array_merge(explode(',', (string) ($inv['prev_txn_ids'] ?? '')), [(string) $inv['txn_id']])));
+    $pdo->prepare("UPDATE adf_subscription_invoices SET order_id = ?, txn_id = ?, payment_link = ?, pay_method = 'payment_link', pay_code = NULL, prev_txn_ids = ? WHERE id = ?")
+        ->execute([$orderId, $result['txn_id'], $result['payment_link'], implode(',', array_slice($prev, -10)), $inv['id']]);
     return $result['payment_link'];
 }
 
@@ -421,9 +509,17 @@ function adfsub_reconcile(PDO $pdo, array $inv): bool
         return false;
     }
     $cfg = adfsub_config($pdo);
-    $status = adfsub_pakasir_status($cfg, (string) $inv['txn_id']);
-    $txnStatus = strtolower((string) ($status['status'] ?? $status['transaction']['status'] ?? ''));
-    if ($txnStatus !== 'completed') {
+    // Transaksi aktif + transaksi lama (kalau klien sempat ganti metode lalu membayar QR/VA yang lama).
+    $txnIds = array_filter(array_unique(array_merge([(string) $inv['txn_id']], explode(',', (string) ($inv['prev_txn_ids'] ?? '')))));
+    $status = null;
+    foreach ($txnIds as $txnId) {
+        $st = adfsub_pakasir_status($cfg, $txnId);
+        if (strtolower((string) ($st['status'] ?? $st['transaction']['status'] ?? '')) === 'completed') {
+            $status = $st;
+            break;
+        }
+    }
+    if (!$status) {
         return false;
     }
     $paidAt = (string) ($status['completed_at'] ?? $status['transaction']['completed_at'] ?? '') ?: date('c');

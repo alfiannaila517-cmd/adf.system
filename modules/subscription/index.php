@@ -29,15 +29,14 @@ $pdo = adfsub_pdo();
 adfsub_ensure_schema($pdo);
 $flash = null;
 
-// Tombol "Bayar" dari popup / layar kunci / header: langsung buat transaksi & arahkan ke halaman bayar Pakasir
-// (user memilih metode QRIS / Virtual Account di sana). Kalau gagal, tetap di halaman ini dengan pesan.
+// Tombol "Bayar" dari popup / layar kunci / header / tabel: buka halaman bayar sendiri (QRIS / VA),
+// status lunas terdeteksi otomatis di sana.
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['pay'])) {
-    $link = adfsub_create_payment($pdo, (string) $_GET['pay']);
-    if ($link) {
-        header('Location: ' . $link);
-        exit;
-    }
-    $flash = ['error', 'Gagal membuat link pembayaran. Silakan coba lagi atau hubungi developer.'];
+    header('Location: pay.php?period=' . urlencode((string) $_GET['pay']));
+    exit;
+}
+if (!empty($_GET['paid'])) {
+    $flash = ['success', 'Pembayaran berhasil. Terima kasih! Bukti pembayaran dikirim ke email.'];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -59,12 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $flash = $ok ? ['success', 'Sinkron berhasil.'] : ['error', 'Sinkron gagal. Lihat keterangan di bawah.'];
     } elseif ($action === 'pay') {
-        $link = adfsub_create_payment($pdo, (string) ($_POST['period'] ?? ''));
-        if ($link) {
-            header('Location: ' . $link);
-            exit;
-        }
-        $flash = ['error', 'Gagal membuat link pembayaran. Silakan coba lagi atau hubungi developer.'];
+        header('Location: pay.php?period=' . urlencode((string) ($_POST['period'] ?? '')));
+        exit;
     } elseif ($action === 'check_status') {
         $stmt = $pdo->prepare("SELECT * FROM adf_subscription_invoices WHERE period = ?");
         $stmt->execute([(string) ($_POST['period'] ?? '')]);
