@@ -497,6 +497,10 @@ if (!function_exists('invAmountWords')) {
 
         /* Pembayaran + tanda tangan */
         .bottom { display: grid; grid-template-columns: 1fr 1fr 210px; gap: 16px; margin-top: 22px; align-items: stretch; }
+        .bottom.rv { grid-template-columns: 1fr 230px; }
+        .bottom.rv .box { max-width: 360px; }
+        .terms-line { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 8.8px; line-height: 1.55; color: var(--muted); text-align: center; }
+        .terms-line b { color: var(--navy); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-right: 4px; }
         .box { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
         .box h5 { font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; font-weight: 700; }
         .box .acc { font-size: 14px; font-weight: 700; color: var(--navy); letter-spacing: 0.04em; }
@@ -532,31 +536,34 @@ if (!function_exists('invAmountWords')) {
 
         @page { size: A4; margin: 0; }
         @media print {
-            /* Printers halftone light grey into dots, so small text looks blurry: print darker and slightly larger. */
-            :root { --ink: #111827; --muted: #374151; --line: #cbd5e1; }
             html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            body { background: #fff; padding: 0; color: #111827; }
-            .page { box-shadow: none; max-width: none; min-height: 297mm; }
+            body { background: #fff; padding: 0; }
+            .page { box-shadow: none; max-width: none; margin: 0; }
             .actions { display: none; }
-            .brand .addr, .box p, .terms li, .note, .words { font-size: 10.5px; }
-            .kv, table.items td, table.pay td, .totals .row, .sign .line { font-size: 11.5px; }
-            table.items td .sub, .sign .place, .sign .role, .legal, .foot .ci { font-size: 10px; }
-            .meta small, .party h3, .box h5, .words small, table.items th, table.pay th, .stay .d small { font-size: 9.5px; }
-            .meta b, .stay .d b { font-size: 12px; }
-            .stamp { opacity: 0.07; }
-            /* Tighter spacing in print so the larger text still fits on one A4 sheet. */
-            .page { min-height: 296mm; }
-            .inner { padding: 24px 40px 0; }
-            .meta { margin: 16px 0 12px; }
-            .parties { margin-bottom: 12px; }
-            table.items td { padding: 7px 10px; }
-            .totals-wrap { margin-top: 10px; }
-            .totals .row { padding: 6px 14px; }
-            .bottom { margin-top: 14px; }
-            .sign .place { margin-bottom: 34px; }
-            .legal { margin-top: 12px; }
         }
 
+        /* Print layout. Enabled by JS on beforeprint (html.pm) so its height can be measured
+           and the whole page scaled to fit one A4 sheet. Printers halftone light grey into dots,
+           so text is printed darker and slightly larger. */
+        html.pm { --ink: #111827; --muted: #374151; --line: #cbd5e1; }
+        html.pm body { background: #fff; padding: 0; color: #111827; }
+        html.pm .page { box-shadow: none; max-width: none; width: 210mm; margin: 0; }
+        html.pm .brand .addr, html.pm .box p, html.pm .note, html.pm .words { font-size: 10.5px; }
+        html.pm .kv, html.pm table.items td, html.pm table.pay td, html.pm .totals .row, html.pm .sign .line { font-size: 11.5px; }
+        html.pm table.items td .sub, html.pm .sign .place, html.pm .sign .role, html.pm .legal, html.pm .foot .ci { font-size: 10px; }
+        html.pm .meta small, html.pm .party h3, html.pm .box h5, html.pm .words small, html.pm table.items th, html.pm table.pay th, html.pm .stay .d small { font-size: 9.5px; }
+        html.pm .meta b, html.pm .stay .d b { font-size: 12px; }
+        html.pm .terms-line { font-size: 9.5px; }
+        html.pm .stamp { opacity: 0.07; }
+        html.pm .inner { padding: 24px 40px 0; }
+        html.pm .meta { margin: 16px 0 12px; }
+        html.pm .parties { margin-bottom: 12px; }
+        html.pm table.items td { padding: 7px 10px; }
+        html.pm .totals-wrap { margin-top: 10px; }
+        html.pm .totals .row { padding: 6px 14px; }
+        html.pm .bottom { margin-top: 14px; }
+        html.pm .sign .place { margin-bottom: 34px; }
+        html.pm .legal { margin-top: 10px; }
         @media (max-width: 640px) {
             .inner { padding: 22px 18px 0; }
             .head, .parties, .totals-wrap, .bottom { display: block; }
@@ -731,7 +738,7 @@ if (!function_exists('invAmountWords')) {
             <?php endif; ?>
 
             <!-- Pembayaran, ketentuan, tanda tangan -->
-            <div class="bottom">
+            <div class="bottom rv">
                 <div class="box">
                     <h5>Bank Transfer</h5>
                     <div class="acc"><?php echo htmlspecialchars($bankAccountNumber); ?></div>
@@ -739,20 +746,16 @@ if (!function_exists('invAmountWords')) {
                     <?php if (!empty($swiftCode)): ?><p>SWIFT: <?php echo htmlspecialchars($swiftCode); ?></p><?php endif; ?>
                     <p style="margin-top:4px">Please include the booking code in the transfer reference.</p>
                 </div>
-                <div class="box">
-                    <h5>Terms &amp; Conditions</h5>
-                    <ul class="terms">
-                        <li>Full payment must be settled before check-in.</li>
-                        <li>Check-in time 14:00 · Check-out time 10:30.</li>
-                        <li>Payments received are non-refundable, except as provided by the cancellation policy.</li>
-                        <li>This system-generated invoice is valid without a stamp.</li>
-                    </ul>
-                </div>
                 <div class="sign">
                     <div class="place">Karimunjawa, <?php echo date('d M Y'); ?></div>
                     <div class="line"><?php echo htmlspecialchars($accountingName ?: '..........................'); ?></div>
                     <div class="role"><?php echo htmlspecialchars($accountingTitle); ?></div>
                 </div>
+            </div>
+
+            <div class="terms-line">
+                <b>Terms &amp; Conditions</b>
+                Full payment must be settled before check-in · Check-in 14:00 · Check-out 10:30 · Payments received are non-refundable, except as provided by the cancellation policy · This system-generated invoice is valid without a stamp.
             </div>
 
             <div class="legal">
@@ -782,6 +785,53 @@ if (!function_exists('invAmountWords')) {
                 setTimeout(function() { window.print(); }, 500);
             };
         <?php endif; ?>
+    </script>
+    <script>
+        // Fit the invoice on ONE A4 sheet: switch to the print layout, measure it,
+        // and scale the whole page down when there are many rooms/items.
+        (function() {
+            const A4W = 793.7, A4H = 1118; // CSS px @96dpi (297mm minus a small safety margin)
+            const html = document.documentElement;
+            const page = document.querySelector('.page');
+            if (!page) return;
+
+            function fitPrint() {
+                html.classList.add('pm');
+                page.style.zoom = '';
+                page.style.minHeight = '0';
+                let z = 1;
+                // Zooming out widens the layout (text reflows), so converge in a few passes.
+                for (let i = 0; i < 6; i++) {
+                    page.style.width = (A4W / z) + 'px';
+                    const nz = Math.min(1, A4H / page.scrollHeight);
+                    if (Math.abs(nz - z) < 0.002) break;
+                    z = nz;
+                }
+                // Final measure at the width actually used, so the scaled height never exceeds A4.
+                z = Math.min(1, A4H / page.scrollHeight);
+                page.style.minHeight = (A4H / z) + 'px'; // keeps the footer at the bottom of the sheet
+                page.style.zoom = z < 1 ? String(z) : '';
+                // Text can reflow slightly once zoomed (font hinting), so check the real
+                // rendered height and shrink a little more while it still overflows the sheet.
+                for (let i = 0; i < 5; i++) {
+                    const vh = page.getBoundingClientRect().height;
+                    if (vh <= A4H + 0.5) break;
+                    z = z * (A4H / vh) * 0.995;
+                    page.style.width = (A4W / z) + 'px';
+                    page.style.minHeight = (A4H / z) + 'px';
+                    page.style.zoom = String(z);
+                }
+            }
+
+            function resetPrint() {
+                html.classList.remove('pm');
+                page.style.zoom = page.style.width = page.style.minHeight = '';
+            }
+
+            window.addEventListener('beforeprint', fitPrint);
+            window.addEventListener('afterprint', resetPrint);
+            window.invoiceFitPrint = fitPrint;
+        })();
     </script>
 </body>
 
