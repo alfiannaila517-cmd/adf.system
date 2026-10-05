@@ -334,16 +334,18 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
         /* Stempel status */
         .stamp {
             position: absolute;
-            top: 590px;
-            left: 120px;
-            transform: rotate(-12deg);
-            border: 3px double currentColor;
-            border-radius: 10px;
-            padding: 6px 16px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-28deg);
+            border: 6px double currentColor;
+            border-radius: 18px;
+            padding: 10px 40px;
             font-weight: 800;
-            font-size: 18px;
-            letter-spacing: 0.18em;
-            opacity: 0.16;
+            font-size: 96px;
+            letter-spacing: 0.16em;
+            line-height: 1;
+            white-space: nowrap;
+            opacity: 0.09;
             z-index: 1;
             pointer-events: none;
         }
@@ -355,7 +357,7 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
         .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
         .brand { display: flex; gap: 14px; align-items: center; }
         .brand img, .brand .mono {
-            width: 66px; height: 66px; border-radius: 50%; object-fit: cover;
+            width: 92px; height: 92px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
             box-shadow: 0 0 0 1px var(--line), 0 0 0 4px var(--gold-soft);
         }
         .brand .mono {
@@ -406,8 +408,8 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
             color: var(--gold); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--gold-soft);
         }
         .party .name {
-            font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 700;
-            color: var(--navy); line-height: 1.15; margin-bottom: 6px;
+            font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 700;
+            color: var(--navy); line-height: 1.3; margin-bottom: 6px;
         }
         .kv { display: grid; grid-template-columns: 82px 1fr; gap: 2px 8px; font-size: 10.5px; }
         .kv span:nth-child(odd) { color: var(--muted); }
@@ -527,7 +529,7 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
     <div class="page" id="invoiceContent">
         <div class="ribbon"></div>
         <div class="ribbon-gold"></div>
-        <div class="stamp <?php echo $overallStatus; ?>"><?php echo $overallStatus === 'paid' ? 'LUNAS' : ($overallStatus === 'partial' ? 'DP' : 'UNPAID'); ?></div>
+        <div class="stamp <?php echo $overallStatus; ?>"><?php echo $overallStatus === 'paid' ? 'PAID' : ($overallStatus === 'partial' ? 'PARTIAL' : 'UNPAID'); ?></div>
 
         <div class="inner">
             <!-- Kop -->
