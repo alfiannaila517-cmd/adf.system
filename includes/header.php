@@ -253,6 +253,10 @@ $faviconUrl = BASE_URL . '/assets/img/developer-logo.png';
 
     <!-- Main CSS with Cache Busting -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=<?php echo time(); ?>">
+    <?php if (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/frontdesk/') !== false): ?>
+        <!-- Gaya bersama halaman Front Desk (seragam, dua tema) -->
+        <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/frontdesk.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/frontdesk.css') ?: 1; ?>">
+    <?php endif; ?>
 
     <!-- Global Loading Indicator (progress bar + overlay) -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/global-loader.css?v=<?php echo time(); ?>">

@@ -609,7 +609,7 @@ include '../../includes/header.php';
 
     .room-badge {
         display: inline-block;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
         padding: 0.2rem 0.5rem;
         border-radius: 4px;
         font-weight: 600;
@@ -937,7 +937,7 @@ include '../../includes/header.php';
                                         <div class="action-dropdown-menu">
                                             <div style="padding:0.5rem 0.65rem; display:flex; flex-wrap:wrap; gap:3px; max-width:220px;">
                                                 <?php foreach ($booking['_rooms'] as $rm): ?>
-                                                    <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6) !important;color:#ffffff !important;padding:0.15rem 0.4rem;border-radius:4px;font-weight:600;font-size:0.72rem;display:inline-block;margin:1px;">
+                                                    <span class="room-badge" style="background:linear-gradient(135deg,#1e3a8a,#2563eb) !important;color:#ffffff !important;padding:0.15rem 0.4rem;border-radius:4px;font-weight:600;font-size:0.72rem;display:inline-block;margin:1px;">
                                                         <?php echo htmlspecialchars($rm['room_number']); ?>
                                                     </span>
                                                 <?php endforeach; ?>
@@ -948,7 +948,7 @@ include '../../includes/header.php';
                                         </div>
                                     </div>
                                 <?php else: ?>
-                                    <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6) !important;color:#ffffff !important;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
+                                    <span class="room-badge" style="background:linear-gradient(135deg,#1e3a8a,#2563eb) !important;color:#ffffff !important;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
                                         <?php echo htmlspecialchars($booking['room_number']); ?>
                                     </span>
                                     <div style="font-size: 0.7rem; margin-top: 0.25rem;">
@@ -1261,7 +1261,7 @@ include '../../includes/header.php';
 
     .modal-header-compact {
         padding: 1.2rem 1.5rem;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
         color: white;
         display: flex;
         justify-content: space-between;

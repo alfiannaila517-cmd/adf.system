@@ -1,0 +1,547 @@
+/* =====================================================================
+   Front Desk — gaya bersama untuk semua halaman modules/frontdesk/*
+   Seragam dengan Dashboard, Buku Kas & In-House: kaca, padat, aksen navy.
+   Dimuat oleh includes/header.php hanya di halaman Front Desk.
+
+   Selector diawali body[data-theme] (+ !important bila perlu) karena
+   style.css tema terang memaksa warna teks/elemen dengan !important,
+   dan tiap halaman punya <style> sendiri yang dimuat setelah file ini.
+   ===================================================================== */
+
+body[data-theme] {
+    --fd-card: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(241, 247, 255, 0.66));
+    --fd-tile: rgba(255, 255, 255, 0.7);
+    --fd-edge: rgba(255, 255, 255, 0.92);
+    --fd-line: rgba(148, 163, 184, 0.24);
+    --fd-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.22);
+    --fd-input-bg: #ffffff;
+    --fd-input-border: rgba(148, 163, 184, 0.45);
+    --fd-text: #1e293b;
+    --fd-text-2: #475569;
+    --fd-muted: #64748b;
+    --fd-accent: #1e3a8a;
+    --fd-accent-2: #2563eb;
+    --fd-accent-soft: rgba(37, 99, 235, 0.1);
+    --fd-accent-text: #1d4ed8;
+}
+
+body[data-theme="dark"] {
+    --fd-card: linear-gradient(135deg, rgba(30, 41, 59, 0.66), rgba(15, 23, 42, 0.55));
+    --fd-tile: rgba(30, 41, 59, 0.55);
+    --fd-edge: rgba(255, 255, 255, 0.08);
+    --fd-line: rgba(148, 163, 184, 0.16);
+    --fd-shadow: 0 14px 32px -16px rgba(0, 0, 0, 0.6);
+    --fd-input-bg: rgba(15, 23, 42, 0.7);
+    --fd-input-border: rgba(148, 163, 184, 0.38);
+    --fd-text: #e2e8f0;
+    --fd-text-2: #cbd5e1;
+    --fd-muted: #94a3b8;
+    --fd-accent-soft: rgba(59, 130, 246, 0.18);
+    --fd-accent-text: #93c5fd;
+}
+
+/* ---------- Tombol & judul umum ---------- */
+body[data-theme] .fd-btn-std,
+body[data-theme] .reservasi-header .header-actions .btn-primary,
+body[data-theme] .bf-head-btn,
+body[data-theme] .settings-header .btn,
+body[data-theme] .hk-btn {
+    height: 28px !important;
+    padding: 0 0.75rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.3rem !important;
+    border-radius: 8px !important;
+    font-size: 0.66rem !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
+    border: none !important;
+    box-shadow: 0 4px 10px -4px rgba(29, 78, 216, 0.5) !important;
+    transform: none !important;
+    text-decoration: none !important;
+}
+
+body[data-theme] .fd-btn-std:hover,
+body[data-theme] .reservasi-header .header-actions .btn-primary:hover,
+body[data-theme] .bf-head-btn:hover,
+body[data-theme] .settings-header .btn:hover,
+body[data-theme] .hk-btn:hover {
+    filter: brightness(1.08);
+}
+
+body[data-theme] .reservasi-header h1,
+body[data-theme] .hk-title,
+body[data-theme] .bf-title,
+body[data-theme] .settings-header h1 {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0 !important;
+    color: var(--fd-text) !important;
+    -webkit-text-fill-color: var(--fd-text) !important;
+    background: none !important;
+}
+
+/* ---------- RESERVASI ---------- */
+body[data-theme] .reservasi-header {
+    margin-bottom: 0.75rem !important;
+}
+
+body[data-theme] .reservasi-header .header-actions {
+    gap: 0.35rem !important;
+}
+
+body[data-theme] .filter-section {
+    max-width: none !important;
+    justify-content: flex-start !important;
+    gap: 0.9rem !important;
+    margin: 0 0 0.75rem !important;
+    padding: 0.6rem 0.85rem !important;
+    border-radius: 14px !important;
+    background: var(--fd-card) !important;
+    border: 1px solid var(--fd-edge) !important;
+    box-shadow: var(--fd-shadow) !important;
+}
+
+body[data-theme] .filter-group {
+    gap: 0.2rem !important;
+}
+
+body[data-theme] .filter-group label {
+    font-size: 0.55rem !important;
+    letter-spacing: 0.08em !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .filter-group select,
+body[data-theme] .filter-group input {
+    height: 30px !important;
+    padding: 0 0.6rem !important;
+    border-radius: 8px !important;
+    font-size: 0.7rem !important;
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .filter-group .search-wrapper input {
+    padding-left: 1.9rem !important;
+    min-width: 240px;
+}
+
+body[data-theme] .month-nav-btn {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.85rem !important;
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .month-nav-btn:hover {
+    background: var(--fd-accent-2) !important;
+    color: #fff !important;
+}
+
+body[data-theme] .month-nav-label {
+    font-size: 0.72rem !important;
+    min-width: 100px !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .month-nav-today {
+    border-color: var(--fd-accent-2) !important;
+    color: var(--fd-accent-text) !important;
+    font-size: 0.62rem !important;
+}
+
+body[data-theme] .bookings-table-wrapper {
+    border-radius: 14px;
+    background: var(--fd-card);
+    border: 1px solid var(--fd-edge);
+    box-shadow: var(--fd-shadow);
+}
+
+body[data-theme] .bookings-table thead {
+    background: transparent !important;
+    border: none !important;
+}
+
+body[data-theme] .bookings-table th {
+    padding: 0.5rem 0.55rem !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.07em !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff;
+    background: var(--fd-accent) !important;
+    border: none !important;
+    white-space: nowrap;
+}
+
+body[data-theme] .bookings-table td {
+    padding: 0.42rem 0.55rem !important;
+    font-size: 0.7rem !important;
+    color: var(--fd-text-2) !important;
+    border-bottom: 1px solid var(--fd-line) !important;
+    vertical-align: middle;
+}
+
+body[data-theme] .bookings-table td strong {
+    white-space: nowrap;
+}
+
+body[data-theme] .bookings-table tbody tr:hover {
+    background: rgba(37, 99, 235, 0.045) !important;
+}
+
+body[data-theme] .bookings-table .room-badge,
+body[data-theme] .reservasi-container .room-badge {
+    background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff;
+    border-radius: 6px !important;
+    font-size: 0.64rem !important;
+    padding: 0.12rem 0.4rem !important;
+}
+
+body[data-theme] .ota-badge {
+    padding: 0.12rem 0.45rem !important;
+    border-radius: 999px !important;
+    font-size: 0.58rem !important;
+    background: var(--fd-accent-soft) !important;
+    color: var(--fd-accent-text) !important;
+    -webkit-text-fill-color: var(--fd-accent-text);
+    white-space: nowrap;
+}
+
+body[data-theme] .ota-badge .fee {
+    color: #dc2626 !important;
+    -webkit-text-fill-color: #dc2626;
+}
+
+body[data-theme] .bookings-table .badge {
+    border-radius: 999px !important;
+    font-size: 0.56rem !important;
+    padding: 0.12rem 0.45rem !important;
+    letter-spacing: 0.03em;
+}
+
+body[data-theme] .action-dropdown-btn {
+    height: 26px !important;
+    padding: 0 0.6rem !important;
+    border-radius: 7px !important;
+    font-size: 0.64rem !important;
+    color: #fff !important;
+    background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
+    border: none !important;
+}
+
+body[data-theme] .action-dropdown-menu {
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    border-radius: 10px !important;
+    box-shadow: 0 16px 34px -12px rgba(15, 23, 42, 0.35) !important;
+}
+
+body[data-theme] .action-dropdown-item {
+    font-size: 0.7rem !important;
+    color: var(--fd-text) !important;
+}
+
+/* ---------- PEMBAGIAN HK ---------- */
+body[data-theme] .hk-card {
+    border-radius: 14px !important;
+    background: var(--fd-card) !important;
+    border: 1px solid var(--fd-edge) !important;
+    box-shadow: var(--fd-shadow) !important;
+}
+
+body[data-theme] .hk-card h3 {
+    font-size: 0.74rem !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .hk-sub {
+    font-size: 0.62rem !important;
+    color: var(--fd-muted) !important;
+}
+
+/* Badge prioritas: warna lembut yang tetap terbaca di dua tema */
+body[data-theme] .hk-badge {
+    border-radius: 10px !important;
+}
+
+body[data-theme] .hk-badge .n,
+body[data-theme] .hk-badge .l {
+    color: inherit !important;
+    -webkit-text-fill-color: currentColor;
+}
+
+body[data-theme="dark"] .b-b2b { background: rgba(16, 185, 129, 0.14) !important; color: #6ee7b7 !important; border-color: rgba(16, 185, 129, 0.35) !important; }
+body[data-theme="dark"] .b-od { background: rgba(59, 130, 246, 0.16) !important; color: #93c5fd !important; border-color: rgba(59, 130, 246, 0.35) !important; }
+body[data-theme="dark"] .b-vd { background: rgba(245, 158, 11, 0.15) !important; color: #fcd34d !important; border-color: rgba(245, 158, 11, 0.35) !important; }
+body[data-theme="dark"] .b-vc { background: rgba(148, 163, 184, 0.14) !important; color: #cbd5e1 !important; border-color: rgba(148, 163, 184, 0.3) !important; }
+
+body[data-theme] .hk-select,
+body[data-theme] .hk-card input,
+body[data-theme] .hk-card textarea,
+body[data-theme] .hk-card select {
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+    border-radius: 8px !important;
+    font-size: 0.7rem !important;
+}
+
+/* Tombol sekunder HK (Muat Data, Reset): versi abu lembut */
+body[data-theme] .hk-btn.hk-btn-secondary {
+    background: rgba(148, 163, 184, 0.16) !important;
+    color: var(--fd-text) !important;
+    -webkit-text-fill-color: var(--fd-text) !important;
+    box-shadow: none !important;
+}
+
+/* ---------- SARAPAN ---------- */
+body[data-theme] .bf-section {
+    border-radius: 14px !important;
+    background: var(--fd-card) !important;
+    border: 1px solid var(--fd-edge) !important;
+    box-shadow: var(--fd-shadow) !important;
+}
+
+body[data-theme] .bf-label {
+    font-size: 0.58rem !important;
+    letter-spacing: 0.07em;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .bf-input,
+body[data-theme] .bf-section textarea,
+body[data-theme] .bf-section select {
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+    border-radius: 8px !important;
+    font-size: 0.72rem !important;
+}
+
+/* ---------- LAPORAN ---------- */
+body[data-theme] .laporan-container .room-tag {
+    background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff;
+}
+
+body[data-theme] .laporan-container .stat-item {
+    border-radius: 12px !important;
+    background: var(--fd-card) !important;
+    border: 1px solid var(--fd-edge) !important;
+    box-shadow: var(--fd-shadow) !important;
+}
+
+body[data-theme] .laporan-container .stat-item .stat-val {
+    color: var(--fd-accent-text) !important;
+    -webkit-text-fill-color: var(--fd-accent-text);
+}
+
+body[data-theme] .laporan-container .rpt-table th {
+    font-size: 0.55rem !important;
+    letter-spacing: 0.07em !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .laporan-container .rpt-table td {
+    font-size: 0.7rem !important;
+    color: var(--fd-text-2) !important;
+}
+
+/* ---------- PENGATURAN ---------- */
+body[data-theme] .settings-container {
+    padding: 0.25rem 0 1rem !important;
+}
+
+body[data-theme] .settings-header {
+    margin-bottom: 0.9rem !important;
+}
+
+body[data-theme] .settings-header p {
+    font-size: 0.66rem !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .settings-nav {
+    gap: 0.25rem !important;
+    margin-bottom: 0.9rem !important;
+    border-bottom: 1px solid var(--fd-line) !important;
+}
+
+body[data-theme] .settings-nav .tab-btn {
+    padding: 0.5rem 0.8rem !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .settings-nav .tab-btn.active {
+    color: var(--fd-accent-text) !important;
+    border-bottom-color: var(--fd-accent-2) !important;
+}
+
+body[data-theme] .settings-container .form-card,
+body[data-theme] .settings-container .table-wrapper {
+    border-radius: 14px !important;
+    background: var(--fd-card) !important;
+    border: 1px solid var(--fd-edge) !important;
+    box-shadow: var(--fd-shadow) !important;
+    backdrop-filter: none !important;
+    margin-top: 0.75rem !important;
+}
+
+body[data-theme] .settings-container .form-card {
+    padding: 0.85rem 1rem !important;
+}
+
+body[data-theme] .settings-container .form-label {
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .settings-container .form-input,
+body[data-theme] .settings-container .form-select,
+body[data-theme] .settings-container .form-textarea {
+    min-height: 30px;
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.72rem !important;
+    border-radius: 8px !important;
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .settings-container .table th {
+    padding: 0.5rem 0.65rem !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.07em !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff;
+    background: var(--fd-accent) !important;
+}
+
+body[data-theme] .settings-container .table td {
+    padding: 0.42rem 0.65rem !important;
+    font-size: 0.72rem !important;
+    color: var(--fd-text-2) !important;
+    border-bottom: 1px solid var(--fd-line) !important;
+}
+
+body[data-theme] .settings-container .table td strong {
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .settings-container .btn {
+    border-radius: 8px !important;
+    font-size: 0.66rem !important;
+    padding: 0.35rem 0.7rem !important;
+}
+
+body[data-theme] .settings-container .badge {
+    border-radius: 999px !important;
+    font-size: 0.56rem !important;
+    padding: 0.12rem 0.45rem !important;
+}
+
+/* Modal edit di Pengaturan (berada di luar .settings-container) */
+body[data-theme] #editRoomTypeModal > div,
+body[data-theme] #editRoomModal > div,
+body[data-theme] #editBreakfastModal > div {
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border);
+    border-radius: 14px !important;
+    padding: 1.1rem 1.2rem !important;
+    box-shadow: 0 24px 60px -20px rgba(2, 6, 23, 0.55);
+}
+
+body[data-theme="dark"] #editRoomTypeModal > div,
+body[data-theme="dark"] #editRoomModal > div,
+body[data-theme="dark"] #editBreakfastModal > div {
+    background: #0f172a !important;
+}
+
+body[data-theme] #editRoomTypeModal h2,
+body[data-theme] #editRoomModal h2,
+body[data-theme] #editBreakfastModal h2 {
+    font-size: 0.9rem !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] [id^="edit"][id$="Modal"] .form-label {
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] [id^="edit"][id$="Modal"] .form-input,
+body[data-theme] [id^="edit"][id$="Modal"] .form-select,
+body[data-theme] [id^="edit"][id$="Modal"] .form-textarea {
+    min-height: 30px;
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.72rem !important;
+    border-radius: 8px !important;
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+}
+
+/* Sarapan: judul halaman & teks di atas latar biru tetap terbaca di tema terang */
+body[data-theme] .bf-head h1 {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: var(--fd-text) !important;
+    -webkit-text-fill-color: var(--fd-text) !important;
+    background: none !important;
+}
+
+body[data-theme] .bf-side-title,
+body[data-theme] .bf-side-title *,
+body[data-theme] .bf-btn-submit {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+body[data-theme] .bf-side-title {
+    background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
+    font-size: 0.74rem !important;
+}
+
+body[data-theme] .bf-btn-submit {
+    height: 34px !important;
+    border-radius: 10px !important;
+    font-size: 0.74rem !important;
+}
+
+/* Laporan: tombol ekspor seragam ukuran (warna fungsi tetap: PDF biru, Print abu, WA hijau) */
+body[data-theme] .laporan-container .btn-pdf,
+body[data-theme] .laporan-container .btn-print,
+body[data-theme] .laporan-container .btn-wa,
+body[data-theme] .btn.btn-pdf,
+body[data-theme] .btn.btn-print,
+body[data-theme] .btn.btn-wa {
+    height: 28px !important;
+    padding: 0 0.75rem !important;
+    border-radius: 8px !important;
+    font-size: 0.66rem !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] .btn.btn-pdf {
+    background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
+}

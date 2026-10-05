@@ -914,7 +914,11 @@ include '../../includes/header.php';
 ?>
 
 <style>
-    :root {
+    /* Variabel khusus halaman ini (dulu di :root, bocor ke top bar & latar seluruh halaman) */
+    .settings-container,
+    #editRoomTypeModal,
+    #editRoomModal,
+    #editBreakfastModal {
         --primary: #6366f1;
         --primary-dark: #4f46e5;
         --success: #10b981;
