@@ -2429,8 +2429,8 @@ echo getPrintCSS();
 
         body[data-theme] .cb-table tr.cb-date-row td {
             text-align: left !important;
-            padding: 0.32rem 0.6rem !important;
-            font-size: 0.62rem !important;
+            padding: 0.45rem 0.7rem !important;
+            font-size: 0.74rem !important;
             font-weight: 700 !important;
             color: #1e3a8a !important;
             background: rgba(37, 99, 235, 0.07) !important;
@@ -2443,13 +2443,18 @@ echo getPrintCSS();
         }
 
         .cb-table tr.cb-date-row td > span {
-            font-size: 0.95em !important;
-            margin-left: 0.75rem !important;
+            font-size: 0.7rem !important;
+            margin-left: 0.9rem !important;
+        }
+
+        .cb-table tr.cb-date-row td > span:last-child {
+            padding: 0.12rem 0.55rem !important;
+            border-radius: 999px !important;
         }
 
         .cb-table tr.cb-date-row svg {
-            width: 11px !important;
-            height: 11px !important;
+            width: 13px !important;
+            height: 13px !important;
         }
 
         /* Badge, metode, user, ref, sumber dana */
