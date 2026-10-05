@@ -2304,6 +2304,49 @@ if ($trialStatus) {
         line-height: 1.25;
     }
 
+    /* Proporsi: grafik lebih pendek (lebar), panel ringkasan lebih lebar */
+    #tradingChartCard .chart-pie-section {
+        flex: 0 0 clamp(340px, 40%, 500px);
+    }
+
+    #tradingChartCard .fin-insight {
+        padding: 0.9rem 1rem;
+    }
+
+    #tradingChartCard .fin-ring-row {
+        gap: 1.25rem;
+        padding: 0.15rem 0.25rem;
+    }
+
+    #tradingChartCard .fin-ring {
+        width: 116px;
+        height: 116px;
+    }
+
+    #tradingChartCard .fin-ring-center b {
+        font-size: 1rem;
+    }
+
+    #tradingChartCard .fin-leg-text b {
+        font-size: 0.82rem;
+    }
+
+    #tradingChartCard .fin-stats {
+        gap: 0.45rem;
+    }
+
+    @media (max-width: 1100px) {
+        #tradingChartCard .chart-pie-section {
+            flex-basis: clamp(300px, 42%, 400px);
+        }
+    }
+
+    @media (max-width: 860px) {
+        #tradingChartCard .chart-pie-section {
+            flex-basis: auto;
+        }
+    }
+
     /* Footer bar */
     .chart-footer-bar {
         padding: 0.75rem 1.1rem 0.95rem;
