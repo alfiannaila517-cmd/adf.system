@@ -85,6 +85,48 @@ try {
         throw new Exception('Cannot edit cancelled reservations');
     }
 
+    // GROUP: cek SEMUA kamar lebih dulu. Dulu booking utama sudah disimpan ke tanggal baru sebelum
+    // kamar lain diperiksa, lalu kamar yang bentrok hanya "di-skip" -> double booking dan grup
+    // terpecah ke tanggal berbeda. Sekarang satu bentrokan = tidak ada perubahan yang disimpan.
+    if (!empty($_POST['is_group']) && !empty($_POST['rooms_json'])) {
+        $preRooms = json_decode($_POST['rooms_json'], true);
+        $preIn = !empty($_POST['check_in_date']) ? trim($_POST['check_in_date']) : $booking['check_in_date'];
+        $preOut = !empty($_POST['check_out_date']) ? trim($_POST['check_out_date']) : $booking['check_out_date'];
+        if (is_array($preRooms) && $preIn < $preOut) {
+            $groupIds = [$bookingId];
+            foreach ($preRooms as $pr) {
+                if ((int)($pr['booking_id'] ?? 0) > 0) $groupIds[] = (int)$pr['booking_id'];
+            }
+            $ph = implode(',', array_fill(0, count($groupIds), '?'));
+            $seenRooms = [];
+            foreach ($preRooms as $pr) {
+                $prRoom = (int)($pr['room_id'] ?? 0);
+                if ($prRoom <= 0 || (int)($pr['booking_id'] ?? 0) <= 0) continue;
+                $rn = $conn->prepare("SELECT room_number FROM rooms WHERE id = ?");
+                $rn->execute([$prRoom]);
+                $roomLabel = $rn->fetchColumn() ?: ('#' . $prRoom);
+                if (isset($seenRooms[$prRoom])) {
+                    throw new Exception("Kamar {$roomLabel} dipilih dua kali dalam grup. Tidak ada perubahan yang disimpan.");
+                }
+                $seenRooms[$prRoom] = true;
+                $cf = $conn->prepare("SELECT booking_code FROM bookings
+                    WHERE room_id = ? AND id NOT IN ({$ph}) AND status NOT IN ('cancelled', 'checked_out')
+                      AND check_in_date < ? AND check_out_date > ? LIMIT 1");
+                $cf->execute(array_merge([$prRoom], $groupIds, [$preOut, $preIn]));
+                $conflictCode = $cf->fetchColumn();
+                if ($conflictCode) {
+                    throw new Exception("Kamar {$roomLabel} tidak tersedia pada tanggal tersebut (bentrok dengan {$conflictCode}). Tidak ada perubahan yang disimpan.");
+                }
+                if ($hasRoomBlockConflict($prRoom, $preIn, $preOut)) {
+                    throw new Exception("Kamar {$roomLabel} diblok pada tanggal tersebut. Tidak ada perubahan yang disimpan.");
+                }
+            }
+        }
+    }
+
+    // Semua perubahan (tamu, booking utama, kamar grup, kamar baru) disimpan dalam satu transaksi.
+    $conn->beginTransaction();
+
     // Update guest info in guests table
     if ($booking['gid']) {
         $guestUpdates = [];
@@ -549,6 +591,10 @@ try {
         $successMsg .= ' — Room ' . $verifyRow['room_number'] . ' (' . $verifyRow['type_name'] . ')';
     }
 
+    if ($conn->inTransaction()) {
+        $conn->commit();
+    }
+
     echo json_encode([
         'success' => true,
         'message' => $successMsg,
@@ -575,10 +621,16 @@ try {
         ]
     ]);
 } catch (Exception $e) {
+    if (isset($conn) && $conn->inTransaction()) {
+        $conn->rollBack();
+    }
     error_log("ERROR: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
     error_log("Stack: " . $e->getTraceAsString());
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 } catch (Throwable $t) {
+    if (isset($conn) && $conn->inTransaction()) {
+        $conn->rollBack();
+    }
     error_log("FATAL: " . $t->getMessage() . " at " . $t->getFile() . ":" . $t->getLine());
     error_log("Stack: " . $t->getTraceAsString());
     echo json_encode(['success' => false, 'message' => 'Fatal error: ' . $t->getMessage()]);

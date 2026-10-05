@@ -673,47 +673,55 @@ class CashbookHelper
             $transactionId = $this->db->getConnection()->lastInsertId();
             $result['transaction_id'] = $transactionId;
 
-            // Insert into master cash_account_transactions
-            if ($this->hasTransactionIdColumn()) {
-                $masterStmt = $this->masterDb->prepare("
-                    INSERT INTO cash_account_transactions (
-                        cash_account_id, transaction_id, transaction_date,
-                        description, amount, transaction_type,
-                        reference_number, created_by, created_at
-                    ) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())
-                ");
-                $masterStmt->execute([
-                    $account['id'],
-                    $transactionId,
-                    $paymentDate,
-                    $description,
-                    $amountToRecord,
-                    $bookingCode,
-                    $this->userId
-                ]);
-            } else {
-                $masterStmt = $this->masterDb->prepare("
-                    INSERT INTO cash_account_transactions (
-                        cash_account_id, transaction_date,
-                        description, amount, transaction_type,
-                        reference_number, created_by, created_at
-                    ) VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())
-                ");
-                $masterStmt->execute([
-                    $account['id'],
-                    $paymentDate,
-                    $description,
-                    $amountToRecord,
-                    $bookingCode,
-                    $this->userId
-                ]);
-            }
+            // Baris cash_book di atas SUDAH tersimpan. Bila langkah master (transaksi akun + saldo) gagal,
+            // hasil tetap sukses dengan transaction_id supaya pembayaran ditandai tercatat; dulu helper
+            // melaporkan gagal sehingga pembayaran yang sama tercatat ulang saat check-in/check-out.
+            try {
+                // Insert into master cash_account_transactions
+                if ($this->hasTransactionIdColumn()) {
+                    $masterStmt = $this->masterDb->prepare("
+                        INSERT INTO cash_account_transactions (
+                            cash_account_id, transaction_id, transaction_date,
+                            description, amount, transaction_type,
+                            reference_number, created_by, created_at
+                        ) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())
+                    ");
+                    $masterStmt->execute([
+                        $account['id'],
+                        $transactionId,
+                        $paymentDate,
+                        $description,
+                        $amountToRecord,
+                        $bookingCode,
+                        $this->userId
+                    ]);
+                } else {
+                    $masterStmt = $this->masterDb->prepare("
+                        INSERT INTO cash_account_transactions (
+                            cash_account_id, transaction_date,
+                            description, amount, transaction_type,
+                            reference_number, created_by, created_at
+                        ) VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())
+                    ");
+                    $masterStmt->execute([
+                        $account['id'],
+                        $paymentDate,
+                        $description,
+                        $amountToRecord,
+                        $bookingCode,
+                        $this->userId
+                    ]);
+                }
 
-            // Update cash account balance
-            // Atomik: current_balance + ? (bukan nilai lama yang dibaca sebelumnya + amount),
-            // supaya dua pembayaran bersamaan tidak saling menimpa saldo.
-            $updateStmt = $this->masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
-            $updateStmt->execute([$amountToRecord, $account['id']]);
+                // Update cash account balance
+                // Atomik: current_balance + ? (bukan nilai lama yang dibaca sebelumnya + amount),
+                // supaya dua pembayaran bersamaan tidak saling menimpa saldo.
+                $updateStmt = $this->masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
+                $updateStmt->execute([$amountToRecord, $account['id']]);
+            } catch (\Throwable $masterErr) {
+                $result['master_warning'] = $masterErr->getMessage();
+                error_log("CashbookHelper: cash_book #{$transactionId} tersimpan, tapi sinkron akun master gagal - " . $masterErr->getMessage());
+            }
 
             // Mark booking_payment as synced (if payment_id provided)
             if (!empty($paymentData['payment_id'])) {

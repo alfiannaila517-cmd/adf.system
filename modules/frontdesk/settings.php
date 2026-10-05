@@ -56,34 +56,66 @@ if (!$tablesExist) {
     $activeTab = 'setup'; // Force to setup tab
 }
 
+// Modal Edit Room dirender di semua tab: variabel ini harus selalu terdefinisi.
+$roomTypes = [];
+
 // ==================== ROOMS MANAGEMENT ====================
 if ($activeTab === 'rooms' && $tablesExist) {
     // Add/Edit Room
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
+            $roomStatuses = ['available', 'occupied', 'cleaning', 'maintenance', 'blocked'];
+            $roomNumber = trim((string)($_POST['room_number'] ?? ''));
+            $roomTypeId = (int)($_POST['room_type_id'] ?? 0);
+            $floorNumber = (int)($_POST['floor_number'] ?? 0);
+            $roomIdPost = (int)($_POST['room_id'] ?? 0);
+
+            if (in_array($_POST['action'], ['add_room', 'edit_room'], true)) {
+                if ($roomNumber === '') {
+                    throw new Exception('Nomor kamar wajib diisi');
+                }
+                if ($roomTypeId <= 0) {
+                    throw new Exception('Tipe kamar wajib dipilih');
+                }
+                $dup = $pdo->prepare("SELECT COUNT(*) FROM rooms WHERE room_number = ? AND id <> ?");
+                $dup->execute([$roomNumber, $roomIdPost]);
+                if ((int)$dup->fetchColumn() > 0) {
+                    throw new Exception("Nomor kamar {$roomNumber} sudah dipakai");
+                }
+            }
+
             if ($_POST['action'] === 'add_room') {
-                $stmt = $pdo->prepare("INSERT INTO rooms (room_number, room_type_id, floor_number, status) 
+                $stmt = $pdo->prepare("INSERT INTO rooms (room_number, room_type_id, floor_number, status)
                                      VALUES (?, ?, ?, ?)");
-                $stmt->execute([
-                    $_POST['room_number'],
-                    $_POST['room_type_id'],
-                    $_POST['floor_number'],
-                    'available'
-                ]);
+                $stmt->execute([$roomNumber, $roomTypeId, $floorNumber, 'available']);
                 $message = "✓ Kamar berhasil ditambahkan!";
             } elseif ($_POST['action'] === 'edit_room') {
+                $roomStatus = (string)($_POST['status'] ?? 'available');
+                if (!in_array($roomStatus, $roomStatuses, true)) {
+                    throw new Exception('Status kamar tidak valid');
+                }
+                // Kamar dengan tamu in-house tidak boleh di-set "available" (status kamar & booking jadi tidak sinkron).
+                if ($roomStatus === 'available') {
+                    $inHouse = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE room_id = ? AND status = 'checked_in'");
+                    $inHouse->execute([$roomIdPost]);
+                    if ((int)$inHouse->fetchColumn() > 0) {
+                        throw new Exception('Kamar ini masih ditempati tamu (check-in). Lakukan check-out dulu sebelum mengubah status menjadi available.');
+                    }
+                }
                 $stmt = $pdo->prepare("UPDATE rooms SET room_number=?, room_type_id=?, floor_number=?, status=? WHERE id=?");
-                $stmt->execute([
-                    $_POST['room_number'],
-                    $_POST['room_type_id'],
-                    $_POST['floor_number'],
-                    $_POST['status'],
-                    $_POST['room_id']
-                ]);
+                $stmt->execute([$roomNumber, $roomTypeId, $floorNumber, $roomStatus, $roomIdPost]);
                 $message = "✓ Kamar berhasil diupdate!";
             } elseif ($_POST['action'] === 'delete_room') {
+                // Kamar yang dipakai booking (aktif maupun riwayat) tidak boleh dihapus: booking jadi
+                // yatim dan hilang dari In-House, laporan & HK (INNER JOIN rooms).
+                $used = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE room_id = ? AND status <> 'cancelled'");
+                $used->execute([$roomIdPost]);
+                $usedCount = (int)$used->fetchColumn();
+                if ($usedCount > 0) {
+                    throw new Exception("Kamar tidak bisa dihapus: dipakai oleh {$usedCount} booking. Ubah status kamar menjadi maintenance bila tidak dipakai lagi.");
+                }
                 $stmt = $pdo->prepare("DELETE FROM rooms WHERE id=?");
-                $stmt->execute([$_POST['room_id']]);
+                $stmt->execute([$roomIdPost]);
                 $message = "✓ Kamar berhasil dihapus!";
             }
         } catch (Exception $e) {
@@ -116,26 +148,41 @@ if ($activeTab === 'rooms' && $tablesExist) {
 elseif ($activeTab === 'room_types') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
+            if (in_array($_POST['action'], ['add_type', 'edit_type'], true)) {
+                $typeName = trim((string)($_POST['type_name'] ?? ''));
+                $basePrice = (float)($_POST['base_price'] ?? 0);
+                $maxOcc = (int)($_POST['max_occupancy'] ?? 0);
+                if ($typeName === '') {
+                    throw new Exception('Nama tipe kamar wajib diisi');
+                }
+                if ($basePrice < 0) {
+                    throw new Exception('Harga tidak boleh negatif');
+                }
+                if ($maxOcc < 1) {
+                    throw new Exception('Kapasitas minimal 1 orang');
+                }
+            }
+
             if ($_POST['action'] === 'add_type') {
-                $stmt = $pdo->prepare("INSERT INTO room_types (type_name, base_price, max_occupancy, amenities, color_code) 
+                $stmt = $pdo->prepare("INSERT INTO room_types (type_name, base_price, max_occupancy, amenities, color_code)
                                      VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([
-                    $_POST['type_name'],
-                    $_POST['base_price'],
-                    $_POST['max_occupancy'],
-                    $_POST['amenities'],
-                    $_POST['color_code']
+                    $typeName,
+                    $basePrice,
+                    $maxOcc,
+                    $_POST['amenities'] ?? '',
+                    $_POST['color_code'] ?? ''
                 ]);
                 $message = "✓ Tipe kamar berhasil ditambahkan!";
             } elseif ($_POST['action'] === 'edit_type') {
                 $stmt = $pdo->prepare("UPDATE room_types SET type_name=?, base_price=?, max_occupancy=?, amenities=?, color_code=? WHERE id=?");
                 $stmt->execute([
-                    $_POST['type_name'],
-                    $_POST['base_price'],
-                    $_POST['max_occupancy'],
-                    $_POST['amenities'],
-                    $_POST['color_code'],
-                    $_POST['type_id']
+                    $typeName,
+                    $basePrice,
+                    $maxOcc,
+                    $_POST['amenities'] ?? '',
+                    $_POST['color_code'] ?? '',
+                    (int)($_POST['type_id'] ?? 0)
                 ]);
                 $message = "✓ Tipe kamar berhasil diupdate!";
             } elseif ($_POST['action'] === 'delete_type') {
@@ -1311,7 +1358,7 @@ include '../../includes/header.php';
                             <option value="">-- Select Type --</option>
                             <?php foreach ($roomTypes as $type): ?>
                                 <option value="<?php echo $type['id']; ?>">
-                                    <?php echo $type['type_name']; ?> (Rp <?php echo number_format($type['base_price']); ?>)
+                                    <?php echo htmlspecialchars($type['type_name']); ?> (Rp <?php echo number_format($type['base_price']); ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -2102,7 +2149,7 @@ include '../../includes/header.php';
                         <option value="">-- Select Type --</option>
                         <?php foreach ($roomTypes as $type): ?>
                             <option value="<?php echo $type['id']; ?>">
-                                <?php echo $type['type_name']; ?> (Rp <?php echo number_format($type['base_price']); ?>)
+                                <?php echo htmlspecialchars($type['type_name']); ?> (Rp <?php echo number_format($type['base_price']); ?>)
                             </option>
                         <?php endforeach; ?>
                     </select>

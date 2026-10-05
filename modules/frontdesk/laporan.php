@@ -73,7 +73,7 @@ try {
         FROM bookings b
         INNER JOIN guests g ON b.guest_id = g.id
         INNER JOIN rooms r ON b.room_id = r.id
-        WHERE DATE(b.check_in_date) = ? AND b.status = 'confirmed'
+        WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'pending')
         ORDER BY b.check_in_date ASC";
     $checkInToday = $db->fetchAll($checkInTodayQuery, [$today]);
 

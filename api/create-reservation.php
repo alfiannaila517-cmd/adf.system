@@ -118,17 +118,21 @@ try {
         throw new Exception("Check-out date must be after check-in date");
     }
 
-    // Calculate nights if not provided
-    if ($totalNights == 0) {
-        $interval = $checkIn->diff($checkOut);
-        $totalNights = $interval->days;
-    }
+    // Malam & total selalu dihitung di server dari tanggal dan harga per malam: POST rekayasa bisa
+    // mengirim final_price=1 + paid_amount=1 lalu tersimpan "lunas". Rumusnya sama dengan form
+    // (final = harga x malam - diskon; extras ditambahkan terpisah lewat booking-extras).
+    $totalNights = $checkIn->diff($checkOut)->days;
+    $roomPrice = max(0, $roomPrice);
+    $totalPrice = $roomPrice * $totalNights;
+    $discount = min(max(0, $discount), $totalPrice);
+    $finalPrice = $totalPrice - $discount;
+    $paidAmount = max(0, $paidAmount);
 
     // Check room availability
     $conflicts = $db->fetchAll("
         SELECT id FROM bookings 
         WHERE room_id = ? 
-        AND status != 'cancelled'
+        AND status NOT IN ('cancelled', 'checked_out')
         AND (
             (check_in_date < ? AND check_out_date > ?)
             OR (check_in_date >= ? AND check_in_date < ?)
@@ -163,9 +167,7 @@ try {
         }
     }
 
-    $db->beginTransaction();
-
-    // Auto-create group_id column if not exists
+    // Auto-create group_id column if not exists (sebelum transaksi: ALTER = implicit commit)
     try {
         $colCheck = $db->fetchOne("SHOW COLUMNS FROM bookings LIKE 'group_id'");
         if (!$colCheck) {
@@ -174,6 +176,8 @@ try {
     } catch (\Throwable $e) {
         // Column might already exist
     }
+
+    $db->beginTransaction();
 
     // ALWAYS CREATE NEW GUEST for each reservation
     // This prevents name changes when same phone/email is used
@@ -380,7 +384,7 @@ try {
     // Prepare success message
     $successMessage = 'Reservation created successfully';
     if ($paidAmount > 0) {
-        if ($isOTA) {
+        if ($isOTABooking) {
             $successMessage .= "\n\n💳 Booking OTA ({$originalBookingSource})";
             $successMessage .= "\nPembayaran Rp " . number_format($paidAmount, 0, ',', '.') . " tercatat";
             $successMessage .= "\n⏰ Akan masuk Buku Kas saat tamu CHECK-IN";
@@ -423,7 +427,7 @@ try {
         ]
     ]);
 } catch (\Throwable $e) {
-    if (isset($db)) {
+    if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
     }
     error_log("Create Reservation Error: " . $e->getMessage());

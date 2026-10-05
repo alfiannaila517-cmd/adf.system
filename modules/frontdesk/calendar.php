@@ -2957,6 +2957,10 @@ include '../../includes/header.php';
 </div>
 
 <script>
+    // Tanggal lokal YYYY-MM-DD (toISOString() memakai UTC: jam 00:00-07:00 WIB menghasilkan tanggal kemarin).
+    window.fdLocalYmd = function(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    };
     // Initialize OTA Fees from PHP - Create global variable (not just window property)
     var OTA_FEES = <?php echo json_encode($otaFees); ?>;
     var OTA_SOURCE_KEYS = <?php echo json_encode($otaSourceKeys); ?>;
@@ -4044,8 +4048,8 @@ include '../../includes/header.php';
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        if (checkInInput) checkInInput.value = today.toISOString().split('T')[0];
-        if (checkOutInput) checkOutInput.value = tomorrow.toISOString().split('T')[0];
+        if (checkInInput) checkInInput.value = window.fdLocalYmd(today);
+        if (checkOutInput) checkOutInput.value = window.fdLocalYmd(tomorrow);
 
         const modeEl = document.getElementById('reservationMode');
         if (modeEl) modeEl.value = 'reservation';
@@ -5086,7 +5090,9 @@ include '../../includes/header.php';
 
     window.closeReservationModal = function closeReservationModal() {
         const modal = document.getElementById('reservationModal');
-        modal.classList.remove('active');
+        if (modal) modal.classList.remove('active');
+        // Definisi ini menimpa versi sebelumnya (yang juga membersihkan pilihan klik pertama di grid).
+        if (typeof clearFirstClick === 'function') clearFirstClick();
 
         // Also close other modals if open
         const bookingPaymentModal = document.getElementById('bookingPaymentModal');
@@ -5325,7 +5331,7 @@ include '../../includes/header.php';
 
     // Go to today: if today is within the current 30-day range, just scroll; otherwise reload with today's start date
     window.goToToday = function() {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = window.fdLocalYmd(new Date());
         const scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
         const todayCell = scroller ? scroller.querySelector(`.grid-date-cell[data-date="${todayStr}"]`) : null;
         if (todayCell) {
@@ -5513,7 +5519,7 @@ include '../../includes/header.php';
                         console.log('✅ Restored scroll position:', savedScroll);
                     } else {
                         // First load: scroll to today automatically
-                        const todayStr = new Date().toISOString().split('T')[0];
+                        const todayStr = window.fdLocalYmd(new Date());
                         scrollCalendarToDate(todayStr, scroller);
                         console.log('✅ Auto-scrolled to today:', todayStr);
                     }
@@ -7558,7 +7564,7 @@ include '../../includes/header.php';
                         throw {
                             parseError: true,
                             message: 'Response bukan JSON',
-                            body: text
+                            body: String(err)
                         };
                     });
                 })

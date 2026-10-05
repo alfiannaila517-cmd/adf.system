@@ -6,8 +6,8 @@
  */
 
 define('APP_ACCESS', true);
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Error tidak ditampilkan ke browser (path & SQL bocor); tetap tercatat di log server.
+ini_set('display_errors', 0);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
@@ -48,7 +48,7 @@ try {
     // Check-in today - only those with check-in date today but NOT yet checked in (status = confirmed)
     $checkInToday = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date
         FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
-        WHERE DATE(b.check_in_date) = ? AND b.status = 'confirmed'
+        WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'pending')
         ORDER BY b.check_in_date ASC", [$today]);
 
     // Check-out today - only checked_in guests with checkout date today

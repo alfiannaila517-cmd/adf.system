@@ -130,18 +130,29 @@ try {
         // abaikan; fallback 'available' di bawah dipakai bila UPDATE 'cleaning' gagal
     }
 
+    // Kolom yang dipakai UPDATE status di bawah dipastikan ada SEBELUM transaksi (ALTER di dalam
+    // transaksi memicu implicit commit). Tanpa kolom ini UPDATE gagal diam-diam.
+    foreach (['checked_out_by' => 'INT NULL', 'actual_checkout_time' => 'DATETIME NULL'] as $ensureCol => $ensureType) {
+        if (!$db->fetchOne("SHOW COLUMNS FROM bookings LIKE '{$ensureCol}'")) {
+            $db->query("ALTER TABLE bookings ADD COLUMN {$ensureCol} {$ensureType}");
+        }
+    }
+
     // Start transaction
     $db->beginTransaction();
 
-    // Update booking status to checked_out
-    $db->query("
-        UPDATE bookings 
+    // Update booking status to checked_out. Guard status + cek hasil: Database::query menelan error.
+    $coUpd = $db->query("
+        UPDATE bookings
         SET status = 'checked_out',
             actual_checkout_time = NOW(),
             checked_out_by = ?,
             updated_at = NOW()
-        WHERE id = ?
+        WHERE id = ? AND status = 'checked_in'
     ", [$currentUser['id'], $bookingId]);
+    if ($coUpd === false || $coUpd->rowCount() !== 1) {
+        throw new Exception('Gagal mengubah status booking menjadi check-out. Muat ulang halaman lalu coba lagi.');
+    }
 
     // Update room status to cleaning (kamar kotor / perlu dibersihkan setelah checkout).
     // Database::query mengembalikan false (tidak throw) saat gagal, jadi fallback dicek lewat nilainya.

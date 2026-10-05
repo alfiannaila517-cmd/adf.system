@@ -2318,17 +2318,18 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             </div>
 
             <!-- Flash Messages -->
-            <?php if ($success = getFlash('success')): ?>
+            <?php // Nama variabel khusus: dulu $success/$error milik halaman ikut tertimpa di sini.
+            if ($flashSuccess = getFlash('success')): ?>
                 <div class="alert alert-success fade-in" style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); color: var(--success); padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem;">
                     <i data-feather="check-circle" style="width: 20px; height: 20px; vertical-align: middle;"></i>
-                    <?php echo $success; ?>
+                    <?php echo $flashSuccess; ?>
                 </div>
             <?php endif; ?>
 
-            <?php if ($error = getFlash('error')): ?>
+            <?php if ($flashError = getFlash('error')): ?>
                 <div class="alert alert-danger fade-in" style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); color: var(--danger); padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem;">
                     <i data-feather="alert-circle" style="width: 20px; height: 20px; vertical-align: middle;"></i>
-                    <?php echo $error; ?>
+                    <?php echo $flashError; ?>
                 </div>
             <?php endif; ?>
 

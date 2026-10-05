@@ -106,6 +106,25 @@ try {
         throw new Exception('Booking status tidak valid untuk check-in');
     }
 
+    // Booking untuk tanggal yang akan datang tidak bisa di-check-in hari ini (pendapatan OTA ikut
+    // masuk buku kas terlalu awal). Tamu datang lebih awal: ubah dulu tanggal booking.
+    if (!empty($booking['check_in_date']) && $booking['check_in_date'] > date('Y-m-d')) {
+        throw new Exception('Booking ini untuk tanggal ' . date('d/m/Y', strtotime($booking['check_in_date'])) . '. Check-in baru bisa dilakukan mulai tanggal tersebut (ubah tanggal booking bila tamu datang lebih awal).');
+    }
+
+    // Kamar masih ditempati tamu lain yang belum di-check-out -> tolak (mencegah 2 tamu in-house di
+    // kamar yang sama dan status kamar kacau saat salah satunya check-out).
+    if (!empty($booking['room_id'])) {
+        $occupant = $db->fetchOne(
+            "SELECT b.booking_code, g.guest_name FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id
+             WHERE b.room_id = ? AND b.status = 'checked_in' AND b.id <> ? LIMIT 1",
+            [$booking['room_id'], $bookingId]
+        );
+        if ($occupant) {
+            throw new Exception('Kamar ' . ($booking['room_number'] ?? '') . ' masih ditempati ' . ($occupant['guest_name'] ?: 'tamu lain') . ' (' . $occupant['booking_code'] . '). Check-out tamu tersebut dulu atau pindahkan booking ke kamar lain.');
+        }
+    }
+
     // Calculate remaining payment
     $payment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
     $totalPaid = max((float)$payment['paid'], (float)$booking['paid_amount']);
@@ -138,6 +157,14 @@ try {
                 $isOTA = true;
                 break;
             }
+        }
+    }
+
+    // Kolom yang dipakai UPDATE status di bawah dipastikan ada SEBELUM transaksi (ALTER di dalam
+    // transaksi memicu implicit commit). Tanpa kolom ini UPDATE gagal diam-diam.
+    foreach (['checked_in_by' => 'INT NULL', 'actual_checkin_time' => 'DATETIME NULL'] as $ensureCol => $ensureType) {
+        if (!$db->fetchOne("SHOW COLUMNS FROM bookings LIKE '{$ensureCol}'")) {
+            $db->query("ALTER TABLE bookings ADD COLUMN {$ensureCol} {$ensureType}");
         }
     }
 
@@ -262,15 +289,19 @@ try {
         ]);
     }
 
-    // Update booking status to checked_in
-    $db->query("
-        UPDATE bookings 
+    // Update booking status to checked_in. Database::query menelan error (return false), jadi hasilnya
+    // dicek: bila gagal, check-in dibatalkan (rollback) alih-alih dilaporkan "berhasil".
+    $statusUpd = $db->query("
+        UPDATE bookings
         SET status = 'checked_in',
             actual_checkin_time = NOW(),
             checked_in_by = ?,
             updated_at = NOW()
-        WHERE id = ?
+        WHERE id = ? AND status IN ('confirmed', 'pending')
     ", [$validUserId, $bookingId]);
+    if ($statusUpd === false || $statusUpd->rowCount() !== 1) {
+        throw new Exception('Gagal mengubah status booking menjadi check-in. Muat ulang halaman lalu coba lagi.');
+    }
 
     // Update room status to occupied
     $db->query("
