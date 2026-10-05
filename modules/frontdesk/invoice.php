@@ -276,6 +276,9 @@ if (!function_exists('invTerbilang')) {
 }
 $rp = fn($v) => 'Rp ' . number_format((float)$v, 0, ',', '.');
 $statusText = ['paid' => 'PAID', 'partial' => 'PARTIALLY PAID', 'unpaid' => 'UNPAID'][$overallStatus];
+// Room types in this folio, e.g. "Deluxe × 2, Superior".
+$rtCounts = array_count_values(array_map(fn($b) => (string)($b['room_type'] ?: 'Room'), $allBookings));
+$roomTypeLabel = implode(', ', array_map(fn($t, $n) => $n > 1 ? "$t × $n" : $t, array_keys($rtCounts), $rtCounts));
 $sourceLabel = ucwords(str_replace('_', ' ', $booking['booking_source'] ?? 'Walk-in'));
 $guestsLabel = (int)($booking['adults'] ?? 1) . ' Adult' . ((int)($booking['adults'] ?? 1) === 1 ? '' : 's') . ((int)($booking['children'] ?? 0) > 0 ? ', ' . (int)$booking['children'] . ' Child' . ((int)$booking['children'] === 1 ? '' : 'ren') : '');
 if (!function_exists('invAmountWords')) {
@@ -387,6 +390,9 @@ if (!function_exists('invAmountWords')) {
         }
         .brand .tag { font-style: italic; color: var(--gold); font-size: 11px; margin-top: 2px; }
         .brand .addr { color: var(--muted); font-size: 9.8px; margin-top: 5px; line-height: 1.45; }
+        /* Letterhead text block centred, address lines balanced instead of a ragged wrap. */
+        .brand .co { text-align: center; max-width: 340px; }
+        .brand .addr { text-wrap: balance; }
 
         .doc { text-align: right; min-width: 220px; }
         .doc .title {
@@ -576,7 +582,7 @@ if (!function_exists('invAmountWords')) {
                     <?php else: ?>
                         <div class="mono"><?php echo htmlspecialchars(mb_strtoupper(mb_substr($coName, 0, 1))); ?></div>
                     <?php endif; ?>
-                    <div>
+                    <div class="co">
                         <h1><?php echo htmlspecialchars($coName); ?></h1>
                         <?php if ($coTagline): ?><div class="tag">“<?php echo htmlspecialchars($coTagline); ?>”</div><?php endif; ?>
                         <div class="addr">
@@ -622,6 +628,7 @@ if (!function_exists('invAmountWords')) {
                     </div>
                     <div class="kv">
                         <span>Guests</span><span><?php echo $guestsLabel; ?></span>
+                        <span>Room Type</span><span><?php echo htmlspecialchars($roomTypeLabel); ?></span>
                         <span>Rooms</span><span><?php echo count($allBookings); ?> room<?php echo count($allBookings) === 1 ? '' : 's'; ?></span>
                         <span>Source</span><span><?php echo htmlspecialchars($sourceLabel); ?></span>
                     </div>

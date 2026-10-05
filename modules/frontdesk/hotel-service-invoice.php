@@ -270,6 +270,9 @@ if (!function_exists('invAmountWords')) {
         }
         .brand .tag { font-style: italic; color: var(--gold); font-size: 11px; margin-top: 2px; }
         .brand .addr { color: var(--muted); font-size: 9.8px; margin-top: 5px; line-height: 1.45; }
+        /* Letterhead text block centred, address lines balanced instead of a ragged wrap. */
+        .brand .co { text-align: center; max-width: 340px; }
+        .brand .addr { text-wrap: balance; }
 
         .doc { text-align: right; min-width: 220px; }
         .doc .title {
@@ -466,7 +469,7 @@ if (!function_exists('invAmountWords')) {
                     <?php else: ?>
                         <div class="mono"><?php echo htmlspecialchars(mb_strtoupper(mb_substr($companyName, 0, 1))); ?></div>
                     <?php endif; ?>
-                    <div>
+                    <div class="co">
                         <h1><?php echo htmlspecialchars($companyName); ?></h1>
                         <?php if ($coTagline): ?><div class="tag">“<?php echo htmlspecialchars($coTagline); ?>”</div><?php endif; ?>
                         <div class="addr">
