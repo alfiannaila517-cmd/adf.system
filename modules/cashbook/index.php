@@ -2396,7 +2396,7 @@ echo getPrintCSS();
 
         body[data-theme] .cb-table tbody td strong {
             font-size: inherit !important;
-            font-weight: 700;
+            font-weight: 500 !important;
             color: var(--text-primary);
         }
 
@@ -2404,6 +2404,19 @@ echo getPrintCSS();
             font-size: 0.54rem !important;
             letter-spacing: 0.04em;
         }
+
+        /* Jumlah: warna beda masuk/keluar, tanpa bold */
+        body[data-theme] .cb-table tbody td.cb-amt {
+            font-weight: 500 !important;
+            font-variant-numeric: tabular-nums;
+        }
+
+        body[data-theme] .cb-table tbody td.cb-amt.is-in { color: #059669 !important; }
+        body[data-theme] .cb-table tbody td.cb-amt.is-out { color: #dc2626 !important; }
+        body[data-theme] .cb-table tbody td.cb-amt.is-setor { color: #4338ca !important; }
+        body[data-theme="dark"] .cb-table tbody td.cb-amt.is-in { color: #34d399 !important; }
+        body[data-theme="dark"] .cb-table tbody td.cb-amt.is-out { color: #f87171 !important; }
+        body[data-theme="dark"] .cb-table tbody td.cb-amt.is-setor { color: #a5b4fc !important; }
 
         body[data-theme] .cb-table tbody tr:not(.cb-date-row):hover td {
             background: rgba(37, 99, 235, 0.045) !important;
@@ -2966,7 +2979,7 @@ echo getPrintCSS();
                                         <?php echo htmlspecialchars(isset($trans['payment_method']) ? strtoupper($trans['payment_method']) : '-'); ?>
                                     </span>
                                 </td>
-                                <td style="text-align: right; font-weight: 700; font-size: 0.85rem; color: <?php echo $rowIsCashTransfer ? '#4338ca' : ($trans['transaction_type'] === 'income' ? '#059669' : '#dc2626'); ?>;">
+                                <td class="cb-amt <?php echo $rowIsCashTransfer ? 'is-setor' : ($trans['transaction_type'] === 'income' ? 'is-in' : 'is-out'); ?>" style="text-align: right; white-space: nowrap;">
                                     <?php echo formatCurrency($trans['amount']); ?>
                                 </td>
                                 <td style="font-size: 0.8rem;">
