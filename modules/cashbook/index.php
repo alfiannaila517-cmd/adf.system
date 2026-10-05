@@ -2350,6 +2350,140 @@ echo getPrintCSS();
             padding: 0.4rem 0.5rem !important;
             border-bottom: 1px solid var(--cb-line) !important;
         }
+
+        /* === Tabel transaksi: header navy dibekukan (sticky), baris ringkas satu tema === */
+        #cbTableWrap {
+            max-height: calc(100vh - 150px);
+            overflow: auto;
+            border-radius: 12px;
+            border: 1px solid var(--cb-line);
+            background: var(--cb-tile);
+        }
+
+        body[data-theme] .cb-table {
+            border-collapse: separate !important;
+            border-spacing: 0;
+            border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
+            background: transparent !important;
+        }
+
+        body[data-theme] .cb-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            background: #1e3a8a !important;
+            background-image: none !important;
+            color: #fff !important;
+            -webkit-text-fill-color: #fff;
+            font-size: 0.56rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.08em !important;
+            padding: 0.55rem 0.55rem !important;
+            border: none !important;
+            border-radius: 0 !important;
+        }
+
+        body[data-theme] .cb-table tbody td {
+            font-size: 0.68rem !important;
+            padding: 0.38rem 0.55rem !important;
+            line-height: 1.35;
+            color: var(--text-secondary) !important;
+            border-bottom: 1px solid var(--cb-line) !important;
+            background: transparent;
+        }
+
+        body[data-theme] .cb-table tbody td strong {
+            font-size: inherit !important;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        body[data-theme] .cb-table tbody td strong + div {
+            font-size: 0.54rem !important;
+            letter-spacing: 0.04em;
+        }
+
+        body[data-theme] .cb-table tbody tr:not(.cb-date-row):hover td {
+            background: rgba(37, 99, 235, 0.045) !important;
+        }
+
+        /* Baris pemisah tanggal */
+        body[data-theme] .cb-table tr.cb-date-row {
+            background: none !important;
+        }
+
+        body[data-theme] .cb-table tr.cb-date-row td {
+            text-align: left !important;
+            padding: 0.32rem 0.6rem !important;
+            font-size: 0.62rem !important;
+            font-weight: 700 !important;
+            color: #1e3a8a !important;
+            background: rgba(37, 99, 235, 0.07) !important;
+            border-bottom: 1px solid rgba(37, 99, 235, 0.14) !important;
+        }
+
+        body[data-theme="dark"] .cb-table tr.cb-date-row td {
+            color: #93c5fd !important;
+            background: rgba(59, 130, 246, 0.12) !important;
+        }
+
+        .cb-table tr.cb-date-row td > span {
+            font-size: 0.95em !important;
+            margin-left: 0.75rem !important;
+        }
+
+        .cb-table tr.cb-date-row svg {
+            width: 11px !important;
+            height: 11px !important;
+        }
+
+        /* Badge, metode, user, ref, sumber dana */
+        .cb-table .cb-badge,
+        .cb-table .cb-method {
+            padding: 0.14rem 0.5rem !important;
+            border-radius: 999px !important;
+            font-size: 0.58rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+
+        .cb-table .cb-user-badge {
+            padding: 0.12rem 0.45rem !important;
+            border-radius: 999px !important;
+            font-size: 0.6rem !important;
+            white-space: nowrap;
+        }
+
+        .cb-table .cb-ref-tag {
+            padding: 0.08rem 0.35rem !important;
+            font-size: 0.54rem !important;
+            border-radius: 5px !important;
+        }
+
+        .cb-table td span[style*="border-radius:4px"] {
+            font-size: 0.52rem !important;
+            padding: 0.06rem 0.35rem !important;
+            border-radius: 999px !important;
+        }
+
+        /* Tombol aksi */
+        .cb-table .cb-actions {
+            gap: 0.3rem !important;
+        }
+
+        .cb-table .cb-action-btn {
+            width: 24px !important;
+            height: 24px !important;
+            border-radius: 7px !important;
+        }
+
+        .cb-table .cb-action-btn svg {
+            width: 12px !important;
+            height: 12px !important;
+        }
     </style>
 
     <!-- Summary Cards -->
@@ -2649,7 +2783,7 @@ echo getPrintCSS();
         <?php endif; ?>
 
         <!-- Table -->
-        <div style="overflow-x: auto;">
+        <div id="cbTableWrap" style="overflow-x: auto;">
             <table class="cb-table">
                 <thead>
                     <tr>
@@ -2743,7 +2877,7 @@ echo getPrintCSS();
                                 $shiftUsers = implode(', ', $usersByDate[$currentDate] ?? []);
                                 $dayCash = $cashByDate[$currentDate] ?? 0;
                         ?>
-                                <tr style="background: linear-gradient(135deg, #f1f5f9, #e2e8f0);">
+                                <tr class="cb-date-row" style="background: linear-gradient(135deg, #f1f5f9, #e2e8f0);">
                                     <td colspan="10" style="text-align: center; font-weight: 700; color: #475569; padding: 0.5rem; font-size: 0.8rem;">
                                         Transaksi tanggal: <?php echo formatDate($trans['transaction_date']); ?>
                                         <span style="margin-left: 15px; font-weight: 500; color: #64748b; font-size: 0.85em;">
