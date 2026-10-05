@@ -2327,10 +2327,49 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                  !important dipakai karena elemen top bar memakai style inline. -->
             <style>
                 .main-content > .top-bar {
-                    padding: 0.55rem 1rem;
+                    position: relative;
+                    padding: 0.55rem 1rem 0.55rem 1.15rem;
                     margin-bottom: 0.9rem;
                     border-radius: 12px;
-                    box-shadow: 0 4px 16px -8px rgba(15, 23, 42, 0.12);
+                    overflow: hidden;
+                    background: linear-gradient(135deg, #ffffff 0%, #f5f8ff 100%) !important;
+                    border: 1px solid rgba(148, 163, 184, 0.32);
+                    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 22px -12px rgba(15, 23, 42, 0.22);
+                }
+
+                /* Aksen navy tipis di kiri: batas & identitas header terlihat jelas */
+                .main-content > .top-bar::before {
+                    content: '';
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 4px;
+                    background: linear-gradient(180deg, #1e3a8a, #2563eb);
+                }
+
+                body[data-theme="dark"] .main-content > .top-bar {
+                    background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.92)) !important;
+                    border-color: rgba(148, 163, 184, 0.2);
+                    box-shadow: 0 10px 26px -14px rgba(0, 0, 0, 0.7);
+                }
+
+                /* Tema gelap: judul & nama user (warna navy inline) dibuat terang agar terbaca */
+                body[data-theme="dark"] .main-content > .top-bar .page-title,
+                body[data-theme="dark"] .main-content > .top-bar .user-info > div:first-child > div:first-child {
+                    color: #e2e8f0 !important;
+                    -webkit-text-fill-color: #e2e8f0 !important;
+                }
+
+                body[data-theme="dark"] .main-content > .top-bar .user-info > div:first-child > div:last-child {
+                    color: #93c5fd !important;
+                    -webkit-text-fill-color: #93c5fd !important;
+                }
+
+                /* Kartu konten utama (grafik dashboard dll): tepi tipis agar tidak menyatu dengan latar */
+                body[data-theme="light"] #tradingChartCard {
+                    border: 1px solid rgba(148, 163, 184, 0.32) !important;
+                    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 26px -14px rgba(15, 23, 42, 0.22) !important;
                 }
 
                 .main-content > .top-bar .page-title {

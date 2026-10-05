@@ -1493,7 +1493,7 @@ include '../../includes/header.php';
        body[data-theme] + !important karena style.css tema terang memaksa warna teks/tabel. */
     body[data-theme] .dashboard-container {
         --fdd-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(241, 247, 255, 0.64));
-        --fdd-edge: rgba(255, 255, 255, 0.9);
+        --fdd-edge: rgba(148, 163, 184, 0.3); /* tema terang: tepi abu tipis agar panel tidak menyatu dengan latar putih */
         --fdd-line: rgba(148, 163, 184, 0.22);
         --fdd-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.22);
     }

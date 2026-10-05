@@ -502,7 +502,7 @@ include '../../includes/header.php';
        Selector ber-body[data-theme] + !important karena style.css tema terang memaksa warna teks. */
     body[data-theme] .ih-container {
         --ih-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(241, 247, 255, 0.64));
-        --ih-edge: rgba(255, 255, 255, 0.9);
+        --ih-edge: rgba(148, 163, 184, 0.3); /* tema terang: tepi abu tipis agar panel tidak menyatu dengan latar putih */
         --ih-line: rgba(148, 163, 184, 0.22);
         --ih-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.22);
     }

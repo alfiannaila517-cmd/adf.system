@@ -2127,7 +2127,7 @@ echo getPrintCSS();
         :root {
             --cb-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(241, 247, 255, 0.62));
             --cb-tile: rgba(255, 255, 255, 0.66);
-            --cb-edge: rgba(255, 255, 255, 0.9);
+            --cb-edge: rgba(148, 163, 184, 0.3); /* tema terang: tepi abu tipis agar panel tidak menyatu dengan latar putih */
             --cb-line: rgba(148, 163, 184, 0.22);
             --cb-shadow: 0 10px 30px -14px rgba(15, 23, 42, 0.16);
         }

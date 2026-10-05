@@ -439,7 +439,7 @@ $divisionColors = [
     /* === Kelola Divisi ringkas: seragam dengan Dashboard / Buku Kas (kaca, padat, dua tema) === */
     body[data-theme] {
         --dv-card: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(241, 247, 255, 0.66));
-        --dv-edge: rgba(255, 255, 255, 0.92);
+        --dv-edge: rgba(148, 163, 184, 0.3); /* tema terang: tepi abu tipis agar panel tidak menyatu dengan latar putih */
         --dv-line: rgba(148, 163, 184, 0.24);
         --dv-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.22);
         --dv-input: #ffffff;

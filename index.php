@@ -1853,7 +1853,7 @@ if ($trialStatus) {
         --glass-card: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(241, 247, 255, 0.6));
         --glass-panel: rgba(255, 255, 255, 0.55);
         --glass-tile: rgba(255, 255, 255, 0.62);
-        --glass-edge: rgba(255, 255, 255, 0.85);
+        --glass-edge: rgba(148, 163, 184, 0.3); /* tema terang: tepi abu tipis agar panel tidak menyatu dengan latar putih */
         --glass-line: rgba(148, 163, 184, 0.22);
         --glass-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.14);
         --glass-glow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
