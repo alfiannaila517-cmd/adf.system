@@ -126,6 +126,27 @@ if ($action === 'get_bank_accounts' && $_SERVER['REQUEST_METHOD'] === 'GET') {
 // Get divisions and categories
 $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
 
+// 5 divisi yang paling sering dipakai 90 hari terakhir (ditampilkan paling atas di pilihan divisi).
+$divisionNameById = [];
+foreach ($divisions as $div) {
+    $divisionNameById[(int)$div['id']] = $div['division_name'];
+}
+$frequentDivisionIds = [];
+try {
+    $freqRows = $db->fetchAll("
+        SELECT division_id, COUNT(*) AS n FROM cash_book
+        WHERE division_id IS NOT NULL AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+        GROUP BY division_id ORDER BY n DESC LIMIT 8
+    ");
+    foreach ($freqRows ?: [] as $fr) {
+        $fid = (int)$fr['division_id'];
+        if (isset($divisionNameById[$fid])) $frequentDivisionIds[] = $fid;
+        if (count($frequentDivisionIds) >= 5) break;
+    }
+} catch (\Throwable $e) {
+    $frequentDivisionIds = [];
+}
+
 // Load investor projects (for non-hotel expense linking)
 $investorProjects = [];
 if ($isHotel) {
@@ -1226,16 +1247,183 @@ include '../../includes/header.php';
                         <div id="cqcIncomeNote" style="display: none; margin-top: 0.3rem; padding: 6px 10px; border-radius: 6px; font-size: 0.7rem;"></div>
                     </div>
                 <?php else: ?>
-                    <!-- Division -->
+                    <!-- Division: select asli tetap ada (validasi & skrip lain memakainya), tampilannya diganti popup -->
                     <div class="compact-form-group">
                         <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Divisi <span style="color: var(--danger);">*</span></label>
-                        <select name="division_id" id="division_id" class="form-control" style="height: 30px; font-size: 0.76rem;" required>
-                            <option value="">-- Pilih Divisi --</option>
-                            <?php foreach ($divisions as $div): ?>
-                                <option value="<?php echo $div['id']; ?>"><?php echo $div['division_name']; ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <div class="divpick" id="divPick">
+                            <select name="division_id" id="division_id" class="divpick-native" required tabindex="-1" aria-hidden="true">
+                                <option value="">-- Pilih Divisi --</option>
+                                <?php foreach ($divisions as $div): ?>
+                                    <option value="<?php echo (int)$div['id']; ?>"><?php echo htmlspecialchars($div['division_name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="button" class="divpick-btn" id="divPickBtn" aria-haspopup="listbox" aria-expanded="false">
+                                <span class="divpick-label" id="divPickLabel">-- Pilih Divisi --</span>
+                            </button>
+                            <div class="divpick-pop" id="divPickPop" role="listbox" hidden>
+                                <input type="text" class="divpick-search" id="divPickSearch" placeholder="Cari divisi..." autocomplete="off">
+                                <div class="divpick-list" id="divPickList">
+                                    <?php if (!empty($frequentDivisionIds)): ?>
+                                        <div class="divpick-group">Sering dipakai</div>
+                                        <?php foreach ($frequentDivisionIds as $fid): if (!isset($divisionNameById[$fid])) continue; ?>
+                                            <button type="button" class="divpick-opt is-freq" data-value="<?php echo (int)$fid; ?>"><?php echo htmlspecialchars($divisionNameById[$fid]); ?></button>
+                                        <?php endforeach; ?>
+                                        <div class="divpick-group">Semua divisi</div>
+                                    <?php endif; ?>
+                                    <?php foreach ($divisions as $div): if (in_array((int)$div['id'], $frequentDivisionIds, true)) continue; ?>
+                                        <button type="button" class="divpick-opt" data-value="<?php echo (int)$div['id']; ?>"><?php echo htmlspecialchars($div['division_name']); ?></button>
+                                    <?php endforeach; ?>
+                                    <div class="divpick-empty" hidden>Divisi tidak ditemukan</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                    <style>
+                        .divpick { position: relative; }
+                        .divpick-native { position: absolute; left: 0; bottom: 0; width: 100%; height: 1px; opacity: 0; pointer-events: none; }
+                        .divpick-btn {
+                            width: 100%; height: 30px; padding: 0 2rem 0 0.65rem; text-align: left; cursor: pointer;
+                            font: inherit; font-size: 0.76rem; border-radius: 8px;
+                            background: var(--bg-secondary, #fff); color: var(--text-primary);
+                            border: 1px solid rgba(148, 163, 184, 0.45); position: relative;
+                        }
+                        .divpick-btn::after {
+                            content: ''; position: absolute; right: 0.75rem; top: 50%; width: 6px; height: 6px;
+                            border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-70%) rotate(45deg); opacity: 0.6;
+                        }
+                        .divpick.open .divpick-btn { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+                        .divpick-label.is-placeholder { color: var(--text-muted); }
+                        .divpick-pop {
+                            position: fixed; z-index: 10050;
+                            padding: 0.35rem; border-radius: 12px;
+                            background: #fff; border: 1px solid rgba(148, 163, 184, 0.35);
+                            box-shadow: 0 18px 40px -14px rgba(15, 23, 42, 0.38), 0 2px 6px rgba(15, 23, 42, 0.06);
+                            animation: divPickIn 0.14s ease-out;
+                        }
+                        body[data-theme="dark"] .divpick-pop { background: #0f172a; border-color: rgba(148, 163, 184, 0.28); }
+                        @keyframes divPickIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+                        .divpick-search {
+                            width: 100%; height: 30px; padding: 0 0.6rem; margin-bottom: 0.3rem; font: inherit; font-size: 0.74rem;
+                            border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.4); background: transparent; color: var(--text-primary); outline: none;
+                        }
+                        .divpick-search:focus { border-color: #2563eb; }
+                        /* Tinggi daftar = 5 baris; sisanya di-scroll */
+                        .divpick-list { max-height: calc(5 * 32px + 20px); overflow-y: auto; overscroll-behavior: contain; }
+                        .divpick-group {
+                            padding: 0.35rem 0.55rem 0.2rem; font-size: 0.56rem; font-weight: 700; letter-spacing: 0.08em;
+                            text-transform: uppercase; color: var(--text-muted);
+                        }
+                        .divpick-opt {
+                            display: flex; align-items: center; width: 100%; height: 32px; padding: 0 0.6rem; border: none; border-radius: 8px;
+                            background: none; cursor: pointer; text-align: left; font: inherit; font-size: 0.76rem; color: var(--text-primary);
+                        }
+                        .divpick-opt:hover, .divpick-opt.is-active { background: rgba(37, 99, 235, 0.08); }
+                        .divpick-opt.is-selected { background: rgba(37, 99, 235, 0.12); color: #1d4ed8; font-weight: 600; }
+                        body[data-theme="dark"] .divpick-opt.is-selected { color: #93c5fd; }
+                        .divpick-opt.is-freq::before {
+                            content: ''; width: 6px; height: 6px; border-radius: 50%; background: #2563eb; margin-right: 0.5rem; opacity: 0.7;
+                        }
+                        .divpick-empty { padding: 0.6rem; font-size: 0.72rem; color: var(--text-muted); text-align: center; }
+                    </style>
+                    <script>
+                        (function() {
+                            var root = document.getElementById('divPick');
+                            if (!root) return;
+                            var select = document.getElementById('division_id');
+                            var btn = document.getElementById('divPickBtn');
+                            var label = document.getElementById('divPickLabel');
+                            var pop = document.getElementById('divPickPop');
+                            var search = document.getElementById('divPickSearch');
+                            var list = document.getElementById('divPickList');
+                            var opts = Array.prototype.slice.call(list.querySelectorAll('.divpick-opt'));
+                            var empty = list.querySelector('.divpick-empty');
+
+                            // Label mengikuti select (skrip lain mengisi select.value secara langsung).
+                            function syncLabel() {
+                                var o = select.options[select.selectedIndex];
+                                var has = select.value !== '';
+                                label.textContent = has && o ? o.text : '-- Pilih Divisi --';
+                                label.classList.toggle('is-placeholder', !has);
+                                opts.forEach(function(b) { b.classList.toggle('is-selected', b.dataset.value === select.value); });
+                            }
+
+                            function filter(q) {
+                                q = q.trim().toLowerCase();
+                                var shown = 0;
+                                opts.forEach(function(b) {
+                                    var ok = !q || b.textContent.toLowerCase().indexOf(q) !== -1;
+                                    // Saat mencari, duplikat (sering dipakai) tidak perlu ada: semua divisi tetap muncul sekali.
+                                    b.hidden = !ok;
+                                    if (ok) shown++;
+                                });
+                                list.querySelectorAll('.divpick-group').forEach(function(g) { g.hidden = !!q; });
+                                empty.hidden = shown > 0;
+                            }
+
+                            // Popup melayang di atas kartu form (kartu memotong elemen yang keluar batas).
+                            function place() {
+                                var r = btn.getBoundingClientRect();
+                                pop.style.left = r.left + 'px';
+                                pop.style.width = r.width + 'px';
+                                pop.style.top = (r.bottom + 6) + 'px';
+                            }
+
+                            function open() {
+                                place();
+                                pop.hidden = false;
+                                root.classList.add('open');
+                                btn.setAttribute('aria-expanded', 'true');
+                                search.value = '';
+                                filter('');
+                                var sel = list.querySelector('.divpick-opt.is-selected');
+                                if (sel) sel.scrollIntoView({ block: 'nearest' });
+                                setTimeout(function() { search.focus(); }, 0);
+                            }
+
+                            function close() {
+                                pop.hidden = true;
+                                root.classList.remove('open');
+                                btn.setAttribute('aria-expanded', 'false');
+                            }
+
+                            function choose(value) {
+                                select.value = value;
+                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                                syncLabel();
+                                close();
+                                btn.focus();
+                            }
+
+                            btn.addEventListener('click', function() { pop.hidden ? open() : close(); });
+                            opts.forEach(function(b) { b.addEventListener('click', function() { choose(b.dataset.value); }); });
+                            search.addEventListener('input', function() { filter(search.value); });
+                            search.addEventListener('keydown', function(e) {
+                                var visible = opts.filter(function(b) { return !b.hidden; });
+                                var i = visible.indexOf(list.querySelector('.divpick-opt.is-active'));
+                                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    if (i >= 0) visible[i].classList.remove('is-active');
+                                    i = e.key === 'ArrowDown' ? Math.min(visible.length - 1, i + 1) : Math.max(0, i - 1);
+                                    if (visible[i]) { visible[i].classList.add('is-active'); visible[i].scrollIntoView({ block: 'nearest' }); }
+                                } else if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    var pick = i >= 0 ? visible[i] : visible[0];
+                                    if (pick) choose(pick.dataset.value);
+                                } else if (e.key === 'Escape') {
+                                    close();
+                                    btn.focus();
+                                }
+                            });
+                            document.addEventListener('click', function(e) { if (!root.contains(e.target)) close(); });
+                            window.addEventListener('resize', function() { if (!pop.hidden) place(); });
+                            window.addEventListener('scroll', function(e) { if (!pop.hidden && !pop.contains(e.target)) place(); }, true);
+                            select.addEventListener('change', syncLabel);
+                            // Validasi "required": arahkan ke tombol popup.
+                            select.addEventListener('invalid', function() { btn.style.borderColor = '#dc2626'; open(); });
+                            setInterval(syncLabel, 600);
+                            syncLabel();
+                        })();
+                    </script>
 
                     <!-- Category -->
                     <div class="compact-form-group">
