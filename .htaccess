@@ -32,6 +32,17 @@ RewriteRule ^admin/?$ login.php?view=system [L,QSA]
     </IfModule>
 </FilesMatch>
 
+# Block PHP error logs and backup copies of source files (berisi nama DB, path server, kode sumber)
+<FilesMatch "^(error_log|.*\.(bak|backup))$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
 # Block access to config directory from web
 <IfModule mod_rewrite.c>
 RewriteRule ^config/ - [F,L]

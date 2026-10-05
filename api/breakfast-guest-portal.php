@@ -998,6 +998,16 @@ if ($action === 'submit_link') {
     }
     $breakfastTime = sprintf('%02d:%02d:00', (int)$mt[1], (int)$mt[2]);
 
+    // Pastikan kolom cash_book.booking_id ada SEBELUM transaksi: ALTER TABLE di dalam transaksi
+    // memicu implicit commit sehingga commit() di akhir gagal dan tamu menerima pesan error.
+    try {
+        if (!$pdo->query("SHOW COLUMNS FROM cash_book LIKE 'booking_id'")->fetch()) {
+            $pdo->exec("ALTER TABLE cash_book ADD COLUMN booking_id INT NULL AFTER payment_method");
+        }
+    } catch (Exception $e) {
+        // Kolom mungkin sudah ada / tabel belum siap
+    }
+
     $pdo->beginTransaction();
     try {
         $link = $db->fetchOne("SELECT * FROM breakfast_guest_links WHERE token = ? LIMIT 1", [$token]);
@@ -1366,7 +1376,7 @@ if ($action === 'submit_link') {
         $paidMenuTotal = 0;
         $paidMenuNames = [];
         foreach ($menuItems as $mi) {
-            if (empty($mi['is_free']) && empty($mi['is_on_the_spot'])) {
+            if (empty($mi['is_free']) && empty($mi['is_on_the_spot']) && empty($mi['is_extra'])) {
                 $itemTotal = (float)$mi['price'] * (int)$mi['quantity'];
                 $paidMenuTotal += $itemTotal;
                 $paidMenuNames[] = $mi['menu_name'] . ' x' . $mi['quantity'];
@@ -1374,12 +1384,7 @@ if ($action === 'submit_link') {
         }
 
         if ($paidMenuTotal > 0 && $targetBookingId > 0) {
-            // Ensure booking_id column exists in cash_book
-            try {
-                $pdo->exec("ALTER TABLE cash_book ADD COLUMN booking_id INT NULL AFTER payment_method");
-            } catch (Exception $e) {
-                // Column may already exist
-            }
+            // Kolom cash_book.booking_id sudah dipastikan sebelum transaksi (lihat atas).
 
             // Get or create category "Moka" for division RESTO (id=2)
             $mokaCategory = $db->fetchOne("SELECT id FROM categories WHERE division_id = 2 AND LOWER(TRIM(category_name)) = 'moka' LIMIT 1");

@@ -549,10 +549,10 @@ include '../../includes/header.php';
                     </div>
 
                     <div class="ih-actions">
-                        <button class="ih-btn ih-btn-breakfast" onclick="selectBreakfast(<?php echo $guest['booking_id']; ?>, '<?php echo htmlspecialchars($guest['guest_name']); ?>')">
+                        <button class="ih-btn ih-btn-breakfast" onclick="selectBreakfast(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
                             🍳 Breakfast
                         </button>
-                        <button class="ih-btn ih-btn-checkout" onclick="doCheckOutGuest(<?php echo $guest['booking_id']; ?>, '<?php echo htmlspecialchars($guest['guest_name']); ?>', '<?php echo $guest['room_number']; ?>')">
+                        <button class="ih-btn ih-btn-checkout" onclick="doCheckOutGuest(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode((string)$guest['room_number'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
                             🚪 Check-out
                         </button>
                     </div>
@@ -1021,6 +1021,7 @@ include '../../includes/header.php';
 
     function displayBreakfastOrders(orders, guestName) {
         const content = document.getElementById('breakfastContent');
+        guestName = String(guestName ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
         if (orders.length === 0) {
             content.innerHTML = `

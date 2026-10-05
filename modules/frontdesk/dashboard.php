@@ -53,78 +53,10 @@ try {
     $tomorrow = date('Y-m-d', strtotime('+1 day'));
     $thisMonth = date('Y-m');
 
-    // ==========================================
-    // AUTO-CHECKOUT OVERDUE BOOKINGS
-    // Bookings with check_out_date < today that are still 'checked_in'
-    // ==========================================
-    $overdueBookings = $db->fetchAll("
-        SELECT b.id, b.room_id, b.booking_code, g.guest_name, r.room_number
-        FROM bookings b
-        LEFT JOIN guests g ON b.guest_id = g.id
-        LEFT JOIN rooms r ON b.room_id = r.id
-        WHERE b.status = 'checked_in'
-        AND DATE(b.check_out_date) < ?
-    ", [$today]);
-
-    if (!empty($overdueBookings)) {
-        foreach ($overdueBookings as $overdue) {
-            // Update booking status to checked_out
-            $db->query("
-                UPDATE bookings 
-                SET status = 'checked_out',
-                    actual_checkout_time = check_out_date,
-                    updated_at = NOW()
-                WHERE id = ?
-            ", [$overdue['id']]);
-
-            // Update room status to available
-            $db->query("
-                UPDATE rooms 
-                SET status = 'available',
-                    current_guest_id = NULL,
-                    updated_at = NOW()
-                WHERE id = ? AND status = 'occupied'
-            ", [$overdue['room_id']]);
-        }
-        error_log("Auto-checkout: " . count($overdueBookings) . " overdue bookings checked out");
-    }
-
-    // ==========================================
-    // ==========================================
-    // AUTO-CLEANUP DUPLICATE CASH_BOOK ENTRIES
-    // Sync is handled by API endpoints (add-booking-payment, checkin-guest, checkout-guest)
-    // Dashboard only cleans up duplicates - does NOT create new entries
-    // ==========================================
-    try {
-        // Find booking-related entries with same booking_code (regardless of date)
-        // Keep only the OLDEST entry (lowest id) per booking_code
-        $dupGroups = $db->fetchAll("
-            SELECT 
-                SUBSTRING_INDEX(SUBSTRING_INDEX(description, 'BK-', -1), ' ', 1) as booking_code,
-                MIN(id) as keep_id,
-                GROUP_CONCAT(id ORDER BY id) as all_ids,
-                COUNT(*) as cnt
-            FROM cash_book
-            WHERE description LIKE '%BK-%'
-            AND transaction_type = 'income'
-            GROUP BY SUBSTRING_INDEX(SUBSTRING_INDEX(description, 'BK-', -1), ' ', 1)
-            HAVING cnt > 1
-        ");
-        if ($dupGroups && count($dupGroups) > 0) {
-            foreach ($dupGroups as $dg) {
-                $allIds = explode(',', $dg['all_ids']);
-                $keepId = (int)$dg['keep_id'];
-                $deleteIds = array_filter($allIds, fn($id) => (int)$id !== $keepId);
-                if (count($deleteIds) > 0) {
-                    $placeholders = implode(',', array_fill(0, count($deleteIds), '?'));
-                    $db->query("DELETE FROM cash_book WHERE id IN ({$placeholders})", array_values($deleteIds));
-                    error_log("Auto-cleanup: Deleted " . count($deleteIds) . " duplicate cash_book entries for BK-{$dg['booking_code']}");
-                }
-            }
-        }
-    } catch (\Throwable $cleanupErr) {
-        error_log("Cash_book auto-cleanup error: " . $cleanupErr->getMessage());
-    }
+    // Catatan: halaman ini tidak lagi meng-checkout booking yang lewat tanggal atau menghapus baris
+    // cash_book saat dibuka. Tamu overdue tetap in-house sampai di-checkout lewat alur check-out resmi
+    // (cek saldo + sinkron buku kas). Pembersihan "duplikat" per kode booking dulu ikut menghapus
+    // pembayaran sah (DP + pelunasan satu booking).
 
     // 1. Total In-House Guests (checked in, currently staying)
     // Count ALL checked_in bookings (after auto-checkout, only current ones remain)

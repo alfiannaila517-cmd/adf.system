@@ -89,7 +89,12 @@ if (empty($otaSourceKeys)) {
 // ============================================
 // GET CALENDAR DATE RANGE (Include Past Dates for History)
 // ============================================
-$startDate = $_GET['start'] ?? date('Y-m-d');
+// Hanya terima tanggal valid YYYY-MM-DD: nilai ini dicetak ke HTML dan dipakai di strtotime().
+$startDate = (string)($_GET['start'] ?? '');
+$startDateObj = DateTime::createFromFormat('!Y-m-d', $startDate);
+if (!$startDateObj || $startDateObj->format('Y-m-d') !== $startDate) {
+    $startDate = date('Y-m-d');
+}
 $daysBefore = 60; // Show 60 days before for history/checkout bookings
 $daysAfter = 365; // Show 365 days after for future bookings
 $dates = [];
@@ -2766,7 +2771,9 @@ include '../../includes/header.php';
                                             // Add status icons
                                             $statusIcon = $isCheckedIn ? '✓ ' : ($isCheckedOut ? '📭 ' : '');
 
-                                            $guestName = htmlspecialchars(substr($booking['guest_name'] ?? 'Guest', 0, 12));
+                                            $guestNameRaw = mb_substr((string)($booking['guest_name'] ?? 'Guest'), 0, 12);
+                                            $guestName = htmlspecialchars($guestNameRaw);
+                                            $guestNameJs = htmlspecialchars(json_encode($guestNameRaw, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES);
                                             $bookingCode = htmlspecialchars($booking['booking_code']);
                                             $shortCode = substr($bookingCode, 0, 8); // Show first 8 chars
                                             $statusText = ucfirst(str_replace('_', ' ', $booking['status']));
@@ -2803,7 +2810,7 @@ include '../../includes/header.php';
                                                     <?php endif; ?>
                                                     <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
                                                     <?php if ($isCheckedIn && !$isPastBooking): ?>
-                                                        <button class="bar-action-btn bar-extend-btn" onclick="event.stopPropagation(); openExtendModal(<?php echo $booking['id']; ?>, '<?php echo $guestName; ?>', '<?php echo $booking['check_out_date']; ?>', <?php echo $totalNights; ?>)" title="Extend Stay">+</button>
+                                                        <button class="bar-action-btn bar-extend-btn" onclick="event.stopPropagation(); openExtendModal(<?php echo (int)$booking['id']; ?>, <?php echo $guestNameJs; ?>, '<?php echo htmlspecialchars($booking['check_out_date']); ?>', <?php echo (int)$totalNights; ?>)" title="Extend Stay">+</button>
                                                     <?php elseif (!$isCheckedIn): ?>
                                                         <button class="bar-action-btn bar-edit-btn" onclick="event.stopPropagation(); openEditReservationModal(<?php echo $booking['id']; ?>)" title="Edit Reservasi">✎</button>
                                                     <?php endif; ?>

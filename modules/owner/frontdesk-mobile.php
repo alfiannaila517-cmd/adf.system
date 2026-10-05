@@ -95,29 +95,7 @@ try {
     $hasTables = $tableCheck->rowCount() > 0;
     
     if ($hasTables) {
-        // ==========================================
-        // AUTO-CHECKOUT OVERDUE BOOKINGS  
-        // Sync: bookings with check_out_date < today still 'checked_in' → auto checkout
-        // Same logic as frontdesk/dashboard.php to keep status in sync
-        // ==========================================
-        try {
-            $overdueStmt = $pdo->prepare("
-                SELECT b.id, b.room_id FROM bookings b
-                WHERE b.status = 'checked_in' AND DATE(b.check_out_date) < ?
-            ");
-            $overdueStmt->execute([$today]);
-            $overdueBookings = $overdueStmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            if (!empty($overdueBookings)) {
-                foreach ($overdueBookings as $overdue) {
-                    $pdo->prepare("UPDATE bookings SET status = 'checked_out', actual_checkout_time = check_out_date, updated_at = NOW() WHERE id = ?")->execute([$overdue['id']]);
-                    $pdo->prepare("UPDATE rooms SET status = 'available', current_guest_id = NULL, updated_at = NOW() WHERE id = ? AND status = 'occupied'")->execute([$overdue['room_id']]);
-                }
-                error_log("Owner monitor auto-checkout: " . count($overdueBookings) . " overdue bookings");
-            }
-        } catch (Exception $e) {
-            error_log("Auto-checkout error: " . $e->getMessage());
-        }
+        // Tidak ada auto-checkout saat halaman dibuka: tamu overdue di-checkout lewat alur check-out resmi.
 
         // ==========================================
         // SYNC ROOM STATUS WITH BOOKINGS (source of truth)

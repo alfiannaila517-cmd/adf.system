@@ -335,14 +335,7 @@ try {
     $revPAR = 0; // Revenue Per Available Room
 
     try {
-        // Auto-checkout overdue bookings (same as frontdesk dashboard)
-        $overdueStmt = $pdo->prepare("SELECT id, room_id FROM bookings WHERE status = 'checked_in' AND DATE(check_out_date) < CURDATE()");
-        $overdueStmt->execute();
-        $overdueList = $overdueStmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($overdueList as $ob) {
-            $pdo->prepare("UPDATE bookings SET status = 'checked_out', actual_checkout_time = check_out_date, updated_at = NOW() WHERE id = ?")->execute([$ob['id']]);
-            $pdo->prepare("UPDATE rooms SET status = 'available', current_guest_id = NULL, updated_at = NOW() WHERE id = ? AND status = 'occupied'")->execute([$ob['room_id']]);
-        }
+        // Tidak ada auto-checkout saat halaman dibuka: tamu overdue di-checkout lewat alur check-out resmi.
 
         // Sync room status with bookings (bookings = source of truth)
         $pdo->exec("UPDATE rooms r SET r.status = 'available', r.current_guest_id = NULL, r.updated_at = NOW() WHERE r.status = 'occupied' AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.room_id = r.id AND b.status = 'checked_in')");

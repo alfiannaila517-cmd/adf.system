@@ -73,10 +73,7 @@ if (!$hasGroupId) {
 }
 
 try {
-    // Auto-checkout: set status to 'checked_out' for bookings past their check-out date
-    $db->query(
-        "UPDATE bookings SET status = 'checked_out' WHERE status IN ('checked_in', 'confirmed') AND check_out_date < CURDATE()"
-    );
+    // Tidak ada auto-checkout saat halaman dibuka (dulu juga menutup booking 'confirmed' yang belum check-in).
 
     $status_filter = $_GET['status'] ?? 'all';
 

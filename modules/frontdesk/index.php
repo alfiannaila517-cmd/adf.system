@@ -34,17 +34,8 @@ $pageTitle = 'Front Desk Management';
 try {
     $today = date('Y-m-d');
 
-    // ==========================================
-    // AUTO-CHECKOUT OVERDUE BOOKINGS
-    // ==========================================
-    $overdueBookings = $db->fetchAll("
-        SELECT id, room_id FROM bookings 
-        WHERE status = 'checked_in' AND DATE(check_out_date) < ?
-    ", [$today]);
-    foreach ($overdueBookings as $ob) {
-        $db->query("UPDATE bookings SET status = 'checked_out', actual_checkout_time = check_out_date, updated_at = NOW() WHERE id = ?", [$ob['id']]);
-        $db->query("UPDATE rooms SET status = 'available', current_guest_id = NULL, updated_at = NOW() WHERE id = ? AND status = 'occupied'", [$ob['room_id']]);
-    }
+    // Tidak ada auto-checkout saat halaman dibuka: tamu overdue tetap in-house sampai di-checkout
+    // lewat alur check-out resmi (cek saldo + sinkron buku kas).
 
     // Today's check-ins (using Database class query method)
     $checkinsResult = $db->fetchOne("
