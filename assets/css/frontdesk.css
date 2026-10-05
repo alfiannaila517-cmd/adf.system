@@ -763,3 +763,37 @@ body[data-theme] .bookings-table td .rsv-phone {
 body[data-theme] .bookings-table td .action-dropdown-btn {
     font-weight: 600 !important;
 }
+
+/* Reservasi: ukuran teks sel disetarakan dengan menu sidebar (0.78rem) */
+body[data-theme] .bookings-table td,
+body[data-theme] .bookings-table td *:not(input) {
+    font-size: 0.78rem !important;
+}
+
+body[data-theme] .bookings-table th {
+    font-size: 0.6rem !important;
+}
+
+body[data-theme] .bookings-table td .rsv-phone {
+    font-size: 0.68rem !important;
+}
+
+body[data-theme] .bookings-table td:nth-child(2) strong,
+body[data-theme] .bookings-table td:nth-child(5) div,
+body[data-theme] .bookings-table tbody td .badge,
+body[data-theme] .bookings-table tbody td .ota-badge,
+body[data-theme] .bookings-table tbody td .room-badge,
+body[data-theme] .bookings-table tbody td .rsv-paid,
+body[data-theme] .bookings-table tbody td strong {
+    font-size: 0.78rem !important;
+}
+
+body[data-theme] .bookings-table tbody td .rsv-phone {
+    font-size: 0.68rem !important;
+}
+
+/* Badge status & DP: huruf biasa agar tampak setara dengan teks lain */
+body[data-theme] .bookings-table tbody td .badge {
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
