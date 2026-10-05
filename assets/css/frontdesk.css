@@ -327,6 +327,384 @@ body[data-theme] .bf-section select {
     font-size: 0.72rem !important;
 }
 
+/* Sarapan: form order (redesign). Selector memakai .main-content agar menang atas aturan label/input
+   global di header.php (body[data-business] .main-content :is(label, ...) {font-size ... !important}). */
+body[data-theme] .main-content .bf-wrap .bf-grid {
+    gap: 1rem !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-card {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-section {
+    padding: 0.85rem 1rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-title {
+    font-size: 0.8rem !important;
+    margin-bottom: 0.75rem !important;
+    padding-bottom: 0.55rem !important;
+    border-bottom: 1px solid var(--fd-line) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-title-note {
+    margin-left: auto;
+    font-size: 0.66rem !important;
+    font-weight: 500;
+    color: var(--fd-muted) !important;
+    -webkit-text-fill-color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-row {
+    gap: 0.65rem !important;
+    margin-bottom: 0.65rem !important;
+}
+
+body[data-theme] .main-content .bf-wrap label.bf-label {
+    font-size: 0.64rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase;
+    color: var(--fd-muted) !important;
+    margin-bottom: 0.3rem !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-input {
+    height: 34px !important;
+    padding: 0 0.65rem !important;
+    font-size: 0.78rem !important;
+    border-radius: 9px !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-input:focus,
+body[data-theme] .main-content .bf-wrap .bf-textarea:focus,
+body[data-theme] .main-content .bf-wrap .bf-note-input:focus,
+body[data-theme] .main-content .bf-wrap .bf-qty-input:focus {
+    outline: none !important;
+    border-color: var(--fd-accent-2) !important;
+    box-shadow: 0 0 0 3px var(--fd-accent-soft) !important;
+}
+
+/* Lokasi: segmented control */
+body[data-theme] .main-content .bf-wrap .bf-radio-group {
+    gap: 3px !important;
+    padding: 3px;
+    border-radius: 11px;
+    background: var(--fd-tile);
+    border: 1px solid var(--fd-line);
+}
+
+body[data-theme] .main-content .bf-wrap label.bf-radio-label {
+    height: 32px;
+    padding: 0 0.5rem !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    color: var(--fd-text-2) !important;
+    -webkit-text-fill-color: var(--fd-text-2) !important;
+}
+
+body[data-theme] .main-content .bf-wrap label.bf-radio-label:hover {
+    background: var(--fd-accent-soft) !important;
+}
+
+body[data-theme] .main-content .bf-wrap label.bf-radio-label:has(input:checked) {
+    background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    box-shadow: 0 4px 10px -4px rgba(29, 78, 216, 0.55);
+}
+
+/* Subjudul kelompok menu: label kecil + garis */
+body[data-theme] .main-content .bf-wrap .bf-menu-block {
+    margin-bottom: 0.9rem;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-subhead {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-subhead::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--fd-line);
+    order: 1;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-subhead .bf-add-btn {
+    order: 2;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-add-btn {
+    height: 26px;
+    padding: 0 0.7rem;
+    border-radius: 7px;
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    background: var(--fd-accent-soft);
+    color: var(--fd-accent-text) !important;
+    -webkit-text-fill-color: var(--fd-accent-text) !important;
+    font-size: 0.7rem !important;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+}
+
+body[data-theme] .main-content .bf-wrap p.bf-hint {
+    margin: 0.35rem 0 0;
+    font-size: 0.68rem !important;
+    color: var(--fd-muted) !important;
+}
+
+/* Kartu menu */
+body[data-theme] .main-content .bf-wrap .bf-menu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
+    gap: 0.5rem !important;
+    align-items: start; /* kartu yang dicentang tidak meninggikan kartu lain di barisnya */
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-item {
+    position: relative;
+    padding: 0.6rem 0.7rem !important;
+    border-radius: 11px !important;
+    background: var(--fd-tile) !important;
+    border: 1px solid var(--fd-line) !important;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s, box-shadow 0.15s !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-item:hover {
+    border-color: rgba(37, 99, 235, 0.45) !important;
+    transform: translateY(-1px);
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input:checked) {
+    border-color: var(--fd-accent-2) !important;
+    background: var(--fd-accent-soft) !important;
+    box-shadow: inset 0 0 0 1px var(--fd-accent-2), 0 6px 14px -10px rgba(29, 78, 216, 0.6) !important;
+}
+
+body[data-theme] .main-content .bf-wrap label.bf-menu-cb {
+    align-items: center !important;
+    gap: 0.6rem !important;
+    margin: 0 !important;
+    font-size: inherit !important;
+    cursor: pointer;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-cb input[type="checkbox"],
+body[data-theme] .main-content .bf-wrap .bf-guest-item input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex-shrink: 0;
+    width: 18px !important;
+    height: 18px !important;
+    margin: 0 !important;
+    border-radius: 6px;
+    border: 1.5px solid var(--fd-input-border);
+    background: var(--fd-input-bg) center / 12px no-repeat;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-cb input[type="checkbox"]:checked,
+body[data-theme] .main-content .bf-wrap .bf-guest-item input[type="checkbox"]:checked {
+    border-color: var(--fd-accent-2) !important;
+    background-color: var(--fd-accent-2) !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") !important;
+    background-size: 12px !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-name {
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    line-height: 1.25;
+    margin-bottom: 0.25rem !important;
+    color: var(--fd-text) !important;
+    -webkit-text-fill-color: var(--fd-text) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-price {
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 0.2rem;
+    color: #059669 !important;
+    -webkit-text-fill-color: #059669 !important;
+}
+
+/* Pil kategori: warna per kategori, sisanya biru */
+body[data-theme] .main-content .bf-wrap .bf-menu-cat {
+    padding: 0.1rem 0.45rem !important;
+    border-radius: 999px !important;
+    font-size: 0.55rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em;
+    background: var(--fd-accent-soft) !important;
+    color: var(--fd-accent-text) !important;
+    -webkit-text-fill-color: var(--fd-accent-text) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-cat[data-cat="western"] {
+    background: rgba(217, 119, 6, 0.12) !important;
+    color: #b45309 !important;
+    -webkit-text-fill-color: #b45309 !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-cat[data-cat="indonesian"] {
+    background: rgba(220, 38, 38, 0.1) !important;
+    color: #b91c1c !important;
+    -webkit-text-fill-color: #b91c1c !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-cat[data-cat="drinks"],
+body[data-theme] .main-content .bf-wrap .bf-menu-cat[data-cat="drink"],
+body[data-theme] .main-content .bf-wrap .bf-menu-cat[data-cat="beverage"] {
+    background: rgba(13, 148, 136, 0.12) !important;
+    color: #0f766e !important;
+    -webkit-text-fill-color: #0f766e !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-cat[data-cat="kids"],
+body[data-theme] .main-content .bf-wrap .bf-menu-cat[data-cat="kid"] {
+    background: rgba(124, 58, 237, 0.12) !important;
+    color: #6d28d9 !important;
+    -webkit-text-fill-color: #6d28d9 !important;
+}
+
+body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="western"] { color: #fbbf24 !important; -webkit-text-fill-color: #fbbf24 !important; }
+body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="indonesian"] { color: #fca5a5 !important; -webkit-text-fill-color: #fca5a5 !important; }
+body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="drinks"],
+body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="drink"],
+body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="beverage"] { color: #5eead4 !important; -webkit-text-fill-color: #5eead4 !important; }
+body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="kids"],
+body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="kid"] { color: #c4b5fd !important; -webkit-text-fill-color: #c4b5fd !important; }
+
+/* Qty di kanan nama menu, catatan satu baris di bawah (muncul saat menu dicentang) */
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input:checked) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.5rem;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input:checked) .bf-menu-note {
+    grid-column: 1 / -1;
+    margin-top: 0.45rem !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-qty {
+    gap: 0.3rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-qty-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-qty-input,
+body[data-theme] .main-content .bf-wrap .bf-note-input {
+    height: 28px !important;
+    border-radius: 7px !important;
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+    font-size: 0.74rem !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-qty-input {
+    width: 46px !important;
+    padding: 0 0.3rem !important;
+    font-weight: 700;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-note-input {
+    padding: 0 0.55rem !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-textarea {
+    min-height: 70px;
+    padding: 0.55rem 0.65rem !important;
+    border-radius: 9px !important;
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+    font-size: 0.78rem !important;
+}
+
+/* Tamu in-house */
+body[data-theme] .main-content .bf-wrap label.bf-guest-item {
+    border-radius: 11px !important;
+    background: var(--fd-tile) !important;
+    border: 1px solid var(--fd-line) !important;
+    font-size: inherit !important;
+}
+
+body[data-theme] .main-content .bf-wrap label.bf-guest-item:has(input:checked) {
+    border-color: var(--fd-accent-2) !important;
+    background: var(--fd-accent-soft) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-guest-item .guest-name {
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-guest-item .guest-room,
+body[data-theme] .main-content .bf-wrap .bf-guest-count {
+    font-size: 0.66rem !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-no-guest {
+    padding: 0.85rem !important;
+    border-radius: 11px !important;
+    background: var(--fd-tile) !important;
+    border: 1px dashed var(--fd-input-border) !important;
+    font-size: 0.74rem !important;
+    color: var(--fd-muted) !important;
+    text-align: center;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-actions {
+    margin-top: 0.25rem !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-btn-submit {
+    box-shadow: 0 8px 18px -10px rgba(5, 150, 105, 0.6) !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-input::placeholder,
+body[data-theme] .main-content .bf-wrap .bf-note-input::placeholder,
+body[data-theme] .main-content .bf-wrap .bf-textarea::placeholder {
+    font-size: inherit !important;
+    color: var(--fd-muted) !important;
+    opacity: 0.8;
+}
+
 /* ---------- LAPORAN ---------- */
 body[data-theme] .laporan-container .room-tag {
     background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;

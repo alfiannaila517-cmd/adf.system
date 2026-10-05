@@ -1110,7 +1110,7 @@ include '../../includes/header.php';
 
                 <!-- Guest Selection -->
                 <div class="bf-section">
-                    <div class="bf-title">👤 Pilih Tamu In-House <span style="font-size:.68rem;font-weight:400;color:var(--text-muted);margin-left:.5rem">(bisa pilih beberapa)</span></div>
+                    <div class="bf-title">👤 Pilih Tamu In-House <span class="bf-title-note">bisa pilih beberapa</span></div>
                     <?php if (count($inHouseGuests) > 0 || $editOrder): ?>
                         <div class="bf-group">
                             <?php if ($editOrder): ?>
@@ -1213,8 +1213,8 @@ include '../../includes/header.php';
                     <div class="bf-title">🍽️ Pilih Menu</div>
 
                     <?php if (count($freeMenus) > 0): ?>
-                        <div style="margin-bottom:1rem">
-                            <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem">✨ Free Breakfast</div>
+                        <div class="bf-menu-block">
+                            <div class="bf-subhead">✨ Free Breakfast</div>
                             <div class="bf-menu-grid">
                                 <?php foreach ($freeMenus as $m): ?>
                                     <div class="bf-menu-item">
@@ -1222,11 +1222,11 @@ include '../../includes/header.php';
                                             <input type="checkbox" name="menu_items[]" value="<?php echo $m['id']; ?>" <?php echo in_array($m['id'], $editMenuIds) ? 'checked' : ''; ?>>
                                             <div>
                                                 <div class="bf-menu-name"><?php echo htmlspecialchars($m['menu_name']); ?></div>
-                                                <span class="bf-menu-cat"><?php echo $m['category']; ?></span>
+                                                <span class="bf-menu-cat" data-cat="<?php echo htmlspecialchars(strtolower((string)$m['category'])); ?>"><?php echo htmlspecialchars((string)$m['category']); ?></span>
                                             </div>
                                         </label>
                                         <div class="bf-menu-qty">
-                                            <span style="font-size:.7rem;color:var(--text-muted)">Qty:</span>
+                                            <span class="bf-qty-label">Qty</span>
                                             <input type="number" name="menu_qty[<?php echo $m['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$m['id']] ?? 1; ?>" class="bf-qty-input">
                                         </div>
                                         <div class="bf-menu-note">
@@ -1239,8 +1239,8 @@ include '../../includes/header.php';
                     <?php endif; ?>
 
                     <?php if (count($paidMenus) > 0): ?>
-                        <div>
-                            <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem">💰 Extra (Berbayar)</div>
+                        <div class="bf-menu-block">
+                            <div class="bf-subhead">💰 Extra (Berbayar)</div>
                             <div class="bf-menu-grid">
                                 <?php foreach ($paidMenus as $m): ?>
                                     <div class="bf-menu-item">
@@ -1249,11 +1249,11 @@ include '../../includes/header.php';
                                             <div>
                                                 <div class="bf-menu-name"><?php echo htmlspecialchars($m['menu_name']); ?></div>
                                                 <div class="bf-menu-price">Rp <?php echo number_format($m['price'], 0, ',', '.'); ?></div>
-                                                <span class="bf-menu-cat"><?php echo $m['category']; ?></span>
+                                                <span class="bf-menu-cat" data-cat="<?php echo htmlspecialchars(strtolower((string)$m['category'])); ?>"><?php echo htmlspecialchars((string)$m['category']); ?></span>
                                             </div>
                                         </label>
                                         <div class="bf-menu-qty">
-                                            <span style="font-size:.7rem;color:var(--text-muted)">Qty:</span>
+                                            <span class="bf-qty-label">Qty</span>
                                             <input type="number" name="menu_qty[<?php echo $m['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$m['id']] ?? 1; ?>" class="bf-qty-input">
                                         </div>
                                         <div class="bf-menu-note">
@@ -1266,10 +1266,10 @@ include '../../includes/header.php';
                     <?php endif; ?>
 
                     <!-- Custom Extra Breakfast (Manual) -->
-                    <div style="margin-top:1rem">
-                        <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center">
+                    <div class="bf-menu-block">
+                        <div class="bf-subhead">
                             <span>🛒 Extra Breakfast (Manual)</span>
-                            <button type="button" onclick="addCustomExtra()" style="padding:.3rem .65rem;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer">+ Tambah</button>
+                            <button type="button" onclick="addCustomExtra()" class="bf-add-btn">+ Tambah</button>
                         </div>
                         <div id="customExtrasContainer">
                             <?php if (!empty($editCustomExtras)): ?>
@@ -1286,7 +1286,7 @@ include '../../includes/header.php';
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </div>
-                        <p style="font-size:.65rem;color:var(--text-muted);margin-top:.4rem">Tambahkan item extra breakfast yang tidak ada di daftar menu. Isi nama dan harga manual.</p>
+                        <p class="bf-hint">Tambahkan item extra breakfast yang tidak ada di daftar menu. Isi nama dan harga manual.</p>
                     </div>
                 </div>
 
