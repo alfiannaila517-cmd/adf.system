@@ -306,7 +306,8 @@ try {
             b.check_out_date,
             b.final_price,
             b.status,
-            COALESCE((SELECT SUM(amount) FROM booking_payments WHERE booking_id = b.id), 0) as paid_amount
+            b.group_id,
+            GREATEST(COALESCE((SELECT SUM(amount) FROM booking_payments WHERE booking_id = b.id), 0), COALESCE(b.paid_amount, 0)) as paid_amount
         FROM bookings b
         JOIN rooms r ON b.room_id = r.id
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
@@ -316,6 +317,25 @@ try {
         ORDER BY r.room_number ASC
         LIMIT 10
     ", [$today]);
+    // Booking grup: lunas/tidaknya dihitung dari total gabungan semua kamar grup.
+    $coGroupIds = array_values(array_unique(array_filter(array_column($checkoutGuestsResult ?: [], 'group_id'))));
+    $coGroupRemaining = [];
+    if ($coGroupIds) {
+        $ph = implode(',', array_fill(0, count($coGroupIds), '?'));
+        foreach ($db->fetchAll("
+            SELECT b.group_id,
+                   SUM(b.final_price) - SUM(GREATEST(COALESCE((SELECT SUM(amount) FROM booking_payments WHERE booking_id = b.id), 0), COALESCE(b.paid_amount, 0))) AS remaining
+            FROM bookings b WHERE b.group_id IN ({$ph}) AND b.status <> 'cancelled' GROUP BY b.group_id
+        ", $coGroupIds) as $g) {
+            $coGroupRemaining[$g['group_id']] = max(0, (float)$g['remaining']);
+        }
+    }
+    foreach ($checkoutGuestsResult as &$coRow) {
+        $coRow['remaining'] = !empty($coRow['group_id']) && isset($coGroupRemaining[$coRow['group_id']])
+            ? $coGroupRemaining[$coRow['group_id']]
+            : max(0, (float)$coRow['final_price'] - (float)$coRow['paid_amount']);
+    }
+    unset($coRow);
     $stats['checkout_guests'] = $checkoutGuestsResult;
 } catch (\Throwable $e) {
     error_log("Dashboard Stats Error: " . $e->getMessage());
@@ -1468,116 +1488,421 @@ include '../../includes/header.php';
             font-size: 0.85rem;
         }
     }
+
+    /* === Front Desk Dashboard ringkas: seragam dengan dashboard utama / in-house ===
+       body[data-theme] + !important karena style.css tema terang memaksa warna teks/tabel. */
+    body[data-theme] .dashboard-container {
+        --fdd-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(241, 247, 255, 0.64));
+        --fdd-edge: rgba(255, 255, 255, 0.9);
+        --fdd-line: rgba(148, 163, 184, 0.22);
+        --fdd-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.22);
+    }
+
+    body[data-theme="dark"] .dashboard-container {
+        --fdd-glass: linear-gradient(135deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.5));
+        --fdd-edge: rgba(255, 255, 255, 0.08);
+        --fdd-line: rgba(148, 163, 184, 0.16);
+        --fdd-shadow: 0 14px 32px -16px rgba(0, 0, 0, 0.6);
+    }
+
+    .fdd-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+    }
+
+    body[data-theme] .fdd-title {
+        margin: 0;
+        font-size: 0.95rem !important;
+        font-weight: 700;
+        color: var(--text-heading, var(--text-primary)) !important;
+    }
+
+    body[data-theme] .fdd-sub {
+        margin: 0.1rem 0 0;
+        font-size: 0.64rem !important;
+        color: var(--text-muted) !important;
+    }
+
+    .fdd-actions {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    body[data-theme] .fdd-btn {
+        height: 28px;
+        padding: 0 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        border-radius: 8px;
+        font-size: 0.66rem;
+        font-weight: 600;
+        text-decoration: none;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+        box-shadow: 0 4px 10px -4px rgba(29, 78, 216, 0.5);
+    }
+
+    body[data-theme] .fdd-btn:hover {
+        filter: brightness(1.08);
+    }
+
+    body[data-theme] .fdd-btn-ghost {
+        background: rgba(148, 163, 184, 0.14);
+        color: var(--text-primary) !important;
+        -webkit-text-fill-color: currentColor;
+        box-shadow: none;
+    }
+
+    .fdd-panel {
+        display: grid;
+        grid-template-columns: 190px minmax(0, 1fr);
+        gap: 0.6rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .fdd-occ,
+    .fdd-strip,
+    body[data-theme] .guests-card,
+    body[data-theme] .checkout-section {
+        background: var(--fdd-glass) !important;
+        border: 1px solid var(--fdd-edge) !important;
+        box-shadow: var(--fdd-shadow) !important;
+        border-radius: 14px !important;
+    }
+
+    .fdd-occ {
+        padding: 0.6rem 0.7rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+    }
+
+    .fdd-occ-ring {
+        position: relative;
+        width: 96px;
+        height: 96px;
+    }
+
+    .fdd-occ-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+    }
+
+    body[data-theme] .fdd-occ-center b {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #1e3a8a !important;
+        line-height: 1;
+    }
+
+    body[data-theme="dark"] .fdd-occ-center b {
+        color: #93c5fd !important;
+    }
+
+    body[data-theme] .fdd-occ-center small {
+        font-size: 0.5rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted) !important;
+    }
+
+    .fdd-occ-legend {
+        display: flex;
+        gap: 0.6rem;
+    }
+
+    body[data-theme] .fdd-occ-legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.6rem;
+        color: var(--text-secondary) !important;
+    }
+
+    .fdd-occ-legend i {
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+    }
+
+    .fdd-strips {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        min-width: 0;
+    }
+
+    .fdd-strip {
+        flex: 1;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        align-items: center;
+        padding: 0.5rem 0;
+    }
+
+    .fdd-kpi {
+        min-width: 0;
+        padding: 0.05rem 0.9rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.05rem;
+        text-decoration: none;
+    }
+
+    .fdd-kpi + .fdd-kpi {
+        border-left: 1px solid var(--fdd-line);
+    }
+
+    body[data-theme] .fdd-kpi small {
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--text-muted) !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body[data-theme] .fdd-kpi b {
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: var(--text-primary) !important;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    body[data-theme] .fdd-kpi em {
+        font-style: normal;
+        font-size: 0.55rem;
+        color: var(--text-muted) !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body[data-theme] .fdd-kpi .fdd-warn {
+        color: #b91c1c !important;
+    }
+
+    body[data-theme] .fdd-kpi-link:hover b {
+        color: #2563eb !important;
+    }
+
+    /* Kartu tabel (In-House, Upcoming) */
+    body[data-theme] .guests-card {
+        margin-top: 0.75rem !important;
+        padding: 0.75rem 0.85rem !important;
+    }
+
+    body[data-theme] .guests-card h3 {
+        font-size: 0.74rem !important;
+        font-weight: 700 !important;
+        margin: 0 0 0.5rem !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    body[data-theme] .guests-table th {
+        padding: 0.42rem 0.55rem !important;
+        font-size: 0.55rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.07em !important;
+        text-transform: uppercase;
+        color: var(--text-muted) !important;
+        background: transparent !important;
+        border-bottom: 1px solid var(--fdd-line) !important;
+    }
+
+    body[data-theme] .guests-table td {
+        padding: 0.4rem 0.55rem !important;
+        font-size: 0.7rem !important;
+        color: var(--text-secondary) !important;
+        border-bottom: 1px solid var(--fdd-line) !important;
+    }
+
+    body[data-theme] .guests-table td strong {
+        font-weight: 600;
+        color: var(--text-primary) !important;
+    }
+
+    body[data-theme] .guests-table tbody tr:hover td {
+        background: rgba(37, 99, 235, 0.045) !important;
+    }
+
+    body[data-theme] .room-badge {
+        display: inline-flex;
+        min-width: 34px;
+        justify-content: center;
+        padding: 0.12rem 0.4rem !important;
+        border-radius: 7px !important;
+        font-size: 0.66rem !important;
+        font-weight: 800 !important;
+        color: #fff !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+    }
+
+    body[data-theme] .status-badge {
+        padding: 0.12rem 0.5rem !important;
+        border-radius: 999px !important;
+        font-size: 0.56rem !important;
+        font-weight: 700 !important;
+    }
+
+    /* Check-out hari ini */
+    body[data-theme] .checkout-section {
+        padding: 0.75rem 0.85rem !important;
+        margin-bottom: 0.75rem !important;
+        border-left: 3px solid #dc2626 !important;
+    }
+
+    body[data-theme] .checkout-section h3 {
+        font-size: 0.74rem !important;
+        margin-bottom: 0.5rem !important;
+        color: #b91c1c !important;
+    }
+
+    body[data-theme] .checkout-section table {
+        font-size: 0.7rem !important;
+    }
+
+    body[data-theme] .checkout-section th {
+        padding: 0.42rem 0.55rem !important;
+        font-size: 0.55rem !important;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        background: transparent !important;
+        color: var(--text-muted) !important;
+        border-bottom: 1px solid var(--fdd-line) !important;
+    }
+
+    body[data-theme] .checkout-section td {
+        padding: 0.4rem 0.55rem !important;
+        border-bottom: 1px solid var(--fdd-line) !important;
+    }
+
+    body[data-theme] .checkout-section td span[style*="background: #1e3a8a"] {
+        color: #fff !important;
+        font-size: 0.66rem !important;
+        padding: 0.12rem 0.45rem !important;
+    }
+
+    body[data-theme] .checkout-section tr {
+        background: transparent !important;
+    }
+
+    @media (max-width: 860px) {
+        .fdd-panel {
+            grid-template-columns: 1fr;
+        }
+
+        .fdd-strip {
+            grid-auto-flow: row;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            row-gap: 0.5rem;
+        }
+
+        .fdd-kpi + .fdd-kpi {
+            border-left: none;
+        }
+
+        .fdd-kpi:nth-child(even) {
+            border-left: 1px solid var(--fdd-line);
+        }
+    }
+
 </style>
 
 <!-- Chart.js Library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <div class="dashboard-container">
-    <!-- Header -->
-    <div class="dashboard-header">
-        <div class="dashboard-header-content">
-            <div>
-                <h1>Front Desk Dashboard</h1>
-                <p class="subtitle"><?php echo date('l, d F Y'); ?> • Real-time Occupancy & Analytics</p>
-            </div>
-            <div class="header-actions">
-                <a href="reservasi.php" class="btn-premium">
-                    <span>📋</span>
-                    <span>Reservations</span>
-                </a>
-                <a href="in-house.php" class="btn-premium">
-                    <span>🏨</span>
-                    <span>In-House Guests</span>
-                </a>
-                <a href="calendar.php" class="btn-premium">
-                    <span>📆</span>
-                    <span>Calendar View</span>
-                </a>
-                <a href="settings.php" class="btn-premium">
-                    <span>⚙️</span>
-                    <span>Settings</span>
-                </a>
-            </div>
+    <div class="fdd-head">
+        <div>
+            <h1 class="fdd-title">Front Desk Dashboard</h1>
+            <p class="fdd-sub"><?php echo date('l, d F Y'); ?> · Occupancy &amp; Analytics</p>
+        </div>
+        <div class="fdd-actions">
+            <a href="reservasi.php" class="fdd-btn">Reservations</a>
+            <a href="in-house.php" class="fdd-btn">In-House</a>
+            <a href="calendar.php" class="fdd-btn">Calendar</a>
+            <a href="settings.php" class="fdd-btn fdd-btn-ghost">Settings</a>
         </div>
     </div>
 
-    <!-- Compact Dashboard Grid - Clean Modern Layout -->
-    <div style="display: grid; grid-template-columns: 200px 1fr; gap: 0.65rem; margin-bottom: 0.85rem; align-items: stretch;">
-
-        <!-- LEFT: Occupancy Pie Chart - Compact -->
-        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.65rem; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #1e293b; margin-bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between;">
-                <span>Occupancy</span>
-                <span style="font-size: 0.65rem; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 10px;"><?php echo $stats['total_rooms']; ?> Rooms</span>
-            </div>
-
-            <!-- Pie Chart Container -->
-            <div style="position: relative; width: 110px; height: 110px; margin: 0 auto;">
+    <!-- Ringkasan: ring okupansi + strip statistik kamar + strip pendapatan -->
+    <div class="fdd-panel">
+        <div class="fdd-occ">
+            <div class="fdd-occ-ring">
                 <canvas id="occupancyChart"></canvas>
-                <!-- Center Percentage -->
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                    <div style="font-size: 1.15rem; font-weight: 800; color: #1e3a8a; line-height: 1;">
-                        <?php echo $stats['occupancy_rate']; ?>%
-                    </div>
-                    <div style="font-size: 0.58rem; font-weight: 600; color: #64748b; text-transform: uppercase;">Occupied</div>
+                <div class="fdd-occ-center">
+                    <b><?php echo $stats['occupancy_rate']; ?>%</b>
+                    <small>Occupied</small>
                 </div>
             </div>
-
-            <!-- Legend -->
-            <div style="display: flex; justify-content: center; gap: 0.85rem; margin-top: 0.45rem; font-size: 0.65rem; color: #475569;">
-                <span style="display: flex; align-items: center; gap: 0.25rem;">
-                    <span style="width: 7px; height: 7px; background: #1e3a8a; border-radius: 50%;"></span>
-                    OCCUPIED (<?php echo $stats['occupied_rooms']; ?>)
-                </span>
-                <span style="display: flex; align-items: center; gap: 0.25rem;">
-                    <span style="width: 7px; height: 7px; background: #cbd5e1; border-radius: 50%;"></span>
-                    VACANT (<?php echo $stats['available_rooms']; ?>)
-                </span>
+            <div class="fdd-occ-legend">
+                <span><i style="background:#1e3a8a"></i>Terisi <b><?php echo (int)$stats['occupied_rooms']; ?></b></span>
+                <span><i style="background:#cbd5e1"></i>Kosong <b><?php echo (int)$stats['available_rooms']; ?></b></span>
             </div>
         </div>
 
-        <!-- RIGHT: Revenue Overview - Compact Grid -->
-        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.65rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #1e293b; margin-bottom: 0.4rem;">
-                Revenue Overview
+        <div class="fdd-strips">
+            <div class="fdd-strip">
+                <div class="fdd-kpi">
+                    <small>Total Rooms</small>
+                    <b><?php echo (int)$stats['total_rooms']; ?></b>
+                </div>
+                <a href="in-house.php" class="fdd-kpi fdd-kpi-link">
+                    <small>In-House</small>
+                    <b><?php echo (int)$stats['in_house']; ?></b>
+                </a>
+                <div class="fdd-kpi">
+                    <small>Check-out Today</small>
+                    <b class="<?php echo (int)$stats['checkout_today'] > 0 ? 'fdd-warn' : ''; ?>"><?php echo (int)$stats['checkout_today']; ?></b>
+                </div>
+                <div class="fdd-kpi">
+                    <small>Arrival Today</small>
+                    <b><?php echo (int)$stats['arrival_today']; ?></b>
+                </div>
+                <div class="fdd-kpi">
+                    <small>Predicted Tomorrow</small>
+                    <b><?php echo (int)$stats['predicted_tomorrow']; ?></b>
+                </div>
             </div>
 
-            <!-- Revenue Cards - 2x2 Grid -->
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-
-                <!-- Actual Revenue (Today) -->
-                <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-left: 3px solid #1e3a8a; border-radius: 8px; padding: 0.55rem 0.6rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
-                        <span style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Today</span>
-                    </div>
-                    <div style="font-size: 0.68rem; color: #64748b; font-weight: 600; margin-bottom: 0.2rem;">Today Revenue</div>
-                    <div style="font-size: 0.9rem; font-weight: 800; color: #1e293b;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
+            <div class="fdd-strip">
+                <div class="fdd-kpi">
+                    <small>Today Revenue</small>
+                    <b>Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></b>
                 </div>
-
-                <!-- Monthly Revenue -->
-                <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-left: 3px solid #1e3a8a; border-radius: 8px; padding: 0.55rem 0.6rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
-                        <span style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Month</span>
-                    </div>
-                    <div style="font-size: 0.68rem; color: #64748b; font-weight: 600; margin-bottom: 0.2rem;">Paid This Month</div>
-                    <div style="font-size: 0.9rem; font-weight: 800; color: #1e293b;">Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.58rem; color: #94a3b8; margin-top: 3px;">Direct bookings only (excl. OTA)</div>
+                <div class="fdd-kpi">
+                    <small>Paid This Month</small>
+                    <b>Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></b>
+                    <em>Direct booking (excl. OTA)</em>
                 </div>
-
-                <!-- Expected Revenue -->
-                <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-left: 3px solid #1e3a8a; border-radius: 8px; padding: 0.55rem 0.6rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
-                        <span style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Target</span>
-                    </div>
-                    <div style="font-size: 0.68rem; color: #64748b; font-weight: 600; margin-bottom: 0.2rem;">Expected Revenue</div>
-                    <div style="font-size: 0.9rem; font-weight: 800; color: #1e293b;">Rp <?php echo number_format($stats['expected_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.58rem; color: #94a3b8; margin-top: 3px;">All reservations this month (excl. cancelled)</div>
+                <div class="fdd-kpi">
+                    <small>Expected Revenue</small>
+                    <b>Rp <?php echo number_format($stats['expected_revenue'], 0, ',', '.'); ?></b>
+                    <em>Semua reservasi bulan ini</em>
                 </div>
             </div>
         </div>
     </div>
-    <!-- End Compact Dashboard Grid -->
 
     <!-- Checkout Guests Today - Detail Section -->
     <?php if (!empty($stats['checkout_guests'])): ?>
@@ -1603,7 +1928,7 @@ include '../../includes/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($stats['checkout_guests'] as $guest):
-                            $remaining = $guest['final_price'] - $guest['paid_amount'];
+                            $remaining = (float)($guest['remaining'] ?? ($guest['final_price'] - $guest['paid_amount']));
                             $isPaid = $remaining <= 0;
                         ?>
                             <tr style="border-bottom: 1px solid rgba(245, 158, 11, 0.1);">
@@ -1620,7 +1945,7 @@ include '../../includes/header.php';
                                     <?php echo htmlspecialchars($guest['room_type'] ?? '-'); ?>
                                 </td>
                                 <td style="padding: 0.6rem 0.75rem; text-align: center; font-size: 0.75rem;">
-                                    <?php echo date('H:i', strtotime($guest['check_out_date'])); ?>
+                                    <?php echo date('d M', strtotime($guest['check_out_date'])); ?>
                                 </td>
                                 <td style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600;">
                                     Rp <?php echo number_format($guest['final_price'], 0, ',', '.'); ?>
@@ -1642,55 +1967,6 @@ include '../../includes/header.php';
             </div>
         </div>
     <?php endif; ?>
-
-    <!-- Statistics Widgets -->
-    <div class="stats-grid">
-        <!-- Total Rooms - NEW -->
-        <div class="stat-card">
-            <div class="stat-icon-wrapper">🏨</div>
-            <div class="stat-value">
-                <?php echo $stats['total_rooms']; ?>
-            </div>
-            <div class="stat-label">Total Rooms</div>
-        </div>
-
-        <!-- In-House Guests - CLICKABLE -->
-        <a href="in-house.php" class="stat-card" style="text-decoration: none; cursor: pointer;">
-            <div class="stat-icon-wrapper">👥</div>
-            <div class="stat-value">
-                <?php echo $stats['in_house']; ?>
-            </div>
-            <div class="stat-label">In-House Guests</div>
-        </a>
-
-        <!-- Check-out Today -->
-        <div class="stat-card">
-            <div class="stat-icon-wrapper">👋</div>
-            <div class="stat-value">
-                <?php echo $stats['checkout_today']; ?>
-            </div>
-            <div class="stat-label">Check-out Today</div>
-        </div>
-
-        <!-- Arrival Today -->
-        <div class="stat-card">
-            <div class="stat-icon-wrapper">➡️</div>
-            <div class="stat-value">
-                <?php echo $stats['arrival_today']; ?>
-            </div>
-            <div class="stat-label">Arrival Today</div>
-        </div>
-
-        <!-- Predicted Tomorrow -->
-        <div class="stat-card">
-            <div class="stat-icon-wrapper">🔮</div>
-            <div class="stat-value">
-                <?php echo $stats['predicted_tomorrow']; ?>
-            </div>
-            <div class="stat-label">Predicted Tomorrow</div>
-        </div>
-
-    </div>
 
     <!-- In-House Guests List -->
     <div class="guests-card" style="margin-top: 1.5rem;">
@@ -1720,8 +1996,8 @@ include '../../includes/header.php';
                                         <?php echo htmlspecialchars($guest['room_number']); ?>
                                     </span>
                                 </td>
-                                <td><?php echo date('d M, H:i', strtotime($guest['check_in_date'])); ?></td>
-                                <td><?php echo date('d M, H:i', strtotime($guest['check_out_date'])); ?></td>
+                                <td><?php echo date('d M Y', strtotime($guest['check_in_date'])); ?></td>
+                                <td><?php echo date('d M Y', strtotime($guest['check_out_date'])); ?></td>
                                 <td>
                                     <span class="status-badge status-checked-in">
                                         ✓ Checked In
