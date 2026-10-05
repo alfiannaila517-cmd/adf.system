@@ -1102,6 +1102,57 @@ include '../../includes/header.php';
     }
 </style>
 
+<style>
+    /* Form ringkas: muat satu layar */
+    #transactionForm > .card:first-child,
+    #transactionForm > .card:nth-of-type(2) {
+        max-width: 1080px !important;
+    }
+
+    #transactionForm .tx-col-1 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 0.6rem;
+        align-content: start;
+    }
+
+    #transactionForm .tx-col-1 > * {
+        grid-column: 1 / -1;
+    }
+
+    #transactionForm .tx-col-1 > .compact-form-group:nth-child(1),
+    #transactionForm .tx-col-1 > .compact-form-group:nth-child(2) {
+        grid-column: auto;
+    }
+
+    #transactionForm .compact-form-group {
+        margin-bottom: 0.45rem !important;
+    }
+
+    #transactionForm .transaction-type-card {
+        padding: 0.3rem 0.4rem !important;
+    }
+
+    #transactionForm textarea[name="description"] {
+        min-height: 58px;
+    }
+
+    /* Tombol aksi menempel di bawah layar saat form panjang */
+    #transactionForm > .card:nth-of-type(2) {
+        position: sticky;
+        bottom: 8px;
+        z-index: 20;
+        box-shadow: 0 10px 24px -14px rgba(15, 23, 42, 0.35);
+    }
+
+    @media (max-width: 760px) {
+        #transactionForm .tx-col-1 > .compact-form-group:nth-child(1),
+        #transactionForm .tx-col-1 > .compact-form-group:nth-child(2) {
+            grid-column: 1 / -1;
+        }
+    }
+</style>
+
 <form method="POST" id="transactionForm" onsubmit="return handleFormSubmit(event)">
     <!-- Main Form Container -->
     <div class="card" style="max-width: 920px; margin: 0 auto 0.5rem;">
@@ -1174,7 +1225,7 @@ include '../../includes/header.php';
             </div>
 
             <!-- Column 1 -->
-            <div>
+            <div class="tx-col-1">
                 <!-- Date & Time -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Tanggal <span style="color: var(--danger);">*</span></label>
@@ -1337,6 +1388,9 @@ include '../../includes/header.php';
                             var list = document.getElementById('divPickList');
                             var opts = Array.prototype.slice.call(list.querySelectorAll('.divpick-opt'));
                             var empty = list.querySelector('.divpick-empty');
+                            // Induk form memakai animasi transform: posisi fixed jadi relatif ke induk itu
+                            // (popup bergeser & terpotong). Popup dipindah langsung ke <body>.
+                            document.body.appendChild(pop);
 
                             // Label mengikuti select (skrip lain mengisi select.value secara langsung).
                             function syncLabel() {
@@ -1371,6 +1425,12 @@ include '../../includes/header.php';
                             function open() {
                                 place();
                                 pop.hidden = false;
+                                // Selalu terbuka ke bawah: bila ruang di bawah tombol kurang, halaman di-scroll dulu.
+                                var deficit = pop.getBoundingClientRect().bottom - (window.innerHeight - 12);
+                                if (deficit > 0) {
+                                    (document.scrollingElement || document.documentElement).scrollTop += deficit;
+                                    place();
+                                }
                                 root.classList.add('open');
                                 btn.setAttribute('aria-expanded', 'true');
                                 search.value = '';
@@ -1414,7 +1474,7 @@ include '../../includes/header.php';
                                     btn.focus();
                                 }
                             });
-                            document.addEventListener('click', function(e) { if (!root.contains(e.target)) close(); });
+                            document.addEventListener('click', function(e) { if (!root.contains(e.target) && !pop.contains(e.target)) close(); });
                             window.addEventListener('resize', function() { if (!pop.hidden) place(); });
                             window.addEventListener('scroll', function(e) { if (!pop.hidden && !pop.contains(e.target)) place(); }, true);
                             select.addEventListener('change', syncLabel);
@@ -1467,7 +1527,7 @@ include '../../includes/header.php';
             </div>
 
             <!-- Column 2 -->
-            <div>
+            <div class="tx-col-2">
                 <!-- Cash Account Selection -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem; display: flex; align-items: center; justify-content: space-between;">
@@ -1586,7 +1646,7 @@ include '../../includes/header.php';
                 <!-- Description -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem;">Keterangan</label>
-                    <textarea name="description" class="form-control" rows="1" style="font-size: 0.76rem; resize: none; line-height: 1.4;" placeholder="Keterangan tambahan (opsional)"></textarea>
+                    <textarea name="description" class="form-control" rows="2" style="font-size: 0.76rem; resize: none; line-height: 1.4;" placeholder="Keterangan tambahan (opsional)"></textarea>
                 </div>
             </div>
         </div>
