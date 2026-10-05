@@ -2083,6 +2083,152 @@ if ($trialStatus) {
         }
     }
 
+    /* === Header ringkas: judul kecil, kontrol mungil, KPI jadi satu strip kaca === */
+    #tradingChartCard .chart-head-wrap {
+        padding: 0.9rem 1.25rem 0;
+    }
+
+    #tradingChartCard .chart-head-row {
+        margin-bottom: 0.75rem;
+        gap: 0.75rem;
+    }
+
+    #tradingChartCard .chart-title-accent {
+        height: 26px;
+        width: 3px;
+    }
+
+    #tradingChartCard .chart-kicker {
+        font-size: 0.5rem;
+        letter-spacing: 0.1em;
+    }
+
+    #tradingChartCard .chart-main-title {
+        font-size: 0.82rem;
+        line-height: 1.25;
+    }
+
+    #tradingChartCard .chart-sub-title {
+        font-size: 0.58rem;
+    }
+
+    #tradingChartCard .chart-live-pill {
+        padding: 0.1rem 0.45rem;
+    }
+
+    #tradingChartCard .chart-live-text {
+        font-size: 0.5rem;
+    }
+
+    #tradingChartCard .chart-controls-wrap {
+        gap: 0.45rem;
+    }
+
+    #tradingChartCard .chart-filter-input {
+        height: 28px;
+        max-width: 118px;
+        font-size: 0.64rem;
+        border-radius: 8px;
+        padding: 0 0.45rem;
+        background: var(--glass-tile);
+        border-color: var(--glass-edge);
+    }
+
+    #tradingChartCard .chart-view-toggle {
+        padding: 2px;
+        border-radius: 9px;
+        background: var(--glass-tile);
+        border-color: var(--glass-edge);
+    }
+
+    #tradingChartCard .btn-view-toggle {
+        height: 24px;
+        padding: 0 0.62rem;
+        border-radius: 7px;
+        font-size: 0.64rem;
+    }
+
+    /* KPI: tiga angka dalam satu strip dengan pemisah tipis, bukan tiga kartu besar */
+    #tradingChartCard .chart-summary-grid {
+        gap: 0;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem 0;
+        border-radius: 12px;
+        background: var(--glass-tile);
+        border: 1px solid var(--glass-edge);
+        box-shadow: var(--glass-glow);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    #tradingChartCard .chart-metric-card {
+        padding: 0.05rem 1rem;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    #tradingChartCard .chart-metric-card + .chart-metric-card {
+        border-left: 1px solid var(--glass-line);
+    }
+
+    #tradingChartCard .chart-metric-card::after,
+    #tradingChartCard .chart-badge {
+        display: none;
+    }
+
+    #tradingChartCard .chart-metric-card:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    #tradingChartCard .chart-metric-top {
+        margin-bottom: 0.1rem;
+        gap: 0.3rem;
+    }
+
+    #tradingChartCard .chart-metric-dot {
+        width: 5px;
+        height: 5px;
+    }
+
+    #tradingChartCard .chart-metric-name {
+        font-size: 0.52rem;
+    }
+
+    #tradingChartCard .chart-metric-amount {
+        font-size: 0.8rem;
+        line-height: 1.2;
+    }
+
+    #tradingChartCard .chart-metric-sub {
+        margin-top: 0.05rem;
+        font-size: 0.56rem;
+    }
+
+    @media (max-width: 860px) {
+        #tradingChartCard .chart-head-wrap {
+            padding: 0.8rem 0.9rem 0;
+        }
+
+        #tradingChartCard .chart-summary-grid {
+            grid-template-columns: 1fr;
+            padding: 0.2rem 0;
+        }
+
+        #tradingChartCard .chart-metric-card {
+            padding: 0.4rem 0.8rem;
+        }
+
+        #tradingChartCard .chart-metric-card + .chart-metric-card {
+            border-left: none;
+            border-top: 1px solid var(--glass-line);
+        }
+    }
+
     /* Footer bar */
     .chart-footer-bar {
         padding: 0.75rem 1.1rem 0.95rem;
