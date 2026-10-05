@@ -935,7 +935,8 @@ if ($trialStatus) {
                         <canvas id="summaryPieChart"></canvas>
                         <div class="fin-ring-center">
                             <b id="ringValue">&ndash;</b>
-                            <small>Margin</small>
+                            <small id="ringLabel">Margin</small>
+                            <small class="fin-ring-amount" id="ringAmount"></small>
                         </div>
                     </div>
                     <div class="fin-ring-legend">
@@ -2227,6 +2228,34 @@ if ($trialStatus) {
             border-left: none;
             border-top: 1px solid var(--glass-line);
         }
+    }
+
+    /* Ring: info segmen tampil di tengah saat disorot, legenda lain meredup */
+    #tradingChartCard .fin-ring canvas {
+        cursor: pointer;
+    }
+
+    #tradingChartCard .fin-ring-center b {
+        transition: color 0.2s ease;
+    }
+
+    #tradingChartCard .fin-ring-center .is-inc { color: #10b981 !important; }
+    #tradingChartCard .fin-ring-center .is-exp { color: #f97316 !important; }
+
+    #tradingChartCard .fin-ring-amount {
+        font-size: 0.55rem !important;
+        font-weight: 700;
+        color: var(--text-secondary) !important;
+        line-height: 1.1;
+        min-height: 0.6rem;
+    }
+
+    #tradingChartCard .fin-leg {
+        transition: opacity 0.2s ease;
+    }
+
+    #tradingChartCard .fin-leg.is-dim {
+        opacity: 0.35;
     }
 
     /* Footer bar */
@@ -3728,28 +3757,46 @@ if ($trialStatus) {
                         maintainAspectRatio: false,
                         cutout: '70%',
                         animation: { duration: 700, easing: 'easeOutQuart' },
+                        // Tooltip bawaan terpotong di kanvas kecil; info segmen ditampilkan di tengah ring.
+                        onHover: (event, elements, chart) => ringFocus(chart, elements.length ? elements[0].index : null),
                         plugins: {
                             legend: { display: false },
-                            tooltip: {
-                                filter: item => item.chart.data.labels.length > 1,
-                                backgroundColor: 'rgba(15, 23, 42, 0.94)',
-                                padding: 10,
-                                cornerRadius: 10,
-                                boxWidth: 7,
-                                boxHeight: 7,
-                                boxPadding: 5,
-                                usePointStyle: true,
-                                callbacks: {
-                                    label: ctx => {
-                                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
-                                        return ' ' + ctx.label + ': ' + fmtFull(ctx.parsed) + ' (' + fmtPct(ctx.parsed / total * 100) + ')';
-                                    }
-                                }
-                            }
+                            tooltip: { enabled: false }
                         }
                     }
                 });
+                canvas.addEventListener('mouseleave', () => ringFocus(summaryPie, null));
                 return summaryPie;
+            }
+
+            // Isi tengah ring: default = margin; saat segmen disorot = nama, persen, dan nominal segmen itu.
+            let ringDefault = { value: '–', label: 'Margin', cls: '' };
+
+            function ringFocus(chart, index) {
+                const valueEl = document.getElementById('ringValue');
+                const labelEl = document.getElementById('ringLabel');
+                const amountEl = document.getElementById('ringAmount');
+                const legends = document.querySelectorAll('#tradingChartCard .fin-leg');
+                if (!valueEl || !labelEl) return;
+
+                const hasData = chart && chart.data.labels.length > 1;
+                const focus = hasData && index !== null && index !== undefined;
+                legends.forEach((el, i) => el.classList.toggle('is-dim', focus && i !== index));
+
+                valueEl.classList.remove('is-pos', 'is-neg', 'is-inc', 'is-exp');
+                if (!focus) {
+                    valueEl.textContent = ringDefault.value;
+                    labelEl.textContent = ringDefault.label;
+                    if (ringDefault.cls) valueEl.classList.add(ringDefault.cls);
+                    if (amountEl) amountEl.textContent = '';
+                    return;
+                }
+                const data = chart.data.datasets[0].data;
+                const total = data.reduce((a, b) => a + b, 0) || 1;
+                valueEl.textContent = fmtPct(data[index] / total * 100);
+                valueEl.classList.add(index === 0 ? 'is-inc' : 'is-exp');
+                labelEl.textContent = chart.data.labels[index];
+                if (amountEl) amountEl.textContent = fmtCompact(data[index]);
             }
 
             // Hitung ulang panel ringkasan + sub-info KPI dari data yang sedang tampil di grafik utama.
@@ -3806,9 +3853,12 @@ if ($trialStatus) {
 
                 const ringValue = document.getElementById('ringValue');
                 if (ringValue) {
-                    ringValue.textContent = margin === null ? '–' : fmtPct(margin);
-                    ringValue.classList.toggle('is-pos', margin !== null && margin >= 0);
-                    ringValue.classList.toggle('is-neg', margin !== null && margin < 0);
+                    ringDefault = {
+                        value: margin === null ? '–' : fmtPct(margin),
+                        label: 'Margin',
+                        cls: margin === null ? '' : (margin < 0 ? 'is-neg' : 'is-pos')
+                    };
+                    ringFocus(ring, null);
                 }
 
                 setText('pieIncomeValue', fmtFull(totalInc));
