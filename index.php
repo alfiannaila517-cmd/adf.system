@@ -941,12 +941,12 @@ if ($trialStatus) {
                     </div>
                     <div class="fin-ring-legend">
                         <div class="fin-leg">
-                            <span class="fin-leg-dot" style="background: #10b981;"></span>
+                            <span class="fin-leg-dot" style="background: #059669;"></span>
                             <div class="fin-leg-text"><small>Pemasukan</small><b id="pieIncomeValue">Rp 0</b></div>
                             <em id="pieIncomePct">0%</em>
                         </div>
                         <div class="fin-leg">
-                            <span class="fin-leg-dot" style="background: #f97316;"></span>
+                            <span class="fin-leg-dot" style="background: #ea580c;"></span>
                             <div class="fin-leg-text"><small>Pengeluaran</small><b id="pieExpenseValue">Rp 0</b></div>
                             <em id="pieExpensePct">0%</em>
                         </div>
@@ -2256,6 +2256,58 @@ if ($trialStatus) {
 
     #tradingChartCard .fin-leg.is-dim {
         opacity: 0.35;
+    }
+
+    /* Panel ringkasan: baris lebih rapat + warna lebih tegas */
+    #tradingChartCard .fin-insight {
+        gap: 0.5rem;
+    }
+
+    #tradingChartCard .fin-ring-legend {
+        gap: 0.35rem;
+    }
+
+    #tradingChartCard .fin-leg-text {
+        line-height: 1.2;
+    }
+
+    #tradingChartCard .fin-leg-text b,
+    #tradingChartCard .fin-stat b,
+    #tradingChartCard .fin-insight-title {
+        color: #0f172a !important;
+    }
+
+    body[data-theme="dark"] #tradingChartCard .fin-leg-text b,
+    body[data-theme="dark"] #tradingChartCard .fin-stat b,
+    body[data-theme="dark"] #tradingChartCard .fin-insight-title {
+        color: #f8fafc !important;
+    }
+
+    #tradingChartCard .fin-ratio-bar {
+        height: 6px;
+        background: #ea580c;
+    }
+
+    #tradingChartCard .fin-ratio-bar span {
+        background: linear-gradient(90deg, #10b981, #059669);
+    }
+
+    #tradingChartCard .fin-ratio-caption {
+        margin-top: 0.25rem;
+    }
+
+    #tradingChartCard .fin-stats {
+        gap: 0.35rem;
+    }
+
+    #tradingChartCard .fin-stat {
+        padding: 0.32rem 0.55rem;
+        gap: 0;
+        line-height: 1.2;
+    }
+
+    #tradingChartCard .fin-stat small {
+        line-height: 1.25;
     }
 
     /* Footer bar */
@@ -3745,7 +3797,7 @@ if ($trialStatus) {
                         labels: ['Pemasukan', 'Pengeluaran'],
                         datasets: [{
                             data: [0, 0],
-                            backgroundColor: ['#10b981', '#f97316'],
+                            backgroundColor: ['#059669', '#ea580c'],
                             borderWidth: 0,
                             borderRadius: 8,
                             spacing: 3,
@@ -3842,7 +3894,7 @@ if ($trialStatus) {
                     if (flow > 0) {
                         ring.data.labels = ['Pemasukan', 'Pengeluaran'];
                         ds.data = [totalInc, totalExp];
-                        ds.backgroundColor = ['#10b981', '#f97316'];
+                        ds.backgroundColor = ['#059669', '#ea580c'];
                     } else {
                         ring.data.labels = ['Kosong'];
                         ds.data = [1];
@@ -3952,9 +4004,9 @@ if ($trialStatus) {
                     datasets: [{
                             label: 'Pemasukan',
                             data: dailyIncomeSeries,
-                            backgroundColor: glassFill('16, 185, 129', 0.62, 0.18),
-                            hoverBackgroundColor: glassFill('16, 185, 129', 0.85, 0.35),
-                            borderColor: 'rgba(16, 185, 129, 0.75)',
+                            backgroundColor: glassFill('16, 185, 129', 0.9, 0.38),
+                            hoverBackgroundColor: glassFill('5, 150, 105', 1, 0.55),
+                            borderColor: '#059669',
                             borderWidth: 1,
                             borderRadius: 6,
                             borderSkipped: false,
@@ -3966,9 +4018,9 @@ if ($trialStatus) {
                         {
                             label: 'Pengeluaran',
                             data: dailyExpenseSeries,
-                            backgroundColor: glassFill('249, 115, 22', 0.62, 0.18),
-                            hoverBackgroundColor: glassFill('249, 115, 22', 0.85, 0.35),
-                            borderColor: 'rgba(249, 115, 22, 0.75)',
+                            backgroundColor: glassFill('249, 115, 22', 0.9, 0.38),
+                            hoverBackgroundColor: glassFill('234, 88, 12', 1, 0.55),
+                            borderColor: '#ea580c',
                             borderWidth: 1,
                             borderRadius: 6,
                             borderSkipped: false,
