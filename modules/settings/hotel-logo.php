@@ -35,8 +35,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['hotel_logo'])) {
         } elseif ($file['size'] > $maxSize) {
             setFlash('error', 'Ukuran file terlalu besar. Maksimal 2MB.');
         } else {
-            // Generate filename
-            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            // Tipe & ekstensi diambil dari ISI file (bukan nama/MIME kiriman browser yang bisa dipalsukan).
+            // Dulu file .php bisa lolos sebagai "logo" lalu dijalankan di server.
+            $imgInfo = @getimagesize($file['tmp_name']);
+            $extByType = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_GIF => 'gif', IMAGETYPE_WEBP => 'webp'];
+            if (!$imgInfo || !isset($extByType[$imgInfo[2]])) {
+                setFlash('error', 'Berkas bukan gambar yang valid. Gunakan JPEG, PNG, GIF, atau WEBP.');
+                header('Location: ' . $_SERVER['PHP_SELF']);
+                exit;
+            }
+            $extension = $extByType[$imgInfo[2]];
             $localFilename = 'hotel_logo_' . time() . '.' . $extension;
             
             // Smart upload: Cloudinary first, fallback to local

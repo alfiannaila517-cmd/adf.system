@@ -1311,15 +1311,15 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             body[data-theme] .sidebar-header > div:first-child > div:first-child:not(:only-child) {
                 width: 56px !important;
                 height: 56px !important;
-                padding: 3px;
+                padding: 0;
                 box-sizing: border-box;
                 border-radius: 50% !important;
-                background: #fff;
+                background: transparent;
                 display: flex !important;
                 align-items: center;
                 justify-content: center;
                 overflow: hidden;
-                box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35), 0 6px 14px -6px rgba(15, 23, 42, 0.35);
+                box-shadow: 0 6px 16px -6px rgba(15, 23, 42, 0.45);
             }
 
             body[data-theme] .sidebar-header > div:first-child > div:first-child:not(:only-child) img {
@@ -1329,6 +1329,8 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 object-fit: cover !important;
                 object-position: center !important;
                 display: block;
+                /* File logo punya margin putih di sekeliling lingkaran: diperbesar sedikit agar lingkaran logo mengisi penuh */
+                transform: scale(1.14);
             }
 
             body[data-theme] .sidebar-header .logo {
