@@ -876,7 +876,7 @@ if ($trialStatus) {
             ?>
             <div class="chart-metric-card">
                 <div class="chart-metric-top">
-                    <div class="chart-metric-dot" style="background: #10b981;"></div>
+                    <div class="chart-metric-dot" style="background: #2563eb;"></div>
                     <span class="chart-metric-name"><?php echo $isCQC ? 'Saldo Kas Besar' : 'Pemasukan'; ?></span>
                     <span class="chart-badge chart-badge-up">↑</span>
                 </div>
@@ -894,7 +894,7 @@ if ($trialStatus) {
             </div>
             <div class="chart-metric-card">
                 <div class="chart-metric-top">
-                    <div class="chart-metric-dot" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></div>
+                    <div class="chart-metric-dot" style="background: #10b981;"></div>
                     <span class="chart-metric-name"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></span>
                     <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>"><?php echo $netBalance >= 0 ? '↑' : '↓'; ?></span>
                 </div>
@@ -935,12 +935,12 @@ if ($trialStatus) {
                     </div>
                     <div class="fin-ring-legend">
                         <div class="fin-leg">
-                            <span class="fin-leg-dot" style="background: #059669;"></span>
+                            <span class="fin-leg-dot" style="background: #2563eb;"></span>
                             <div class="fin-leg-text"><small>Pemasukan</small><b id="pieIncomeValue">Rp 0</b></div>
                             <em id="pieIncomePct">0%</em>
                         </div>
                         <div class="fin-leg">
-                            <span class="fin-leg-dot" style="background: #ea580c;"></span>
+                            <span class="fin-leg-dot" style="background: #f97316;"></span>
                             <div class="fin-leg-text"><small>Pengeluaran</small><b id="pieExpenseValue">Rp 0</b></div>
                             <em id="pieExpensePct">0%</em>
                         </div>
@@ -982,9 +982,9 @@ if ($trialStatus) {
     <div class="chart-footer-bar">
         <span id="periodDisplay" class="chart-period-display">1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?></span>
         <div class="chart-legend-wrap">
-            <div class="chart-legend-item"><span class="chart-legend-dot" style="background: #10b981;"></span>Pemasukan</div>
+            <div class="chart-legend-item"><span class="chart-legend-dot" style="background: #2563eb;"></span>Pemasukan</div>
             <div class="chart-legend-item"><span class="chart-legend-dot" style="background: #f97316;"></span>Pengeluaran</div>
-            <div class="chart-legend-item"><span class="chart-legend-line" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></span>Net kumulatif</div>
+            <div class="chart-legend-item"><span class="chart-legend-line" style="background: #10b981;"></span>Net</div>
         </div>
     </div>
 </div>
@@ -2233,7 +2233,7 @@ if ($trialStatus) {
         transition: color 0.2s ease;
     }
 
-    #tradingChartCard .fin-ring-center .is-inc { color: #10b981 !important; }
+    #tradingChartCard .fin-ring-center .is-inc { color: #2563eb !important; }
     #tradingChartCard .fin-ring-center .is-exp { color: #f97316 !important; }
 
     #tradingChartCard .fin-ring-amount {
@@ -2279,11 +2279,11 @@ if ($trialStatus) {
 
     #tradingChartCard .fin-ratio-bar {
         height: 6px;
-        background: #ea580c;
+        background: #f97316;
     }
 
     #tradingChartCard .fin-ratio-bar span {
-        background: linear-gradient(90deg, #10b981, #059669);
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
     }
 
     #tradingChartCard .fin-ratio-caption {
@@ -3704,7 +3704,7 @@ if ($trialStatus) {
         <?php if (!empty($dailyData)): ?>
             const tradingCtx = document.getElementById('tradingChart').getContext('2d');
 
-            // Garis = net kumulatif (saldo berjalan pemasukan - pengeluaran) supaya arah profit periode terbaca jelas.
+            // Garis = net per titik waktu (pemasukan - pengeluaran); akumulasinya ditampilkan di tooltip.
             // Titik setelah "sekarang" (sisa bulan/jam berjalan) dikosongkan agar garis tidak memanjang ke masa depan.
             const buildNetSeries = (incomeSeries, expenseSeries) => {
                 const now = new Date();
@@ -3718,11 +3718,8 @@ if ($trialStatus) {
                 } else if (mode === 'yearly' && document.getElementById('chartYearFilter').value === String(now.getFullYear())) {
                     lastIndex = now.getMonth();
                 }
-                let running = 0;
-                return incomeSeries.map((value, index) => {
-                    running += (Number(value) || 0) - (Number(expenseSeries[index]) || 0);
-                    return index <= lastIndex ? running : null;
-                });
+                return incomeSeries.map((value, index) =>
+                    index <= lastIndex ? (Number(value) || 0) - (Number(expenseSeries[index]) || 0) : null);
             };
 
             // Variabel tema dibaca dari <body> karena mode gelap menimpa variabel di body[data-theme="dark"].
@@ -3791,7 +3788,7 @@ if ($trialStatus) {
                         labels: ['Pemasukan', 'Pengeluaran'],
                         datasets: [{
                             data: [0, 0],
-                            backgroundColor: ['#059669', '#ea580c'],
+                            backgroundColor: ['#2563eb', '#f97316'],
                             borderWidth: 0,
                             borderRadius: 8,
                             spacing: 3,
@@ -3888,7 +3885,7 @@ if ($trialStatus) {
                     if (flow > 0) {
                         ring.data.labels = ['Pemasukan', 'Pengeluaran'];
                         ds.data = [totalInc, totalExp];
-                        ds.backgroundColor = ['#059669', '#ea580c'];
+                        ds.backgroundColor = ['#2563eb', '#f97316'];
                     } else {
                         ring.data.labels = ['Kosong'];
                         ds.data = [1];
@@ -3961,20 +3958,6 @@ if ($trialStatus) {
                 afterUpdate: chart => renderInsights(chart)
             };
 
-            // Isi batang bergaya kaca: gradasi dari pekat (atas) ke transparan (bawah) mengikuti area grafik.
-            const glassFill = (rgb, top, bottom) => ctx => {
-                const area = ctx.chart.chartArea;
-                if (!area) return 'rgba(' + rgb + ',' + top + ')';
-                const g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-                g.addColorStop(0, 'rgba(' + rgb + ',' + top + ')');
-                g.addColorStop(1, 'rgba(' + rgb + ',' + bottom + ')');
-                return g;
-            };
-
-            const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 240);
-            netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.12)');
-            netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0)');
-
             const dailyIncomeSeries = [
                 <?php foreach ($dailyData as $data): ?>
                     <?php echo $data['income']; ?>,
@@ -3998,47 +3981,43 @@ if ($trialStatus) {
                     datasets: [{
                             label: 'Pemasukan',
                             data: dailyIncomeSeries,
-                            backgroundColor: glassFill('16, 185, 129', 0.9, 0.38),
-                            hoverBackgroundColor: glassFill('5, 150, 105', 1, 0.55),
-                            borderColor: '#059669',
-                            borderWidth: 1,
-                            borderRadius: 6,
-                            borderSkipped: false,
-                            barPercentage: 0.82,
-                            categoryPercentage: 0.7,
-                            maxBarThickness: 12,
+                            backgroundColor: '#2563eb',
+                            hoverBackgroundColor: '#1d4ed8',
+                            borderWidth: 0,
+                            borderRadius: { topLeft: 3, topRight: 3 },
+                            borderSkipped: 'start',
+                            barPercentage: 0.9,
+                            categoryPercentage: 0.72,
+                            maxBarThickness: 26,
                             order: 2
                         },
                         {
                             label: 'Pengeluaran',
                             data: dailyExpenseSeries,
-                            backgroundColor: glassFill('249, 115, 22', 0.9, 0.38),
-                            hoverBackgroundColor: glassFill('234, 88, 12', 1, 0.55),
-                            borderColor: '#ea580c',
-                            borderWidth: 1,
-                            borderRadius: 6,
-                            borderSkipped: false,
-                            barPercentage: 0.82,
-                            categoryPercentage: 0.7,
-                            maxBarThickness: 12,
+                            backgroundColor: '#f97316',
+                            hoverBackgroundColor: '#ea580c',
+                            borderWidth: 0,
+                            borderRadius: { topLeft: 3, topRight: 3 },
+                            borderSkipped: 'start',
+                            barPercentage: 0.9,
+                            categoryPercentage: 0.72,
+                            maxBarThickness: 26,
                             order: 3
                         },
                         {
                             type: 'line',
-                            label: 'Net kumulatif',
+                            label: 'Net',
                             data: dailyNetSeries,
-                            borderColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
+                            borderColor: '#10b981',
                             borderWidth: 2,
-                            fill: {
-                                target: 'origin',
-                                above: netGradient,
-                                below: 'rgba(239, 68, 68, 0.08)'
-                            },
-                            tension: 0.35,
-                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.3,
+                            cubicInterpolationMode: 'monotone',
+                            pointRadius: 2.5,
+                            pointBorderWidth: 0,
                             pointHoverRadius: 5,
                             pointHitRadius: 10,
-                            pointBackgroundColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
+                            pointBackgroundColor: '#10b981',
                             pointHoverBorderColor: '#fff',
                             pointHoverBorderWidth: 2,
                             borderCapStyle: 'round',
@@ -4091,8 +4070,9 @@ if ($trialStatus) {
                                 footer: items => {
                                     const i = items[0].dataIndex;
                                     const ds = items[0].chart.data.datasets;
-                                    const net = (Number(ds[0].data[i]) || 0) - (Number(ds[1].data[i]) || 0);
-                                    return 'Net ' + UNIT_WORD[chartViewMode()] + ' ini: ' + (net > 0 ? '+' : '') + fmtFull(net);
+                                    let total = 0;
+                                    for (let k = 0; k <= i; k++) total += (Number(ds[0].data[k]) || 0) - (Number(ds[1].data[k]) || 0);
+                                    return 'Akumulasi s/d ' + pointLabel(items[0].label, false) + ': ' + (total > 0 ? '+' : '') + fmtFull(total);
                                 }
                             }
                         }
