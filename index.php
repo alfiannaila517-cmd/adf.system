@@ -2370,6 +2370,320 @@ if ($trialStatus) {
         text-align: right;
     }
 
+    /* === Kartu mini (divisi, aktivitas, daily cash): kaca, ringkas, seragam dengan grafik utama === */
+    .dash-mini-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .dash-mini {
+        min-width: 0;
+        padding: 0.75rem 0.9rem;
+        border-radius: 16px;
+        background: var(--glass-card);
+        border: 1px solid var(--glass-edge);
+        box-shadow: var(--glass-shadow), var(--glass-glow);
+        backdrop-filter: blur(18px) saturate(160%);
+        -webkit-backdrop-filter: blur(18px) saturate(160%);
+    }
+
+    .dash-mini-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .dash-mini-title {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.72rem !important;
+        font-weight: 700;
+        letter-spacing: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dash-mini-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+
+    .dash-mini-tag {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .dash-mini-month {
+        height: 26px;
+        max-width: 128px;
+        padding: 0 0.45rem;
+        font-size: 0.62rem;
+        font-weight: 600;
+        font-family: inherit;
+        border-radius: 8px;
+        border: 1px solid var(--glass-edge);
+        background: var(--glass-tile);
+        color: var(--text-primary);
+        outline: none;
+    }
+
+    .dash-mini-link {
+        font-size: 0.64rem;
+        font-weight: 700;
+        padding: 0.25rem 0.6rem;
+        border-radius: 7px;
+        background: #1e3a8a;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .dash-mini-link:hover {
+        background: #1d4ed8;
+    }
+
+    .mini-pos { color: #059669 !important; }
+    .mini-neg { color: #dc2626 !important; }
+
+    /* Ring divisi + legenda */
+    .dv-body {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        min-height: 128px;
+    }
+
+    .dv-ring {
+        position: relative;
+        width: 112px;
+        height: 112px;
+        flex-shrink: 0;
+    }
+
+    .dv-ring-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        text-align: center;
+    }
+
+    .dv-ring-center b {
+        font-size: 0.8rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+    }
+
+    .dv-ring-center small {
+        max-width: 72px;
+        font-size: 0.54rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dv-legend {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+
+    .dv-row {
+        display: grid;
+        grid-template-columns: 8px minmax(0, 1fr) auto auto;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.64rem;
+        transition: opacity 0.2s ease;
+    }
+
+    .dv-row.is-dim {
+        opacity: 0.35;
+    }
+
+    .dv-row i {
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+    }
+
+    .dv-row small {
+        font-size: 0.64rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dv-row em {
+        font-style: normal;
+        font-size: 0.6rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .dv-row b {
+        min-width: 3.6rem;
+        text-align: right;
+        font-size: 0.64rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .dv-empty {
+        font-size: 0.66rem;
+        color: var(--text-muted);
+    }
+
+    /* Ringkasan aktivitas */
+    .act-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        min-height: 128px;
+        justify-content: center;
+    }
+
+    .act-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.42rem 0.6rem;
+        border-radius: 9px;
+        background: var(--glass-tile);
+        border: 1px solid var(--glass-edge);
+    }
+
+    .act-row small {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.62rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .act-row b {
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    /* Daily cash */
+    .dc-card {
+        margin-bottom: 0.75rem;
+    }
+
+    .dc-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        border-radius: 11px;
+        background: var(--glass-tile);
+        border: 1px solid var(--glass-edge);
+        padding: 0.45rem 0;
+    }
+
+    .dc-item {
+        min-width: 0;
+        padding: 0.05rem 0.85rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+    }
+
+    .dc-item + .dc-item {
+        border-left: 1px solid var(--glass-line);
+    }
+
+    .dc-item small {
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dc-item b {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .dc-key b {
+        color: #1e3a8a;
+    }
+
+    body[data-theme="dark"] .dc-key b {
+        color: #93c5fd;
+    }
+
+    .dc-note {
+        margin-top: 0.4rem;
+        font-size: 0.56rem;
+        color: var(--text-muted);
+    }
+
+    @media (max-width: 1100px) {
+        .dash-mini-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 760px) {
+        .dash-mini-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .dc-strip {
+            grid-template-columns: 1fr 1fr;
+            row-gap: 0.45rem;
+        }
+
+        .dc-item + .dc-item {
+            border-left: none;
+        }
+
+        .dc-item:nth-child(even) {
+            border-left: 1px solid var(--glass-line);
+        }
+    }
+
     /* Footer bar */
     .chart-footer-bar {
         padding: 0.75rem 1.1rem 0.95rem;
@@ -2570,95 +2884,6 @@ if ($trialStatus) {
         <span style="font-size: 0.75rem; color: #9ca3af; margin-left: 0.5rem;">
             Showing data for: <strong><?php echo $monthNames[(int)date('m', strtotime($selected_dashboard_month . '-01')) - 1] . ' ' . $selected_dashboard_year; ?></strong>
         </span>
-    </div>
-
-    <!-- DAILY CASH Widget -->
-    <div class="card fade-in" style="margin-bottom: 0.75rem; background: #fff; border: 1px solid #e5e7eb;">
-        <div style="padding: 0.6rem 0.75rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <h3 style="font-size: 0.75rem; color: #1e293b; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
-                    Daily Cash
-                    <span style="font-size: 0.62rem; color: #94a3b8; font-weight: 500;"><?php echo date('M Y', strtotime($selected_dashboard_month . '-01')); ?></span>
-                </h3>
-                <a href="modules/owner/owner-capital-monitor.php" style="padding: 0.32rem 0.65rem; background: #1e3a8a; color: #ffffff !important; border-radius: 6px; text-decoration: none; font-size: 0.65rem; font-weight: 600; transition: all 0.2s ease; border: 1px solid #1e40af;" onmouseover="this.style.background='#1e40af'" onmouseout="this.style.background='#1e3a8a'">
-                    Detail
-                </a>
-            </div>
-
-            <!-- Compact Kas Summary -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <!-- Start Cash -->
-                <div style="background: #f8fafc; padding: 0.6rem 0.7rem; border-radius: 8px; border: 1px solid #e2e8f0;">
-                    <div style="font-size: 0.6rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.2rem;">Start Cash (<?php echo date('M', strtotime($selected_dashboard_month . '-01')); ?>)</div>
-                    <div style="font-size: 0.92rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($startKasHariIni); ?></div>
-                </div>
-                <!-- Cash Available -->
-                <div style="background: #f8fafc; padding: 0.6rem 0.7rem; border-radius: 8px; border: 1px solid <?php echo $dashCashAvailable >= 0 ? '#e2e8f0' : '#fecaca'; ?>; border-left: 3px solid <?php echo $dashCashAvailable >= 0 ? '#1e3a8a' : '#dc2626'; ?>;">
-                    <div style="font-size: 0.6rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.2rem;">Cash Available</div>
-                    <div style="font-size: 0.92rem; font-weight: 700; color: <?php echo $dashCashAvailable >= 0 ? '#1e293b' : '#dc2626'; ?>; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($dashCashAvailable); ?></div>
-                </div>
-            </div>
-
-            <!-- Guest Cash Income -->
-            <?php if ($guestCashIncome > 0): ?>
-                <div style="margin-bottom: 0.5rem; padding: 0.55rem 0.7rem; background: #eff6ff; border-radius: 8px; border: 1px solid #dbeafe; display: flex; align-items: center; gap: 0.6rem;">
-                    <div style="width: 30px; height: 30px; border-radius: 8px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                            <circle cx="9" cy="7" r="4" />
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                        </svg>
-                    </div>
-                    <div style="flex: 1;">
-                        <div style="font-size: 0.58rem; color: #1e40af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Cash Income</div>
-                        <div style="font-size: 0.92rem; font-weight: 700; color: #1e3a8a; font-family: 'Monaco', monospace; display: flex; align-items: center; gap: 0.3rem;">
-                            <span>+</span><?php echo formatCurrency($guestCashIncome); ?>
-                        </div>
-                    </div>
-                    <div style="font-size: 0.6rem; color: #1e3a8a; background: #fff; padding: 0.2rem 0.45rem; border-radius: 4px; font-weight: 600;">Cash</div>
-                </div>
-            <?php endif; ?>
-
-            <!-- Detail: 2 compact cards (expense card intentionally hidden) -->
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
-                <!-- Owner Transfer This Month -->
-                <div style="background: #fff; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.55rem;">
-                    <div style="width: 28px; height: 28px; border-radius: 7px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
-                            <rect x="2" y="6" width="20" height="12" rx="2" />
-                            <circle cx="12" cy="12" r="3" />
-                        </svg>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.58rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner Transfer</div>
-                        <div style="font-size: 0.85rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth); ?></div>
-                    </div>
-                </div>
-                <!-- Income (Owner + Guest Cash) -->
-                <div style="background: #fff; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.55rem;">
-                    <div style="width: 28px; height: 28px; border-radius: 7px; background: #1e3a8a; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
-                            <polyline points="7 13 12 8 17 13" />
-                            <line x1="12" y1="8" x2="12" y2="20" />
-                        </svg>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.58rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner + Guest</div>
-                        <div style="font-size: 0.85rem; font-weight: 700; color: #1e293b; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth + $guestCashIncome); ?></div>
-                    </div>
-                </div>
-            </div>
-            <div style="margin-top: 0.4rem; font-size: 0.6rem; color: #94a3b8;">
-                * Angka di atas hanya kas fisik (Petty Cash + Modal Owner), tidak termasuk transaksi Rekening Bank. Total pengeluaran seluruh akun ada di Buku Kas.
-            </div>
-
-            <?php if ($dashCashAvailable < 0): ?>
-                <div style="margin-top: 0.4rem; padding: 0.35rem 0.65rem; background: #fef2f2; border-left: 2px solid #dc2626; border-radius: 4px;">
-                    <div style="font-size: 0.65rem; color: #dc2626; font-weight: 600;">⚠️ Negative cash!</div>
-                </div>
-            <?php endif; ?>
-        </div>
     </div>
 
     <!-- Charts & Data - 3 Pie Charts -->
@@ -3267,100 +3492,108 @@ if ($trialStatus) {
 <?php else: // not CQC 
 ?>
 
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
+    <?php
+    // Ringkasan aktivitas bulan ini (dipakai kartu ke-3)
+    $miniActiveDays = count(array_filter($dailyData, function ($d) {
+        return $d['income'] > 0 || $d['expense'] > 0;
+    }));
+    $miniAvgIncome = $miniActiveDays > 0 ? array_sum(array_column($dailyData, 'income')) / $miniActiveDays : 0;
+    $miniAvgExpense = $miniActiveDays > 0 ? array_sum(array_column($dailyData, 'expense')) / $miniActiveDays : 0;
+    $miniMonthLabel = $monthNames[(int)date('m', strtotime($selected_dashboard_month . '-01')) - 1] . ' ' . $selected_dashboard_year;
+    ?>
+    <!-- Kartu divisi + aktivitas: gaya kaca seragam dengan grafik utama -->
+    <div class="dash-mini-grid">
 
-        <!-- Pie Chart 1 - Income per Division -->
-        <div class="card" style="overflow: hidden;">
-            <div style="padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--bg-tertiary); position: relative;">
-                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #10b981, #34d399);"></div>
-                <h3 style="font-size: 0.76rem; color: var(--text-primary); font-weight: 700; display: flex; align-items: center; gap: 0.35rem; letter-spacing: 0.01em;">
-                    <i data-feather="pie-chart" style="width: 13px; height: 13px; color: var(--success);"></i>
-                    Pemasukan per Divisi
-                </h3>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
-                    <input type="month" id="divisionIncomeMonth" value="<?php echo $selected_dashboard_month; ?>"
-                        class="form-control" style="font-size: 0.68rem; height: 26px; padding: 0.2rem 0.45rem; flex: 1;"
-                        onchange="updateDivisionIncomeChart(this.value)">
-                </div>
+        <!-- Pemasukan per Divisi -->
+        <div class="dash-mini">
+            <div class="dash-mini-head">
+                <h3 class="dash-mini-title"><span class="dash-mini-dot" style="background: #2563eb;"></span>Pemasukan per Divisi</h3>
+                <input type="month" id="divisionIncomeMonth" value="<?php echo $selected_dashboard_month; ?>" class="dash-mini-month" onchange="updateDivisionIncomeChart(this.value)">
             </div>
-            <div style="position: relative; height: 205px; padding: 0.6rem;">
-                <?php if (empty($divisionIncomeData)): ?>
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
-                        <i data-feather="inbox" style="width: 40px; height: 40px; margin-bottom: 0.5rem;"></i>
-                        <p style="margin: 0; font-size: 0.813rem;">Belum ada data</p>
-                    </div>
-                <?php else: ?>
+            <div class="dv-body">
+                <div class="dv-ring">
                     <canvas id="divisionPieChart"></canvas>
-                <?php endif; ?>
+                    <div class="dv-ring-center"><b id="divisionIncomeCenter">–</b><small id="divisionIncomeCenterLabel">Total</small></div>
+                </div>
+                <div class="dv-legend" id="divisionIncomeLegend"></div>
             </div>
         </div>
 
-        <!-- Pie Chart 2 - Expense per Division (NEW) -->
-        <div class="card" style="overflow: hidden;">
-            <div style="padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--bg-tertiary); position: relative;">
-                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #f43f5e, #fb7185);"></div>
-                <h3 style="font-size: 0.76rem; color: var(--text-primary); font-weight: 700; display: flex; align-items: center; gap: 0.35rem; letter-spacing: 0.01em;">
-                    <i data-feather="pie-chart" style="width: 13px; height: 13px; color: var(--danger);"></i>
-                    Pengeluaran per Divisi
-                </h3>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
-                    <input type="month" id="expenseCategoryMonth" value="<?php echo $selected_dashboard_month; ?>"
-                        class="form-control" style="font-size: 0.68rem; height: 26px; padding: 0.2rem 0.45rem; flex: 1;"
-                        onchange="updateExpenseCategoryChart(this.value)">
-                </div>
+        <!-- Pengeluaran per Divisi -->
+        <div class="dash-mini">
+            <div class="dash-mini-head">
+                <h3 class="dash-mini-title"><span class="dash-mini-dot" style="background: #f97316;"></span>Pengeluaran per Divisi</h3>
+                <input type="month" id="expenseCategoryMonth" value="<?php echo $selected_dashboard_month; ?>" class="dash-mini-month" onchange="updateExpenseCategoryChart(this.value)">
             </div>
-            <div style="position: relative; height: 205px; padding: 0.6rem;">
-                <?php if (empty($expenseDivisionData)): ?>
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
-                        <i data-feather="inbox" style="width: 40px; height: 40px; margin-bottom: 0.5rem;"></i>
-                        <p style="margin: 0; font-size: 0.813rem;">Belum ada data</p>
-                    </div>
-                <?php else: ?>
+            <div class="dv-body">
+                <div class="dv-ring">
                     <canvas id="expenseCategoryChart"></canvas>
-                <?php endif; ?>
+                    <div class="dv-ring-center"><b id="expenseDivisionCenter">–</b><small id="expenseDivisionCenterLabel">Total</small></div>
+                </div>
+                <div class="dv-legend" id="expenseDivisionLegend"></div>
             </div>
         </div>
 
-        <!-- Daily Activity Summary -->
-        <div class="card" style="overflow: hidden;">
-            <div style="padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--bg-tertiary); position: relative;">
-                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, var(--primary-color), var(--primary-dark));"></div>
-                <h3 style="font-size: 0.76rem; color: var(--text-primary); font-weight: 700; display: flex; align-items: center; gap: 0.35rem; letter-spacing: 0.01em;">
-                    <i data-feather="activity" style="width: 13px; height: 13px; color: var(--primary-color);"></i>
-                    Ringkasan Aktivitas Bulan Ini
-                </h3>
+        <!-- Ringkasan Aktivitas -->
+        <div class="dash-mini">
+            <div class="dash-mini-head">
+                <h3 class="dash-mini-title"><span class="dash-mini-dot" style="background: #10b981;"></span>Aktivitas Bulan Ini</h3>
+                <span class="dash-mini-tag"><?php echo $miniMonthLabel; ?></span>
             </div>
-            <div style="padding: 0.6rem 0.7rem; height: 205px; display: flex; flex-direction: column; justify-content: center;">
-                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.6rem; background: var(--bg-tertiary); border-radius: 8px;">
-                        <span style="font-size: 0.68rem; color: var(--text-muted);">Total Hari Transaksi</span>
-                        <span style="font-size: 0.9rem; font-weight: 800; color: var(--primary-color);">
-                            <?php echo count(array_filter($dailyData, function ($d) {
-                                return $d['income'] > 0 || $d['expense'] > 0;
-                            })); ?> hari
-                        </span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.6rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05)); border-radius: 8px;">
-                        <span style="font-size: 0.68rem; color: var(--success);">Rata-rata Pemasukan/Hari</span>
-                        <span style="font-size: 0.82rem; font-weight: 800; color: var(--success);">
-                            <?php
-                            $activeDays = count(array_filter($dailyData, function ($d) {
-                                return $d['income'] > 0 || $d['expense'] > 0;
-                            }));
-                            echo formatCurrency($activeDays > 0 ? array_sum(array_column($dailyData, 'income')) / $activeDays : 0);
-                            ?>
-                        </span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.6rem; background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05)); border-radius: 8px;">
-                        <span style="font-size: 0.68rem; color: var(--danger);">Rata-rata Pengeluaran/Hari</span>
-                        <span style="font-size: 0.82rem; font-weight: 800; color: var(--danger);">
-                            <?php
-                            echo formatCurrency($activeDays > 0 ? array_sum(array_column($dailyData, 'expense')) / $activeDays : 0);
-                            ?>
-                        </span>
-                    </div>
+            <div class="act-list">
+                <div class="act-row">
+                    <small>Hari ada transaksi</small>
+                    <b><?php echo $miniActiveDays; ?> hari</b>
+                </div>
+                <div class="act-row">
+                    <small><span class="dash-mini-dot" style="background: #2563eb;"></span>Rata-rata pemasukan / hari</small>
+                    <b><?php echo formatCurrency($miniAvgIncome); ?></b>
+                </div>
+                <div class="act-row">
+                    <small><span class="dash-mini-dot" style="background: #f97316;"></span>Rata-rata pengeluaran / hari</small>
+                    <b><?php echo formatCurrency($miniAvgExpense); ?></b>
+                </div>
+                <div class="act-row">
+                    <small>Net rata-rata / hari</small>
+                    <b class="<?php echo $miniAvgIncome - $miniAvgExpense < 0 ? 'mini-neg' : 'mini-pos'; ?>"><?php echo formatCurrency($miniAvgIncome - $miniAvgExpense); ?></b>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Daily Cash: satu strip ringkas di bawah kartu divisi -->
+    <div class="dash-mini dc-card">
+        <div class="dash-mini-head">
+            <h3 class="dash-mini-title"><span class="dash-mini-dot" style="background: #1e3a8a;"></span>Daily Cash <span class="dash-mini-tag"><?php echo date('M Y', strtotime($selected_dashboard_month . '-01')); ?></span></h3>
+            <a href="modules/owner/owner-capital-monitor.php" class="dash-mini-link">Detail &rarr;</a>
+        </div>
+        <div class="dc-strip">
+            <div class="dc-item">
+                <small>Start cash (<?php echo date('M', strtotime($selected_dashboard_month . '-01')); ?>)</small>
+                <b><?php echo formatCurrency($startKasHariIni); ?></b>
+            </div>
+            <div class="dc-item dc-key">
+                <small>Cash available</small>
+                <b class="<?php echo $dashCashAvailable < 0 ? 'mini-neg' : ''; ?>"><?php echo formatCurrency($dashCashAvailable); ?></b>
+            </div>
+            <?php if ($guestCashIncome > 0): ?>
+                <div class="dc-item">
+                    <small>Cash income (tamu)</small>
+                    <b class="mini-pos">+<?php echo formatCurrency($guestCashIncome); ?></b>
+                </div>
+            <?php endif; ?>
+            <div class="dc-item">
+                <small>Owner transfer</small>
+                <b><?php echo formatCurrency($ownerTransferThisMonth); ?></b>
+            </div>
+            <div class="dc-item">
+                <small>Owner + guest</small>
+                <b><?php echo formatCurrency($ownerTransferThisMonth + $guestCashIncome); ?></b>
+            </div>
+        </div>
+        <div class="dc-note">
+            * Hanya kas fisik (Petty Cash + Modal Owner), tidak termasuk Rekening Bank. Total pengeluaran seluruh akun ada di Buku Kas.
+            <?php if ($dashCashAvailable < 0): ?><b class="mini-neg">&nbsp;· Kas minus!</b><?php endif; ?>
         </div>
     </div>
 <?php endif; // else not CQC - end charts section 
@@ -3533,235 +3766,135 @@ if ($trialStatus) {
         });
 
         // ============================================
-        // PIE CHART - Division Income
+        // RING DIVISI - Pemasukan & Pengeluaran per Divisi
+        // Ring tipis + legenda (5 teratas, sisanya "Lainnya"); info segmen tampil di tengah saat disorot.
         // ============================================
-        <?php if (!$isCQC && !empty($divisionIncomeData)): ?>
-            const divisionPieCtx = document.getElementById('divisionPieChart').getContext('2d');
-            let divisionPieChart = new Chart(divisionPieCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: [
-                        <?php foreach ($divisionIncomeData as $index => $div): ?> <?php echo json_encode((string)$div['division_name'], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>,
-                        <?php endforeach; ?>
-                    ],
-                    datasets: [{
-                        label: 'Pemasukan',
-                        data: [
-                            <?php foreach ($divisionIncomeData as $div): ?>
-                                <?php echo $div['total']; ?>,
-                            <?php endforeach; ?>
-                        ],
-                        backgroundColor: [
-                            <?php foreach ($divisionIncomeData as $index => $div): ?> '<?php echo $divisionColors[$index % count($divisionColors)]; ?>',
-                            <?php endforeach; ?>
-                        ],
-                        borderWidth: 1.5,
-                        borderColor: 'rgba(255,255,255,0.2)',
-                        hoverOffset: 8,
-                        hoverBorderWidth: 2,
-                        hoverBorderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '40%',
-                    radius: '92%',
-                    animation: {
-                        animateScale: true,
-                        animateRotate: true,
-                        duration: 800,
-                        easing: 'easeOutQuart'
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 6,
-                                font: {
-                                    size: 8.5,
-                                    weight: '600',
-                                    family: "'Inter', sans-serif"
-                                },
-                                color: getLegendTextColor(),
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                boxWidth: 6,
-                                boxHeight: 6
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(13, 31, 60, 0.95)',
-                            padding: 12,
-                            titleFont: {
-                                size: 11,
-                                weight: '700'
-                            },
-                            bodyFont: {
-                                size: 11,
-                                weight: '500'
-                            },
-                            titleColor: '#fff',
-                            bodyColor: 'rgba(255, 255, 255, 0.9)',
-                            borderColor: 'rgba(255,255,255,0.1)',
-                            borderWidth: 1,
-                            cornerRadius: 8,
-                            displayColors: true,
-                            boxPadding: 4,
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    let value = context.parsed || 0;
-                                    let total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    let percentage = ((value / total) * 100).toFixed(1);
-                                    return label + ': Rp ' + value.toLocaleString('id-ID') + ' (' + percentage + '%)';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        <?php endif; ?>
-
-        // ============================================
-        // PIE CHART 2 - Expense per Division (NEW)
-        // ============================================
-        <?php if (!$isCQC && !empty($expenseDivisionData)): ?>
-            const expenseCategoryCtx = document.getElementById('expenseCategoryChart').getContext('2d');
-            let expenseCategoryChart = new Chart(expenseCategoryCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: [
-                        <?php foreach ($expenseDivisionData as $index => $div): ?> <?php echo json_encode((string)$div['division_name'], JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>,
-                        <?php endforeach; ?>
-                    ],
-                    datasets: [{
-                        label: 'Pengeluaran',
-                        data: [
-                            <?php foreach ($expenseDivisionData as $div): ?>
-                                <?php echo $div['total']; ?>,
-                            <?php endforeach; ?>
-                        ],
-                        backgroundColor: [
-                            '#FF3D71',
-                            '#FF9F43',
-                            '#FECA57',
-                            '#1DD1A1',
-                            '#54A0FF',
-                            '#5F27CD',
-                            '#00D2D3',
-                            '#FF6B81',
-                            '#2ED573',
-                            '#7158E2',
-                            '#3AE374',
-                            '#FF4757'
-                        ],
-                        borderWidth: 1.5,
-                        borderColor: 'rgba(255,255,255,0.2)',
-                        hoverOffset: 8,
-                        hoverBorderWidth: 2,
-                        hoverBorderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '40%',
-                    radius: '92%',
-                    animation: {
-                        animateScale: true,
-                        animateRotate: true,
-                        duration: 800,
-                        easing: 'easeOutQuart'
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 6,
-                                font: {
-                                    size: 8.5,
-                                    weight: '600'
-                                },
-                                color: getLegendTextColor(),
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                boxWidth: 6,
-                                boxHeight: 6
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(13, 31, 60, 0.95)',
-                            padding: 12,
-                            titleFont: {
-                                size: 11,
-                                weight: '700'
-                            },
-                            bodyFont: {
-                                size: 11,
-                                weight: '500'
-                            },
-                            titleColor: '#fff',
-                            bodyColor: 'rgba(255, 255, 255, 0.9)',
-                            borderColor: 'rgba(255,255,255,0.1)',
-                            borderWidth: 1,
-                            cornerRadius: 8,
-                            displayColors: true,
-                            boxPadding: 4,
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    let value = context.parsed || 0;
-                                    let total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    let percentage = ((value / total) * 100).toFixed(1);
-                                    return label + ': Rp ' + value.toLocaleString('id-ID') + ' (' + percentage + '%)';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        <?php endif; ?>
-
         <?php if (!$isCQC): ?>
-            // Function to update division income chart
+            const DIVISION_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#84cc16', '#64748b', '#0ea5e9', '#a855f7', '#14b8a6'];
+
+            const divShort = v => {
+                const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '';
+                const fix = x => (x >= 10 ? x.toFixed(0) : x.toFixed(1).replace(/\.0$/, '')).replace('.', ',');
+                if (a >= 1e9) return s + 'Rp ' + fix(a / 1e9) + ' M';
+                if (a >= 1e6) return s + 'Rp ' + fix(a / 1e6) + ' jt';
+                if (a >= 1e3) return s + 'Rp ' + fix(a / 1e3) + ' rb';
+                return s + 'Rp ' + a;
+            };
+            const divPct = v => (v >= 10 ? Math.round(v) : v.toFixed(1).replace(/\.0$/, '')).toString().replace('.', ',') + '%';
+
+            function makeDivisionRing(canvasId, legendId, centerId, labelId, labels, amounts) {
+                const canvas = document.getElementById(canvasId);
+                if (!canvas) return null;
+                const ring = {
+                    chart: null,
+                    labels: [],
+                    amounts: []
+                };
+                const centerEl = document.getElementById(centerId);
+                const labelEl = document.getElementById(labelId);
+                const legendEl = document.getElementById(legendId);
+
+                const total = () => ring.amounts.reduce((a, b) => a + b, 0);
+
+                function focus(index) {
+                    const has = ring.amounts.length > 0;
+                    if (legendEl) {
+                        legendEl.querySelectorAll('.dv-row').forEach(row => {
+                            const i = Number(row.dataset.index);
+                            row.classList.toggle('is-dim', index !== null && i !== index && !(index >= 5 && i === 5));
+                        });
+                    }
+                    if (!has || index === null) {
+                        centerEl.textContent = has ? divShort(total()) : '–';
+                        labelEl.textContent = has ? 'Total' : 'Belum ada data';
+                        return;
+                    }
+                    centerEl.textContent = divPct(ring.amounts[index] / (total() || 1) * 100);
+                    labelEl.textContent = ring.labels[index];
+                }
+
+                function renderLegend() {
+                    if (!legendEl) return;
+                    if (!ring.amounts.length) {
+                        legendEl.innerHTML = '<div class="dv-empty">Belum ada data di bulan ini</div>';
+                        return;
+                    }
+                    const sum = total() || 1;
+                    const order = ring.amounts.map((v, i) => i).sort((a, b) => ring.amounts[b] - ring.amounts[a]);
+                    const top = order.slice(0, 5);
+                    const rest = order.slice(5);
+                    const row = (idx, color, name, value) =>
+                        '<div class="dv-row" data-index="' + idx + '"><i style="background:' + color + '"></i>' +
+                        '<small title="' + name.replace(/"/g, '&quot;') + '">' + name.replace(/</g, '&lt;') + '</small>' +
+                        '<em>' + divPct(value / sum * 100) + '</em><b>' + divShort(value) + '</b></div>';
+                    let html = top.map(i => row(i, DIVISION_PALETTE[i % DIVISION_PALETTE.length], ring.labels[i], ring.amounts[i])).join('');
+                    if (rest.length) {
+                        const restSum = rest.reduce((a, i) => a + ring.amounts[i], 0);
+                        html += row(5, '#cbd5e1', 'Lainnya (' + rest.length + ')', restSum);
+                    }
+                    legendEl.innerHTML = html;
+                }
+
+                ring.set = function(newLabels, newAmounts) {
+                    ring.labels = (newLabels || []).map(String);
+                    ring.amounts = (newAmounts || []).map(v => Number(v) || 0);
+                    const has = ring.amounts.length > 0;
+                    const ds = ring.chart.data.datasets[0];
+                    ring.chart.data.labels = has ? ring.labels : ['Kosong'];
+                    ds.data = has ? ring.amounts : [1];
+                    ds.backgroundColor = has ? ring.labels.map((_, i) => DIVISION_PALETTE[i % DIVISION_PALETTE.length]) : ['rgba(148,163,184,0.2)'];
+                    ring.chart.update();
+                    renderLegend();
+                    focus(null);
+                };
+
+                ring.chart = new Chart(canvas.getContext('2d'), {
+                    type: 'doughnut',
+                    data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 0, borderRadius: 4, spacing: 2, hoverOffset: 4 }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '72%',
+                        animation: { duration: 700, easing: 'easeOutQuart' },
+                        onHover: (event, elements) => focus(elements.length && ring.amounts.length ? elements[0].index : null),
+                        plugins: { legend: { display: false }, tooltip: { enabled: false } }
+                    }
+                });
+                canvas.addEventListener('mouseleave', () => focus(null));
+                ring.set(labels, amounts);
+                return ring;
+            }
+
+            const divisionIncomeRing = makeDivisionRing('divisionPieChart', 'divisionIncomeLegend', 'divisionIncomeCenter', 'divisionIncomeCenterLabel',
+                <?php echo json_encode(array_map(fn($d) => (string)$d['division_name'], $divisionIncomeData ?? []), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>,
+                <?php echo json_encode(array_map(fn($d) => (float)$d['total'], $divisionIncomeData ?? [])); ?>);
+            const expenseDivisionRing = makeDivisionRing('expenseCategoryChart', 'expenseDivisionLegend', 'expenseDivisionCenter', 'expenseDivisionCenterLabel',
+                <?php echo json_encode(array_map(fn($d) => (string)$d['division_name'], $expenseDivisionData ?? []), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE); ?>,
+                <?php echo json_encode(array_map(fn($d) => (float)$d['total'], $expenseDivisionData ?? [])); ?>);
+
+            // Ganti bulan pada kartu divisi
             function updateDivisionIncomeChart(month) {
                 fetch(`api/division-income-data.php?month=${month}`)
                     .then(response => response.json())
                     .then(data => {
-                        if (data.success && data.divisions.length > 0) {
-                            divisionPieChart.data.labels = data.divisions;
-                            divisionPieChart.data.datasets[0].data = data.amounts;
-                            divisionPieChart.update();
-                        } else {
-                            // Show empty state
-                            divisionPieChart.data.labels = [];
-                            divisionPieChart.data.datasets[0].data = [];
-                            divisionPieChart.update();
-                        }
+                        if (!divisionIncomeRing) return;
+                        const ok = data.success && data.divisions && data.divisions.length > 0;
+                        divisionIncomeRing.set(ok ? data.divisions : [], ok ? data.amounts : []);
                     })
                     .catch(error => console.error('Error updating division income chart:', error));
             }
 
-            // Function to update expense category chart
             function updateExpenseCategoryChart(month) {
                 fetch(`api/expense-category-data.php?month=${month}`)
                     .then(response => response.json())
                     .then(data => {
-                        if (data.success && data.categories.length > 0) {
-                            expenseCategoryChart.data.labels = data.categories;
-                            expenseCategoryChart.data.datasets[0].data = data.amounts;
-                            expenseCategoryChart.update();
-                        } else {
-                            // Show empty state
-                            expenseCategoryChart.data.labels = [];
-                            expenseCategoryChart.data.datasets[0].data = [];
-                            expenseCategoryChart.update();
-                        }
+                        if (!expenseDivisionRing) return;
+                        const ok = data.success && data.categories && data.categories.length > 0;
+                        expenseDivisionRing.set(ok ? data.categories : [], ok ? data.amounts : []);
                     })
                     .catch(error => console.error('Error updating expense category chart:', error));
             }
-        <?php endif; // !$isCQC pie chart functions 
+        <?php endif; // !$isCQC ring divisi
         ?>
 
         // ============================================
