@@ -834,12 +834,6 @@ if ($trialStatus) {
     <div class="chart-head-wrap">
         <div class="chart-head-row">
             <div class="chart-title-wrap">
-                <div class="chart-title-accent"></div>
-                <div class="chart-title-block">
-                    <div class="chart-kicker"><?php echo strtoupper(BUSINESS_NAME); ?></div>
-                    <div class="chart-main-title">Dashboard Finansial Digital</div>
-                    <div class="chart-sub-title">Arus pemasukan, pengeluaran, dan profit harian dalam satu tampilan</div>
-                </div>
                 <div id="liveIndicator" class="chart-live-pill">
                     <span class="chart-live-dot"></span>
                     <span class="chart-live-text">LIVE</span>

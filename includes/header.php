@@ -1981,6 +1981,123 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Top bar ringkas: tinggi & ukuran teks diseragamkan dengan kartu dashboard.
+                 !important dipakai karena elemen top bar memakai style inline. -->
+            <style>
+                .main-content > .top-bar {
+                    padding: 0.55rem 1rem;
+                    margin-bottom: 0.9rem;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 16px -8px rgba(15, 23, 42, 0.12);
+                }
+
+                .main-content > .top-bar .page-title {
+                    font-size: 0.9rem !important;
+                    line-height: 1.25;
+                }
+
+                .main-content > .top-bar > div:first-child > p {
+                    margin-top: 0.1rem !important;
+                    font-size: 0.64rem !important;
+                }
+
+                .main-content > .top-bar > div:last-child {
+                    gap: 0.85rem !important;
+                }
+
+                #endShiftButton {
+                    padding: 0.3rem 0.7rem !important;
+                    font-size: 0.7rem !important;
+                    border-radius: 8px !important;
+                    gap: 0.35rem !important;
+                }
+
+                #endShiftButton svg {
+                    width: 13px !important;
+                    height: 13px !important;
+                }
+
+                #adminNotifBell svg {
+                    width: 17px !important;
+                    height: 17px !important;
+                }
+
+                #adminNotifBadge {
+                    top: -5px !important;
+                    right: -7px !important;
+                    min-width: 14px !important;
+                    height: 14px !important;
+                    font-size: 0.55rem !important;
+                }
+
+                .main-content > .top-bar .adfsub-pro-pill,
+                .main-content > .top-bar .adfsub-head-pill {
+                    margin-right: 0;
+                    padding: 3px 8px;
+                    gap: 6px;
+                    border-radius: 8px;
+                }
+
+                .main-content > .top-bar .adfsub-head-text small {
+                    font-size: 8.5px;
+                }
+
+                .main-content > .top-bar .adfsub-head-text strong {
+                    font-size: 10.5px;
+                }
+
+                .main-content > .top-bar .adfsub-head-cta {
+                    font-size: 10px;
+                    padding: 3px 7px;
+                }
+
+                .main-content > .top-bar .adfsub-pro-dot,
+                .main-content > .top-bar .adfsub-head-dot {
+                    width: 6px;
+                    height: 6px;
+                }
+
+                #currentDate {
+                    font-size: 0.66rem !important;
+                }
+
+                #currentTime {
+                    font-size: 0.72rem !important;
+                }
+
+                #currentDate,
+                #currentTime {
+                    line-height: 1.25;
+                }
+
+                .main-content > .top-bar div:has(> #currentDate) {
+                    padding-right: 0.85rem !important;
+                }
+
+                .main-content > .top-bar .user-info > div:first-child {
+                    margin-right: 0.6rem !important;
+                    line-height: 1.25;
+                }
+
+                .main-content > .top-bar .user-info > div:first-child > div:first-child {
+                    font-size: 0.74rem !important;
+                }
+
+                .main-content > .top-bar .user-info > div:first-child > div:last-child {
+                    font-size: 0.64rem !important;
+                }
+
+                .main-content > .top-bar .user-avatar-button {
+                    width: 32px;
+                    height: 32px;
+                    font-size: 0.8rem;
+                }
+
+                .main-content > .top-bar .user-avatar-edit-indicator {
+                    transform: scale(0.8);
+                    transform-origin: bottom right;
+                }
+            </style>
             <!-- Top Bar -->
             <div class="top-bar">
                 <div>
