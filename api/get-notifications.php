@@ -21,6 +21,12 @@ if (!$auth->isLoggedIn()) {
 $user = $auth->getCurrentUser();
 $db = Database::getInstance();
 
+// Polling tiap 15-30 detik: lepas kunci sesi segera (endpoint ini tidak menulis ke sesi), supaya
+// klik menu lain dari user yang sama tidak mengantre menunggu request ini selesai.
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 // Ensure tables exist even if staff portal was never opened for this business yet
 $pdo = $db->getConnection();
 $pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (

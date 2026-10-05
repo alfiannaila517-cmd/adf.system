@@ -591,7 +591,45 @@ function adfsub_push(PDO $pdo, string $title, string $body): void
  * Dipanggil dari header tiap halaman: sinkron (maks. 5 menit), buat tagihan bulan ini, cek pembayaran
  * yang tertunda (maks. 1 menit). Return status untuk banner / kunci layar.
  */
-function adfsub_tick(?PDO $pdo = null): array
+/**
+ * Langkah jaringan adfsub_tick (antrean push, sinkron adfsystem.store, cek Pakasir) dijalankan SETELAH
+ * halaman terkirim ke browser, supaya membuka halaman tidak menunggu HTTP ke layanan luar
+ * (timeout 8-10 detik). Pola sama dengan adf_report_maybe_run().
+ */
+function adfsub_defer_network(PDO $pdo, bool $flushPush, bool $doReconcile): void
+{
+    static $registered = false;
+    if ($registered) {
+        return;
+    }
+    $registered = true;
+    register_shutdown_function(static function () use ($pdo, $flushPush, $doReconcile) {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        if (function_exists('litespeed_finish_request')) {
+            litespeed_finish_request();
+        } elseif (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+        ignore_user_abort(true);
+        try {
+            if ($flushPush) {
+                adfsub_flush_push_queue($pdo);
+            }
+            adfsub_sync($pdo);
+            if ($doReconcile) {
+                foreach (adfsub_unpaid_invoices($pdo) as $inv) {
+                    adfsub_reconcile($pdo, $inv);
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('adfsub deferred: ' . $e->getMessage());
+        }
+    });
+}
+
+function adfsub_tick(?PDO $pdo = null, bool $deferNetwork = false): array
 {
     $state = ['connected' => false, 'locked' => false, 'reminder' => null, 'unpaid' => [], 'due_soon' => [], 'active_until' => ''];
     try {
@@ -601,10 +639,22 @@ function adfsub_tick(?PDO $pdo = null): array
             return $state;
         }
         $state['connected'] = true;
-        if (empty($GLOBALS['adfsub_no_push'])) {
-            adfsub_flush_push_queue($pdo); // push yang tertunda dari penagihan otomatis
+        $flushPush = empty($GLOBALS['adfsub_no_push']);
+        // Cek pembayaran Pakasir yang belum terkonfirmasi, paling sering 1x per menit per sesi.
+        $doReconcile = ($_SESSION['adfsub_reconcile_at'] ?? 0) < time() - 60;
+        if ($doReconcile) {
+            $_SESSION['adfsub_reconcile_at'] = time();
         }
-        adfsub_sync($pdo);
+        if ($deferNetwork) {
+            // Status di halaman ini memakai hasil sinkron terakhir (maks. ~1 menit); sinkron berikutnya
+            // berjalan setelah halaman terkirim.
+            adfsub_defer_network($pdo, $flushPush, $doReconcile);
+        } else {
+            if ($flushPush) {
+                adfsub_flush_push_queue($pdo); // push yang tertunda dari penagihan otomatis
+            }
+            adfsub_sync($pdo);
+        }
         $cfg = adfsub_config($pdo);
 
         // Tagihan bulanan lama yang periodenya sebelum jatuh tempo pertama (aturan lama) dibatalkan otomatis.
@@ -622,9 +672,7 @@ function adfsub_tick(?PDO $pdo = null): array
             adfsub_get_or_refresh_invoice($pdo, $nextPeriod);
         }
 
-        // Cek pembayaran Pakasir yang belum terkonfirmasi, paling sering 1x per menit per sesi.
-        if (($_SESSION['adfsub_reconcile_at'] ?? 0) < time() - 60) {
-            $_SESSION['adfsub_reconcile_at'] = time();
+        if ($doReconcile && !$deferNetwork) {
             foreach (adfsub_unpaid_invoices($pdo) as $inv) {
                 adfsub_reconcile($pdo, $inv);
             }

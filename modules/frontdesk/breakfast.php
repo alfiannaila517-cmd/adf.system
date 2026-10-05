@@ -189,6 +189,8 @@ if (!empty($_GET['edit'])) {
 }
 
 $pageTitle = 'Breakfast Order';
+// Halaman ini memakai html2pdf (cetak/ekspor) -> footer memuat library-nya.
+$needsPdfLibs = true;
 include '../../includes/header.php';
 ?>
 

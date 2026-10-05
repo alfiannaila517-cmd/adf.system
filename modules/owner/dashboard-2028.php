@@ -3016,7 +3016,7 @@ if ($healthScore >= 80) {
         if (isset($pdo) && $pdo instanceof PDO) {
             require_once __DIR__ . '/../../config/database.php';
             require_once __DIR__ . '/../../includes/subscription_client.php';
-            $adfsubState = adfsub_tick($pdo);
+            $adfsubState = adfsub_tick($pdo, true);
         }
     } catch (Throwable $e) {
         error_log('owner subscription: ' . $e->getMessage());

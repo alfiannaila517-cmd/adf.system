@@ -806,7 +806,8 @@ if (isset($forceTheme) && is_string($forceTheme)) {
     try {
         require_once __DIR__ . '/subscription_client.php';
         if (!empty($_SESSION['user_id']) || !empty($_SESSION['logged_in'])) {
-            $adfsubState = adfsub_tick();
+            // Langkah jaringan (sinkron store / cek Pakasir) berjalan setelah halaman terkirim.
+            $adfsubState = adfsub_tick(null, true);
         }
     } catch (Throwable $e) {
         error_log('subscription header: ' . $e->getMessage());

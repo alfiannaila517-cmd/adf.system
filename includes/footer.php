@@ -628,9 +628,12 @@
                updateClock(); // Initial call
            </script>
 
-           <!-- html2pdf.js Library for PDF Export -->
+           <!-- html2pdf.js (ratusan KB): hanya dimuat di halaman yang memintanya lewat $needsPdfLibs = true.
+                Halaman laporan/kas besar sudah memuat library ini sendiri. -->
+           <?php if (!empty($needsPdfLibs)): ?>
            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+           <?php endif; ?>
 
            <!-- Additional JavaScript -->
            <?php if (isset($additionalJS)): ?>
