@@ -22,6 +22,7 @@ function getUnpaidCheckedInGuests($pdo)
                 b.booking_code,
                 b.group_id,
                 b.final_price,
+                b.check_out_date,
                 g.guest_name,
                 r.room_number,
                 GREATEST(COALESCE(bp.total_paid, 0), COALESCE(b.paid_amount, 0)) AS total_paid
@@ -120,7 +121,7 @@ function getUnpaidHotelServiceInvoices($pdo, $businessId)
 {
     try {
         $stmt = $pdo->prepare("
-            SELECT invoice_number, guest_name, room_number, total, paid_amount
+            SELECT id, invoice_number, guest_name, room_number, total, paid_amount
             FROM hotel_invoices
             WHERE business_id = ?
             AND payment_status != 'paid'

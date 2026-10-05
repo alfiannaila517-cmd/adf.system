@@ -176,6 +176,10 @@ if (!empty($inHouseGuests)) {
                 $paid = (float)$p['paid'];
             }
             $ihGuest['payment_status'] = ($final - $paid) <= 0 ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid');
+            $ihGuest['bill_total'] = $final;
+            $ihGuest['bill_paid'] = $paid;
+            $ihGuest['bill_rest'] = max(0, $final - $paid);
+            $ihGuest['is_group'] = !empty($p['group_id']);
         }
         unset($ihGuest);
     } catch (Throwable $e) {
@@ -749,6 +753,78 @@ include '../../includes/header.php';
         background: #7f1d1d !important;
     }
 
+    body[data-theme] .ih-card .ih-btn-pay {
+        background: #047857 !important;
+        border: 1px solid #065f46 !important;
+        color: #fff !important;
+    }
+
+    body[data-theme] .ih-card .ih-btn-pay:hover {
+        background: #065f46 !important;
+    }
+
+    body[data-theme] .ih-total .ih-rest {
+        font-size: 0.62rem;
+        font-weight: 700;
+        color: #dc2626 !important;
+    }
+
+    .ih-card.ih-focus {
+        animation: ihFocus 1.6s ease-out 2;
+    }
+
+    @keyframes ihFocus {
+        0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, .55); }
+        100% { box-shadow: 0 0 0 12px rgba(37, 99, 235, 0); }
+    }
+
+    /* Modal pembayaran */
+    .pay-ov {
+        --pm-card: #fff; --pm-ink: #0f172a; --pm-muted: #64748b; --pm-line: #e2e8f0; --pm-soft: #f8fafc;
+        position: fixed; inset: 0; z-index: 10060; display: none; align-items: center; justify-content: center;
+        padding: 16px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(3px);
+    }
+    body[data-theme="dark"] .pay-ov { --pm-card: #111a2e; --pm-ink: #e2e8f0; --pm-muted: #94a3b8; --pm-line: rgba(255,255,255,.1); --pm-soft: rgba(255,255,255,.04); }
+    .pay-ov.show { display: flex; }
+    .pay-box {
+        width: 100%; max-width: 420px; background: var(--pm-card); color: var(--pm-ink); border-radius: 16px;
+        border: 1px solid var(--pm-line); box-shadow: 0 24px 60px -12px rgba(15, 23, 42, .45); overflow: hidden;
+    }
+    .pay-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--pm-line); }
+    .pay-head .rm {
+        min-width: 42px; height: 34px; padding: 0 6px; border-radius: 9px; display: grid; place-items: center;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; font-weight: 700; font-size: .8rem;
+    }
+    .pay-head b { display: block; font-size: .86rem; color: var(--pm-ink); }
+    .pay-head small { display: block; font-size: .7rem; color: var(--pm-muted); }
+    body[data-theme] .pay-ov .pay-head button { margin-left: auto; border: 0; background: none; color: var(--pm-muted); font-size: 22px !important; cursor: pointer; line-height: 1; padding: 0 2px; }
+    .pay-body { padding: 14px 16px; }
+    .pay-sum { background: var(--pm-soft); border: 1px solid var(--pm-line); border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; }
+    .pay-sum div { display: flex; justify-content: space-between; font-size: .78rem; padding: 2px 0; color: var(--pm-muted); }
+    .pay-sum div b { color: var(--pm-ink); font-weight: 600; }
+    .pay-sum div.rest { border-top: 1px solid var(--pm-line); margin-top: 4px; padding-top: 6px; }
+    .pay-sum div.rest b { color: #dc2626; font-weight: 700; }
+    .pay-ov .pay-lbl { display: block; font-size: .68rem !important; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--pm-muted); margin: 0 0 5px; }
+    .pay-amt {
+        width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--pm-line); background: var(--pm-card); color: var(--pm-ink);
+        padding: 0 12px; font-size: .95rem; font-weight: 700; font-variant-numeric: tabular-nums; outline: none;
+    }
+    .pay-amt:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+    .pay-quick { display: flex; gap: 6px; margin: 6px 0 12px; }
+    .pay-quick button { border: 1px solid var(--pm-line); background: var(--pm-soft); color: var(--pm-ink); border-radius: 999px; padding: 3px 10px; font-size: .7rem; cursor: pointer; }
+    .pay-methods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .pay-methods button {
+        height: 34px; border-radius: 9px; border: 1px solid var(--pm-line); background: var(--pm-card); color: var(--pm-ink);
+        font-size: .74rem; font-weight: 600; cursor: pointer;
+    }
+    .pay-methods button.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+    .pay-note { font-size: .7rem; color: var(--pm-muted); margin: 10px 0 0; }
+    .pay-err { font-size: .74rem; color: #dc2626; margin: 8px 0 0; min-height: 1em; }
+    .pay-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--pm-line); }
+    .pay-foot button { border-radius: 9px; padding: 8px 14px; font-size: .78rem; font-weight: 600; cursor: pointer; }
+    .pay-foot .cancel { background: transparent; border: 1px solid var(--pm-line); color: var(--pm-muted); }
+    .pay-foot .go { background: #047857; border: 1px solid #065f46; color: #fff; }
+    .pay-foot .go:disabled { opacity: .6; cursor: wait; }
     @media (max-width: 760px) {
         body[data-theme] .ih-stats {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -829,7 +905,7 @@ include '../../includes/header.php';
                 };
             ?>
                 <?php $isCoToday = (date('Y-m-d', strtotime($guest['check_out_date'])) <= date('Y-m-d')); ?>
-                <div class="ih-card<?php echo $isCoToday ? ' is-co-today' : ''; ?>">
+                <div class="ih-card<?php echo $isCoToday ? ' is-co-today' : ''; ?>" id="ihb-<?php echo (int)$guest['booking_id']; ?>">
                     <div class="ih-card-top">
                         <span class="ih-room"><?php echo htmlspecialchars((string)$guest['room_number']); ?></span>
                         <div class="ih-who">
@@ -848,11 +924,28 @@ include '../../includes/header.php';
                     </div>
 
                     <div class="ih-card-foot">
+                        <?php $billRest = (float)($guest['bill_rest'] ?? 0); ?>
                         <div class="ih-total">
                             <small>Total</small>
                             <b>Rp <?php echo $totalPrice; ?></b>
+                            <?php if ($billRest > 0): ?><span class="ih-rest">Sisa Rp <?php echo number_format($billRest, 0, ',', '.'); ?></span><?php endif; ?>
                         </div>
                         <div class="ih-actions">
+                            <?php if ($billRest > 0):
+                                $payData = [
+                                    'id'    => (int)$guest['booking_id'],
+                                    'name'  => (string)$guest['guest_name'],
+                                    'room'  => (string)$guest['room_number'],
+                                    'code'  => (string)$guest['booking_code'],
+                                    'total' => (float)$guest['bill_total'],
+                                    'paid'  => (float)$guest['bill_paid'],
+                                    'rest'  => $billRest,
+                                    'group' => !empty($guest['is_group']),
+                                ]; ?>
+                                <button class="ih-btn ih-btn-pay" onclick='openPayModal(<?php echo htmlspecialchars(json_encode($payData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)'>
+                                    Payment
+                                </button>
+                            <?php endif; ?>
                             <button class="ih-btn ih-btn-breakfast" onclick="selectBreakfast(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
                                 Breakfast
                             </button>
@@ -1397,6 +1490,139 @@ include '../../includes/header.php';
             closeBreakfastModal();
         }
     });
+</script>
+
+<div class="pay-ov" id="payModal" onclick="if (event.target === this) closePayModal()">
+    <div class="pay-box" role="dialog" aria-modal="true" aria-labelledby="payTitle">
+        <div class="pay-head">
+            <span class="rm" id="payRoom">-</span>
+            <div>
+                <b id="payTitle">-</b>
+                <small id="payCode">-</small>
+            </div>
+            <button type="button" onclick="closePayModal()" aria-label="Tutup">&times;</button>
+        </div>
+        <div class="pay-body">
+            <div class="pay-sum">
+                <div><span>Total tagihan</span><b id="payTotal">-</b></div>
+                <div><span>Sudah dibayar</span><b id="payPaid">-</b></div>
+                <div class="rest"><span>Sisa tagihan</span><b id="payRest">-</b></div>
+            </div>
+            <span class="pay-lbl">Jumlah bayar</span>
+            <input type="text" inputmode="numeric" class="pay-amt" id="payAmount" autocomplete="off">
+            <div class="pay-quick">
+                <button type="button" onclick="setPayAmount(payState.rest)">Lunasi</button>
+                <button type="button" onclick="setPayAmount(Math.round(payState.rest / 2))">50%</button>
+            </div>
+            <span class="pay-lbl">Metode</span>
+            <div class="pay-methods" id="payMethods">
+                <button type="button" data-m="cash" class="on">Cash</button>
+                <button type="button" data-m="transfer">Transfer</button>
+                <button type="button" data-m="qris">QRIS</button>
+                <button type="button" data-m="card">Card</button>
+            </div>
+            <p class="pay-note" id="payGroupNote" style="display:none">Booking grup: pembayaran otomatis dibagi ke kamar lain dalam grup.</p>
+            <p class="pay-err" id="payErr"></p>
+        </div>
+        <div class="pay-foot">
+            <button type="button" class="cancel" onclick="closePayModal()">Batal</button>
+            <button type="button" class="go" id="payGo" onclick="submitPayment()">Simpan Pembayaran</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Pembayaran langsung dari kartu In-House (dipakai juga oleh popup tagihan: in-house.php?pay=<booking_id>).
+    let payState = null;
+    const payFmt = n => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+    const payInput = document.getElementById('payAmount');
+
+    function setPayAmount(v) {
+        payInput.value = Math.max(0, Math.round(v)).toLocaleString('id-ID');
+    }
+
+    function openPayModal(d) {
+        payState = Object.assign({ method: 'cash' }, d);
+        document.getElementById('payRoom').textContent = d.room;
+        document.getElementById('payTitle').textContent = d.name;
+        document.getElementById('payCode').textContent = d.code;
+        document.getElementById('payTotal').textContent = payFmt(d.total);
+        document.getElementById('payPaid').textContent = payFmt(d.paid);
+        document.getElementById('payRest').textContent = payFmt(d.rest);
+        document.getElementById('payGroupNote').style.display = d.group ? '' : 'none';
+        document.getElementById('payErr').textContent = '';
+        document.querySelectorAll('#payMethods button').forEach(b => b.classList.toggle('on', b.dataset.m === 'cash'));
+        setPayAmount(d.rest);
+        document.getElementById('payModal').classList.add('show');
+        setTimeout(() => payInput.select(), 50);
+    }
+
+    function closePayModal() {
+        document.getElementById('payModal').classList.remove('show');
+        payState = null;
+    }
+
+    payInput.addEventListener('input', () => {
+        const digits = payInput.value.replace(/\D/g, '');
+        payInput.value = digits ? parseInt(digits, 10).toLocaleString('id-ID') : '';
+    });
+
+    document.getElementById('payMethods').addEventListener('click', e => {
+        const btn = e.target.closest('button[data-m]');
+        if (!btn || !payState) return;
+        payState.method = btn.dataset.m;
+        document.querySelectorAll('#payMethods button').forEach(b => b.classList.toggle('on', b === btn));
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && payState) closePayModal();
+    });
+
+    function submitPayment() {
+        if (!payState) return;
+        const amount = parseInt(payInput.value.replace(/\D/g, '') || '0', 10);
+        const err = document.getElementById('payErr');
+        if (amount <= 0) {
+            err.textContent = 'Masukkan jumlah bayar.';
+            return;
+        }
+        if (amount > payState.rest && !confirm('Jumlah melebihi sisa tagihan (' + payFmt(payState.rest) + '). Lanjutkan?')) return;
+
+        const go = document.getElementById('payGo');
+        go.disabled = true;
+        go.textContent = 'Menyimpan...';
+        err.textContent = '';
+
+        const fd = new FormData();
+        fd.append('booking_id', payState.id);
+        fd.append('amount', amount);
+        fd.append('payment_method', payState.method);
+        fetch('<?php echo BASE_URL; ?>/api/add-booking-payment.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) throw new Error(d.message || 'Gagal menyimpan pembayaran');
+                go.textContent = '✓ Tersimpan';
+                // Muat ulang tanpa ?pay agar modal tidak terbuka lagi.
+                setTimeout(() => { window.location.href = 'in-house.php'; }, 600);
+            })
+            .catch(e => {
+                err.textContent = e.message;
+                go.disabled = false;
+                go.textContent = 'Simpan Pembayaran';
+            });
+    }
+
+    // Dari popup tagihan: buka modal pembayaran untuk booking yang diklik.
+    (function() {
+        const id = new URLSearchParams(location.search).get('pay');
+        if (!id) return;
+        const card = document.getElementById('ihb-' + parseInt(id, 10));
+        if (!card) return;
+        card.scrollIntoView({ block: 'center' });
+        card.classList.add('ih-focus');
+        const btn = card.querySelector('.ih-btn-pay');
+        if (btn) btn.click();
+    })();
 </script>
 
 <?php include '../../includes/footer.php'; ?>

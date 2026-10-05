@@ -1004,7 +1004,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         }
     </style>
 
-    <!-- Motor Overdue / Unpaid Guest / Hotel Service Notification Banner -->
+    <!-- Popup tagihan belum lunas (menggantikan running text kamar / hotel service / motor).
+         Muncul di halaman pertama setelah login (semua tagihan), lalu setiap kali user MASUK ke
+         bagian terkait: Front Desk -> tagihan kamar, Hotel Service -> invoice layanan, Rental Motor -> motor terlambat. -->
     <?php
     $unpaidGuestsCount = 0;
     try {
@@ -1014,145 +1016,204 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         $unpaidGuestsCount = count($unpaidGuests);
         $unpaidHotelServices = getUnpaidHotelServiceInvoices($db->getConnection(), $businessId);
 
-        // Pesan room/motor pakai warna default (putih), pesan hotel service diberi warna beda (kuning keemasan)
-        $plainMessages = array_merge(formatOverdueMotorMessages($overdueMotors), formatUnpaidGuestMessages($unpaidGuests));
-        $hsMessages = formatUnpaidHotelServiceMessages($unpaidHotelServices);
-        $bannerMessages = array_merge(
-            array_map(fn($m) => htmlspecialchars($m), $plainMessages),
-            array_map(fn($m) => '<span style="color:#fde047;">' . htmlspecialchars($m) . '</span>', $hsMessages)
-        );
-        if (!empty($bannerMessages)):
-            $count = count($bannerMessages);
-            $notificationText = implode('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', $bannerMessages);
-            // Ticker speed - lower duration = faster scroll.
-            $scrollDuration = max(4, $count * 2);
-            $bannerClickTarget = !empty($unpaidGuests) ? (BASE_URL . '/modules/frontdesk/in-house.php') : (!empty($unpaidHotelServices) ? (BASE_URL . '/modules/frontdesk/hotel-services.php') : (BASE_URL . '/modules/frontdesk/rental-motor.php'));
+        // Bagian aplikasi yang sedang dibuka.
+        $bpPage = basename($_SERVER['PHP_SELF'] ?? '');
+        if (in_array($bpPage, ['hotel-services.php', 'hotel-service-invoice.php'], true)) {
+            $bpSection = 'hs';
+        } elseif ($bpPage === 'rental-motor.php') {
+            $bpSection = 'motor';
+        } elseif (strpos($_SERVER['PHP_SELF'] ?? '', '/modules/frontdesk/') !== false) {
+            $bpSection = 'room';
+        } else {
+            $bpSection = 'other';
+        }
+        $bpPrevSection = $_SESSION['bill_popup_section'] ?? null;
+        $bpFirstAfterLogin = empty($_SESSION['bill_popup_login_done']);
+        $_SESSION['bill_popup_section'] = $bpSection;
+        $_SESSION['bill_popup_login_done'] = true;
+
+        if ($bpFirstAfterLogin) {
+            $bpShow = ['room', 'hs', 'motor'];
+        } elseif ($bpSection !== $bpPrevSection && $bpSection !== 'other') {
+            $bpShow = [$bpSection];
+        } else {
+            $bpShow = [];
+        }
+
+        $bpRp = fn($v) => 'Rp ' . number_format((float)$v, 0, ',', '.');
+        $bpSections = [];
+
+        // Kamar: satu baris per booking/grup yang masih bersisa (baris grup lain bernilai 0 dilewati).
+        if (in_array('room', $bpShow, true) && $unpaidGuests) {
+            $groupRooms = [];
+            foreach ($unpaidGuests as $g) {
+                if (!empty($g['group_id'])) $groupRooms[$g['group_id']][] = $g['room_number'];
+            }
+            $items = [];
+            foreach ($unpaidGuests as $g) {
+                if ((float)$g['remaining'] <= 0) continue;
+                $rooms = !empty($g['group_id']) ? $groupRooms[$g['group_id']] : [$g['room_number']];
+                $overdue = !empty($g['check_out_date']) && $g['check_out_date'] < date('Y-m-d');
+                $items[] = [
+                    'tag'  => count($rooms) > 1 ? count($rooms) . ' kmr' : (string)$rooms[0],
+                    'name' => $g['guest_name'] ?: '-',
+                    'sub'  => trim(($g['booking_code'] ?? '') . ' · ' . (count($rooms) > 1 ? 'Kamar ' . implode(', ', $rooms) . ' · ' : '') . ($overdue ? 'Lewat tanggal check-out' : 'Check-out hari ini'), ' ·'),
+                    'amt'  => $bpRp($g['remaining']),
+                    'cta'  => 'Bayar',
+                    'href' => BASE_URL . '/modules/frontdesk/in-house.php?pay=' . (int)$g['id'],
+                ];
+            }
+            if ($items) {
+                $bpSections[] = ['title' => 'Tagihan kamar', 'items' => $items, 'href' => BASE_URL . '/modules/frontdesk/in-house.php', 'cta' => 'Buka Tamu In-House'];
+            }
+        }
+
+        if (in_array('hs', $bpShow, true) && $unpaidHotelServices) {
+            $items = [];
+            foreach ($unpaidHotelServices as $inv) {
+                $rest = max(0, (float)$inv['total'] - (float)$inv['paid_amount']);
+                if ($rest <= 0) continue;
+                $items[] = [
+                    'tag'  => $inv['room_number'] ? (string)$inv['room_number'] : 'HS',
+                    'name' => $inv['guest_name'] ?: '-',
+                    'sub'  => $inv['invoice_number'] . ' · Hotel Service',
+                    'amt'  => $bpRp($rest),
+                    'cta'  => 'Lihat',
+                    'href' => BASE_URL . '/modules/frontdesk/hotel-service-invoice.php?id=' . (int)$inv['id'],
+                ];
+            }
+            if ($items) {
+                $bpSections[] = ['title' => 'Hotel Service', 'items' => $items, 'href' => BASE_URL . '/modules/frontdesk/hotel-services.php', 'cta' => 'Buka Hotel Service'];
+            }
+        }
+
+        if (in_array('motor', $bpShow, true) && $overdueMotors) {
+            $items = [];
+            foreach ($overdueMotors as $m) {
+                $h = max(0, (int)($m['hours_overdue'] ?? 0));
+                $items[] = [
+                    'tag'  => 'MTR',
+                    'name' => $m['guest_name'] ?: '-',
+                    'sub'  => $m['motor_name'] . ' (' . $m['plate_number'] . ')',
+                    'amt'  => (floor($h / 24) > 0 ? floor($h / 24) . ' hari ' . ($h % 24) . ' jam' : $h . ' jam'),
+                    'cta'  => 'Terlambat',
+                    'href' => BASE_URL . '/modules/frontdesk/rental-motor.php',
+                ];
+            }
+            $bpSections[] = ['title' => 'Rental motor terlambat', 'items' => $items, 'href' => BASE_URL . '/modules/frontdesk/rental-motor.php', 'cta' => 'Buka Rental Motor'];
+        }
+
+        if ($bpSections):
+            $bpTotal = array_sum(array_map(fn($s) => count($s['items']), $bpSections));
     ?>
             <style>
-                .motor-overdue-banner {
-                    background: linear-gradient(90deg, var(--primary-dark), var(--primary-color), var(--primary-dark));
-                    background-size: 200% 100%;
-                    animation: banner-bg 4s linear infinite;
-                    color: #ffffff !important;
-                    -webkit-text-fill-color: #ffffff !important;
-                    text-fill-color: #ffffff !important;
-                    padding: 0.5rem 0;
-                    overflow: hidden;
-                    position: relative;
-                    font-weight: 700;
-                    font-size: 0.84rem;
-                    letter-spacing: 0.01em;
-                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-                    box-shadow: var(--shadow-glow);
-                    border-bottom: 2px solid var(--primary-dark);
-                    z-index: 999;
-                    cursor: pointer;
+                .billpop {
+                    --bp-card: #ffffff; --bp-ink: #0f172a; --bp-muted: #64748b; --bp-line: #e2e8f0; --bp-row: #f8fafc;
+                    position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center;
+                    padding: 16px; background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(3px);
+                    opacity: 0; transition: opacity .18s ease;
                 }
-
-                .motor-overdue-banner,
-                .motor-overdue-banner * {
-                    -webkit-text-fill-color: unset;
-                    text-fill-color: unset;
-                    opacity: 1 !important;
-                    mix-blend-mode: normal !important;
+                body[data-theme="dark"] .billpop { --bp-card: #111a2e; --bp-ink: #e2e8f0; --bp-muted: #94a3b8; --bp-line: rgba(255,255,255,.1); --bp-row: rgba(255,255,255,.04); }
+                .billpop.show { opacity: 1; }
+                .billpop-card {
+                    width: 100%; max-width: 480px; max-height: calc(100vh - 32px); display: flex; flex-direction: column;
+                    background: var(--bp-card); color: var(--bp-ink); border-radius: 16px; overflow: hidden;
+                    box-shadow: 0 24px 60px -12px rgba(15, 23, 42, .45); border: 1px solid var(--bp-line);
+                    transform: translateY(8px) scale(.98); transition: transform .18s ease;
                 }
-
-                @keyframes banner-bg {
-                    0% {
-                        background-position: 0% 50%;
-                    }
-
-                    100% {
-                        background-position: 200% 50%;
-                    }
+                .billpop.show .billpop-card { transform: none; }
+                .billpop-head { display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px 12px; border-bottom: 1px solid var(--bp-line); }
+                .billpop-ico {
+                    width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0; display: grid; place-items: center;
+                    background: #fef2f2; color: #b91c1c !important; -webkit-text-fill-color: #b91c1c; font-weight: 800; font-size: 18px; box-shadow: inset 0 0 0 1px #fecaca; opacity: 1 !important;
                 }
-
-                .motor-overdue-banner .ob-label {
-                    position: absolute;
-                    left: 210px;
-                    top: 0;
-                    bottom: 0;
-                    display: flex;
-                    align-items: center;
-                    padding: 0 0.75rem;
-                    background: rgba(0, 0, 0, 0.35);
-                    white-space: nowrap;
-                    font-size: 0.78rem;
-                    gap: 0.3rem;
-                    z-index: 2;
-                    border-right: 1px solid rgba(255, 255, 255, 0.2);
-                    color: #ffffff;
+                .billpop-head h3 { margin: 0; font-size: 0.98rem; font-weight: 700; color: var(--bp-ink); }
+                .billpop-head p { margin: 2px 0 0; font-size: 0.76rem; color: var(--bp-muted); }
+                .billpop-x { margin-left: auto; border: 0; background: transparent; color: var(--bp-muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 2px; }
+                .billpop-body { overflow-y: auto; padding: 6px 12px 10px; }
+                .billpop-sec h4 {
+                    display: flex; justify-content: space-between; align-items: center; margin: 10px 6px 6px;
+                    font-size: 0.66rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--bp-muted);
                 }
-
-                @media (max-width: 768px) {
-                    .motor-overdue-banner .ob-label {
-                        left: 0;
-                    }
+                .billpop-sec h4 span { background: #fee2e2; color: #b91c1c !important; -webkit-text-fill-color: #b91c1c; border-radius: 999px; padding: 1px 8px; letter-spacing: 0; opacity: 1 !important; }
+                a.billpop-item {
+                    display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin-bottom: 6px; border-radius: 11px;
+                    background: var(--bp-row); border: 1px solid var(--bp-line); text-decoration: none; color: var(--bp-ink);
+                    transition: border-color .15s, transform .15s;
                 }
-
-                .motor-overdue-banner .ob-label .notif-dot {
-                    width: 9px;
-                    height: 9px;
-                    border-radius: 50%;
-                    background: #ef4444;
-                    box-shadow: 0 0 0 rgba(239, 68, 68, 0.7);
-                    animation: notif-dot-pulse 1.4s ease-out infinite;
-                    flex-shrink: 0;
+                a.billpop-item:hover { border-color: #93c5fd; transform: translateX(2px); }
+                .billpop-tag {
+                    min-width: 44px; height: 34px; padding: 0 6px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0;
+                    background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; font-weight: 700; font-size: 0.78rem;
                 }
-
-                @keyframes notif-dot-pulse {
-                    0% {
-                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-                    }
-
-                    70% {
-                        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
-                    }
-
-                    100% {
-                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-                    }
-                }
-
-                .motor-overdue-banner .ob-ticker {
-                    display: block;
-                    white-space: nowrap;
-                    padding-left: 370px;
-                    color: #ffffff;
-                    animation: ticker-scroll <?php echo $scrollDuration; ?>s linear infinite;
-                }
-
-                @media (max-width: 768px) {
-                    .motor-overdue-banner .ob-ticker {
-                        padding-left: 160px;
-                    }
-                }
-
-                @keyframes ticker-scroll {
-                    0% {
-                        transform: translateX(0);
-                    }
-
-                    100% {
-                        transform: translateX(-100%);
-                    }
-                }
-
-                .motor-overdue-banner:hover .ob-ticker {
-                    animation-play-state: paused;
-                }
+                .billpop-who { flex: 1; min-width: 0; }
+                .billpop-who b { display: block; font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--bp-ink); }
+                .billpop-who small { display: block; font-size: 0.68rem; color: var(--bp-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .billpop-amt { text-align: right; flex-shrink: 0; }
+                .billpop-amt b { display: block; font-size: 0.8rem; font-weight: 700; color: #b91c1c; }
+                .billpop-amt small { display: block; font-size: 0.66rem; font-weight: 600; color: #2563eb; }
+                .billpop-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 18px; border-top: 1px solid var(--bp-line); }
+                .billpop-btn { border: 0; border-radius: 9px; padding: 8px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+                .billpop-btn.ghost { background: transparent; color: var(--bp-muted); border: 1px solid var(--bp-line); }
+                a.billpop-btn.pri { background: #2563eb; color: #fff; }
             </style>
-            <div class="motor-overdue-banner" onclick="window.location.href='<?php echo $bannerClickTarget; ?>'" title="Klik untuk lihat detail">
-                <span class="ob-label">
-                    <span class="notif-dot"></span>
-                    PERHATIAN (<?php echo $count; ?>)
-                </span>
-                <span class="ob-ticker">
-                    <?php echo $notificationText; ?>
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <?php echo $notificationText; ?>
-                </span>
+            <div class="billpop" id="billPop" role="dialog" aria-modal="true" aria-labelledby="billPopTitle">
+                <div class="billpop-card">
+                    <div class="billpop-head">
+                        <span class="billpop-ico">!</span>
+                        <div>
+                            <h3 id="billPopTitle">Tagihan belum lunas (<?php echo $bpTotal; ?>)</h3>
+                            <p>Klik tagihan untuk langsung memproses pembayaran.</p>
+                        </div>
+                        <button type="button" class="billpop-x" data-bp-close aria-label="Tutup">&times;</button>
+                    </div>
+                    <div class="billpop-body">
+                        <?php foreach ($bpSections as $sec): ?>
+                            <div class="billpop-sec">
+                                <h4><?php echo htmlspecialchars($sec['title']); ?> <span><?php echo count($sec['items']); ?></span></h4>
+                                <?php foreach ($sec['items'] as $it): ?>
+                                    <a class="billpop-item" href="<?php echo htmlspecialchars($it['href']); ?>">
+                                        <span class="billpop-tag"><?php echo htmlspecialchars($it['tag']); ?></span>
+                                        <span class="billpop-who">
+                                            <b><?php echo htmlspecialchars($it['name']); ?></b>
+                                            <small><?php echo htmlspecialchars($it['sub']); ?></small>
+                                        </span>
+                                        <span class="billpop-amt">
+                                            <b><?php echo htmlspecialchars($it['amt']); ?></b>
+                                            <small><?php echo htmlspecialchars($it['cta']); ?> &rarr;</small>
+                                        </span>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="billpop-foot">
+                        <button type="button" class="billpop-btn ghost" data-bp-close>Nanti</button>
+                        <a class="billpop-btn pri" href="<?php echo htmlspecialchars($bpSections[0]['href']); ?>"><?php echo htmlspecialchars($bpSections[0]['cta']); ?></a>
+                    </div>
+                </div>
             </div>
+            <script>
+                (function() {
+                    const pop = document.getElementById('billPop');
+                    if (!pop) return;
+                    const close = () => {
+                        pop.classList.remove('show');
+                        setTimeout(() => pop.remove(), 200);
+                        document.removeEventListener('keydown', onKey);
+                    };
+                    const onKey = e => { if (e.key === 'Escape') close(); };
+                    pop.addEventListener('click', e => {
+                        if (e.target === pop || e.target.closest('[data-bp-close]')) close();
+                    });
+                    document.addEventListener('keydown', onKey);
+                    // Pindah ke <body> agar tidak terpotong induk ber-transform, lalu tampilkan.
+                    document.addEventListener('DOMContentLoaded', () => {
+                        document.body.appendChild(pop);
+                        requestAnimationFrame(() => pop.classList.add('show'));
+                    });
+                })();
+            </script>
         <?php endif; ?>
     <?php } catch (\Throwable $e) {
         // Silent fail if notification fails
