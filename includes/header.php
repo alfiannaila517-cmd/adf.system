@@ -1520,6 +1520,24 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 border-top: 1px solid rgba(148, 163, 184, 0.22) !important;
             }
 
+            /* Tombol End Shift: merah tua, teks putih (tema terang memaksa warna teks lewat style.css) */
+            body[data-theme] #endShiftButton {
+                background: #991b1b !important;
+                border-color: #7f1d1d !important;
+                color: #fff !important;
+            }
+
+            body[data-theme] #endShiftButton:hover {
+                background: #7f1d1d !important;
+            }
+
+            body[data-theme] #endShiftButton span,
+            body[data-theme] #endShiftButton svg,
+            body[data-theme] #endShiftButton i {
+                color: #fff !important;
+                stroke: #fff !important;
+            }
+
             body[data-theme] .sidebar .sidebar-footer {
                 padding: 0.45rem 0.6rem !important;
             }
@@ -2195,15 +2213,6 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         </li>
                     <?php endif; ?>
 
-                    <!-- Platform Subscription Billing (developer/owner-of-platform only) -->
-                    <?php if (($_SESSION['role'] ?? '') === 'developer'): ?>
-                        <li class="nav-item">
-                            <a href="<?php echo BASE_URL; ?>/modules/platform-billing/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/platform-billing/') !== false) ? 'active' : ''; ?>">
-                                <i data-feather="credit-card" class="nav-icon"></i>
-                                <span>Platform Billing</span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
 
                     <li class="nav-item" style="margin-top: 2rem;">
                         <a href="<?php echo BASE_URL; ?>/logout.php" class="nav-link">
@@ -2419,7 +2428,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
                     <!-- End Shift Button -->
                     <a id="endShiftButton" href="<?php echo BASE_URL; ?>/print-end-shift-report.php" target="_blank" rel="noopener"
-                        style="padding: 0.5rem 1rem; background: #1e3a8a; color: #eff6ff; border: 1px solid #1e40af; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; transition: all 0.2s; text-decoration: none;">
+                        style="padding: 0.5rem 1rem; background: #991b1b; color: #ffffff; border: 1px solid #7f1d1d; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; transition: all 0.2s; text-decoration: none;">
                         <i data-feather="power" style="width: 18px; height: 18px;"></i>
                         <span>End Shift</span>
                     </a>
