@@ -711,3 +711,55 @@ body[data-theme] .bookings-table td:nth-child(5) div {
     white-space: nowrap;
     font-size: 0.64rem !important;
 }
+
+/* ---------- RESERVASI: ukuran teks seragam + header beku (seperti Buku Kas) ---------- */
+body[data-theme] .bookings-table-wrapper {
+    max-height: calc(100vh - 210px);
+    overflow: auto !important;
+}
+
+body[data-theme] .bookings-table {
+    border-collapse: separate !important;
+    border-spacing: 0;
+}
+
+body[data-theme] .bookings-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--fd-accent) !important;
+}
+
+/* Semua teks di sel tabel: satu ukuran & ketebalan normal */
+body[data-theme] .bookings-table td,
+body[data-theme] .bookings-table td *:not(input) {
+    font-size: 0.68rem !important;
+    font-weight: 500 !important;
+    line-height: 1.35 !important;
+}
+
+/* Satu-satunya yang tebal: nama tamu */
+body[data-theme] .bookings-table td .rsv-guest strong {
+    font-weight: 700 !important;
+}
+
+/* Badge tetap ringkas (ukuran teks sama, hanya padding kecil) */
+body[data-theme] .bookings-table td .badge,
+body[data-theme] .bookings-table td .ota-badge,
+body[data-theme] .bookings-table td .room-badge {
+    padding: 0.08rem 0.42rem !important;
+    letter-spacing: 0.02em !important;
+}
+
+body[data-theme] .bookings-table td:nth-child(2) strong {
+    font-family: inherit !important;
+    color: var(--fd-text-2) !important;
+}
+
+body[data-theme] .bookings-table td .rsv-phone {
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .bookings-table td .action-dropdown-btn {
+    font-weight: 600 !important;
+}
