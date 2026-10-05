@@ -275,12 +275,28 @@ if (!function_exists('invTerbilang')) {
     }
 }
 $rp = fn($v) => 'Rp ' . number_format((float)$v, 0, ',', '.');
-$statusText = ['paid' => 'LUNAS · PAID', 'partial' => 'DP · PARTIAL', 'unpaid' => 'BELUM DIBAYAR · UNPAID'][$overallStatus];
+$statusText = ['paid' => 'PAID', 'partial' => 'PARTIALLY PAID', 'unpaid' => 'UNPAID'][$overallStatus];
 $sourceLabel = ucwords(str_replace('_', ' ', $booking['booking_source'] ?? 'Walk-in'));
-$guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['children'] ?? 0) > 0 ? ', ' . (int)$booking['children'] . ' Anak' : '');
+$guestsLabel = (int)($booking['adults'] ?? 1) . ' Adult' . ((int)($booking['adults'] ?? 1) === 1 ? '' : 's') . ((int)($booking['children'] ?? 0) > 0 ? ', ' . (int)$booking['children'] . ' Child' . ((int)$booking['children'] === 1 ? '' : 'ren') : '');
+if (!function_exists('invAmountWords')) {
+    // Amount in English words (whole rupiah).
+    function invAmountWords($n)
+    {
+        $n = (int)floor(abs($n));
+        $ones = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+        $tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+        if ($n < 20) return $ones[$n];
+        if ($n < 100) return $tens[intdiv($n, 10)] . ($n % 10 ? '-' . $ones[$n % 10] : '');
+        if ($n < 1000) return $ones[intdiv($n, 100)] . ' hundred' . ($n % 100 ? ' ' . invAmountWords($n % 100) : '');
+        foreach ([1000000000000 => 'trillion', 1000000000 => 'billion', 1000000 => 'million', 1000 => 'thousand'] as $div => $name) {
+            if ($n >= $div) return invAmountWords(intdiv($n, $div)) . ' ' . $name . ($n % $div ? ' ' . invAmountWords($n % $div) : '');
+        }
+        return '';
+    }
+}
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -551,43 +567,43 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
                 </div>
                 <div class="doc">
                     <div class="title">INVOICE</div>
-                    <div class="sub">Guest Folio · Faktur Tagihan</div>
+                    <div class="sub">Guest Folio</div>
                     <span class="status <?php echo $overallStatus; ?>"><?php echo $statusText; ?></span>
                 </div>
             </div>
 
             <!-- Meta dokumen -->
             <div class="meta">
-                <div><small>No. Invoice</small><b><?php echo htmlspecialchars($invoiceNo); ?></b></div>
-                <div><small>Tanggal Terbit</small><b><?php echo $issueDate; ?></b></div>
-                <div><small>Jatuh Tempo</small><b><?php echo $dueDate; ?></b></div>
-                <div><small>Kode Booking</small><b><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?><?php echo $isMultiRoom ? ' +' . (count($allBookings) - 1) : ''; ?></b></div>
+                <div><small>Invoice No.</small><b><?php echo htmlspecialchars($invoiceNo); ?></b></div>
+                <div><small>Issue Date</small><b><?php echo $issueDate; ?></b></div>
+                <div><small>Due Date</small><b><?php echo $dueDate; ?></b></div>
+                <div><small>Booking Code</small><b><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?><?php echo $isMultiRoom ? ' +' . (count($allBookings) - 1) : ''; ?></b></div>
             </div>
 
             <!-- Tamu & menginap -->
             <div class="parties">
                 <div class="party">
-                    <h3>Ditagihkan Kepada · Bill To</h3>
+                    <h3>Bill To</h3>
                     <div class="name"><?php echo htmlspecialchars($booking['guest_name']); ?></div>
                     <div class="kv">
-                        <span>Telepon</span><span><?php echo htmlspecialchars($booking['phone'] ?: '-'); ?></span>
+                        <span>Phone</span><span><?php echo htmlspecialchars($booking['phone'] ?: '-'); ?></span>
                         <span>Email</span><span><?php echo htmlspecialchars($booking['email'] ?: '-'); ?></span>
                         <?php if (!empty($booking['id_card_number']) && strpos($booking['id_card_number'], 'TEMP-') !== 0): ?>
-                            <span>No. Identitas</span><span><?php echo htmlspecialchars($booking['id_card_number']); ?></span>
+                            <span>ID Number</span><span><?php echo htmlspecialchars($booking['id_card_number']); ?></span>
                         <?php endif; ?>
                     </div>
                 </div>
                 <div class="party">
-                    <h3>Detail Menginap · Stay</h3>
+                    <h3>Stay Details</h3>
                     <div class="stay">
                         <div class="d"><small>Check-in</small><b><?php echo date('D, d M Y', strtotime($booking['check_in_date'])); ?></b></div>
-                        <div class="n"><?php echo (int)$booking['total_nights']; ?> malam →</div>
+                        <div class="n"><?php echo (int)$booking['total_nights']; ?> night<?php echo (int)$booking['total_nights'] === 1 ? '' : 's'; ?> →</div>
                         <div class="d"><small>Check-out</small><b><?php echo date('D, d M Y', strtotime($booking['check_out_date'])); ?></b></div>
                     </div>
                     <div class="kv">
-                        <span>Tamu</span><span><?php echo $guestsLabel; ?></span>
-                        <span>Kamar</span><span><?php echo count($allBookings); ?> kamar</span>
-                        <span>Sumber</span><span><?php echo htmlspecialchars($sourceLabel); ?></span>
+                        <span>Guests</span><span><?php echo $guestsLabel; ?></span>
+                        <span>Rooms</span><span><?php echo count($allBookings); ?> room<?php echo count($allBookings) === 1 ? '' : 's'; ?></span>
+                        <span>Source</span><span><?php echo htmlspecialchars($sourceLabel); ?></span>
                     </div>
                 </div>
             </div>
@@ -597,10 +613,10 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
                 <thead>
                     <tr>
                         <th style="width:34px">#</th>
-                        <th>Deskripsi</th>
+                        <th>Description</th>
                         <th class="c" style="width:70px">Qty</th>
-                        <th class="r" style="width:120px">Harga</th>
-                        <th class="r" style="width:130px">Jumlah</th>
+                        <th class="r" style="width:120px">Unit Price</th>
+                        <th class="r" style="width:130px">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -609,10 +625,10 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
                         <tr>
                             <td><?php echo $no; ?></td>
                             <td>
-                                <div class="desc">Kamar <?php echo htmlspecialchars($bk['room_number']); ?> — <?php echo htmlspecialchars($bk['room_type'] ?? 'Room'); ?></div>
+                                <div class="desc">Room <?php echo htmlspecialchars($bk['room_number']); ?> — <?php echo htmlspecialchars($bk['room_type'] ?? 'Room'); ?></div>
                                 <div class="sub"><?php echo date('d M', strtotime($bk['check_in_date'])); ?> – <?php echo date('d M Y', strtotime($bk['check_out_date'])); ?> · Room charge</div>
                             </td>
-                            <td class="c"><?php echo (int)$bk['total_nights']; ?> mlm</td>
+                            <td class="c"><?php echo (int)$bk['total_nights']; ?> night<?php echo (int)$bk['total_nights'] === 1 ? '' : 's'; ?></td>
                             <td class="r"><?php echo $rp($bk['room_price']); ?></td>
                             <td class="r"><?php echo $rp($bk['total_price']); ?></td>
                         </tr>
@@ -622,7 +638,7 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
                             <td><?php echo $no; ?></td>
                             <td>
                                 <div class="desc"><?php echo htmlspecialchars($ex['item_name']); ?></div>
-                                <div class="sub">Layanan tambahan<?php echo $isMultiRoom && !empty($ex['room_number']) ? ' · Kamar ' . htmlspecialchars($ex['room_number']) : ''; ?></div>
+                                <div class="sub">Additional service<?php echo $isMultiRoom && !empty($ex['room_number']) ? ' · Room ' . htmlspecialchars($ex['room_number']) : ''; ?></div>
                             </td>
                             <td class="c"><?php echo (int)$ex['quantity']; ?></td>
                             <td class="r"><?php echo $rp($ex['unit_price']); ?></td>
@@ -635,38 +651,38 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
             <!-- Ringkasan -->
             <div class="totals-wrap">
                 <div class="words">
-                    <small>Terbilang</small>
-                    <i><?php echo htmlspecialchars(invTerbilang($combinedFinalPrice) ?: 'nol'); ?> rupiah</i>
+                    <small>Amount in Words</small>
+                    <i><?php echo htmlspecialchars(ucfirst(invAmountWords($combinedFinalPrice))); ?> rupiah</i>
                 </div>
                 <div class="totals">
-                    <div class="row"><span>Subtotal kamar</span><span><?php echo $rp($combinedTotalPrice); ?></span></div>
+                    <div class="row"><span>Room subtotal</span><span><?php echo $rp($combinedTotalPrice); ?></span></div>
                     <?php if ($combinedExtrasTotal > 0): ?>
-                        <div class="row"><span>Layanan tambahan</span><span><?php echo $rp($combinedExtrasTotal); ?></span></div>
+                        <div class="row"><span>Additional services</span><span><?php echo $rp($combinedExtrasTotal); ?></span></div>
                     <?php endif; ?>
                     <?php if ($combinedDiscount > 0): ?>
-                        <div class="row disc"><span>Diskon</span><span>- <?php echo $rp($combinedDiscount); ?></span></div>
+                        <div class="row disc"><span>Discount</span><span>- <?php echo $rp($combinedDiscount); ?></span></div>
                     <?php endif; ?>
                     <div class="row grand"><span>TOTAL</span><span><?php echo $rp($combinedFinalPrice); ?></span></div>
-                    <div class="row paid"><span>Telah dibayar</span><span><?php echo $rp($totalPaid); ?></span></div>
+                    <div class="row paid"><span>Amount paid</span><span><?php echo $rp($totalPaid); ?></span></div>
                     <?php if ($remaining > 0): ?>
-                        <div class="row due"><span>Sisa tagihan</span><span><?php echo $rp($remaining); ?></span></div>
+                        <div class="row due"><span>Balance Due</span><span><?php echo $rp($remaining); ?></span></div>
                     <?php else: ?>
-                        <div class="row settled"><span>Status</span><span>LUNAS</span></div>
+                        <div class="row settled"><span>Status</span><span>PAID IN FULL</span></div>
                     <?php endif; ?>
                 </div>
             </div>
 
             <!-- Riwayat pembayaran -->
             <?php if (!empty($payments)): ?>
-                <h4 class="sec">Riwayat Pembayaran</h4>
+                <h4 class="sec">Payment History</h4>
                 <table class="pay">
                     <thead>
                         <tr>
-                            <th>Tanggal</th>
-                            <?php if ($isMultiRoom): ?><th>Kamar</th><?php endif; ?>
-                            <th>Metode</th>
-                            <th>Keterangan</th>
-                            <th class="r">Jumlah</th>
+                            <th>Date</th>
+                            <?php if ($isMultiRoom): ?><th>Room</th><?php endif; ?>
+                            <th>Method</th>
+                            <th>Notes</th>
+                            <th class="r">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -684,25 +700,25 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
             <?php endif; ?>
 
             <?php if (!empty($booking['special_request'])): ?>
-                <div class="note"><b>Catatan tamu:</b> <?php echo nl2br(htmlspecialchars($booking['special_request'])); ?></div>
+                <div class="note"><b>Guest notes:</b> <?php echo nl2br(htmlspecialchars($booking['special_request'])); ?></div>
             <?php endif; ?>
 
             <!-- Pembayaran, ketentuan, tanda tangan -->
             <div class="bottom">
                 <div class="box">
-                    <h5>Pembayaran Transfer</h5>
+                    <h5>Bank Transfer</h5>
                     <div class="acc"><?php echo htmlspecialchars($bankAccountNumber); ?></div>
-                    <p>a.n. <?php echo htmlspecialchars($bankAccountName); ?></p>
+                    <p>Account name: <?php echo htmlspecialchars($bankAccountName); ?></p>
                     <?php if (!empty($swiftCode)): ?><p>SWIFT: <?php echo htmlspecialchars($swiftCode); ?></p><?php endif; ?>
-                    <p style="margin-top:4px">Cantumkan kode booking pada berita transfer.</p>
+                    <p style="margin-top:4px">Please include the booking code in the transfer reference.</p>
                 </div>
                 <div class="box">
-                    <h5>Ketentuan</h5>
+                    <h5>Terms &amp; Conditions</h5>
                     <ul class="terms">
-                        <li>Pelunasan paling lambat saat check-out.</li>
+                        <li>Full payment is due no later than check-out.</li>
                         <li>Check-in 14:00 · Check-out 12:00.</li>
-                        <li>Pembayaran yang telah diterima tidak dapat dikembalikan, kecuali sesuai kebijakan pembatalan.</li>
-                        <li>Invoice ini sah tanpa stempel bila diterbitkan oleh sistem.</li>
+                        <li>Payments received are non-refundable, except as provided by the cancellation policy.</li>
+                        <li>This system-generated invoice is valid without a stamp.</li>
                     </ul>
                 </div>
                 <div class="sign">
@@ -713,7 +729,7 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
             </div>
 
             <div class="legal">
-                Dokumen ini diterbitkan secara elektronik oleh <?php echo htmlspecialchars($coName); ?> · <?php echo htmlspecialchars($invoiceNo); ?> · dicetak <?php echo date('d M Y H:i'); ?>
+                This document was issued electronically by <?php echo htmlspecialchars($coName); ?> · <?php echo htmlspecialchars($invoiceNo); ?> · printed <?php echo date('d M Y H:i'); ?>
             </div>
         </div>
 
@@ -725,7 +741,7 @@ $guestsLabel = (int)($booking['adults'] ?? 1) . ' Dewasa' . ((int)($booking['chi
     </div>
 
     <div class="actions">
-        <button class="pri" onclick="savePDF()">Simpan PDF</button>
+        <button class="pri" onclick="savePDF()">Save PDF</button>
         <button class="sec2" onclick="window.print()">Print</button>
     </div>
 

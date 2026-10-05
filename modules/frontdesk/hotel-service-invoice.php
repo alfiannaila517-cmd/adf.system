@@ -34,14 +34,16 @@ $istmt->execute([$id]);
 $items = $istmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Payment method label (splits into "Cash Rp X + Transfer Rp Y" when split cash+kartu was used)
-$paymentMethodLabel = ucfirst($inv['payment_method']);
+$pmNames = ['cash' => 'Cash', 'transfer' => 'Bank Transfer', 'card' => 'Card', 'kartu' => 'Card', 'debit' => 'Debit Card', 'credit' => 'Credit Card', 'qris' => 'QRIS', 'split' => 'Split Payment'];
+$pmName = fn($m) => $pmNames[strtolower((string)$m)] ?? ucfirst((string)$m);
+$paymentMethodLabel = $pmName($inv['payment_method']);
 if ($inv['payment_method'] === 'split') {
     try {
         $pStmt = $pdo->prepare("SELECT amount, method FROM hotel_invoice_payments WHERE invoice_id = ? ORDER BY id ASC");
         $pStmt->execute([$id]);
         $paymentParts = [];
         foreach ($pStmt->fetchAll(PDO::FETCH_ASSOC) as $p) {
-            $paymentParts[] = ucfirst($p['method']) . ' Rp ' . number_format((float)$p['amount'], 0, ',', '.');
+            $paymentParts[] = $pmName($p['method']) . ' Rp ' . number_format((float)$p['amount'], 0, ',', '.');
         }
         if ($paymentParts) $paymentMethodLabel = implode(' + ', $paymentParts);
     } catch (\Throwable $e) {
@@ -90,7 +92,7 @@ $serviceLabels = [
     'airport_drop'  => ['label' => 'Airport Drop',   'icon' => '✈️'],
     'harbor_drop'   => ['label' => 'Harbor Drop',    'icon' => '⚓'],
     'narayana_trip' => ['label' => 'Narayana Trip',  'icon' => '🚤'],
-    'lain_lain'     => ['label' => 'Lain-lain',      'icon' => '📦'],
+    'lain_lain'     => ['label' => 'Miscellaneous',  'icon' => '📦'],
 ];
 // Load dynamic service types from DB
 try {
@@ -138,7 +140,7 @@ if (empty($companyLogo) && function_exists('getBusinessLogo')) {
 $coTagline = $settings['company_tagline'] ?? 'The Paradise of Java';
 $coNpwp = $settings['company_npwp'] ?? '';
 $hsStatus = in_array($inv['payment_status'], ['paid', 'partial', 'unpaid'], true) ? $inv['payment_status'] : 'unpaid';
-$statusText = ['paid' => 'LUNAS · PAID', 'partial' => 'DP · PARTIAL', 'unpaid' => 'BELUM DIBAYAR · UNPAID'][$hsStatus];
+$statusText = ['paid' => 'PAID', 'partial' => 'PARTIALLY PAID', 'unpaid' => 'UNPAID'][$hsStatus];
 $rp = fn($v) => 'Rp ' . number_format((float)$v, 0, ',', '.');
 $balance = (float)$inv['total'] - (float)$inv['paid_amount'];
 if (!function_exists('invTerbilang')) {
@@ -158,9 +160,25 @@ if (!function_exists('invTerbilang')) {
     }
 }
 $fmtRate = fn($r) => rtrim(rtrim(number_format($r, 2), '0'), '.');
+if (!function_exists('invAmountWords')) {
+    // Amount in English words (whole rupiah).
+    function invAmountWords($n)
+    {
+        $n = (int)floor(abs($n));
+        $ones = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+        $tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+        if ($n < 20) return $ones[$n];
+        if ($n < 100) return $tens[intdiv($n, 10)] . ($n % 10 ? '-' . $ones[$n % 10] : '');
+        if ($n < 1000) return $ones[intdiv($n, 100)] . ' hundred' . ($n % 100 ? ' ' . invAmountWords($n % 100) : '');
+        foreach ([1000000000000 => 'trillion', 1000000000 => 'billion', 1000000 => 'million', 1000 => 'thousand'] as $div => $name) {
+            if ($n >= $div) return invAmountWords(intdiv($n, $div)) . ' ' . $name . ($n % $div ? ' ' . invAmountWords($n % $div) : '');
+        }
+        return '';
+    }
+}
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -439,34 +457,34 @@ $fmtRate = fn($r) => rtrim(rtrim(number_format($r, 2), '0'), '.');
                 </div>
                 <div class="doc">
                     <div class="title">INVOICE</div>
-                    <div class="sub">Hotel Services · Faktur Layanan</div>
+                    <div class="sub">Hotel Services</div>
                     <span class="status <?php echo $hsStatus; ?>"><?php echo $statusText; ?></span>
                 </div>
             </div>
 
             <div class="meta">
-                <div><small>No. Invoice</small><b><?php echo htmlspecialchars($inv['invoice_number']); ?></b></div>
-                <div><small>Tanggal</small><b><?php echo date('d M Y', strtotime($inv['created_at'])); ?></b></div>
-                <div><small>Metode Bayar</small><b><?php echo htmlspecialchars($paymentMethodLabel); ?></b></div>
+                <div><small>Invoice No.</small><b><?php echo htmlspecialchars($inv['invoice_number']); ?></b></div>
+                <div><small>Date</small><b><?php echo date('d M Y', strtotime($inv['created_at'])); ?></b></div>
+                <div><small>Payment Method</small><b><?php echo htmlspecialchars($paymentMethodLabel); ?></b></div>
                 <div><small>Status</small><b><?php echo htmlspecialchars(ucfirst((string)$inv['status'])); ?></b></div>
             </div>
 
             <div class="parties">
                 <div class="party">
-                    <h3>Ditagihkan Kepada · Bill To</h3>
+                    <h3>Bill To</h3>
                     <div class="name"><?php echo htmlspecialchars($inv['guest_name']); ?></div>
                     <div class="kv">
-                        <span>Telepon</span><span><?php echo htmlspecialchars($inv['guest_phone'] ?: '-'); ?></span>
-                        <span>Kamar</span><span><?php echo htmlspecialchars($inv['room_number'] ?: '-'); ?></span>
+                        <span>Phone</span><span><?php echo htmlspecialchars($inv['guest_phone'] ?: '-'); ?></span>
+                        <span>Room</span><span><?php echo htmlspecialchars($inv['room_number'] ?: '-'); ?></span>
                     </div>
                 </div>
                 <div class="party">
-                    <h3>Ringkasan Layanan · Summary</h3>
+                    <h3>Service Summary</h3>
                     <div class="kv">
-                        <span>Jumlah item</span><span><?php echo count($items); ?> layanan</span>
+                        <span>Items</span><span><?php echo count($items); ?> service<?php echo count($items) === 1 ? '' : 's'; ?></span>
                         <span>Total</span><span><?php echo $rp($inv['total']); ?></span>
-                        <span>Telah dibayar</span><span><?php echo $rp($inv['paid_amount']); ?></span>
-                        <span>Sisa</span><span><?php echo $balance > 0 ? $rp($balance) : 'Lunas'; ?></span>
+                        <span>Amount paid</span><span><?php echo $rp($inv['paid_amount']); ?></span>
+                        <span>Balance</span><span><?php echo $balance > 0 ? $rp($balance) : 'Paid in full'; ?></span>
                     </div>
                 </div>
             </div>
@@ -475,10 +493,10 @@ $fmtRate = fn($r) => rtrim(rtrim(number_format($r, 2), '0'), '.');
                 <thead>
                     <tr>
                         <th style="width:34px">#</th>
-                        <th>Layanan</th>
+                        <th>Service</th>
                         <th class="c" style="width:60px">Qty</th>
-                        <th class="r" style="width:120px">Harga</th>
-                        <th class="r" style="width:130px">Jumlah</th>
+                        <th class="r" style="width:120px">Unit Price</th>
+                        <th class="r" style="width:130px">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -501,8 +519,8 @@ $fmtRate = fn($r) => rtrim(rtrim(number_format($r, 2), '0'), '.');
 
             <div class="totals-wrap">
                 <div class="words">
-                    <small>Terbilang</small>
-                    <i><?php echo htmlspecialchars(invTerbilang($inv['total']) ?: 'nol'); ?> rupiah</i>
+                    <small>Amount in Words</small>
+                    <i><?php echo htmlspecialchars(ucfirst(invAmountWords($inv['total']))); ?> rupiah</i>
                 </div>
                 <div class="totals">
                     <div class="row"><span>Subtotal</span><span><?php echo $rp($subtotal); ?></span></div>
@@ -510,53 +528,53 @@ $fmtRate = fn($r) => rtrim(rtrim(number_format($r, 2), '0'), '.');
                         <div class="row"><span>Service charge <?php echo $fmtRate($serviceChargeRate); ?>%</span><span><?php echo $rp($serviceChargeAmount); ?></span></div>
                     <?php endif; ?>
                     <?php if ($discountRate > 0 || $discountAmount > 0): ?>
-                        <div class="row disc"><span>Diskon<?php echo $discountRate > 0 ? ' ' . $fmtRate($discountRate) . '%' : ''; ?></span><span>- <?php echo $rp($discountAmount); ?></span></div>
+                        <div class="row disc"><span>Discount<?php echo $discountRate > 0 ? ' ' . $fmtRate($discountRate) . '%' : ''; ?></span><span>- <?php echo $rp($discountAmount); ?></span></div>
                     <?php endif; ?>
                     <?php if ($taxRate > 0): ?>
-                        <div class="row"><span>PPN <?php echo $fmtRate($taxRate); ?>%</span><span><?php echo $rp($taxAmount); ?></span></div>
+                        <div class="row"><span>VAT <?php echo $fmtRate($taxRate); ?>%</span><span><?php echo $rp($taxAmount); ?></span></div>
                     <?php endif; ?>
                     <div class="row grand"><span>TOTAL</span><span><?php echo $rp($inv['total']); ?></span></div>
-                    <div class="row paid"><span><?php echo ($balance > 0 && (float)$inv['paid_amount'] > 0) ? 'Uang muka (DP)' : 'Telah dibayar'; ?></span><span><?php echo $rp($inv['paid_amount']); ?></span></div>
+                    <div class="row paid"><span><?php echo ($balance > 0 && (float)$inv['paid_amount'] > 0) ? 'Down payment' : 'Amount paid'; ?></span><span><?php echo $rp($inv['paid_amount']); ?></span></div>
                     <?php if ($balance > 0): ?>
-                        <div class="row due"><span>Sisa tagihan</span><span><?php echo $rp($balance); ?></span></div>
+                        <div class="row due"><span>Balance Due</span><span><?php echo $rp($balance); ?></span></div>
                     <?php else: ?>
-                        <div class="row settled"><span>Status</span><span>LUNAS</span></div>
+                        <div class="row settled"><span>Status</span><span>PAID IN FULL</span></div>
                     <?php endif; ?>
                 </div>
             </div>
 
             <?php if (!empty($inv['notes'])): ?>
-                <div class="note"><b>Catatan:</b> <?php echo nl2br(htmlspecialchars($inv['notes'])); ?></div>
+                <div class="note"><b>Notes:</b> <?php echo nl2br(htmlspecialchars($inv['notes'])); ?></div>
             <?php endif; ?>
 
             <div class="bottom hs">
                 <div class="box">
-                    <h5>Pembayaran Transfer</h5>
+                    <h5>Bank Transfer</h5>
                     <?php if ($payAccount || $payBank): ?>
                         <div class="acc"><?php echo htmlspecialchars($payAccount ?: '-'); ?></div>
-                        <p><?php echo htmlspecialchars(trim($payBank . ($payName ? ' · a.n. ' . $payName : ''))); ?></p>
+                        <p><?php echo htmlspecialchars(trim($payBank . ($payName ? ' · Account name: ' . $payName : ''))); ?></p>
                         <?php if ($payNote): ?><p style="margin-top:4px"><?php echo htmlspecialchars($payNote); ?></p><?php endif; ?>
                     <?php else: ?>
-                        <p>Pembayaran di Front Desk.</p>
+                        <p>Payment at the Front Desk.</p>
                     <?php endif; ?>
-                    <p style="margin-top:4px">Cantumkan nomor invoice pada berita transfer.</p>
+                    <p style="margin-top:4px">Please include the invoice number in the transfer reference.</p>
                 </div>
                 <div class="sign2">
                     <div class="sign">
-                        <div class="place">Dibuat oleh</div>
+                        <div class="place">Issued by</div>
                         <div class="line"><?php echo htmlspecialchars($createdByName ?: '..........................'); ?></div>
                         <div class="role">Staff / Accounting</div>
                     </div>
                     <div class="sign">
-                        <div class="place">Diterima oleh</div>
+                        <div class="place">Received by</div>
                         <div class="line"><?php echo htmlspecialchars($inv['guest_name']); ?></div>
-                        <div class="role">Tamu</div>
+                        <div class="role">Guest</div>
                     </div>
                 </div>
             </div>
 
             <div class="legal">
-                Dokumen ini diterbitkan secara elektronik oleh <?php echo htmlspecialchars($companyName); ?> · <?php echo htmlspecialchars($inv['invoice_number']); ?> · dicetak <?php echo date('d M Y H:i'); ?>
+                This document was issued electronically by <?php echo htmlspecialchars($companyName); ?> · <?php echo htmlspecialchars($inv['invoice_number']); ?> · printed <?php echo date('d M Y H:i'); ?>
             </div>
         </div>
 
@@ -568,12 +586,12 @@ $fmtRate = fn($r) => rtrim(rtrim(number_format($r, 2), '0'), '.');
     </div>
 
     <div class="actions">
-        <button class="back" onclick="window.history.length > 1 ? history.back() : window.location.href='hotel-services.php'">← Kembali</button>
+        <button class="back" onclick="window.history.length > 1 ? history.back() : window.location.href='hotel-services.php'">← Back</button>
         <button class="pri" onclick="window.print()">Print / PDF</button>
         <?php if (!$isProcessed): ?>
-            <button class="proc" id="btnProcess" onclick="processInvoice(<?php echo (int)$inv['id']; ?>)">Proses ke Buku Kas</button>
+            <button class="proc" id="btnProcess" onclick="processInvoice(<?php echo (int)$inv['id']; ?>)">Post to Cash Book</button>
         <?php else: ?>
-            <span class="done">✓ Tercatat di Buku Kas</span>
+            <span class="done">✓ Posted to Cash Book</span>
         <?php endif; ?>
     </div>
 
@@ -581,9 +599,9 @@ $fmtRate = fn($r) => rtrim(rtrim(number_format($r, 2), '0'), '.');
         function processInvoice(id) {
             const btn = document.getElementById('btnProcess');
             if (!btn) return;
-            if (!confirm('Proses invoice ini? Pembayaran akan dicatat di Buku Kas.')) return;
+            if (!confirm('Process this invoice? The payment will be recorded in the Cash Book.')) return;
             btn.disabled = true;
-            btn.textContent = 'Memproses...';
+            btn.textContent = 'Processing...';
             const fd = new FormData();
             fd.append('action', 'process_invoice');
             fd.append('id', id);
@@ -591,18 +609,18 @@ $fmtRate = fn($r) => rtrim(rtrim(number_format($r, 2), '0'), '.');
                 .then(r => r.json())
                 .then(d => {
                     if (d.success && (d.cashbook || d.already)) {
-                        btn.textContent = '✓ Selesai';
+                        btn.textContent = '✓ Done';
                         setTimeout(() => location.reload(), 800);
                     } else {
-                        alert(d.success ? 'Gagal sync ke Buku Kas. Coba lagi atau hubungi admin.' : 'Error: ' + (d.message || 'Unknown error'));
+                        alert(d.success ? 'Failed to sync to the Cash Book. Please try again or contact the admin.' : 'Error: ' + (d.message || 'Unknown error'));
                         btn.disabled = false;
-                        btn.textContent = 'Proses ke Buku Kas';
+                        btn.textContent = 'Post to Cash Book';
                     }
                 })
                 .catch(() => {
                     alert('Network error');
                     btn.disabled = false;
-                    btn.textContent = 'Proses ke Buku Kas';
+                    btn.textContent = 'Post to Cash Book';
                 });
         }
     </script>
