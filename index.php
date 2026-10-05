@@ -935,7 +935,7 @@ if ($trialStatus) {
                         <canvas id="summaryPieChart"></canvas>
                         <div class="fin-ring-center">
                             <b id="ringValue">&ndash;</b>
-                            <small>Margin profit</small>
+                            <small>Margin</small>
                         </div>
                     </div>
                     <div class="fin-ring-legend">
@@ -959,17 +959,17 @@ if ($trialStatus) {
 
                 <div class="fin-stats">
                     <div class="fin-stat">
-                        <small id="statAvgLabel">Rata-rata / hari aktif</small>
+                        <small id="statAvgLabel">Rata-rata per hari</small>
                         <b id="statAvgIncome">Rp 0</b>
                         <span>pemasukan</span>
                     </div>
                     <div class="fin-stat">
-                        <small>Pemasukan tertinggi</small>
+                        <small>Pemasukan puncak</small>
                         <b id="statBestValue">&ndash;</b>
                         <span id="statBestWhen">&nbsp;</span>
                     </div>
                     <div class="fin-stat">
-                        <small>Pengeluaran terbesar</small>
+                        <small>Pengeluaran puncak</small>
                         <b id="statWorstValue">&ndash;</b>
                         <span id="statWorstWhen">&nbsp;</span>
                     </div>
@@ -1850,6 +1850,236 @@ if ($trialStatus) {
 
         #tradingChartCard .btn-view-toggle {
             padding: 0 0.6rem;
+        }
+    }
+
+    /* === Gaya kaca (glass) + ukuran ringkas untuk kartu grafik === */
+    :root {
+        --glass-card: linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(241, 247, 255, 0.6));
+        --glass-panel: rgba(255, 255, 255, 0.55);
+        --glass-tile: rgba(255, 255, 255, 0.62);
+        --glass-edge: rgba(255, 255, 255, 0.85);
+        --glass-line: rgba(148, 163, 184, 0.22);
+        --glass-shadow: 0 10px 30px -12px rgba(15, 23, 42, 0.14);
+        --glass-glow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    body[data-theme="dark"] {
+        --glass-card: linear-gradient(135deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.5));
+        --glass-panel: rgba(30, 41, 59, 0.42);
+        --glass-tile: rgba(30, 41, 59, 0.5);
+        --glass-edge: rgba(255, 255, 255, 0.08);
+        --glass-line: rgba(148, 163, 184, 0.14);
+        --glass-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.55);
+        --glass-glow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    #tradingChartCard {
+        background: var(--glass-card) !important;
+        border: 1px solid var(--glass-edge) !important;
+        box-shadow: var(--glass-shadow), var(--glass-glow) !important;
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+    }
+
+    #tradingChartCard:hover {
+        transform: none;
+    }
+
+    /* Kartu KPI: lebih kecil dan ringan */
+    #tradingChartCard .chart-summary-grid {
+        gap: 0.6rem;
+        margin-bottom: 0.85rem;
+    }
+
+    #tradingChartCard .chart-metric-card {
+        padding: 0.5rem 0.75rem;
+        border-radius: 11px;
+        background: var(--glass-tile);
+        border: 1px solid var(--glass-edge);
+        box-shadow: var(--glass-glow);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+
+    #tradingChartCard .chart-metric-card::after {
+        height: 1.5px;
+        opacity: 0.45;
+    }
+
+    #tradingChartCard .chart-metric-top {
+        margin-bottom: 0.2rem;
+    }
+
+    #tradingChartCard .chart-metric-name {
+        font-size: 0.55rem;
+        letter-spacing: 0.07em;
+    }
+
+    #tradingChartCard .chart-badge {
+        font-size: 0.5rem;
+        padding: 0.05rem 0.3rem;
+    }
+
+    #tradingChartCard .chart-metric-amount {
+        font-size: 0.86rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    #tradingChartCard .chart-metric-sub {
+        margin-top: 0.15rem;
+        font-size: 0.6rem;
+    }
+
+    /* Area grafik dan panel ringkasan: panel kaca, lebih pendek */
+    #tradingChartCard .chart-canvas-wrap,
+    #tradingChartCard .fin-insight {
+        background: var(--glass-panel);
+        border: 1px solid var(--glass-edge);
+        box-shadow: var(--glass-glow);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+    }
+
+    #tradingChartCard .chart-canvas-wrap {
+        display: flex;
+        flex-direction: column;
+    }
+
+    #tradingChartCard .chart-canvas-inner {
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 240px;
+        padding: 0.75rem 0.85rem 0.45rem 0.4rem;
+    }
+
+    #tradingChartCard .chart-pie-section {
+        flex: 0 0 300px;
+    }
+
+    #tradingChartCard .fin-insight {
+        gap: 0.65rem;
+        padding: 0.8rem 0.85rem;
+    }
+
+    #tradingChartCard .fin-insight-kicker {
+        font-size: 0.55rem;
+    }
+
+    #tradingChartCard .fin-insight-title {
+        font-size: 0.86rem;
+    }
+
+    #tradingChartCard .fin-health {
+        font-size: 0.6rem;
+        padding: 0.18rem 0.5rem;
+    }
+
+    #tradingChartCard .fin-ring-row {
+        gap: 0.8rem;
+    }
+
+    #tradingChartCard .fin-ring {
+        width: 104px;
+        height: 104px;
+    }
+
+    #tradingChartCard .fin-ring-center b {
+        font-size: 0.92rem;
+    }
+
+    #tradingChartCard .fin-ring-center small {
+        font-size: 0.52rem;
+    }
+
+    #tradingChartCard .fin-ring-legend {
+        gap: 0.5rem;
+    }
+
+    #tradingChartCard .fin-leg-text small {
+        font-size: 0.6rem;
+    }
+
+    #tradingChartCard .fin-leg-text b {
+        font-size: 0.76rem;
+    }
+
+    #tradingChartCard .fin-leg em {
+        font-size: 0.62rem;
+    }
+
+    #tradingChartCard .fin-ratio-bar {
+        height: 5px;
+        background: rgba(249, 115, 22, 0.55);
+    }
+
+    #tradingChartCard .fin-ratio-bar span {
+        background: linear-gradient(90deg, rgba(16, 185, 129, 0.75), #10b981);
+    }
+
+    #tradingChartCard .fin-ratio-caption {
+        margin-top: 0.3rem;
+        font-size: 0.62rem;
+    }
+
+    #tradingChartCard .fin-stats {
+        gap: 0.4rem;
+    }
+
+    #tradingChartCard .fin-stat {
+        padding: 0.42rem 0.55rem;
+        border-radius: 9px;
+        background: var(--glass-tile);
+        border: 1px solid var(--glass-edge);
+        box-shadow: var(--glass-glow);
+    }
+
+    #tradingChartCard .fin-stat small {
+        font-size: 0.6rem;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+
+    #tradingChartCard .fin-stat b {
+        font-size: 0.74rem;
+    }
+
+    #tradingChartCard .fin-stat span {
+        font-size: 0.58rem;
+    }
+
+    #tradingChartCard .chart-footer-bar {
+        border-top-color: var(--glass-line);
+        background: transparent;
+        padding: 0.6rem 1.25rem;
+    }
+
+    #tradingChartCard .chart-legend-item {
+        background: var(--glass-tile);
+        border-color: var(--glass-edge);
+        font-size: 0.6rem;
+        padding: 0.26rem 0.55rem;
+    }
+
+    @media (max-width: 1100px) {
+        #tradingChartCard .chart-pie-section {
+            flex-basis: 270px;
+        }
+    }
+
+    @media (max-width: 860px) {
+        #tradingChartCard .chart-pie-section {
+            flex-basis: auto;
+        }
+
+        #tradingChartCard .chart-canvas-inner {
+            min-height: 220px;
+            height: 220px;
+        }
+
+        #tradingChartCard .chart-summary-grid {
+            grid-template-columns: 1fr;
         }
     }
 
@@ -3350,7 +3580,7 @@ if ($trialStatus) {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        cutout: '80%',
+                        cutout: '70%',
                         animation: { duration: 700, easing: 'easeOutQuart' },
                         plugins: {
                             legend: { display: false },
@@ -3451,7 +3681,7 @@ if ($trialStatus) {
                     setHtml('ratioCaption', totalExp > 0 ? 'Belum ada pemasukan, pengeluaran <b>' + fmtCompact(totalExp) + '</b>' : 'Belum ada transaksi di periode ini');
                 }
 
-                setText('statAvgLabel', 'Rata-rata / ' + unit + ' aktif');
+                setText('statAvgLabel', 'Rata-rata per ' + unit);
                 setText('statAvgIncome', active ? fmtCompact(totalInc / active) : 'Rp 0');
                 setText('statBestValue', best >= 0 ? fmtCompact(inc[best]) : '–');
                 setText('statBestWhen', best >= 0 ? pointLabel(labels[best], false) : 'belum ada');
@@ -3489,8 +3719,18 @@ if ($trialStatus) {
                 afterUpdate: chart => renderInsights(chart)
             };
 
-            const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 300);
-            netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.18)');
+            // Isi batang bergaya kaca: gradasi dari pekat (atas) ke transparan (bawah) mengikuti area grafik.
+            const glassFill = (rgb, top, bottom) => ctx => {
+                const area = ctx.chart.chartArea;
+                if (!area) return 'rgba(' + rgb + ',' + top + ')';
+                const g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                g.addColorStop(0, 'rgba(' + rgb + ',' + top + ')');
+                g.addColorStop(1, 'rgba(' + rgb + ',' + bottom + ')');
+                return g;
+            };
+
+            const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 240);
+            netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.12)');
             netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0)');
 
             const dailyIncomeSeries = [
@@ -3516,27 +3756,29 @@ if ($trialStatus) {
                     datasets: [{
                             label: 'Pemasukan',
                             data: dailyIncomeSeries,
-                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
-                            hoverBackgroundColor: '#10b981',
-                            borderWidth: 0,
-                            borderRadius: 5,
+                            backgroundColor: glassFill('16, 185, 129', 0.62, 0.18),
+                            hoverBackgroundColor: glassFill('16, 185, 129', 0.85, 0.35),
+                            borderColor: 'rgba(16, 185, 129, 0.75)',
+                            borderWidth: 1,
+                            borderRadius: 6,
                             borderSkipped: false,
                             barPercentage: 0.82,
                             categoryPercentage: 0.7,
-                            maxBarThickness: 14,
+                            maxBarThickness: 12,
                             order: 2
                         },
                         {
                             label: 'Pengeluaran',
                             data: dailyExpenseSeries,
-                            backgroundColor: 'rgba(249, 115, 22, 0.82)',
-                            hoverBackgroundColor: '#f97316',
-                            borderWidth: 0,
-                            borderRadius: 5,
+                            backgroundColor: glassFill('249, 115, 22', 0.62, 0.18),
+                            hoverBackgroundColor: glassFill('249, 115, 22', 0.85, 0.35),
+                            borderColor: 'rgba(249, 115, 22, 0.75)',
+                            borderWidth: 1,
+                            borderRadius: 6,
                             borderSkipped: false,
                             barPercentage: 0.82,
                             categoryPercentage: 0.7,
-                            maxBarThickness: 14,
+                            maxBarThickness: 12,
                             order: 3
                         },
                         {
@@ -3544,7 +3786,7 @@ if ($trialStatus) {
                             label: 'Net kumulatif',
                             data: dailyNetSeries,
                             borderColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
-                            borderWidth: 2.2,
+                            borderWidth: 2,
                             fill: {
                                 target: 'origin',
                                 above: netGradient,
