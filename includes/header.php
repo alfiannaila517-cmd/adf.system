@@ -1578,7 +1578,11 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 // Get business logo
                 $logoPath = getBusinessLogo();
                 if (defined('ACTIVE_BUSINESS_ID') && ACTIVE_BUSINESS_ID === 'gudang-nasita') {
-                    $logoPath = BASE_URL . '/assets/img/gudang-nasita-logo.svg';
+                    // Logo kustom dari menu Gudang > Logo Perusahaan; bawaan: SVG gudang.
+                    $gnLogoSet = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_logo_gudang-nasita'");
+                    if (empty($gnLogoSet['setting_value']) || !$logoPath) {
+                        $logoPath = BASE_URL . '/assets/img/gudang-nasita-logo.svg';
+                    }
                 }
 
                 // Get company name from settings, fallback to BUSINESS_NAME
@@ -1664,6 +1668,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             ['label' => 'Keuangan', 'items' => [
                                 ['modules/procurement/gudang-tagihan.php', 'file-text', 'Tagihan Bisnis', ['gudang-tagihan.php']],
                                 ['modules/gudang/finance.php', 'dollar-sign', 'Kas & Biaya Gudang', ['finance.php']],
+                            ]],
+                            ['label' => 'Pengaturan', 'items' => [
+                                ['modules/gudang/logo.php', 'image', 'Logo Perusahaan', ['logo.php']],
                             ]],
                         ];
                         $gudangCurrentPage = basename($_SERVER['PHP_SELF']);
