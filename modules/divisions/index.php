@@ -435,6 +435,257 @@ $divisionColors = [
             width: 100%;
         }
     }
+
+    /* === Kelola Divisi ringkas: seragam dengan Dashboard / Buku Kas (kaca, padat, dua tema) === */
+    body[data-theme] {
+        --dv-card: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(241, 247, 255, 0.66));
+        --dv-edge: rgba(255, 255, 255, 0.92);
+        --dv-line: rgba(148, 163, 184, 0.24);
+        --dv-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.22);
+        --dv-input: #ffffff;
+        --dv-text: #1e293b;
+        --dv-muted: #64748b;
+    }
+
+    body[data-theme="dark"] {
+        --dv-card: linear-gradient(135deg, rgba(30, 41, 59, 0.66), rgba(15, 23, 42, 0.55));
+        --dv-edge: rgba(255, 255, 255, 0.08);
+        --dv-line: rgba(148, 163, 184, 0.16);
+        --dv-shadow: 0 14px 32px -16px rgba(0, 0, 0, 0.6);
+        --dv-input: rgba(15, 23, 42, 0.7);
+        --dv-text: #e2e8f0;
+        --dv-muted: #94a3b8;
+    }
+
+    /* Filter: satu baris ringkas */
+    body[data-theme] .main-content .filter-card {
+        padding: 0.55rem 0.75rem !important;
+        margin-bottom: 0.8rem !important;
+        border-radius: 14px !important;
+        background: var(--dv-card) !important;
+        border: 1px solid var(--dv-edge) !important;
+        box-shadow: var(--dv-shadow) !important;
+    }
+
+    body[data-theme] .main-content .filter-form {
+        gap: 0.6rem !important;
+        align-items: flex-end !important;
+    }
+
+    body[data-theme] .main-content .filter-card .filter-group label.filter-label {
+        font-size: 0.55rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.08em !important;
+        text-transform: uppercase;
+        color: var(--dv-muted) !important;
+        margin-bottom: 0.2rem !important;
+    }
+
+    body[data-theme] .main-content .filter-form .form-control {
+        height: 30px !important;
+        padding: 0 0.6rem !important;
+        font-size: 0.72rem !important;
+        border-radius: 8px !important;
+        background: var(--dv-input) !important;
+        color: var(--dv-text) !important;
+    }
+
+    body[data-theme] .main-content .filter-form .btn-primary {
+        height: 30px !important;
+        padding: 0 0.9rem !important;
+        border-radius: 8px !important;
+        font-size: 0.7rem !important;
+        border: none !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        box-shadow: 0 4px 10px -4px rgba(29, 78, 216, 0.5) !important;
+    }
+
+    /* Judul bagian */
+    body[data-theme] .main-content .section-header {
+        margin-bottom: 0.55rem !important;
+        padding-bottom: 0 !important;
+        border-bottom: none !important;
+    }
+
+    body[data-theme] .main-content .section-title {
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        color: var(--dv-text) !important;
+    }
+
+    body[data-theme] .main-content .section-subtitle {
+        font-size: 0.6rem !important;
+        color: var(--dv-muted) !important;
+    }
+
+    /* Kartu divisi */
+    body[data-theme] .main-content .division-grid {
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)) !important;
+        gap: 0.55rem !important;
+    }
+
+    body[data-theme] .main-content .division-card {
+        padding: 0.6rem 0.7rem !important;
+        border-radius: 12px !important;
+        background: var(--dv-card) !important;
+        border: 1px solid var(--dv-edge) !important;
+        box-shadow: var(--dv-shadow) !important;
+        transform: none !important;
+    }
+
+    body[data-theme] .main-content .division-card:hover {
+        border-color: rgba(37, 99, 235, 0.35) !important;
+    }
+
+    body[data-theme] .main-content .division-card.division-selected {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25), var(--dv-shadow) !important;
+    }
+
+    body[data-theme] .main-content .division-card-header {
+        gap: 0.5rem !important;
+        margin-bottom: 0.45rem !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    body[data-theme] .main-content .division-icon {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px;
+        border-radius: 8px !important;
+        font-size: 0.6rem !important;
+        font-weight: 800 !important;
+        color: #fff !important;
+    }
+
+    body[data-theme] .main-content .division-title span {
+        font-size: 0.52rem !important;
+        letter-spacing: 0.06em;
+        color: var(--dv-muted) !important;
+    }
+
+    body[data-theme] .main-content .division-title h4 {
+        margin: 0 !important;
+        font-size: 0.76rem !important;
+        font-weight: 700 !important;
+        color: var(--dv-text) !important;
+        line-height: 1.2;
+    }
+
+    body[data-theme] .main-content .division-badge {
+        font-size: 0.55rem !important;
+        padding: 0.1rem 0.4rem !important;
+        border-radius: 999px !important;
+    }
+
+    /* Masuk | Keluar: satu strip dengan pemisah */
+    body[data-theme] .main-content .division-stats {
+        gap: 0 !important;
+        margin-bottom: 0.45rem !important;
+        padding: 0.35rem 0 !important;
+        border-radius: 9px !important;
+        background: rgba(148, 163, 184, 0.1) !important;
+    }
+
+    body[data-theme] .main-content .division-stat {
+        padding: 0 0.55rem !important;
+        background: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        text-align: left !important;
+    }
+
+    body[data-theme] .main-content .division-stat + .division-stat {
+        border-left: 1px solid var(--dv-line) !important;
+    }
+
+    body[data-theme] .main-content .division-stat-label {
+        font-size: 0.52rem !important;
+        letter-spacing: 0.07em !important;
+        color: var(--dv-muted) !important;
+    }
+
+    body[data-theme] .main-content .division-stat-value {
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        color: var(--dv-text) !important;
+    }
+
+    body[data-theme] .main-content .division-stat-value.income { color: #059669 !important; }
+    body[data-theme] .main-content .division-stat-value.expense { color: #dc2626 !important; }
+    body[data-theme="dark"] .main-content .division-stat-value.income { color: #34d399 !important; }
+    body[data-theme="dark"] .main-content .division-stat-value.expense { color: #f87171 !important; }
+
+    body[data-theme] .main-content .division-footer {
+        padding-top: 0.4rem !important;
+        border-top: 1px solid var(--dv-line) !important;
+    }
+
+    body[data-theme] .main-content .division-footer > span:first-child {
+        font-size: 0.6rem !important;
+    }
+
+    body[data-theme] .main-content .division-net {
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+    }
+
+    body[data-theme] .main-content .division-net.positive { color: #059669 !important; }
+    body[data-theme] .main-content .division-net.negative { color: #dc2626 !important; }
+    body[data-theme="dark"] .main-content .division-net.positive { color: #34d399 !important; }
+    body[data-theme="dark"] .main-content .division-net.negative { color: #f87171 !important; }
+
+    /* Detail divisi */
+    body[data-theme] .main-content .detail-banner {
+        padding: 0.65rem 0.85rem !important;
+        border-radius: 12px !important;
+        margin-bottom: 0.7rem !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+    }
+
+    body[data-theme] .main-content .detail-banner h2 {
+        font-size: 0.85rem !important;
+        color: #fff !important;
+    }
+
+    body[data-theme] .main-content .detail-banner span {
+        font-size: 0.62rem !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    body[data-theme] .main-content .card {
+        border-radius: 14px !important;
+    }
+
+    body[data-theme] .main-content .card .table th {
+        padding: 0.45rem 0.6rem !important;
+        font-size: 0.56rem !important;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: #fff !important;
+        background: #1e3a8a !important;
+    }
+
+    body[data-theme] .main-content .card .table td {
+        padding: 0.4rem 0.6rem !important;
+        font-size: 0.72rem !important;
+        color: var(--dv-text) !important;
+        border-bottom: 1px solid var(--dv-line) !important;
+    }
+
+    body[data-theme] .main-content .category-name {
+        font-size: 0.74rem !important;
+        font-weight: 600 !important;
+    }
+
+    body[data-theme] .main-content .category-meta {
+        font-size: 0.6rem !important;
+    }
+
+    body[data-theme] .main-content .category-amount {
+        font-size: 0.74rem !important;
+    }
 </style>
 
 <!-- Filter Section -->
