@@ -1307,10 +1307,28 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 gap: 0.65rem !important;
             }
 
+            /* Logo bisnis: bulat presisi, gambar utuh di tengah (tidak terpotong / bergeser) */
             body[data-theme] .sidebar-header > div:first-child > div:first-child:not(:only-child) {
-                width: 46px !important;
-                height: 46px !important;
-                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 6px 14px -6px rgba(15, 23, 42, 0.35);
+                width: 56px !important;
+                height: 56px !important;
+                padding: 3px;
+                box-sizing: border-box;
+                border-radius: 50% !important;
+                background: #fff;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35), 0 6px 14px -6px rgba(15, 23, 42, 0.35);
+            }
+
+            body[data-theme] .sidebar-header > div:first-child > div:first-child:not(:only-child) img {
+                width: 100% !important;
+                height: 100% !important;
+                border-radius: 50% !important;
+                object-fit: cover !important;
+                object-position: center !important;
+                display: block;
             }
 
             body[data-theme] .sidebar-header .logo {
