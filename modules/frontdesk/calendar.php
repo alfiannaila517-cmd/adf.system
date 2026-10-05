@@ -5324,7 +5324,9 @@ include '../../includes/header.php';
         if (!scroller) return;
         const cell = scroller.querySelector(`.grid-date-cell[data-date="${dateStr}"]`);
         if (cell) {
-            const scrollPos = cell.offsetLeft - 100; // 100px offset = room label column
+            // Kolom tanggal tepat di kanan kolom kamar (posisi kolom tanggal pertama diukur)
+            const firstCell = scroller.querySelector('.grid-date-cell[data-date]');
+            const scrollPos = cell.offsetLeft - (firstCell ? firstCell.offsetLeft : 110);
             scroller.scrollLeft = Math.max(0, scrollPos);
         }
     }
@@ -5335,8 +5337,11 @@ include '../../includes/header.php';
         const scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
         const todayCell = scroller ? scroller.querySelector(`.grid-date-cell[data-date="${todayStr}"]`) : null;
         if (todayCell) {
-            // Today is visible in the current date range — just scroll to it
-            scrollCalendarToDate(todayStr, scroller);
+            // Hari ini di kolom ke-3, sama seperti saat halaman pertama dibuka
+            const back = new Date();
+            back.setDate(back.getDate() - 2);
+            const backStr = window.fdLocalYmd(back);
+            scrollCalendarToDate(scroller.querySelector(`.grid-date-cell[data-date="${backStr}"]`) ? backStr : todayStr, scroller);
         } else {
             // Today is outside the current range — reload with today as start
             window.location.search = '?start=' + todayStr;
@@ -5518,9 +5523,11 @@ include '../../includes/header.php';
                         sessionStorage.removeItem('calendarScrollLeft');
                         console.log('✅ Restored scroll position:', savedScroll);
                     } else {
-                        // First load: scroll to today automatically
+                        // Pertama dibuka: hari ini di kolom ke-3 (2 hari sebelumnya tetap terlihat di kiri)
+                        const twoDaysAgo = new Date();
+                        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
                         const todayStr = window.fdLocalYmd(new Date());
-                        scrollCalendarToDate(todayStr, scroller);
+                        scrollCalendarToDate(window.fdLocalYmd(twoDaysAgo), scroller);
                         console.log('✅ Auto-scrolled to today:', todayStr);
                     }
                 }, 100);

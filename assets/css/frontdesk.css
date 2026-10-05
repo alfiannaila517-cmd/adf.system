@@ -797,3 +797,326 @@ body[data-theme] .bookings-table tbody td .badge {
     text-transform: none !important;
     letter-spacing: 0 !important;
 }
+
+/* =====================================================================
+   KALENDER: toolbar ringkas, grid bersih, bar booking modern
+   ===================================================================== */
+body[data-theme] .calendar-header h1 {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: var(--fd-text) !important;
+    -webkit-text-fill-color: var(--fd-text) !important;
+    background: none !important;
+}
+
+body[data-theme] .calendar-controls {
+    gap: 0.35rem !important;
+}
+
+body[data-theme] .calendar-controls .btn-nav {
+    height: 28px !important;
+    padding: 0 0.75rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.3rem !important;
+    border-radius: 8px !important;
+    font-size: 0.66rem !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
+    border: none !important;
+    box-shadow: 0 4px 10px -4px rgba(29, 78, 216, 0.5) !important;
+}
+
+/* Pencarian + navigasi: satu gaya kaca */
+body[data-theme] .search-reservation-bar,
+body[data-theme] .calendar-nav {
+    background: var(--fd-card) !important;
+    border: 1px solid var(--fd-edge) !important;
+    box-shadow: var(--fd-shadow) !important;
+    border-radius: 12px !important;
+    backdrop-filter: none !important;
+}
+
+body[data-theme] .search-reservation-bar {
+    padding: 0.35rem 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+body[data-theme] .search-reservation-bar .search-input {
+    height: 30px !important;
+    font-size: 0.74rem !important;
+    background: transparent !important;
+    border: none !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .calendar-nav {
+    justify-content: flex-start !important;
+    gap: 0.4rem !important;
+    padding: 0.4rem 0.5rem !important;
+    margin-bottom: 0.6rem !important;
+}
+
+body[data-theme] .calendar-nav #prevMonthBtn,
+body[data-theme] .calendar-nav #nextMonthBtn {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.95rem !important;
+    border-radius: 8px !important;
+    border: none !important;
+}
+
+/* TODAY: dulu teks putih di atas latar putih (tidak terlihat) */
+body[data-theme] .calendar-nav .today-btn {
+    height: 28px !important;
+    padding: 0 0.75rem !important;
+    border-radius: 8px !important;
+    font-size: 0.64rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    background: var(--fd-accent-soft) !important;
+    border: 1px solid rgba(37, 99, 235, 0.3) !important;
+    color: var(--fd-accent-text) !important;
+    -webkit-text-fill-color: var(--fd-accent-text) !important;
+}
+
+body[data-theme] .calendar-nav .today-btn:hover {
+    background: var(--fd-accent-2) !important;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+body[data-theme] .calendar-nav .nav-date-input {
+    height: 28px !important;
+    padding: 0 0.55rem !important;
+    border-radius: 8px !important;
+    font-size: 0.7rem !important;
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .calendar-nav .date-display {
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    color: var(--fd-text-2) !important;
+}
+
+body[data-theme] .calendar-nav #newReservationBtn {
+    height: 28px !important;
+    padding: 0 0.85rem !important;
+    border-radius: 8px !important;
+    font-size: 0.68rem !important;
+    border: none !important;
+    box-shadow: 0 4px 10px -4px rgba(29, 78, 216, 0.55) !important;
+}
+
+/* Wadah grid */
+body[data-theme] .calendar-scroll-wrapper {
+    border-radius: 14px !important;
+    background: var(--fd-card) !important;
+    border: 1px solid var(--fd-edge) !important;
+    box-shadow: var(--fd-shadow) !important;
+}
+
+/* Header bulan & tanggal */
+body[data-theme] .grid-month-room,
+body[data-theme] .grid-month-label,
+body[data-theme] .grid-month-label span {
+    background: var(--fd-input-bg) !important;
+    border-color: var(--fd-line) !important;
+}
+
+body[data-theme] .grid-month-label {
+    font-size: 0.66rem !important;
+    letter-spacing: 0.12em !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .grid-header-room {
+    background: var(--fd-input-bg) !important;
+    border-right: 1px solid var(--fd-line) !important;
+    border-bottom: 1px solid var(--fd-line) !important;
+    font-size: 0.62rem !important;
+    letter-spacing: 0.1em;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .grid-header-date {
+    background: var(--fd-input-bg) !important;
+    border-right: 1px solid var(--fd-line) !important;
+    border-bottom: 1px solid var(--fd-line) !important;
+    color: var(--fd-text) !important;
+    min-height: 48px !important;
+}
+
+body[data-theme] .grid-header-date .grid-header-date-day {
+    font-size: 0.64rem !important;
+    letter-spacing: 0.06em !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .grid-header-date .grid-header-date-occ {
+    font-size: 0.56rem !important;
+    color: var(--fd-muted) !important;
+}
+
+/* Kolom hari ini: aksen biru di header + tint lembut di sel */
+body[data-theme] .grid-header-date.today {
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.16), rgba(37, 99, 235, 0.06)) !important;
+    box-shadow: inset 0 3px 0 var(--fd-accent-2);
+}
+
+body[data-theme] .grid-header-date.today .grid-header-date-day {
+    color: var(--fd-accent-text) !important;
+}
+
+body[data-theme] .grid-date-cell.today {
+    background: rgba(37, 99, 235, 0.05) !important;
+}
+
+/* Baris tipe kamar */
+body[data-theme] .grid-room-type-header {
+    background: var(--fd-accent-soft) !important;
+    border-color: var(--fd-line) !important;
+    font-size: 0.7rem !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .grid-type-price-cell {
+    background: rgba(37, 99, 235, 0.04) !important;
+    border-color: var(--fd-line) !important;
+    color: var(--fd-text-2) !important;
+}
+
+/* Label kamar */
+body[data-theme] .grid-room-label {
+    background: var(--fd-input-bg) !important;
+    border-right: 1px solid var(--fd-line) !important;
+    border-bottom: 1px solid var(--fd-line) !important;
+    color: var(--fd-text) !important;
+}
+
+/* Sel tanggal: garis tipis seragam */
+body[data-theme] .grid-date-cell {
+    border-right: 1px solid var(--fd-line) !important;
+    border-bottom: 1px solid var(--fd-line) !important;
+}
+
+body[data-theme] .grid-date-cell:hover {
+    background: rgba(37, 99, 235, 0.06) !important;
+}
+
+/* Bar booking: pill modern (tanpa miring & panah) */
+body[data-theme] .booking-bar {
+    transform: none !important;
+    height: 22px !important;
+    border-radius: 7px !important;
+    padding: 0 0.5rem !important;
+    box-shadow: 0 2px 6px -2px rgba(15, 23, 42, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+    border: none !important;
+}
+
+body[data-theme] .booking-bar::before,
+body[data-theme] .booking-bar::after {
+    display: none !important;
+}
+
+body[data-theme] .booking-bar > span {
+    transform: none !important;
+    font-size: 0.64rem !important;
+    font-weight: 600 !important;
+    text-shadow: none !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+body[data-theme] .booking-bar:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 8px 18px -6px rgba(15, 23, 42, 0.5) !important;
+    z-index: 20;
+}
+
+body[data-theme] .booking-confirmed,
+body[data-theme] .booking-pending {
+    background: linear-gradient(135deg, #3b5bdb, #4f7cf0) !important;
+}
+
+body[data-theme] .booking-checked-in {
+    background: linear-gradient(135deg, #059669, #10b981) !important;
+}
+
+body[data-theme] .booking-blocked {
+    background: repeating-linear-gradient(135deg, #ef4444 0 8px, #f05252 8px 16px) !important;
+}
+
+body[data-theme] .booking-bar.booking-past {
+    opacity: 0.55 !important;
+    background: linear-gradient(135deg, #94a3b8, #cbd5e1) !important;
+}
+
+body[data-theme] .booking-bar.booking-past > span {
+    color: #334155 !important;
+}
+
+body[data-theme] .booking-status-dots {
+    transform: none !important;
+    top: -4px !important;
+    right: -2px !important;
+}
+
+body[data-theme] .bar-action-btn {
+    transform: translateY(-50%) !important;
+    width: 16px !important;
+    height: 16px !important;
+}
+
+body[data-theme] .bar-action-btn:hover {
+    transform: translateY(-50%) scale(1.1) !important;
+}
+
+/* Kolom kiri yang menempel (sticky) wajib berlatar solid: sel di belakangnya tidak boleh tembus */
+body[data-theme] {
+    --fd-solid: #ffffff;
+    --fd-solid-accent: #eef3fd;
+}
+
+body[data-theme="dark"] {
+    --fd-solid: #111827;
+    --fd-solid-accent: #172243;
+}
+
+body[data-theme] .grid-month-room,
+body[data-theme] .grid-month-label span,
+body[data-theme] .grid-header-room,
+body[data-theme] .grid-room-label {
+    background: var(--fd-solid) !important;
+}
+
+body[data-theme] .grid-room-type-header {
+    background: var(--fd-solid-accent) !important;
+}
+
+body[data-theme] .grid-header-date,
+body[data-theme] .grid-month-label {
+    background: var(--fd-solid) !important;
+}
+
+body[data-theme] .grid-header-date.today {
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.16), rgba(37, 99, 235, 0.06)), var(--fd-solid) !important;
+}
+
+/* Kotak pencarian kalender ikut tema */
+body[data-theme] .search-reservation-bar .search-input-wrapper {
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    border-radius: 9px !important;
+    box-shadow: none !important;
+}
+
+body[data-theme] .search-reservation-bar .search-icon {
+    color: var(--fd-muted) !important;
+}
