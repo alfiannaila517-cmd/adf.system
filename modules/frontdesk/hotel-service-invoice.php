@@ -409,9 +409,29 @@ if (!function_exists('invAmountWords')) {
 
         @page { size: A4; margin: 0; }
         @media print {
-            body { background: #fff; padding: 0; }
+            /* Printers halftone light grey into dots, so small text looks blurry: print darker and slightly larger. */
+            :root { --ink: #111827; --muted: #374151; --line: #cbd5e1; }
+            html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { background: #fff; padding: 0; color: #111827; }
             .page { box-shadow: none; max-width: none; min-height: 297mm; }
             .actions { display: none; }
+            .brand .addr, .box p, .terms li, .note, .words { font-size: 10.5px; }
+            .kv, table.items td, table.pay td, .totals .row, .sign .line { font-size: 11.5px; }
+            table.items td .sub, .sign .place, .sign .role, .legal, .foot .ci { font-size: 10px; }
+            .meta small, .party h3, .box h5, .words small, table.items th, table.pay th, .stay .d small { font-size: 9.5px; }
+            .meta b, .stay .d b { font-size: 12px; }
+            .stamp { opacity: 0.07; }
+            /* Tighter spacing in print so the larger text still fits on one A4 sheet. */
+            .page { min-height: 296mm; }
+            .inner { padding: 24px 40px 0; }
+            .meta { margin: 16px 0 12px; }
+            .parties { margin-bottom: 12px; }
+            table.items td { padding: 7px 10px; }
+            .totals-wrap { margin-top: 10px; }
+            .totals .row { padding: 6px 14px; }
+            .bottom { margin-top: 14px; }
+            .sign .place { margin-bottom: 34px; }
+            .legal { margin-top: 12px; }
         }
 
         @media (max-width: 640px) {
