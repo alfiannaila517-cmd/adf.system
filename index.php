@@ -904,7 +904,7 @@ if ($trialStatus) {
                     <span class="chart-metric-name"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></span>
                     <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>"><?php echo $netBalance >= 0 ? '↑' : '↓'; ?></span>
                 </div>
-                <div class="chart-metric-amount" id="summaryNet" style="color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;"><?php echo formatCurrency($netBalance); ?></div>
+                <div class="chart-metric-amount <?php echo $netBalance >= 0 ? 'is-pos' : 'is-neg'; ?>" id="summaryNet"><?php echo formatCurrency($netBalance); ?></div>
                 <?php if (!$isCQC): ?><div class="chart-metric-sub" id="summaryNetSub">&nbsp;</div><?php endif; ?>
             </div>
         </div>
@@ -1712,6 +1712,144 @@ if ($trialStatus) {
 
         .chart-pie-section {
             flex-basis: auto;
+        }
+    }
+
+    /* === Tata letak kartu grafik: jarak seragam 1.25rem di semua sisi === */
+    #tradingChartCard .chart-head-wrap {
+        padding: 1.25rem 1.25rem 0;
+    }
+
+    #tradingChartCard .chart-head-row {
+        margin-bottom: 1.1rem;
+    }
+
+    #tradingChartCard .chart-summary-grid {
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    #tradingChartCard .chart-metric-card {
+        padding: 0.75rem 0.95rem;
+        border-radius: 12px;
+    }
+
+    #tradingChartCard .chart-main-container {
+        margin: 0 1.25rem 1.25rem;
+        gap: 0.75rem;
+        align-items: stretch;
+    }
+
+    #tradingChartCard .chart-canvas-wrap {
+        margin: 0;
+        border-radius: 14px;
+    }
+
+    #tradingChartCard .chart-canvas-inner {
+        padding: 0.9rem 1rem 0.6rem 0.5rem;
+    }
+
+    #tradingChartCard .chart-footer-bar {
+        padding: 0.8rem 1.25rem;
+    }
+
+    /* Tombol periode: segmented control biru elegan, teks aktif putih.
+       Selector ber-ID + !important karena style.css tema terang memaksa warna teks. */
+    #tradingChartCard .chart-controls-wrap {
+        gap: 0.6rem;
+    }
+
+    #tradingChartCard .chart-filter-input {
+        height: 34px;
+        font-size: 0.72rem;
+        border-radius: 10px;
+    }
+
+    #tradingChartCard .chart-view-toggle {
+        gap: 2px;
+        padding: 3px;
+        border-radius: 11px;
+        background: rgba(148, 163, 184, 0.12);
+        border: 1px solid var(--chart-metric-border);
+    }
+
+    #tradingChartCard .btn-view-toggle {
+        height: 28px;
+        padding: 0 0.85rem;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: var(--text-secondary) !important;
+        background: transparent;
+    }
+
+    #tradingChartCard .btn-view-toggle:not(.active):hover {
+        color: var(--text-primary) !important;
+        background: rgba(148, 163, 184, 0.16);
+    }
+
+    #tradingChartCard .btn-view-toggle.active {
+        color: #fff !important;
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        box-shadow: 0 4px 12px -2px rgba(29, 78, 216, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+
+    #tradingChartCard .btn-view-toggle:focus-visible {
+        outline: 2px solid rgba(59, 130, 246, 0.6);
+        outline-offset: 1px;
+    }
+
+    /* Indikator LIVE: hanya hijau berdenyut saat mode Bulanan (auto refresh aktif) */
+    #tradingChartCard .chart-live-pill.is-paused {
+        background: rgba(148, 163, 184, 0.12);
+        border-color: rgba(148, 163, 184, 0.25);
+    }
+
+    #tradingChartCard .chart-live-pill.is-paused .chart-live-dot {
+        background: #94a3b8;
+        box-shadow: none;
+        animation: none;
+    }
+
+    #tradingChartCard .chart-live-pill.is-paused .chart-live-text {
+        color: #64748b !important;
+    }
+
+    #tradingChartCard .chart-live-text {
+        color: #10b981 !important;
+    }
+
+    /* Warna status tetap tampil di tema terang (style.css menimpa warna span/div) */
+    #tradingChartCard .is-pos { color: #10b981 !important; }
+    #tradingChartCard .is-neg { color: #ef4444 !important; }
+    #tradingChartCard .fin-health.is-good { color: #059669 !important; }
+    #tradingChartCard .fin-health.is-thin { color: #b45309 !important; }
+    #tradingChartCard .fin-health.is-bad { color: #dc2626 !important; }
+    body[data-theme="dark"] #tradingChartCard .fin-health.is-good { color: #34d399 !important; }
+    body[data-theme="dark"] #tradingChartCard .fin-health.is-thin { color: #fbbf24 !important; }
+    body[data-theme="dark"] #tradingChartCard .fin-health.is-bad { color: #f87171 !important; }
+
+    @media (max-width: 860px) {
+        #tradingChartCard .chart-head-wrap {
+            padding: 1rem 0.9rem 0;
+        }
+
+        #tradingChartCard .chart-main-container {
+            margin: 0 0.9rem 0.9rem;
+        }
+
+        #tradingChartCard .chart-footer-bar {
+            padding: 0.75rem 0.9rem;
+        }
+
+        #tradingChartCard .chart-controls-wrap {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        #tradingChartCard .btn-view-toggle {
+            padding: 0 0.6rem;
         }
     }
 
@@ -3293,7 +3431,8 @@ if ($trialStatus) {
                 const ringValue = document.getElementById('ringValue');
                 if (ringValue) {
                     ringValue.textContent = margin === null ? '–' : fmtPct(margin);
-                    ringValue.style.color = margin === null ? '' : (margin < 0 ? '#ef4444' : '#10b981');
+                    ringValue.classList.toggle('is-pos', margin !== null && margin >= 0);
+                    ringValue.classList.toggle('is-neg', margin !== null && margin < 0);
                 }
 
                 setText('pieIncomeValue', fmtFull(totalInc));
@@ -3307,7 +3446,7 @@ if ($trialStatus) {
                     ratioFill.style.width = flow > 0 ? (totalInc / flow * 100) + '%' : '0%';
                 }
                 if (totalInc > 0) {
-                    setHtml('ratioCaption', 'Pengeluaran <b>' + fmtPct(totalExp / totalInc * 100) + '</b> dari pemasukan · net <b style="color:' + (net < 0 ? '#ef4444' : '#10b981') + '">' + fmtCompact(net) + '</b>');
+                    setHtml('ratioCaption', 'Pengeluaran <b>' + fmtPct(totalExp / totalInc * 100) + '</b> dari pemasukan · net <b class="' + (net < 0 ? 'is-neg' : 'is-pos') + '">' + fmtCompact(net) + '</b>');
                 } else {
                     setHtml('ratioCaption', totalExp > 0 ? 'Belum ada pemasukan, pengeluaran <b>' + fmtCompact(totalExp) + '</b>' : 'Belum ada transaksi di periode ini');
                 }
@@ -3521,6 +3660,8 @@ if ($trialStatus) {
                 fetch(`api/live-chart-data.php?month=${selectedMonth}`)
                     .then(response => response.json())
                     .then(data => {
+                        // Abaikan hasil refresh yang datang setelah user pindah ke mode lain.
+                        if (currentView !== 'monthly') return;
                         if (data.success) {
                             // Calculate daily net series
                             const netSeries = buildNetSeries(data.income, data.expense);
@@ -3666,12 +3807,25 @@ if ($trialStatus) {
                 if (expEl) expEl.textContent = formatRupiah(expense);
                 if (netEl) {
                     netEl.textContent = formatRupiah(net);
-                    netEl.style.color = net >= 0 ? '#10b981' : '#ef4444';
+                    netEl.classList.toggle('is-pos', net >= 0);
+                    netEl.classList.toggle('is-neg', net < 0);
                 }
             }
 
             // Auto refresh every 30 seconds
-            setInterval(updateLiveChart, 30000);
+            // Hanya mode Bulanan yang live; Harian/Tahunan/All tetap diam di pilihan user.
+            setInterval(() => {
+                if (currentView === 'monthly' && !document.hidden) updateLiveChart();
+            }, 30000);
+
+            function setLiveIndicator(isLive) {
+                const pill = document.getElementById('liveIndicator');
+                if (!pill) return;
+                pill.classList.toggle('is-paused', !isLive);
+                const text = pill.querySelector('.chart-live-text');
+                if (text) text.textContent = isLive ? 'LIVE' : 'STATIS';
+                pill.title = isLive ? 'Diperbarui otomatis tiap 30 detik' : 'Auto refresh berhenti di mode ini';
+            }
 
             // ============================================
             // SWITCH VIEW - Daily, Monthly, Yearly, All-Time
@@ -3680,6 +3834,7 @@ if ($trialStatus) {
 
             function switchView(view) {
                 currentView = view;
+                setLiveIndicator(view === 'monthly');
 
                 // Update button styles
                 const btnDaily = document.getElementById('btnDaily');
