@@ -29,10 +29,24 @@ if ($id <= 0 && $action !== 'cleanup_duplicates') {
 }
 
 if ($action === 'delete') {
+    $pdo->beginTransaction();
     $stmt = $pdo->prepare("DELETE FROM breakfast_orders WHERE id = ?");
     $stmt->execute([$id]);
+    $deleted = $stmt->rowCount() > 0;
+
+    if ($deleted) {
+        // Tagihan "Extra Breakfast" yang dibuat Front Desk untuk order ini (penanda "front desk order=ID")
+        // ikut dihapus supaya tamu tidak tetap tertagih.
+        try {
+            $pdo->prepare("DELETE FROM booking_extras WHERE item_name = 'Extra Breakfast' AND notes LIKE ?")
+                ->execute(['%(front desk order=' . $id . ')%']);
+        } catch (Exception $e) {
+            // Tabel booking_extras mungkin belum ada di bisnis ini
+        }
+    }
+    $pdo->commit();
     
-    if ($stmt->rowCount() > 0) {
+    if ($deleted) {
         echo json_encode(['success' => true]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Order tidak ditemukan']);

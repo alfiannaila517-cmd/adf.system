@@ -221,12 +221,13 @@ try {
 
         $afterDiscount = $totalPrice - $discount;
 
+        // Fee OTA hanya informasi; final_price tetap BRUTO (dipotong CashbookHelper saat check-in).
         $otaFeeAmount = 0;
         if ($otaFeePercent > 0) {
             $otaFeeAmount = round($afterDiscount * $otaFeePercent / 100);
         }
 
-        $roomFinalPrice = $afterDiscount - $otaFeeAmount;
+        $roomFinalPrice = $afterDiscount;
 
         // Include extras in final price
         $extrasTotal = 0;
@@ -374,7 +375,8 @@ try {
                 if ($otaFeePercent > 0) {
                     $rdFee = round($rdAfterDiscount * $otaFeePercent / 100);
                 }
-                $rdRoomNet = $rdAfterDiscount - $rdFee;
+                // final_price tetap BRUTO; fee OTA dipotong CashbookHelper saat check-in.
+                $rdRoomNet = $rdAfterDiscount;
 
                 // Extras for this specific booking
                 $rdExtras = 0;
@@ -482,7 +484,8 @@ try {
                 $nrTotalPrice = $nrRoomPrice * $nights;
                 $nrAfterDiscount = $nrTotalPrice - $nrDiscount;
                 $nrFee = $otaFeePercent > 0 ? round($nrAfterDiscount * $otaFeePercent / 100) : 0;
-                $nrFinalPrice = $nrAfterDiscount - $nrFee;
+                // final_price tetap BRUTO; fee OTA dipotong CashbookHelper saat check-in.
+                $nrFinalPrice = $nrAfterDiscount;
 
                 // Generate booking code
                 $nrBookingCode = 'BK-' . date('Ymd') . '-' . rand(1000, 9999);

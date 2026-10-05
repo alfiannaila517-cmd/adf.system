@@ -203,8 +203,9 @@ function recalcFinalPrice($conn, $bookingId)
     } catch (Exception $e) {
     }
 
-    $otaFee = $otaFeePercent > 0 ? round($afterDiscount * $otaFeePercent / 100) : 0;
-    $roomFinal = $afterDiscount - $otaFee;
+    // final_price tetap BRUTO (sama seperti saat booking dibuat); fee OTA dipotong
+    // CashbookHelper saat check-in, jadi tidak dipotong di sini.
+    $roomFinal = $afterDiscount;
 
     // Sum extras
     $extStmt = $conn->prepare("SELECT COALESCE(SUM(total_price), 0) as total FROM booking_extras WHERE booking_id = ?");

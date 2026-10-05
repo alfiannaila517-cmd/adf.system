@@ -118,6 +118,18 @@ try {
     // visible in Reservasi and the header running-text notification (both now include
     // 'checked_out' bookings with payment_status != 'paid') until it's actually paid off.
 
+    // Pastikan rooms.status (bila ENUM) menerima 'cleaning' SEBELUM transaksi dimulai: ALTER TABLE
+    // di dalam transaksi memicu implicit commit sehingga commit() gagal ("no active transaction")
+    // dan sinkron buku kas di bawah terlewat. Kolom VARCHAR tidak perlu diubah.
+    try {
+        $col = $db->fetchOne("SHOW COLUMNS FROM rooms LIKE 'status'");
+        if ($col && isset($col['Type']) && stripos($col['Type'], 'enum(') === 0 && stripos($col['Type'], "'cleaning'") === false) {
+            $db->query("ALTER TABLE rooms MODIFY status enum('available','occupied','cleaning','maintenance','blocked') DEFAULT 'available'");
+        }
+    } catch (\Throwable $eAlt) {
+        // abaikan; fallback 'available' di bawah dipakai bila UPDATE 'cleaning' gagal
+    }
+
     // Start transaction
     $db->beginTransaction();
 
@@ -131,26 +143,16 @@ try {
         WHERE id = ?
     ", [$currentUser['id'], $bookingId]);
 
-    // Update room status to cleaning (kamar kotor / perlu dibersihkan setelah checkout)
-    // Pastikan ENUM 'cleaning' tersedia pada kolom rooms.status (idempotent)
-    try {
-        $col = $db->fetchOne("SHOW COLUMNS FROM rooms LIKE 'status'");
-        if ($col && isset($col['Type']) && stripos($col['Type'], "'cleaning'") === false) {
-            $db->query("ALTER TABLE rooms MODIFY status enum('available','occupied','cleaning','maintenance','blocked') DEFAULT 'available'");
-        }
-    } catch (\Throwable $eAlt) {
-        // ignore; fallback to 'available' below akan dipakai jika UPDATE gagal
-    }
-
-    try {
-        $db->query("
-            UPDATE rooms 
+    // Update room status to cleaning (kamar kotor / perlu dibersihkan setelah checkout).
+    // Database::query mengembalikan false (tidak throw) saat gagal, jadi fallback dicek lewat nilainya.
+    $roomUpd = $db->query("
+            UPDATE rooms
             SET status = 'cleaning',
                 current_guest_id = NULL,
                 updated_at = NOW()
             WHERE id = ?
         ", [$booking['room_id']]);
-    } catch (\Throwable $eUpd) {
+    if ($roomUpd === false) {
         // Fallback bila ENUM tidak menerima 'cleaning' (misalnya hosting belum migrasi)
         $db->query("
             UPDATE rooms 
@@ -238,13 +240,28 @@ try {
             ", [$bookingId]);
         }
 
+        // Dedup hanya boleh menautkan ke baris cash_book yang belum dimiliki pembayaran lain;
+        // dulu pembayaran ke-2 senilai sama (500rb + 500rb) ditautkan ke baris pembayaran ke-1
+        // sehingga tidak pernah tercatat.
+        $hasCashbookIdCol = false;
+        try {
+            $cbIdChk = $db->getConnection()->query("SHOW COLUMNS FROM booking_payments LIKE 'cashbook_id'");
+            $hasCashbookIdCol = $cbIdChk && $cbIdChk->rowCount() > 0;
+        } catch (\Throwable $e) {
+        }
+
         $syncCount = 0;
         foreach ($payments as $pmt) {
             try {
                 // Payment-level dedup: check by booking_code AND amount to allow multiple payments
                 $exists = $db->fetchOne(
-                    "SELECT id FROM cash_book WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income' LIMIT 1",
-                    ['%' . $booking['booking_code'] . '%', $pmt['amount']]
+                    "SELECT cb.id FROM cash_book cb
+                     WHERE cb.description LIKE ? AND ABS(cb.amount - ?) < 1 AND cb.transaction_type = 'income'"
+                        . ($hasCashbookIdCol ? " AND NOT EXISTS (SELECT 1 FROM booking_payments bp WHERE bp.cashbook_id = cb.id AND bp.id <> ?)" : "")
+                        . " LIMIT 1",
+                    $hasCashbookIdCol
+                        ? ['%' . $booking['booking_code'] . '%', $pmt['amount'], $pmt['id']]
+                        : ['%' . $booking['booking_code'] . '%', $pmt['amount']]
                 );
                 if ($exists) {
                     // Mark as synced if possible

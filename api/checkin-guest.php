@@ -145,8 +145,9 @@ try {
     $db->beginTransaction();
 
     // Jika user memilih bayar sekarang saat check-in: tambahkan pembayaran
+    $payNowPaymentId = 0;
     if ($payNow && $payAmount > 0) {
-        $db->insert('booking_payments', [
+        $payNowPaymentId = (int)$db->insert('booking_payments', [
             'booking_id' => $bookingId,
             'amount'     => $payAmount,
             'payment_date'   => date('Y-m-d H:i:s'),
@@ -351,15 +352,21 @@ try {
                 'final_price'    => $booking['final_price'],
                 'total_paid'     => $totalPaid,
                 'is_new_reservation' => false,
-                'is_ota_checkin' => $isOTA
+                'is_ota_checkin' => $isOTA && !$payNow
             ]);
 
             $cashbookSynced = $syncResult['success'];
 
             if ($cashbookSynced && !empty($syncResult['transaction_id'])) {
-                try {
-                    $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id = ?", [$syncResult['transaction_id'], $bookingId]);
-                } catch (\Throwable $e) {
+                if ($payNow && $payAmount > 0) {
+                    // Hanya pembayaran saat check-in ini yang dicatat
+                    if ($payNowPaymentId > 0) {
+                        $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$syncResult['transaction_id'], $payNowPaymentId]);
+                    }
+                } else {
+                    // Direct: sisa yang belum tercatat; OTA: seluruh pembayaran (dicatat sekaligus).
+                    // Baris yang sudah punya cashbook_id tidak ditimpa.
+                    $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id = ? AND (synced_to_cashbook IS NULL OR synced_to_cashbook = 0)", [$syncResult['transaction_id'], $bookingId]);
                 }
             }
         } catch (\Throwable $e) {

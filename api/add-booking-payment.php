@@ -48,30 +48,49 @@ try {
         $paymentMethod = 'cash';
     }
 
-    $booking = $db->fetchOne("SELECT id, final_price, paid_amount, group_id FROM bookings WHERE id = ?", [$bookingId]);
+    $db->beginTransaction();
+
+    // Kunci baris booking: dua klik "Bayar" bersamaan diproses berurutan, bukan paralel.
+    $booking = $db->fetchOne("SELECT id, final_price, paid_amount, group_id FROM bookings WHERE id = ? FOR UPDATE", [$bookingId]);
     if (!$booking) {
         throw new Exception('Booking not found');
     }
 
-    $db->beginTransaction();
+    // Tolak pembayaran kembar (klik ganda / kirim ulang): user, metode dan booking/grup yang sama
+    // dalam 15 detik terakhir.
+    $recentDup = $db->fetchOne(
+        "SELECT bp.id FROM booking_payments bp
+         JOIN bookings b ON b.id = bp.booking_id
+         WHERE (b.id = ? OR (? <> '' AND b.group_id = ?))
+           AND bp.processed_by = ? AND bp.payment_method = ?
+           AND bp.payment_date >= (NOW() - INTERVAL 15 SECOND)
+         LIMIT 1",
+        [$bookingId, (string)($booking['group_id'] ?? ''), (string)($booking['group_id'] ?? ''), $currentUser['id'], $paymentMethod]
+    );
+    if ($recentDup) {
+        throw new Exception('Pembayaran yang sama baru saja tercatat. Tunggu beberapa detik lalu cek ulang sebelum membayar lagi.');
+    }
+
+    // Id setiap baris booking_payments yang dibuat request ini (bisa lebih dari satu untuk grup).
+    $insertedPaymentIds = [];
 
     // Insert a booking_payments row for one specific booking id and refresh its own
     // paid_amount/payment_status. Returns the room's own post-payment figures.
-    $applyPayment = function ($targetId, $finalPrice, $oldPaidAmount, $portion) use ($db, $paymentMethod, $currentUser) {
-        try {
-            $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
+    $applyPayment = function ($targetId, $finalPrice, $oldPaidAmount, $portion) use ($db, $paymentMethod, $currentUser, &$insertedPaymentIds) {
+        $ok = $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
+            $targetId, $portion, $paymentMethod, $currentUser['id']
+        ]);
+        if ($ok === false) {
+            // Fallback: kolom created_at mungkin tidak ada
+            $ok = $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date) VALUES (?, ?, ?, ?, NOW())", [
                 $targetId, $portion, $paymentMethod, $currentUser['id']
             ]);
-        } catch (\Throwable $e) {
-            // Fallback: kolom created_at mungkin tidak ada
-            try {
-                $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date) VALUES (?, ?, ?, ?, NOW())", [
-                    $targetId, $portion, $paymentMethod, $currentUser['id']
-                ]);
-            } catch (\Throwable $e2) {
-                // booking_payments tidak ada - lanjutkan, update langsung di bookings saja
-                error_log("booking_payments insert failed: " . $e2->getMessage());
-            }
+        }
+        if ($ok !== false) {
+            $insertedPaymentIds[] = (int)$db->getConnection()->lastInsertId();
+        } else {
+            // booking_payments tidak ada - lanjutkan, update langsung di bookings saja
+            error_log("booking_payments insert failed for booking #{$targetId}");
         }
 
         $paidRow = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$targetId]);
@@ -239,12 +258,15 @@ try {
                 $cashAccountName = $syncResult['account_name'] ?? '';
                 $cashbookMessage = "Tercatat di buku kas: " . $cashAccountName;
                 
-                // Mark payment as synced
-                if (!empty($syncResult['transaction_id'])) {
-                    try {
-                        $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id = ? ORDER BY id DESC LIMIT 1", 
-                            [$syncResult['transaction_id'], $bookingId]);
-                    } catch (\Throwable $e) {}
+                // Tandai SEMUA baris yang dibuat request ini (termasuk porsi kamar lain dalam grup)
+                // dengan satu cashbook_id. Dulu hanya baris terakhir kamar yang diklik yang ditandai,
+                // sehingga porsi kamar lain tercatat lagi saat kamar itu check-in/check-out.
+                if (!empty($syncResult['transaction_id']) && $insertedPaymentIds) {
+                    $ph = implode(',', array_fill(0, count($insertedPaymentIds), '?'));
+                    $db->query(
+                        "UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id IN ({$ph})",
+                        array_merge([$syncResult['transaction_id']], $insertedPaymentIds)
+                    );
                 }
             } else {
                 $cashbookMessage = "Pembayaran tersimpan, gagal sync kas: " . ($syncResult['message'] ?? 'Unknown');

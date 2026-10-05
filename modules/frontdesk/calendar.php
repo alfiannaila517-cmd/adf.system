@@ -3973,6 +3973,10 @@ include '../../includes/header.php';
             return;
         }
 
+        // Cegah klik ganda: abaikan klik berikutnya selama request pertama belum selesai.
+        if (submitBookingPayment.busy) return;
+        submitBookingPayment.busy = true;
+
         fetch('<?php echo BASE_URL; ?>/api/add-booking-payment.php', {
                 method: 'POST',
                 headers: {
@@ -4012,6 +4016,9 @@ include '../../includes/header.php';
             .catch(err => {
                 console.error(err);
                 alert('Gagal menyimpan pembayaran');
+            })
+            .finally(() => {
+                submitBookingPayment.busy = false;
             });
     }
 
@@ -7835,14 +7842,15 @@ include '../../includes/header.php';
             const discount = discType === 'percent' ? Math.round(subtotal * discVal / 100) : discVal;
             const afterDiscount = subtotal - discount;
             const feeAmount = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
-            const total = afterDiscount - feeAmount;
+            // Total tagihan tetap bruto; fee OTA dipotong saat tercatat di buku kas (check-in).
+            const total = afterDiscount;
 
             let html = `<strong>${nights} malam</strong> × Rp ${new Intl.NumberFormat('id-ID').format(price)} = Rp ${new Intl.NumberFormat('id-ID').format(subtotal)}`;
             if (discount > 0) {
                 html += `<br>Diskon${discType === 'percent' ? ' (' + discVal + '%)' : ''}: <span style="color:#ef4444;">- Rp ${new Intl.NumberFormat('id-ID').format(discount)}</span>`;
             }
             if (feePercent > 0) {
-                html += `<br><span style="color:#92400e;">Fee OTA (${feePercent}%): - Rp ${new Intl.NumberFormat('id-ID').format(feeAmount)}</span>`;
+                html += `<br><span style="color:#92400e;">Fee OTA (${feePercent}%): Rp ${new Intl.NumberFormat('id-ID').format(feeAmount)} <small>(dipotong saat masuk buku kas)</small></span>`;
             }
             html += `<br><strong style="color:#10b981;">Total: Rp ${new Intl.NumberFormat('id-ID').format(total)}</strong>`;
             document.getElementById('editResInfo').innerHTML = html;

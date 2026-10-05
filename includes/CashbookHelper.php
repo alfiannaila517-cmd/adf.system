@@ -710,9 +710,10 @@ class CashbookHelper
             }
 
             // Update cash account balance
-            $newBalance = $account['current_balance'] + $amountToRecord;
-            $updateStmt = $this->masterDb->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?");
-            $updateStmt->execute([$newBalance, $account['id']]);
+            // Atomik: current_balance + ? (bukan nilai lama yang dibaca sebelumnya + amount),
+            // supaya dua pembayaran bersamaan tidak saling menimpa saldo.
+            $updateStmt = $this->masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
+            $updateStmt->execute([$amountToRecord, $account['id']]);
 
             // Mark booking_payment as synced (if payment_id provided)
             if (!empty($paymentData['payment_id'])) {

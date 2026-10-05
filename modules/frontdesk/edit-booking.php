@@ -1124,7 +1124,7 @@ include '../../includes/header.php';
                 grandSubtotal += sub;
                 grandDiscount += disc;
                 grandFee += fee;
-                grandRoomNet += (afterDisc - fee);
+                grandRoomNet += afterDisc; // bruto; fee OTA dipotong saat masuk buku kas
             });
 
             // Global discount (applied on top of per-room discounts)
@@ -1153,7 +1153,7 @@ include '../../includes/header.php';
 
             const afterDiscount = grandSubtotal - grandDiscount;
             grandFee = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
-            grandRoomNet = afterDiscount - grandFee;
+            grandRoomNet = afterDiscount; // bruto; fee OTA dipotong saat masuk buku kas
         }
 
         const total = grandRoomNet + currentExtrasTotal;
@@ -1172,7 +1172,7 @@ include '../../includes/header.php';
         if (feePercent > 0) {
             document.getElementById('otaFeeRow').style.display = 'flex';
             document.getElementById('dispFeePercent').textContent = feePercent;
-            document.getElementById('dispFeeAmount').textContent = '- Rp ' + grandFee.toLocaleString('id-ID');
+            document.getElementById('dispFeeAmount').textContent = 'Rp ' + grandFee.toLocaleString('id-ID') + ' (dipotong saat masuk buku kas)';
         } else {
             document.getElementById('otaFeeRow').style.display = 'none';
         }
