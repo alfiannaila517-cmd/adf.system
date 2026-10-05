@@ -134,6 +134,55 @@ try {
     error_log("Checkout History Error: " . $e->getMessage());
 }
 
+// Status bayar dihitung dari pembayaran yang benar-benar tercatat; booking grup memakai total
+// gabungan semua kamar (kolom payment_status per kamar bisa masih 'unpaid' walau grup sudah lunas).
+// Logika sama dengan running text (getUnpaidCheckedInGuests).
+if (!empty($inHouseGuests)) {
+    try {
+        $ihIds = array_map('intval', array_column($inHouseGuests, 'booking_id'));
+        $ph = implode(',', array_fill(0, count($ihIds), '?'));
+        $paidSub = "SELECT booking_id, SUM(amount) AS total_paid FROM booking_payments GROUP BY booking_id";
+        $st = $conn->prepare("SELECT b.id, b.group_id, b.final_price,
+                GREATEST(COALESCE(bp.total_paid, 0), COALESCE(b.paid_amount, 0)) AS paid
+            FROM bookings b LEFT JOIN ({$paidSub}) bp ON bp.booking_id = b.id WHERE b.id IN ({$ph})");
+        $st->execute($ihIds);
+        $ihPay = [];
+        $ihGroups = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $ihPay[(int)$row['id']] = $row;
+            if (!empty($row['group_id'])) $ihGroups[$row['group_id']] = true;
+        }
+        $groupTotals = [];
+        if ($ihGroups) {
+            $gIds = array_keys($ihGroups);
+            $gph = implode(',', array_fill(0, count($gIds), '?'));
+            $gs = $conn->prepare("SELECT b.group_id, SUM(b.final_price) AS final_total,
+                    SUM(GREATEST(COALESCE(bp.total_paid, 0), COALESCE(b.paid_amount, 0))) AS paid_total
+                FROM bookings b LEFT JOIN ({$paidSub}) bp ON bp.booking_id = b.id
+                WHERE b.group_id IN ({$gph}) AND b.status <> 'cancelled' GROUP BY b.group_id");
+            $gs->execute($gIds);
+            foreach ($gs->fetchAll(PDO::FETCH_ASSOC) as $g) {
+                $groupTotals[$g['group_id']] = $g;
+            }
+        }
+        foreach ($inHouseGuests as &$ihGuest) {
+            $p = $ihPay[(int)$ihGuest['booking_id']] ?? null;
+            if (!$p) continue;
+            if (!empty($p['group_id']) && isset($groupTotals[$p['group_id']])) {
+                $final = (float)$groupTotals[$p['group_id']]['final_total'];
+                $paid = (float)$groupTotals[$p['group_id']]['paid_total'];
+            } else {
+                $final = (float)$p['final_price'];
+                $paid = (float)$p['paid'];
+            }
+            $ihGuest['payment_status'] = ($final - $paid) <= 0 ? 'paid' : ($paid > 0 ? 'partial' : 'unpaid');
+        }
+        unset($ihGuest);
+    } catch (Throwable $e) {
+        error_log('In-house payment status: ' . $e->getMessage());
+    }
+}
+
 // Calculate statistics
 $totalInHouse = count($inHouseGuests);
 $totalRevenue = array_sum(array_column($inHouseGuests, 'final_price'));
@@ -448,6 +497,268 @@ include '../../includes/header.php';
             min-width: 100%;
         }
     }
+
+    /* === In-House ringkas: seragam dengan dashboard / buku kas (kaca, padat) ===
+       Selector ber-body[data-theme] + !important karena style.css tema terang memaksa warna teks. */
+    body[data-theme] .ih-container {
+        --ih-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(241, 247, 255, 0.64));
+        --ih-edge: rgba(255, 255, 255, 0.9);
+        --ih-line: rgba(148, 163, 184, 0.22);
+        --ih-shadow: 0 10px 28px -16px rgba(15, 23, 42, 0.22);
+    }
+
+    body[data-theme="dark"] .ih-container {
+        --ih-glass: linear-gradient(135deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.5));
+        --ih-edge: rgba(255, 255, 255, 0.08);
+        --ih-line: rgba(148, 163, 184, 0.16);
+        --ih-shadow: 0 14px 32px -16px rgba(0, 0, 0, 0.6);
+    }
+
+    body[data-theme] .ih-header {
+        margin-bottom: 0.7rem !important;
+    }
+
+    body[data-theme] .ih-header h1,
+    body[data-theme] .ih-title {
+        font-size: 0.95rem !important;
+    }
+
+    body[data-theme] .ih-subtitle {
+        font-size: 0.66rem !important;
+        margin-top: 0.1rem !important;
+    }
+
+    /* Statistik: satu strip dengan pemisah */
+    body[data-theme] .ih-stats {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 0 !important;
+        padding: 0.5rem 0 !important;
+        margin-bottom: 0.9rem !important;
+        border-radius: 14px !important;
+        background: var(--ih-glass) !important;
+        border: 1px solid var(--ih-edge) !important;
+        box-shadow: var(--ih-shadow) !important;
+    }
+
+    body[data-theme] .ih-stat {
+        padding: 0.05rem 1rem !important;
+        background: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        min-height: 0 !important;
+    }
+
+    body[data-theme] .ih-stat + .ih-stat {
+        border-left: 1px solid var(--ih-line) !important;
+    }
+
+    body[data-theme] .ih-stat-icon {
+        display: none !important;
+    }
+
+    body[data-theme] .ih-stat-value {
+        font-size: 0.86rem !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
+        font-variant-numeric: tabular-nums;
+    }
+
+    body[data-theme] .ih-stat-label {
+        font-size: 0.55rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.07em !important;
+        text-transform: uppercase;
+        color: var(--text-muted) !important;
+    }
+
+    body[data-theme] .ih-section-title {
+        font-size: 0.74rem !important;
+        font-weight: 700 !important;
+        margin: 0 0 0.55rem !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    /* Kartu tamu */
+    body[data-theme] .ih-guests {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)) !important;
+        gap: 0.6rem !important;
+    }
+
+    body[data-theme] .ih-card {
+        display: flex !important;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.7rem 0.8rem !important;
+        border-radius: 14px !important;
+        background: var(--ih-glass) !important;
+        border: 1px solid var(--ih-edge) !important;
+        border-left: 3px solid #2563eb !important;
+        box-shadow: var(--ih-shadow) !important;
+        transform: none !important;
+    }
+
+    body[data-theme] .ih-card.is-co-today {
+        border-left-color: #dc2626 !important;
+    }
+
+    .ih-card-top {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    body[data-theme] .ih-room {
+        flex-shrink: 0;
+        min-width: 38px;
+        height: 30px;
+        padding: 0 0.4rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        font-size: 0.74rem;
+        font-weight: 800;
+        color: #fff !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    }
+
+    .ih-who {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.25;
+    }
+
+    body[data-theme] .ih-who b {
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: var(--text-primary) !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body[data-theme] .ih-who small {
+        font-size: 0.58rem;
+        color: var(--text-muted) !important;
+        font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    }
+
+    body[data-theme] .ih-payment-badge {
+        flex-shrink: 0;
+        padding: 0.12rem 0.5rem !important;
+        border-radius: 999px !important;
+        font-size: 0.55rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.05em;
+    }
+
+    .ih-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+
+    body[data-theme] .ih-meta span {
+        font-size: 0.6rem;
+        font-weight: 500;
+        padding: 0.12rem 0.45rem;
+        border-radius: 6px;
+        background: rgba(148, 163, 184, 0.13);
+        color: var(--text-secondary) !important;
+        white-space: nowrap;
+    }
+
+    body[data-theme] .ih-meta .ih-co-chip {
+        background: rgba(220, 38, 38, 0.1);
+        color: #b91c1c !important;
+        font-weight: 700;
+    }
+
+    .ih-card-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--ih-line);
+    }
+
+    .ih-total {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.2;
+    }
+
+    body[data-theme] .ih-total small {
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted) !important;
+    }
+
+    body[data-theme] .ih-total b {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--text-primary) !important;
+        font-variant-numeric: tabular-nums;
+    }
+
+    body[data-theme] .ih-card .ih-actions {
+        display: flex !important;
+        gap: 0.35rem !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+
+    body[data-theme] .ih-card .ih-btn {
+        flex: 0 0 auto !important;
+        height: 28px !important;
+        padding: 0 0.75rem !important;
+        border-radius: 8px !important;
+        font-size: 0.66rem !important;
+        font-weight: 600 !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    body[data-theme] .ih-card .ih-btn-breakfast {
+        background: rgba(217, 119, 6, 0.1) !important;
+        border: 1px solid rgba(217, 119, 6, 0.35) !important;
+        color: #b45309 !important;
+    }
+
+    body[data-theme] .ih-card .ih-btn-breakfast:hover {
+        background: rgba(217, 119, 6, 0.18) !important;
+    }
+
+    body[data-theme] .ih-card .ih-btn-checkout {
+        background: #991b1b !important;
+        border: 1px solid #7f1d1d !important;
+        color: #fff !important;
+    }
+
+    body[data-theme] .ih-card .ih-btn-checkout:hover {
+        background: #7f1d1d !important;
+    }
+
+    @media (max-width: 760px) {
+        body[data-theme] .ih-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            row-gap: 0.5rem !important;
+        }
+
+        body[data-theme] .ih-stat:nth-child(3) {
+            border-left: none !important;
+        }
+    }
 </style>
 
 <div class="ih-container">
@@ -517,44 +828,38 @@ include '../../includes/header.php';
                     default => 'PENDING'
                 };
             ?>
-                <div class="ih-card">
-                    <div class="ih-card-header">
-                        <div class="ih-booking-code"><?php echo htmlspecialchars($guest['booking_code']); ?></div>
-                        <div class="ih-room-badge"><?php echo $guest['room_number']; ?></div>
-                    </div>
-
-                    <div class="ih-guest-name"><?php echo htmlspecialchars($guest['guest_name']); ?></div>
-
-                    <div class="ih-info-row">
-                        <span>📞</span>
-                        <?php echo htmlspecialchars($guest['phone'] ?: '-'); ?>
-                    </div>
-
-                    <div class="ih-info-row">
-                        <span>📅</span>
-                        <?php echo $checkIn; ?> → <?php echo $checkOut; ?> (<?php echo $guest['total_nights']; ?> mlm) • <?php echo $source; ?>
-                    </div>
-
-                    <div class="ih-info-row">
-                        <span>🏠</span>
-                        <?php echo htmlspecialchars($guest['type_name']); ?>
-                    </div>
-
-                    <div class="ih-payment">
-                        <div>
-                            <div class="ih-payment-label">Total Harga</div>
-                            <div class="ih-payment-value">Rp <?php echo $totalPrice; ?></div>
+                <?php $isCoToday = (date('Y-m-d', strtotime($guest['check_out_date'])) <= date('Y-m-d')); ?>
+                <div class="ih-card<?php echo $isCoToday ? ' is-co-today' : ''; ?>">
+                    <div class="ih-card-top">
+                        <span class="ih-room"><?php echo htmlspecialchars((string)$guest['room_number']); ?></span>
+                        <div class="ih-who">
+                            <b title="<?php echo htmlspecialchars($guest['guest_name']); ?>"><?php echo htmlspecialchars($guest['guest_name']); ?></b>
+                            <small><?php echo htmlspecialchars($guest['booking_code']); ?></small>
                         </div>
                         <span class="ih-payment-badge <?php echo $paymentClass; ?>"><?php echo $paymentLabel; ?></span>
                     </div>
 
-                    <div class="ih-actions">
-                        <button class="ih-btn ih-btn-breakfast" onclick="selectBreakfast(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
-                            🍳 Breakfast
-                        </button>
-                        <button class="ih-btn ih-btn-checkout" onclick="doCheckOutGuest(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode((string)$guest['room_number'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
-                            🚪 Check-out
-                        </button>
+                    <div class="ih-meta">
+                        <span><?php echo $checkIn; ?> → <?php echo $checkOut; ?> · <?php echo (int)$guest['total_nights']; ?> mlm</span>
+                        <span><?php echo $source; ?></span>
+                        <?php if (!empty($guest['type_name'])): ?><span><?php echo htmlspecialchars($guest['type_name']); ?></span><?php endif; ?>
+                        <?php if (!empty($guest['phone'])): ?><span><?php echo htmlspecialchars($guest['phone']); ?></span><?php endif; ?>
+                        <?php if ($isCoToday): ?><span class="ih-co-chip">Check-out hari ini</span><?php endif; ?>
+                    </div>
+
+                    <div class="ih-card-foot">
+                        <div class="ih-total">
+                            <small>Total</small>
+                            <b>Rp <?php echo $totalPrice; ?></b>
+                        </div>
+                        <div class="ih-actions">
+                            <button class="ih-btn ih-btn-breakfast" onclick="selectBreakfast(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
+                                Breakfast
+                            </button>
+                            <button class="ih-btn ih-btn-checkout" onclick="doCheckOutGuest(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode((string)$guest['room_number'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
+                                Check-out
+                            </button>
+                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>

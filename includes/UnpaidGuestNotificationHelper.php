@@ -6,33 +6,77 @@
  * Include in includes/header.php
  */
 
+/**
+ * Tamu in-house yang HARI INI terakhir menginap (atau sudah lewat tanggal check-out) dan masih
+ * punya sisa tagihan. Sisa dihitung dari pembayaran yang benar-benar tercatat (booking_payments /
+ * paid_amount), bukan kolom payment_status: booking grup yang sudah lunas secara gabungan bisa
+ * masih berstatus 'unpaid' per kamar. Untuk grup, sisa = total gabungan semua kamar - total bayar.
+ */
 function getUnpaidCheckedInGuests($pdo)
 {
     try {
+        $paidSub = "SELECT booking_id, SUM(amount) AS total_paid FROM booking_payments GROUP BY booking_id";
         $stmt = $pdo->prepare("
             SELECT
                 b.id,
                 b.booking_code,
+                b.group_id,
                 b.final_price,
-                b.paid_amount,
                 g.guest_name,
                 r.room_number,
-                COALESCE(bp.total_paid, b.paid_amount, 0) AS total_paid
+                GREATEST(COALESCE(bp.total_paid, 0), COALESCE(b.paid_amount, 0)) AS total_paid
             FROM bookings b
             LEFT JOIN guests g ON b.guest_id = g.id
             LEFT JOIN rooms r ON b.room_id = r.id
-            LEFT JOIN (
-                SELECT booking_id, SUM(amount) AS total_paid
-                FROM booking_payments
-                GROUP BY booking_id
-            ) bp ON bp.booking_id = b.id
-            WHERE b.status IN ('checked_in', 'checked_out')
-            AND b.payment_status != 'paid'
-            ORDER BY b.actual_checkin_time ASC
+            LEFT JOIN ({$paidSub}) bp ON bp.booking_id = b.id
+            WHERE b.status = 'checked_in'
+              AND b.check_out_date <= ?
+            ORDER BY b.check_out_date ASC, r.room_number ASC
             LIMIT 50
         ");
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->execute([date('Y-m-d')]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Sisa tagihan gabungan per grup (semua kamar grup yang tidak dibatalkan).
+        $groupIds = array_values(array_unique(array_filter(array_column($rows, 'group_id'))));
+        $groupRemaining = [];
+        if ($groupIds) {
+            $ph = implode(',', array_fill(0, count($groupIds), '?'));
+            $gStmt = $pdo->prepare("
+                SELECT b.group_id,
+                       SUM(b.final_price) AS total_final,
+                       SUM(GREATEST(COALESCE(bp.total_paid, 0), COALESCE(b.paid_amount, 0))) AS total_paid
+                FROM bookings b
+                LEFT JOIN ({$paidSub}) bp ON bp.booking_id = b.id
+                WHERE b.group_id IN ({$ph}) AND b.status <> 'cancelled'
+                GROUP BY b.group_id
+            ");
+            $gStmt->execute($groupIds);
+            foreach ($gStmt->fetchAll(PDO::FETCH_ASSOC) as $g) {
+                $groupRemaining[$g['group_id']] = max(0, (float)$g['total_final'] - (float)$g['total_paid']);
+            }
+        }
+
+        $result = [];
+        $groupCounted = [];
+        foreach ($rows as $row) {
+            if (!empty($row['group_id'])) {
+                $remaining = $groupRemaining[$row['group_id']] ?? 0;
+                // Sisa grup dihitung sekali saja; kamar lain di grup tetap ikut sebagai daftar kamar.
+                $row['remaining'] = isset($groupCounted[$row['group_id']]) ? 0 : $remaining;
+                $groupCounted[$row['group_id']] = true;
+                if ($remaining <= 0) {
+                    continue;
+                }
+            } else {
+                $row['remaining'] = max(0, (float)$row['final_price'] - (float)$row['total_paid']);
+                if ($row['remaining'] <= 0) {
+                    continue;
+                }
+            }
+            $result[] = $row;
+        }
+        return $result;
     } catch (\Throwable $e) {
         error_log("Unpaid checked-in guests query failed: " . $e->getMessage());
         return [];
@@ -50,9 +94,9 @@ function formatUnpaidGuestMessages($unpaidGuests)
     foreach ($unpaidGuests as $guest) {
         $name = trim($guest['guest_name'] ?? '-');
         $key = mb_strtolower($name);
-        $total = (float)($guest['final_price'] ?? 0);
-        $paid = (float)($guest['total_paid'] ?? 0);
-        $remaining = max(0, $total - $paid);
+        $remaining = isset($guest['remaining'])
+            ? (float)$guest['remaining']
+            : max(0, (float)($guest['final_price'] ?? 0) - (float)($guest['total_paid'] ?? 0));
 
         if (!isset($grouped[$key])) {
             $grouped[$key] = ['name' => $name, 'rooms' => [], 'remaining' => 0];
@@ -66,7 +110,7 @@ function formatUnpaidGuestMessages($unpaidGuests)
         $roomLabel = count($g['rooms']) > 1
             ? count($g['rooms']) . ' Kamar (' . implode(', ', $g['rooms']) . ')'
             : 'Room ' . $g['rooms'][0];
-        $messages[] = "💰 {$roomLabel} — {$g['name']} — BELUM LUNAS (Sisa Rp " . number_format($g['remaining'], 0, ',', '.') . ")";
+        $messages[] = "💰 {$roomLabel} — {$g['name']} — check-out hari ini, BELUM LUNAS (Sisa Rp " . number_format($g['remaining'], 0, ',', '.') . ")";
     }
 
     return $messages;
