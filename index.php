@@ -2347,6 +2347,29 @@ if ($trialStatus) {
         }
     }
 
+    /* Ring + legenda sebagai satu grup di tengah panel (tanpa celah kosong) */
+    #tradingChartCard .fin-ring-row {
+        justify-content: center;
+        gap: 1.6rem;
+        padding: 0.25rem 0;
+    }
+
+    #tradingChartCard .fin-ring-legend {
+        flex: 0 1 auto;
+        min-width: 170px;
+        gap: 0.6rem;
+    }
+
+    #tradingChartCard .fin-leg {
+        gap: 0.6rem;
+    }
+
+    #tradingChartCard .fin-leg em {
+        margin-left: 0.9rem;
+        min-width: 2.6rem;
+        text-align: right;
+    }
+
     /* Footer bar */
     .chart-footer-bar {
         padding: 0.75rem 1.1rem 0.95rem;
