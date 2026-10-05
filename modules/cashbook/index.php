@@ -2121,10 +2121,239 @@ echo getPrintCSS();
             width: 14px !important;
             height: 14px !important;
         }
+
+        /* === Buku Kas ringkas: gaya kaca seragam dengan dashboard ===
+           !important dipakai karena elemen halaman ini banyak memakai style inline. */
+        :root {
+            --cb-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(241, 247, 255, 0.62));
+            --cb-tile: rgba(255, 255, 255, 0.66);
+            --cb-edge: rgba(255, 255, 255, 0.9);
+            --cb-line: rgba(148, 163, 184, 0.22);
+            --cb-shadow: 0 10px 30px -14px rgba(15, 23, 42, 0.16);
+        }
+
+        body[data-theme="dark"] {
+            --cb-glass: linear-gradient(135deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.5));
+            --cb-tile: rgba(30, 41, 59, 0.5);
+            --cb-edge: rgba(255, 255, 255, 0.08);
+            --cb-line: rgba(148, 163, 184, 0.14);
+            --cb-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.55);
+        }
+
+        /* KPI: satu strip dengan pemisah tipis */
+        #cashbookSummaryGrid {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 0 !important;
+            margin-bottom: 0.75rem !important;
+            padding: 0.5rem 0;
+            border-radius: 14px;
+            background: var(--cb-glass);
+            border: 1px solid var(--cb-edge);
+            box-shadow: var(--cb-shadow);
+        }
+
+        #cashbookSummaryGrid:empty {
+            display: none;
+        }
+
+        #cashbookSummaryGrid .card {
+            padding: 0.05rem 1rem !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+
+        #cashbookSummaryGrid .card + .card {
+            border-left: 1px solid var(--cb-line) !important;
+        }
+
+        #cashbookSummaryGrid .card-header {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+
+        #cashbookSummaryGrid .card-title {
+            font-size: 0.55rem !important;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: var(--text-muted) !important;
+            margin-bottom: 0.1rem;
+        }
+
+        #cashbookSummaryGrid .card-value {
+            font-size: 0.82rem !important;
+            font-weight: 700 !important;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #cashbookSummaryGrid .card-icon {
+            display: none !important;
+        }
+
+        /* Panel utama */
+        .table-container {
+            padding: 0.9rem 1rem !important;
+            border-radius: 16px !important;
+            background: var(--cb-glass) !important;
+            border: 1px solid var(--cb-edge);
+            box-shadow: var(--cb-shadow) !important;
+        }
+
+        .table-container > .table-header {
+            margin-bottom: 0.7rem !important;
+            gap: 0.5rem !important;
+        }
+
+        .table-container > .table-header > div:first-child {
+            gap: 0.55rem !important;
+        }
+
+        .table-container > .table-header > div:first-child > div:first-child {
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 8px !important;
+            font-size: 0.85rem !important;
+        }
+
+        .table-container > .table-header > div:first-child > div:first-child svg {
+            width: 14px !important;
+            height: 14px !important;
+        }
+
+        .table-container > .table-header h3 {
+            font-size: 0.82rem !important;
+            line-height: 1.2;
+        }
+
+        .table-container > .table-header p {
+            font-size: 0.6rem !important;
+            color: var(--text-muted) !important;
+        }
+
+        /* Tombol: seragam biru, kecil */
+        body[data-theme] .table-container .btn.cashbook-btn-add-highlight {
+            height: 28px !important;
+            padding: 0 0.85rem !important;
+            border-radius: 8px !important;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 4px 12px -2px rgba(29, 78, 216, 0.45) !important;
+        }
+
+        .cashbook-btn-add-highlight span {
+            font-size: 0.68rem !important;
+        }
+
+        .cashbook-btn-add-highlight svg {
+            width: 13px !important;
+            height: 13px !important;
+        }
+
+        .table-container .cashbook-action-btn:not(.cashbook-btn-add-highlight),
+        .table-container .cqc-btn-filter {
+            height: 26px !important;
+            border-radius: 7px !important;
+        }
+
+        .table-container .cashbook-action-btn span {
+            font-size: 0.64rem !important;
+        }
+
+        /* Filter */
+        #cbFilterForm {
+            gap: 0.5rem 0.6rem !important;
+            margin-bottom: 0.75rem !important;
+            padding: 0.7rem 0.8rem !important;
+            border-radius: 12px !important;
+            background: var(--cb-tile) !important;
+            border: 1px solid var(--cb-edge) !important;
+        }
+
+        #cbFilterForm .form-label {
+            font-size: 0.6rem !important;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-muted) !important;
+            margin-bottom: 0.2rem !important;
+        }
+
+        #cbFilterForm .form-control {
+            height: 30px !important;
+            padding: 0 0.5rem !important;
+            font-size: 0.7rem !important;
+            border-radius: 8px !important;
+        }
+
+        /* Cash Available */
+        #cashAvailableBanner {
+            padding: 0.5rem 0.9rem !important;
+            margin-bottom: 0.75rem !important;
+            border-radius: 12px !important;
+        }
+
+        #cashAvailableBanner > div:first-child {
+            gap: 0.55rem !important;
+        }
+
+        #cashAvailableBanner > div:first-child > div:first-child {
+            width: 26px !important;
+            height: 26px !important;
+            border-radius: 8px !important;
+        }
+
+        #cashAvailableBanner > div:first-child > div:first-child svg {
+            width: 13px !important;
+            height: 13px !important;
+        }
+
+        #cashAvailableBanner > div:first-child > div:last-child > div:first-child {
+            font-size: 0.55rem !important;
+            letter-spacing: 0.07em !important;
+        }
+
+        #cashAvailableValue {
+            font-size: 0.95rem !important;
+            font-family: inherit !important;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.01em !important;
+        }
+
+        #cashAvailableBanner > div:last-child > div:first-child {
+            font-size: 0.55rem !important;
+        }
+
+        #cashAvailableBanner > div:last-child > div:last-child {
+            font-size: 0.75rem !important;
+            font-family: inherit !important;
+        }
+
+        /* Tabel */
+        .cb-table {
+            font-size: 0.72rem !important;
+        }
+
+        body[data-theme] .cb-table thead th {
+            color: var(--text-muted) !important;
+            font-weight: 700 !important;
+            padding: 0.45rem 0.5rem !important;
+            font-size: 0.56rem !important;
+            letter-spacing: 0.06em !important;
+            background: transparent !important;
+            border-bottom: 1px solid var(--cb-line) !important;
+        }
+
+        .cb-table td {
+            padding: 0.4rem 0.5rem !important;
+            border-bottom: 1px solid var(--cb-line) !important;
+        }
     </style>
 
     <!-- Summary Cards -->
-    <div class="dashboard-grid" id="cashbookSummaryGrid" style="margin-bottom: 1rem;">
+    <div class="dashboard-grid" id="cashbookSummaryGrid" style="margin-bottom: 1rem;<?php echo $isCQC ? ' display: none;' : ''; ?>">
         <?php if ($isCQC):
             // Use actual balance from cash_accounts
             $saldoKasOperasional = $actualPettyCashBalance;
@@ -2301,7 +2530,7 @@ echo getPrintCSS();
                 </div>
             </form>
         <?php else: ?>
-            <form method="GET" action="" autocomplete="off" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
+            <form id="cbFilterForm" method="GET" action="" autocomplete="off" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Tanggal</label>
                     <input type="date" id="filterDate" name="date" value="<?php echo htmlspecialchars($filterDate); ?>" class="form-control" autocomplete="off" style="height: 38px; font-size: 0.875rem;" onchange="if(this.value) document.getElementById('filterMonth').value=''" <?php echo empty($filterDate) ? ' placeholder="Pilih tanggal"' : ''; ?>>
