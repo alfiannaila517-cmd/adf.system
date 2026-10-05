@@ -545,3 +545,169 @@ body[data-theme] .btn.btn-wa {
 body[data-theme] .btn.btn-pdf {
     background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2)) !important;
 }
+
+/* ---------- RESERVASI: tabel muat satu layar ---------- */
+body[data-theme] .bookings-table {
+    table-layout: auto;
+}
+
+body[data-theme] .rsv-guest {
+    max-width: 175px;
+    min-width: 110px;
+}
+
+body[data-theme] .rsv-guest strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--fd-text) !important;
+    font-weight: 600 !important;
+}
+
+body[data-theme] .rsv-phone {
+    font-size: 0.6rem;
+    color: var(--fd-muted) !important;
+    margin-top: 0.1rem;
+}
+
+body[data-theme] .bookings-table td:nth-child(2) strong {
+    font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    font-size: 0.62rem !important;
+    font-weight: 600 !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .rsv-paid {
+    margin-top: 0.15rem;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #059669 !important;
+    white-space: nowrap;
+}
+
+body[data-theme="dark"] .rsv-paid {
+    color: #34d399 !important;
+}
+
+body[data-theme] .bookings-table .badge-payment-paid,
+body[data-theme] .bookings-table .badge-payment-partial,
+body[data-theme] .bookings-table .badge-payment-unpaid {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+/* ---------- Tombol & menu Aksi ---------- */
+body[data-theme] .action-dropdown-btn {
+    gap: 0.3rem !important;
+    box-shadow: 0 4px 10px -4px rgba(29, 78, 216, 0.55) !important;
+}
+
+body[data-theme] .action-dropdown-btn::after {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border: solid currentColor;
+    border-width: 0 1.5px 1.5px 0;
+    transform: translateY(-2px) rotate(45deg);
+    opacity: 0.8;
+    transition: transform 0.15s ease;
+}
+
+body[data-theme] .action-dropdown.open .action-dropdown-btn::after {
+    transform: translateY(1px) rotate(-135deg);
+}
+
+body[data-theme] .action-dropdown-menu {
+    min-width: 188px !important;
+    padding: 0.3rem !important;
+    border-radius: 12px !important;
+    background: var(--fd-input-bg) !important;
+    border: 1px solid var(--fd-input-border) !important;
+    box-shadow: 0 18px 40px -14px rgba(15, 23, 42, 0.38), 0 2px 6px rgba(15, 23, 42, 0.06) !important;
+    animation: fdMenuIn 0.14s ease-out;
+    transform-origin: top right;
+}
+
+body[data-theme="dark"] .action-dropdown-menu {
+    background: #0f172a !important;
+}
+
+body[data-theme] .action-dropdown-menu.up {
+    transform-origin: bottom right;
+}
+
+@keyframes fdMenuIn {
+    from { opacity: 0; transform: scale(0.96) translateY(-3px); }
+    to { opacity: 1; transform: none; }
+}
+
+body[data-theme] .action-dropdown-item {
+    gap: 0.55rem !important;
+    padding: 0.42rem 0.55rem !important;
+    border-radius: 8px !important;
+    font-size: 0.7rem !important;
+    font-weight: 500 !important;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .action-dropdown-item:hover {
+    background: rgba(37, 99, 235, 0.08) !important;
+}
+
+/* Ikon garis per aksi (mask SVG mengikuti warna teks item) */
+body[data-theme] .action-dropdown-item::before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background: currentColor;
+    -webkit-mask: var(--fd-ico) center / contain no-repeat;
+    mask: var(--fd-ico) center / contain no-repeat;
+    opacity: 0.9;
+}
+
+body[data-theme] .action-dropdown-item { --fd-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3C/svg%3E"); }
+body[data-theme] .action-dropdown-item.item-checkin { color: #059669 !important; --fd-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4'/%3E%3Cpath d='m10 17 5-5-5-5'/%3E%3Cpath d='M15 12H3'/%3E%3C/svg%3E"); }
+body[data-theme] .action-dropdown-item.item-pay { color: #b45309 !important; --fd-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='6' width='20' height='13' rx='2'/%3E%3Cpath d='M2 10h20'/%3E%3Cpath d='M6 15h4'/%3E%3C/svg%3E"); }
+body[data-theme] .action-dropdown-item.item-pdf { --fd-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12'/%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3Cpath d='M5 21h14'/%3E%3C/svg%3E"); }
+body[data-theme] .action-dropdown-item.item-edit { --fd-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E"); }
+body[data-theme] .action-dropdown-item.item-cancel { color: #c2410c !important; --fd-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='m15 9-6 6'/%3E%3Cpath d='m9 9 6 6'/%3E%3C/svg%3E"); }
+body[data-theme] .action-dropdown-item.item-delete { color: #dc2626 !important; --fd-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4h8v2'/%3E%3Cpath d='M19 6l-1 14H6L5 6'/%3E%3C/svg%3E"); }
+
+body[data-theme="dark"] .action-dropdown-item.item-checkin { color: #34d399 !important; }
+body[data-theme="dark"] .action-dropdown-item.item-pay { color: #fbbf24 !important; }
+body[data-theme="dark"] .action-dropdown-item.item-cancel { color: #fb923c !important; }
+body[data-theme="dark"] .action-dropdown-item.item-delete { color: #f87171 !important; }
+
+body[data-theme] .action-dropdown-item.item-delete:hover,
+body[data-theme] .action-dropdown-item.item-cancel:hover {
+    background: rgba(220, 38, 38, 0.08) !important;
+}
+
+body[data-theme] .action-dropdown-divider {
+    height: 1px !important;
+    margin: 0.25rem 0.35rem !important;
+    background: var(--fd-line) !important;
+}
+
+/* Reservasi: kolom ringkas agar Status & Aksi selalu terlihat */
+body[data-theme] .bookings-table th {
+    white-space: normal !important;
+    line-height: 1.25;
+}
+
+body[data-theme] .bookings-table th,
+body[data-theme] .bookings-table td {
+    padding-left: 0.42rem !important;
+    padding-right: 0.42rem !important;
+}
+
+body[data-theme] .bookings-table .badge-status {
+    white-space: nowrap;
+}
+
+body[data-theme] .bookings-table td:nth-child(5) div {
+    white-space: nowrap;
+    font-size: 0.64rem !important;
+}

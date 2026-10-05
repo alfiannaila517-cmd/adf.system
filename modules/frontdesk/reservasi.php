@@ -921,9 +921,9 @@ include '../../includes/header.php';
 
                             <!-- Guest -->
                             <td>
-                                <div>
+                                <div class="rsv-guest" title="<?php echo htmlspecialchars($booking['guest_name']); ?>">
                                     <strong><?php echo htmlspecialchars($booking['guest_name']); ?></strong>
-                                    <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                    <div class="rsv-phone">
                                         <?php echo htmlspecialchars($booking['phone'] ?? '-'); ?>
                                     </div>
                                 </div>
@@ -933,7 +933,7 @@ include '../../includes/header.php';
                             <td>
                                 <?php if ($isGrouped): ?>
                                     <div class="action-dropdown">
-                                        <button type="button" class="action-dropdown-btn" onclick="toggleActionMenu(event)"><?php echo $roomCount; ?> Rooms &#9662;</button>
+                                        <button type="button" class="action-dropdown-btn" onclick="toggleActionMenu(event)" aria-haspopup="menu"><?php echo $roomCount; ?> Rooms</button>
                                         <div class="action-dropdown-menu">
                                             <div style="padding:0.5rem 0.65rem; display:flex; flex-wrap:wrap; gap:3px; max-width:220px;">
                                                 <?php foreach ($booking['_rooms'] as $rm): ?>
@@ -1004,9 +1004,7 @@ include '../../includes/header.php';
                                 <span class="badge badge-payment-<?php echo str_replace('_', '-', $cPayStatus); ?>">
                                     <?php echo $cPayLabel; ?>
                                 </span>
-                                <div style="font-size: 0.72rem; margin-top: 0.3rem; font-weight: 700; color: #10b981;">
-                                    Rp <?php echo number_format($cPaid, 0, ',', '.'); ?>
-                                </div>
+                                <div class="rsv-paid">Rp <?php echo number_format($cPaid, 0, ',', '.'); ?></div>
                             </td>
 
                             <!-- Balance Due -->
@@ -1029,36 +1027,36 @@ include '../../includes/header.php';
                             <td>
                                 <?php $remaining = $cRemaining; ?>
                                 <div class="action-dropdown">
-                                    <button type="button" class="action-dropdown-btn" onclick="toggleActionMenu(event)">Aksi ▾</button>
+                                    <button type="button" class="action-dropdown-btn" onclick="toggleActionMenu(event)" aria-haspopup="menu">Aksi</button>
                                     <div class="action-dropdown-menu">
                                         <?php if ($booking['status'] === 'confirmed'): ?>
                                             <?php if ($isGrouped): ?>
                                                 <?php foreach ($booking['_rooms'] as $rm): ?>
-                                                    <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $rm['booking_id']; ?>, '<?php echo htmlspecialchars($rm['booking_code']); ?>')">✅ Check-in Room <?php echo htmlspecialchars($rm['room_number']); ?></button>
+                                                    <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $rm['booking_id']; ?>, '<?php echo htmlspecialchars($rm['booking_code']); ?>')">Check-in Room <?php echo htmlspecialchars($rm['room_number']); ?></button>
                                                 <?php endforeach; ?>
                                             <?php else: ?>
-                                                <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">✅ Check-in</button>
+                                                <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">Check-in</button>
                                             <?php endif; ?>
                                         <?php endif; ?>
                                         <?php if ($remaining > 0 && $cPayStatus !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): ?>
-                                            <button class="action-dropdown-item item-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>', <?php echo $otaFee; ?>, '<?php echo addslashes($otaName); ?>')">💰 Bayar</button>
+                                            <button class="action-dropdown-item item-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>', <?php echo $otaFee; ?>, '<?php echo addslashes($otaName); ?>')">Bayar</button>
                                         <?php endif; ?>
                                         <div class="action-dropdown-divider"></div>
-                                        <button class="action-dropdown-item" onclick="savePDF(<?php echo $booking['id']; ?>)">📥 Save PDF</button>
-                                        <button class="action-dropdown-item" onclick="editBooking(<?php echo $booking['id']; ?>)">✏️ Edit</button>
+                                        <button class="action-dropdown-item item-pdf" onclick="savePDF(<?php echo $booking['id']; ?>)">Simpan PDF</button>
+                                        <button class="action-dropdown-item item-edit" onclick="editBooking(<?php echo $booking['id']; ?>)">Edit Booking</button>
                                         <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
                                             <div class="action-dropdown-divider"></div>
                                             <?php if ($isGrouped): ?>
                                                 <?php foreach ($booking['_rooms'] as $rm): ?>
-                                                    <button class="action-dropdown-item item-cancel" onclick="cancelBooking(<?php echo $rm['booking_id']; ?>, '<?php echo htmlspecialchars($rm['booking_code']); ?>')">⚠️ Cancel Room <?php echo htmlspecialchars($rm['room_number']); ?></button>
+                                                    <button class="action-dropdown-item item-cancel" onclick="cancelBooking(<?php echo $rm['booking_id']; ?>, '<?php echo htmlspecialchars($rm['booking_code']); ?>')">Batalkan Room <?php echo htmlspecialchars($rm['room_number']); ?></button>
                                                 <?php endforeach; ?>
                                             <?php else: ?>
-                                                <button class="action-dropdown-item item-cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">⚠️ Cancel</button>
-                                                <button class="action-dropdown-item item-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">🗑️ Hapus</button>
+                                                <button class="action-dropdown-item item-cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">Batalkan</button>
+                                                <button class="action-dropdown-item item-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">Hapus</button>
                                             <?php endif; ?>
                                         <?php elseif ($currentUser['role'] === 'developer'): ?>
                                             <div class="action-dropdown-divider"></div>
-                                            <button class="action-dropdown-item item-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">🗑️ Hapus</button>
+                                            <button class="action-dropdown-item item-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">Hapus</button>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -1564,10 +1562,19 @@ include '../../includes/header.php';
         if (!wasOpen) {
             var menu = dropdown.querySelector('.action-dropdown-menu');
             var rect = btn.getBoundingClientRect();
-            // Position menu below button, right-aligned
-            menu.style.top = (rect.bottom + 4) + 'px';
-            menu.style.left = Math.max(8, rect.right - 170) + 'px';
             dropdown.classList.add('open');
+            // Ukur menu setelah tampil, lalu tempatkan rata kanan dengan tombol; buka ke atas bila
+            // ruang di bawah tidak cukup, dan selalu di dalam layar.
+            var mw = menu.offsetWidth, mh = menu.offsetHeight;
+            var top = rect.bottom + 6;
+            if (top + mh > window.innerHeight - 8 && rect.top - mh - 6 > 8) {
+                top = rect.top - mh - 6;
+                menu.classList.add('up');
+            } else {
+                menu.classList.remove('up');
+            }
+            menu.style.top = top + 'px';
+            menu.style.left = Math.min(window.innerWidth - mw - 8, Math.max(8, rect.right - mw)) + 'px';
         }
     }
     // Close action dropdowns on outside click
