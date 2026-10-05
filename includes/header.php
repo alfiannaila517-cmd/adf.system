@@ -1286,6 +1286,250 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
     <div class="main-wrapper">
         <!-- Sidebar Navigation -->
+        <!-- Sidebar modern: rapat, ringkas, dikelompokkan. Selector ber-body[data-theme] + !important karena
+             style.css (tema terang) memaksa warna/ukuran sidebar dengan !important. -->
+        <style id="sidebarModern">
+            body[data-theme] .sidebar {
+                padding: 0.85rem 0.7rem 0.6rem !important;
+                gap: 0;
+            }
+
+            body[data-theme] .sidebar-header {
+                margin-bottom: 0.6rem !important;
+                padding: 0 0.25rem 0.75rem !important;
+            }
+
+            body[data-theme] .sidebar-header > div:first-child {
+                gap: 0.65rem !important;
+            }
+
+            body[data-theme] .sidebar-header > div:first-child > div:first-child:not(:only-child) {
+                width: 46px !important;
+                height: 46px !important;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12), 0 6px 14px -6px rgba(15, 23, 42, 0.35);
+            }
+
+            body[data-theme] .sidebar-header .logo {
+                font-size: 0.84rem !important;
+                line-height: 1.25;
+                letter-spacing: -0.01em;
+            }
+
+            body[data-theme] .sidebar-header > div:first-child p {
+                font-size: 0.6rem !important;
+                margin-top: 0.15rem !important;
+                letter-spacing: 0.02em;
+            }
+
+            body[data-theme] .sidebar-header label {
+                font-size: 0.55rem !important;
+                letter-spacing: 0.09em !important;
+                margin-bottom: 0.3rem !important;
+            }
+
+            body[data-theme] .sidebar-header > div:last-child:not(:first-child) {
+                margin-top: 0.7rem !important;
+                padding-top: 0.7rem !important;
+            }
+
+            body[data-theme] .sidebar-header select {
+                height: 30px;
+                padding: 0 0.5rem !important;
+                font-size: 0.72rem !important;
+                border-radius: 9px !important;
+            }
+
+            /* Label grup */
+            .sidebar .nav-group-label {
+                list-style: none;
+                margin: 0.85rem 0 0.25rem;
+                padding: 0 0.6rem;
+                font-size: 0.56rem;
+                font-weight: 700;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                color: #94a3b8 !important;
+            }
+
+            .sidebar .nav-menu > .nav-group-label:first-child {
+                margin-top: 0.1rem;
+            }
+
+            /* Item utama */
+            body[data-theme] .sidebar .nav-item {
+                margin-bottom: 1px !important;
+            }
+
+            body[data-theme] .sidebar .nav-link {
+                gap: 0.6rem !important;
+                padding: 0.44rem 0.6rem !important;
+                border-radius: 9px !important;
+                font-size: 0.78rem !important;
+                font-weight: 500 !important;
+                letter-spacing: 0;
+                color: #334155 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                transform: none !important;
+                transition: background 0.15s ease, color 0.15s ease;
+            }
+
+            body[data-theme] .sidebar .nav-link span {
+                color: inherit !important;
+            }
+
+            body[data-theme] .sidebar .nav-link .nav-icon,
+            body[data-theme] .sidebar .nav-link svg {
+                width: 16px !important;
+                height: 16px !important;
+                flex-shrink: 0;
+                opacity: 1 !important;
+                color: #64748b !important;
+                stroke: currentColor !important;
+                stroke-width: 1.75;
+            }
+
+            body[data-theme] .sidebar .nav-link:hover {
+                background: rgba(37, 99, 235, 0.07) !important;
+                color: #1e3a8a !important;
+            }
+
+            body[data-theme] .sidebar .nav-link:hover .nav-icon,
+            body[data-theme] .sidebar .nav-link:hover svg {
+                color: #1e3a8a !important;
+            }
+
+            body[data-theme] .sidebar .nav-link.active {
+                background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+                color: #fff !important;
+                box-shadow: 0 6px 14px -8px rgba(29, 78, 216, 0.75) !important;
+            }
+
+            body[data-theme] .sidebar .nav-link.active .nav-icon,
+            body[data-theme] .sidebar .nav-link.active svg,
+            body[data-theme] .sidebar .nav-link.active span {
+                color: #fff !important;
+            }
+
+            /* Panah dropdown: chevron tipis */
+            body[data-theme] .sidebar .nav-link.dropdown-toggle::after {
+                right: 0.7rem;
+                width: 5px;
+                height: 5px;
+                border: solid currentColor;
+                border-width: 0 1.5px 1.5px 0;
+                transform: translateY(-70%) rotate(45deg);
+                opacity: 0.55;
+            }
+
+            body[data-theme] .sidebar .nav-item.has-submenu.open > .nav-link.dropdown-toggle::after {
+                transform: translateY(-30%) rotate(-135deg);
+            }
+
+            /* Submenu: garis panduan tipis, tanpa latar abu */
+            body[data-theme] .sidebar .submenu {
+                background: transparent !important;
+                margin-left: 1.1rem !important;
+                padding-left: 0.45rem !important;
+                border-left: 1px solid rgba(148, 163, 184, 0.35);
+            }
+
+            body[data-theme] .sidebar .nav-item.has-submenu.open .submenu {
+                margin-top: 2px !important;
+                margin-bottom: 0.3rem;
+            }
+
+            body[data-theme] .sidebar .submenu-item {
+                margin-bottom: 1px !important;
+            }
+
+            body[data-theme] .sidebar .submenu-link {
+                gap: 0.5rem !important;
+                padding: 0.34rem 0.55rem !important;
+                border-radius: 7px !important;
+                border-left: none !important;
+                font-size: 0.73rem !important;
+                font-weight: 500 !important;
+                color: #64748b !important;
+                transition: background 0.15s ease, color 0.15s ease;
+            }
+
+            body[data-theme] .sidebar .submenu-link span {
+                color: inherit !important;
+            }
+
+            body[data-theme] .sidebar .submenu-link .submenu-icon,
+            body[data-theme] .sidebar .submenu-link svg {
+                width: 14px !important;
+                height: 14px !important;
+                flex-shrink: 0;
+                opacity: 0.85 !important;
+                stroke: currentColor !important;
+                stroke-width: 1.75;
+            }
+
+            body[data-theme] .sidebar .submenu-link:hover {
+                background: rgba(37, 99, 235, 0.06) !important;
+                color: #1e3a8a !important;
+                padding-left: 0.55rem !important;
+            }
+
+            body[data-theme] .sidebar .submenu-link.active {
+                background: rgba(37, 99, 235, 0.1) !important;
+                color: #1d4ed8 !important;
+                font-weight: 600 !important;
+            }
+
+            /* Tema gelap */
+            body[data-theme="dark"] .sidebar .nav-link,
+            body[data-theme="dark"] .sidebar .submenu-link {
+                color: #cbd5e1 !important;
+            }
+
+            body[data-theme="dark"] .sidebar .nav-link .nav-icon,
+            body[data-theme="dark"] .sidebar .nav-link svg {
+                color: #94a3b8 !important;
+            }
+
+            body[data-theme="dark"] .sidebar .nav-link:hover,
+            body[data-theme="dark"] .sidebar .submenu-link:hover {
+                background: rgba(148, 163, 184, 0.12) !important;
+                color: #fff !important;
+            }
+
+            body[data-theme="dark"] .sidebar .nav-link:hover .nav-icon,
+            body[data-theme="dark"] .sidebar .nav-link:hover svg {
+                color: #fff !important;
+            }
+
+            body[data-theme="dark"] .sidebar .submenu-link.active {
+                background: rgba(59, 130, 246, 0.18) !important;
+                color: #93c5fd !important;
+            }
+
+            /* Item dengan jarak/garis inline (Pengaturan, Keluar) dirapatkan ke grupnya */
+            body[data-theme] .sidebar .nav-menu > .nav-item[style] {
+                margin-top: 1px !important;
+                padding-top: 0 !important;
+                border-top: none !important;
+            }
+
+            body[data-theme] .sidebar .nav-menu > .nav-item[style]:last-child {
+                margin-top: 0.6rem !important;
+                padding-top: 0.5rem !important;
+                border-top: 1px solid rgba(148, 163, 184, 0.22) !important;
+            }
+
+            body[data-theme] .sidebar .sidebar-footer {
+                padding: 0.45rem 0.6rem !important;
+            }
+
+            body[data-theme] .sidebar .sidebar-footer div,
+            body[data-theme] .sidebar .sidebar-footer span {
+                font-size: 0.6rem !important;
+                line-height: 1.5 !important;
+            }
+        </style>
         <aside class="sidebar">
             <div class="sidebar-header">
                 <?php
@@ -1399,6 +1643,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             .gudang-nav-group { list-style: none; margin: 0.85rem 0 0.2rem; padding: 0 0.9rem; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted, #94a3b8); }
                         </style>
                     <?php else: ?>
+                        <li class="nav-group-label">Utama</li>
                         <?php if ($auth->hasPermission('dashboard')): ?>
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/index.php" class="nav-link <?php echo activeMenu('index.php'); ?>">
@@ -1460,6 +1705,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             </li>
                         <?php endif; ?>
 
+                        <li class="nav-group-label">Operasional</li>
                         <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
                             <style>
                                 .fd-unpaid-dot {
@@ -1488,7 +1734,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             </style>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? 'open' : ''; ?>">
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>">
-                                    <i data-feather="home" class="nav-icon"></i>
+                                    <i data-feather="home" data-icon="concierge-bell" class="nav-icon"></i>
                                     <span><?php echo __('menu.frontdesk'); ?></span>
                                     <?php if (!empty($unpaidGuestsCount)): ?>
                                         <span class="fd-unpaid-dot" title="<?php echo $unpaidGuestsCount; ?> tamu belum lunas"></span>
@@ -1768,6 +2014,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             </li>
                         <?php endif; ?>
 
+                        <li class="nav-group-label">Keuangan &amp; Laporan</li>
                         <!-- Laporan Dropdown Menu -->
                         <?php if ($auth->hasPermission('reports') && isModuleEnabled('reports')): ?>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/reports/') !== false) ? 'open' : ''; ?>">
@@ -1835,6 +2082,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             </li>
                         <?php endif; ?>
 
+                        <li class="nav-group-label">Sistem</li>
                         <!-- Database Master Menu (CQC) -->
                         <?php if ($auth->hasPermission('database')): ?>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/database/') !== false) ? 'open' : ''; ?>">
@@ -1979,6 +2227,66 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 </div>
             </div>
         </aside>
+        <!-- Ikon sidebar memakai Lucide (penerus Feather). Ikon ditandai ulang SEBELUM feather.replace()
+             berjalan, lalu digambar saat Lucide selesai dimuat (async). Bila Lucide gagal dimuat atau nama
+             ikon tidak dikenal, ikon dikembalikan ke Feather supaya tidak ada ikon yang hilang. -->
+        <script>
+            (function() {
+                var map = {
+                    'home': 'house', 'grid': 'layout-grid', 'clipboard': 'clipboard-list', 'book': 'book-open-text',
+                    'book-open': 'book-open', 'bar-chart-2': 'chart-column', 'file-text': 'file-text', 'file': 'file',
+                    'users': 'users', 'user-check': 'user-check', 'truck': 'truck', 'trending-up': 'trending-up',
+                    'settings': 'settings', 'layers': 'layers', 'eye': 'eye', 'credit-card': 'credit-card',
+                    'calendar': 'calendar-days', 'briefcase': 'briefcase-business', 'sun': 'sun',
+                    'shopping-bag': 'shopping-bag', 'shopping-cart': 'shopping-cart', 'repeat': 'repeat',
+                    'plus-circle': 'circle-plus', 'package': 'package', 'monitor': 'monitor', 'map-pin': 'map-pin',
+                    'mail': 'mail', 'log-out': 'log-out', 'log-in': 'log-in', 'lock': 'lock', 'list': 'list',
+                    'layout': 'layout-dashboard', 'inbox': 'inbox', 'folder': 'folder-open', 'dollar-sign': 'wallet',
+                    'database': 'database', 'coffee': 'coffee', 'check-square': 'square-check-big',
+                    'arrow-right': 'arrow-right', 'archive': 'warehouse', 'alert-circle': 'circle-alert',
+                    'activity': 'activity', 'download': 'download', 'send': 'send'
+                };
+                var icons = document.querySelectorAll('.sidebar i[data-feather]');
+                icons.forEach(function(el) {
+                    var name = el.getAttribute('data-icon') || map[el.getAttribute('data-feather')];
+                    if (!name) return;
+                    el.setAttribute('data-feather-fallback', el.getAttribute('data-feather'));
+                    el.removeAttribute('data-feather');
+                    el.setAttribute('data-lucide', name);
+                });
+
+                function fallbackToFeather() {
+                    document.querySelectorAll('.sidebar i[data-lucide]').forEach(function(el) {
+                        el.setAttribute('data-feather', el.getAttribute('data-feather-fallback') || 'circle');
+                        el.removeAttribute('data-lucide');
+                    });
+                    if (window.feather) feather.replace();
+                }
+
+                var s = document.createElement('script');
+                s.src = 'https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js';
+                s.async = true;
+                s.onload = function() {
+                    try {
+                        lucide.createIcons({ attrs: { 'stroke-width': 1.75 } });
+                    } catch (e) {}
+                    // Nama ikon yang tidak dikenal Lucide masih berupa <i data-lucide> -> pakai Feather.
+                    fallbackToFeather();
+                };
+                s.onerror = fallbackToFeather;
+                document.head.appendChild(s);
+
+                // Sembunyikan label grup yang tidak punya menu (tergantung hak akses role).
+                document.querySelectorAll('.sidebar .nav-group-label').forEach(function(label) {
+                    var el = label.nextElementSibling, hasItem = false;
+                    while (el && !el.classList.contains('nav-group-label')) {
+                        if (el.classList.contains('nav-item')) { hasItem = true; break; }
+                        el = el.nextElementSibling;
+                    }
+                    if (!hasItem) label.style.display = 'none';
+                });
+            })();
+        </script>
 
         <!-- Main Content -->
         <main class="main-content">
