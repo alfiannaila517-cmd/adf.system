@@ -2684,6 +2684,185 @@ if ($trialStatus) {
         }
     }
 
+    /* === Top kategori / top divisi / transaksi terakhir === */
+    .rank-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .rank-key {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.58rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .rank-key i {
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        margin-left: 0.25rem;
+    }
+
+    .rank-list,
+    .div-list {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .rank-row,
+    .div-row,
+    .tx-row {
+        display: grid;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.36rem 0.15rem;
+    }
+
+    .rank-row + .rank-row,
+    .div-row + .div-row {
+        border-top: 1px solid var(--glass-line);
+    }
+
+    .rank-row {
+        grid-template-columns: 18px minmax(0, 1.1fr) minmax(0, 1fr) 4.6rem;
+    }
+
+    .div-row {
+        grid-template-columns: 18px minmax(0, 1fr) auto;
+        padding: 0.5rem 0.15rem;
+    }
+
+    .rank-no {
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.56rem;
+        font-weight: 800;
+        color: var(--text-secondary);
+        background: var(--glass-tile);
+        border: 1px solid var(--glass-edge);
+    }
+
+    .rank-name {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.25;
+    }
+
+    .rank-name small {
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .rank-name em {
+        font-style: normal;
+        font-size: 0.58rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .rank-track {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.16);
+        overflow: hidden;
+    }
+
+    .rank-track span {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+    }
+
+    .rank-row > b,
+    .div-row > b,
+    .tx-row > b {
+        text-align: right;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .mini-in { color: #2563eb; }
+    .mini-out { color: #ea580c; }
+
+    /* Transaksi terakhir: 2 kolom */
+    .tx-card {
+        margin-bottom: 0.75rem;
+    }
+
+    .tx-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 1.5rem;
+    }
+
+    .tx-row {
+        grid-template-columns: 22px minmax(0, 1fr) auto;
+        padding: 0.42rem 0.15rem;
+        border-bottom: 1px solid var(--glass-line);
+    }
+
+    .tx-icon {
+        width: 22px;
+        height: 22px;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 800;
+    }
+
+    .tx-icon.is-in {
+        color: #059669;
+        background: rgba(16, 185, 129, 0.12);
+    }
+
+    .tx-icon.is-out {
+        color: #dc2626;
+        background: rgba(239, 68, 68, 0.1);
+    }
+
+    @media (max-width: 960px) {
+        .rank-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 680px) {
+        .tx-list {
+            grid-template-columns: 1fr;
+        }
+
+        .rank-row {
+            grid-template-columns: 18px minmax(0, 1fr) 4.2rem;
+        }
+
+        .rank-track {
+            grid-column: 2 / 4;
+            grid-row: 2;
+        }
+    }
+
     /* Footer bar */
     .chart-footer-bar {
         padding: 0.75rem 1.1rem 0.95rem;
@@ -3600,111 +3779,105 @@ if ($trialStatus) {
 ?>
 
 <?php if (!$isCQC): ?>
-    <!-- Top Categories & Top Divisions - Compact -->
-    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-
-        <!-- Top Categories Chart -->
-        <div class="card">
-            <div style="padding: 0.65rem 0 0.4rem 0; border-bottom: 1px solid var(--bg-tertiary);">
-                <h3 style="font-size: 0.875rem; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-                    <i data-feather="trending-up" style="width: 16px; height: 16px; color: var(--primary-color);"></i>
-                    Top 10 Kategori Transaksi
-                </h3>
-            </div>
-            <div style="position: relative; height: 240px; padding: 0.75rem 0.5rem;">
-                <?php if (empty($topCategories)): ?>
-                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
-                        <i data-feather="inbox" style="width: 40px; height: 40px; margin-bottom: 0.5rem;"></i>
-                        <p style="margin: 0; font-size: 0.813rem;">Belum ada data transaksi</p>
-                    </div>
-                <?php else: ?>
-                    <canvas id="topCategoriesChart"></canvas>
-                <?php endif; ?>
-            </div>
-        </div>
-        <div class="card">
-
-            <!-- Top 5 Divisions -->
-            <div class="card">
-                <div style="padding: 0.65rem 0 0.4rem 0; border-bottom: 1px solid var(--bg-tertiary);">
-                    <h3 style="font-size: 0.875rem; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-                        <i data-feather="award" style="width: 16px; height: 16px; color: var(--primary-color);"></i>
-                        Top 5 Divisi
-                    </h3>
-                </div>
-
-                <?php if (empty($topDivisions)): ?>
-                    <p style="color: var(--text-muted); text-align: center; padding: 1.25rem; font-size: 0.813rem;">Belum ada data</p>
-                <?php else: ?>
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.5rem 0;">
-                        <?php foreach ($topDivisions as $index => $division): ?>
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.75rem; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.15rem; font-size: 0.813rem;">
-                                        #<?php echo $index + 1; ?> <?php echo $division['division_name']; ?>
-                                    </div>
-                                    <div style="font-size: 0.688rem; color: var(--text-muted);">
-                                        <span class="text-success">+<?php echo formatCurrency($division['income']); ?></span>
-                                        <span style="margin: 0 0.25rem;">•</span>
-                                        <span class="text-danger">-<?php echo formatCurrency($division['expense']); ?></span>
-                                    </div>
-                                </div>
-                                <div style="font-weight: 800; font-size: 0.938rem; color: <?php echo $division['net'] >= 0 ? 'var(--success)' : 'var(--danger)'; ?>;">
-                                    <?php echo formatCurrency($division['net']); ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-    <?php endif; // !$isCQC top categories 
+    <!-- Top Kategori, Top Divisi, Transaksi Terakhir: kartu kaca seragam -->
+    <?php
+    $rankMax = 0;
+    foreach ($topCategories as $cat) {
+        $rankMax = max($rankMax, (float)$cat['total']);
+    }
+    $rankShort = function ($v) {
+        $a = abs((float)$v);
+        $s = $v < 0 ? '-' : '';
+        $fmt = fn($x) => str_replace('.', ',', $x >= 10 ? number_format($x, 0, ',', '.') : rtrim(rtrim(number_format($x, 1, '.', ''), '0'), '.'));
+        if ($a >= 1e9) return $s . 'Rp ' . $fmt($a / 1e9) . ' M';
+        if ($a >= 1e6) return $s . 'Rp ' . $fmt($a / 1e6) . ' jt';
+        if ($a >= 1e3) return $s . 'Rp ' . $fmt($a / 1e3) . ' rb';
+        return $s . 'Rp ' . number_format($a, 0, ',', '.');
+    };
     ?>
+    <div class="rank-grid">
 
-    <?php if (!$isCQC): ?>
-        <!-- Recent Transactions - Full Width -->
-        <div class="card">
-            <div style="padding: 0.65rem 0 0.4rem 0; border-bottom: 1px solid var(--bg-tertiary); margin-bottom: 0.5rem;">
-                <h3 style="font-size: 0.875rem; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 0.4rem;">
-                    <i data-feather="clock" style="width: 16px; height: 16px; color: var(--primary-color);"></i>
-                    Transaksi Terakhir
-                </h3>
+        <!-- Top 10 Kategori -->
+        <div class="dash-mini">
+            <div class="dash-mini-head">
+                <h3 class="dash-mini-title"><span class="dash-mini-dot" style="background: #1e3a8a;"></span>Top 10 Kategori Transaksi</h3>
+                <span class="rank-key"><i style="background: #2563eb;"></i>Masuk <i style="background: #f97316;"></i>Keluar</span>
             </div>
-
-            <?php if (empty($recentTransactions)): ?>
-                <p style="color: var(--text-muted); text-align: center; padding: 1.25rem; font-size: 0.813rem;">Belum ada transaksi</p>
+            <?php if (empty($topCategories)): ?>
+                <div class="dv-empty">Belum ada data transaksi</div>
             <?php else: ?>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; padding: 0.5rem 0;">
-                    <?php foreach ($recentTransactions as $trans): ?>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.65rem; border-bottom: 1px solid var(--bg-tertiary);">
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.1rem; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                    <?php echo $trans['division_name']; ?> - <?php echo $trans['category_name']; ?>
-                                </div>
-                                <div style="font-size: 0.688rem; color: var(--text-muted);">
-                                    <?php echo formatDate($trans['transaction_date']); ?>
-                                </div>
+                <div class="rank-list">
+                    <?php foreach ($topCategories as $i => $cat):
+                        $isIn = $cat['transaction_type'] === 'income';
+                        $width = $rankMax > 0 ? max(2, round((float)$cat['total'] / $rankMax * 100, 1)) : 0;
+                    ?>
+                        <div class="rank-row" title="<?php echo htmlspecialchars($cat['category_name'] . ' (' . $cat['division_name'] . ') - ' . formatCurrency($cat['total'])); ?>">
+                            <span class="rank-no"><?php echo $i + 1; ?></span>
+                            <div class="rank-name">
+                                <small><?php echo htmlspecialchars($cat['category_name']); ?></small>
+                                <em><?php echo htmlspecialchars($cat['division_name']); ?></em>
                             </div>
-                            <div style="text-align: right; margin-left: 0.5rem;">
-                                <div style="font-weight: 700; font-size: 0.875rem; color: <?php echo $trans['transaction_type'] === 'income' ? 'var(--success)' : 'var(--danger)'; ?>; white-space: nowrap;">
-                                    <?php echo $trans['transaction_type'] === 'income' ? '+' : '-'; ?><?php echo formatCurrency($trans['amount']); ?>
-                                </div>
-                            </div>
+                            <div class="rank-track"><span style="width: <?php echo $width; ?>%; background: <?php echo $isIn ? '#2563eb' : '#f97316'; ?>;"></span></div>
+                            <b><?php echo $rankShort($cat['total']); ?></b>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-
-            <div style="margin-top: 0.65rem; text-align: center;">
-                <a href="<?php echo BASE_URL; ?>/modules/cashbook/index.php" class="btn btn-secondary btn-sm">
-                    Lihat Semua →
-                </a>
-            </div>
         </div>
 
-    <?php endif; // !$isCQC recent transactions 
-    ?>
+        <!-- Top 5 Divisi -->
+        <div class="dash-mini">
+            <div class="dash-mini-head">
+                <h3 class="dash-mini-title"><span class="dash-mini-dot" style="background: #10b981;"></span>Top 5 Divisi</h3>
+                <span class="dash-mini-tag">net bulan ini</span>
+            </div>
+            <?php if (empty($topDivisions)): ?>
+                <div class="dv-empty">Belum ada data</div>
+            <?php else: ?>
+                <div class="div-list">
+                    <?php foreach ($topDivisions as $index => $division): ?>
+                        <div class="div-row">
+                            <span class="rank-no"><?php echo $index + 1; ?></span>
+                            <div class="rank-name">
+                                <small><?php echo htmlspecialchars($division['division_name']); ?></small>
+                                <em><span class="mini-in">+<?php echo $rankShort($division['income']); ?></span> · <span class="mini-out">-<?php echo $rankShort($division['expense']); ?></span></em>
+                            </div>
+                            <b class="<?php echo $division['net'] >= 0 ? 'mini-pos' : 'mini-neg'; ?>"><?php echo formatCurrency($division['net']); ?></b>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Transaksi Terakhir -->
+    <div class="dash-mini tx-card">
+        <div class="dash-mini-head">
+            <h3 class="dash-mini-title"><span class="dash-mini-dot" style="background: #64748b;"></span>Transaksi Terakhir</h3>
+            <a href="<?php echo BASE_URL; ?>/modules/cashbook/index.php" class="dash-mini-link">Lihat semua &rarr;</a>
+        </div>
+        <?php if (empty($recentTransactions)): ?>
+            <div class="dv-empty">Belum ada transaksi</div>
+        <?php else: ?>
+            <div class="tx-list">
+                <?php foreach ($recentTransactions as $trans):
+                    $isIn = $trans['transaction_type'] === 'income';
+                ?>
+                    <div class="tx-row">
+                        <span class="tx-icon <?php echo $isIn ? 'is-in' : 'is-out'; ?>"><?php echo $isIn ? '&#8595;' : '&#8593;'; ?></span>
+                        <div class="rank-name">
+                            <small><?php echo htmlspecialchars($trans['division_name'] . ' - ' . $trans['category_name']); ?></small>
+                            <em><?php echo formatDate($trans['transaction_date']); ?></em>
+                        </div>
+                        <b class="<?php echo $isIn ? 'mini-pos' : 'mini-neg'; ?>"><?php echo $isIn ? '+' : '-'; ?><?php echo formatCurrency(abs((float)$trans['amount'])); ?></b>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+
+<?php endif; // !$isCQC top kategori, top divisi, transaksi terakhir
+?>
 
     <!-- Chart.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -4911,96 +5084,6 @@ if ($trialStatus) {
             })();
         <?php endif; ?>
 
-        <?php if (!empty($topCategories)): ?>
-            const topCategoriesCtx = document.getElementById('topCategoriesChart').getContext('2d');
-            new Chart(topCategoriesCtx, {
-                type: 'bar',
-                data: {
-                    labels: [
-                        <?php foreach ($topCategories as $cat): ?> <?php echo json_encode((string)$cat['category_name'] . ' (' . (string)$cat['division_name'] . ')', JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>,
-                        <?php endforeach; ?>
-                    ],
-                    datasets: [{
-                        label: 'Total Transaksi',
-                        data: [
-                            <?php foreach ($topCategories as $cat): ?>
-                                <?php echo $cat['total']; ?>,
-                            <?php endforeach; ?>
-                        ],
-                        backgroundColor: [
-                            <?php foreach ($topCategories as $index => $cat): ?> '<?php echo $cat['transaction_type'] === 'income' ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)'; ?>',
-                            <?php endforeach; ?>
-                        ],
-                        borderColor: [
-                            <?php foreach ($topCategories as $index => $cat): ?> '<?php echo $cat['transaction_type'] === 'income' ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)'; ?>',
-                            <?php endforeach; ?>
-                        ],
-                        borderWidth: 2,
-                        borderRadius: 8,
-                        borderSkipped: false,
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                            padding: 12,
-                            titleFont: {
-                                size: 14,
-                                weight: '700'
-                            },
-                            bodyFont: {
-                                size: 13
-                            },
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(context) {
-                                    let value = context.parsed.x || 0;
-                                    return 'Total: Rp ' + value.toLocaleString('id-ID');
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(148, 163, 184, 0.1)',
-                                drawBorder: false
-                            },
-                            ticks: {
-                                callback: function(value) {
-                                    return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
-                                },
-                                font: {
-                                    size: 12,
-                                    weight: '600'
-                                },
-                                color: getChartTextColor()
-                            }
-                        },
-                        y: {
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                font: {
-                                    size: 12,
-                                    weight: '600'
-                                },
-                                color: getLegendTextColor()
-                            }
-                        }
-                    }
-                }
-            });
-        <?php endif; ?>
     </script>
 
     <?php include 'includes/footer.php'; ?>
