@@ -887,6 +887,7 @@ if ($trialStatus) {
                     <span class="chart-badge chart-badge-up">↑</span>
                 </div>
                 <div class="chart-metric-amount" id="summaryIncome"><?php echo formatCurrency($displayIncome); ?></div>
+                <div class="chart-metric-sub" id="summaryIncomeSub">&nbsp;</div>
             </div>
             <div class="chart-metric-card">
                 <div class="chart-metric-top">
@@ -895,6 +896,7 @@ if ($trialStatus) {
                     <span class="chart-badge chart-badge-down">↓</span>
                 </div>
                 <div class="chart-metric-amount" id="summaryExpense"><?php echo formatCurrency($totalExpense); ?></div>
+                <div class="chart-metric-sub" id="summaryExpenseSub">&nbsp;</div>
             </div>
             <div class="chart-metric-card">
                 <div class="chart-metric-top">
@@ -903,6 +905,7 @@ if ($trialStatus) {
                     <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>"><?php echo $netBalance >= 0 ? '↑' : '↓'; ?></span>
                 </div>
                 <div class="chart-metric-amount" id="summaryNet" style="color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;"><?php echo formatCurrency($netBalance); ?></div>
+                <?php if (!$isCQC): ?><div class="chart-metric-sub" id="summaryNetSub">&nbsp;</div><?php endif; ?>
             </div>
         </div>
     </div>
@@ -916,26 +919,64 @@ if ($trialStatus) {
             </div>
         </div>
 
-        <!-- Pie Chart Section (Right Side) -->
+        <!-- Panel Ringkasan Periode (kanan): ring rasio, margin, dan statistik kunci -->
         <div class="chart-pie-section">
-            <div class="chart-pie-card">
-                <div class="chart-pie-header">
-                    <h3 style="margin: 0; font-size: 0.95rem; color: #1e293b; font-weight: 700;">Ringkasan Bulan Ini</h3>
-                    <span style="font-size: 0.8rem; color: #64748b;">Perbandingan pemasukan & pengeluaran</span>
-                </div>
-                <div class="chart-pie-container">
-                    <canvas id="summaryPieChart"></canvas>
-                </div>
-                <div class="chart-pie-legend">
-                    <div class="chart-pie-legend-item">
-                        <span class="chart-pie-legend-dot" style="background: #10b981;"></span>
-                        <span class="chart-pie-legend-label">Pemasukan</span>
-                        <span class="chart-pie-legend-value" id="pieIncomeValue">Rp 0</span>
+            <div class="fin-insight">
+                <div class="fin-insight-head">
+                    <div>
+                        <div class="fin-insight-kicker">Ringkasan periode</div>
+                        <div class="fin-insight-title" id="insightTitle">&nbsp;</div>
                     </div>
-                    <div class="chart-pie-legend-item">
-                        <span class="chart-pie-legend-dot" style="background: #f97316;"></span>
-                        <span class="chart-pie-legend-label">Pengeluaran</span>
-                        <span class="chart-pie-legend-value" id="pieExpenseValue">Rp 0</span>
+                    <span class="fin-health" id="insightHealth">&nbsp;</span>
+                </div>
+
+                <div class="fin-ring-row">
+                    <div class="fin-ring">
+                        <canvas id="summaryPieChart"></canvas>
+                        <div class="fin-ring-center">
+                            <b id="ringValue">&ndash;</b>
+                            <small>Margin profit</small>
+                        </div>
+                    </div>
+                    <div class="fin-ring-legend">
+                        <div class="fin-leg">
+                            <span class="fin-leg-dot" style="background: #10b981;"></span>
+                            <div class="fin-leg-text"><small>Pemasukan</small><b id="pieIncomeValue">Rp 0</b></div>
+                            <em id="pieIncomePct">0%</em>
+                        </div>
+                        <div class="fin-leg">
+                            <span class="fin-leg-dot" style="background: #f97316;"></span>
+                            <div class="fin-leg-text"><small>Pengeluaran</small><b id="pieExpenseValue">Rp 0</b></div>
+                            <em id="pieExpensePct">0%</em>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fin-ratio">
+                    <div class="fin-ratio-bar"><span id="ratioFill"></span></div>
+                    <div class="fin-ratio-caption" id="ratioCaption">&nbsp;</div>
+                </div>
+
+                <div class="fin-stats">
+                    <div class="fin-stat">
+                        <small id="statAvgLabel">Rata-rata / hari aktif</small>
+                        <b id="statAvgIncome">Rp 0</b>
+                        <span>pemasukan</span>
+                    </div>
+                    <div class="fin-stat">
+                        <small>Pemasukan tertinggi</small>
+                        <b id="statBestValue">&ndash;</b>
+                        <span id="statBestWhen">&nbsp;</span>
+                    </div>
+                    <div class="fin-stat">
+                        <small>Pengeluaran terbesar</small>
+                        <b id="statWorstValue">&ndash;</b>
+                        <span id="statWorstWhen">&nbsp;</span>
+                    </div>
+                    <div class="fin-stat">
+                        <small id="statSurplusLabel">Hari surplus</small>
+                        <b id="statSurplus">0</b>
+                        <span id="statSurplusOf">&nbsp;</span>
                     </div>
                 </div>
             </div>
@@ -948,7 +989,7 @@ if ($trialStatus) {
         <div class="chart-legend-wrap">
             <div class="chart-legend-item"><span class="chart-legend-dot" style="background: #10b981;"></span>Pemasukan</div>
             <div class="chart-legend-item"><span class="chart-legend-dot" style="background: #f97316;"></span>Pengeluaran</div>
-            <div class="chart-legend-item"><span class="chart-legend-dot" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></span>Net Harian</div>
+            <div class="chart-legend-item"><span class="chart-legend-line" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></span>Net kumulatif</div>
         </div>
     </div>
 </div>
@@ -1379,6 +1420,299 @@ if ($trialStatus) {
         font-weight: 700;
         font-size: 0.9rem;
         text-align: right;
+    }
+
+    /* === Redesign grafik keuangan: panel insight, ring rasio, sub-info KPI === */
+    :root {
+        --chart-zero-line: rgba(71, 85, 105, 0.45);
+        --chart-hover-band: rgba(99, 102, 241, 0.07);
+        --chart-ring-track: rgba(148, 163, 184, 0.18);
+        --fin-panel-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.85));
+        --fin-stat-bg: rgba(255, 255, 255, 0.75);
+    }
+
+    body[data-theme="dark"] {
+        --chart-zero-line: rgba(203, 213, 225, 0.45);
+        --chart-hover-band: rgba(148, 163, 184, 0.10);
+        --chart-ring-track: rgba(148, 163, 184, 0.16);
+        --fin-panel-bg: linear-gradient(160deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.75));
+        --fin-stat-bg: rgba(15, 23, 42, 0.55);
+    }
+
+    .chart-canvas-left {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .chart-canvas-inner {
+        height: 300px;
+    }
+
+    .chart-canvas-wrap::before {
+        display: none;
+    }
+
+    .chart-pie-section {
+        flex: 0 0 340px;
+    }
+
+    .chart-metric-sub {
+        margin-top: 0.3rem;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chart-metric-sub b {
+        color: var(--text-secondary);
+    }
+
+    .fin-insight {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+        padding: 1rem;
+        border-radius: 14px;
+        background: var(--fin-panel-bg);
+        border: 1px solid var(--chart-wrap-border);
+    }
+
+    .fin-insight-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .fin-insight-kicker {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .fin-insight-title {
+        margin-top: 0.15rem;
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: var(--text-heading, var(--text-primary));
+        letter-spacing: -0.01em;
+    }
+
+    .fin-health {
+        flex-shrink: 0;
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.66rem;
+        font-weight: 700;
+        border: 1px solid transparent;
+    }
+
+    .fin-health.is-good { color: #059669; background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.25); }
+    .fin-health.is-thin { color: #b45309; background: rgba(245, 158, 11, 0.13); border-color: rgba(245, 158, 11, 0.28); }
+    .fin-health.is-bad { color: #dc2626; background: rgba(239, 68, 68, 0.11); border-color: rgba(239, 68, 68, 0.25); }
+    .fin-health.is-empty { color: var(--text-muted); background: rgba(148, 163, 184, 0.12); }
+
+    body[data-theme="dark"] .fin-health.is-good { color: #34d399; }
+    body[data-theme="dark"] .fin-health.is-thin { color: #fbbf24; }
+    body[data-theme="dark"] .fin-health.is-bad { color: #f87171; }
+
+    .fin-ring-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .fin-ring {
+        position: relative;
+        width: 118px;
+        height: 118px;
+        flex-shrink: 0;
+    }
+
+    .fin-ring-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+    }
+
+    .fin-ring-center b {
+        font-size: 1.15rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .fin-ring-center small {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+
+    .fin-ring-legend {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+
+    .fin-leg {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+    }
+
+    .fin-leg-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
+
+    .fin-leg-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .fin-leg-text small {
+        font-size: 0.66rem;
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+
+    .fin-leg-text b {
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .fin-leg em {
+        font-style: normal;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .fin-ratio-bar {
+        height: 6px;
+        border-radius: 999px;
+        background: rgba(249, 115, 22, 0.85);
+        overflow: hidden;
+    }
+
+    .fin-ratio-bar span {
+        display: block;
+        height: 100%;
+        width: 50%;
+        border-radius: 999px;
+        background: #10b981;
+        transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .fin-ratio-bar.is-empty {
+        background: var(--chart-ring-track);
+    }
+
+    .fin-ratio-bar.is-empty span {
+        width: 0 !important;
+    }
+
+    .fin-ratio-caption {
+        margin-top: 0.4rem;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+    }
+
+    .fin-ratio-caption b {
+        color: var(--text-primary);
+    }
+
+    .fin-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        margin-top: auto;
+    }
+
+    .fin-stat {
+        min-width: 0;
+        padding: 0.55rem 0.65rem;
+        border-radius: 10px;
+        background: var(--fin-stat-bg);
+        border: 1px solid var(--chart-wrap-border);
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+    }
+
+    .fin-stat small {
+        font-size: 0.6rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .fin-stat b {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .fin-stat span {
+        font-size: 0.64rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .chart-legend-line {
+        width: 14px;
+        height: 3px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 1100px) {
+        .chart-pie-section {
+            flex-basis: 300px;
+        }
+    }
+
+    @media (max-width: 860px) {
+        .chart-canvas-inner {
+            height: 260px;
+        }
+
+        .chart-pie-section {
+            flex-basis: auto;
+        }
     }
 
     /* Footer bar */
@@ -2781,20 +3115,244 @@ if ($trialStatus) {
         <?php if (!empty($dailyData)): ?>
             const tradingCtx = document.getElementById('tradingChart').getContext('2d');
 
-            const buildNetSeries = (incomeSeries, expenseSeries) => incomeSeries.map((value, index) => value - (expenseSeries[index] || 0));
+            // Garis = net kumulatif (saldo berjalan pemasukan - pengeluaran) supaya arah profit periode terbaca jelas.
+            // Titik setelah "sekarang" (sisa bulan/jam berjalan) dikosongkan agar garis tidak memanjang ke masa depan.
+            const buildNetSeries = (incomeSeries, expenseSeries) => {
+                const now = new Date();
+                const pad = n => String(n).padStart(2, '0');
+                const mode = chartViewMode();
+                let lastIndex = incomeSeries.length - 1;
+                if (mode === 'monthly' && document.getElementById('chartMonthFilter').value === now.getFullYear() + '-' + pad(now.getMonth() + 1)) {
+                    lastIndex = now.getDate() - 1;
+                } else if (mode === 'daily' && document.getElementById('chartDateFilter').value === now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate())) {
+                    lastIndex = now.getHours();
+                } else if (mode === 'yearly' && document.getElementById('chartYearFilter').value === String(now.getFullYear())) {
+                    lastIndex = now.getMonth();
+                }
+                let running = 0;
+                return incomeSeries.map((value, index) => {
+                    running += (Number(value) || 0) - (Number(expenseSeries[index]) || 0);
+                    return index <= lastIndex ? running : null;
+                });
+            };
 
-            // Soft gradients for a lighter, more elegant chart
-            const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
-            incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.32)');
-            incomeGradient.addColorStop(1, 'rgba(16, 185, 129, 0.12)');
+            // Variabel tema dibaca dari <body> karena mode gelap menimpa variabel di body[data-theme="dark"].
+            const cssVar = (name, fallback) => getComputedStyle(document.body).getPropertyValue(name).trim() || fallback;
+            const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const UNIT_WORD = { daily: 'jam', monthly: 'hari', yearly: 'bulan', alltime: 'tahun' };
 
-            const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
-            expenseGradient.addColorStop(0, 'rgba(249, 115, 22, 0.28)');
-            expenseGradient.addColorStop(1, 'rgba(249, 115, 22, 0.10)');
+            // Format ringkas sumbu/angka besar: Rp 1,2 M · Rp 35 jt · Rp 800 rb (nilai negatif didukung).
+            function fmtCompact(v) {
+                const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '';
+                const short = x => (x >= 10 ? x.toFixed(0) : x.toFixed(1).replace(/\.0$/, '')).replace('.', ',');
+                if (a >= 1e9) return s + 'Rp ' + short(a / 1e9) + ' M';
+                if (a >= 1e6) return s + 'Rp ' + short(a / 1e6) + ' jt';
+                if (a >= 1e3) return s + 'Rp ' + short(a / 1e3) + ' rb';
+                return s + 'Rp ' + a;
+            }
+            const fmtFull = v => (v < 0 ? '-' : '') + 'Rp ' + Math.abs(Math.round(Number(v) || 0)).toLocaleString('id-ID');
+            const fmtPct = v => (Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1).replace(/\.0$/, '')).toString().replace('.', ',') + '%';
 
-            const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
-            netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.22)');
-            netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.03)');
+            function chartViewMode() {
+                const btn = document.querySelector('.chart-view-toggle .btn-view-toggle.active');
+                return ({ btnDaily: 'daily', btnYearly: 'yearly', btnAllTime: 'alltime' })[btn && btn.id] || 'monthly';
+            }
+
+            // Nama titik waktu sesuai mode: tanggal (bulanan), jam (harian), bulan (tahunan), tahun (all).
+            function pointLabel(label, long) {
+                const mode = chartViewMode();
+                if (mode === 'daily') return (long ? 'Pukul ' : 'pukul ') + label;
+                if (mode === 'yearly') return label + (long ? ' ' + document.getElementById('chartYearFilter').value : '');
+                if (mode === 'alltime') return (long ? 'Tahun ' : 'th ') + label;
+                const [y, m] = (document.getElementById('chartMonthFilter').value || '').split('-');
+                return long ? label + ' ' + (MONTHS_ID[(+m || 1) - 1] || '') + ' ' + (y || '') : 'tgl ' + label;
+            }
+
+            function periodTitle() {
+                const mode = chartViewMode();
+                if (mode === 'daily') {
+                    const d = new Date(document.getElementById('chartDateFilter').value + 'T00:00:00');
+                    return isNaN(d) ? 'Hari ini' : d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                }
+                if (mode === 'yearly') return 'Tahun ' + document.getElementById('chartYearFilter').value;
+                if (mode === 'alltime') return 'Semua periode';
+                const [y, m] = (document.getElementById('chartMonthFilter').value || '').split('-');
+                return (MONTHS_ID[(+m || 1) - 1] || '') + ' ' + (y || '');
+            }
+
+            const setText = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = text;
+            };
+            const setHtml = (id, html) => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = html;
+            };
+
+            // Ring rasio pemasukan vs pengeluaran (dibuat sekali, lalu hanya datanya yang diganti).
+            let summaryPie = null;
+
+            function ensureSummaryPie() {
+                if (summaryPie) return summaryPie;
+                const canvas = document.getElementById('summaryPieChart');
+                if (!canvas) return null;
+                summaryPie = new Chart(canvas.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Pemasukan', 'Pengeluaran'],
+                        datasets: [{
+                            data: [0, 0],
+                            backgroundColor: ['#10b981', '#f97316'],
+                            borderWidth: 0,
+                            borderRadius: 8,
+                            spacing: 3,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '80%',
+                        animation: { duration: 700, easing: 'easeOutQuart' },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                filter: item => item.chart.data.labels.length > 1,
+                                backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                                padding: 10,
+                                cornerRadius: 10,
+                                boxWidth: 7,
+                                boxHeight: 7,
+                                boxPadding: 5,
+                                usePointStyle: true,
+                                callbacks: {
+                                    label: ctx => {
+                                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                                        return ' ' + ctx.label + ': ' + fmtFull(ctx.parsed) + ' (' + fmtPct(ctx.parsed / total * 100) + ')';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                return summaryPie;
+            }
+
+            // Hitung ulang panel ringkasan + sub-info KPI dari data yang sedang tampil di grafik utama.
+            function renderInsights(chart) {
+                const labels = chart.data.labels || [];
+                const inc = (chart.data.datasets[0].data || []).map(v => Number(v) || 0);
+                const exp = (chart.data.datasets[1].data || []).map(v => Number(v) || 0);
+                const totalInc = inc.reduce((a, b) => a + b, 0);
+                const totalExp = exp.reduce((a, b) => a + b, 0);
+                const net = totalInc - totalExp;
+                const unit = UNIT_WORD[chartViewMode()];
+
+                let active = 0, surplus = 0, best = -1, worst = -1;
+                labels.forEach((_, i) => {
+                    if (inc[i] || exp[i]) {
+                        active++;
+                        if (inc[i] - exp[i] > 0) surplus++;
+                    }
+                    if (inc[i] > 0 && (best < 0 || inc[i] > inc[best])) best = i;
+                    if (exp[i] > 0 && (worst < 0 || exp[i] > exp[worst])) worst = i;
+                });
+
+                const margin = totalInc > 0 ? (net / totalInc) * 100 : null;
+                const flow = totalInc + totalExp;
+
+                setText('insightTitle', periodTitle());
+
+                const health = document.getElementById('insightHealth');
+                if (health) {
+                    let cls = 'is-empty', text = 'Belum ada data';
+                    if (flow > 0) {
+                        if (net < 0) { cls = 'is-bad'; text = 'Defisit'; }
+                        else if (margin !== null && margin < 20) { cls = 'is-thin'; text = 'Margin tipis'; }
+                        else { cls = 'is-good'; text = 'Sehat'; }
+                    }
+                    health.className = 'fin-health ' + cls;
+                    health.textContent = text;
+                }
+
+                const ring = ensureSummaryPie();
+                if (ring) {
+                    const ds = ring.data.datasets[0];
+                    if (flow > 0) {
+                        ring.data.labels = ['Pemasukan', 'Pengeluaran'];
+                        ds.data = [totalInc, totalExp];
+                        ds.backgroundColor = ['#10b981', '#f97316'];
+                    } else {
+                        ring.data.labels = ['Kosong'];
+                        ds.data = [1];
+                        ds.backgroundColor = [cssVar('--chart-ring-track', 'rgba(148,163,184,0.18)')];
+                    }
+                    ring.update();
+                }
+
+                const ringValue = document.getElementById('ringValue');
+                if (ringValue) {
+                    ringValue.textContent = margin === null ? '–' : fmtPct(margin);
+                    ringValue.style.color = margin === null ? '' : (margin < 0 ? '#ef4444' : '#10b981');
+                }
+
+                setText('pieIncomeValue', fmtFull(totalInc));
+                setText('pieExpenseValue', fmtFull(totalExp));
+                setText('pieIncomePct', flow > 0 ? fmtPct(totalInc / flow * 100) : '0%');
+                setText('pieExpensePct', flow > 0 ? fmtPct(totalExp / flow * 100) : '0%');
+
+                const ratioFill = document.getElementById('ratioFill');
+                if (ratioFill) {
+                    ratioFill.parentElement.classList.toggle('is-empty', flow === 0);
+                    ratioFill.style.width = flow > 0 ? (totalInc / flow * 100) + '%' : '0%';
+                }
+                if (totalInc > 0) {
+                    setHtml('ratioCaption', 'Pengeluaran <b>' + fmtPct(totalExp / totalInc * 100) + '</b> dari pemasukan · net <b style="color:' + (net < 0 ? '#ef4444' : '#10b981') + '">' + fmtCompact(net) + '</b>');
+                } else {
+                    setHtml('ratioCaption', totalExp > 0 ? 'Belum ada pemasukan, pengeluaran <b>' + fmtCompact(totalExp) + '</b>' : 'Belum ada transaksi di periode ini');
+                }
+
+                setText('statAvgLabel', 'Rata-rata / ' + unit + ' aktif');
+                setText('statAvgIncome', active ? fmtCompact(totalInc / active) : 'Rp 0');
+                setText('statBestValue', best >= 0 ? fmtCompact(inc[best]) : '–');
+                setText('statBestWhen', best >= 0 ? pointLabel(labels[best], false) : 'belum ada');
+                setText('statWorstValue', worst >= 0 ? fmtCompact(exp[worst]) : '–');
+                setText('statWorstWhen', worst >= 0 ? pointLabel(labels[worst], false) : 'belum ada');
+                setText('statSurplusLabel', unit.charAt(0).toUpperCase() + unit.slice(1) + ' surplus');
+                setText('statSurplus', surplus + ' ' + unit);
+                setText('statSurplusOf', 'dari ' + active + ' ' + unit + ' aktif');
+
+                setHtml('summaryIncomeSub', '<b>' + active + '</b> ' + unit + ' ada transaksi');
+                setHtml('summaryExpenseSub', totalInc > 0 ? '<b>' + fmtPct(totalExp / totalInc * 100) + '</b> dari pemasukan' : 'Belum ada pemasukan');
+                setHtml('summaryNetSub', margin === null ? 'Margin –' : 'Margin <b>' + fmtPct(margin) + '</b>');
+            }
+
+            // Sorot kolom yang sedang di-hover agar pembacaan per tanggal lebih mudah.
+            const hoverBandPlugin = {
+                id: 'hoverBand',
+                beforeDatasetsDraw(chart) {
+                    const active = chart.tooltip && chart.tooltip.getActiveElements ? chart.tooltip.getActiveElements() : [];
+                    if (!active.length) return;
+                    const { ctx, chartArea, scales } = chart;
+                    const step = scales.x.width / Math.max(chart.data.labels.length, 1);
+                    const cx = scales.x.getPixelForValue(active[0].index);
+                    ctx.save();
+                    ctx.fillStyle = cssVar('--chart-hover-band', 'rgba(99,102,241,0.07)');
+                    ctx.beginPath();
+                    if (ctx.roundRect) ctx.roundRect(cx - step / 2, chartArea.top, step, chartArea.bottom - chartArea.top, 6);
+                    else ctx.rect(cx - step / 2, chartArea.top, step, chartArea.bottom - chartArea.top);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            };
+            const insightsPlugin = {
+                id: 'finInsights',
+                afterUpdate: chart => renderInsights(chart)
+            };
+
+            const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 300);
+            netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.18)');
+            netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0)');
 
             const dailyIncomeSeries = [
                 <?php foreach ($dailyData as $data): ?>
@@ -2819,57 +3377,63 @@ if ($trialStatus) {
                     datasets: [{
                             label: 'Pemasukan',
                             data: dailyIncomeSeries,
-                            backgroundColor: incomeGradient,
-                            borderColor: '#10b981',
-                            borderWidth: 1.2,
-                            borderRadius: 10,
-                            barPercentage: 0.58,
-                            categoryPercentage: 0.64,
-                            maxBarThickness: 18,
+                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                            hoverBackgroundColor: '#10b981',
+                            borderWidth: 0,
+                            borderRadius: 5,
+                            borderSkipped: false,
+                            barPercentage: 0.82,
+                            categoryPercentage: 0.7,
+                            maxBarThickness: 14,
                             order: 2
                         },
                         {
                             label: 'Pengeluaran',
                             data: dailyExpenseSeries,
-                            backgroundColor: expenseGradient,
-                            borderColor: '#f97316',
-                            borderWidth: 1.2,
-                            borderRadius: 10,
-                            barPercentage: 0.58,
-                            categoryPercentage: 0.64,
-                            maxBarThickness: 18,
+                            backgroundColor: 'rgba(249, 115, 22, 0.82)',
+                            hoverBackgroundColor: '#f97316',
+                            borderWidth: 0,
+                            borderRadius: 5,
+                            borderSkipped: false,
+                            barPercentage: 0.82,
+                            categoryPercentage: 0.7,
+                            maxBarThickness: 14,
                             order: 3
                         },
                         {
                             type: 'line',
-                            label: 'Net Harian',
+                            label: 'Net kumulatif',
                             data: dailyNetSeries,
                             borderColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
-                            backgroundColor: netGradient,
-                            borderWidth: 2.5,
-                            fill: false,
+                            borderWidth: 2.2,
+                            fill: {
+                                target: 'origin',
+                                above: netGradient,
+                                below: 'rgba(239, 68, 68, 0.08)'
+                            },
                             tension: 0.35,
-                            pointRadius: 2.5,
-                            pointHoverRadius: 6,
+                            pointRadius: 0,
+                            pointHoverRadius: 5,
+                            pointHitRadius: 10,
                             pointBackgroundColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
-                            pointHoverBorderColor: 'rgba(255,255,255,0.9)',
+                            pointHoverBorderColor: '#fff',
                             pointHoverBorderWidth: 2,
-                            pointBorderWidth: 2,
-                            pointStyle: 'circle',
                             borderCapStyle: 'round',
                             order: 1
                         }
                     ]
                 },
+                plugins: [hoverBandPlugin, insightsPlugin],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: { padding: { top: 6, right: 4 } },
                     interaction: {
                         intersect: false,
                         mode: 'index'
                     },
                     animation: {
-                        duration: 800,
+                        duration: 700,
                         easing: 'easeOutQuart'
                     },
                     plugins: {
@@ -2878,86 +3442,55 @@ if ($trialStatus) {
                         },
                         tooltip: {
                             enabled: true,
-                            backgroundColor: 'rgba(15, 23, 42, 0.96)',
-                            titleColor: 'rgba(255, 255, 255, 0.76)',
-                            bodyColor: 'rgba(255, 255, 255, 0.96)',
-                            borderColor: 'rgba(148, 163, 184, 0.16)',
+                            backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                            titleColor: '#fff',
+                            bodyColor: 'rgba(226, 232, 240, 0.95)',
+                            footerColor: 'rgba(203, 213, 225, 0.85)',
+                            borderColor: 'rgba(148, 163, 184, 0.18)',
                             borderWidth: 1,
-                            padding: {
-                                top: 8,
-                                bottom: 8,
-                                left: 12,
-                                right: 12
-                            },
-                            titleFont: {
-                                size: 10,
-                                weight: '500',
-                                family: "'Inter', sans-serif"
-                            },
-                            bodyFont: {
-                                size: 11,
-                                weight: '600',
-                                family: "'Inter', sans-serif"
-                            },
-                            cornerRadius: 10,
+                            padding: 12,
+                            caretSize: 0,
+                            cornerRadius: 12,
+                            titleFont: { size: 11.5, weight: '700', family: "'Inter', sans-serif" },
+                            bodyFont: { size: 11, weight: '500', family: "'Inter', sans-serif" },
+                            footerFont: { size: 11, weight: '700', family: "'Inter', sans-serif" },
+                            titleMarginBottom: 8,
+                            footerMarginTop: 8,
+                            bodySpacing: 5,
                             displayColors: true,
-                            boxWidth: 7,
-                            boxHeight: 7,
-                            boxPadding: 5,
+                            boxWidth: 8,
+                            boxHeight: 8,
+                            boxPadding: 6,
                             usePointStyle: true,
                             callbacks: {
-                                title: function(context) {
-                                    return 'Tgl ' + context[0].label;
-                                },
-                                label: function(context) {
-                                    let value = context.parsed.y || 0;
-                                    return ' ' + context.dataset.label + ': Rp ' + value.toLocaleString('id-ID');
-                                },
-                                footer: function(tooltipItems) {
-                                    let income = 0,
-                                        expense = 0;
-                                    tooltipItems.forEach(item => {
-                                        if (item.dataset.label === 'Pemasukan') income = item.parsed.y;
-                                        if (item.dataset.label === 'Pengeluaran') expense = item.parsed.y;
-                                    });
-                                    let net = income - expense;
-                                    let sign = net >= 0 ? '+' : '';
-                                    return 'Net harian: ' + sign + 'Rp ' + net.toLocaleString('id-ID');
+                                title: items => pointLabel(items[0].label, true),
+                                label: ctx => ' ' + ctx.dataset.label + '   ' + fmtFull(ctx.parsed.y || 0),
+                                footer: items => {
+                                    const i = items[0].dataIndex;
+                                    const ds = items[0].chart.data.datasets;
+                                    const net = (Number(ds[0].data[i]) || 0) - (Number(ds[1].data[i]) || 0);
+                                    return 'Net ' + UNIT_WORD[chartViewMode()] + ' ini: ' + (net > 0 ? '+' : '') + fmtFull(net);
                                 }
-                            },
-                            footerFont: {
-                                size: 10,
-                                weight: '600'
-                            },
-                            footerColor: 'rgba(255, 255, 255, 0.5)'
+                            }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
+                            grace: '8%',
                             grid: {
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-grid-color').trim() || 'rgba(148,163,184,0.07)',
-                                drawBorder: false,
-                                lineWidth: 1,
-                                borderDash: [3, 6]
+                                color: ctx => ctx.tick && ctx.tick.value === 0 ? cssVar('--chart-zero-line', 'rgba(71,85,105,0.45)') : cssVar('--chart-grid-color', 'rgba(148,163,184,0.2)'),
+                                lineWidth: ctx => ctx.tick && ctx.tick.value === 0 ? 1.2 : 1
                             },
                             border: {
                                 display: false
                             },
                             ticks: {
-                                padding: 8,
-                                font: {
-                                    size: 9.5,
-                                    weight: '500',
-                                    family: "'Inter', sans-serif"
-                                },
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-tick-color').trim() || 'rgba(148,163,184,0.45)',
-                                maxTicksLimit: 5,
-                                callback: function(value) {
-                                    if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + ' jt';
-                                    if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + ' rb';
-                                    return 'Rp ' + value;
-                                }
+                                padding: 10,
+                                font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
+                                color: cssVar('--chart-tick-color', 'rgba(100,116,139,0.8)'),
+                                maxTicksLimit: 6,
+                                callback: value => fmtCompact(value)
                             }
                         },
                         x: {
@@ -2969,83 +3502,16 @@ if ($trialStatus) {
                             },
                             ticks: {
                                 padding: 6,
-                                font: {
-                                    size: 10,
-                                    weight: '500',
-                                    family: "'Inter', sans-serif"
-                                },
-                                color: getComputedStyle(document.documentElement).getPropertyValue('--chart-tick-color').trim() || 'rgba(148,163,184,0.45)',
+                                font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
+                                color: cssVar('--chart-tick-color', 'rgba(100,116,139,0.8)'),
                                 maxRotation: 0,
                                 minRotation: 0,
-                                maxTicksLimit: 15
+                                autoSkipPadding: 10
                             }
                         }
                     }
                 }
             });
-
-            // ============================================
-            // SUMMARY PIE CHART - Income vs Expense
-            // ============================================
-            const totalIncome = <?php echo array_sum(array_column($dailyData, 'income')); ?>;
-            const totalExpense = <?php echo array_sum(array_column($dailyData, 'expense')); ?>;
-
-            const summaryCtx = document.getElementById('summaryPieChart').getContext('2d');
-            new Chart(summaryCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Pemasukan', 'Pengeluaran'],
-                    datasets: [{
-                        data: [totalIncome, totalExpense],
-                        backgroundColor: ['#10b981', '#f97316'],
-                        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-wrap-bg').trim() || '#f8fafc',
-                        borderWidth: 3,
-                        borderRadius: 6,
-                        hoverOffset: 8,
-                        spacing: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                            padding: 12,
-                            titleFont: {
-                                size: 12,
-                                weight: '600',
-                                family: "'Inter', sans-serif"
-                            },
-                            bodyFont: {
-                                size: 11,
-                                weight: '500',
-                                family: "'Inter', sans-serif"
-                            },
-                            borderRadius: 8,
-                            displayColors: true,
-                            boxWidth: 8,
-                            boxHeight: 8,
-                            boxPadding: 8,
-                            callbacks: {
-                                label: function(context) {
-                                    const value = context.parsed;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percent = ((value / total) * 100).toFixed(1);
-                                    return 'Rp ' + value.toLocaleString('id-ID') + ' (' + percent + '%)';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Update legend values
-            document.getElementById('pieIncomeValue').textContent = 'Rp ' + totalIncome.toLocaleString('id-ID');
-            document.getElementById('pieExpenseValue').textContent = 'Rp ' + totalExpense.toLocaleString('id-ID');
 
             // ============================================
             // LIVE UPDATE - Auto refresh every 30 seconds
