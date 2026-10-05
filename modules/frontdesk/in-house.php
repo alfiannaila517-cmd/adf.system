@@ -805,8 +805,8 @@ include '../../includes/header.php';
     .pay-sum div.rest { border-top: 1px solid var(--pm-line); margin-top: 4px; padding-top: 6px; }
     .pay-sum div.rest b { color: #dc2626; font-weight: 700; }
     .pay-ov .pay-lbl { display: block; font-size: .68rem !important; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--pm-muted); margin: 0 0 5px; }
-    .pay-amt {
-        width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--pm-line); background: var(--pm-card); color: var(--pm-ink);
+    body[data-theme] .pay-ov .pay-amt {
+        width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--pm-line); background: var(--pm-card) !important; color: var(--pm-ink);
         padding: 0 12px; font-size: .95rem; font-weight: 700; font-variant-numeric: tabular-nums; outline: none;
     }
     .pay-amt:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
@@ -825,6 +825,23 @@ include '../../includes/header.php';
     .pay-foot .cancel { background: transparent; border: 1px solid var(--pm-line); color: var(--pm-muted); }
     .pay-foot .go { background: #047857; border: 1px solid #065f46; color: #fff; }
     .pay-foot .go:disabled { opacity: .6; cursor: wait; }
+    /* Tema terang (style.css) memaksa warna teks dengan !important: kunci semua warna teks modal. */
+    body[data-theme] .pay-ov .pay-head .rm,
+    body[data-theme] .pay-ov .pay-methods button.on,
+    body[data-theme] .pay-ov .pay-foot .go { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+    body[data-theme] .pay-ov .pay-head b,
+    body[data-theme] .pay-ov .pay-sum div b,
+    body[data-theme] .pay-ov .pay-amt,
+    body[data-theme] .pay-ov .pay-quick button,
+    body[data-theme] .pay-ov .pay-methods button:not(.on) { color: var(--pm-ink) !important; -webkit-text-fill-color: var(--pm-ink) !important; }
+    body[data-theme] .pay-ov .pay-head small,
+    body[data-theme] .pay-ov .pay-head button,
+    body[data-theme] .pay-ov .pay-sum div span,
+    body[data-theme] .pay-ov .pay-lbl,
+    body[data-theme] .pay-ov .pay-note,
+    body[data-theme] .pay-ov .pay-foot .cancel { color: var(--pm-muted) !important; -webkit-text-fill-color: var(--pm-muted) !important; }
+    body[data-theme] .pay-ov .pay-sum div.rest b,
+    body[data-theme] .pay-ov .pay-err { color: #dc2626 !important; -webkit-text-fill-color: #dc2626 !important; }
     @media (max-width: 760px) {
         body[data-theme] .ih-stats {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;

@@ -1156,6 +1156,21 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 .billpop-btn { border: 0; border-radius: 9px; padding: 8px 14px; font-size: 0.78rem; font-weight: 600; cursor: pointer; text-decoration: none; }
                 .billpop-btn.ghost { background: transparent; color: var(--bp-muted); border: 1px solid var(--bp-line); }
                 a.billpop-btn.pri { background: #2563eb; color: #fff; }
+                /* Tema terang (style.css) memaksa warna teks dengan !important: kunci semua warna teks popup. */
+                body[data-theme] .billpop .billpop-tag,
+                body[data-theme] .billpop a.billpop-btn.pri { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+                body[data-theme] .billpop a.billpop-btn.pri:hover { background: #1d4ed8; }
+                body[data-theme] .billpop .billpop-head h3,
+                body[data-theme] .billpop .billpop-who b { color: var(--bp-ink) !important; -webkit-text-fill-color: var(--bp-ink) !important; }
+                body[data-theme] .billpop .billpop-head p,
+                body[data-theme] .billpop .billpop-who small,
+                body[data-theme] .billpop .billpop-sec h4,
+                body[data-theme] .billpop .billpop-x,
+                body[data-theme] .billpop .billpop-btn.ghost { color: var(--bp-muted) !important; -webkit-text-fill-color: var(--bp-muted) !important; }
+                body[data-theme] .billpop .billpop-amt b { color: #dc2626 !important; -webkit-text-fill-color: #dc2626 !important; }
+                body[data-theme] .billpop .billpop-amt small { color: #2563eb !important; -webkit-text-fill-color: #2563eb !important; }
+                body[data-theme="dark"] .billpop .billpop-amt b { color: #f87171 !important; -webkit-text-fill-color: #f87171 !important; }
+                body[data-theme="dark"] .billpop .billpop-amt small { color: #60a5fa !important; -webkit-text-fill-color: #60a5fa !important; }
             </style>
             <div class="billpop" id="billPop" role="dialog" aria-modal="true" aria-labelledby="billPopTitle">
                 <div class="billpop-card">
