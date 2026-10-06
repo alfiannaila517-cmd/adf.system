@@ -640,6 +640,19 @@ function syncInvoiceToCashbook($db, $businessId, $userId, array $invRow, array $
     }
 }
 
+/**
+ * Bagian pemilik motor mitra (rumus sama dengan modul Rental Motor saat pengembalian):
+ * owner = total × owner_commission_pct%. Motor milik hotel (tanpa pemilik/persen) → 0.
+ * @return array{0: float, 1: float} [owner_amount, hotel_commission]
+ */
+function hsMotorOwnerSplit(array $motorRow, float $total): array
+{
+    $pct = (float)($motorRow['owner_commission_pct'] ?? 0);
+    $hasOwner = trim((string)($motorRow['partner_owner'] ?? '')) !== '';
+    $owner = ($hasOwner && $pct > 0) ? round($total * $pct / 100, 2) : 0.0;
+    return [$owner, round($total - $owner, 2)];
+}
+
 // ── AJAX handlers ──────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
     header('Content-Type: application/json');
@@ -734,7 +747,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $motorRow = $motorStmt->fetch(PDO::FETCH_ASSOC);
                     if (!$motorRow) throw new Exception('Armada motor tidak ditemukan');
                     if ($motorRow['status'] !== 'available') throw new Exception("Motor {$motorRow['plate_number']} tidak tersedia");
-                    $item['description'] = trim((string)($item['description'] ?? '')) ?: ($motorRow['motor_name'] . ' (' . $motorRow['plate_number'] . ')');
+                    $mLabel = $motorRow['motor_name'] . ' (' . $motorRow['plate_number'] . ')';
+                    $mDesc = trim((string)($item['description'] ?? ''));
+                    $item['description'] = $mDesc === '' ? $mLabel : (stripos($mDesc, (string)$motorRow['plate_number']) === false ? $mDesc . ' - ' . $mLabel : $mDesc);
                     $motorRentalItems[] = ['item' => $item, 'row' => $motorRow];
                 }
 
@@ -998,8 +1013,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $motorRow = $motorRental['row'];
                 $pdo->prepare("INSERT INTO rental_motor_bookings
                     (business_id, motor_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
-                     start_datetime, end_datetime, daily_rate, total_price, motor_count, deposit, status, notes, created_by)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                     start_datetime, end_datetime, daily_rate, total_price, motor_count, deposit, status, notes, created_by, owner_amount, hotel_commission)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                     ->execute([
                         $businessId,
                         (int)$motorRow['id'],
@@ -1016,7 +1031,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $item['deposit'],
                         'active',
                         $notes ?: null,
-                        $currentUser['id'] ?? null
+                        $currentUser['id'] ?? null,
+                        hsMotorOwnerSplit($motorRow, (float)$item['total'])[0],
+                        hsMotorOwnerSplit($motorRow, (float)$item['total'])[1],
                     ]);
                 $pdo->prepare("UPDATE rental_motors SET status='rented', updated_at=NOW() WHERE id=?")
                     ->execute([(int)$motorRow['id']]);
@@ -1724,7 +1741,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $motorRow = $motorStmt->fetch(PDO::FETCH_ASSOC);
                     if (!$motorRow) throw new Exception('Armada motor tidak ditemukan');
                     if ($motorRow['status'] !== 'available' && !isset($existingMotorByAssetId[$item['motor_id']])) throw new Exception("Motor {$motorRow['plate_number']} tidak tersedia");
-                    $item['description'] = trim((string)($item['description'] ?? '')) ?: ($motorRow['motor_name'] . ' (' . $motorRow['plate_number'] . ')');
+                    $mLabel = $motorRow['motor_name'] . ' (' . $motorRow['plate_number'] . ')';
+                    $mDesc = trim((string)($item['description'] ?? ''));
+                    $item['description'] = $mDesc === '' ? $mLabel : (stripos($mDesc, (string)$motorRow['plate_number']) === false ? $mDesc . ' - ' . $mLabel : $mDesc);
                     $motorRentalItems[] = ['item' => $item, 'row' => $motorRow];
                 }
 
@@ -1844,11 +1863,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $existingBooking = $existingMotorByAssetId[(int)$item['motor_id']] ?? null;
                 if ($existingBooking) {
                     $matchedMotorBookingIds[] = (int)$existingBooking['id'];
-                    $newStatus = in_array($existingBooking['status'], ['returned', 'cancelled'], true) ? 'active' : $existingBooking['status'];
+                    // Booking yang sudah dikembalikan tetap 'returned'; hanya yang dibatalkan yang diaktifkan lagi.
+                    $newStatus = $existingBooking['status'] === 'cancelled' ? 'active' : $existingBooking['status'];
+                    [$mOwnerAmt, $mHotelAmt] = hsMotorOwnerSplit($motorRow, (float)$item['total']);
                     $pdo->prepare("UPDATE rental_motor_bookings
                         SET invoice_id=?, guest_name=?, guest_phone=?, room_number=?, booking_id=?,
                             start_datetime=?, end_datetime=?, daily_rate=?, total_price=?, motor_count=?, deposit=?,
-                            status=?, notes=?, updated_at=NOW()
+                            status=?, notes=?, owner_amount=?, hotel_commission=?, updated_at=NOW()
                         WHERE id=? AND business_id=?")
                         ->execute([
                             $id,
@@ -1864,14 +1885,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $item['deposit'],
                             $newStatus,
                             $notes ?: null,
+                            $mOwnerAmt,
+                            $mHotelAmt,
                             $existingBooking['id'],
                             $businessId
                         ]);
                 } else {
                     $pdo->prepare("INSERT INTO rental_motor_bookings
                         (business_id, motor_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
-                         start_datetime, end_datetime, daily_rate, total_price, motor_count, deposit, status, notes, created_by)
-                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                         start_datetime, end_datetime, daily_rate, total_price, motor_count, deposit, status, notes, created_by, owner_amount, hotel_commission)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                         ->execute([
                             $businessId,
                             (int)$motorRow['id'],
@@ -1888,12 +1911,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $item['deposit'],
                             'active',
                             $notes ?: null,
-                            $currentUser['id'] ?? null
+                            $currentUser['id'] ?? null,
+                            hsMotorOwnerSplit($motorRow, (float)$item['total'])[0],
+                            hsMotorOwnerSplit($motorRow, (float)$item['total'])[1],
                         ]);
                     $matchedMotorBookingIds[] = (int)$pdo->lastInsertId();
+                    $newStatus = 'active';
                 }
-                $pdo->prepare("UPDATE rental_motors SET status='rented', updated_at=NOW() WHERE id=?")
-                    ->execute([(int)$motorRow['id']]);
+                if ($newStatus === 'active' || $newStatus === 'overdue') {
+                    $pdo->prepare("UPDATE rental_motors SET status='rented', updated_at=NOW() WHERE id=?")
+                        ->execute([(int)$motorRow['id']]);
+                }
             }
 
             foreach ($existingMotorBookings as $booking) {
@@ -2277,6 +2305,7 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
         $carMapStmt->execute([$gid, $businessId]);
         $carRentals = $carMapStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $usedMotorBk = [];
         foreach ($gRow['items'] as &$gItem) {
             if (($gItem['service_type'] ?? '') === 'narayana_trip') {
                 if (!empty($gItem['trip_type'])) {
@@ -2288,7 +2317,9 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
             }
             if (($gItem['service_type'] ?? '') === 'motor_rental') {
                 foreach ($motorRentals as $mr) {
+                    if (!empty($usedMotorBk[(int)$mr['id']])) continue;
                     if (strpos((string)($gItem['description'] ?? ''), (string)$mr['plate_number']) !== false) {
+                        $usedMotorBk[(int)$mr['id']] = true;
                         $gItem['motor_id'] = (int)$mr['motor_id'];
                         $gItem['motor_name'] = $mr['motor_name'];
                         $gItem['plate_number'] = $mr['plate_number'];
@@ -2345,6 +2376,27 @@ if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
             }
         }
         unset($gItem);
+        // Item motor yang tidak memuat plat (data lama): pasangkan dengan booking motor yang tersisa berurutan.
+        foreach ($gRow['items'] as $gi => $gIt) {
+            if (($gIt['service_type'] ?? '') !== 'motor_rental' || !empty($gIt['motor_id'])) continue;
+            foreach ($motorRentals as $mr) {
+                if (!empty($usedMotorBk[(int)$mr['id']]) || ($mr['status'] ?? '') === 'cancelled') continue;
+                $usedMotorBk[(int)$mr['id']] = true;
+                $start = new DateTime($mr['start_datetime']);
+                $end = new DateTime($mr['end_datetime']);
+                $gRow['items'][$gi] = array_merge($gIt, [
+                    'motor_id' => (int)$mr['motor_id'],
+                    'motor_name' => $mr['motor_name'],
+                    'plate_number' => $mr['plate_number'],
+                    'daily_rate' => (float)$mr['daily_rate'],
+                    'start_dt' => $mr['start_datetime'],
+                    'end_dt' => $mr['end_datetime'],
+                    'deposit' => (float)$mr['deposit'],
+                    'rental_days' => max(1, (int)$start->diff($end)->days),
+                ]);
+                break;
+            }
+        }
         $gRow['success'] = true;
         echo json_encode($gRow);
     } catch (\Throwable $e) {
