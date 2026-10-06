@@ -187,6 +187,85 @@ $token = trim((string)($_GET['t'] ?? ''));
         .g-spot > span:first-child { font-size: 17px; }
         .g-spot span:last-child { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
         .g-spot b { display: block; font-size: 12.5px; color: var(--navy); }
+        /* Popup informasi (Extra Breakfast, konfirmasi) */
+        .mdl {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            background: rgba(15, 39, 71, 0.55);
+            backdrop-filter: blur(3px);
+            animation: mdlFade 0.18s ease;
+        }
+        .mdl.hidden { display: none; }
+        .mdl-box {
+            width: 100%;
+            max-width: 380px;
+            padding: 22px 20px 18px;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 24px 60px rgba(15, 39, 71, 0.35);
+            text-align: center;
+            animation: mdlUp 0.22s ease;
+        }
+        .mdl-ico {
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 10px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background: var(--gold-soft);
+            border: 1px solid #ead9b9;
+        }
+        .mdl-box h3 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; color: var(--navy); margin-bottom: 6px; }
+        .mdl-text { font-size: 13px; color: var(--muted); line-height: 1.5; }
+        .mdl-text b { color: var(--ink); }
+        .mdl-price {
+            margin: 14px 0 4px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: var(--bg);
+            border: 1px solid var(--line);
+            text-align: left;
+        }
+        .mdl-price .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+        .mdl-price .row span { font-size: 12.5px; color: var(--muted); }
+        .mdl-price .row b { font-size: 17px; color: var(--navy); white-space: nowrap; }
+        .mdl-price ul { margin: 8px 0 0; padding-left: 16px; font-size: 12px; color: var(--muted); line-height: 1.55; }
+        .mdl-tip {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            font-size: 12.5px;
+            color: #065f46;
+            text-align: left;
+            line-height: 1.45;
+        }
+        .mdl-acts { display: grid; gap: 8px; margin-top: 16px; }
+        .mdl-acts button {
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 0;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .mdl-acts .p { background: var(--navy); color: #fff; }
+        .mdl-acts .k { background: var(--green); color: #fff; }
+        .mdl-acts .g { background: transparent; color: var(--muted); font-weight: 600; padding: 8px; }
+        .sec.flash { animation: secFlash 1.6s ease; border-radius: 14px; }
+        @keyframes secFlash { 0%, 60% { box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.35); } 100% { box-shadow: 0 0 0 0 rgba(4, 120, 87, 0); } }
+        @keyframes mdlFade { from { opacity: 0; } }
+        @keyframes mdlUp { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
         /* Notices */
         .notice {
             margin: 14px 0 0;
@@ -570,6 +649,14 @@ $token = trim((string)($_GET['t'] ?? ''));
         </div>
     </main>
 
+    <div class="mdl hidden" id="mdl" role="dialog" aria-modal="true" aria-labelledby="mdlTitle">
+        <div class="mdl-box">
+            <div class="mdl-ico" id="mdlIco"></div>
+            <h3 id="mdlTitle"></h3>
+            <div id="mdlBody"></div>
+            <div class="mdl-acts" id="mdlActs"></div>
+        </div>
+    </div>
     <div class="bar hidden" id="bar">
         <div class="wrap">
             <div class="bar-sum" id="barSum"></div>
@@ -627,6 +714,63 @@ $token = trim((string)($_GET['t'] ?? ''));
                     var free = String(m.is_free) === '1' || m.is_free === true || m.is_free === 1 || !(parseFloat(m.price || 0) > 0);
                     return s + (free ? (qty[group][String(m.id)] || 0) : 0);
                 }, 0);
+            }
+
+            // Popup: opts = { icon, title, body (html), actions: [{ label, cls, fn }] }
+            function modal(opts) {
+                $('mdlIco').textContent = opts.icon || 'ℹ️';
+                $('mdlTitle').textContent = opts.title || '';
+                $('mdlBody').innerHTML = opts.body || '';
+                $('mdlActs').innerHTML = '';
+                (opts.actions || []).forEach(function(a) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = a.cls || 'g';
+                    b.textContent = a.label;
+                    b.addEventListener('click', function() {
+                        closeModal();
+                        if (a.fn) a.fn();
+                    });
+                    $('mdlActs').appendChild(b);
+                });
+                $('mdl').classList.remove('hidden');
+            }
+
+            function closeModal() { $('mdl').classList.add('hidden'); }
+
+            function isFree(m) {
+                return String(m.is_free) === '1' || m.is_free === true || m.is_free === 1 || !(parseFloat(m.price || 0) > 0);
+            }
+
+            function goKids() {
+                var sec = $('kidSec');
+                if (!sec || sec.classList.contains('hidden')) return;
+                sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                sec.classList.remove('flash');
+                void sec.offsetWidth;
+                sec.classList.add('flash');
+            }
+
+            // Popup saat menambah makanan di luar jatah (Extra Breakfast berbayar).
+            function askExtra(onAdd) {
+                var pax = parseInt(data.max_main || 0, 10);
+                var kids = parseInt(data.max_child || 0, 10);
+                var price = parseFloat(data.extra_package_price || 82500);
+                var kidsLeft = kids - total('child');
+                var showKids = kidsLeft > 0 && !$('kidSec').classList.contains('hidden');
+                var acts = [];
+                if (showKids) acts.push({ label: 'Choose Kids Menu (free)', cls: 'k', fn: goKids });
+                acts.push({ label: 'Add Extra Breakfast · ' + rp(price), cls: 'p', fn: onAdd });
+                acts.push({ label: 'Cancel', cls: 'g' });
+                modal({
+                    icon: '🍳',
+                    title: 'Extra Breakfast',
+                    body: '<div class="mdl-text">Your stay includes <b>' + pax + ' main course' + (pax === 1 ? '' : 's') + '</b> (1 per guest), and all of them are already chosen.</div>' +
+                        '<div class="mdl-price"><div class="row"><span>1 extra breakfast</span><b>' + rp(price) + '</b></div>' +
+                        '<ul><li>1 main course of your choice</li><li>+1 fresh juice and +1 coffee or tea</li><li>Added to your bill, payable at Front Office</li></ul></div>' +
+                        (showKids ? '<div class="mdl-tip">🧒 <b>Ordering for your child?</b> Kids under 7 eat free — ' + kidsLeft + ' kids portion' + (kidsLeft === 1 ? '' : 's') + ' (pancake / waffle + 1 drink) still available in the <b>For Kids</b> menu.</div>' : ''),
+                    actions: acts
+                });
             }
 
             function renderGuest() {
@@ -843,9 +987,18 @@ $token = trim((string)($_GET['t'] ?? ''));
                 var g = row.dataset.g, id = row.dataset.id;
                 var step = e.target.closest('[data-step]');
                 if (step) {
-                    var next = Math.max(0, Math.min(20, (qty[g][id] || 0) + parseInt(step.dataset.step, 10)));
-                    if (next) qty[g][id] = next; else { delete qty[g][id]; delete notes[g][id]; }
-                    renderLists();
+                    var delta = parseInt(step.dataset.step, 10);
+                    var apply = function() {
+                        var next = Math.max(0, Math.min(20, (qty[g][id] || 0) + delta));
+                        if (next) qty[g][id] = next; else { delete qty[g][id]; delete notes[g][id]; }
+                        renderLists();
+                    };
+                    var mm = g === 'main' && delta > 0 ? menus.main.find(function(x) { return String(x.id) === id; }) : null;
+                    if (mm && isFree(mm) && counted('main', menus.main) >= parseInt(data.max_main || 0, 10)) {
+                        askExtra(apply);
+                        return;
+                    }
+                    apply();
                     return;
                 }
                 if (e.target.closest('[data-addnote]')) {
@@ -920,10 +1073,34 @@ $token = trim((string)($_GET['t'] ?? ''));
                 }
             }
 
-            $('btnSubmit').addEventListener('click', function() { submit(false); });
-            $('btnOnSpot').addEventListener('click', function() {
-                if (confirm('Order on the spot at the restaurant tomorrow morning instead?')) submit(true);
+            $('btnSubmit').addEventListener('click', function() {
+                var packs = Math.max(0, counted('main', menus.main) - parseInt(data.max_main || 0, 10));
+                if (!packs) { submit(false); return; }
+                var price = parseFloat(data.extra_package_price || 82500);
+                modal({
+                    icon: '🧾',
+                    title: 'Confirm Extra Breakfast',
+                    body: '<div class="mdl-text">Your order includes extra breakfast beyond your allowance.</div>' +
+                        '<div class="mdl-price"><div class="row"><span>' + packs + ' × ' + rp(price) + '</span><b>' + rp(packs * price) + '</b></div>' +
+                        '<ul><li>Added to your bill as Extra Breakfast</li><li>Please settle it at Front Office</li></ul></div>',
+                    actions: [
+                        { label: 'Confirm Order · ' + rp(packs * price), cls: 'p', fn: function() { submit(false); } },
+                        { label: 'Review my order', cls: 'g' }
+                    ]
+                });
             });
+            $('btnOnSpot').addEventListener('click', function() {
+                modal({
+                    icon: '🍽️',
+                    title: 'Order on the Spot',
+                    body: '<div class="mdl-text">No need to choose now — our restaurant team will take your order directly tomorrow morning, <b>07:00–10:00</b>.</div>',
+                    actions: [
+                        { label: 'Yes, order on the spot', cls: 'p', fn: function() { submit(true); } },
+                        { label: 'Cancel', cls: 'g' }
+                    ]
+                });
+            });
+            $('mdl').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
             load();
         })();

@@ -44,6 +44,21 @@ if (!function_exists('bf_drink_kind')) {
     }
 }
 
+if (!function_exists('bf_kid_menu_ids')) {
+    /**
+     * ID menu anak (< 7 th): menu berkategori 'kids' di Setting Breakfast.
+     * Bila belum ada menu Kids, pakai menu bernama pancake / waffle.
+     */
+    function bf_kid_menu_ids($db): array
+    {
+        $rows = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND category = 'kids' ORDER BY menu_name") ?: [];
+        if (!$rows) {
+            $rows = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND (LOWER(menu_name) LIKE '%pancake%' OR LOWER(menu_name) LIKE '%waff%' OR LOWER(menu_name) LIKE '%wafel%') ORDER BY menu_name") ?: [];
+        }
+        return array_values(array_unique(array_map('intval', array_column($rows, 'id'))));
+    }
+}
+
 if (!function_exists('bf_count_extra')) {
     /**
      * Hitung kelebihan jatah. Jatah per pax: 1 makanan + 1 jus + 1 kopi/teh; paket extra = makanan di luar jatah.
@@ -58,7 +73,7 @@ if (!function_exists('bf_count_extra')) {
             if (isset($it['is_free']) && (int)$it['is_free'] === 0) continue;
             $group = (string)($it['group'] ?? '');
             $qty = max(1, (int)($it['quantity'] ?? 1));
-            if ($group === 'child') {
+            if ($group === 'child' || strtolower(trim((string)($it['category'] ?? ''))) === 'kids') {
                 $sum['child'] += $qty;
                 continue;
             }

@@ -75,6 +75,9 @@ foreach (array_merge($freeMenus, $paidMenus) as $mx) {
         $defaultChildMenuIds[] = (int)$mx['id'];
     }
 }
+// Bila ada menu berkategori Kids, itulah menu anak.
+$kidCatIds = array_map(fn($m) => (int)$m['id'], array_filter(array_merge($freeMenus, $paidMenus), fn($m) => strtolower((string)($m['category'] ?? '')) === 'kids'));
+if ($kidCatIds) $defaultChildMenuIds = array_values($kidCatIds);
 
 // Get in-house guests WHO HAVE NOT ORDERED TODAY
 // Group by guest_id: one guest may have multiple bookings/rooms

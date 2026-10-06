@@ -215,10 +215,16 @@ elseif ($activeTab === 'room_types') {
 
 // ==================== BREAKFAST MENU MANAGEMENT ====================
 elseif ($activeTab === 'breakfast_menu') {
-    $deleteLocalImage = function ($path) {
+    $deleteLocalImage = function ($path) use ($pdo) {
         $path = trim((string)$path);
         if ($path === '' || strpos($path, 'http') === 0) {
             return;
+        }
+        try {
+            $st = $pdo->prepare("SELECT COUNT(*) FROM breakfast_menus WHERE image_url = ?");
+            $st->execute([$path]);
+            if ((int)$st->fetchColumn() > 1) return; // masih dipakai menu lain
+        } catch (Exception $e) {
         }
         $abs = BASE_PATH . '/' . ltrim($path, '/');
         if (is_file($abs)) {
@@ -343,7 +349,7 @@ elseif ($activeTab === 'breakfast_menu') {
             id INT PRIMARY KEY AUTO_INCREMENT,
             menu_name VARCHAR(100) NOT NULL,
             description TEXT,
-            category ENUM('western', 'indonesian', 'asian', 'drinks', 'beverages', 'extras') DEFAULT 'western',
+            category ENUM('western', 'indonesian', 'asian', 'drinks', 'beverages', 'extras', 'kids') DEFAULT 'western',
             price DECIMAL(10,2) DEFAULT 0.00,
             is_free BOOLEAN DEFAULT TRUE COMMENT 'TRUE = Free breakfast, FALSE = Extra/Paid',
             is_available BOOLEAN DEFAULT TRUE,
@@ -355,6 +361,16 @@ elseif ($activeTab === 'breakfast_menu') {
             INDEX idx_free (is_free)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     } catch (Exception $e) {
+    }
+
+    // Kategori Kids: menu khusus anak (< 7 th) di portal tamu.
+    try {
+        $bfCatCol = $pdo->query("SHOW COLUMNS FROM breakfast_menus LIKE 'category'")->fetch(PDO::FETCH_ASSOC);
+        if ($bfCatCol && stripos((string)$bfCatCol['Type'], 'enum(') === 0 && stripos((string)$bfCatCol['Type'], "'kids'") === false) {
+            $pdo->exec("ALTER TABLE breakfast_menus MODIFY category ENUM('western','indonesian','asian','drinks','beverages','extras','kids') DEFAULT 'western'");
+        }
+    } catch (Exception $e) {
+        error_log('breakfast_menus.category kids: ' . $e->getMessage());
     }
 
     // Penyajian menu (Hot / Ice) — label merah/biru di form order & portal tamu.
@@ -561,6 +577,18 @@ elseif ($activeTab === 'breakfast_menu') {
                 $stmt = $pdo->prepare("DELETE FROM breakfast_menus WHERE id=?");
                 $stmt->execute([$menuId]);
                 $message = "✓ Menu breakfast berhasil dihapus!";
+            } elseif ($_POST['action'] === 'copy_menu') {
+                $menuId = (int)($_POST['menu_id'] ?? 0);
+                $src = $db->fetchOne("SELECT * FROM breakfast_menus WHERE id = ? LIMIT 1", [$menuId]);
+                if (!$src) throw new Exception('Menu tidak ditemukan');
+                $newName = mb_substr($src['menu_name'] . ' (Copy)', 0, 100);
+                $pdo->prepare("INSERT INTO breakfast_menus (menu_name, description, category, price, is_free, is_available, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                    ->execute([$newName, $src['description'], $src['category'], $src['price'], $src['is_free'] ?? 1, $src['is_available'], $src['image_url']]);
+                $bfCopiedId = (int)$pdo->lastInsertId();
+                if ($bfHasServeTemp) {
+                    $pdo->prepare("UPDATE breakfast_menus SET serve_temp = ? WHERE id = ?")->execute([$src['serve_temp'] ?? null, $bfCopiedId]);
+                }
+                $message = '✓ Menu disalin sebagai "' . $newName . '" — ubah nama & detailnya di form edit.';
             } elseif ($_POST['action'] === 'toggle_availability') {
                 $stmt = $pdo->prepare("UPDATE breakfast_menus SET is_available = NOT is_available WHERE id=?");
                 $stmt->execute([$_POST['menu_id']]);
@@ -1555,6 +1583,7 @@ include '../../includes/header.php';
             'drinks'     => 'Drinks',
             'beverages'  => 'Drinks',
             'extras'     => 'Extra (Berbayar)',
+            'kids'       => 'Kids (< 7 th)',
         ];
         $bfGroups = [];
         foreach ($breakfastMenus as $bm) {
@@ -1637,6 +1666,11 @@ include '../../includes/header.php';
                                                 <div class="bfs-actions">
                                                     <button type="button" class="bfs-btn" onclick="editBreakfastMenu(<?php echo htmlspecialchars(json_encode($menu)); ?>)">Edit</button>
                                                     <form method="POST">
+                                                        <input type="hidden" name="action" value="copy_menu">
+                                                        <input type="hidden" name="menu_id" value="<?php echo (int)$menu['id']; ?>">
+                                                        <button type="submit" class="bfs-btn" title="Salin menu ini">Copy</button>
+                                                    </form>
+                                                    <form method="POST">
                                                         <input type="hidden" name="action" value="delete_menu">
                                                         <input type="hidden" name="menu_id" value="<?php echo (int)$menu['id']; ?>">
                                                         <button type="submit" class="bfs-btn del" onclick="return confirm('Hapus menu <?php echo htmlspecialchars(addslashes($menu['menu_name']), ENT_QUOTES); ?>?')">Hapus</button>
@@ -1672,6 +1706,7 @@ include '../../includes/header.php';
                                 <option value="asian">Asian</option>
                                 <option value="drinks">Drinks</option>
                                 <option value="extras">Extra (Berbayar)</option>
+                                <option value="kids">Kids (&lt; 7 th, gratis)</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -1742,6 +1777,14 @@ include '../../includes/header.php';
                 <button type="submit" class="btn btn-success">Simpan Teks Portal</button>
             </form>
         </details>
+        <?php
+        $bfCopiedMenu = null;
+        foreach ($breakfastMenus as $bm) {
+            if (!empty($bfCopiedId) && (int)$bm['id'] === $bfCopiedId) $bfCopiedMenu = $bm;
+        }
+        if ($bfCopiedMenu): ?>
+            <script>document.addEventListener('DOMContentLoaded', function() { editBreakfastMenu(<?php echo json_encode($bfCopiedMenu, JSON_HEX_TAG | JSON_HEX_AMP); ?>); });</script>
+        <?php endif; ?>
 
     <?php endif; ?>
 
@@ -2236,6 +2279,7 @@ include '../../includes/header.php';
                         <option value="asian">🍜 Asian</option>
                         <option value="drinks">🥤 Drinks</option>
                         <option value="extras">➕ Extra (Berbayar)</option>
+                        <option value="kids">🧒 Kids (&lt; 7 th, gratis)</option>
                     </select>
                 </div>
 

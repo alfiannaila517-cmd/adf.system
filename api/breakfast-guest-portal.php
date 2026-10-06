@@ -508,7 +508,7 @@ if ($action === 'save_setup' || $action === 'send_wa') {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($body['booking_ids'] ?? [])))));
         $pax = max(1, min(60, (int)($body['pax'] ?? 1)));
         $kids = max(0, min(30, (int)($body['kids'] ?? 0)));
-        $kidMenuIds = array_map('intval', array_column($db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND (LOWER(menu_name) LIKE '%pancake%' OR LOWER(menu_name) LIKE '%waff%' OR LOWER(menu_name) LIKE '%wafel%') ORDER BY menu_name") ?: [], 'id'));
+        $kidMenuIds = bf_kid_menu_ids($db);
         if (!$ids) {
             echo json_encode(['success' => false, 'message' => 'Booking tidak ditemukan']);
             exit;
@@ -604,13 +604,8 @@ if ($action === 'create_link') {
         return $v > 0;
     }));
 
-    if ($maxChild > 0 && count($childMenuIds) === 0) {
-        $fallbackKids = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND (LOWER(menu_name) LIKE '%pancake%' OR LOWER(menu_name) LIKE '%waff%' OR LOWER(menu_name) LIKE '%wafel%') ORDER BY menu_name") ?: [];
-        foreach ($fallbackKids as $fk) {
-            $id = (int)($fk['id'] ?? 0);
-            if ($id > 0) $childMenuIds[] = $id;
-        }
-        $childMenuIds = array_values(array_unique($childMenuIds));
+    if ($maxChild > 0) {
+        $childMenuIds = bf_kid_menu_ids($db);
     }
 
     if ($guestName === '') {
@@ -802,18 +797,8 @@ if ($action === 'get_link') {
         $menuMap[(int)$m['id']] = $m;
     }
 
-    $childIds = json_decode($link['child_menu_ids'] ?? '[]', true);
-    if (!is_array($childIds)) $childIds = [];
-    $childIds = array_values(array_unique(array_map('intval', $childIds)));
-
-    if (count($childIds) === 0 && (int)($link['max_child'] ?? 0) > 0) {
-        $fallbackKids = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND (LOWER(menu_name) LIKE '%pancake%' OR LOWER(menu_name) LIKE '%waff%' OR LOWER(menu_name) LIKE '%wafel%') ORDER BY menu_name") ?: [];
-        foreach ($fallbackKids as $fk) {
-            $id = (int)($fk['id'] ?? 0);
-            if ($id > 0) $childIds[] = $id;
-        }
-        $childIds = array_values(array_unique($childIds));
-    }
+    // Menu anak selalu mengikuti Setting Breakfast (kategori Kids) saat ini.
+    $childIds = (int)($link['max_child'] ?? 0) > 0 ? bf_kid_menu_ids($db) : [];
 
     $childMenus = [];
     foreach ($childIds as $id) {
@@ -866,6 +851,7 @@ if ($action === 'get_link') {
         if ($isLocked) {
             $m['pre_selected'] = in_array($menuId, $selectedMainIds, true) || in_array($menuId, $selectedDrinkIds, true) || in_array($menuId, $selectedChildIds, true);
         }
+        if (strtolower((string)($m['category'] ?? '')) === 'kids') continue; // hanya di bagian For Kids
         if (in_array($menuId, $childIds, true) && !in_array($menuNameLower, $alwaysMainNames, true)) continue;
         if (in_array(strtolower($m['category'] ?? ''), $drinkCategories, true)) {
             $m['drink_kind'] = bf_drink_kind((string)$m['menu_name']);
@@ -1124,9 +1110,7 @@ if ($action === 'submit_link') {
         $extraDrinkCount = max(0, $sumDrinkQty - $maxDrink);
         $extraChildCount = max(0, $sumChildQty - $maxChild);
 
-        $allowedChild = json_decode($link['child_menu_ids'] ?? '[]', true);
-        if (!is_array($allowedChild)) $allowedChild = [];
-        $allowedChild = array_values(array_unique(array_map('intval', $allowedChild)));
+        $allowedChild = $maxChild > 0 ? bf_kid_menu_ids($db) : [];
 
         foreach ($selectedChild as $id) {
             if (!in_array($id, $allowedChild, true)) {
