@@ -705,6 +705,15 @@ body[data-theme] .main-content .bf-wrap .bf-textarea::placeholder {
     opacity: 0.8;
 }
 
+/* Sarapan: keterangan kecil di label (mis. "otomatis dari menu") */
+body[data-theme] .main-content .bf-wrap .bf-label-note {
+    margin-left: 0.3rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--fd-accent-text) !important;
+}
+
 /* Sarapan: pilihan per menu (Free / Extra BF) — tampil saat menu dicentang */
 body[data-theme] .main-content .bf-wrap .bf-menu-opts {
     display: none;

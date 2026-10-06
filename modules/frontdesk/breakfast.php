@@ -1186,7 +1186,7 @@ include '../../includes/header.php';
                     <div class="bf-title">⏰ Waktu & Detail</div>
                     <div class="bf-row">
                         <div class="bf-group">
-                            <label class="bf-label">Jumlah Pax *</label>
+                            <label class="bf-label">Jumlah Pax * <span class="bf-label-note">otomatis dari menu</span></label>
                             <input type="number" name="total_pax" id="totalPax" class="bf-input" min="1" max="20" required value="<?php echo $editOrder ? (int)$editOrder['total_pax'] : ''; ?>">
                         </div>
                         <div class="bf-group">
@@ -1221,7 +1221,7 @@ include '../../includes/header.php';
                                 <?php foreach ($freeMenus as $m): ?>
                                     <div class="bf-menu-item">
                                         <label class="bf-menu-cb">
-                                            <input type="checkbox" name="menu_items[]" value="<?php echo $m['id']; ?>" <?php echo in_array($m['id'], $editMenuIds) ? 'checked' : ''; ?>>
+                                            <input type="checkbox" name="menu_items[]" value="<?php echo $m['id']; ?>" data-cat="<?php echo htmlspecialchars(strtolower((string)$m['category'])); ?>" <?php echo in_array($m['id'], $editMenuIds) ? 'checked' : ''; ?>>
                                             <div>
                                                 <div class="bf-menu-name"><?php echo htmlspecialchars($m['menu_name']); ?></div>
                                                 <span class="bf-menu-cat" data-cat="<?php echo htmlspecialchars(strtolower((string)$m['category'])); ?>"><?php echo htmlspecialchars((string)$m['category']); ?></span>
@@ -1256,7 +1256,7 @@ include '../../includes/header.php';
                                 <?php foreach ($paidMenus as $m): ?>
                                     <div class="bf-menu-item">
                                         <label class="bf-menu-cb">
-                                            <input type="checkbox" name="menu_items[]" value="<?php echo $m['id']; ?>" <?php echo in_array($m['id'], $editMenuIds) ? 'checked' : ''; ?>>
+                                            <input type="checkbox" name="menu_items[]" value="<?php echo $m['id']; ?>" data-cat="<?php echo htmlspecialchars(strtolower((string)$m['category'])); ?>" <?php echo in_array($m['id'], $editMenuIds) ? 'checked' : ''; ?>>
                                             <div>
                                                 <div class="bf-menu-name"><?php echo htmlspecialchars($m['menu_name']); ?></div>
                                                 <div class="bf-menu-price">Rp <?php echo number_format($m['price'], 0, ',', '.'); ?></div>
@@ -1539,6 +1539,28 @@ include '../../includes/header.php';
 
         closeGuestSetup();
     }
+
+    // Jumlah pax otomatis dari menu: total qty makanan (1 tamu = 1 makanan); bila hanya minuman,
+    // pakai total qty minuman. Tetap bisa diubah manual setelahnya.
+    function bfAutoPax() {
+        var food = 0,
+            drink = 0;
+        document.querySelectorAll('input[name="menu_items[]"]:checked').forEach(function(cb) {
+            var q = document.querySelector('input[name="menu_qty[' + cb.value + ']"]');
+            var qty = q ? (parseInt(q.value) || 1) : 1;
+            var cat = cb.dataset.cat || '';
+            if (cat === 'drinks' || cat === 'drink' || cat === 'beverages' || cat === 'beverage') drink += qty;
+            else if (cat !== 'extras') food += qty;
+        });
+        var pax = food > 0 ? food : drink;
+        var el = document.getElementById('totalPax');
+        if (el) el.value = pax > 0 ? pax : '';
+    }
+    document.querySelectorAll('input[name="menu_items[]"]').forEach(function(cb) {
+        cb.addEventListener('change', bfAutoPax);
+        var q = document.querySelector('input[name="menu_qty[' + cb.value + ']"]');
+        if (q) q.addEventListener('input', bfAutoPax);
+    });
 
     // Collect common form data (menu, time, pax, etc)
     function collectFormData() {
