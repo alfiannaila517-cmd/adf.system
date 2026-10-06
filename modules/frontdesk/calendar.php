@@ -19,6 +19,8 @@ $auth = new Auth();
 $auth->requireLogin();
 
 $db = Database::getInstance();
+require_once __DIR__ . '/../../includes/BookingSourceHelper.php';
+bs_ensure_schema($db->getConnection());
 $currentUser = $auth->getCurrentUser();
 
 if (!$auth->hasPermission('frontdesk')) {

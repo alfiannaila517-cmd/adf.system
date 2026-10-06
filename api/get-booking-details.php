@@ -20,6 +20,8 @@ try {
 
     $db = Database::getInstance();
     $conn = $db->getConnection();
+    require_once __DIR__ . '/../includes/BookingSourceHelper.php';
+    bs_ensure_schema($conn);
 
     $bookingId = intval($_GET['id'] ?? 0);
 
@@ -91,9 +93,10 @@ try {
 
     // Determine the correct booking source
     // Priority: ota_source_detail > booking_source > default to walk_in
-    if (!empty($booking['ota_source_detail'])) {
-        // If OTA source detail exists (e.g., 'Traveloka', 'Booking.com'), use it
-        $booking['booking_source'] = $booking['ota_source_detail'];
+    // booking_source adalah sumber utama; ota_source_detail hanya dipakai untuk data lama bernilai 'ota'.
+    $rawSrc = strtolower(trim((string)($booking['booking_source'] ?? '')));
+    if (($rawSrc === 'ota' || $rawSrc === '') && !empty($booking['ota_source_detail'])) {
+        $booking['booking_source'] = strtolower(trim($booking['ota_source_detail']));
     } elseif (!empty($booking['booking_source'])) {
         // If booking_source exists, use it as-is (e.g., 'ota', 'direct', 'phone')
         // But if it's just 'ota' without detail, we'll keep it as 'ota' to indicate it came from OTA

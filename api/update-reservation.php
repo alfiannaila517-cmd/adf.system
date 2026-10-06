@@ -80,6 +80,10 @@ try {
         throw new Exception('Booking not found');
     }
 
+    // Skema sumber booking (VARCHAR + normalisasi data lama). Sebelum transaksi: ALTER memicu commit.
+    require_once __DIR__ . '/../includes/BookingSourceHelper.php';
+    bs_ensure_schema($conn);
+
     // Allow editing confirmed, pending, checked_in, and checked_out bookings
     if (!in_array($booking['status'], ['confirmed', 'pending', 'checked_in', 'checked_out'])) {
         throw new Exception('Cannot edit cancelled reservations');
@@ -311,44 +315,21 @@ try {
     $mainRows = $stmt->rowCount();
     error_log("Rows affected: " . $mainRows);
 
-    // Update booking_source with OTA detail tracking
-    // booking_source = ENUM('walk_in','phone','online','ota')
-    // ota_source_detail = store the actual OTA (agoda, booking, traveloka, etc)
-    $formSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
-
-    // Map OTA sources (agoda, booking, ctrip, etc) -> 'ota' + store detail
-    $otaSources = ['agoda', 'booking', 'booking.com', 'ctrip', 'expedia', 'airbnb', 'traveloka', 'ota'];
-    $isOTA = in_array(strtolower($formSource), array_map('strtolower', $otaSources));
-    $intendedSource = $isOTA ? 'ota' : $formSource;
-    $otaSourceDetail = $isOTA ? strtolower($formSource) : null;
-
-    error_log("🔍 SOURCE MAPPING: formSource='$formSource' → source='$intendedSource', detail='$otaSourceDetail'");
+    // Sumber booking disimpan apa adanya (source_key: walk_in, agoda, tiket, ...) ke booking ini dan
+    // seluruh kamar dalam grupnya, agar kalender, Edit Booking, Reservasi & pembayaran membaca nilai yang sama.
+    $formSource = strtolower(trim($_POST['booking_source'] ?? $booking['booking_source']));
+    if ($formSource === 'other') $formSource = 'ota';
+    $intendedSource = $formSource;
 
     $standaloneRows = -1;
     $standaloneError = '';
-
-    if (!empty($intendedSource)) {
+    if ($intendedSource !== '') {
         try {
-            // UPDATE both booking_source and ota_source_detail
-            $srcSql = "UPDATE bookings SET booking_source = ?, ota_source_detail = ? WHERE id = ?";
-            $srcStmt = $conn->prepare($srcSql);
-            $srcStmt->execute([$intendedSource, $otaSourceDetail, $bookingId]);
-            $standaloneRows = $srcStmt->rowCount();
-            error_log("✅ UPDATE booking_source: rows = " . $standaloneRows);
-            error_log("   SQL: " . $srcSql);
-            error_log("   Params: source='" . $intendedSource . "', detail='" . $otaSourceDetail . "', id=" . $bookingId);
-
-            // Verify in database
-            $verifyStmt = $conn->prepare("SELECT booking_source, ota_source_detail FROM bookings WHERE id = ?");
-            $verifyStmt->execute([$bookingId]);
-            $verifyRow = $verifyStmt->fetch(PDO::FETCH_ASSOC);
-            error_log("✅ VERIFICATION: source='" . $verifyRow['booking_source'] . "', detail='" . $verifyRow['ota_source_detail'] . "'");
+            $standaloneRows = bs_set_source($conn, $bookingId, $intendedSource);
         } catch (Exception $se) {
             $standaloneError = $se->getMessage();
-            error_log("❌ UPDATE ERROR: " . $standaloneError);
+            error_log("update-reservation booking_source: " . $standaloneError);
         }
-    } else {
-        error_log("⚠️ UPDATE skipped: intendedSource is empty");
     }
 
     // VERIFY: Re-read FULL row from database

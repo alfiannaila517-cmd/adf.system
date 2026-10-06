@@ -21,6 +21,8 @@ if (!$auth->hasPermission('frontdesk')) {
 
 $db = Database::getInstance();
 $pdo = $db->getConnection();
+require_once __DIR__ . '/../../includes/BookingSourceHelper.php';
+bs_ensure_schema($db->getConnection());
 $bookingId = $_GET['id'] ?? null;
 
 if (!$bookingId) {
@@ -46,6 +48,13 @@ if (!$booking) {
     header('Location: reservasi.php');
     exit;
 }
+
+// Sumber booking efektif (data lama: 'ota' + nama OTA di ota_source_detail).
+$curSource = strtolower(trim((string)($booking['booking_source'] ?? '')));
+if (($curSource === 'ota' || $curSource === '') && !empty($booking['ota_source_detail'])) {
+    $curSource = strtolower(trim((string)$booking['ota_source_detail']));
+}
+$booking['booking_source'] = $curSource !== '' ? $curSource : 'walk_in';
 
 // Detect group booking - fetch all rooms in the group
 $groupBookings = [];
@@ -995,6 +1004,9 @@ include '../../includes/header.php';
                                                 </option>
                                             <?php endforeach; ?>
                                         </optgroup>
+                                        <?php if (!in_array($booking['booking_source'], array_column($bookingSources, 'source_key'), true)): ?>
+                                            <option value="<?php echo htmlspecialchars($booking['booking_source']); ?>" selected><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $booking['booking_source']))); ?></option>
+                                        <?php endif; ?>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -1052,6 +1064,9 @@ include '../../includes/header.php';
                                                 </option>
                                             <?php endforeach; ?>
                                         </optgroup>
+                                        <?php if (!in_array($booking['booking_source'], array_column($bookingSources, 'source_key'), true)): ?>
+                                            <option value="<?php echo htmlspecialchars($booking['booking_source']); ?>" selected><?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $booking['booking_source']))); ?></option>
+                                        <?php endif; ?>
                                     </select>
                                 </div>
                                 <div class="form-group">
