@@ -19,6 +19,11 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
     echo 'Akses ditolak.';
     exit;
 }
+// Khusus Gudang Nasita: bisnis lain tidak boleh membuka halaman ini (mis. lewat URL langsung).
+if (!defined('ACTIVE_BUSINESS_ID') || ACTIVE_BUSINESS_ID !== 'gudang-nasita') {
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
 
 $db = Database::getInstance();
 $pageTitle = 'Logo Perusahaan';
