@@ -130,22 +130,15 @@ try {
 // Map Extra Breakfast (over-quota) per room number for today — used to flag orders
 $extraByRoom = [];
 try {
-    $exStmt = $pdo->prepare("
-        SELECT be.booking_id, r.room_number,
-               COALESCE(SUM(be.total_price), 0) as extra_total
-        FROM booking_extras be
-        LEFT JOIN bookings b ON be.booking_id = b.id
-        LEFT JOIN rooms r ON b.room_id = r.id
-        WHERE be.item_name = 'Extra Breakfast'
-          AND (be.notes LIKE ? OR DATE(be.created_at) = ?)
-        GROUP BY be.booking_id, r.room_number
-    ");
-    $exStmt->execute(['%date=' . $today . '%', $today]);
+    // Tagihan Extra Breakfast = invoice Hotel Service dengan penanda [BF-EXTRA …] dan rooms=… di catatan.
+    $exStmt = $pdo->prepare("SELECT total, notes FROM hotel_invoices WHERE notes LIKE ? AND status <> 'cancelled'");
+    $exStmt->execute(['%[BF-EXTRA%date=' . $today . '%']);
     foreach ($exStmt->fetchAll(PDO::FETCH_ASSOC) as $ex) {
-        $rn = (string)($ex['room_number'] ?? '');
-        if ($rn !== '') {
-            $extraByRoom[$rn] = ($extraByRoom[$rn] ?? 0) + (float)$ex['extra_total'];
-        }
+        if (!preg_match('/rooms=([^ ]*)/', (string)$ex['notes'], $mm)) continue;
+        $rs = array_values(array_filter(explode(',', $mm[1])));
+        if (!$rs) continue;
+        // Dibagi rata agar total per order tetap benar walau order punya beberapa kamar.
+        foreach ($rs as $rn) $extraByRoom[$rn] = ($extraByRoom[$rn] ?? 0) + (float)$ex['total'] / count($rs);
     }
 } catch (Exception $e) {
 }
@@ -1672,7 +1665,7 @@ include '../../includes/header.php';
                         ?>
                         <div class="bf-order-room">🛏️ Room <?php echo htmlspecialchars($roomStr); ?></div>
                         <?php if ($extraAmt > 0): ?>
-                            <div class="bf-order-extra-badge">⚠️ Extra Breakfast: Rp <?php echo number_format($extraAmt, 0, ',', '.'); ?> <span>(tagih saat check-out)</span></div>
+                            <div class="bf-order-extra-badge">⚠️ Extra Breakfast: Rp <?php echo number_format($extraAmt, 0, ',', '.'); ?> <span>(invoice Hotel Service)</span></div>
                         <?php endif; ?>
                         <div class="bf-order-room"><?php echo ($order['location'] ?? 'restaurant') === 'restaurant' ? '🍽️ Restaurant' : (($order['location'] ?? '') === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></div>
                         <div class="bf-order-menus">
@@ -2368,7 +2361,7 @@ include '../../includes/header.php';
         document.getElementById('guestSetupTitle').textContent = 'Setup: ' + (cb.dataset.name || 'Guest');
         document.getElementById('setupPax').value = parseInt(cb.dataset.pax || '1', 10) || 1;
         document.getElementById('setupHint').textContent = 'Room ' + (cb.dataset.rooms || '-').replace(/,/g, ', ') +
-            '. 1 pax = 1 makanan + 1 minuman. Pilihan di luar jatah ditagih Rp 82.500 per paket saat check-out.';
+            '. 1 pax = 1 makanan + 1 jus + 1 kopi/teh. Pilihan di luar jatah ditagih Rp 82.500 per paket lewat invoice Hotel Service.';
         document.getElementById('guestSetupModal').classList.add('show');
         setTimeout(function() { document.getElementById('setupPax').select(); }, 50);
     }
@@ -2439,7 +2432,7 @@ include '../../includes/header.php';
                 child_young_count: 0,
                 total_pax: c.pax,
                 max_main: c.pax,
-                max_drink: c.pax,
+                max_drink: c.pax * 2,
                 max_child: 0,
                 expire_hours: 24
             })

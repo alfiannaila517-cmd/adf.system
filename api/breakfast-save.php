@@ -110,32 +110,15 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
         }
     }
 
-    $sumMain = 0;
-    $sumDrink = 0;
-    $forcedMain = 0;  // item yang ditandai "Extra BF" oleh front desk
-    $forcedDrink = 0;
-    foreach ($menuItems as $mi) {
-        $mid = (int)($mi['menu_id'] ?? 0);
-        $qty = max(1, (int)($mi['quantity'] ?? 1));
-        $cat = strtolower(trim((string)($mi['category'] ?? '')));
-        $isDrink = ($cat === 'drinks' || $cat === 'beverages');
-        if (!empty($mi['is_extra'])) {
-            if ($isDrink) $forcedDrink += $qty; else $forcedMain += $qty;
-            continue;
-        }
-        if ($mid > 0 && isset($childIds[$mid])) continue; // kids menu = free
-        if ($isDrink) {
-            $sumDrink += $qty;
-        } else {
-            $sumMain += $qty;
-        }
-    }
-
-    // Tanpa data jatah, hanya item Extra BF yang ditagih (tarif default).
-    $extraMain = ($foundQuota ? max(0, $sumMain - $maxMain) : 0) + $forcedMain;
-    $extraDrink = ($foundQuota ? max(0, $sumDrink - $maxDrink) : 0) + $forcedDrink;
-    // Harga per paket (1 makanan + 1 minuman di luar jatah).
-    $charge = bf_extra_packages($extraMain, $extraDrink) * bf_extra_package_price($db);
+    // Jatah per pax: 1 makanan + 1 jus + 1 kopi/teh (BreakfastHelper). Tanpa data jatah: tidak ditagih.
+    $cnt = bf_count_extra(array_filter($menuItems, function ($mi) use ($childIds) {
+        return !((int)($mi['menu_id'] ?? 0) > 0 && isset($childIds[(int)$mi['menu_id']]));
+    }), $maxMain);
+    $packages = $foundQuota ? $cnt['packages'] : 0;
+    $extraMain = $foundQuota ? $cnt['extra']['main'] : 0;
+    $extraDrink = $foundQuota ? ($cnt['extra']['juice'] + $cnt['extra']['coffee']) : 0;
+    $charge = $packages * bf_extra_package_price($db);
+    $result['packages'] = $packages;
 
     $result['charge'] = (float)$charge;
     $result['extra_main'] = $extraMain;
@@ -152,52 +135,25 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
 function bf_save_extra($pdo, $db, $bookingId, $breakfastDate, array $extra, $orderId, $userId, array $rooms = [])
 {
     $bookingId = (int)$bookingId;
-    if ($bookingId <= 0) return;
-
-    // Ensure table exists (front desk DBs may not have it yet).
+    // Data tamu untuk invoice Hotel Service.
+    $guest = $bookingId > 0 ? $db->fetchOne("SELECT g.guest_name, g.phone FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id WHERE b.id = ?", [$bookingId]) : null;
+    bf_sync_extra_invoice($db, $pdo, [
+        'booking_id' => $bookingId,
+        'guest_name' => (string)($guest['guest_name'] ?? 'Guest'),
+        'guest_phone' => (string)($guest['phone'] ?? ''),
+        'rooms' => $rooms,
+        'date' => $breakfastDate,
+        'packages' => (int)($extra['packages'] ?? 0),
+        'ref' => 'order=' . (int)$orderId,
+        'created_by' => $userId,
+    ]);
+    // Baris lama di booking_extras (sebelum tagihan pindah ke Hotel Service) dihapus agar tidak dobel.
     try {
-        $pdo->exec("CREATE TABLE IF NOT EXISTS booking_extras (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            booking_id INT NOT NULL,
-            item_name VARCHAR(150) NOT NULL,
-            quantity INT NOT NULL DEFAULT 1,
-            unit_price DECIMAL(12,2) NOT NULL DEFAULT 0,
-            total_price DECIMAL(12,2) NOT NULL DEFAULT 0,
-            notes TEXT NULL,
-            created_by INT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    } catch (Exception $e) { /* ignore */
-    }
-
-    $marker = 'order=' . (int)$orderId;
-    $existing = $db->fetchOne(
-        "SELECT id FROM booking_extras WHERE booking_id = ? AND item_name = 'Extra Breakfast' AND notes LIKE ? LIMIT 1",
-        [$bookingId, '%front desk ' . $marker . '%']
-    );
-
-    $charge = (float)$extra['charge'];
-    if ($charge <= 0) {
-        // No (longer any) over-quota charge -> remove stale line if present.
-        if (!empty($existing['id'])) {
-            $pdo->prepare("DELETE FROM booking_extras WHERE id = ?")->execute([(int)$existing['id']]);
+        if ($bookingId > 0) {
+            $pdo->prepare("DELETE FROM booking_extras WHERE booking_id = ? AND item_name = 'Extra Breakfast' AND notes LIKE ?")
+                ->execute([$bookingId, '%front desk order=' . (int)$orderId . ')%']);
         }
-        return;
-    }
-
-    $label = [];
-    if ($extra['extra_main'] > 0) $label[] = 'main x' . $extra['extra_main'];
-    if ($extra['extra_drink'] > 0) $label[] = 'drink x' . $extra['extra_drink'];
-    $roomTxt = count($rooms) ? ' room=' . implode(',', $rooms) : '';
-    $notes = 'Auto extra breakfast (front desk ' . $marker . ') [' . implode(', ', $label) . ']' . $roomTxt . ' date=' . $breakfastDate;
-
-    if (!empty($existing['id'])) {
-        $pdo->prepare("UPDATE booking_extras SET quantity = 1, unit_price = ?, total_price = ?, notes = ? WHERE id = ?")
-            ->execute([$charge, $charge, $notes, (int)$existing['id']]);
-    } else {
-        $pdo->prepare("INSERT INTO booking_extras (booking_id, item_name, quantity, unit_price, total_price, notes, created_by)
-            VALUES (?, 'Extra Breakfast', 1, ?, ?, ?, ?)")
-            ->execute([$bookingId, $charge, $charge, $notes, $userId]);
+    } catch (\Throwable $e) {
     }
 }
 

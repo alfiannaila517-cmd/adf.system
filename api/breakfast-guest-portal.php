@@ -521,7 +521,7 @@ if ($action === 'save_setup' || $action === 'send_wa') {
                 extra_main_price = VALUES(extra_main_price), extra_drink_price = 0, extra_child_price = 0, updated_at = NOW()");
         foreach ($ids as $i => $bid) {
             $p = $i === 0 ? $pax : 0;
-            $stmt->execute([$bid, $p, $p, $p, $p, $price, $_SESSION['user_id'] ?? null]);
+            $stmt->execute([$bid, $p, $p, $p, $p * 2, $price, $_SESSION['user_id'] ?? null]);
         }
         echo json_encode(['success' => true, 'pax' => $pax]);
         exit;
@@ -865,6 +865,7 @@ if ($action === 'get_link') {
         }
         if (in_array($menuId, $childIds, true) && !in_array($menuNameLower, $alwaysMainNames, true)) continue;
         if (in_array(strtolower($m['category'] ?? ''), $drinkCategories, true)) {
+            $m['drink_kind'] = bf_drink_kind((string)$m['menu_name']);
             $drinkMenus[] = $m;
         } else {
             $mainMenus[] = $m;
@@ -1313,9 +1314,20 @@ if ($action === 'submit_link') {
             }
         }
 
-        // Extra Breakfast per paket (1 makanan + 1 minuman di luar jatah).
-        $extraPackages = bf_extra_packages($extraMainCount, $extraDrinkCount);
+        // Extra Breakfast per paket: jatah per pax 1 makanan + 1 jus + 1 kopi/teh.
+        $bfCnt = bf_count_extra($menuItems, $maxMain);
+        $extraPackages = $onTheSpot ? 0 : $bfCnt['packages'];
+        $extraMainCount = $bfCnt['extra']['main'];
+        $extraDrinkCount = $bfCnt['extra']['juice'] + $bfCnt['extra']['coffee'];
+        $extraChildCount = 0;
         $extraChargeTotal = $extraPackages * bf_extra_package_price($db);
+        // Tanda "extra" per item dari perhitungan lama dibuang; total order = menu berbayar saja.
+        $totalPrice = 0;
+        foreach ($menuItems as &$mi) {
+            unset($mi['is_extra'], $mi['extra_base_price']);
+            if (empty($mi['is_free']) && empty($mi['is_on_the_spot'])) $totalPrice += (float)$mi['price'] * (int)$mi['quantity'];
+        }
+        unset($mi);
 
         $guestName = $link['guest_name'];
         $breakfastDate = $link['breakfast_date'];
@@ -1428,37 +1440,17 @@ if ($action === 'submit_link') {
             }
         }
 
-        if (($extraMainCount > 0 || $extraDrinkCount > 0 || $extraChildCount > 0) && $targetBookingId > 0 && $extraChargeTotal > 0) {
-            $extraLabel = ['package x' . $extraPackages . ' (main+' . $extraMainCount . ', drink+' . $extraDrinkCount . ')'];
-            // Kids/child portion is free - not added to the charge label.
-            $extraNotes = 'Auto extra from guest portal [' . implode(', ', $extraLabel) . '] token=' . ($link['short_code'] ?? $token) . ' date=' . $breakfastDate;
-
-            // Prevent duplicate extra rows for the same link token: update if exists, else insert.
-            $existingExtra = $db->fetchOne(
-                "SELECT id FROM booking_extras WHERE booking_id = ? AND item_name = 'Extra Breakfast' AND notes LIKE ? LIMIT 1",
-                [$targetBookingId, '%token=' . ($link['short_code'] ?? $token) . '%']
-            );
-
-            if (!empty($existingExtra['id'])) {
-                $pdo->prepare("UPDATE booking_extras SET quantity = 1, unit_price = ?, total_price = ?, notes = ? WHERE id = ?")
-                    ->execute([
-                        (float)$extraChargeTotal,
-                        (float)$extraChargeTotal,
-                        $extraNotes,
-                        (int)$existingExtra['id']
-                    ]);
-            } else {
-                $pdo->prepare("INSERT INTO booking_extras (booking_id, item_name, quantity, unit_price, total_price, notes, created_by)
-                    VALUES (?, 'Extra Breakfast', 1, ?, ?, ?, NULL)")
-                    ->execute([
-                        $targetBookingId,
-                        (float)$extraChargeTotal,
-                        (float)$extraChargeTotal,
-                        $extraNotes
-                    ]);
-            }
-        }
-
+        // Tagihan Extra Breakfast -> invoice Hotel Service (belum lunas) atas nama tamu.
+        bf_sync_extra_invoice($db, $pdo, [
+            'booking_id' => $targetBookingId,
+            'guest_name' => $guestName,
+            'guest_phone' => (string)($link['guest_phone'] ?? ''),
+            'rooms' => is_array(json_decode((string)$roomJson, true)) ? json_decode((string)$roomJson, true) : [],
+            'date' => $breakfastDate,
+            'packages' => $extraPackages,
+            'ref' => 'link=' . ($link['short_code'] ?? substr($token, 0, 16)),
+            'created_by' => $createdBy ?: null,
+        ]);
         // ============================================================
         // CREATE INVOICE IN CASH_BOOK FOR PAID MENU ITEMS
         // Division: RESTO (id=2), Category: Moka

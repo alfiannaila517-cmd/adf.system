@@ -2,7 +2,7 @@
 /**
  * Guest breakfast portal (public, opened from the WhatsApp link).
  * Data: api/breakfast-guest-portal.php?action=get_link / submit_link.
- * Allowance: 1 pax = 1 main course + 1 beverage; anything above is an extra breakfast package.
+ * Allowance: 1 pax = 1 main course + 1 juice + 1 coffee or tea; anything above is an extra breakfast package.
  */
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
@@ -124,6 +124,7 @@ $token = trim((string)($_GET['t'] ?? ''));
 
         .allow div {
             flex: 1;
+            min-width: 0;
             padding: 8px 10px;
             border-radius: 10px;
             background: var(--gold-soft);
@@ -465,12 +466,20 @@ $token = trim((string)($_GET['t'] ?? ''));
                 <div class="list" id="mainList"></div>
             </section>
 
-            <section class="sec" id="drinkSec">
+            <section class="sec" id="juiceSec">
                 <div class="sec-head">
-                    <h2>Beverages</h2>
-                    <div class="sec-count" id="drinkCount"></div>
+                    <h2>Fresh Juice</h2>
+                    <div class="sec-count" id="juiceCount"></div>
                 </div>
-                <div class="list" id="drinkList"></div>
+                <div class="list" id="juiceList"></div>
+            </section>
+
+            <section class="sec" id="coffeeSec">
+                <div class="sec-head">
+                    <h2>Coffee &amp; Tea</h2>
+                    <div class="sec-count" id="coffeeCount"></div>
+                </div>
+                <div class="list" id="coffeeList"></div>
             </section>
 
             <section class="sec hidden" id="kidSec">
@@ -564,6 +573,14 @@ $token = trim((string)($_GET['t'] ?? ''));
                 return Object.keys(qty[group]).reduce(function(s, k) { return s + (qty[group][k] || 0); }, 0);
             }
 
+            // Jumlah porsi yang memakai jatah (menu berbayar ditagih terpisah).
+            function counted(group, list) {
+                return list.reduce(function(s, m) {
+                    var free = String(m.is_free) === '1' || m.is_free === true || m.is_free === 1 || !(parseFloat(m.price || 0) > 0);
+                    return s + (free ? (qty[group][String(m.id)] || 0) : 0);
+                }, 0);
+            }
+
             function renderGuest() {
                 var rooms = (data.room_number || []).join(', ');
                 var pax = parseInt(data.max_main || 0, 10);
@@ -572,10 +589,11 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '<div class="guest-sub">Room ' + esc(rooms || '-') + ' · Breakfast on ' + esc(fmtDate(data.breakfast_date)) + '</div>' +
                     '<div class="allow">' +
                     '<div><b>' + pax + '</b><span>Guests</span></div>' +
-                    '<div><b>' + pax + '</b><span>Main courses</span></div>' +
-                    '<div><b>' + parseInt(data.max_drink || 0, 10) + '</b><span>Beverages</span></div>' +
+                    '<div><b>' + pax + '</b><span>Main</span></div>' +
+                    '<div><b>' + pax + '</b><span>Juice</span></div>' +
+                    '<div><b>' + pax + '</b><span>Coffee / Tea</span></div>' +
                     '</div>' +
-                    '<div class="note-bar">Each guest enjoys 1 main course and 1 beverage. Additional breakfast: ' + rp(data.extra_package_price || 82500) + ' per package (1 main + 1 drink), charged to your room.</div>';
+                    '<div class="note-bar">Each guest enjoys 1 main course, 1 fresh juice and 1 coffee or tea. Additional breakfast: ' + rp(data.extra_package_price || 82500) + ' per package, added to your bill.</div>';
             }
 
             function itemRow(m, group) {
@@ -602,14 +620,16 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '</div></div>';
             }
 
-            var menus = { main: [], drink: [], child: [] };
+            var menus = { main: [], drink: [], juice: [], coffee: [], child: [] };
 
             function renderLists() {
                 var mains = menus.main.filter(function(m) { return mainFilter === 'all' || (m.category || '') === mainFilter; });
                 $('mainList').innerHTML = mains.map(function(m) { return itemRow(m, 'main'); }).join('') || '<div class="item"><div class="info desc">No menu in this category</div></div>';
-                $('drinkList').innerHTML = menus.drink.map(function(m) { return itemRow(m, 'drink'); }).join('');
+                $('juiceList').innerHTML = menus.juice.map(function(m) { return itemRow(m, 'drink'); }).join('');
+                $('coffeeList').innerHTML = menus.coffee.map(function(m) { return itemRow(m, 'drink'); }).join('');
                 $('kidList').innerHTML = menus.child.map(function(m) { return itemRow(m, 'child'); }).join('');
-                $('drinkSec').classList.toggle('hidden', !menus.drink.length);
+                $('juiceSec').classList.toggle('hidden', !menus.juice.length);
+                $('coffeeSec').classList.toggle('hidden', !menus.coffee.length);
                 $('kidSec').classList.toggle('hidden', !menus.child.length);
                 renderSummary();
             }
@@ -625,21 +645,21 @@ $token = trim((string)($_GET['t'] ?? ''));
 
             function renderSummary() {
                 var pax = parseInt(data.max_main || 0, 10);
-                var maxD = parseInt(data.max_drink || 0, 10);
-                var tm = total('main'), td = total('drink');
-                $('mainCount').innerHTML = '<b>' + tm + '</b> / ' + pax + ' included';
-                $('mainCount').classList.toggle('over', tm > pax);
-                $('drinkCount').innerHTML = '<b>' + td + '</b> / ' + maxD + ' included';
-                $('drinkCount').classList.toggle('over', td > maxD);
+                var tm = counted('main', menus.main), tj = counted('drink', menus.juice), tc = counted('drink', menus.coffee);
+                var td = total('drink');
+                [['mainCount', tm], ['juiceCount', tj], ['coffeeCount', tc]].forEach(function(p) {
+                    $(p[0]).innerHTML = '<b>' + p[1] + '</b> / ' + pax + ' included';
+                    $(p[0]).classList.toggle('over', p[1] > pax);
+                });
                 var kids = total('child');
                 $('kidCount').innerHTML = kids ? '<b>' + kids + '</b> selected' : 'Complimentary';
 
-                var packs = Math.max(0, tm - pax, td - maxD);
+                var packs = Math.max(0, tm - pax, tj - pax, tc - pax);
                 var price = parseFloat(data.extra_package_price || 82500);
                 var banner = $('extraBanner');
                 if (packs > 0) {
                     banner.innerHTML = '<b>' + packs + ' additional breakfast' + (packs > 1 ? 's' : '') + ' · ' + rp(packs * price) + '</b><br>' +
-                        'You selected more than your allowance. The extra will be added to your room bill (' + rp(price) + ' per package of 1 main + 1 drink).';
+                        'You selected more than your allowance. The extra will be added to your bill (' + rp(price) + ' per breakfast package).';
                     banner.classList.add('show');
                 } else {
                     banner.classList.remove('show');
@@ -717,6 +737,8 @@ $token = trim((string)($_GET['t'] ?? ''));
                     }
                     menus.main = data.main_menus || [];
                     menus.drink = data.drink_menus || [];
+                    menus.juice = menus.drink.filter(function(m) { return m.drink_kind === 'juice'; });
+                    menus.coffee = menus.drink.filter(function(m) { return m.drink_kind !== 'juice'; });
                     menus.child = data.child_menus || [];
                     $('pickArea').classList.remove('hidden');
                     $('bar').classList.remove('hidden');
@@ -809,7 +831,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     await load();
                     var extra = json.data && json.data.extra_total_price;
                     if (extra > 0) {
-                        $('notice').insertAdjacentHTML('afterbegin', '<div class="notice">Additional breakfast ' + rp(extra) + ' has been added to your room bill.</div>');
+                        $('notice').insertAdjacentHTML('afterbegin', '<div class="notice">Additional breakfast ' + rp(extra) + ' has been added to your bill. Please settle it at Front Office.</div>');
                     }
                 } catch (e) {
                     notice(esc(e.message), 'err');
