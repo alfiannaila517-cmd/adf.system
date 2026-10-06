@@ -27,14 +27,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
     header('Content-Type: application/json');
     $act = $_POST['ajax'];
     if ($act === 'status') {
-        $r = $wa->deviceStatus();
+        // Uji token yang sedang diketik (belum disimpan) bila ada; selain itu token tersimpan.
+        $typed = (string)($_POST['token'] ?? '');
+        $r = $wa->deviceStatus($typed);
         $d = $r['data'] ?? [];
         echo json_encode([
             'ok' => $r['ok'],
             'detail' => $r['detail'],
+            'source' => trim($typed) !== '' ? 'typed' : 'saved',
+            'saved' => $wa->isConfigured(),
+            'state' => $r['state'] ?? '',
             'device' => $d['device'] ?? '',
             'name' => $d['name'] ?? '',
-            'connected' => ($d['device_status'] ?? '') === 'connect',
+            'connected' => !empty($r['connected']),
             'package' => $d['package'] ?? '',
             'quota' => $d['quota'] ?? '',
             'expired' => $d['expired'] ?? '',
@@ -64,7 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $wa->saveSetting('wa_checkin_enabled', !empty($_POST['wa_checkin_enabled']) ? '1' : '0');
     $tpl = trim((string)($_POST['wa_checkin_template'] ?? ''));
     $wa->saveSetting('wa_checkin_template', $tpl === trim(WhatsAppHelper::DEFAULT_CHECKIN_TEMPLATE) ? '' : $tpl);
-    setFlash('success', 'Pengaturan WhatsApp tersimpan.');
+    // Pastikan token benar-benar tersimpan (INSERT bisa gagal diam-diam bila struktur tabel settings berbeda).
+    if ($token !== '' && !$wa->isConfigured()) {
+        setFlash('error', 'Token gagal disimpan ke database. Hubungi admin sistem (tabel settings).');
+    } else {
+        setFlash('success', 'Pengaturan WhatsApp tersimpan.');
+    }
     header('Location: whatsapp.php');
     exit;
 }
@@ -252,15 +262,17 @@ include '../../includes/header.php';
             st.textContent = 'Memeriksa koneksi…';
             sub.textContent = '';
             dot.className = 'wa-dot';
-            post({ ajax: 'status' }).then(r => {
+            const typed = document.getElementById('waToken').value.trim();
+            post({ ajax: 'status', token: typed }).then(r => {
+                const src = r.source === 'typed' ? ' (token yang diketik — klik Simpan Pengaturan untuk memakainya)' : '';
                 if (!r.ok) {
                     dot.className = 'wa-dot off';
-                    st.textContent = 'Tidak terhubung';
-                    sub.textContent = r.detail || '';
+                    st.textContent = 'Tidak terhubung' + src;
+                    sub.textContent = 'Penyebab: ' + (r.detail || 'tidak diketahui') + (!r.saved && r.source !== 'typed' ? ' · Token belum tersimpan — tempel token lalu klik Simpan Pengaturan.' : '');
                     return;
                 }
                 dot.className = 'wa-dot ' + (r.connected ? 'on' : 'off');
-                st.textContent = r.connected ? 'Terhubung · ' + (r.device || '') : 'Perangkat terputus — scan ulang QR di dashboard Fonnte';
+                st.textContent = (r.connected ? 'Terhubung · ' + (r.device || '') : 'Token benar, tetapi perangkat belum terhubung (status: ' + (r.state || '-') + ') — scan ulang QR di dashboard Fonnte') + src;
                 sub.textContent = [r.name, r.package && ('Paket ' + r.package), r.quota && ('Kuota ' + r.quota), r.expired && ('Aktif s/d ' + r.expired)].filter(Boolean).join(' · ');
             }).catch(() => { dot.className = 'wa-dot off'; st.textContent = 'Gagal memeriksa koneksi'; });
         }

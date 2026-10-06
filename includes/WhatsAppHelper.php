@@ -51,6 +51,9 @@ class WhatsAppHelper
 
     public function saveSetting(string $key, string $value): void
     {
+        if ($key === 'wa_token') {
+            $value = trim($value, " \t\n\r\0\x0B\"'");
+        }
         $exists = $this->db->fetchOne("SELECT id FROM settings WHERE setting_key = ?", [$key]);
         if ($exists) {
             $this->db->query("UPDATE settings SET setting_value = ? WHERE setting_key = ?", [$value, $key]);
@@ -104,9 +107,13 @@ class WhatsAppHelper
 
     /* ---------------- API Fonnte ---------------- */
 
-    private function request(string $path, array $fields, int $timeout = 25): array
+    private function request(string $path, array $fields, int $timeout = 25, ?string $tokenOverride = null): array
     {
-        $token = trim($this->settings()['wa_token']);
+        // Token: buang spasi / baris baru / tanda kutip yang ikut tersalin dari dashboard.
+        $token = trim($tokenOverride ?? $this->settings()['wa_token'], " \t\n\r\0\x0B\"'");
+        if (!function_exists('curl_init')) {
+            return ['ok' => false, 'detail' => 'Ekstensi PHP cURL tidak aktif di server (aktifkan di cPanel → Select PHP Version → Extensions)'];
+        }
         if ($token === '') {
             return ['ok' => false, 'detail' => 'Token WhatsApp belum diisi di Pengaturan WhatsApp'];
         }
@@ -125,11 +132,11 @@ class WhatsAppHelper
         curl_close($ch);
 
         if ($body === false) {
-            return ['ok' => false, 'detail' => 'Tidak bisa menghubungi WhatsApp gateway: ' . $err];
+            return ['ok' => false, 'detail' => 'Server tidak bisa menghubungi api.fonnte.com: ' . $err . ' — kemungkinan koneksi keluar diblokir hosting'];
         }
         $json = json_decode($body, true);
         if (!is_array($json)) {
-            return ['ok' => false, 'detail' => 'Respons gateway tidak dikenal (HTTP ' . $code . ')'];
+            return ['ok' => false, 'detail' => 'Respons gateway tidak dikenal (HTTP ' . $code . '): ' . mb_substr(trim(strip_tags((string)$body)), 0, 120)];
         }
         $ok = !empty($json['status']);
         $detail = $ok ? (string)($json['detail'] ?? 'OK') : (string)($json['reason'] ?? $json['detail'] ?? 'Gagal');
@@ -158,9 +165,14 @@ class WhatsAppHelper
         return $res;
     }
 
-    public function deviceStatus(): array
+    /** Status perangkat; $token = uji token yang belum disimpan. 'connected' sudah dinormalisasi. */
+    public function deviceStatus(?string $token = null): array
     {
-        return $this->request('/device', []);
+        $r = $this->request('/device', [], 25, $token !== null && trim($token) !== '' ? $token : null);
+        $state = strtolower(trim((string)($r['data']['device_status'] ?? '')));
+        $r['connected'] = $r['ok'] && in_array($state, ['connect', 'connected', 'online', 'open', 'ready'], true);
+        $r['state'] = $state;
+        return $r;
     }
 
     /** Daftar grup WhatsApp pada perangkat (refresh = minta Fonnte memperbarui dulu). */
