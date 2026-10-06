@@ -737,7 +737,44 @@ function toggleFullPay (checked) {
 }
 
 // ── Open/Close ────────────────────────────────────────────────────────────────
+// Aksi → Tambah Layanan: form yang sama, item digabung ke invoice terpilih.
+let hsAddTarget = null
+
+function hsSetAddMode (data) {
+  hsAddTarget = data || null
+  const modal = document.querySelector('#createModal .hsf-modal')
+  if (modal) modal.classList.toggle('hs-add-mode', !!data)
+  const head = document.querySelector('#createModal .hsf-head h3')
+  const sub = document.querySelector('#createModal .hsf-head small')
+  if (head) head.textContent = data ? 'Tambah Layanan' : 'New Service Invoice'
+  if (sub) sub.textContent = data ? 'Digabung ke invoice ' + data.no : 'Layanan tamu: mobil, motor, trip, laundry & lainnya'
+  const banner = document.getElementById('hsAddBanner')
+  if (banner) {
+    // Banner di bawah header; label Guest pertama disembunyikan pada mode tambah layanan
+    const headEl = document.querySelector('#createModal .hsf-head')
+    if (headEl && banner.previousElementSibling !== headEl) headEl.after(banner)
+    const gl = document.querySelector('#createModal .sect-label')
+    if (gl) gl.classList.add('hsf-guest-label')
+    banner.style.display = data ? '' : 'none'
+    banner.innerHTML = data ? 'Tamu: <b>' + escapeHtmlHs(data.guest) + '</b>' + (data.room ? ' · Kamar <b>' + escapeHtmlHs(data.room) + '</b>' : '') + '<br>Layanan di bawah ditambahkan ke invoice <b>' + escapeHtmlHs(data.no) + '</b> — tagihan tamu jadi satu. Pembayaran lewat Aksi → Bayar.' : ''
+  }
+  const btn = document.getElementById('createBtn')
+  if (btn) btn.textContent = data ? 'Tambah ke Invoice' : 'Create Invoice'
+}
+
+function openAddServiceModal (data) {
+  document.querySelectorAll('.hs-action-dropdown.open').forEach(d => d.classList.remove('open'))
+  openCreateModal()
+  setGuestMode('manual')
+  document.getElementById('fGuestName').value = data.guest || ''
+  document.getElementById('fPhone').value = data.phone || ''
+  document.getElementById('fRoom').value = data.room || ''
+  document.getElementById('fBookingId').value = data.booking || ''
+  hsSetAddMode(data)
+}
+
 function openCreateModal () {
+  hsSetAddMode(null)
   document.getElementById('createModal').classList.add('open')
   ;['fGuestName', 'fPhone', 'fRoom', 'fNotes'].forEach(id => {
     const e = document.getElementById(id)
@@ -762,6 +799,7 @@ function openCreateModal () {
 
 function closeCreateModal () {
   document.getElementById('createModal').classList.remove('open')
+  hsSetAddMode(null)
 }
 
 // ── Submit create ─────────────────────────────────────────────────────────────
@@ -867,6 +905,7 @@ function submitCreate () {
   fd.append('room_number', document.getElementById('fRoom').value.trim())
   fd.append('booking_id', document.getElementById('fBookingId').value || '')
   fd.append('items', JSON.stringify(items))
+  if (hsAddTarget) fd.append('target_invoice_id', hsAddTarget.id)
   fd.append('payment_method', document.getElementById('fPayMethod').value)
   fd.append('paid_amount', document.getElementById('fPaid').value || 0)
   fd.append('tax_rate', getTaxRate())
@@ -887,7 +926,7 @@ function submitCreate () {
       if (res.success) {
         closeCreateModal()
         const cbMsg = res.cashbook ? ' · tercatat di Buku Kas' : ''
-        hsAlert('Invoice ' + res.invoice_number + ' berhasil dibuat' + cbMsg, 'success').then(() => location.reload())
+        hsAlert(hsAddTarget ? 'Layanan ditambahkan ke invoice ' + res.invoice_number : 'Invoice ' + res.invoice_number + ' berhasil dibuat' + cbMsg, 'success').then(() => location.reload())
       } else {
         hsAlert('Error: ' + (res.message || 'Unknown'))
         btn.disabled = false
@@ -2219,6 +2258,8 @@ function hsPartnerCalc (card) {
 // Tampilkan blok mitra hanya untuk kategori Mobil.
 function hsSyncCard (card, fromUser) {
   const svc = card.querySelector('.iSvc').value
+  const qtyLabel = card.querySelector('.iQtyLabel')
+  if (qtyLabel) qtyLabel.textContent = svc === 'motor_rental' ? 'Jml Motor' : 'QTY'
   const cat = svcCategoryOf(svc)
   card.querySelector('.iCat').value = cat
   const block = card.querySelector('.hs-partner-extra')

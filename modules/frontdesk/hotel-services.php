@@ -801,7 +801,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             // Invoice number
             // Check if guest already has unpaid consolidated invoice, reuse it instead
             $existingInvId = null;
-            if ($bookingId) {
+            // Aksi → Tambah Layanan: item digabung ke invoice yang dipilih (pembayaran lewat tombol Bayar).
+            $targetInvId = (int)($_POST['target_invoice_id'] ?? 0);
+            if ($targetInvId > 0) {
+                $tStmt = $pdo->prepare("SELECT id, status, cashbook_synced FROM hotel_invoices WHERE id=? AND business_id=? LIMIT 1");
+                $tStmt->execute([$targetInvId, $businessId]);
+                $tRow = $tStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$tRow) throw new Exception('Invoice tujuan tidak ditemukan');
+                if ($tRow['status'] === 'cancelled') throw new Exception('Invoice sudah dibatalkan, tidak bisa ditambah layanan');
+                if ((int)$tRow['cashbook_synced'] === 1) throw new Exception('Invoice sudah diproses ke Buku Kas, buat invoice baru untuk layanan tambahan');
+                $existingInvId = (int)$tRow['id'];
+                $paidAmount = 0.0;
+            }
+            if (!$existingInvId && $bookingId) {
                 $existingStmt = $pdo->prepare("
                     SELECT id FROM hotel_invoices
                     WHERE business_id = ? AND booking_id = ?
@@ -3699,6 +3711,25 @@ include '../../includes/header.php';
         box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.8);
     }
 
+    /* Mode Tambah Layanan */
+    body[data-theme] .hsf-modal.hs-add-mode #hsCreateExtras,
+    body[data-theme] .hsf-modal.hs-add-mode .guest-toggle,
+    body[data-theme] .hsf-modal.hs-add-mode #inhouseSection,
+    body[data-theme] .hsf-modal.hs-add-mode #manualSection,
+    body[data-theme] .hsf-modal.hs-add-mode .hsf-guest-label { display: none !important; }
+    body[data-theme] .hs-add-banner {
+        margin: 4px 0 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(37, 99, 235, 0.25);
+        background: rgba(37, 99, 235, 0.06);
+        font-size: 0.78rem !important;
+        line-height: 1.5;
+        color: #1e3a8a !important;
+    }
+    body[data-theme] .hs-add-banner b { color: #1e3a8a !important; }
+    body[data-theme] .hs-action-dropdown-item.hs-item-addsvc { color: #1d4ed8 !important; font-weight: 700; }
+
     /* ===== Popup elegan (pengganti alert/confirm) ===== */
     .hs-pop {
         position: fixed;
@@ -4200,6 +4231,10 @@ include '../../includes/header.php';
                                             <button class="hs-action-dropdown-item hs-item-pay"
                                                 onclick="openPayModal(<?php echo $inv['id']; ?>,<?php echo $inv['total'] - $inv['paid_amount']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'], ENT_QUOTES); ?>')">💳 Bayar</button>
                                         <?php endif; ?>
+                                        <?php if ($inv['status'] !== 'cancelled' && empty($inv['cashbook_synced'])):
+                                            $addSvcData = ['id' => (int)$inv['id'], 'no' => (string)$inv['invoice_number'], 'guest' => (string)$inv['guest_name'], 'phone' => (string)($inv['guest_phone'] ?? ''), 'room' => (string)($inv['room_number'] ?? ''), 'booking' => (int)($inv['booking_id'] ?? 0)]; ?>
+                                            <button class="hs-action-dropdown-item hs-item-addsvc" onclick='openAddServiceModal(<?php echo htmlspecialchars(json_encode($addSvcData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)'>➕ Tambah Layanan</button>
+                                        <?php endif; ?>
                                         <a href="hotel-service-invoice.php?id=<?php echo $inv['id']; ?>" target="_blank" class="hs-action-dropdown-item">🖨️ Invoice</a>
                                         <?php if ($auth->canEdit('frontdesk')): ?>
                                             <button class="hs-action-dropdown-item" onclick="openEditModal(<?php echo $inv['id']; ?>)">✏️ Edit</button>
@@ -4283,6 +4318,8 @@ include '../../includes/header.php';
         <div id="itemsBody" class="hs-items-wrap"></div>
         <button type="button" class="btn-add-item" onclick="addItemRow()">+ Add Service Item</button>
 
+        <div id="hsAddBanner" class="hs-add-banner" style="display:none"></div>
+        <div id="hsCreateExtras">
         <!-- Tax, Service Charge, Discount -->
         <span class="sect-label">Tax, Service Charge & Discount</span>
         <div class="hs-form-row" style="margin-bottom:0.5rem">
@@ -4336,6 +4373,7 @@ include '../../includes/header.php';
         <!-- Notes -->
         <div class="hs-field"><label>Notes</label><textarea id="fNotes" rows="2" placeholder="Special instructions..."></textarea></div>
 
+        </div>
         <div class="hs-total-preview" id="totalPreview" style="text-align:left;line-height:1.7">
             <div style="font-size:0.82rem;color:#6b7280">Subtotal: <span id="tpSubtotal">Rp 0</span></div>
             <div style="font-size:0.82rem;color:#3b82f6" id="tpScRow" style="display:none">Service Charge: <span id="tpSc">Rp 0</span></div>
@@ -4809,6 +4847,6 @@ include '../../includes/header.php';
         document.getElementById('invoiceDetailOverlay').classList.remove('open');
     }
 </script>
-<script src="../../assets/js/hotel-services-fn.js?v=20261010"></script>
+<script src="../../assets/js/hotel-services-fn.js?v=20261011"></script>
 
 <?php include '../../includes/footer.php'; ?>
