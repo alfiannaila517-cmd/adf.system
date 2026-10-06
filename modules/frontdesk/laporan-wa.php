@@ -48,16 +48,18 @@ try {
     $respond(['ok' => false, 'detail' => 'Gagal membuat PDF: ' . $e->getMessage()]);
 }
 
-$tmp = tempnam(sys_get_temp_dir(), 'rpt');
-file_put_contents($tmp, $bytes);
+try {
+    $pub = WhatsAppHelper::publishTempFile($bytes, 'pdf'); // dihapus otomatis setelah 2 jam
+} catch (\Throwable $e) {
+    $respond(['ok' => false, 'detail' => $e->getMessage()]);
+}
 @set_time_limit(30 + 60 * count($targets));
 
 $results = [];
 foreach ($targets as $t) {
-    $r = $wa->send($t, $waText, $tmp, $fileName, 'report', 'Laporan ' . $today);
+    $r = $wa->send($t, $waText, null, $fileName, 'report', 'Laporan ' . $today, $pub['url']);
     $results[] = ['target' => $t, 'ok' => $r['ok'], 'detail' => $r['detail']];
 }
-@unlink($tmp);
 
 $sent = count(array_filter($results, fn($r) => $r['ok']));
 $respond([

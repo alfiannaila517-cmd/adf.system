@@ -501,6 +501,131 @@ include '../../includes/header.php';
         display: none;
     }
 
+    /* Dialog konfirmasi (tengah layar) */
+    .rp-dlg {
+        position: fixed;
+        inset: 0;
+        z-index: 10080;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(3px);
+    }
+
+    .rp-dlg.show {
+        display: flex;
+        animation: rpFade 0.15s ease;
+    }
+
+    @keyframes rpFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .rp-dlg-box {
+        width: 100%;
+        max-width: 380px;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.45);
+        overflow: hidden;
+        text-align: center;
+    }
+
+    body[data-theme="dark"] .rp-dlg-box {
+        background: #111a2e;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .rp-dlg-icon {
+        width: 54px;
+        height: 54px;
+        margin: 22px auto 10px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: rgba(37, 211, 102, 0.12);
+        color: #25d366;
+    }
+
+    .rp-dlg-icon svg {
+        width: 28px;
+        height: 28px;
+        fill: #25d366 !important;
+        color: #25d366 !important;
+    }
+
+    .rp-dlg-box h4 {
+        margin: 0 20px 6px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+
+    .rp-dlg-box p {
+        margin: 0 22px 18px;
+        font-size: 0.78rem;
+        line-height: 1.5;
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+    }
+
+    body[data-theme="dark"] .rp-dlg-box h4 {
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
+    }
+
+    body[data-theme="dark"] .rp-dlg-box p {
+        color: #94a3b8 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+    }
+
+    .rp-dlg-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 0 18px 18px;
+    }
+
+    .rp-dlg-actions button {
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #334155 !important;
+        -webkit-text-fill-color: #334155 !important;
+        font-size: 0.8rem !important;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    body[data-theme="dark"] .rp-dlg-actions button {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.12);
+        color: #cbd5e1 !important;
+        -webkit-text-fill-color: #cbd5e1 !important;
+    }
+
+    .rp-dlg-actions button.ok {
+        border-color: #25d366;
+        background: #25d366;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    .rp-dlg-actions button.ok:hover {
+        background: #1ebe5b;
+    }
+
+    .rp-dlg-actions button:focus-visible,
+    .rp-dlg-actions button:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.3);
+    }
+
     /* Toast */
     .rp-toast {
         position: fixed;
@@ -524,6 +649,63 @@ include '../../includes/header.php';
     .rp-toast.show {
         opacity: 1;
         transform: translate(-50%, 0);
+    }
+
+    /* Berhasil: hijau tua elegan; gagal: merah tua */
+    .rp-toast.ok,
+    .rp-toast.err {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 0.75rem 1rem;
+        border-radius: 14px;
+    }
+
+    .rp-toast.ok {
+        background: linear-gradient(135deg, #064e3b, #047857);
+        box-shadow: 0 16px 40px -12px rgba(4, 120, 87, 0.55);
+    }
+
+    .rp-toast.err {
+        background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+        box-shadow: 0 16px 40px -12px rgba(185, 28, 28, 0.5);
+    }
+
+    .rp-toast .rp-toast-ic {
+        flex-shrink: 0;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.2);
+        font-size: 0.75rem;
+        font-weight: 800;
+    }
+
+    /* style.css tema terang memaksa warna teks: kunci putih di dalam notifikasi */
+    body[data-theme] .rp-toast,
+    body[data-theme] .rp-toast * {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+
+    .rp-toast.ok,
+    .rp-toast.err {
+        min-width: 300px;
+        padding: 0.85rem 1.1rem;
+    }
+
+    .rp-toast b {
+        display: block;
+        font-size: 0.86rem;
+    }
+
+    .rp-toast small {
+        display: block;
+        margin-top: 2px;
+        font-size: 0.72rem;
+        opacity: 0.85;
     }
 
     @media (max-width: 900px) {
@@ -714,6 +896,18 @@ $section = static function (string $title, array $rows, array $cols, string $emp
 
 <div class="rp-toast" id="rpToast"></div>
 
+<div class="rp-dlg" id="rpDlg" role="dialog" aria-modal="true" aria-labelledby="rpDlgTitle">
+    <div class="rp-dlg-box">
+        <div class="rp-dlg-icon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0 0 12.05 0zm5.42 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35z" /></svg></div>
+        <h4 id="rpDlgTitle">Kirim Laporan Harian</h4>
+        <p id="rpDlgText"></p>
+        <div class="rp-dlg-actions">
+            <button type="button" data-v="0">Batal</button>
+            <button type="button" class="ok" data-v="1">Kirim</button>
+        </div>
+    </div>
+</div>
+
 <script>
     (function() {
         const PDF_URL = 'laporan-pdf.php?download=1';
@@ -725,12 +919,44 @@ $section = static function (string $title, array $rows, array $cols, string $emp
         let pdfFile = null;
         let pdfPromise = null;
 
-        function toast(msg, ms) {
+        function toast(msg, ms, kind) {
             const t = document.getElementById('rpToast');
-            t.textContent = msg;
-            t.classList.add('show');
+            t.className = 'rp-toast' + (kind ? ' ' + kind : '');
+            if (kind) {
+                const parts = String(msg).split('\n');
+                t.innerHTML = '<span class="rp-toast-ic">' + (kind === 'ok' ? '✓' : '!') + '</span><span><b></b><small></small></span>';
+                t.querySelector('b').textContent = parts[0];
+                t.querySelector('small').textContent = parts.slice(1).join(' ');
+            } else {
+                t.textContent = msg;
+            }
+            requestAnimationFrame(() => t.classList.add('show'));
             clearTimeout(t._h);
             t._h = setTimeout(() => t.classList.remove('show'), ms || 4000);
+        }
+
+        // Dialog konfirmasi di tengah layar (pengganti confirm() bawaan browser). Resolve true/false.
+        function confirmDialog(text) {
+            const dlg = document.getElementById('rpDlg');
+            document.getElementById('rpDlgText').textContent = text;
+            dlg.classList.add('show');
+            return new Promise(resolve => {
+                const done = v => {
+                    dlg.classList.remove('show');
+                    dlg.removeEventListener('click', onClick);
+                    document.removeEventListener('keydown', onKey);
+                    resolve(v);
+                };
+                const onClick = e => {
+                    const b = e.target.closest('button[data-v]');
+                    if (b) done(b.dataset.v === '1');
+                    else if (e.target === dlg) done(false);
+                };
+                const onKey = e => { if (e.key === 'Escape') done(false); };
+                dlg.addEventListener('click', onClick);
+                document.addEventListener('keydown', onKey);
+                setTimeout(() => dlg.querySelector('button.ok').focus(), 30);
+            });
         }
 
         // PDF disiapkan di latar belakang sejak halaman dibuka, agar tombol bagikan langsung jalan
@@ -847,17 +1073,18 @@ $section = static function (string $title, array $rows, array $cols, string $emp
         if (sendBtn) {
             const sendLabel = sendBtn.querySelector('span');
             const sendText = sendLabel.textContent;
-            sendBtn.addEventListener('click', () => {
-                if (!confirm('Kirim PDF Laporan Harian ke ' + sendBtn.dataset.count + ' tujuan WhatsApp?')) return;
+            sendBtn.addEventListener('click', async () => {
+                if (!await confirmDialog('PDF Laporan Harian hari ini akan dikirim ke ' + sendBtn.dataset.count + ' tujuan WhatsApp yang tersimpan di Pengaturan.')) return;
                 sendBtn.disabled = true;
                 sendLabel.textContent = 'Mengirim…';
                 fetch('laporan-wa.php', { method: 'POST', credentials: 'same-origin' })
                     .then(r => r.json())
                     .then(r => {
                         const fails = (r.results || []).filter(x => !x.ok).map(x => x.target + ': ' + x.detail);
-                        toast((r.ok ? '✓ ' : '✕ ') + r.detail + (fails.length ? ' — ' + fails.join('; ') : ''), r.ok && !fails.length ? 4000 : 9000);
+                        const allOk = r.ok && !fails.length;
+                        toast((allOk ? 'Laporan terkirim' : (r.ok ? 'Sebagian terkirim' : 'Laporan gagal dikirim')) + '\n' + r.detail + (fails.length ? ' — ' + fails.join('; ') : ''), allOk ? 5000 : 10000, allOk ? 'ok' : 'err');
                     })
-                    .catch(() => toast('✕ Gagal menghubungi server', 6000))
+                    .catch(() => toast('Laporan gagal dikirim\nTidak bisa menghubungi server', 7000, 'err'))
                     .finally(() => { sendBtn.disabled = false; sendLabel.textContent = sendText; });
             });
         }

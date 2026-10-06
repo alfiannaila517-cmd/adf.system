@@ -147,7 +147,7 @@ class WhatsAppHelper
      * Kirim pesan (opsional dengan file) ke satu tujuan dan catat di log.
      * @param string $type report | checkin | test
      */
-    public function send(string $target, string $message, ?string $filePath = null, ?string $fileName = null, string $type = 'test', string $ref = ''): array
+    public function send(string $target, string $message, ?string $filePath = null, ?string $fileName = null, string $type = 'test', string $ref = '', ?string $fileUrl = null): array
     {
         $target = self::normalizeTarget($target);
         if ($target === '') {
@@ -156,16 +156,39 @@ class WhatsAppHelper
             return $res;
         }
         $fields = ['target' => $target, 'message' => $message, 'countryCode' => '62'];
-        if ($filePath !== null) {
+        if ($fileUrl !== null) {
+            // Lampiran lewat link publik: Fonnte mengunduh file sendiri (didukung lebih banyak paket
+            // daripada unggah langsung, yang pada sebagian paket diabaikan diam-diam).
+            $fields['url'] = $fileUrl;
+            $fields['filename'] = $fileName ?: basename(parse_url($fileUrl, PHP_URL_PATH));
+        } elseif ($filePath !== null) {
             $fields['file'] = new \CURLFile($filePath, 'application/pdf', $fileName ?: basename($filePath));
             $fields['filename'] = $fileName ?: basename($filePath);
         }
-        $res = $this->request('/send', $fields, $filePath !== null ? 60 : 25);
+        $res = $this->request('/send', $fields, ($filePath !== null || $fileUrl !== null) ? 60 : 25);
         $this->log($type, $target, $ref, $res['ok'] ? 'sent' : 'failed', $res['detail']);
         return $res;
     }
 
     /** Status perangkat; $token = uji token yang belum disimpan. 'connected' sudah dinormalisasi. */
+    /**
+     * Simpan file sementara di uploads/wa-tmp dengan nama acak (tidak bisa ditebak) agar bisa diunduh
+     * gateway; file lebih dari 2 jam dihapus otomatis. @return array{path:string,url:string}
+     */
+    public static function publishTempFile(string $bytes, string $ext = 'pdf'): array
+    {
+        $dir = BASE_PATH . '/uploads/wa-tmp';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        foreach (glob($dir . '/*.' . $ext) ?: [] as $old) {
+            if (filemtime($old) < time() - 7200) @unlink($old);
+        }
+        $name = bin2hex(random_bytes(16)) . '.' . $ext;
+        if (file_put_contents($dir . '/' . $name, $bytes) === false) {
+            throw new \RuntimeException('Tidak bisa menulis file sementara di uploads/wa-tmp');
+        }
+        return ['path' => $dir . '/' . $name, 'url' => rtrim(BASE_URL, '/') . '/uploads/wa-tmp/' . $name];
+    }
+
     public function deviceStatus(?string $token = null): array
     {
         $r = $this->request('/device', [], 25, $token !== null && trim($token) !== '' ? $token : null);
