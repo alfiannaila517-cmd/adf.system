@@ -81,8 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $s = $wa->settings();
 $template = trim($s['wa_checkin_template']) !== '' ? $s['wa_checkin_template'] : WhatsAppHelper::DEFAULT_CHECKIN_TEMPLATE;
-$logRows = $wa->recentLog(15);
-$typeLabel = ['report' => 'Laporan', 'checkin' => 'Check-in', 'test' => 'Tes'];
+$logRows = $wa->recentLog(300); // isi tabel = pengiriman hari ini (data lama dihapus otomatis tiap hari)
+$typeLabel = ['report' => 'Laporan', 'checkin' => 'Check-in', 'test' => 'Tes', 'breakfast' => 'Breakfast'];
+$logSent = count(array_filter($logRows, fn($l) => $l['status'] === 'sent'));
+$logFailed = count(array_filter($logRows, fn($l) => $l['status'] === 'failed'));
 $pageTitle = 'Pengaturan WhatsApp';
 include '../../includes/header.php';
 ?>
@@ -134,6 +136,23 @@ include '../../includes/header.php';
     body[data-theme="dark"] .main-content .wa-wrap .wa-msg.ok, body[data-theme="dark"] .main-content .wa-wrap .wa-pill.sent { color: #6ee7b7 !important; }
     body[data-theme="dark"] .main-content .wa-wrap .wa-msg.err, body[data-theme="dark"] .main-content .wa-wrap .wa-pill.failed { color: #fca5a5 !important; }
     @media (max-width: 960px) { body[data-theme] .main-content .wa-wrap .wa-grid { grid-template-columns: 1fr; } }
+    /* Riwayat: ringkasan & nomor urut */
+    .wa-log-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .wa-log-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+    .wa-log-head + div, .wa-log-head + .wa-hint { margin-top: .7rem; }
+    .wa-log-stats > div { min-width: 74px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--fd-line); background: var(--fd-tile); text-align: center; }
+    body[data-theme] .wa-log-stats b { display: block; font-size: 1rem !important; font-weight: 800; color: var(--fd-text) !important; }
+    body[data-theme] .wa-log-stats span { font-size: 0.6rem !important; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--fd-muted) !important; }
+    body[data-theme] .wa-log-stats .ok b { color: #047857 !important; }
+    body[data-theme] .wa-log-stats .bad b { color: #b91c1c !important; }
+    .wa-log-stats .quota { border-color: rgba(37, 99, 235, 0.35); background: rgba(37, 99, 235, 0.07); }
+    body[data-theme] .wa-log-stats .quota b { color: #1d4ed8 !important; }
+    body[data-theme="dark"] .wa-log-stats .ok b { color: #6ee7b7 !important; }
+    body[data-theme="dark"] .wa-log-stats .bad b { color: #fca5a5 !important; }
+    body[data-theme="dark"] .wa-log-stats .quota b { color: #93c5fd !important; }
+    body[data-theme] .main-content .wa-wrap .wa-log-head p.wa-sub { margin: 0; font-size: .68rem !important; color: var(--fd-muted) !important; }
+    .wa-log-head { margin-bottom: .2rem; padding-bottom: .55rem; border-bottom: 1px solid var(--fd-line); }
+    body[data-theme] .wa-log td.wa-no { font-weight: 700; color: var(--fd-muted) !important; text-align: center; }
 </style>
 
 <div class="wa-wrap">
@@ -221,18 +240,29 @@ include '../../includes/header.php';
 
     <!-- Log -->
     <div class="wa-card">
-        <h3>Riwayat Pengiriman</h3>
-        <p class="wa-sub">15 pengiriman terakhir.</p>
+        <div class="wa-log-head">
+            <div>
+                <h3>Riwayat Pengiriman</h3>
+                <p class="wa-sub">Pengiriman hari ini · reset otomatis setiap hari pukul 00:00.</p>
+            </div>
+            <div class="wa-log-stats">
+                <div><b><?php echo count($logRows); ?></b><span>Total</span></div>
+                <div class="ok"><b><?php echo $logSent; ?></b><span>Terkirim</span></div>
+                <div class="bad"><b><?php echo $logFailed; ?></b><span>Gagal</span></div>
+                <div class="quota"><b id="waQuotaLog"><?php echo $wa->isConfigured() ? "…" : "-"; ?></b><span>Sisa kredit</span></div>
+            </div>
+        </div>
         <?php if (!$logRows): ?>
             <div class="wa-hint">Belum ada pengiriman.</div>
         <?php else: ?>
             <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--fd-line)">
                 <table class="wa-log">
-                    <thead><tr><th>Waktu</th><th>Jenis</th><th>Tujuan</th><th>Status</th><th>Keterangan</th></tr></thead>
+                    <thead><tr><th style="width:42px">No</th><th>Waktu</th><th>Jenis</th><th>Tujuan</th><th>Status</th><th>Keterangan</th></tr></thead>
                     <tbody>
-                        <?php foreach ($logRows as $l): ?>
+                        <?php foreach ($logRows as $i => $l): ?>
                             <tr>
-                                <td><?php echo date('d M H:i', strtotime($l['created_at'])); ?></td>
+                                <td class="wa-no"><?php echo count($logRows) - $i; ?></td>
+                                <td><?php echo date('H:i', strtotime($l['created_at'])); ?></td>
                                 <td><?php echo htmlspecialchars($typeLabel[$l['type']] ?? $l['type']); ?></td>
                                 <td><?php echo htmlspecialchars($l['target'] ?: '-'); ?></td>
                                 <td><span class="wa-pill <?php echo htmlspecialchars($l['status']); ?>"><?php echo ['sent' => 'Terkirim', 'failed' => 'Gagal', 'skipped' => 'Dilewati'][$l['status']] ?? htmlspecialchars($l['status']); ?></span></td>
@@ -274,7 +304,10 @@ include '../../includes/header.php';
                 dot.className = 'wa-dot ' + (r.connected ? 'on' : 'off');
                 st.textContent = (r.connected ? 'Terhubung · ' + (r.device || '') : 'Token benar, tetapi perangkat belum terhubung (status: ' + (r.state || '-') + ') — scan ulang QR di dashboard Fonnte') + src;
                 sub.textContent = [r.name, r.package && ('Paket ' + r.package), r.quota && ('Kuota ' + r.quota), r.expired && ('Aktif s/d ' + r.expired)].filter(Boolean).join(' · ');
-            }).catch(() => { dot.className = 'wa-dot off'; st.textContent = 'Gagal memeriksa koneksi'; });
+                const q = document.getElementById('waQuotaLog');
+                if (q) q.textContent = (r.quota !== '' && r.quota != null) ? r.quota : '-';
+            }).catch(() => { dot.className = 'wa-dot off'; st.textContent = 'Gagal memeriksa koneksi'; })
+              .finally(() => { const q = document.getElementById('waQuotaLog'); if (q && q.textContent === '…') q.textContent = '-'; });
         }
         document.getElementById('waCheck').addEventListener('click', check);
         <?php if ($wa->isConfigured()): ?>check();<?php endif; ?>

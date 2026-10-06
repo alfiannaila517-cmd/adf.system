@@ -237,6 +237,11 @@ class WhatsAppHelper
             INDEX idx_type_target (type, target),
             INDEX idx_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Riwayat direset harian: hanya pengiriman hari ini yang disimpan agar tabel tidak menumpuk.
+        try {
+            $this->db->getConnection()->exec("DELETE FROM wa_message_log WHERE created_at < CURDATE()");
+        } catch (\Throwable $e) {
+        }
         $done = true;
     }
 
