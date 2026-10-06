@@ -945,10 +945,10 @@ include '../../includes/header.php';
         --success: #10b981;
         --danger: #ef4444;
         --warning: #f59e0b;
-        --bg-secondary: rgba(255, 255, 255, 0.08);
-        --border-color: rgba(255, 255, 255, 0.15);
-        --text-primary: var(--text-color);
-        --text-secondary: rgba(255, 255, 255, 0.7);
+        --bg-secondary: var(--fd-tile, rgba(255, 255, 255, 0.08));
+        --border-color: var(--fd-line, rgba(255, 255, 255, 0.15));
+        --text-primary: var(--fd-text, var(--text-color));
+        --text-secondary: var(--fd-muted, rgba(255, 255, 255, 0.7));
     }
 
     .settings-container {
@@ -1319,7 +1319,6 @@ include '../../includes/header.php';
             </a>
         </div>
     </div>
-</div>
 
 <!-- Messages -->
 <?php if ($message): ?>
@@ -1544,207 +1543,202 @@ include '../../includes/header.php';
     <?php endif; ?>
 
     <!-- ==================== BREAKFAST MENU TAB ==================== -->
-    <?php if ($activeTab === 'breakfast_menu'): ?>
+    <?php if ($activeTab === 'breakfast_menu'):
+        // Kelompok kategori (urutan tampil); kategori lain masuk "Lainnya".
+        $bfCatLabels = [
+            'western'    => 'Western',
+            'indonesian' => 'Indonesian',
+            'asian'      => 'Asian',
+            'drinks'     => 'Drinks',
+            'beverages'  => 'Drinks',
+            'extras'     => 'Extra (Berbayar)',
+        ];
+        $bfGroups = [];
+        foreach ($breakfastMenus as $bm) {
+            $label = $bfCatLabels[$bm['category']] ?? 'Lainnya';
+            $bfGroups[$label][] = $bm;
+        }
+        $bfOrder = array_values(array_unique(array_merge(array_values($bfCatLabels), ['Lainnya'])));
+        $bfGroups = array_replace(array_intersect_key(array_flip($bfOrder), $bfGroups), $bfGroups);
+        $bfCountFree = count(array_filter($breakfastMenus, fn($m) => (bool)$m['is_free']));
+        $bfCountAvail = count(array_filter($breakfastMenus, fn($m) => (bool)$m['is_available']));
+    ?>
 
-        <div class="form-card">
-            <h2 style="margin-top: 0; color: var(--primary);">💬 Guest Portal Text</h2>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">
-                Use this section to edit the text shown on the portal and the WhatsApp message sent from Front Desk. Placeholders: <strong>{guest_name}</strong>, <strong>{room_label}</strong>, <strong>{room_line}</strong>, <strong>{portal_link}</strong>.
-            </p>
-            <form method="POST" enctype="multipart/form-data" style="margin-top: 1rem;">
-                <input type="hidden" name="action" value="save_portal_templates">
-                <div class="form-group">
-                    <label class="form-label">Portal Info Text</label>
-                    <textarea name="portal_info_text" class="form-textarea" rows="6" style="white-space: pre-wrap; font-family: inherit;"><?php echo htmlspecialchars($portalInfoText); ?></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">WhatsApp Link Template</label>
-                    <textarea name="portal_link_template" class="form-textarea" rows="8" style="white-space: pre-wrap; font-family: inherit;"><?php echo htmlspecialchars($portalLinkTemplate); ?></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Portal Header Logo (Narayana)</label>
-                    <input type="file" name="portal_logo" class="form-input" accept=".jpg,.jpeg,.png,.webp">
-                    <small style="color: var(--text-secondary); display:block; margin-top:.35rem;">Format: JPG/JPEG/PNG/WEBP, max 3MB. Recommended transparent PNG.</small>
-                    <?php if ($portalLogoUrl !== ''): ?>
-                        <div style="margin-top:.6rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-                            <img src="<?php echo htmlspecialchars($portalLogoUrl); ?>" alt="Portal logo" style="height:48px;max-width:200px;object-fit:contain;background:rgba(15,23,42,.08);padding:6px 8px;border-radius:8px;border:1px solid var(--border-color);">
-                            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;">
-                                <input type="checkbox" name="remove_portal_logo" value="1">
-                                <span>Remove current logo</span>
-                            </label>
-                        </div>
-                    <?php endif; ?>
-                </div>
-                <button type="submit" class="btn btn-success">💾 Save Templates</button>
-            </form>
+        <!-- Ringkasan -->
+        <div class="bfs-stats">
+            <div><b><?php echo count($breakfastMenus); ?></b><span>Total menu</span></div>
+            <div><b><?php echo $bfCountFree; ?></b><span>Free breakfast</span></div>
+            <div><b><?php echo count($breakfastMenus) - $bfCountFree; ?></b><span>Berbayar</span></div>
+            <div><b><?php echo $bfCountAvail; ?></b><span>Tersedia</span></div>
         </div>
 
-        <div class="form-card">
-            <h2 style="margin-top: 0; color: var(--primary);">➕ Add New Breakfast Menu</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="add_menu">
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Menu Name</label>
-                        <input type="text" name="menu_name" class="form-input" placeholder="e.g., American Breakfast" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Category</label>
-                        <select name="category" class="form-select" required>
-                            <option value="western">🍳 Western</option>
-                            <option value="indonesian">🍛 Indonesian</option>
-                            <option value="asian">🍜 Asian</option>
-                            <option value="drinks">🥤 Drinks</option>
-                            <option value="extras">➕ Extra (Berbayar)</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Penyajian</label>
-                        <select name="serve_temp" class="form-select">
-                            <option value="">— Tidak ada</option>
-                            <option value="hot">🔥 Hot (merah)</option>
-                            <option value="ice">🧊 Ice (biru)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Price (Rp) - Kosongkan jika gratis</label>
-                        <input type="number" name="price" class="form-input" placeholder="e.g., 35000 (0 untuk gratis)" step="0.01" min="0" value="0" required>
-                    </div>
+        <div class="bfs-grid">
+            <!-- Daftar menu -->
+            <div class="form-card bfs-list">
+                <div class="bfs-card-head">
+                    <h3>Daftar Menu</h3>
+                    <small>Klik status untuk mengaktifkan / menonaktifkan menu</small>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <textarea name="description" class="form-textarea" placeholder="e.g., Eggs, bacon, sausage, toast, hash browns"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Gambar Menu (opsional)</label>
-                    <input type="file" name="menu_image" class="form-input" accept=".jpg,.jpeg,.png,.webp,.gif">
-                    <small style="color: var(--text-secondary); display:block; margin-top:.35rem;">Format: JPG/JPEG/PNG/WEBP/GIF, max 5MB</small>
-                </div>
-
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.5rem;">
-                        <input type="checkbox" name="is_free" checked style="width: 20px; height: 20px;">
-                        <span style="font-weight: 700;">🆓 Free Breakfast (Included in room rate)</span>
-                    </label>
-                    <small style="color: var(--text-secondary); display: block; margin-left: 28px;">
-                        Unchecked = Extra Breakfast (Paid/Berbayar)
-                    </small>
-                </div>
-
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" name="is_available" checked style="width: 20px; height: 20px;">
-                        <span>Available for ordering</span>
-                    </label>
-                </div>
-
-                <button type="submit" class="btn btn-success">✓ Add Menu</button>
-            </form>
-        </div>
-
-        <div class="table-wrapper">
-            <h3 style="color: var(--text-primary); margin-bottom: 1rem;">📋 Breakfast Menu List</h3>
-
-            <?php
-            $categories = [
-                'western' => '🍳 Western (Free)',
-                'indonesian' => '🍛 Indonesian (Free)',
-                'asian' => '🍜 Asian (Free)',
-                'drinks' => '🥤 Drinks (Free)',
-                'extras' => '➕ Extra Breakfast (Berbayar)'
-            ];
-
-            foreach ($categories as $catKey => $catLabel):
-                $categoryMenus = array_filter($breakfastMenus, fn($m) => $m['category'] === $catKey);
-                if (empty($categoryMenus)) continue;
-            ?>
-
-                <div style="margin-bottom: 2rem;">
-                    <h4 style="color: var(--primary); margin: 1rem 0 0.5rem 0;"><?php echo $catLabel; ?></h4>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Image</th>
-                                <th>Menu Name</th>
-                                <th>Description</th>
-                                <th>Type</th>
-                                <th>Price</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($categoryMenus as $menu): ?>
-                                <?php
-                                // Ensure is_free has a value (default based on price)
-                                $isFree = isset($menu['is_free']) ? (bool)$menu['is_free'] : ($menu['price'] == 0);
-                                $imageUrl = trim((string)($menu['image_url'] ?? ''));
-                                $imageSrc = $imageUrl !== '' ? ((strpos($imageUrl, 'http') === 0) ? $imageUrl : BASE_URL . '/' . ltrim($imageUrl, '/')) : '';
-                                ?>
-                                <tr style="<?php echo $menu['is_available'] ? '' : 'opacity: 0.5;'; ?>">
-                                    <td>
-                                        <?php if ($imageSrc !== ''): ?>
-                                            <img src="<?php echo htmlspecialchars($imageSrc); ?>" alt="<?php echo htmlspecialchars($menu['menu_name']); ?>" style="width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);">
-                                        <?php else: ?>
-                                            <span style="font-size:.75rem;color:var(--text-secondary);">-</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><strong><?php echo htmlspecialchars($menu['menu_name']); ?></strong>
-                                        <?php if (in_array($menu['serve_temp'] ?? '', ['hot', 'ice'], true)): ?>
-                                            <span class="badge" style="margin-left:.35rem;color:#fff;background:<?php echo $menu['serve_temp'] === 'ice' ? '#0284c7' : '#dc2626'; ?>"><?php echo strtoupper($menu['serve_temp']); ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td style="font-size: 0.85rem; color: var(--text-secondary);">
-                                        <?php echo htmlspecialchars($menu['description'] ?? '-'); ?>
-                                    </td>
-                                    <td>
-                                        <span class="badge" style="<?php echo $isFree ? 'background: rgba(16, 185, 129, 0.2); color: #6ee7b7;' : 'background: rgba(245, 158, 11, 0.2); color: #fbbf24;'; ?>">
-                                            <?php echo $isFree ? '🆓 Free' : '💰 Paid'; ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <?php if ($isFree || $menu['price'] == 0): ?>
-                                            <span style="color: var(--text-secondary);">-</span>
-                                        <?php else: ?>
-                                            <strong>Rp <?php echo number_format($menu['price'], 0, ',', '.'); ?></strong>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="action" value="toggle_availability">
-                                            <input type="hidden" name="menu_id" value="<?php echo $menu['id']; ?>">
-                                            <button type="submit" class="badge" style="border: none; cursor: pointer; padding: 0.5rem 1rem; <?php echo $menu['is_available'] ? 'background: rgba(16, 185, 129, 0.2); color: #6ee7b7;' : 'background: rgba(239, 68, 68, 0.2); color: #fca5a5;'; ?>">
-                                                <?php echo $menu['is_available'] ? '✓ Available' : '✗ Unavailable'; ?>
-                                            </button>
-                                        </form>
-                                    </td>
-                                    <td>
-                                        <div class="action-buttons">
-                                            <button type="button" class="btn btn-primary btn-sm"
-                                                onclick="editBreakfastMenu(<?php echo htmlspecialchars(json_encode($menu)); ?>)">
-                                                ✏️ Edit
-                                            </button>
-                                            <form method="POST" style="display: inline;">
-                                                <input type="hidden" name="action" value="delete_menu">
-                                                <input type="hidden" name="menu_id" value="<?php echo $menu['id']; ?>">
-                                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus menu ini?')">
-                                                    🗑️ Delete
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
+                <?php if (empty($breakfastMenus)): ?>
+                    <div class="bfs-empty">Belum ada menu. Tambahkan menu pertama di form sebelah kanan.</div>
+                <?php else: ?>
+                    <div class="bfs-table-wrap">
+                        <table class="table bfs-table">
+                            <thead>
+                                <tr>
+                                    <th>Menu</th>
+                                    <th>Tipe</th>
+                                    <th class="r">Harga</th>
+                                    <th>Status</th>
+                                    <th class="r">Aksi</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($bfGroups as $groupLabel => $groupMenus): ?>
+                                    <tr class="bfs-cat">
+                                        <td colspan="5"><?php echo htmlspecialchars($groupLabel); ?> <span><?php echo count($groupMenus); ?></span></td>
+                                    </tr>
+                                    <?php foreach ($groupMenus as $menu):
+                                        $isFree = isset($menu['is_free']) ? (bool)$menu['is_free'] : ($menu['price'] == 0);
+                                        $imageUrl = trim((string)($menu['image_url'] ?? ''));
+                                        $imageSrc = $imageUrl !== '' ? ((strpos($imageUrl, 'http') === 0) ? $imageUrl : BASE_URL . '/' . ltrim($imageUrl, '/')) : '';
+                                        $temp = $menu['serve_temp'] ?? '';
+                                    ?>
+                                        <tr class="<?php echo $menu['is_available'] ? '' : 'is-off'; ?>">
+                                            <td>
+                                                <div class="bfs-menu">
+                                                    <?php if ($imageSrc !== ''): ?>
+                                                        <img src="<?php echo htmlspecialchars($imageSrc); ?>" alt="">
+                                                    <?php else: ?>
+                                                        <span class="bfs-thumb"><?php echo htmlspecialchars(mb_strtoupper(mb_substr((string)$menu['menu_name'], 0, 1))); ?></span>
+                                                    <?php endif; ?>
+                                                    <div>
+                                                        <b><?php echo htmlspecialchars($menu['menu_name']); ?></b>
+                                                        <?php if ($temp === 'hot' || $temp === 'ice'): ?><span class="bfs-temp <?php echo $temp; ?>"><?php echo strtoupper($temp); ?></span><?php endif; ?>
+                                                        <?php if (!empty($menu['description'])): ?><small><?php echo htmlspecialchars($menu['description']); ?></small><?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td><span class="bfs-chip <?php echo $isFree ? 'free' : 'paid'; ?>"><?php echo $isFree ? 'Free' : 'Berbayar'; ?></span></td>
+                                            <td class="r"><?php echo ($isFree || $menu['price'] == 0) ? '<span class="bfs-dash">—</span>' : 'Rp ' . number_format($menu['price'], 0, ',', '.'); ?></td>
+                                            <td>
+                                                <form method="POST">
+                                                    <input type="hidden" name="action" value="toggle_availability">
+                                                    <input type="hidden" name="menu_id" value="<?php echo (int)$menu['id']; ?>">
+                                                    <button type="submit" class="bfs-status <?php echo $menu['is_available'] ? 'on' : 'off'; ?>" title="Klik untuk ubah">
+                                                        <?php echo $menu['is_available'] ? 'Tersedia' : 'Nonaktif'; ?>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                            <td class="r">
+                                                <div class="bfs-actions">
+                                                    <button type="button" class="bfs-btn" onclick="editBreakfastMenu(<?php echo htmlspecialchars(json_encode($menu)); ?>)">Edit</button>
+                                                    <form method="POST">
+                                                        <input type="hidden" name="action" value="delete_menu">
+                                                        <input type="hidden" name="menu_id" value="<?php echo (int)$menu['id']; ?>">
+                                                        <button type="submit" class="bfs-btn del" onclick="return confirm('Hapus menu <?php echo htmlspecialchars(addslashes($menu['menu_name']), ENT_QUOTES); ?>?')">Hapus</button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Tambah menu -->
+            <div class="form-card bfs-add">
+                <div class="bfs-card-head">
+                    <h3>Tambah Menu</h3>
                 </div>
-            <?php endforeach; ?>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="add_menu">
+                    <div class="form-group">
+                        <label class="form-label">Nama menu</label>
+                        <input type="text" name="menu_name" class="form-input" placeholder="mis. Cappuccino" required>
+                    </div>
+                    <div class="bfs-two">
+                        <div class="form-group">
+                            <label class="form-label">Kategori</label>
+                            <select name="category" class="form-select" required>
+                                <option value="western">Western</option>
+                                <option value="indonesian">Indonesian</option>
+                                <option value="asian">Asian</option>
+                                <option value="drinks">Drinks</option>
+                                <option value="extras">Extra (Berbayar)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Penyajian</label>
+                            <select name="serve_temp" class="form-select">
+                                <option value="">— Tidak ada</option>
+                                <option value="hot">Hot (merah)</option>
+                                <option value="ice">Ice (biru)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Harga (Rp) · 0 untuk menu gratis</label>
+                        <input type="number" name="price" class="form-input" step="1000" min="0" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Deskripsi (opsional)</label>
+                        <textarea name="description" class="form-textarea" rows="2" placeholder="mis. Espresso, susu, foam"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Gambar (opsional)</label>
+                        <input type="file" name="menu_image" class="form-input" accept=".jpg,.jpeg,.png,.webp,.gif">
+                        <small class="bfs-hint">JPG, PNG, WEBP, GIF · maks. 5 MB</small>
+                    </div>
+                    <div class="bfs-checks">
+                        <label class="bfs-check"><input type="checkbox" name="is_free" checked><span><b>Free breakfast</b><small>Termasuk harga kamar. Matikan untuk menu berbayar.</small></span></label>
+                        <label class="bfs-check"><input type="checkbox" name="is_available" checked><span><b>Tersedia</b><small>Tampil di form order & portal tamu.</small></span></label>
+                    </div>
+                    <button type="submit" class="btn btn-success bfs-submit">+ Tambah Menu</button>
+                </form>
+            </div>
         </div>
+
+        <!-- Teks portal tamu & WhatsApp (jarang diubah: dilipat) -->
+        <details class="form-card bfs-portal">
+            <summary>
+                <span>
+                    <b>Teks Portal Tamu &amp; WhatsApp</b>
+                    <small>Teks di halaman pilih menu tamu, template pesan WA, dan logo portal</small>
+                </span>
+            </summary>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="save_portal_templates">
+                <p class="bfs-hint" style="margin:0 0 .75rem">Placeholder yang bisa dipakai: <code>{guest_name}</code> <code>{room_label}</code> <code>{room_line}</code> <code>{portal_link}</code></p>
+                <div class="bfs-two">
+                    <div class="form-group">
+                        <label class="form-label">Teks info di portal</label>
+                        <textarea name="portal_info_text" class="form-textarea" rows="7"><?php echo htmlspecialchars($portalInfoText); ?></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Template pesan WhatsApp</label>
+                        <textarea name="portal_link_template" class="form-textarea" rows="7"><?php echo htmlspecialchars($portalLinkTemplate); ?></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Logo header portal</label>
+                    <div class="bfs-logo-row">
+                        <?php if ($portalLogoUrl !== ''): ?>
+                            <img src="<?php echo htmlspecialchars($portalLogoUrl); ?>" alt="Logo portal">
+                        <?php endif; ?>
+                        <input type="file" name="portal_logo" class="form-input" accept=".jpg,.jpeg,.png,.webp">
+                        <?php if ($portalLogoUrl !== ''): ?>
+                            <label class="bfs-inline"><input type="checkbox" name="remove_portal_logo" value="1"> Hapus logo</label>
+                        <?php endif; ?>
+                    </div>
+                    <small class="bfs-hint">JPG, PNG, WEBP · maks. 3 MB · disarankan PNG transparan</small>
+                </div>
+                <button type="submit" class="btn btn-success">Simpan Teks Portal</button>
+            </form>
+        </details>
 
     <?php endif; ?>
 

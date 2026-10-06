@@ -942,6 +942,473 @@ body[data-theme] .settings-container .badge {
     padding: 0.12rem 0.45rem !important;
 }
 
+/* Pengaturan: selector + .main-content agar menang atas aturan font global header
+   (body[data-business] .main-content :is(label, input, button, td, ...) bernilai 0,3,2). */
+body[data-theme] .main-content .settings-container {
+    max-width: none !important;
+    padding: 0.25rem 0 1rem !important;
+}
+
+body[data-theme] .main-content .settings-container .form-card h2,
+body[data-theme] .main-content .settings-container .table-wrapper h3,
+body[data-theme] .main-content .settings-container .bfs-card-head h3 {
+    margin: 0 0 0.6rem !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    color: var(--fd-text) !important;
+    -webkit-text-fill-color: var(--fd-text) !important;
+}
+
+body[data-theme] .main-content .settings-container label.form-label {
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--fd-muted) !important;
+    margin-bottom: 0.3rem !important;
+}
+
+body[data-theme] .main-content .settings-container .form-input,
+body[data-theme] .main-content .settings-container .form-select,
+body[data-theme] .main-content .settings-container .form-textarea {
+    font-size: 0.74rem !important;
+}
+
+body[data-theme] .main-content .settings-container .form-group {
+    margin-bottom: 0.65rem !important;
+}
+
+body[data-theme] .main-content .settings-container .btn,
+body[data-theme] .main-content .settings-container .table td,
+body[data-theme] .main-content .settings-container .form-card p,
+body[data-theme] .main-content .settings-container .form-card small {
+    font-size: 0.72rem !important;
+}
+
+body[data-theme] .main-content .settings-container .table th {
+    font-size: 0.56rem !important;
+}
+
+body[data-theme] .main-content .settings-container .message {
+    padding: 0.55rem 0.85rem !important;
+    border-radius: 10px !important;
+    font-size: 0.74rem !important;
+    margin-bottom: 0.75rem !important;
+}
+
+/* ---------- Pengaturan > Breakfast Menu ---------- */
+body[data-theme] .main-content .bfs-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    margin-bottom: 0.75rem;
+    padding: 0.55rem 0;
+    border-radius: 14px;
+    background: var(--fd-card);
+    border: 1px solid var(--fd-edge);
+    box-shadow: var(--fd-shadow);
+}
+
+body[data-theme] .main-content .bfs-stats > div {
+    padding: 0 1rem;
+    border-left: 1px solid var(--fd-line);
+}
+
+body[data-theme] .main-content .bfs-stats > div:first-child {
+    border-left: 0;
+}
+
+body[data-theme] .main-content .bfs-stats b {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .main-content .bfs-stats span {
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .bfs-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 0.75rem;
+    align-items: start;
+}
+
+body[data-theme] .main-content .settings-container .bfs-grid .form-card {
+    margin-top: 0 !important;
+}
+
+body[data-theme] .main-content .bfs-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--fd-line);
+}
+
+body[data-theme] .main-content .settings-container .bfs-card-head h3 {
+    margin: 0 !important;
+}
+
+body[data-theme] .main-content .settings-container .bfs-card-head small,
+body[data-theme] .main-content .settings-container .bfs-hint {
+    font-size: 0.64rem !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .bfs-hint {
+    display: block;
+    margin-top: 0.3rem;
+}
+
+body[data-theme] .main-content .bfs-hint code {
+    padding: 0.05rem 0.35rem;
+    border-radius: 5px;
+    background: var(--fd-accent-soft);
+    color: var(--fd-accent-text);
+    font-size: 0.64rem;
+}
+
+body[data-theme] .main-content .bfs-table-wrap {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid var(--fd-line);
+}
+
+body[data-theme] .main-content .settings-container .bfs-table {
+    width: 100%;
+    margin: 0 !important;
+    border-collapse: collapse;
+}
+
+body[data-theme] .main-content .settings-container .bfs-table th.r,
+body[data-theme] .main-content .settings-container .bfs-table td.r {
+    text-align: right;
+}
+
+body[data-theme] .main-content .settings-container .bfs-table td {
+    vertical-align: middle;
+    padding: 0.45rem 0.65rem !important;
+}
+
+body[data-theme] .main-content .settings-container .bfs-table tr.bfs-cat td {
+    padding: 0.4rem 0.65rem !important;
+    background: var(--fd-accent-soft) !important;
+    font-size: 0.6rem !important;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--fd-accent-text) !important;
+}
+
+body[data-theme] .main-content .bfs-table tr.bfs-cat span {
+    margin-left: 0.3rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: var(--fd-accent-2);
+    color: #fff !important;
+    -webkit-text-fill-color: #fff;
+    font-size: 0.56rem;
+}
+
+body[data-theme] .main-content .bfs-table tr.is-off td {
+    opacity: 0.55;
+}
+
+body[data-theme] .main-content .bfs-menu {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 200px;
+}
+
+body[data-theme] .main-content .bfs-menu img,
+body[data-theme] .main-content .bfs-thumb {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    object-fit: cover;
+}
+
+body[data-theme] .main-content .bfs-thumb {
+    display: grid;
+    place-items: center;
+    background: var(--fd-accent-soft);
+    color: var(--fd-accent-text) !important;
+    font-weight: 700;
+    font-size: 0.78rem;
+}
+
+body[data-theme] .main-content .bfs-menu b {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .main-content .settings-container .bfs-menu small {
+    display: block;
+    max-width: 340px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.64rem !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .bfs-temp,
+body[data-theme] .main-content .bfs-chip,
+body[data-theme] .main-content .bfs-status {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.58rem !important;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+}
+
+body[data-theme] .main-content .bfs-temp {
+    margin-left: 0.3rem;
+    padding: 0.05rem 0.4rem;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+body[data-theme] .main-content .bfs-temp.hot { background: #dc2626; }
+body[data-theme] .main-content .bfs-temp.ice { background: #0284c7; }
+
+body[data-theme] .main-content .bfs-chip.free {
+    background: rgba(5, 150, 105, 0.12);
+    color: #047857 !important;
+}
+
+body[data-theme] .main-content .bfs-chip.paid {
+    background: rgba(217, 119, 6, 0.12);
+    color: #b45309 !important;
+}
+
+body[data-theme="dark"] .main-content .bfs-chip.free { color: #6ee7b7 !important; }
+body[data-theme="dark"] .main-content .bfs-chip.paid { color: #fbbf24 !important; }
+
+body[data-theme] .main-content .bfs-dash {
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .settings-container button.bfs-status {
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 0.58rem !important;
+}
+
+body[data-theme] .main-content .bfs-status.on {
+    background: rgba(5, 150, 105, 0.12);
+    border-color: rgba(5, 150, 105, 0.3) !important;
+    color: #047857 !important;
+}
+
+body[data-theme] .main-content .bfs-status.off {
+    background: rgba(148, 163, 184, 0.16);
+    border-color: rgba(148, 163, 184, 0.35) !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme="dark"] .main-content .bfs-status.on { color: #6ee7b7 !important; }
+
+body[data-theme] .main-content .bfs-actions {
+    display: inline-flex;
+    gap: 0.3rem;
+}
+
+body[data-theme] .main-content .bfs-actions form {
+    margin: 0;
+}
+
+body[data-theme] .main-content .settings-container button.bfs-btn {
+    height: 26px;
+    padding: 0 0.65rem;
+    border-radius: 7px;
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    background: var(--fd-accent-soft);
+    color: var(--fd-accent-text) !important;
+    -webkit-text-fill-color: var(--fd-accent-text) !important;
+    font-size: 0.66rem !important;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+body[data-theme] .main-content .settings-container button.bfs-btn.del {
+    border-color: rgba(220, 38, 38, 0.3);
+    background: rgba(220, 38, 38, 0.08);
+    color: #b91c1c !important;
+    -webkit-text-fill-color: #b91c1c !important;
+}
+
+body[data-theme="dark"] .main-content .settings-container button.bfs-btn.del {
+    color: #fca5a5 !important;
+    -webkit-text-fill-color: #fca5a5 !important;
+}
+
+body[data-theme] .main-content .bfs-empty {
+    padding: 1.25rem;
+    border-radius: 10px;
+    border: 1px dashed var(--fd-input-border);
+    text-align: center;
+    font-size: 0.74rem;
+    color: var(--fd-muted) !important;
+}
+
+/* Form tambah menu */
+body[data-theme] .main-content .bfs-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+}
+
+body[data-theme] .main-content .bfs-checks {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0.2rem 0 0.75rem;
+}
+
+body[data-theme] .main-content .settings-container label.bfs-check {
+    display: flex;
+    gap: 0.55rem;
+    align-items: flex-start;
+    padding: 0.5rem 0.6rem;
+    border-radius: 9px;
+    background: var(--fd-tile);
+    border: 1px solid var(--fd-line);
+    cursor: pointer;
+    font-size: 0.72rem !important;
+}
+
+body[data-theme] .main-content .bfs-check input {
+    width: 16px;
+    height: 16px;
+    margin-top: 1px;
+    accent-color: var(--fd-accent-2);
+    flex-shrink: 0;
+}
+
+body[data-theme] .main-content .bfs-check b {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .main-content .settings-container .bfs-check small {
+    font-size: 0.62rem !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .settings-container .bfs-submit {
+    width: 100%;
+    height: 34px;
+    justify-content: center;
+}
+
+/* Portal tamu: dilipat */
+body[data-theme] .main-content .settings-container details.bfs-portal {
+    margin-top: 0.75rem !important;
+    padding: 0 !important;
+}
+
+body[data-theme] .main-content .bfs-portal summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    cursor: pointer;
+    list-style: none;
+}
+
+body[data-theme] .main-content .bfs-portal summary::-webkit-details-marker {
+    display: none;
+}
+
+body[data-theme] .main-content .bfs-portal summary::after {
+    content: 'Buka';
+    flex-shrink: 0;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: var(--fd-accent-soft);
+    color: var(--fd-accent-text);
+    font-size: 0.64rem;
+    font-weight: 700;
+}
+
+body[data-theme] .main-content .bfs-portal[open] summary::after {
+    content: 'Tutup';
+}
+
+body[data-theme] .main-content .bfs-portal summary b {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--fd-text) !important;
+}
+
+body[data-theme] .main-content .settings-container .bfs-portal summary small {
+    font-size: 0.64rem !important;
+    color: var(--fd-muted) !important;
+}
+
+body[data-theme] .main-content .bfs-portal form {
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid var(--fd-line);
+}
+
+body[data-theme] .main-content .bfs-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+body[data-theme] .main-content .bfs-logo-row img {
+    height: 36px;
+    max-width: 160px;
+    object-fit: contain;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: var(--fd-tile);
+    border: 1px solid var(--fd-line);
+}
+
+body[data-theme] .main-content .bfs-logo-row .form-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+body[data-theme] .main-content .settings-container label.bfs-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.7rem !important;
+    color: var(--fd-text-2) !important;
+}
+
+@media (max-width: 1024px) {
+    body[data-theme] .main-content .bfs-grid,
+    body[data-theme] .main-content .bfs-portal .bfs-two {
+        grid-template-columns: 1fr;
+    }
+
+    body[data-theme] .main-content .bfs-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        row-gap: 0.5rem;
+    }
+}
+
 /* Modal edit di Pengaturan (berada di luar .settings-container) */
 body[data-theme] #editRoomTypeModal > div,
 body[data-theme] #editRoomModal > div,
