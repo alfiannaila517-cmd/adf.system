@@ -606,7 +606,7 @@ include '../../includes/header.php';
     .calendar-grid {
         display: grid;
         gap: 0;
-        grid-template-columns: 110px repeat(<?php echo count($dates); ?>, 110px);
+        grid-template-columns: 84px repeat(<?php echo count($dates); ?>, 110px);
         width: fit-content;
         min-width: fit-content;
         max-width: none;
@@ -629,8 +629,8 @@ include '../../includes/header.php';
         position: sticky;
         left: 0;
         z-index: 41;
-        min-width: 110px;
-        max-width: 110px;
+        min-width: 84px;
+        max-width: 84px;
     }
 
     .grid-month-label {
@@ -649,7 +649,7 @@ include '../../includes/header.php';
 
     .grid-month-label span {
         position: sticky;
-        left: 117px;
+        left: 91px;
         z-index: 2;
         background: #f8fafc;
         padding: 0 0.5rem;
@@ -690,8 +690,8 @@ include '../../includes/header.php';
         align-items: center;
         justify-content: center;
         min-height: 50px;
-        min-width: 110px;
-        max-width: 110px;
+        min-width: 84px;
+        max-width: 84px;
     }
 
     /* Light theme - better header visibility */
@@ -940,7 +940,10 @@ include '../../includes/header.php';
     body[data-theme] .calendar-grid .grid-room-number { font-size: 0.9rem !important; }
     body[data-theme] .calendar-grid .grid-room-type-header { font-size: 0.86rem !important; }
     body[data-theme] .calendar-grid .type-avail-count { font-size: 0.9rem !important; }
-    body[data-theme] .calendar-grid .type-price-text { font-size: 0.72rem !important; }
+    body[data-theme] .calendar-grid .type-price-text { font-size: 0.8rem !important; font-weight: 700 !important; }
+    /* Kolom nomor kamar lebih ramping */
+    body[data-theme] .calendar-grid .grid-room-type-header { gap: 0.25rem; padding: 0 0.3rem !important; font-size: 0.8rem !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body[data-theme] .calendar-grid .grid-header-room, body[data-theme] .calendar-grid .grid-footer-room { padding: 0 0.2rem !important; font-size: 0.72rem !important; letter-spacing: 0.08em; }
     /* Teks reservasi di balok: lebih besar, tidak pernah keluar dari balok */
     body[data-theme] .calendar-grid .booking-bar { min-width: 0; }
     body[data-theme] .calendar-grid .booking-bar > span {
@@ -1003,8 +1006,8 @@ include '../../includes/header.php';
         align-items: center;
         justify-content: center;
         min-height: 50px;
-        min-width: 110px;
-        max-width: 110px;
+        min-width: 84px;
+        max-width: 84px;
         box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
     }
 
@@ -1093,8 +1096,8 @@ include '../../includes/header.php';
         align-items: center;
         text-align: center;
         gap: 0.1rem;
-        min-width: 110px;
-        max-width: 110px;
+        min-width: 84px;
+        max-width: 84px;
         cursor: grab;
         font-size: 0.85rem;
         min-height: 28px;
@@ -1225,8 +1228,8 @@ include '../../includes/header.php';
         text-align: center;
         font-size: 0.78rem;
         gap: 0.2rem;
-        min-width: 110px;
-        max-width: 110px;
+        min-width: 84px;
+        max-width: 84px;
         min-height: 26px;
         box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
         letter-spacing: 0.3px;
@@ -5723,7 +5726,7 @@ include '../../includes/header.php';
         if (cell) {
             // Kolom tanggal tepat di kanan kolom kamar (posisi kolom tanggal pertama diukur)
             const firstCell = scroller.querySelector('.grid-date-cell[data-date]');
-            const scrollPos = cell.offsetLeft - (firstCell ? firstCell.offsetLeft : 110);
+            const scrollPos = cell.offsetLeft - (firstCell ? firstCell.offsetLeft : 84);
             scroller.scrollLeft = Math.max(0, scrollPos);
         }
     }
