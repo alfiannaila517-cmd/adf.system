@@ -13,9 +13,21 @@
  *   php _deploy_fingerprint_cron.php log      # view last sync output
  */
 
-$h = 'guangmao.iixcp.rumahweb.net';
-$u = 'adfb2574';
-$p = '@Nnoc2026';
+// Hanya boleh dijalankan dari terminal (bukan lewat browser).
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
+// Kredensial cPanel dari environment, contoh:
+//   CPANEL_HOST=... CPANEL_USER=... CPANEL_PASS=... php _deploy_fingerprint_cron.php list
+$h = getenv('CPANEL_HOST') ?: 'guangmao.iixcp.rumahweb.net';
+$u = getenv('CPANEL_USER') ?: '';
+$p = getenv('CPANEL_PASS') ?: '';
+if ($u === '' || $p === '') {
+    fwrite(STDERR, "Set CPANEL_USER dan CPANEL_PASS di environment terlebih dahulu.\n");
+    exit(1);
+}
 $base = "https://{$h}:2083";
 
 // Cron command: trigger the auto-sync endpoint, save output for monitoring.

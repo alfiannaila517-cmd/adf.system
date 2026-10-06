@@ -191,3 +191,7 @@ config/email-narayana.php
 # Mayar payment gateway credentials (platform subscription billing)
 # =============================================
 config/mayar.php
+
+# Backup database (data tamu) tidak boleh masuk repo
+backups/
+*.sql.gz

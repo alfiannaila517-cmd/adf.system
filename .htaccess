@@ -10,6 +10,12 @@ RewriteEngine On
 RewriteRule ^.git - [F,L]
 RewriteRule ^.env - [F,L]
 RewriteRule ^\.gitignore$ - [F,L]
+# Data & file internal tidak boleh diunduh dari web (backup database, SQL, dokumentasi, skrip deploy)
+RewriteRule ^(backups|database|deploy|cron|\.venv|\.vscode)(/|$) - [F,L]
+RewriteRule \.(sql|sql\.gz|md|sh|yml|yaml|lock|env|log)$ - [F,L,NC]
+RewriteRule (^|/)composer\.(json|phar)$ - [F,L]
+RewriteRule ^_[^/]*\.php$ - [F,L]
+RewriteRule ^tools/cpanel-[^/]*\.php$ - [F,L]
 </IfModule>
 
 # Public "Login Admin" link target (used by the travel_bureau public website) - route /admin to login

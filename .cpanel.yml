@@ -1,10 +1,8 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/adfb2574/public_html
-    - /bin/mkdir -p $DEPLOYPATH
-    - /bin/cp -R $(pwd)/* $DEPLOYPATH/ 2>/dev/null || true
-    - /bin/cp -R $(pwd)/.[^.]* $DEPLOYPATH/ 2>/dev/null || true
+    # Repo cPanel = /home/adfb2574/public_html (situs utama langsung dari repo, ter-update lewat
+    # "Update from Remote"). Deploy HEAD Commit hanya menyalin ke addon domain di bawah ini.
 
     # =============================================
     # adfsystem-site -> addon domain adfsystem.store
