@@ -28,18 +28,18 @@ $pageTitle = 'Laporan Harian';
 require __DIR__ . '/laporan-data.php';
 
 $logoUrl = $company['invoice_logo'] ?? $company['logo'] ?? null;
-$pdfName = 'Laporan-Harian-' . preg_replace('/[^A-Za-z0-9]+/', '-', (string)$company['name']) . '-' . $today . '.pdf';
+$pdfName = 'Daily-Report-' . preg_replace('/[^A-Za-z0-9]+/', '-', (string)$company['name']) . '-' . $today . '.pdf';
 
 // Ringkasan untuk pesan WhatsApp (menyertai file PDF).
-$waText = "*LAPORAN HARIAN — " . date('d M Y') . "*\n"
+$waText = "*DAILY REPORT — " . date('d M Y') . "*\n"
     . $company['name'] . "\n\n"
-    . "Occupancy: {$occupancyRate}% ({$occupiedRooms}/{$totalRooms} kamar)\n"
-    . "In house: " . count($inHouseGuests) . " tamu\n"
-    . "Check-in hari ini: " . count($checkInToday) . "\n"
-    . "Check-out hari ini: " . count($checkOutToday) . "\n"
-    . "Kedatangan besok: " . count($arrivalTomorrow) . "\n"
-    . ($breakfastOrders ? "Sarapan: " . count($breakfastOrders) . " order · {$breakfastPax} pax\n" : '')
-    . "\nDetail lengkap di file PDF terlampir.";
+    . "Occupancy: {$occupancyRate}% ({$occupiedRooms}/{$totalRooms} rooms)\n"
+    . "In-house: " . count($inHouseGuests) . " guests\n"
+    . "Arrivals today: " . count($checkInToday) . "\n"
+    . "Departures today: " . count($checkOutToday) . "\n"
+    . "Arrivals tomorrow: " . count($arrivalTomorrow) . "\n"
+    . ($breakfastOrders ? "Breakfast: " . count($breakfastOrders) . " orders · {$breakfastPax} pax\n" : '')
+    . "\nFull details in the attached PDF.";
 
 $fmtD = static fn($v) => $v ? date('d M', strtotime($v)) : '-';
 
@@ -571,6 +571,7 @@ $rpTable = static function (array $rows, array $cols, string $empty): void {
 };
 $h = static fn($v) => htmlspecialchars((string)$v);
 $cRoom = static fn($r) => '<td><span class="rp-room">' . htmlspecialchars((string)$r['room_number']) . '</span></td>';
+$cType = static fn($r) => '<td>' . htmlspecialchars((string)($r['type_name'] ?: '-')) . '</td>';
 $cName = static fn($r) => '<td class="name">' . htmlspecialchars((string)$r['guest_name']) . '</td>';
 $cCode = static fn($r) => '<td>' . htmlspecialchars((string)$r['booking_code']) . '</td>';
 $cIn = static fn($r) => '<td>' . $fmtD($r['check_in_date']) . '</td>';
@@ -633,7 +634,8 @@ $section = static function (string $title, array $rows, array $cols, string $emp
     <?php
     $section('Tamu In-House', $inHouseGuests, [
         'Kamar'  => $cRoom,
-        'Tamu'   => static fn($r) => '<td class="name">' . htmlspecialchars((string)$r['guest_name']) . ($r['type_name'] ? '<small>' . htmlspecialchars((string)$r['type_name']) . '</small>' : '') . '</td>',
+        'Tipe'   => $cType,
+        'Tamu'   => $cName,
         'Kode'   => $cCode,
         'Masuk'  => $cIn,
         'Keluar' => $cOut,
@@ -643,14 +645,14 @@ $section = static function (string $title, array $rows, array $cols, string $emp
 
     <div class="rp-grid rp-row-gap">
         <?php
-        $section('Check-in Hari Ini', $checkInToday, ['Kamar' => $cRoom, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Keluar' => $cOut], 'Tidak ada kedatangan hari ini');
-        $section('Check-out Hari Ini', $checkOutToday, ['Kamar' => $cRoom, 'Tamu' => $cName, 'Kode' => $cCode, 'Masuk' => $cIn], 'Tidak ada check-out hari ini');
+        $section('Check-in Hari Ini', $checkInToday, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Keluar' => $cOut], 'Tidak ada kedatangan hari ini');
+        $section('Check-out Hari Ini', $checkOutToday, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Kode' => $cCode, 'Masuk' => $cIn], 'Tidak ada check-out hari ini');
         ?>
     </div>
     <div class="rp-grid rp-row-gap">
         <?php
-        $section('Check-out Besok', $checkOutTomorrow, ['Kamar' => $cRoom, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Masuk' => $cIn], 'Tidak ada check-out besok');
-        $section('Kedatangan Besok', $arrivalTomorrow, ['Kamar' => $cRoom, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Pax' => static fn($r) => '<td>' . (int)($r['guest_count'] ?: 1) . '</td>', 'Keluar' => $cOut], 'Tidak ada kedatangan besok');
+        $section('Check-out Besok', $checkOutTomorrow, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Masuk' => $cIn], 'Tidak ada check-out besok');
+        $section('Kedatangan Besok', $arrivalTomorrow, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Pax' => static fn($r) => '<td>' . (int)($r['guest_count'] ?: 1) . '</td>', 'Keluar' => $cOut], 'Tidak ada kedatangan besok');
         ?>
     </div>
 

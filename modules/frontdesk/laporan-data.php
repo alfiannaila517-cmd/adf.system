@@ -75,34 +75,38 @@ try {
     }
 
     // 3. Check-in hari ini (belum check-in)
-    $checkInToday = $db->fetchAll("SELECT b.booking_code, g.guest_name, g.phone, r.room_number, b.check_in_date, b.check_out_date
+    $checkInToday = $db->fetchAll("SELECT b.booking_code, g.guest_name, g.phone, r.room_number, rt.type_name, b.check_in_date, b.check_out_date
         FROM bookings b
         INNER JOIN guests g ON b.guest_id = g.id
         INNER JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
         WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'pending')
         ORDER BY r.room_number ASC", [$today]) ?: [];
 
     // 4. Check-out hari ini (masih in-house)
-    $checkOutToday = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date
+    $checkOutToday = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, rt.type_name, b.check_in_date, b.check_out_date
         FROM bookings b
         INNER JOIN guests g ON b.guest_id = g.id
         INNER JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
         WHERE b.check_out_date = ? AND b.status = 'checked_in'
         ORDER BY r.room_number ASC", [$today]) ?: [];
 
     // 5. Check-out besok
-    $checkOutTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, g.phone, r.room_number, b.check_in_date, b.check_out_date
+    $checkOutTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, g.phone, r.room_number, rt.type_name, b.check_in_date, b.check_out_date
         FROM bookings b
         INNER JOIN guests g ON b.guest_id = g.id
         INNER JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
         WHERE b.check_out_date = ? AND b.status = 'checked_in'
         ORDER BY r.room_number ASC", [$tomorrow]) ?: [];
 
     // 6. Kedatangan besok
-    $arrivalTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, g.phone, r.room_number, b.check_in_date, b.check_out_date, b.guest_count
+    $arrivalTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, g.phone, r.room_number, rt.type_name, b.check_in_date, b.check_out_date, b.guest_count
         FROM bookings b
         INNER JOIN guests g ON b.guest_id = g.id
         INNER JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
         WHERE b.check_in_date = ? AND b.status IN ('confirmed', 'pending')
         ORDER BY r.room_number ASC", [$tomorrow]) ?: [];
 
