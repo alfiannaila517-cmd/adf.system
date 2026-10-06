@@ -1045,62 +1045,62 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
         // Kamar: satu baris per booking/grup yang masih bersisa (baris grup lain bernilai 0 dilewati).
         if (in_array('room', $bpShow, true) && $unpaidGuests) {
-            $groupRooms = [];
-            foreach ($unpaidGuests as $g) {
-                if (!empty($g['group_id'])) $groupRooms[$g['group_id']][] = $g['room_number'];
+            $bpGroupRooms = [];
+            foreach ($unpaidGuests as $bpG) {
+                if (!empty($bpG['group_id'])) $bpGroupRooms[$bpG['group_id']][] = $bpG['room_number'];
             }
-            $items = [];
-            foreach ($unpaidGuests as $g) {
-                if ((float)$g['remaining'] <= 0) continue;
-                $rooms = !empty($g['group_id']) ? $groupRooms[$g['group_id']] : [$g['room_number']];
-                $overdue = !empty($g['check_out_date']) && $g['check_out_date'] < date('Y-m-d');
-                $items[] = [
-                    'tag'  => count($rooms) > 1 ? count($rooms) . ' kmr' : (string)$rooms[0],
-                    'name' => $g['guest_name'] ?: '-',
-                    'sub'  => trim(($g['booking_code'] ?? '') . ' · ' . (count($rooms) > 1 ? 'Kamar ' . implode(', ', $rooms) . ' · ' : '') . ($overdue ? 'Lewat tanggal check-out' : 'Check-out hari ini'), ' ·'),
-                    'amt'  => $bpRp($g['remaining']),
+            $bpItems = [];
+            foreach ($unpaidGuests as $bpG) {
+                if ((float)$bpG['remaining'] <= 0) continue;
+                $bpRooms = !empty($bpG['group_id']) ? $bpGroupRooms[$bpG['group_id']] : [$bpG['room_number']];
+                $bpOverdue = !empty($bpG['check_out_date']) && $bpG['check_out_date'] < date('Y-m-d');
+                $bpItems[] = [
+                    'tag'  => count($bpRooms) > 1 ? count($bpRooms) . ' kmr' : (string)$bpRooms[0],
+                    'name' => $bpG['guest_name'] ?: '-',
+                    'sub'  => trim(($bpG['booking_code'] ?? '') . ' · ' . (count($bpRooms) > 1 ? 'Kamar ' . implode(', ', $bpRooms) . ' · ' : '') . ($bpOverdue ? 'Lewat tanggal check-out' : 'Check-out hari ini'), ' ·'),
+                    'amt'  => $bpRp($bpG['remaining']),
                     'cta'  => 'Bayar',
-                    'href' => BASE_URL . '/modules/frontdesk/in-house.php?pay=' . (int)$g['id'],
+                    'href' => BASE_URL . '/modules/frontdesk/in-house.php?pay=' . (int)$bpG['id'],
                 ];
             }
-            if ($items) {
-                $bpSections[] = ['title' => 'Tagihan kamar', 'items' => $items, 'href' => BASE_URL . '/modules/frontdesk/in-house.php', 'cta' => 'Buka Tamu In-House'];
+            if ($bpItems) {
+                $bpSections[] = ['title' => 'Tagihan kamar', 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/in-house.php', 'cta' => 'Buka Tamu In-House'];
             }
         }
 
         if (in_array('hs', $bpShow, true) && $unpaidHotelServices) {
-            $items = [];
-            foreach ($unpaidHotelServices as $inv) {
-                $rest = max(0, (float)$inv['total'] - (float)$inv['paid_amount']);
-                if ($rest <= 0) continue;
-                $items[] = [
-                    'tag'  => $inv['room_number'] ? (string)$inv['room_number'] : 'HS',
-                    'name' => $inv['guest_name'] ?: '-',
-                    'sub'  => $inv['invoice_number'] . ' · Hotel Service',
-                    'amt'  => $bpRp($rest),
+            $bpItems = [];
+            foreach ($unpaidHotelServices as $bpInv) {
+                $bpRest = max(0, (float)$bpInv['total'] - (float)$bpInv['paid_amount']);
+                if ($bpRest <= 0) continue;
+                $bpItems[] = [
+                    'tag'  => $bpInv['room_number'] ? (string)$bpInv['room_number'] : 'HS',
+                    'name' => $bpInv['guest_name'] ?: '-',
+                    'sub'  => $bpInv['invoice_number'] . ' · Hotel Service',
+                    'amt'  => $bpRp($bpRest),
                     'cta'  => 'Lihat',
-                    'href' => BASE_URL . '/modules/frontdesk/hotel-service-invoice.php?id=' . (int)$inv['id'],
+                    'href' => BASE_URL . '/modules/frontdesk/hotel-service-invoice.php?id=' . (int)$bpInv['id'],
                 ];
             }
-            if ($items) {
-                $bpSections[] = ['title' => 'Hotel Service', 'items' => $items, 'href' => BASE_URL . '/modules/frontdesk/hotel-services.php', 'cta' => 'Buka Hotel Service'];
+            if ($bpItems) {
+                $bpSections[] = ['title' => 'Hotel Service', 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/hotel-services.php', 'cta' => 'Buka Hotel Service'];
             }
         }
 
         if (in_array('motor', $bpShow, true) && $overdueMotors) {
-            $items = [];
-            foreach ($overdueMotors as $m) {
-                $h = max(0, (int)($m['hours_overdue'] ?? 0));
-                $items[] = [
+            $bpItems = [];
+            foreach ($overdueMotors as $bpM) {
+                $bpH = max(0, (int)($bpM['hours_overdue'] ?? 0));
+                $bpItems[] = [
                     'tag'  => 'MTR',
-                    'name' => $m['guest_name'] ?: '-',
-                    'sub'  => $m['motor_name'] . ' (' . $m['plate_number'] . ')',
-                    'amt'  => (floor($h / 24) > 0 ? floor($h / 24) . ' hari ' . ($h % 24) . ' jam' : $h . ' jam'),
+                    'name' => $bpM['guest_name'] ?: '-',
+                    'sub'  => $bpM['motor_name'] . ' (' . $bpM['plate_number'] . ')',
+                    'amt'  => (floor($bpH / 24) > 0 ? floor($bpH / 24) . ' hari ' . ($bpH % 24) . ' jam' : $bpH . ' jam'),
                     'cta'  => 'Terlambat',
                     'href' => BASE_URL . '/modules/frontdesk/rental-motor.php',
                 ];
             }
-            $bpSections[] = ['title' => 'Rental motor terlambat', 'items' => $items, 'href' => BASE_URL . '/modules/frontdesk/rental-motor.php', 'cta' => 'Buka Rental Motor'];
+            $bpSections[] = ['title' => 'Rental motor terlambat', 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/rental-motor.php', 'cta' => 'Buka Rental Motor'];
         }
 
         if ($bpSections):
@@ -1183,19 +1183,19 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         <button type="button" class="billpop-x" data-bp-close aria-label="Tutup">&times;</button>
                     </div>
                     <div class="billpop-body">
-                        <?php foreach ($bpSections as $sec): ?>
+                        <?php foreach ($bpSections as $bpSec): ?>
                             <div class="billpop-sec">
-                                <h4><?php echo htmlspecialchars($sec['title']); ?> <span><?php echo count($sec['items']); ?></span></h4>
-                                <?php foreach ($sec['items'] as $it): ?>
-                                    <a class="billpop-item" href="<?php echo htmlspecialchars($it['href']); ?>">
-                                        <span class="billpop-tag"><?php echo htmlspecialchars($it['tag']); ?></span>
+                                <h4><?php echo htmlspecialchars($bpSec['title']); ?> <span><?php echo count($bpSec['items']); ?></span></h4>
+                                <?php foreach ($bpSec['items'] as $bpIt): ?>
+                                    <a class="billpop-item" href="<?php echo htmlspecialchars($bpIt['href']); ?>">
+                                        <span class="billpop-tag"><?php echo htmlspecialchars($bpIt['tag']); ?></span>
                                         <span class="billpop-who">
-                                            <b><?php echo htmlspecialchars($it['name']); ?></b>
-                                            <small><?php echo htmlspecialchars($it['sub']); ?></small>
+                                            <b><?php echo htmlspecialchars($bpIt['name']); ?></b>
+                                            <small><?php echo htmlspecialchars($bpIt['sub']); ?></small>
                                         </span>
                                         <span class="billpop-amt">
-                                            <b><?php echo htmlspecialchars($it['amt']); ?></b>
-                                            <small><?php echo htmlspecialchars($it['cta']); ?> &rarr;</small>
+                                            <b><?php echo htmlspecialchars($bpIt['amt']); ?></b>
+                                            <small><?php echo htmlspecialchars($bpIt['cta']); ?> &rarr;</small>
                                         </span>
                                     </a>
                                 <?php endforeach; ?>
