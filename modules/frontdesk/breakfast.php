@@ -1403,6 +1403,103 @@ include '../../includes/header.php';
         opacity: 1;
         transform: translate(-50%, 0);
     }
+
+    /* Popup sukses di tengah: centang hijau, hilang otomatis */
+    .bfg-ok {
+        position: fixed;
+        inset: 0;
+        z-index: 10080;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        pointer-events: none;
+        background: rgba(15, 23, 42, 0.18);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.22s, visibility 0.22s;
+    }
+
+    .bfg-ok.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .bfg-ok-card {
+        min-width: 250px;
+        max-width: 340px;
+        padding: 22px 26px 20px;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.45);
+        text-align: center;
+        transform: scale(0.85);
+        transition: transform 0.28s cubic-bezier(.2, 1.3, .5, 1);
+    }
+
+    .bfg-ok.show .bfg-ok-card {
+        transform: none;
+    }
+
+    body[data-theme="dark"] .bfg-ok-card {
+        background: #111a2e;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .bfg-ok-ic {
+        display: block;
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 10px;
+    }
+
+    .bfg-ok-ic circle {
+        fill: #059669;
+    }
+
+    .bfg-ok-ic path {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 4.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 40;
+        stroke-dashoffset: 40;
+    }
+
+    .bfg-ok.show .bfg-ok-ic path {
+        animation: bfgOkDraw 0.35s 0.15s ease-out forwards;
+    }
+
+    @keyframes bfgOkDraw {
+        to { stroke-dashoffset: 0; }
+    }
+
+    body[data-theme] .bfg-ok-card b {
+        display: block;
+        font-size: 0.95rem;
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+
+    body[data-theme] .bfg-ok-card small {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.75rem;
+        line-height: 1.45;
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+    }
+
+    body[data-theme="dark"] .bfg-ok-card b {
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
+    }
+
+    body[data-theme="dark"] .bfg-ok-card small {
+        color: #94a3b8 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+    }
 </style>
 
 <div class="bf-wrap">
@@ -1756,6 +1853,16 @@ include '../../includes/header.php';
 </div>
 
 <div class="bfg-toast" id="bfgToast"></div>
+<div class="bfg-ok" id="bfgOk" role="status" aria-live="polite">
+    <div class="bfg-ok-card">
+        <svg class="bfg-ok-ic" viewBox="0 0 52 52" aria-hidden="true">
+            <circle cx="26" cy="26" r="24" />
+            <path d="M15 27.5l7.5 7.5L37.5 19" />
+        </svg>
+        <b id="bfgOkTitle"></b>
+        <small id="bfgOkSub"></small>
+    </div>
+</div>
 
 <script>
     // Guest checkbox counter
@@ -2350,6 +2457,20 @@ include '../../includes/header.php';
     // ═══ Link sarapan: jatah pax dari reservasi (bisa disetel), grup = 1 link, kirim via WhatsApp ═══
     var bfgSetupCb = null;
 
+    // Sukses: popup centang hijau di tengah, hilang otomatis.
+    function bfgOk(title, sub) {
+        var p = document.getElementById('bfgOk');
+        document.getElementById('bfgOkTitle').textContent = title;
+        var s = document.getElementById('bfgOkSub');
+        s.textContent = sub || '';
+        s.style.display = sub ? '' : 'none';
+        p.classList.remove('show');
+        void p.offsetWidth; // ulang animasi centang
+        p.classList.add('show');
+        clearTimeout(p._h);
+        p._h = setTimeout(function() { p.classList.remove('show'); }, 1800);
+    }
+
     function bfgToast(msg, kind) {
         var t = document.getElementById('bfgToast');
         t.textContent = msg;
@@ -2417,7 +2538,7 @@ include '../../includes/header.php';
             if (!data.success) throw new Error(data.message || 'Gagal menyimpan');
             bfgSetPax(bfgSetupCb, pax, 'disetel', kids);
             closeGuestSetup();
-            bfgToast('Jatah ' + pax + ' pax' + (kids ? ' + ' + kids + ' kids' : '') + ' tersimpan');
+            bfgOk('Jatah tersimpan', pax + ' pax' + (kids ? ' + ' + kids + ' kids' : ''));
         } catch (e) {
             bfgToast(e.message, 'err');
         }
@@ -2500,7 +2621,7 @@ include '../../includes/header.php';
                 phone = await askPhone(label);
                 if (phone === null) return;
                 if (phone === '') {
-                    try { await navigator.clipboard.writeText(portalLink); bfgToast('Link disalin — tempel ke chat tamu'); }
+                    try { await navigator.clipboard.writeText(portalLink); bfgOk('Link disalin', 'Tempel ke chat tamu'); }
                     catch (e) { prompt('Salin link berikut:', portalLink); }
                     return;
                 }
@@ -2514,7 +2635,7 @@ include '../../includes/header.php';
             });
             var r = await res.json();
             if (r.success) {
-                bfgToast('Link sarapan terkirim ke ' + (r.target || phone) + ' (' + c.pax + ' pax)');
+                bfgOk('Link sarapan terkirim', 'WhatsApp ' + (r.target || phone) + ' · ' + c.pax + ' pax' + (c.kids ? ' + ' + c.kids + ' kids' : ''));
                 cbs.forEach(function(cb) {
                     var s = bfgRowOf(cb).querySelector('.bfg-sent');
                     if (s) s.hidden = false;
