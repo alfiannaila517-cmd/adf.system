@@ -7,6 +7,9 @@
  */
 
 define('APP_ACCESS', true);
+ob_start();
+@set_time_limit(90);
+@ini_set('memory_limit', '256M');
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
@@ -45,7 +48,13 @@ if ($logoVal !== '') {
     if ($local !== '' && is_file($local) && @getimagesize($local)) {
         $logoSrc = $local;
     } elseif (strpos($logoVal, 'http') === 0 && ini_get('allow_url_fopen')) {
-        $logoSrc = $logoVal;
+        $ctx = stream_context_create(['http' => ['timeout' => 5], 'https' => ['timeout' => 5]]);
+        $img = @file_get_contents($logoVal, false, $ctx);
+        if ($img !== false && @getimagesizefromstring($img)) {
+            // Simpan sementara sebagai file lokal: lebih andal daripada TCPDF mengambil URL sendiri.
+            $tmpLogo = tempnam(sys_get_temp_dir(), 'lgo');
+            if ($tmpLogo && file_put_contents($tmpLogo, $img) !== false) $logoSrc = $tmpLogo;
+        }
     }
 }
 
@@ -116,7 +125,7 @@ ob_start();
     <table class="head" cellspacing="0">
         <tr>
             <?php if ($logoSrc !== ''): ?>
-                <td style="width: 11%; padding-bottom: 3mm;"><img src="<?php echo $e($logoSrc); ?>" style="width: 18mm; height: 18mm;"></td>
+                <!--LOGO--><td style="width: 11%; padding-bottom: 3mm;"><img src="<?php echo $e($logoSrc); ?>" style="width: 18mm; height: 18mm;"></td><!--/LOGO-->
             <?php endif; ?>
             <td style="width: <?php echo $logoSrc !== '' ? '57' : '68'; ?>%; padding-bottom: 3mm;">
                 <div class="hotel"><?php echo $e($company['name']); ?></div>
@@ -209,15 +218,38 @@ ob_start();
 <?php
 $html = ob_get_clean();
 
-try {
+/** PDF sebagai string; percobaan kedua tanpa logo bila gambar logo bermasalah. */
+$render = static function (string $html): string {
     $pdf = new Html2Pdf('P', 'A4', 'en', true, 'UTF-8', [0, 0, 0, 0]);
     $pdf->setDefaultFont('dejavusans'); // UTF-8 penuh untuk nama tamu
     $pdf->pdf->SetTitle('Laporan Harian ' . date('d M Y'));
     $pdf->writeHTML($html);
-    $fileName = 'Laporan-Harian-' . preg_replace('/[^A-Za-z0-9]+/', '-', (string)$company['name']) . '-' . $today . '.pdf';
-    $pdf->output($fileName, !empty($_GET['download']) ? 'D' : 'I');
+    return $pdf->output('laporan.pdf', 'S');
+};
+
+try {
+    try {
+        $bytes = $render($html);
+    } catch (\Throwable $first) {
+        error_log('Laporan PDF (dengan logo): ' . $first->getMessage());
+        $bytes = $render(preg_replace('#<!--LOGO-->.*?<!--/LOGO-->#s', '', $html));
+    }
 } catch (\Throwable $ex) {
     error_log('Laporan PDF: ' . $ex->getMessage());
+    while (ob_get_level() > 0) ob_end_clean();
     http_response_code(500);
-    echo 'Gagal membuat PDF: ' . htmlspecialchars($ex->getMessage());
+    header('Content-Type: text/plain; charset=UTF-8');
+    echo 'Gagal membuat PDF: ' . $ex->getMessage();
+    exit;
+} finally {
+    if (!empty($tmpLogo) && is_file($tmpLogo)) @unlink($tmpLogo);
 }
+
+// Buang output liar sebelum mengirim file.
+while (ob_get_level() > 0) ob_end_clean();
+$fileName = 'Laporan-Harian-' . preg_replace('/[^A-Za-z0-9]+/', '-', (string)$company['name']) . '-' . $today . '.pdf';
+header('Content-Type: application/pdf');
+header('Content-Disposition: ' . (!empty($_GET['download']) ? 'attachment' : 'inline') . '; filename="' . $fileName . '"');
+header('Content-Length: ' . strlen($bytes));
+header('Cache-Control: private, no-store');
+echo $bytes;
