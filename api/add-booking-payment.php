@@ -48,6 +48,42 @@ try {
         $paymentMethod = 'cash';
     }
 
+    // Deteksi sumber booking SEBELUM menyimpan: metode bayar harus sesuai sumbernya.
+    $srcRow = $db->fetchOne("SELECT booking_source, status FROM bookings WHERE id = ?", [$bookingId]);
+    if (!$srcRow) {
+        throw new Exception('Booking not found');
+    }
+    $bookingSource = (string)($srcRow['booking_source'] ?? '');
+    $bookingStatus = (string)($srcRow['status'] ?? '');
+    $isOTA = false;
+    $sourceInfo = null;
+    try {
+        $sourceInfo = $db->fetchOne("SELECT source_type FROM booking_sources WHERE source_key = ? AND is_active = 1", [$bookingSource]);
+        if ($sourceInfo) {
+            $isOTA = ($sourceInfo['source_type'] ?? '') !== 'direct';
+        }
+    } catch (\Throwable $e) {
+        // Tabel booking_sources mungkin belum ada - pakai deteksi nama di bawah.
+    }
+    if (!$isOTA && !$sourceInfo) {
+        $normalizedSource = strtolower(trim($bookingSource));
+        $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
+        $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
+        foreach (['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'] as $ota) {
+            if ($normalizedSource !== '' && strpos($normalizedSource, $ota) !== false) {
+                $isOTA = true;
+                break;
+            }
+        }
+    }
+    $methodIsOta = $paymentMethod === 'ota' || strpos($paymentMethod, 'ota_') === 0;
+    if ($isOTA) {
+        // Booking OTA dibayar oleh platform: metode selalu OTA sumbernya.
+        $paymentMethod = 'ota_' . (preg_replace('/[^a-z0-9_]/', '', strtolower($bookingSource)) ?: 'ota');
+    } elseif ($methodIsOta) {
+        throw new Exception('Booking ini bukan dari OTA (' . ($bookingSource ?: 'direct') . '). Pilih Cash, Transfer atau QRIS.');
+    }
+
     $db->beginTransaction();
 
     // Kunci baris booking: dua klik "Bayar" bersamaan diproses berurutan, bukan paralel.
@@ -201,36 +237,12 @@ try {
             WHERE b.id = ?
         ", [$bookingId]);
         
-        // Use booking_sources table (source_type) for reliable OTA detection
-        $isOTA = false;
-        $sourceInfo = null;
-        try {
-            $sourceInfo = $db->fetchOne("SELECT source_type FROM booking_sources WHERE source_key = ? AND is_active = 1", [$bookingDetails['booking_source']]);
-            if ($sourceInfo) {
-                $isOTA = ($sourceInfo['source_type'] ?? '') !== 'direct';
-            }
-        } catch (\Throwable $e) {
-            // Table might not exist, fall through to hardcoded detection
-        }
-        
-        // Fallback: hardcoded detection if not found in booking_sources table
-        if (!$isOTA && !$sourceInfo) {
-            $normalizedSource = strtolower(trim($bookingDetails['booking_source'] ?? ''));
-            $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
-            $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
-            
-            $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
-            foreach ($otaSources as $ota) {
-                if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
-                    $isOTA = true;
-                    break;
-                }
-            }
-        }
-        
-        // Direct booking: langsung masuk buku kas (uang sudah diterima)
-        // OTA booking: masuk buku kas saat check-in (uang dari platform belum cair)
-        if ($isOTA) {
+        // Direct booking: langsung masuk buku kas (uang sudah diterima).
+        // OTA booking belum check-in: masuk buku kas saat check-in (uang dari platform belum cair).
+        // OTA booking yang sudah check-in/check-out: dicatat sekarang, NET setelah fee OTA,
+        // karena tahap check-in sudah lewat dan tidak akan mencatatnya lagi.
+        $otaSyncNow = $isOTA && in_array($bookingStatus, ['checked_in', 'checked_out'], true);
+        if ($isOTA && !$otaSyncNow) {
             $cashbookMessage = "Booking OTA - akan tercatat di buku kas saat check-in";
         } else {
             // DIRECT: langsung sync ke buku kas karena uang sudah diterima
@@ -242,7 +254,7 @@ try {
                 'payment_id'     => null,
                 'booking_id'     => $bookingId,
                 'amount'         => $amount,
-                'payment_method' => $paymentMethod,
+                'payment_method' => $otaSyncNow ? ('OTA ' . $bookingSource) : $paymentMethod,
                 'guest_name'     => $bookingDetails['guest_name'] ?? 'Guest',
                 'booking_code'   => $bookingDetails['booking_code'] ?? '',
                 'room_number'    => $bookingDetails['room_number'] ?? '',
@@ -257,6 +269,11 @@ try {
                 $cashbookInserted = true;
                 $cashAccountName = $syncResult['account_name'] ?? '';
                 $cashbookMessage = "Tercatat di buku kas: " . $cashAccountName;
+                if (!empty($syncResult['ota_fee']['fee_percent'])) {
+                    $otaFeePercent = (float)$syncResult['ota_fee']['fee_percent'];
+                    $otaFeeAmount = (float)($syncResult['ota_fee']['fee_amount'] ?? 0);
+                    $netAmount = (float)($syncResult['ota_fee']['net'] ?? $amount);
+                }
                 
                 // Tandai SEMUA baris yang dibuat request ini (termasuk porsi kamar lain dalam grup)
                 // dengan satu cashbook_id. Dulu hanya baris terakhir kamar yang diklik yang ditandai,
@@ -293,7 +310,10 @@ try {
     $successMessage = "Pembayaran tersimpan ✅";
     $successMessage .= "\nRp " . number_format($amount, 0, ',', '.') . " dicatat untuk booking " . ($bookingDetails['booking_code'] ?? '');
     
-    if ($isOTA) {
+    if ($isOTA && $cashbookInserted) {
+        $successMessage .= "\n\n💳 OTA " . $bookingSource . " - masuk buku kas NET Rp " . number_format($netAmount, 0, ',', '.')
+            . ($otaFeePercent > 0 ? " (fee " . $otaFeePercent . "%: -Rp " . number_format($otaFeeAmount, 0, ',', '.') . ")" : '');
+    } elseif ($isOTA) {
         $successMessage .= "\n\n⏰ OTA - Akan masuk Buku Kas saat CHECK-IN";
     } elseif ($cashbookInserted) {
         $successMessage .= "\n\n💰 Langsung tercatat di Buku Kas";
@@ -309,8 +329,12 @@ try {
         'remaining' => $displayRemaining,
         'payment_status' => $displayStatus,
         'cashbook_inserted' => $cashbookInserted,
-        'cashbook_at_checkin' => $isOTA,
-        'is_ota' => $isOTA
+        'cashbook_at_checkin' => $isOTA && !$cashbookInserted,
+        'is_ota' => $isOTA,
+        'payment_method' => $paymentMethod,
+        'ota_fee_percent' => $otaFeePercent,
+        'ota_fee_amount' => $otaFeeAmount,
+        'net_amount' => $netAmount
     ]);
 
 } catch (\Throwable $e) {

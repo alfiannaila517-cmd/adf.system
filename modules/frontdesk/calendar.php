@@ -4129,12 +4129,24 @@ include '../../includes/header.php';
         document.getElementById('paymentAmount').value = remaining;
         document.getElementById('paymentModalSubtitle').textContent = currentPaymentBooking.booking_code + ' • ' + (currentPaymentBooking.guest_name || '-');
 
+        // Metode bayar mengikuti sumber booking: OTA hanya untuk booking OTA, booking direct tanpa OTA.
+        const src = String(currentPaymentBooking.booking_source || '').toLowerCase();
+        const isOta = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.indexOf(src) > -1) || (parseFloat((OTA_FEES || {})[src]) > 0);
+        const srcName = ((typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[src]) || src || 'Direct').trim();
         const methodInput = document.getElementById('paymentMethodPay');
         const methodButtons = document.querySelectorAll('#bookingPaymentModal .payment-method-btn');
-        methodButtons.forEach(btn => btn.classList.remove('active'));
-        const defaultBtn = document.querySelector('#bookingPaymentModal .payment-method-btn[data-value="cash"]');
-        if (defaultBtn) defaultBtn.classList.add('active');
-        if (methodInput) methodInput.value = 'cash';
+        methodButtons.forEach(btn => {
+            const ota = btn.dataset.value === 'ota';
+            btn.style.display = (isOta ? ota : !ota) ? '' : 'none';
+            btn.classList.toggle('active', isOta ? ota : btn.dataset.value === 'cash');
+        });
+        if (methodInput) methodInput.value = isOta ? 'ota' : 'cash';
+        payOtaCtx = isOta ? { pct: parseFloat((OTA_FEES || {})[src]) || 0, name: srcName, status: currentPaymentBooking.status } : null;
+        document.getElementById('paySrcInfo').innerHTML = isOta ?
+            '<b>Booking via ' + escHtml(srcName) + '</b> · dibayar oleh OTA' + (payOtaCtx.pct ? ' · fee ' + payOtaCtx.pct + '%' : '') :
+            '<b>Booking ' + escHtml(srcName) + '</b> · pembayaran langsung dari tamu';
+        document.getElementById('paySrcInfo').className = 'pay-src ' + (isOta ? 'ota' : 'direct');
+        updatePayOtaNet();
 
         const modal = document.getElementById('bookingPaymentModal');
         modal.classList.add('active');
@@ -4148,6 +4160,24 @@ include '../../includes/header.php';
         modal.style.alignItems = 'center';
         modal.style.justifyContent = 'center';
     }
+
+    var payOtaCtx = null;
+    var payNeedsReload = false;
+
+    // Ringkasan uang masuk untuk booking OTA: bruto (dibayar OTA) − fee = NET masuk buku kas.
+    window.updatePayOtaNet = function updatePayOtaNet() {
+        const box = document.getElementById('payOtaNet');
+        if (!box) return;
+        if (!payOtaCtx) { box.style.display = 'none'; return; }
+        const gross = parseFloat(document.getElementById('paymentAmount').value) || 0;
+        const fee = Math.round(gross * payOtaCtx.pct / 100);
+        const f = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
+        const when = (payOtaCtx.status === 'checked_in' || payOtaCtx.status === 'checked_out') ? 'masuk buku kas sekarang' : 'masuk buku kas saat check-in';
+        box.innerHTML = '<div><span>Dibayar OTA (bruto)</span><b>' + f(gross) + '</b></div>' +
+            '<div><span>Fee ' + escHtml(payOtaCtx.name) + ' (' + payOtaCtx.pct + '%)</span><b class="neg">- ' + f(fee) + '</b></div>' +
+            '<div class="net"><span>Net ' + when + '</span><b>' + f(gross - fee) + '</b></div>';
+        box.style.display = '';
+    };
 
     window.closeBookingPaymentModal = function closeBookingPaymentModal() {
         const modal = document.getElementById('bookingPaymentModal');
@@ -4185,11 +4215,12 @@ include '../../includes/header.php';
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Show detailed success message with cashbook info
-                    let successMsg = '✅ PEMBAYARAN BERHASIL!\n\n';
-                    successMsg += data.message || 'Payment saved';
-
-                    alert(successMsg);
+                    if (typeof editResOk === 'function') {
+                        editResOk(data.payment_status === 'paid' ? 'Pembayaran lunas' : 'Pembayaran tersimpan');
+                    } else {
+                        alert(data.message || 'Payment saved');
+                    }
+                    payNeedsReload = true;
 
                     closeBookingPaymentModal();
                     // Refresh booking details
@@ -4214,6 +4245,10 @@ include '../../includes/header.php';
             })
             .finally(() => {
                 submitBookingPayment.busy = false;
+                if (payNeedsReload) {
+                    payNeedsReload = false;
+                    setTimeout(() => location.reload(), 1400);
+                }
             });
     }
 
@@ -7967,6 +8002,7 @@ include '../../includes/header.php';
                 <div><span>Sudah Bayar:</span> <strong id="paymentPaid">Rp 0</strong></div>
                 <div><span>Sisa:</span> <strong id="paymentRemaining">Rp 0</strong></div>
             </div>
+            <div class="pay-src" id="paySrcInfo"></div>
             <div class="form-group">
                 <label>Metode Pembayaran</label>
                 <input type="hidden" id="paymentMethodPay" value="cash">
@@ -7979,8 +8015,9 @@ include '../../includes/header.php';
             </div>
             <div class="form-group">
                 <label>Jumlah Bayar (Rp)</label>
-                <input type="number" id="paymentAmount" min="0" value="0">
+                <input type="number" id="paymentAmount" min="0" value="0" oninput="updatePayOtaNet()">
             </div>
+            <div class="pay-ota-net" id="payOtaNet" style="display:none;"></div>
             <div class="payment-modal-actions">
                 <button type="button" class="btn-secondary" onclick="closeBookingPaymentModal()">Cancel</button>
                 <button type="button" class="btn-primary" onclick="submitBookingPayment()">Pay</button>
@@ -8761,6 +8798,73 @@ include '../../includes/header.php';
     }
 
     /* Scrollbar styling (side panel handled above) */
+
+    /* Payment modal: info sumber booking & ringkasan OTA */
+    .pay-src {
+        margin: 0 0 10px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        font-size: 0.74rem;
+        line-height: 1.4;
+    }
+
+    body[data-theme] .pay-src.direct {
+        background: rgba(37, 99, 235, 0.07);
+        border: 1px solid rgba(37, 99, 235, 0.2);
+        color: #1e3a8a !important;
+        -webkit-text-fill-color: #1e3a8a !important;
+    }
+
+    body[data-theme] .pay-src.ota {
+        background: rgba(217, 119, 6, 0.08);
+        border: 1px solid rgba(217, 119, 6, 0.28);
+        color: #92400e !important;
+        -webkit-text-fill-color: #92400e !important;
+    }
+
+    .pay-ota-net {
+        margin: -2px 0 10px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .pay-ota-net > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 2px 0;
+    }
+
+    body[data-theme] .pay-ota-net span {
+        font-size: 0.74rem;
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+    }
+
+    body[data-theme] .pay-ota-net b {
+        font-size: 0.78rem;
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+
+    body[data-theme] .pay-ota-net b.neg {
+        color: #b91c1c !important;
+        -webkit-text-fill-color: #b91c1c !important;
+    }
+
+    .pay-ota-net .net {
+        margin-top: 4px;
+        padding-top: 6px !important;
+        border-top: 1px dashed #cbd5e1;
+    }
+
+    body[data-theme] .pay-ota-net .net b {
+        font-size: 0.9rem;
+        color: #047857 !important;
+        -webkit-text-fill-color: #047857 !important;
+    }
 
     /* ===== Side panel reservasi — redesign ===== */
     #bookingQuickView {
