@@ -325,6 +325,25 @@ try {
     }
 }
 
+// Kolom pembagian driver/mitra (owner_amount, hotel_commission, driver_paid) wajib ada sebelum insert item.
+try {
+    ensureDriverTripPaymentColumns($pdo);
+} catch (\Throwable $e) {
+    error_log("ensureDriverTripPaymentColumns: " . $e->getMessage());
+}
+// Mitra per item invoice: dipilih saat input, dibaca apa adanya oleh menu Tagihan.
+foreach (['partner_id' => 'INT DEFAULT NULL', 'partner_name' => 'VARCHAR(120) DEFAULT NULL', 'partner_amount' => 'DECIMAL(15,2) DEFAULT NULL'] as $hiiCol => $hiiDef) {
+    try {
+        $pdo->query("SELECT {$hiiCol} FROM hotel_invoice_items LIMIT 1");
+    } catch (\Throwable $e) {
+        try {
+            $pdo->exec("ALTER TABLE hotel_invoice_items ADD COLUMN {$hiiCol} {$hiiDef}");
+        } catch (\Throwable $e2) {
+            error_log("hotel_invoice_items {$hiiCol} migration: " . $e2->getMessage());
+        }
+    }
+}
+
 // ── Load service types from DB ─────────────────────────────────────────────────
 $serviceTypes = [];
 try {
@@ -666,6 +685,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['needs_driver_payment'] = !empty($item['needs_driver_payment']) ? 1 : 0;
                 $item['commission_type']     = in_array($item['commission_type'] ?? '', ['percent', 'nominal'], true) ? $item['commission_type'] : 'percent';
                 $item['commission_value']    = max(0, (float)($item['commission_value'] ?? 0));
+                // Mitra kategori Mobil: nama diambil dari master mitra; nominal bayar ≤ total item.
+                $item['partner_id'] = (int)($item['partner_id'] ?? 0) ?: null;
+                $item['partner_name'] = null;
+                $item['partner_amount'] = max(0, (float)($item['partner_amount'] ?? 0));
+                if ($item['partner_id']) {
+                    $pStmt = $pdo->prepare("SELECT partner_name FROM hotel_service_partners WHERE id=? AND business_id=? LIMIT 1");
+                    $pStmt->execute([$item['partner_id'], $businessId]);
+                    $pName = $pStmt->fetchColumn();
+                    if ($pName === false) throw new Exception('Mitra tidak ditemukan');
+                    $item['partner_name'] = (string)$pName;
+                    $item['partner_amount'] = min(round($item['qty'] * $item['unit_price'], 2), $item['partner_amount']);
+                } else {
+                    $item['partner_amount'] = null;
+                }
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) {
                     throw new Exception('Invalid service type: ' . ($item['service_type'] ?? ''));
@@ -809,8 +842,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $existingSubtotal = (float)$sumStmt->fetchColumn();
                 // Update totals based on new items
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                    (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime, partner_id, partner_name, partner_amount)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 foreach ($items as $item) {
                     [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
                         ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
@@ -821,6 +854,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $iOwner = (float)$item['total'];
                             $iHotel = 0.0;
                         }
+                    }
+                    if (!empty($item['partner_id'])) {
+                        $iOwner = (float)$item['partner_amount'];
+                        $iHotel = (float)$item['total'] - $iOwner;
                     }
                     $iStmt->execute([
                         $invId,
@@ -836,6 +873,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $iHotel,
                         $item['start_dt'] ?: null,
                         $item['end_dt'] ?: null,
+                        $item['partner_id'] ?? null,
+                        $item['partner_name'] ?? null,
+                        $item['partner_amount'] ?? null,
                     ]);
                 }
                 $mergedSubtotal = $existingSubtotal + $subtotal;
@@ -904,8 +944,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 }
 
                 $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                    (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                    (invoice_id, service_type, trip_type, guide_id, guide_name, description, quantity, unit_price, total_price, owner_amount, hotel_commission, start_datetime, end_datetime, partner_id, partner_name, partner_amount)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 foreach ($items as $item) {
                     [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
                         ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
@@ -915,6 +955,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                             $iOwner = (float)$item['total'];
                             $iHotel = 0.0;
                         }
+                    }
+                    if (!empty($item['partner_id'])) {
+                        $iOwner = (float)$item['partner_amount'];
+                        $iHotel = (float)$item['total'] - $iOwner;
                     }
                     $iStmt->execute([
                         $invId,
@@ -930,6 +974,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $iHotel,
                         $item['start_dt'] ?: null,
                         $item['end_dt'] ?: null,
+                        $item['partner_id'] ?? null,
+                        $item['partner_name'] ?? null,
+                        $item['partner_amount'] ?? null,
                     ]);
                 }
             }
@@ -1603,6 +1650,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $subtotal = 0;
             $motorRentalItems = [];
             $carRentalItems = [];
+            $driverTripItems = [];
             foreach ($items as &$item) {
                 $item['qty']        = max(0.5, (float)($item['qty'] ?? 1));
                 $item['unit_price'] = max(0, (float)($item['unit_price'] ?? 0));
@@ -1619,6 +1667,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['needs_driver_payment'] = !empty($item['needs_driver_payment']) ? 1 : 0;
                 $item['commission_type']     = in_array($item['commission_type'] ?? '', ['percent', 'nominal'], true) ? $item['commission_type'] : 'percent';
                 $item['commission_value']    = max(0, (float)($item['commission_value'] ?? 0));
+                // Mitra kategori Mobil: nama diambil dari master mitra; nominal bayar ≤ total item.
+                $item['partner_id'] = (int)($item['partner_id'] ?? 0) ?: null;
+                $item['partner_name'] = null;
+                $item['partner_amount'] = max(0, (float)($item['partner_amount'] ?? 0));
+                if ($item['partner_id']) {
+                    $pStmt = $pdo->prepare("SELECT partner_name FROM hotel_service_partners WHERE id=? AND business_id=? LIMIT 1");
+                    $pStmt->execute([$item['partner_id'], $businessId]);
+                    $pName = $pStmt->fetchColumn();
+                    if ($pName === false) throw new Exception('Mitra tidak ditemukan');
+                    $item['partner_name'] = (string)$pName;
+                    $item['partner_amount'] = min(round($item['qty'] * $item['unit_price'], 2), $item['partner_amount']);
+                } else {
+                    $item['partner_amount'] = null;
+                }
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) throw new Exception('Invalid service type');
 
@@ -1727,8 +1789,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
             $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
             $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
-                (invoice_id,service_type,trip_type,guide_id,guide_name,description,quantity,unit_price,total_price,owner_amount,hotel_commission,start_datetime,end_datetime)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                (invoice_id,service_type,trip_type,guide_id,guide_name,description,quantity,unit_price,total_price,owner_amount,hotel_commission,start_datetime,end_datetime,partner_id,partner_name,partner_amount)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             foreach ($items as $item) {
                 [$iOwner, $iHotel] = !empty($item['needs_driver_payment'])
                     ? calcDriverSplit((float)$item['total'], $item['commission_type'] ?? 'percent', (float)($item['commission_value'] ?? 0))
@@ -1738,6 +1800,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                         $iOwner = (float)$item['total'];
                         $iHotel = 0.0;
                     }
+                }
+                if (!empty($item['partner_id'])) {
+                    $iOwner = (float)$item['partner_amount'];
+                    $iHotel = (float)$item['total'] - $iOwner;
                 }
                 $iStmt->execute([
                     $id,
@@ -1752,7 +1818,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $iOwner,
                     $iHotel,
                     $item['start_dt'] ?: null,
-                    $item['end_dt'] ?: null
+                    $item['end_dt'] ?: null,
+                    $item['partner_id'] ?? null,
+                    $item['partner_name'] ?? null,
+                    $item['partner_amount'] ?? null
                 ]);
             }
 
@@ -3374,6 +3443,64 @@ include '../../includes/header.php';
         border-radius: 9px !important;
         font-size: 0.8rem !important;
     }
+
+    /* ===== Kartu item invoice: Kategori → Tipe → Item → Mitra ===== */
+    .hs-item-card.hs-v3 .hs-driver-extra,
+    .hs-item-card.hs-v3 .hs-paket-wrap { display: none !important; }
+    .hs-item-card.hs-v3 .hs-ic-top { display: grid !important; grid-template-columns: 120px 1fr 1.3fr 30px; gap: 6px; align-items: end; }
+    .hs-item-card.hs-v3 .hs-ic-top > .iDesc { grid-column: 1 / -1; order: 9; }
+    .hs-item-card.hs-v3 .hs-ic-top .hs-v3-f { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    body[data-theme] .hs-item-card.hs-v3 .hs-v3-f > span,
+    body[data-theme] .hs-item-card.hs-v3 .hs-partner-extra .hs-v3-f > span {
+        font-size: 0.6rem !important;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b !important;
+    }
+    .hs-item-card.hs-v3 .hs-ic-top select,
+    .hs-item-card.hs-v3 .hs-ic-top input,
+    .hs-item-card.hs-v3 .hs-partner-extra select,
+    .hs-item-card.hs-v3 .hs-partner-extra input {
+        width: 100%;
+        height: 34px;
+        box-sizing: border-box;
+    }
+    .hs-item-card.hs-v3 .hs-ic-top .btn-del-row { height: 34px; }
+    .hs-item-card.hs-v3 .hs-partner-extra {
+        display: none;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(37, 99, 235, 0.22);
+        background: rgba(37, 99, 235, 0.05);
+    }
+    .hs-item-card.hs-v3 .hs-partner-extra.open { display: grid; }
+    .hs-item-card.hs-v3 .hs-partner-extra .hs-v3-f { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    body[data-theme] .hs-item-card.hs-v3 .hs-partner-profit {
+        display: flex;
+        align-items: center;
+        height: 34px;
+        padding: 0 10px;
+        border-radius: 8px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        font-weight: 800;
+        font-size: 0.82rem !important;
+        color: #047857 !important;
+        font-variant-numeric: tabular-nums;
+    }
+    body[data-theme] .hs-item-card.hs-v3 .hs-partner-profit.neg { color: #b91c1c !important; }
+    body[data-theme="dark"] .hs-item-card.hs-v3 .hs-partner-profit { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); color: #6ee7b7 !important; }
+    .hs-item-card.hs-v3 .iPartner.need { border-color: #dc2626 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15); }
+    @media (max-width: 640px) {
+        .hs-item-card.hs-v3 .hs-ic-top { grid-template-columns: 1fr 1fr 30px; }
+        .hs-item-card.hs-v3 .hs-ic-top .hs-v3-item { grid-column: 1 / -1; }
+        .hs-item-card.hs-v3 .hs-partner-extra { grid-template-columns: 1fr 1fr; }
+        .hs-item-card.hs-v3 .hs-partner-extra .hs-v3-f:first-child { grid-column: 1 / -1; }
+    }
     /* Catalog table */
     .cat-tbl {
         width: 100%;
@@ -4305,6 +4432,7 @@ include '../../includes/header.php';
                                         'name'        => $cr['item_name'],
                                         'price'       => (float)$cr['default_price'],
                                         'driver_rate' => (float)($cr['driver_rate'] ?? 0),
+                                        'partner_id'  => (int)($cr['partner_id'] ?? 0),
                                         'unit'        => $cr['unit'] ?? 'unit',
                                     ];
                                 }
@@ -4395,6 +4523,6 @@ include '../../includes/header.php';
         document.getElementById('invoiceDetailOverlay').classList.remove('open');
     }
 </script>
-<script src="../../assets/js/hotel-services-fn.js?v=20261006"></script>
+<script src="../../assets/js/hotel-services-fn.js?v=20261009"></script>
 
 <?php include '../../includes/footer.php'; ?>

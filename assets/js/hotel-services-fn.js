@@ -680,6 +680,7 @@ function closeCreateModal () {
 
 // ── Submit create ─────────────────────────────────────────────────────────────
 function submitCreate () {
+  if (!hsValidatePartners('#itemsBody')) return
   const guestName = getGuestName()
   if (!guestName) {
     alert('Please select or enter a guest name')
@@ -764,7 +765,8 @@ function submitCreate () {
       start_dt: svc === 'motor_rental' || svc === 'car_rental' ? startDt : null,
       end_dt: svc === 'motor_rental' || svc === 'car_rental' ? endDt : null,
       deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
-      trip_destination: tr.querySelector('.iDest').value.trim() || null
+      trip_destination: tr.querySelector('.iDest').value.trim() || null,
+      ...hsPartnerPayload(tr)
     })
   }
 
@@ -1670,6 +1672,7 @@ function eRefreshTotal () {
 }
 
 function submitEdit () {
+  if (!hsValidatePartners('#eItemsBody')) return
   const id = document.getElementById('eInvId').value
   const guestName = document.getElementById('eGuestName').value.trim()
   if (!guestName) {
@@ -1754,7 +1757,8 @@ function submitEdit () {
       start_dt: svc === 'motor_rental' || svc === 'car_rental' ? startDt : null,
       end_dt: svc === 'motor_rental' || svc === 'car_rental' ? endDt : null,
       deposit: parseFloat(tr.querySelector('.iDeposit').value) || 0,
-      trip_destination: tr.querySelector('.iDest').value.trim() || null
+      trip_destination: tr.querySelector('.iDest').value.trim() || null,
+      ...hsPartnerPayload(tr)
     })
   }
   const sel = document.getElementById('eTaxRate')
@@ -2064,6 +2068,217 @@ window.deleteCatalogRow = deleteCatalogRow
 window.addSvcTypeRow = addSvcTypeRow
 window.saveSvcType = saveSvcType
 window.deleteSvcType = deleteSvcType
-window.editInvoice = editInvoice
-window.printInvoice = printInvoice
+if (typeof editInvoice === 'function') window.editInvoice = editInvoice
+if (typeof printInvoice === 'function') window.printInvoice = printInvoice
 console.log('[hotel-services] loaded OK, addItemRow:', typeof addItemRow)
+
+
+// ══ Kartu item v3: Kategori → Tipe → Item katalog → Mitra (bayar mitra & untung hotel) ══
+function hsCatOptions (selected) {
+  const cats = window.HS_CATEGORIES || {}
+  return Object.keys(cats)
+    .filter(ck => (window.SVC_OPTIONS || []).some(o => (o.cat || 'hotel') === ck))
+    .map(ck => `<option value="${ck}" ${ck === selected ? 'selected' : ''}>${cats[ck].icon} ${cats[ck].label}</option>`)
+    .join('')
+}
+
+function hsSvcOptionsFor (cat, selected) {
+  return (window.SVC_OPTIONS || [])
+    .filter(o => (o.cat || 'hotel') === cat)
+    .map(o => `<option value="${o.val}" ${o.val === selected ? 'selected' : ''}>${o.lbl}</option>`)
+    .join('')
+}
+
+function hsCatalogItemsFor (svc) {
+  return (window.CATALOG_DATA || {})[svc] || []
+}
+
+function hsFillItemSelect (card, keepName) {
+  const svc = card.querySelector('.iSvc').value
+  const sel = card.querySelector('.iItem')
+  const items = hsCatalogItemsFor(svc)
+  sel.innerHTML = '<option value="">— Pilih item —</option>' + items.map((it, i) =>
+    `<option value="${i}">${escapeHtmlHs(it.name)} · Rp ${Math.round(it.price).toLocaleString('id-ID')}</option>`).join('')
+  if (keepName) {
+    const idx = items.findIndex(it => it.name === keepName)
+    if (idx > -1) sel.value = String(idx)
+  }
+  sel.disabled = !items.length
+}
+
+function hsFillPartnerSelect (card, keepId) {
+  const svc = card.querySelector('.iSvc').value
+  const cat = svcCategoryOf(svc)
+  const sel = card.querySelector('.iPartner')
+  const cur = keepId != null ? String(keepId || '') : sel.value
+  const list = (window.HS_PARTNERS || []).filter(p => p.cat === cat && (p.active || String(p.id) === cur))
+  sel.innerHTML = list.length
+    ? '<option value="">— Pilih mitra —</option>' + list.map(p => `<option value="${p.id}" ${String(p.id) === cur ? 'selected' : ''}>${escapeHtmlHs(p.name)}</option>`).join('')
+    : '<option value="">Belum ada mitra — tambah di Pengaturan</option>'
+}
+
+function hsCardRecalc (card) {
+  if (card.id.startsWith('er')) { if (typeof ercalc === 'function') ercalc(card.id) } else rcalc(card.id)
+  hsPartnerCalc(card)
+}
+
+function hsPartnerCalc (card) {
+  const out = card.querySelector('.hs-partner-profit')
+  if (!out) return
+  const qty = parseFloat(card.querySelector('.iQty').value) || 0
+  const price = parseFloat(card.querySelector('.iPrice').value) || 0
+  const pay = parseFloat(card.querySelector('.iPartnerPay').value) || 0
+  const profit = (price - pay) * qty
+  out.textContent = 'Rp ' + Math.round(profit).toLocaleString('id-ID')
+  out.classList.toggle('neg', profit < 0)
+}
+
+// Tampilkan blok mitra hanya untuk kategori Mobil.
+function hsSyncCard (card, fromUser) {
+  const svc = card.querySelector('.iSvc').value
+  const cat = svcCategoryOf(svc)
+  card.querySelector('.iCat').value = cat
+  const block = card.querySelector('.hs-partner-extra')
+  block.classList.toggle('open', cat === 'mobil')
+  hsFillItemSelect(card, fromUser ? null : card.querySelector('.iDesc').value.trim())
+  hsFillPartnerSelect(card, fromUser ? '' : null)
+  if (fromUser) {
+    // Tipe baru: item katalog pertama (bila ada) langsung dipakai.
+    const items = hsCatalogItemsFor(svc)
+    if (items.length) {
+      card.querySelector('.iItem').value = '0'
+      hsApplyCatalogItem(card)
+    } else {
+      card.querySelector('.iPartnerPay').value = 0
+    }
+  }
+  hsPartnerCalc(card)
+}
+
+function hsApplyCatalogItem (card) {
+  const svc = card.querySelector('.iSvc').value
+  const idx = card.querySelector('.iItem').value
+  const it = hsCatalogItemsFor(svc)[parseInt(idx, 10)]
+  if (!it) return
+  card.querySelector('.iDesc').value = it.name
+  card.querySelector('.iPrice').value = it.price
+  card.querySelector('.iPartnerPay').value = it.driver_rate || 0
+  if (it.partner_id) hsFillPartnerSelect(card, it.partner_id)
+  card.querySelector('.iPartner').classList.remove('need')
+  hsCardRecalc(card)
+}
+
+function hsEnhanceItemCard (card, item) {
+  if (!card || card.classList.contains('hs-v3')) return
+  card.classList.add('hs-v3')
+  const top = card.querySelector('.hs-ic-top')
+  const svcSel = top.querySelector('.iSvc')
+  const cat = svcCategoryOf(svcSel.value)
+
+  // Kategori
+  const fCat = document.createElement('label')
+  fCat.className = 'hs-v3-f'
+  fCat.innerHTML = `<span>Layanan</span><select class="iCat">${hsCatOptions(cat)}</select>`
+  top.insertBefore(fCat, top.firstChild)
+  // Tipe (select lama dipindah ke dalam label)
+  const fSvc = document.createElement('label')
+  fSvc.className = 'hs-v3-f'
+  fSvc.innerHTML = '<span>Tipe</span>'
+  top.insertBefore(fSvc, fCat.nextSibling)
+  fSvc.appendChild(svcSel)
+  svcSel.innerHTML = hsSvcOptionsFor(cat, svcSel.value)
+  // Item katalog
+  const fItem = document.createElement('label')
+  fItem.className = 'hs-v3-f hs-v3-item'
+  fItem.innerHTML = '<span>Item</span><select class="iItem"></select>'
+  top.insertBefore(fItem, fSvc.nextSibling)
+
+  // Blok mitra
+  const block = document.createElement('div')
+  block.className = 'hs-partner-extra'
+  block.innerHTML =
+    '<label class="hs-v3-f"><span>Mitra</span><select class="iPartner"></select></label>' +
+    '<label class="hs-v3-f"><span>Bayar mitra / unit (Rp)</span><input type="number" class="iPartnerPay" value="0" min="0"></label>' +
+    '<div class="hs-v3-f"><span>Untung hotel</span><div class="hs-partner-profit">Rp 0</div></div>'
+  card.insertBefore(block, card.querySelector('.hs-ic-nums'))
+
+  // Data item lama (edit)
+  if (item && item.partner_id) {
+    card.querySelector('.iPartnerPay').value = item.quantity > 0 ? Math.round((parseFloat(item.partner_amount) || 0) / parseFloat(item.quantity)) : 0
+  }
+
+  fCat.querySelector('.iCat').addEventListener('change', e => {
+    svcSel.innerHTML = hsSvcOptionsFor(e.target.value, '')
+    svcSel.dispatchEvent(new Event('change'))
+  })
+  svcSel.addEventListener('change', () => hsSyncCard(card, true))
+  fItem.querySelector('.iItem').addEventListener('change', () => hsApplyCatalogItem(card))
+  block.querySelector('.iPartner').addEventListener('change', e => e.target.classList.remove('need'))
+  card.addEventListener('input', e => {
+    if (e.target.matches('.iQty, .iPrice, .iPartnerPay')) hsPartnerCalc(card)
+  })
+
+  // Baris baru tanpa tipe: jalankan inisialisasi tipe (field armada/guide ikut tampil)
+  if (!item && !card.dataset.svcInit) { card.dataset.svcInit = "1"; svcSel.dispatchEvent(new Event("change")) }
+  hsSyncCard(card, false)
+  if (item && item.partner_id) hsFillPartnerSelect(card, item.partner_id)
+  hsPartnerCalc(card)
+}
+
+function hsPartnerPayload (tr) {
+  const svc = tr.querySelector('.iSvc')?.value
+  if (!tr.classList.contains('hs-v3') || svcCategoryOf(svc) !== 'mobil') return {}
+  const pid = parseInt(tr.querySelector('.iPartner')?.value || '0', 10)
+  const qty = parseFloat(tr.querySelector('.iQty').value) || 0
+  const price = parseFloat(tr.querySelector('.iPrice').value) || 0
+  const pay = parseFloat(tr.querySelector('.iPartnerPay')?.value) || 0
+  const total = qty * price
+  const partnerAmount = Math.min(total, pay * qty)
+  if (!pid) return { partner_id: null, partner_amount: 0, needs_driver_payment: 0 }
+  return {
+    partner_id: pid,
+    partner_amount: partnerAmount,
+    needs_driver_payment: 1,
+    commission_type: 'nominal',
+    commission_value: Math.max(0, total - partnerAmount),
+    car_id: null
+  }
+}
+
+// Layanan Mobil wajib memilih mitra (bila daftar mitra sudah ada) & bayar mitra ≤ harga.
+function hsValidatePartners (bodySel) {
+  for (const tr of document.querySelectorAll(bodySel + ' .hs-item-card.hs-v3')) {
+    const svc = tr.querySelector('.iSvc').value
+    if (svcCategoryOf(svc) !== 'mobil') continue
+    const sel = tr.querySelector('.iPartner')
+    const hasPartners = (window.HS_PARTNERS || []).some(p => p.cat === 'mobil' && p.active)
+    if (hasPartners && !sel.value) {
+      sel.classList.add('need')
+      sel.focus()
+      alert('Pilih mitra untuk layanan Mobil (' + (tr.querySelector('.iDesc').value || svc) + ')')
+      return false
+    }
+    const price = parseFloat(tr.querySelector('.iPrice').value) || 0
+    const pay = parseFloat(tr.querySelector('.iPartnerPay').value) || 0
+    if (pay > price) {
+      alert('Bayar mitra tidak boleh lebih besar dari harga ke tamu')
+      tr.querySelector('.iPartnerPay').focus()
+      return false
+    }
+  }
+  return true
+}
+
+// Terapkan ke baris baru (form tambah & edit).
+;(function () {
+  const _add = addItemRow
+  addItemRow = function (...a) {
+    _add.apply(this, a)
+    hsEnhanceItemCard(document.getElementById('r' + rowCnt), null)
+  }
+  const _eAdd = eAddItemRow
+  eAddItemRow = function (itemOrSvc, ...rest) {
+    _eAdd.call(this, itemOrSvc, ...rest)
+    hsEnhanceItemCard(document.getElementById('er' + eRowCnt), typeof itemOrSvc === 'object' ? itemOrSvc : null)
+  }
+})()
