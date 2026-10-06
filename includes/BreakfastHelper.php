@@ -4,8 +4,9 @@
  * Aturan bersama sarapan (portal tamu & order front desk).
  *
  * Jatah sarapan = jumlah pax (dewasa + anak) di reservasi, bisa diubah lewat Setup.
- * 1 pax = 1 makanan + 2 minuman (1 jus + 1 kopi/teh). Pilihan di luar jatah dihitung per PAKET:
- * jumlah paket = max(kelebihan makanan, kelebihan jus, kelebihan kopi/teh).
+ * 1 pax = 1 makanan + 2 minuman (1 jus + 1 kopi/teh). Hanya MAKANAN di luar jatah yang ditagih:
+ * 1 makanan extra = 1 paket Extra Breakfast, dan setiap paket menambah jatah 1 jus + 1 kopi/teh.
+ * Minuman di atas jatah (pax + paket extra) ditolak; minuman tidak pernah ditagih.
  * Tagihannya berupa invoice Hotel Service "Extra Breakfast" atas nama tamu.
  */
 
@@ -44,7 +45,7 @@ if (!function_exists('bf_drink_kind')) {
 
 if (!function_exists('bf_count_extra')) {
     /**
-     * Hitung kelebihan jatah. Jatah per pax: 1 makanan + 1 jus + 1 kopi/teh.
+     * Hitung kelebihan jatah. Jatah per pax: 1 makanan + 1 jus + 1 kopi/teh; paket extra = makanan di luar jatah.
      * Menu berbayar, menu anak, item manual & ON THE SPOT tidak memakai jatah.
      * @param array $items item order (menu_name, quantity, category, group, is_free, is_custom, is_on_the_spot)
      */
@@ -65,12 +66,20 @@ if (!function_exists('bf_count_extra')) {
                 $sum['main'] += $qty;
             }
         }
+        $packages = max(0, $sum['main'] - $pax);
+        $drinkCap = $pax + $packages; // jatah jus & kopi/teh ikut bertambah per paket extra
         $ex = [
-            'main' => max(0, $sum['main'] - $pax),
-            'juice' => max(0, $sum['juice'] - $pax),
-            'coffee' => max(0, $sum['coffee'] - $pax),
+            'main' => $packages,
+            'juice' => max(0, $sum['juice'] - $drinkCap),
+            'coffee' => max(0, $sum['coffee'] - $drinkCap),
         ];
-        return ['sum' => $sum, 'extra' => $ex, 'packages' => max($ex['main'], $ex['juice'], $ex['coffee'])];
+        return [
+            'sum' => $sum,
+            'extra' => $ex,
+            'packages' => $packages,
+            'drink_cap' => $drinkCap,
+            'drink_ok' => $ex['juice'] === 0 && $ex['coffee'] === 0,
+        ];
     }
 }
 
@@ -130,7 +139,7 @@ if (!function_exists('bf_sync_extra_invoice')) {
         }
 
         $serveDate = date('d M', strtotime($date . ' +1 day'));
-        $desc = 'Extra Breakfast ' . $packages . ' paket (1 makanan + 1 jus + 1 kopi/teh) · ' . $serveDate;
+        $desc = 'Extra Breakfast ' . $packages . ' paket (1 makanan, termasuk 1 jus + 1 kopi/teh) · ' . $serveDate;
         $notes = $ref . ' Extra breakfast · rooms=' . implode(',', $rooms) . ' date=' . $date;
         $roomLabel = mb_substr(implode(', ', $rooms), 0, 20);
 

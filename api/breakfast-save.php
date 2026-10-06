@@ -115,6 +115,8 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
         return !((int)($mi['menu_id'] ?? 0) > 0 && isset($childIds[(int)$mi['menu_id']]));
     }), $maxMain);
     $packages = $foundQuota ? $cnt['packages'] : 0;
+    $result['drink_ok'] = !$foundQuota || $cnt['drink_ok'];
+    $result['drink_cap'] = $cnt['drink_cap'];
     $extraMain = $foundQuota ? $cnt['extra']['main'] : 0;
     $extraDrink = $foundQuota ? ($cnt['extra']['juice'] + $cnt['extra']['coffee']) : 0;
     $charge = $packages * bf_extra_package_price($db);
@@ -310,6 +312,12 @@ try {
         $combinedName = implode(', ', $guestNames);
         $roomJson = json_encode($allRooms);
 
+        // Minuman di atas jatah (pax + paket extra) ditolak.
+        $drinkCheck = bf_compute_extra($db, $allBookingIds, $menuItems);
+        if (empty($drinkCheck['drink_ok'])) {
+            throw new Exception('Minuman melebihi jatah: maksimal ' . $drinkCheck['drink_cap'] . ' jus dan ' . $drinkCheck['drink_cap'] . ' kopi/teh (bertambah 1 per makanan extra).');
+        }
+
         $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
             (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, 
              location, menu_items, special_requests, total_price, created_by) 
@@ -385,6 +393,12 @@ try {
             }
         }
 
+        // Minuman di atas jatah (pax + paket extra) ditolak.
+        $drinkCheck = bf_compute_extra($db, [$bookingId], $menuItems);
+        if (empty($drinkCheck['drink_ok'])) {
+            throw new Exception('Minuman melebihi jatah: maksimal ' . $drinkCheck['drink_cap'] . ' jus dan ' . $drinkCheck['drink_cap'] . ' kopi/teh (bertambah 1 per makanan extra).');
+        }
+
         $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
             (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, 
              location, menu_items, special_requests, total_price, created_by) 
@@ -423,6 +437,12 @@ try {
         $roomNumbers = $input['room_number'] ?? [];
         if (!is_array($roomNumbers)) $roomNumbers = [$roomNumbers];
         $roomJson = json_encode($roomNumbers);
+
+        // Minuman di atas jatah (pax + paket extra) ditolak.
+        $drinkCheck = bf_compute_extra($db, [$bookingId], $menuItems);
+        if (empty($drinkCheck['drink_ok'])) {
+            throw new Exception('Minuman melebihi jatah: maksimal ' . $drinkCheck['drink_cap'] . ' jus dan ' . $drinkCheck['drink_cap'] . ' kopi/teh (bertambah 1 per makanan extra).');
+        }
 
         $stmt = $pdo->prepare("UPDATE breakfast_orders SET 
             booking_id=?, guest_name=?, room_number=?, total_pax=?, breakfast_time=?, 

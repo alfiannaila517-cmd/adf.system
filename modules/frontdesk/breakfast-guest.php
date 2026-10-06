@@ -2,7 +2,8 @@
 /**
  * Guest breakfast portal (public, opened from the WhatsApp link).
  * Data: api/breakfast-guest-portal.php?action=get_link / submit_link.
- * Allowance: 1 pax = 1 main course + 1 juice + 1 coffee or tea; anything above is an extra breakfast package.
+ * Allowance: 1 pax = 1 main course + 1 juice + 1 coffee or tea. Only extra main courses are charged
+ * (1 extra breakfast each), and every extra breakfast adds 1 juice + 1 coffee/tea. Drinks above that are blocked.
  */
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
@@ -593,7 +594,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '<div><b>' + pax + '</b><span>Juice</span></div>' +
                     '<div><b>' + pax + '</b><span>Coffee / Tea</span></div>' +
                     '</div>' +
-                    '<div class="note-bar">Each guest enjoys 1 main course, 1 fresh juice and 1 coffee or tea. Additional breakfast: ' + rp(data.extra_package_price || 82500) + ' per package, added to your bill.</div>';
+                    '<div class="note-bar">Each guest enjoys 1 main course, 1 fresh juice and 1 coffee or tea. Each additional main course is an extra breakfast (' + rp(data.extra_package_price || 82500) + ') and includes 1 more juice and coffee/tea.</div>';
             }
 
             function itemRow(m, group) {
@@ -647,19 +648,31 @@ $token = trim((string)($_GET['t'] ?? ''));
                 var pax = parseInt(data.max_main || 0, 10);
                 var tm = counted('main', menus.main), tj = counted('drink', menus.juice), tc = counted('drink', menus.coffee);
                 var td = total('drink');
-                [['mainCount', tm], ['juiceCount', tj], ['coffeeCount', tc]].forEach(function(p) {
-                    $(p[0]).innerHTML = '<b>' + p[1] + '</b> / ' + pax + ' included';
-                    $(p[0]).classList.toggle('over', p[1] > pax);
+                var extraMeals = Math.max(0, tm - pax);
+                var cap = pax + extraMeals; // jatah minuman bertambah per makanan extra
+                $('mainCount').innerHTML = '<b>' + tm + '</b> / ' + pax + ' included';
+                $('mainCount').classList.toggle('over', tm > pax);
+                [['juiceCount', tj], ['coffeeCount', tc]].forEach(function(p) {
+                    $(p[0]).innerHTML = '<b>' + p[1] + '</b> / ' + cap + ' allowed';
+                    $(p[0]).classList.toggle('over', p[1] > cap);
+                });
+                // Tombol + minuman gratis terkunci bila jatah jenisnya sudah penuh.
+                [['juice', tj], ['coffee', tc]].forEach(function(p) {
+                    menus[p[0]].forEach(function(m) {
+                        var free = String(m.is_free) === '1' || m.is_free === true || m.is_free === 1 || !(parseFloat(m.price || 0) > 0);
+                        var btn = document.querySelector('.item[data-g="drink"][data-id="' + m.id + '"] [data-step="1"]');
+                        if (btn && free) btn.disabled = p[1] >= cap;
+                    });
                 });
                 var kids = total('child');
                 $('kidCount').innerHTML = kids ? '<b>' + kids + '</b> selected' : 'Complimentary';
 
-                var packs = Math.max(0, tm - pax, tj - pax, tc - pax);
+                var packs = extraMeals;
                 var price = parseFloat(data.extra_package_price || 82500);
                 var banner = $('extraBanner');
                 if (packs > 0) {
                     banner.innerHTML = '<b>' + packs + ' additional breakfast' + (packs > 1 ? 's' : '') + ' · ' + rp(packs * price) + '</b><br>' +
-                        'You selected more than your allowance. The extra will be added to your bill (' + rp(price) + ' per breakfast package).';
+                        'You selected more main courses than your allowance. Each extra main course is charged ' + rp(price) + ' and adds 1 juice + 1 coffee/tea.';
                     banner.classList.add('show');
                 } else {
                     banner.classList.remove('show');

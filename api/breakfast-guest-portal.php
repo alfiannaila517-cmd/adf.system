@@ -1316,6 +1316,12 @@ if ($action === 'submit_link') {
 
         // Extra Breakfast per paket: jatah per pax 1 makanan + 1 jus + 1 kopi/teh.
         $bfCnt = bf_count_extra($menuItems, $maxMain);
+        if (!$onTheSpot && !$bfCnt['drink_ok']) {
+            throw new Exception($msg(
+                'Minuman melebihi jatah: maksimal ' . $bfCnt['drink_cap'] . ' jus dan ' . $bfCnt['drink_cap'] . ' kopi/teh. Tambah makanan extra untuk mendapat minuman tambahan.',
+                'Too many drinks: you can choose up to ' . $bfCnt['drink_cap'] . ' juice and ' . $bfCnt['drink_cap'] . ' coffee/tea. Add an extra breakfast (main course) to get more drinks.'
+            ));
+        }
         $extraPackages = $onTheSpot ? 0 : $bfCnt['packages'];
         $extraMainCount = $bfCnt['extra']['main'];
         $extraDrinkCount = $bfCnt['extra']['juice'] + $bfCnt['extra']['coffee'];
