@@ -7,6 +7,7 @@
  * 1 pax = 1 makanan + 2 minuman (1 jus + 1 kopi/teh). Hanya MAKANAN di luar jatah yang ditagih:
  * 1 makanan extra = 1 paket Extra Breakfast, dan setiap paket menambah jatah 1 jus + 1 kopi/teh.
  * Minuman di atas jatah (pax + paket extra) ditolak; minuman tidak pernah ditagih.
+ * Anak di bawah 7 tahun (kids) gratis: per anak 1 menu anak (pancake/waffle) + 1 minuman bebas jenis.
  * Tagihannya berupa invoice Hotel Service "Extra Breakfast" atas nama tamu.
  */
 
@@ -49,15 +50,18 @@ if (!function_exists('bf_count_extra')) {
      * Menu berbayar, menu anak, item manual & ON THE SPOT tidak memakai jatah.
      * @param array $items item order (menu_name, quantity, category, group, is_free, is_custom, is_on_the_spot)
      */
-    function bf_count_extra(array $items, int $pax): array
+    function bf_count_extra(array $items, int $pax, int $kids = 0): array
     {
-        $sum = ['main' => 0, 'juice' => 0, 'coffee' => 0];
+        $sum = ['main' => 0, 'juice' => 0, 'coffee' => 0, 'child' => 0];
         foreach ($items as $it) {
             if (!empty($it['is_custom']) || !empty($it['is_on_the_spot'])) continue;
             if (isset($it['is_free']) && (int)$it['is_free'] === 0) continue;
             $group = (string)($it['group'] ?? '');
-            if ($group === 'child') continue;
             $qty = max(1, (int)($it['quantity'] ?? 1));
+            if ($group === 'child') {
+                $sum['child'] += $qty;
+                continue;
+            }
             $cat = strtolower(trim((string)($it['category'] ?? '')));
             $isDrink = $group === 'drink' || in_array($cat, ['drinks', 'drink', 'beverages', 'beverage'], true);
             if ($isDrink) {
@@ -68,17 +72,21 @@ if (!function_exists('bf_count_extra')) {
         }
         $packages = max(0, $sum['main'] - $pax);
         $drinkCap = $pax + $packages; // jatah jus & kopi/teh ikut bertambah per paket extra
+        // Minuman anak: $kids tambahan, boleh jus maupun kopi/teh.
         $ex = [
             'main' => $packages,
-            'juice' => max(0, $sum['juice'] - $drinkCap),
-            'coffee' => max(0, $sum['coffee'] - $drinkCap),
+            'juice' => max(0, $sum['juice'] - $drinkCap - $kids),
+            'coffee' => max(0, $sum['coffee'] - $drinkCap - $kids),
         ];
+        $drinkTotalOk = ($sum['juice'] + $sum['coffee']) <= (2 * $drinkCap + $kids);
         return [
             'sum' => $sum,
             'extra' => $ex,
             'packages' => $packages,
             'drink_cap' => $drinkCap,
-            'drink_ok' => $ex['juice'] === 0 && $ex['coffee'] === 0,
+            'drink_ok' => $ex['juice'] === 0 && $ex['coffee'] === 0 && $drinkTotalOk,
+            'kids' => $kids,
+            'kids_ok' => $sum['child'] <= $kids,
         ];
     }
 }

@@ -507,6 +507,8 @@ if ($action === 'save_setup' || $action === 'send_wa') {
         // Jatah total disimpan di booking pertama; booking lain dalam baris/grup = 0 agar tidak dihitung dobel.
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($body['booking_ids'] ?? [])))));
         $pax = max(1, min(60, (int)($body['pax'] ?? 1)));
+        $kids = max(0, min(30, (int)($body['kids'] ?? 0)));
+        $kidMenuIds = array_map('intval', array_column($db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND (LOWER(menu_name) LIKE '%pancake%' OR LOWER(menu_name) LIKE '%waff%' OR LOWER(menu_name) LIKE '%wafel%') ORDER BY menu_name") ?: [], 'id'));
         if (!$ids) {
             echo json_encode(['success' => false, 'message' => 'Booking tidak ditemukan']);
             exit;
@@ -514,16 +516,17 @@ if ($action === 'save_setup' || $action === 'send_wa') {
         ensure_breakfast_quota_table($pdo);
         $price = bf_extra_package_price($db);
         $stmt = $pdo->prepare("INSERT INTO breakfast_guest_quota
-            (booking_id, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, extra_main_price, extra_drink_price, extra_child_price, created_by)
-            VALUES (?, ?, 0, 0, ?, ?, ?, 0, ?, 0, 0, ?)
-            ON DUPLICATE KEY UPDATE adult_count = VALUES(adult_count), child_young_count = 0, child_old_count = 0,
-                total_pax = VALUES(total_pax), max_main = VALUES(max_main), max_drink = VALUES(max_drink), max_child = 0,
+            (booking_id, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, child_menu_ids, extra_main_price, extra_drink_price, extra_child_price, created_by)
+            VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+            ON DUPLICATE KEY UPDATE adult_count = VALUES(adult_count), child_young_count = VALUES(child_young_count), child_old_count = 0,
+                total_pax = VALUES(total_pax), max_main = VALUES(max_main), max_drink = VALUES(max_drink), max_child = VALUES(max_child), child_menu_ids = VALUES(child_menu_ids),
                 extra_main_price = VALUES(extra_main_price), extra_drink_price = 0, extra_child_price = 0, updated_at = NOW()");
         foreach ($ids as $i => $bid) {
             $p = $i === 0 ? $pax : 0;
-            $stmt->execute([$bid, $p, $p, $p, $p * 2, $price, $_SESSION['user_id'] ?? null]);
+            $k = $i === 0 ? $kids : 0;
+            $stmt->execute([$bid, $p, $k, $p + $k, $p, $p * 2, $k, json_encode($kidMenuIds), $price, $_SESSION['user_id'] ?? null]);
         }
-        echo json_encode(['success' => true, 'pax' => $pax]);
+        echo json_encode(['success' => true, 'pax' => $pax, 'kids' => $kids]);
         exit;
     }
 
@@ -602,7 +605,7 @@ if ($action === 'create_link') {
     }));
 
     if ($maxChild > 0 && count($childMenuIds) === 0) {
-        $fallbackKids = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND LOWER(TRIM(menu_name)) IN ('pancake','waffle') ORDER BY menu_name") ?: [];
+        $fallbackKids = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND (LOWER(menu_name) LIKE '%pancake%' OR LOWER(menu_name) LIKE '%waff%' OR LOWER(menu_name) LIKE '%wafel%') ORDER BY menu_name") ?: [];
         foreach ($fallbackKids as $fk) {
             $id = (int)($fk['id'] ?? 0);
             if ($id > 0) $childMenuIds[] = $id;
@@ -804,7 +807,7 @@ if ($action === 'get_link') {
     $childIds = array_values(array_unique(array_map('intval', $childIds)));
 
     if (count($childIds) === 0 && (int)($link['max_child'] ?? 0) > 0) {
-        $fallbackKids = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND LOWER(TRIM(menu_name)) IN ('pancake','waffle') ORDER BY menu_name") ?: [];
+        $fallbackKids = $db->fetchAll("SELECT id FROM breakfast_menus WHERE is_available = 1 AND (LOWER(menu_name) LIKE '%pancake%' OR LOWER(menu_name) LIKE '%waff%' OR LOWER(menu_name) LIKE '%wafel%') ORDER BY menu_name") ?: [];
         foreach ($fallbackKids as $fk) {
             $id = (int)($fk['id'] ?? 0);
             if ($id > 0) $childIds[] = $id;
@@ -1315,7 +1318,13 @@ if ($action === 'submit_link') {
         }
 
         // Extra Breakfast per paket: jatah per pax 1 makanan + 1 jus + 1 kopi/teh.
-        $bfCnt = bf_count_extra($menuItems, $maxMain);
+        $bfCnt = bf_count_extra($menuItems, $maxMain, $maxChild);
+        if (!$onTheSpot && !$bfCnt['kids_ok']) {
+            throw new Exception($msg(
+                'Menu anak maksimal ' . $maxChild . ' porsi (1 pancake/waffle per anak di bawah 7 tahun).',
+                'Kids menu is limited to ' . $maxChild . ' portion(s): 1 pancake or waffle per child under 7.'
+            ));
+        }
         if (!$onTheSpot && !$bfCnt['drink_ok']) {
             throw new Exception($msg(
                 'Minuman melebihi jatah: maksimal ' . $bfCnt['drink_cap'] . ' jus dan ' . $bfCnt['drink_cap'] . ' kopi/teh. Tambah makanan extra untuk mendapat minuman tambahan.',

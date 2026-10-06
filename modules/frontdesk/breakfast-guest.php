@@ -485,7 +485,7 @@ $token = trim((string)($_GET['t'] ?? ''));
 
             <section class="sec hidden" id="kidSec">
                 <div class="sec-head">
-                    <h2>For Kids</h2>
+                    <h2>For Kids <small style="font-family:Inter,sans-serif;font-size:11px;color:#047857;font-weight:600">under 7 · free</small></h2>
                     <div class="sec-count" id="kidCount"></div>
                 </div>
                 <div class="list" id="kidList"></div>
@@ -585,6 +585,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             function renderGuest() {
                 var rooms = (data.room_number || []).join(', ');
                 var pax = parseInt(data.max_main || 0, 10);
+                var kids = parseInt(data.max_child || 0, 10);
                 $('guestCard').innerHTML =
                     '<div class="guest-name">' + esc(data.guest_name) + '</div>' +
                     '<div class="guest-sub">Room ' + esc(rooms || '-') + ' · Breakfast on ' + esc(fmtDate(data.breakfast_date)) + '</div>' +
@@ -593,7 +594,9 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '<div><b>' + pax + '</b><span>Main</span></div>' +
                     '<div><b>' + pax + '</b><span>Juice</span></div>' +
                     '<div><b>' + pax + '</b><span>Coffee / Tea</span></div>' +
+                    (kids ? '<div><b>' + kids + '</b><span>Kids</span></div>' : '') +
                     '</div>' +
+                    (kids ? '<div class="note-bar" style="color:#047857">Kids under 7 eat free: 1 pancake or waffle and 1 drink each.</div>' : '') +
                     '<div class="note-bar">Each guest enjoys 1 main course, 1 fresh juice and 1 coffee or tea. Each additional main course is an extra breakfast (' + rp(data.extra_package_price || 82500) + ') and includes 1 more juice and coffee/tea.</div>';
             }
 
@@ -631,7 +634,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                 $('kidList').innerHTML = menus.child.map(function(m) { return itemRow(m, 'child'); }).join('');
                 $('juiceSec').classList.toggle('hidden', !menus.juice.length);
                 $('coffeeSec').classList.toggle('hidden', !menus.coffee.length);
-                $('kidSec').classList.toggle('hidden', !menus.child.length);
+                $('kidSec').classList.toggle('hidden', !menus.child.length || !(parseInt(data.max_child || 0, 10) > 0));
                 renderSummary();
             }
 
@@ -650,22 +653,30 @@ $token = trim((string)($_GET['t'] ?? ''));
                 var td = total('drink');
                 var extraMeals = Math.max(0, tm - pax);
                 var cap = pax + extraMeals; // jatah minuman bertambah per makanan extra
+                var kids = parseInt(data.max_child || 0, 10);
+                var dCap = cap + kids; // minuman anak boleh jus maupun kopi/teh
+                var dFull = (tj + tc) >= (2 * cap + kids);
                 $('mainCount').innerHTML = '<b>' + tm + '</b> / ' + pax + ' included';
                 $('mainCount').classList.toggle('over', tm > pax);
                 [['juiceCount', tj], ['coffeeCount', tc]].forEach(function(p) {
-                    $(p[0]).innerHTML = '<b>' + p[1] + '</b> / ' + cap + ' allowed';
-                    $(p[0]).classList.toggle('over', p[1] > cap);
+                    $(p[0]).innerHTML = '<b>' + p[1] + '</b> / ' + dCap + ' allowed';
+                    $(p[0]).classList.toggle('over', p[1] > dCap);
                 });
                 // Tombol + minuman gratis terkunci bila jatah jenisnya sudah penuh.
                 [['juice', tj], ['coffee', tc]].forEach(function(p) {
                     menus[p[0]].forEach(function(m) {
                         var free = String(m.is_free) === '1' || m.is_free === true || m.is_free === 1 || !(parseFloat(m.price || 0) > 0);
                         var btn = document.querySelector('.item[data-g="drink"][data-id="' + m.id + '"] [data-step="1"]');
-                        if (btn && free) btn.disabled = p[1] >= cap;
+                        if (btn && free) btn.disabled = p[1] >= dCap || dFull;
                     });
                 });
-                var kids = total('child');
-                $('kidCount').innerHTML = kids ? '<b>' + kids + '</b> selected' : 'Complimentary';
+                // Menu anak: 1 porsi per anak.
+                var tk = total('child');
+                menus.child.forEach(function(m) {
+                    var btn = document.querySelector('.item[data-g="child"][data-id="' + m.id + '"] [data-step="1"]');
+                    if (btn) btn.disabled = tk >= kids;
+                });
+                $('kidCount').innerHTML = '<b>' + total('child') + '</b> / ' + parseInt(data.max_child || 0, 10) + ' free';
 
                 var packs = extraMeals;
                 var price = parseFloat(data.extra_package_price || 82500);

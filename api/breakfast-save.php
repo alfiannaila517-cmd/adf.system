@@ -84,6 +84,7 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
 
     $maxMain = 0;
     $maxDrink = 0;
+    $maxKids = 0;
     $extraMainPrice = 75000.0;
     $extraDrinkPrice = 20000.0;
     $childIds = [];
@@ -91,7 +92,7 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
 
     foreach ($bookingIds as $bid) {
         $q = $db->fetchOne(
-            "SELECT max_main, max_drink, child_menu_ids, extra_main_price, extra_drink_price
+            "SELECT max_main, max_drink, max_child, child_menu_ids, extra_main_price, extra_drink_price
              FROM breakfast_guest_quota WHERE booking_id = ? LIMIT 1",
             [$bid]
         );
@@ -99,6 +100,7 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
         $foundQuota = true;
         $maxMain += max(0, (int)$q['max_main']);
         $maxDrink += max(0, (int)$q['max_drink']);
+        $maxKids += max(0, (int)($q['max_child'] ?? 0));
         $emp = (float)($q['extra_main_price'] ?? 75000);
         if ($emp > 0) $extraMainPrice = $emp;
         $edp = (float)($q['extra_drink_price'] ?? 20000);
@@ -111,9 +113,21 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
     }
 
     // Jatah per pax: 1 makanan + 1 jus + 1 kopi/teh (BreakfastHelper). Tanpa data jatah: tidak ditagih.
-    $cnt = bf_count_extra(array_filter($menuItems, function ($mi) use ($childIds) {
-        return !((int)($mi['menu_id'] ?? 0) > 0 && isset($childIds[(int)$mi['menu_id']]));
-    }), $maxMain);
+    $kidsLeft = $maxKids;
+    $alloc = [];
+    foreach ($menuItems as $mi) {
+        $mid = (int)($mi['menu_id'] ?? 0);
+        if ($mid > 0 && isset($childIds[$mid]) && $kidsLeft > 0) {
+            $q = max(1, (int)($mi['quantity'] ?? 1));
+            $take = min($q, $kidsLeft);
+            $kidsLeft -= $take;
+            $alloc[] = array_merge($mi, ['group' => 'child', 'quantity' => $take]);
+            if ($q > $take) $alloc[] = array_merge($mi, ['quantity' => $q - $take]);
+            continue;
+        }
+        $alloc[] = $mi;
+    }
+    $cnt = bf_count_extra($alloc, $maxMain, $maxKids);
     $packages = $foundQuota ? $cnt['packages'] : 0;
     $result['drink_ok'] = !$foundQuota || $cnt['drink_ok'];
     $result['drink_cap'] = $cnt['drink_cap'];
