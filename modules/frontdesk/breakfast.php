@@ -1187,7 +1187,7 @@ include '../../includes/header.php';
                     <div class="bf-row">
                         <div class="bf-group">
                             <label class="bf-label">Jumlah Pax * <span class="bf-label-note">otomatis dari menu</span></label>
-                            <input type="number" name="total_pax" id="totalPax" class="bf-input" min="1" max="20" required value="<?php echo $editOrder ? (int)$editOrder['total_pax'] : ''; ?>">
+                            <input type="number" name="total_pax" id="totalPax" class="bf-input bf-input-auto" min="1" readonly tabindex="-1" placeholder="Pilih menu" value="<?php echo $editOrder ? (int)$editOrder['total_pax'] : ''; ?>">
                         </div>
                         <div class="bf-group">
                             <label class="bf-label">Jam *</label>
@@ -1232,14 +1232,7 @@ include '../../includes/header.php';
                                             <span class="bf-qty-label">Qty</span>
                                             <input type="number" name="menu_qty[<?php echo $m['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$m['id']] ?? 1; ?>" class="bf-qty-input">
                                         </div>
-                                        <div class="bf-menu-opts">
-                                            <?php if (!empty($m['is_free'])): ?>
-                                                <div class="bf-seg">
-                                                    <label><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="0" <?php echo empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Free</label>
-                                                    <label class="xbf"><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="1" <?php echo !empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Extra BF</label>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
+                                        <?php if (!empty($editMenuExtra[$m['id']])): ?><input type="hidden" name="menu_extra[<?php echo $m['id']; ?>]" value="1"><?php endif; ?>
                                         <div class="bf-menu-note">
                                             <input type="text" name="menu_note[<?php echo $m['id']; ?>]" class="bf-note-input" placeholder="Catatan: pedas/tidak, dll" value="<?php echo htmlspecialchars($editMenuNotes[$m['id']] ?? ''); ?>">
                                         </div>
@@ -1268,14 +1261,7 @@ include '../../includes/header.php';
                                             <span class="bf-qty-label">Qty</span>
                                             <input type="number" name="menu_qty[<?php echo $m['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$m['id']] ?? 1; ?>" class="bf-qty-input">
                                         </div>
-                                        <div class="bf-menu-opts">
-                                            <?php if (!empty($m['is_free'])): ?>
-                                                <div class="bf-seg">
-                                                    <label><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="0" <?php echo empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Free</label>
-                                                    <label class="xbf"><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="1" <?php echo !empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Extra BF</label>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
+                                        <?php if (!empty($editMenuExtra[$m['id']])): ?><input type="hidden" name="menu_extra[<?php echo $m['id']; ?>]" value="1"><?php endif; ?>
                                         <div class="bf-menu-note">
                                             <input type="text" name="menu_note[<?php echo $m['id']; ?>]" class="bf-note-input" placeholder="Catatan: pedas/tidak, dll" value="<?php echo htmlspecialchars($editMenuNotes[$m['id']] ?? ''); ?>">
                                         </div>
@@ -1567,7 +1553,7 @@ include '../../includes/header.php';
         var pax = document.getElementById('totalPax').value;
         var time = document.getElementById('bfTime').value;
         if (!pax || parseInt(pax) < 1) {
-            alert('Isi jumlah pax!');
+            alert('Pilih minimal 1 menu makanan atau minuman!');
             return null;
         }
         if (!time) {
@@ -1608,7 +1594,7 @@ include '../../includes/header.php';
             menuQty[id] = q ? parseInt(q.value) || 1 : 1;
             var n = document.querySelector('input[name="menu_note[' + id + ']"]');
             menuNote[id] = n ? n.value.trim() : '';
-            var x = document.querySelector('input[name="menu_extra[' + id + ']"]:checked');
+            var x = document.querySelector('input[name="menu_extra[' + id + ']"]');
             if (x && x.value === '1') menuExtra[id] = 1;
         });
         return {

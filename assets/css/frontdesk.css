@@ -714,73 +714,16 @@ body[data-theme] .main-content .bf-wrap .bf-label-note {
     color: var(--fd-accent-text) !important;
 }
 
-/* Sarapan: pilihan per menu (Free / Extra BF) — tampil saat menu dicentang */
-body[data-theme] .main-content .bf-wrap .bf-menu-opts {
-    display: none;
-    grid-column: 1 / -1;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.45rem;
-}
-
-body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-opts:has(.bf-seg) {
-    display: flex;
-}
-
-body[data-theme] .main-content .bf-wrap .bf-seg {
-    display: inline-flex;
-    gap: 2px;
-    padding: 2px;
-    border-radius: 8px;
-    background: var(--fd-input-bg);
-    border: 1px solid var(--fd-input-border);
-}
-
-body[data-theme] .main-content .bf-wrap .bf-seg label {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    height: 22px;
-    padding: 0 0.6rem;
-    margin: 0 !important;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.66rem !important;
+/* Sarapan: kolom Jumlah Pax hanya-baca (otomatis dari menu) */
+body[data-theme] .main-content .bf-wrap .bf-input.bf-input-auto {
+    background: var(--fd-accent-soft) !important;
+    border-style: dashed !important;
+    color: var(--fd-accent-text) !important;
+    -webkit-text-fill-color: var(--fd-accent-text) !important;
     font-weight: 700 !important;
-    letter-spacing: 0.02em;
-    color: var(--fd-muted) !important;
-    -webkit-text-fill-color: var(--fd-muted) !important;
-    transition: background 0.15s, color 0.15s;
-}
-
-body[data-theme] .main-content .bf-wrap .bf-seg input {
-    position: absolute;
-    opacity: 0;
+    cursor: default;
     pointer-events: none;
 }
-
-body[data-theme] .main-content .bf-wrap .bf-seg label:hover {
-    background: var(--fd-accent-soft);
-}
-
-/* Aktif: Free hijau, Extra BF oranye */
-body[data-theme] .main-content .bf-wrap .bf-seg label:has(input:checked) {
-    background: #059669;
-    color: #fff !important;
-    -webkit-text-fill-color: #fff !important;
-}
-
-body[data-theme] .main-content .bf-wrap .bf-seg label.xbf:has(input:checked) {
-    background: #d97706;
-}
-
-/* Kartu menu yang ditandai Extra BF: aksen oranye */
-body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked):has(.xbf input:checked) {
-    border-color: #d97706 !important;
-    background: rgba(217, 119, 6, 0.08) !important;
-    box-shadow: inset 0 0 0 1px #d97706, 0 6px 14px -10px rgba(217, 119, 6, 0.6) !important;
-}
-
 /* Label penyajian menu (diatur di Pengaturan > Breakfast Menu): HOT merah, ICE biru */
 body[data-theme] .main-content .bf-wrap .bf-temp {
     display: inline-block;
