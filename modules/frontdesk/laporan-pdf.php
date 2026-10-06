@@ -96,7 +96,7 @@ ob_start();
     .title { font-size: 12pt; color: #b08d57; text-align: right; letter-spacing: 2.5pt; }
     .date { font-size: 10pt; color: #0f2747; text-align: right; margin-top: 1.2mm; }
     .stats { width: 100%; margin-top: 5mm; }
-    .stats td { width: 16.66%; padding: 2.6mm 2.4mm; vertical-align: top; background: #eef3fa; border-left: 1.2mm solid #ffffff; }
+    .stats td { width: 20%; padding: 2.6mm 2.4mm; vertical-align: top; background: #eef3fa; border-left: 1.2mm solid #ffffff; }
     .stats td.first { border-left: 0; background: #0f2747; }
     .stats td.gold { background: #f7efe2; }
     .stats .v { font-size: 19pt; color: #0f2747; }
@@ -151,8 +151,7 @@ ob_start();
         <tr>
             <td class="first"><span class="v"><?php echo $occupancyRate; ?>%</span><br><span class="l">OCCUPANCY · <?php echo $occupiedRooms . '/' . $totalRooms; ?></span></td>
             <td><span class="v"><?php echo count($inHouseGuests); ?></span><br><span class="l">IN-HOUSE</span></td>
-            <td><span class="v"><?php echo count($checkInToday); ?></span><br><span class="l">ARRIVALS TODAY</span></td>
-            <td><span class="v"><?php echo count($checkOutToday); ?></span><br><span class="l">DEPARTURES TODAY</span></td>
+            <td><span class="v"><?php echo count($checkOutTomorrow); ?></span><br><span class="l">DEPARTURES TOMORROW</span></td>
             <td><span class="v"><?php echo count($arrivalTomorrow); ?></span><br><span class="l">ARRIVALS TOMORROW</span></td>
             <td class="gold"><span class="v"><?php echo $breakfastPax; ?></span><br><span class="l">BREAKFAST PAX</span></td>
         </tr>
@@ -167,23 +166,6 @@ ob_start();
         'ARRIVAL'   => [10, $arr],
         'DEPARTURE' => [10, $dep],
     ], 'No in-house guests');
-
-    echo $section('Arrivals Today', $checkInToday, [
-        'ROOM'      => [8, $room],
-        'ROOM TYPE' => [15, $type],
-        'GUEST'     => [49, $guest],
-        'BOOKING'   => [18, $code],
-        'DEPARTURE' => [10, $dep],
-    ], 'No arrivals today');
-
-    echo $section('Departures Today', $checkOutToday, [
-        'ROOM'      => [8, $room],
-        'ROOM TYPE' => [15, $type],
-        'GUEST'     => [39, $guest],
-        'BOOKING'   => [18, $code],
-        'ARRIVAL'   => [10, $arr],
-        'DEPARTURE' => [10, $dep],
-    ], 'No departures today');
 
     echo $section('Departures Tomorrow', $checkOutTomorrow, [
         'ROOM'      => [8, $room],

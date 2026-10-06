@@ -191,7 +191,7 @@ include '../../includes/header.php';
 
     body[data-theme] .main-content .rp-wrap .rp-stats {
         display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
     }
 
     body[data-theme] .main-content .rp-wrap .rp-stat {
@@ -812,8 +812,7 @@ $section = static function (string $title, array $rows, array $cols, string $emp
         <div class="rp-stats">
             <div class="rp-stat accent"><b><?php echo $occupancyRate; ?>%</b><span>Occupancy · <?php echo $occupiedRooms . '/' . $totalRooms; ?></span></div>
             <div class="rp-stat"><b><?php echo count($inHouseGuests); ?></b><span>In house</span></div>
-            <div class="rp-stat"><b><?php echo count($checkInToday); ?></b><span>Check-in hari ini</span></div>
-            <div class="rp-stat"><b><?php echo count($checkOutToday); ?></b><span>Check-out hari ini</span></div>
+            <div class="rp-stat"><b><?php echo count($checkOutTomorrow); ?></b><span>Check-out besok</span></div>
             <div class="rp-stat"><b><?php echo count($arrivalTomorrow); ?></b><span>Tiba besok</span></div>
             <div class="rp-stat"><b><?php echo $breakfastPax; ?></b><span>Pax sarapan</span></div>
         </div>
@@ -831,12 +830,6 @@ $section = static function (string $title, array $rows, array $cols, string $emp
     ], 'Tidak ada tamu in-house');
     ?>
 
-    <div class="rp-grid rp-row-gap">
-        <?php
-        $section('Check-in Hari Ini', $checkInToday, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Keluar' => $cOut], 'Tidak ada kedatangan hari ini');
-        $section('Check-out Hari Ini', $checkOutToday, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Kode' => $cCode, 'Masuk' => $cIn], 'Tidak ada check-out hari ini');
-        ?>
-    </div>
     <div class="rp-grid rp-row-gap">
         <?php
         $section('Check-out Besok', $checkOutTomorrow, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Masuk' => $cIn], 'Tidak ada check-out besok');

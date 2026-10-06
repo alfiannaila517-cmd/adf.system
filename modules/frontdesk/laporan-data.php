@@ -157,8 +157,7 @@ $waText = "*DAILY REPORT — " . date('d M Y') . "*\n"
     . $company['name'] . "\n\n"
     . "Occupancy: {$occupancyRate}% ({$occupiedRooms}/{$totalRooms} rooms)\n"
     . "In-house: " . count($inHouseGuests) . " guests\n"
-    . "Arrivals today: " . count($checkInToday) . "\n"
-    . "Departures today: " . count($checkOutToday) . "\n"
+    . "Departures tomorrow: " . count($checkOutTomorrow) . "\n"
     . "Arrivals tomorrow: " . count($arrivalTomorrow) . "\n"
     . ($breakfastOrders ? "Breakfast: " . count($breakfastOrders) . " orders · {$breakfastPax} pax\n" : '')
     . "\nFull details in the PDF report.";
