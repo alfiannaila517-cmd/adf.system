@@ -469,6 +469,55 @@ include '../../includes/header.php';
         color: var(--text-primary);
     }
 
+    /* Pemisah bagian In-House / Reservasi / Selesai */
+    body[data-theme] .bookings-table tbody tr.rs-sec td {
+        padding: 14px 12px 6px !important;
+        background: transparent !important;
+        border-top: 2px solid var(--rs-sec, #2563eb) !important;
+        border-bottom: 0 !important;
+        text-align: left !important;
+    }
+    body[data-theme] .bookings-table tbody tr.rs-sec:first-child td { border-top: 0 !important; padding-top: 8px !important; }
+    body[data-theme] .bookings-table tbody tr.rs-sec:hover td { background: transparent !important; }
+    .bookings-table tr.rs-sec-inhouse { --rs-sec: #059669; }
+    .bookings-table tr.rs-sec-reservasi { --rs-sec: #2563eb; }
+    .bookings-table tr.rs-sec-selesai { --rs-sec: #94a3b8; }
+    .bookings-table tr.rs-sec .rs-sec-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: var(--rs-sec);
+        vertical-align: middle;
+    }
+    body[data-theme] .bookings-table tr.rs-sec b {
+        font-size: 0.74rem !important;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--rs-sec) !important;
+        vertical-align: middle;
+    }
+    body[data-theme] .bookings-table tr.rs-sec .rs-sec-count {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: var(--rs-sec);
+        font-size: 0.66rem !important;
+        font-weight: 700;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        vertical-align: middle;
+    }
+    body[data-theme] .bookings-table tr.rs-sec small {
+        margin-left: 8px;
+        font-size: 0.66rem !important;
+        color: var(--text-secondary, #64748b) !important;
+        vertical-align: middle;
+    }
+
     .bookings-table tbody tr {
         transition: background 0.2s ease;
     }
@@ -899,7 +948,35 @@ include '../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
+                    <?php
+                    // Pemisah bagian: Tamu In-House | Reservasi (akan datang) | Selesai / Batal.
+                    $rsSecOf = function ($st) {
+                        if ($st === 'checked_in') return 'inhouse';
+                        if ($st === 'confirmed' || $st === 'pending') return 'reservasi';
+                        return 'selesai';
+                    };
+                    $rsSecLabel = ['inhouse' => 'Tamu In-House', 'reservasi' => 'Reservasi', 'selesai' => 'Selesai / Batal'];
+                    $rsSecHint = ['inhouse' => 'sedang menginap', 'reservasi' => 'belum check-in', 'selesai' => 'sudah check-out atau dibatalkan'];
+                    $rsSecCount = [];
+                    foreach ($bookings as $bk) {
+                        $k = $rsSecOf($bk['status']);
+                        $rsSecCount[$k] = ($rsSecCount[$k] ?? 0) + 1;
+                    }
+                    $rsSecPrev = null;
+                    ?>
                     <?php foreach ($bookings as $booking):
+                        $rsSec = $rsSecOf($booking['status']);
+                        if ($rsSec !== $rsSecPrev):
+                            $rsSecPrev = $rsSec; ?>
+                        <tr class="rs-sec rs-sec-<?php echo $rsSec; ?>">
+                            <td colspan="12">
+                                <span class="rs-sec-dot"></span>
+                                <b><?php echo $rsSecLabel[$rsSec]; ?></b>
+                                <span class="rs-sec-count"><?php echo (int)$rsSecCount[$rsSec]; ?></span>
+                                <small><?php echo $rsSecHint[$rsSec]; ?></small>
+                            </td>
+                        </tr>
+                    <?php endif;
                         $netIncome = calculateNetIncome(
                             $booking['room_price'],
                             $booking['booking_source'],
@@ -2217,10 +2294,19 @@ include '../../includes/header.php';
 
     function searchBookings(keyword) {
         const query = keyword.toLowerCase().trim();
-        const rows = document.querySelectorAll('.bookings-table tbody tr');
+        const rows = document.querySelectorAll('.bookings-table tbody tr:not(.rs-sec)');
         rows.forEach(row => {
             const text = row.textContent.toLowerCase();
             row.style.display = text.includes(query) ? '' : 'none';
+        });
+        // Judul bagian hanya tampil bila ada baris yang cocok di bawahnya.
+        document.querySelectorAll('.bookings-table tbody tr.rs-sec').forEach(sec => {
+            let n = sec.nextElementSibling, any = false;
+            while (n && !n.classList.contains('rs-sec')) {
+                if (n.style.display !== 'none') { any = true; break; }
+                n = n.nextElementSibling;
+            }
+            sec.style.display = any ? '' : 'none';
         });
     }
 
