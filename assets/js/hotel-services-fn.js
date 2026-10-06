@@ -37,6 +37,92 @@ function getGuestName () {
   return document.getElementById('fGuestName').value.trim()
 }
 
+// ── Popup elegan (pengganti alert/confirm browser) ─────────────────────────────
+// hsAlert(pesan, jenis) → Promise; jenis: success | error | warning | info (otomatis dari isi pesan).
+function hsPopupKind (msg, kind) {
+  if (kind) return kind
+  const m = String(msg || '').toLowerCase()
+  if (/^error|gagal|failed|network|tidak bisa|cannot/.test(m)) return 'error'
+  if (/berhasil|tersimpan|✅|saved|created|success/.test(m)) return 'success'
+  return 'warning'
+}
+
+function hsPopup (opts) {
+  return new Promise(resolve => {
+    const kind = opts.kind || 'info'
+    const icons = {
+      success: '<path d="M15 27.5l7.5 7.5L37.5 19"/>',
+      error: '<path d="M18 18l16 16M34 18L18 34"/>',
+      warning: '<path d="M26 15v14"/><path d="M26 36.5v.5"/>',
+      info: '<path d="M26 23v13"/><path d="M26 16v.5"/>',
+      confirm: '<path d="M21 20a5 5 0 1 1 7 4.6c-1.3.6-2 1.6-2 3V30"/><path d="M26 36.5v.5"/>'
+    }
+    const wrap = document.createElement('div')
+    wrap.className = 'hs-pop hs-pop-' + kind
+    wrap.innerHTML =
+      '<div class="hs-pop-card" role="alertdialog" aria-modal="true">' +
+      '<svg class="hs-pop-ic" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/>' + (icons[kind] || icons.info) + '</svg>' +
+      (opts.title ? '<b class="hs-pop-title"></b>' : '') +
+      '<p class="hs-pop-msg"></p>' +
+      (opts.buttons ? '<div class="hs-pop-acts"></div>' : '') +
+      '</div>'
+    if (opts.title) wrap.querySelector('.hs-pop-title').textContent = opts.title
+    wrap.querySelector('.hs-pop-msg').textContent = String(opts.message || '').replace(/^Error:\s*/i, '')
+    const close = val => {
+      wrap.classList.remove('show')
+      document.removeEventListener('keydown', onKey)
+      setTimeout(() => wrap.remove(), 180)
+      resolve(val)
+    }
+    const onKey = e => {
+      if (e.key === 'Escape') close(false)
+      if (e.key === 'Enter' && opts.buttons) close(true)
+    }
+    if (opts.buttons) {
+      const acts = wrap.querySelector('.hs-pop-acts')
+      opts.buttons.forEach(b => {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'hs-pop-btn ' + (b.cls || '')
+        btn.textContent = b.label
+        btn.addEventListener('click', () => close(b.value))
+        acts.appendChild(btn)
+      })
+      setTimeout(() => { const last = acts.lastElementChild; if (last) last.focus() }, 30)
+    }
+    wrap.addEventListener('click', e => { if (e.target === wrap && opts.buttons) close(false) })
+    document.addEventListener('keydown', onKey)
+    document.body.appendChild(wrap)
+    requestAnimationFrame(() => wrap.classList.add('show'))
+    if (opts.autoClose) setTimeout(() => close(true), opts.autoClose)
+  })
+}
+
+function hsAlert (message, kind) {
+  kind = hsPopupKind(message, kind)
+  if (kind === 'success') {
+    return hsPopup({ kind, title: 'Berhasil', message, autoClose: 1500 })
+  }
+  return hsPopup({
+    kind,
+    title: kind === 'error' ? 'Gagal' : 'Perhatian',
+    message,
+    buttons: [{ label: 'OK', value: true, cls: 'primary' }]
+  })
+}
+
+function hsConfirm (message) {
+  return hsPopup({
+    kind: 'confirm',
+    title: 'Konfirmasi',
+    message,
+    buttons: [
+      { label: 'Batal', value: false, cls: 'ghost' },
+      { label: 'Ya, lanjutkan', value: true, cls: 'danger' }
+    ]
+  })
+}
+
 // ── Items ─────────────────────────────────────────────────────────────────────
 let rowCnt = 0
 
@@ -683,13 +769,13 @@ function submitCreate () {
   if (!hsValidatePartners('#itemsBody')) return
   const guestName = getGuestName()
   if (!guestName) {
-    alert('Please select or enter a guest name')
+    hsAlert('Pilih tamu in-house atau isi nama tamu')
     return
   }
 
   const rows = document.querySelectorAll('#itemsBody .hs-item-card')
   if (!rows.length) {
-    alert('Add at least one service item')
+    hsAlert('Tambahkan minimal 1 item layanan')
     return
   }
 
@@ -697,7 +783,7 @@ function submitCreate () {
   for (const tr of rows) {
     const svc = tr.querySelector('.iSvc').value
     if (!svc) {
-      alert('Select service type for all rows')
+      hsAlert('Pilih tipe layanan untuk semua item')
       return
     }
     const motorId =
@@ -729,16 +815,16 @@ function submitCreate () {
     const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ')
 
     if (svc === 'motor_rental' && !motorId) {
-      alert('Item rental motor wajib pilih armada')
+      hsAlert('Item rental motor wajib pilih armada')
       return
     }
     if (svc === 'narayana_trip') {
       if (!tripType) {
-        alert('Narayana Trip wajib pilih tipe trip (Open/Private)')
+        hsAlert('Narayana Trip wajib pilih tipe trip (Open/Private)')
         return
       }
       if (!guideId) {
-        alert('Narayana Trip wajib pilih nama guide')
+        hsAlert('Narayana Trip wajib pilih nama guide')
         return
       }
     }
@@ -800,19 +886,18 @@ function submitCreate () {
     .then(res => {
       if (res.success) {
         closeCreateModal()
-        const cbMsg = res.cashbook ? '\n✅ Tercatat di Buku Kas' : ''
-        alert('Invoice ' + res.invoice_number + ' created!' + cbMsg)
-        location.reload()
+        const cbMsg = res.cashbook ? ' · tercatat di Buku Kas' : ''
+        hsAlert('Invoice ' + res.invoice_number + ' berhasil dibuat' + cbMsg, 'success').then(() => location.reload())
       } else {
-        alert('Error: ' + (res.message || 'Unknown'))
+        hsAlert('Error: ' + (res.message || 'Unknown'))
         btn.disabled = false
-        btn.textContent = '✅ Create Invoice'
+        btn.textContent = 'Create Invoice'
       }
     })
     .catch(() => {
-      alert('Network error')
+      hsAlert('Gagal terhubung ke server, coba lagi')
       btn.disabled = false
-      btn.textContent = '✅ Create Invoice'
+      btn.textContent = 'Create Invoice'
     })
 }
 
@@ -833,7 +918,7 @@ function updateStatus (id, status, sel) {
   })
     .then(r => r.json())
     .then(res => {
-      if (!res.success) { alert('Failed to update status'); return }
+      if (!res.success) { hsAlert('Gagal mengubah status'); return }
       // Perbarui badge status di baris tanpa memuat ulang halaman.
       const badge = row ? row.querySelector('.hs-stat .hs-badge:nth-child(2)') : null
       if (badge) {
@@ -844,12 +929,12 @@ function updateStatus (id, status, sel) {
       if (row) row.classList.toggle('hs-row-cancelled', status === 'cancelled')
       document.querySelectorAll('.hs-action-dropdown-menu.show, .hs-action-dropdown.open').forEach(m => m.classList.remove('show', 'open'))
     })
-    .catch(() => alert('Failed to update status'))
+    .catch(() => hsAlert('Gagal mengubah status'))
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────
-function deleteInvoice (id, code) {
-  if (!confirm('Delete invoice ' + code + '? Cannot be undone.')) return
+async function deleteInvoice (id, code) {
+  if (!(await hsConfirm('Hapus invoice ' + code + '? Tindakan ini tidak bisa dibatalkan.'))) return
   const fd = new FormData()
   fd.append('action', 'delete')
   fd.append('id', id)
@@ -861,7 +946,7 @@ function deleteInvoice (id, code) {
     .then(r => r.json())
     .then(res => {
       if (res.success) location.reload()
-      else alert('Delete failed')
+      else hsAlert('Gagal menghapus invoice')
     })
 }
 
@@ -912,11 +997,11 @@ function submitPay () {
   const method2 = document.getElementById('pMethod2').value
 
   if (amount <= 0) {
-    alert('Enter valid amount')
+    hsAlert('Isi nominal pembayaran yang valid')
     return
   }
   if (isSplit && amount2 <= 0) {
-    alert('Isi nominal untuk metode ke-2, atau matikan opsi split.')
+    hsAlert('Isi nominal untuk metode ke-2, atau matikan opsi split.')
     return
   }
 
@@ -953,11 +1038,10 @@ function submitPay () {
           res.cars_auto_returned.length +
           ' mobil otomatis ditandai sudah kembali (invoice lunas, tagihan driver otomatis update)'
       }
-      alert(msg)
-      location.reload()
+      hsAlert(msg, 'success').then(() => location.reload())
     })
     .catch(err => {
-      alert('Error: ' + err.message)
+      hsAlert('Error: ' + err.message)
       btn.disabled = false
       btn.textContent = '💾 Save & Sync to Cashbook'
     })
@@ -1030,17 +1114,16 @@ function saveSettings () {
     .then(r => r.json())
     .then(res => {
       if (res.success) {
-        alert('✅ Settings saved!')
         closeSettingsModal()
-        location.reload()
+        hsAlert('Pengaturan tersimpan', 'success').then(() => location.reload())
       } else {
-        alert('Error: ' + (res.message || 'unknown'))
+        hsAlert('Error: ' + (res.message || 'unknown'))
       }
       btn.disabled = false
       btn.textContent = '💾 Save Settings'
     })
     .catch(() => {
-      alert('Network error')
+      hsAlert('Gagal terhubung ke server, coba lagi')
       btn.disabled = false
       btn.textContent = '💾 Save Settings'
     })
@@ -1178,13 +1261,13 @@ function saveCatalogRow (cid) {
         tr.classList.add('saved')
         setTimeout(() => tr.classList.remove('saved'), 1500)
       } else {
-        alert('Error: ' + (res.message || 'failed'))
+        hsAlert('Error: ' + (res.message || 'failed'))
       }
     })
 }
 
-function deleteCatalogRow (cid) {
-  if (!confirm('Hapus item ini dari katalog?')) return
+async function deleteCatalogRow (cid) {
+  if (!(await hsConfirm('Hapus item ini dari katalog?'))) return
   const fd = new FormData()
   fd.append('action', 'delete_catalog_item')
   fd.append('cid', cid)
@@ -1198,7 +1281,7 @@ function deleteCatalogRow (cid) {
       if (res.success) {
         const el = document.getElementById('ctr' + cid)
         if (el) el.remove()
-      } else alert('Error')
+      } else hsAlert('Error')
     })
 }
 
@@ -1222,7 +1305,7 @@ function openEditModal (id) {
     .then(r => r.json())
     .then(inv => {
       if (!inv.success) {
-        alert(inv.message || 'Cannot load invoice')
+        hsAlert(inv.message || 'Cannot load invoice')
         return
       }
       document.getElementById('eInvId').value = inv.id
@@ -1254,7 +1337,7 @@ function openEditModal (id) {
       eRefreshTotal()
       document.getElementById('editModal').classList.add('open')
     })
-    .catch(() => alert('Network error loading invoice'))
+    .catch(() => hsAlert('Gagal memuat invoice, coba lagi'))
 }
 
 function closeEditModal () {
@@ -1676,12 +1759,12 @@ function submitEdit () {
   const id = document.getElementById('eInvId').value
   const guestName = document.getElementById('eGuestName').value.trim()
   if (!guestName) {
-    alert('Nama tamu wajib diisi')
+    hsAlert('Nama tamu wajib diisi')
     return
   }
   const rows = document.querySelectorAll('#eItemsBody .hs-item-card')
   if (!rows.length) {
-    alert('Minimal 1 item layanan')
+    hsAlert('Minimal 1 item layanan')
     return
   }
   const items = []
@@ -1716,16 +1799,16 @@ function submitEdit () {
     const endDt = endDate.toISOString().slice(0, 19).replace('T', ' ')
 
     if (svc === 'motor_rental' && !motorId) {
-      alert('Item rental motor wajib pilih armada')
+      hsAlert('Item rental motor wajib pilih armada')
       return
     }
     if (svc === 'narayana_trip') {
       if (!tripType) {
-        alert('Narayana Trip wajib pilih tipe trip (Open/Private)')
+        hsAlert('Narayana Trip wajib pilih tipe trip (Open/Private)')
         return
       }
       if (!guideId) {
-        alert('Narayana Trip wajib pilih nama guide')
+        hsAlert('Narayana Trip wajib pilih nama guide')
         return
       }
     }
@@ -1796,13 +1879,13 @@ function submitEdit () {
         closeEditModal()
         location.reload()
       } else {
-        alert('Error: ' + (res.message || 'Unknown'))
+        hsAlert('Error: ' + (res.message || 'Unknown'))
         btn.disabled = false
         btn.textContent = '💾 Simpan Perubahan'
       }
     })
     .catch(() => {
-      alert('Network error')
+      hsAlert('Gagal terhubung ke server, coba lagi')
       btn.disabled = false
       btn.textContent = '💾 Simpan Perubahan'
     })
@@ -1859,17 +1942,17 @@ function saveSvcType (stId) {
         )
         tr.style.background = '#f0fdf4'
         setTimeout(() => (tr.style.background = ''), 1500)
-        alert(
+        hsAlert(
           '✅ Tipe layanan tersimpan! Refresh halaman untuk melihat perubahan di dropdown.'
         )
       } else {
-        alert('Error: ' + (res.message || 'failed'))
+        hsAlert('Error: ' + (res.message || 'failed'))
       }
     })
 }
 
-function deleteSvcType (stId) {
-  if (!confirm('Hapus tipe layanan ini?')) return
+async function deleteSvcType (stId) {
+  if (!(await hsConfirm('Hapus tipe layanan ini?'))) return
   const fd = new FormData()
   fd.append('action', 'delete_service_type')
   fd.append('st_id', stId)
@@ -1883,7 +1966,7 @@ function deleteSvcType (stId) {
       if (res.success) {
         const el = document.getElementById('str' + stId)
         if (el) el.remove()
-      } else alert('Error: ' + (res.message || 'Cannot delete'))
+      } else hsAlert('Error: ' + (res.message || 'Cannot delete'))
     })
 }
 
@@ -1913,7 +1996,7 @@ function savePartnerRow (pid) {
   const tr = document.getElementById('ptr' + pid)
   if (!tr) return
   const name = tr.querySelector('.pName').value.trim()
-  if (!name) { alert('Nama mitra wajib diisi'); return }
+  if (!name) { hsAlert('Nama mitra wajib diisi'); return }
   const fd = new FormData()
   fd.append('action', 'save_partner')
   fd.append('partner_id', isNaN(pid) ? 0 : pid)
@@ -1924,7 +2007,7 @@ function savePartnerRow (pid) {
   fetch('hotel-services.php', { method: 'POST', body: fd, credentials: 'include' })
     .then(r => r.json())
     .then(res => {
-      if (!res.success) { alert('Error: ' + (res.message || 'failed')); return }
+      if (!res.success) { hsAlert('Error: ' + (res.message || 'failed')); return }
       tr.id = 'ptr' + res.id
       tr.querySelectorAll('button')[0].setAttribute('onclick', 'savePartnerRow(' + res.id + ')')
       tr.querySelectorAll('button')[1].setAttribute('onclick', 'deletePartnerRow(' + res.id + ')')
@@ -1937,18 +2020,18 @@ function savePartnerRow (pid) {
       tr.classList.add('saved')
       setTimeout(() => tr.classList.remove('saved'), 1500)
     })
-    .catch(() => alert('Network error'))
+    .catch(() => hsAlert('Gagal terhubung ke server, coba lagi'))
 }
 
-function deletePartnerRow (pid) {
-  if (!confirm('Hapus mitra ini? Item katalog yang memakainya akan dikosongkan mitranya.')) return
+async function deletePartnerRow (pid) {
+  if (!(await hsConfirm('Hapus mitra ini? Item katalog yang memakainya akan dikosongkan mitranya.'))) return
   const fd = new FormData()
   fd.append('action', 'delete_partner')
   fd.append('partner_id', pid)
   fetch('hotel-services.php', { method: 'POST', body: fd, credentials: 'include' })
     .then(r => r.json())
     .then(res => {
-      if (!res.success) { alert('Error: ' + (res.message || 'failed')); return }
+      if (!res.success) { hsAlert('Error: ' + (res.message || 'failed')); return }
       const el = document.getElementById('ptr' + pid)
       if (el) el.remove()
       window.HS_PARTNERS = (window.HS_PARTNERS || []).filter(p => p.id !== pid)
@@ -2006,13 +2089,13 @@ function saveGuideRow (guideId) {
         syncTripGuidesFromTable()
         refreshGuideDropdowns()
       } else {
-        alert('Error: ' + (res.message || 'failed'))
+        hsAlert('Error: ' + (res.message || 'failed'))
       }
     })
 }
 
-function deleteGuideRow (guideId) {
-  if (!confirm('Hapus guide ini?')) return
+async function deleteGuideRow (guideId) {
+  if (!(await hsConfirm('Hapus guide ini?'))) return
   const fd = new FormData()
   fd.append('action', 'delete_trip_guide')
   fd.append('guide_id', guideId)
@@ -2029,7 +2112,7 @@ function deleteGuideRow (guideId) {
         syncTripGuidesFromTable()
         refreshGuideDropdowns()
       } else {
-        alert('Error: ' + (res.message || 'Cannot delete'))
+        hsAlert('Error: ' + (res.message || 'Cannot delete'))
       }
     })
 }
@@ -2255,13 +2338,13 @@ function hsValidatePartners (bodySel) {
     if (hasPartners && !sel.value) {
       sel.classList.add('need')
       sel.focus()
-      alert('Pilih mitra untuk layanan Mobil (' + (tr.querySelector('.iDesc').value || svc) + ')')
+      hsAlert('Pilih mitra untuk layanan Mobil (' + (tr.querySelector('.iDesc').value || svc) + ')')
       return false
     }
     const price = parseFloat(tr.querySelector('.iPrice').value) || 0
     const pay = parseFloat(tr.querySelector('.iPartnerPay').value) || 0
     if (pay > price) {
-      alert('Bayar mitra tidak boleh lebih besar dari harga ke tamu')
+      hsAlert('Bayar mitra tidak boleh lebih besar dari harga ke tamu')
       tr.querySelector('.iPartnerPay').focus()
       return false
     }

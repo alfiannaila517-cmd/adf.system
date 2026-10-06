@@ -3501,6 +3501,280 @@ include '../../includes/header.php';
         .hs-item-card.hs-v3 .hs-partner-extra { grid-template-columns: 1fr 1fr; }
         .hs-item-card.hs-v3 .hs-partner-extra .hs-v3-f:first-child { grid-column: 1 / -1; }
     }
+
+    /* ===== Form New / Edit Invoice (redesign, seragam dengan New Reservation) ===== */
+    .hsf-modal {
+        --hsf-line: #e2e8f0;
+        --hsf-soft: #f8fafc;
+        --hsf-ink: #0f172a;
+        --hsf-muted: #64748b;
+        max-width: 720px !important;
+        padding: 0 1.25rem 0 !important;
+        border-radius: 16px !important;
+    }
+    .hsf-modal .hsf-head {
+        position: sticky;
+        top: 0;
+        z-index: 6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 0 -1.25rem 12px;
+        padding: 14px 20px;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    }
+    body[data-theme] .hsf-modal .hsf-head h3 {
+        margin: 0 !important;
+        font-size: 0.98rem !important;
+        font-weight: 700 !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+    body[data-theme] .hsf-modal .hsf-head small {
+        display: block;
+        font-size: 0.68rem !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        -webkit-text-fill-color: rgba(255, 255, 255, 0.8) !important;
+    }
+    body[data-theme] .hsf-modal .hsf-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+    /* Judul bagian: huruf kecil kapital + garis */
+    body[data-theme] .hsf-modal .sect-label {
+        display: flex !important;
+        align-items: center;
+        gap: 8px;
+        margin: 14px 0 8px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: none !important;
+        font-size: 0.62rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--hsf-muted) !important;
+    }
+    .hsf-modal .sect-label::after { content: ''; flex: 1; height: 1px; background: var(--hsf-line); }
+    body[data-theme] .hsf-modal .hs-field label {
+        margin-bottom: 4px !important;
+        font-size: 0.62rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--hsf-muted) !important;
+    }
+    body[data-theme] .hsf-modal input[type="text"],
+    body[data-theme] .hsf-modal input[type="number"],
+    body[data-theme] .hsf-modal select,
+    body[data-theme] .hsf-modal textarea {
+        min-height: 36px;
+        padding: 0 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 9px !important;
+        background: #fff !important;
+        font-size: 0.8rem !important;
+        color: var(--hsf-ink) !important;
+        box-sizing: border-box;
+    }
+    body[data-theme] .hsf-modal textarea { padding: 8px 10px !important; min-height: 60px; }
+    body[data-theme] .hsf-modal input:focus,
+    body[data-theme] .hsf-modal select:focus,
+    body[data-theme] .hsf-modal textarea:focus {
+        outline: none;
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }
+    .hsf-modal .hs-form-row { gap: 10px !important; margin-bottom: 10px !important; }
+    /* Pilihan tamu: segmented */
+    body[data-theme] .hsf-modal .guest-toggle {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        margin-bottom: 8px;
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid var(--hsf-line);
+        background: var(--hsf-soft);
+    }
+    body[data-theme] .hsf-modal .guest-toggle button {
+        height: 32px;
+        border: 0 !important;
+        border-radius: 9px !important;
+        background: transparent !important;
+        font-size: 0.76rem !important;
+        font-weight: 700 !important;
+        color: var(--hsf-muted) !important;
+    }
+    body[data-theme] .hsf-modal .guest-toggle button.active {
+        background: #fff !important;
+        color: #1d4ed8 !important;
+        box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.18);
+    }
+    /* Kartu item */
+    body[data-theme] .hsf-modal .hs-item-card {
+        padding: 12px !important;
+        border: 1px solid var(--hsf-line) !important;
+        border-radius: 12px !important;
+        background: #fff !important;
+        box-shadow: 0 6px 16px -14px rgba(15, 23, 42, 0.5);
+    }
+    body[data-theme] .hsf-modal .hs-item-card .hs-ic-labeled > span,
+    body[data-theme] .hsf-modal .hs-item-card .hs-ic-subtotal > span,
+    body[data-theme] .hsf-modal .hs-item-card .iQtyLabel {
+        font-size: 0.6rem !important;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--hsf-muted) !important;
+    }
+    body[data-theme] .hsf-modal .hs-item-card .iTotal { font-size: 0.95rem !important; color: #1d4ed8 !important; }
+    body[data-theme] .hsf-modal .btn-del-row {
+        width: 34px;
+        border-radius: 9px !important;
+        border: 1px solid rgba(220, 38, 38, 0.25) !important;
+        background: rgba(220, 38, 38, 0.06) !important;
+        color: #b91c1c !important;
+    }
+    body[data-theme] .hsf-modal .btn-add-item {
+        height: 36px;
+        margin-top: 6px !important;
+        border-radius: 10px !important;
+        border: 1px dashed #93c5fd !important;
+        background: rgba(37, 99, 235, 0.05) !important;
+        color: #1d4ed8 !important;
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+    }
+    /* Ringkasan total */
+    body[data-theme] .hsf-modal .hs-total-preview {
+        margin-top: 12px !important;
+        padding: 12px 14px !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--hsf-line) !important;
+        background: var(--hsf-soft) !important;
+    }
+    body[data-theme] .hsf-modal .hs-total-preview > div { font-size: 0.78rem !important; }
+    body[data-theme] .hsf-modal .hs-total-preview #tpGrand,
+    body[data-theme] .hsf-modal .hs-total-preview #etpGrand { color: #047857 !important; font-size: 1.15rem !important; }
+    /* Footer menempel di bawah */
+    .hsf-modal .hs-modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 6;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin: 14px -1.25rem 0 !important;
+        padding: 12px 20px !important;
+        border-top: 1px solid var(--hsf-line);
+        background: var(--hsf-soft);
+    }
+    body[data-theme] .hsf-modal .hs-modal-footer .btn-hs {
+        height: 38px;
+        padding: 0 18px !important;
+        border-radius: 10px !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+    }
+    body[data-theme] .hsf-modal .hs-modal-footer .btn-hs-secondary {
+        border: 1px solid var(--hsf-line) !important;
+        background: #fff !important;
+        color: var(--hsf-muted) !important;
+    }
+    body[data-theme] .hsf-modal .hs-modal-footer .btn-hs-primary {
+        border: 0 !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.8);
+    }
+
+    /* ===== Popup elegan (pengganti alert/confirm) ===== */
+    .hs-pop {
+        position: fixed;
+        inset: 0;
+        z-index: 200000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(15, 23, 42, 0.32);
+        opacity: 0;
+        transition: opacity 0.18s;
+    }
+    .hs-pop.show { opacity: 1; }
+    .hs-pop-card {
+        width: 100%;
+        max-width: 340px;
+        padding: 22px 22px 18px;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.45);
+        text-align: center;
+        transform: scale(0.88);
+        transition: transform 0.25s cubic-bezier(.2, 1.3, .5, 1);
+    }
+    .hs-pop.show .hs-pop-card { transform: none; }
+    .hs-pop-ic { display: block; width: 56px; height: 56px; margin: 0 auto 10px; }
+    .hs-pop-ic path { fill: none; stroke: #fff; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+    .hs-pop-success .hs-pop-ic circle { fill: #059669; }
+    .hs-pop-success .hs-pop-ic path { stroke-dasharray: 40; stroke-dashoffset: 40; animation: hsPopDraw 0.35s 0.12s ease-out forwards; }
+    .hs-pop-error .hs-pop-ic circle { fill: #dc2626; }
+    .hs-pop-warning .hs-pop-ic circle { fill: #d97706; }
+    .hs-pop-info .hs-pop-ic circle { fill: #2563eb; }
+    .hs-pop-confirm .hs-pop-ic circle { fill: #1e3a8a; }
+    @keyframes hsPopDraw { to { stroke-dashoffset: 0; } }
+    body[data-theme] .hs-pop .hs-pop-title {
+        display: block;
+        font-size: 0.98rem !important;
+        font-weight: 800;
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+    body[data-theme] .hs-pop .hs-pop-msg {
+        margin: 6px 0 0 !important;
+        font-size: 0.8rem !important;
+        line-height: 1.5;
+        color: #475569 !important;
+        -webkit-text-fill-color: #475569 !important;
+        white-space: pre-line;
+    }
+    .hs-pop-acts { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+    body[data-theme] .hs-pop .hs-pop-btn {
+        min-width: 96px;
+        height: 38px;
+        padding: 0 16px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        font-size: 0.8rem !important;
+        font-weight: 700;
+        color: #475569 !important;
+        -webkit-text-fill-color: #475569 !important;
+        cursor: pointer;
+    }
+    body[data-theme] .hs-pop .hs-pop-btn.primary {
+        border: 0;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+    body[data-theme] .hs-pop .hs-pop-btn.danger {
+        border: 0;
+        background: #dc2626;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
     /* Catalog table */
     .cat-tbl {
         width: 100%;
@@ -3963,15 +4237,21 @@ include '../../includes/header.php';
 
 <!-- ══ CREATE MODAL ════════════════════════════════════════════════════════════ -->
 <div id="createModal" class="hs-modal-overlay" onclick="if(event.target===this)closeCreateModal()">
-    <div class="hs-modal">
-        <h3>🛎️ New Service Invoice</h3>
+    <div class="hs-modal hsf-modal">
+        <div class="hsf-head">
+            <div>
+                <h3>New Service Invoice</h3>
+                <small>Layanan tamu: mobil, motor, trip, laundry &amp; lainnya</small>
+            </div>
+            <button type="button" class="hsf-close" onclick="closeCreateModal()" aria-label="Tutup">&times;</button>
+        </div>
 
         <!-- Guest -->
         <div style="margin-bottom:0.75rem">
             <span class="sect-label">Guest</span>
             <div class="guest-toggle">
-                <button type="button" id="btnInhouse" class="active" onclick="setGuestMode('inhouse')">🏨 In-house Guest</button>
-                <button type="button" id="btnManual" onclick="setGuestMode('manual')">✏️ Enter Manually</button>
+                <button type="button" id="btnInhouse" class="active" onclick="setGuestMode('inhouse')">Tamu In-house</button>
+                <button type="button" id="btnManual" onclick="setGuestMode('manual')">Input Manual</button>
             </div>
             <div id="inhouseSection">
                 <select id="fGuestSelect" onchange="fillFromInhouse()" style="width:100%;padding:0.5rem 0.65rem;border:1px solid #e2e8f0;border-radius:7px;font-size:0.85rem;background:white;box-sizing:border-box">
@@ -4068,7 +4348,7 @@ include '../../includes/header.php';
 
         <div class="hs-modal-footer">
             <button class="btn-hs btn-hs-secondary" onclick="closeCreateModal()">Cancel</button>
-            <button class="btn-hs btn-hs-primary" id="createBtn" onclick="submitCreate()">✅ Create Invoice</button>
+            <button class="btn-hs btn-hs-primary" id="createBtn" onclick="submitCreate()">Create Invoice</button>
         </div>
     </div>
 </div>
@@ -4345,8 +4625,14 @@ include '../../includes/header.php';
 
 <!-- ══ EDIT INVOICE MODAL ════════════════════════════════════════════════════════════════════ -->
 <div id="editModal" class="hs-modal-overlay" onclick="if(event.target===this)closeEditModal()">
-    <div class="hs-modal">
-        <h3>✏️ Edit Invoice</h3>
+    <div class="hs-modal hsf-modal">
+        <div class="hsf-head">
+            <div>
+                <h3>Edit Invoice</h3>
+                <small>Ubah tamu, layanan, mitra &amp; pembayaran</small>
+            </div>
+            <button type="button" class="hsf-close" onclick="closeEditModal()" aria-label="Tutup">&times;</button>
+        </div>
         <input type="hidden" id="eInvId">
         <div id="eInvNo" style="font-size:0.78rem;color:#6366f1;font-weight:700;margin-bottom:0.75rem"></div>
 
@@ -4523,6 +4809,6 @@ include '../../includes/header.php';
         document.getElementById('invoiceDetailOverlay').classList.remove('open');
     }
 </script>
-<script src="../../assets/js/hotel-services-fn.js?v=20261009"></script>
+<script src="../../assets/js/hotel-services-fn.js?v=20261010"></script>
 
 <?php include '../../includes/footer.php'; ?>
