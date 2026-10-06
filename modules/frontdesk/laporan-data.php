@@ -151,3 +151,15 @@ $bfLocationLabel = static function (?string $loc): string {
 };
 $payStateLabel = ['paid' => 'Lunas', 'partial' => 'DP', 'unpaid' => 'Belum bayar'];
 $breakfastPax = array_sum(array_map(fn($o) => (int)($o['total_pax'] ?? 0), $breakfastOrders));
+
+// Ringkasan untuk pesan WhatsApp (menyertai file PDF).
+$waText = "*DAILY REPORT — " . date('d M Y') . "*\n"
+    . $company['name'] . "\n\n"
+    . "Occupancy: {$occupancyRate}% ({$occupiedRooms}/{$totalRooms} rooms)\n"
+    . "In-house: " . count($inHouseGuests) . " guests\n"
+    . "Arrivals today: " . count($checkInToday) . "\n"
+    . "Departures today: " . count($checkOutToday) . "\n"
+    . "Arrivals tomorrow: " . count($arrivalTomorrow) . "\n"
+    . ($breakfastOrders ? "Breakfast: " . count($breakfastOrders) . " orders · {$breakfastPax} pax\n" : '')
+    . "\nFull details in the attached PDF.";
+

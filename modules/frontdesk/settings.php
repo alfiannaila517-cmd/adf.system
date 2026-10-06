@@ -1361,6 +1361,9 @@ include '../../includes/header.php';
             onclick="location.href='?tab=invoice_settings'">
             🧾 Invoice Settings
         </button>
+        <button class="tab-btn" onclick="location.href='whatsapp.php'">
+            💬 WhatsApp
+        </button>
     </div>
 
     <!-- ==================== ROOMS TAB ==================== -->

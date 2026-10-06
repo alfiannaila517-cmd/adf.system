@@ -449,6 +449,8 @@ try {
         error_log('Push notification error (check-in): ' . $pushErr->getMessage());
     }
 
+    $waCheckinBooking = $booking;
+
     echo json_encode([
         'success' => true,
         'message' => $successMessage,
@@ -480,3 +482,18 @@ try {
 
 // Flush output buffer
 ob_end_flush();
+
+// ═══ WHATSAPP: pesan sambutan ke tamu (setelah respons dikirim ke browser) ═══
+if (!empty($waCheckinBooking)) {
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    } elseif (function_exists('litespeed_finish_request')) {
+        litespeed_finish_request();
+    }
+    try {
+        require_once dirname(__DIR__) . '/includes/WhatsAppHelper.php';
+        (new WhatsAppHelper($db))->sendCheckinMessage($waCheckinBooking);
+    } catch (\Throwable $waErr) {
+        error_log('WA check-in: ' . $waErr->getMessage());
+    }
+}

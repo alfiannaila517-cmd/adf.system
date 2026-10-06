@@ -6,7 +6,8 @@
  *   ?download=1 -> unduh sebagai file, selain itu tampil di browser (untuk dicetak).
  */
 
-define('APP_ACCESS', true);
+if (!defined('APP_ACCESS')) define('APP_ACCESS', true);
+$pdfObBase = ob_get_level();
 ob_start();
 @set_time_limit(90);
 @ini_set('memory_limit', '256M');
@@ -241,6 +242,10 @@ try {
     }
 } catch (\Throwable $ex) {
     error_log('Laporan PDF: ' . $ex->getMessage());
+    if (defined('LAPORAN_PDF_RETURN')) {
+        while (ob_get_level() > $pdfObBase) ob_end_clean();
+        throw $ex;
+    }
     while (ob_get_level() > 0) ob_end_clean();
     http_response_code(500);
     header('Content-Type: text/plain; charset=UTF-8');
@@ -248,6 +253,13 @@ try {
     exit;
 } finally {
     if (!empty($tmpLogo) && is_file($tmpLogo)) @unlink($tmpLogo);
+}
+
+// Di-include oleh pengirim WhatsApp: cukup kembalikan $bytes & $fileName.
+$fileName = 'Daily-Report-' . preg_replace('/[^A-Za-z0-9]+/', '-', (string)$company['name']) . '-' . $today . '.pdf';
+if (defined('LAPORAN_PDF_RETURN')) {
+    while (ob_get_level() > $pdfObBase) ob_end_clean();
+    return;
 }
 
 // Buang output liar sebelum mengirim file.
