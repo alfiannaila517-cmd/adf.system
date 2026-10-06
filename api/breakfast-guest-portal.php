@@ -1059,6 +1059,9 @@ if ($action === 'submit_link') {
         exit;
     }
 
+    // Portal tamu: room service tidak tersedia, lokasi selalu restoran.
+    if ($serviceType === 'room_service') $serviceType = 'restaurant';
+    $body['breakfast_location'] = 'Main Restaurant';
     $breakfastLocation = trim((string)($body['breakfast_location'] ?? ''));
     if ($breakfastLocation === '') {
         echo json_encode(['success' => false, 'message' => $msg('Lokasi breakfast wajib diisi', 'Breakfast location is required')]);

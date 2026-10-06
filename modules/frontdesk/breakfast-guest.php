@@ -266,6 +266,52 @@ $token = trim((string)($_GET['t'] ?? ''));
         @keyframes secFlash { 0%, 60% { box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.35); } 100% { box-shadow: 0 0 0 0 rgba(4, 120, 87, 0); } }
         @keyframes mdlFade { from { opacity: 0; } }
         @keyframes mdlUp { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
+        /* Langkah: Food → Drinks → Details */
+        .steps {
+            position: sticky;
+            top: 0;
+            z-index: 15;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin: 14px -2px 4px;
+            padding: 8px 2px;
+            background: var(--bg);
+        }
+        .steps button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            height: 36px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--muted);
+            font-family: inherit;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .steps button i {
+            width: 19px;
+            height: 19px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-style: normal;
+            font-size: 11px;
+            background: #eef0f3;
+            color: var(--muted);
+        }
+        .steps button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .steps button.on i { background: var(--gold); color: #fff; }
+        .steps button.done i { background: var(--green); color: #fff; }
+        .stp.hidden { display: none; }
+        .stp-hint { margin: 2px 2px 0; font-size: 12px; color: var(--muted); }
+        .seg.two { grid-template-columns: repeat(2, 1fr); }
+        .input[readonly] { background: #f6f4ef; color: var(--navy); font-weight: 600; cursor: default; }
         /* Notices */
         .notice {
             margin: 14px 0 0;
@@ -583,6 +629,13 @@ $token = trim((string)($_GET['t'] ?? ''));
         <div id="notice"></div>
 
         <div id="pickArea" class="hidden">
+            <div class="steps" id="steps">
+                <button type="button" data-s="0" class="on"><i>1</i>Food</button>
+                <button type="button" data-s="1"><i>2</i>Drinks</button>
+                <button type="button" data-s="2"><i>3</i>Details</button>
+            </div>
+
+            <div class="stp" data-stp="0">
             <section class="sec" id="mainSec">
                 <div class="sec-head">
                     <h2>Main Course</h2>
@@ -592,6 +645,19 @@ $token = trim((string)($_GET['t'] ?? ''));
                 <div class="list" id="mainList"></div>
             </section>
 
+            <section class="sec hidden" id="kidSec">
+                <div class="sec-head">
+                    <h2>For Kids <small style="font-family:Inter,sans-serif;font-size:11px;color:#047857;font-weight:600">under 7 · free</small></h2>
+                    <div class="sec-count" id="kidCount"></div>
+                </div>
+                <div class="list" id="kidList"></div>
+            </section>
+
+            <div class="extra" id="extraBanner"></div>
+            </div>
+
+            <div class="stp hidden" data-stp="1">
+            <p class="stp-hint" id="drinkHint"></p>
             <section class="sec" id="juiceSec">
                 <div class="sec-head">
                     <h2>Fresh Juice</h2>
@@ -608,32 +674,24 @@ $token = trim((string)($_GET['t'] ?? ''));
                 <div class="list" id="coffeeList"></div>
             </section>
 
-            <section class="sec hidden" id="kidSec">
-                <div class="sec-head">
-                    <h2>For Kids <small style="font-family:Inter,sans-serif;font-size:11px;color:#047857;font-weight:600">under 7 · free</small></h2>
-                    <div class="sec-count" id="kidCount"></div>
-                </div>
-                <div class="list" id="kidList"></div>
-            </section>
+            </div>
 
-            <div class="extra" id="extraBanner"></div>
-
+            <div class="stp hidden" data-stp="2">
             <section class="sec">
                 <div class="sec-head">
                     <h2>Serving Details</h2>
                 </div>
                 <div class="card">
                     <span class="label">Service</span>
-                    <div class="seg" id="serviceSeg">
+                    <div class="seg two" id="serviceSeg">
                         <button type="button" data-v="restaurant" class="on">Restaurant</button>
-                        <button type="button" data-v="room_service">Room Service</button>
                         <button type="button" data-v="take_away">Take Away</button>
                     </div>
                     <span class="label">Time</span>
                     <div class="seg times" id="timeSeg"></div>
                     <div style="font-size:11px;color:var(--muted);margin-top:6px">Breakfast is served from 07:00 to 10:00.</div>
                     <span class="label" id="locLabel">Location</span>
-                    <input class="input" id="location" maxlength="120" value="Main Restaurant">
+                    <input class="input" id="location" maxlength="120" value="Main Restaurant" readonly>
                     <span class="label">Notes (optional)</span>
                     <textarea class="input" id="notes" maxlength="300" placeholder="Allergies, no spicy, egg well done…"></textarea>
                 </div>
@@ -642,6 +700,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     Choose “On the spot” and our team will take your order in the morning.
                 </button>
             </section>
+            </div>
         </div>
 
         <div class="center">
@@ -660,7 +719,7 @@ $token = trim((string)($_GET['t'] ?? ''));
     <div class="bar hidden" id="bar">
         <div class="wrap">
             <div class="bar-sum" id="barSum"></div>
-            <button type="button" class="btn" id="btnSubmit">Confirm</button>
+            <button type="button" class="btn" id="btnSubmit">Next: Drinks →</button>
         </div>
     </div>
 
@@ -903,14 +962,9 @@ $token = trim((string)($_GET['t'] ?? ''));
             function setService(v) {
                 service = v;
                 document.querySelectorAll('#serviceSeg button').forEach(function(b) { b.classList.toggle('on', b.dataset.v === v); });
-                var loc = $('location');
-                if (v === 'restaurant') {
-                    $('locLabel').textContent = 'Location';
-                    if (!loc.value || /^Room /.test(loc.value)) loc.value = 'Main Restaurant';
-                } else {
-                    $('locLabel').textContent = v === 'room_service' ? 'Deliver to' : 'Pick up name / room';
-                    if (!loc.value || loc.value === 'Main Restaurant') loc.value = 'Room ' + (data.room_number || []).join(', ');
-                }
+                // Lokasi selalu restoran (take away diambil di restoran).
+                $('location').value = 'Main Restaurant';
+                $('locLabel').textContent = v === 'take_away' ? 'Pick up at' : 'Location';
             }
 
             function renderSubmitted() {
@@ -1032,7 +1086,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     return;
                 }
-                var loc = ($('location').value || '').trim() || (service === 'restaurant' ? 'Main Restaurant' : 'Room ' + (data.room_number || []).join(', '));
+                var loc = 'Main Restaurant';
                 var body = {
                     action: 'submit_link',
                     token: TOKEN,
@@ -1073,7 +1127,33 @@ $token = trim((string)($_GET['t'] ?? ''));
                 }
             }
 
+            var stepNow = 0;
+            var STEP_BTN = ['Next: Drinks →', 'Next: Details →', 'Confirm'];
+            function goStep(n) {
+                stepNow = n;
+                document.querySelectorAll('.stp').forEach(function(el) { el.classList.toggle('hidden', parseInt(el.dataset.stp, 10) !== n); });
+                document.querySelectorAll('#steps button').forEach(function(b) {
+                    var s = parseInt(b.dataset.s, 10);
+                    b.classList.toggle('on', s === n);
+                    b.classList.toggle('done', s < n);
+                });
+                $('btnSubmit').textContent = STEP_BTN[n];
+                if (n === 1) {
+                    var cap = parseInt(data.max_main || 0, 10) + Math.max(0, counted('main', menus.main) - parseInt(data.max_main || 0, 10));
+                    var kids = parseInt(data.max_child || 0, 10);
+                    $('drinkHint').textContent = 'Choose up to ' + (cap + kids) + ' fresh juice and ' + (cap + kids) + ' coffee or tea' +
+                        (kids ? ' (including ' + kids + ' for kids)' : '') + ' — all complimentary.';
+                }
+                var top = $('steps').getBoundingClientRect().top + window.pageYOffset - 6;
+                window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            }
+            $('steps').addEventListener('click', function(e) {
+                var b = e.target.closest('button[data-s]');
+                if (b) goStep(parseInt(b.dataset.s, 10));
+            });
+
             $('btnSubmit').addEventListener('click', function() {
+                if (stepNow < 2) { goStep(stepNow + 1); return; }
                 var packs = Math.max(0, counted('main', menus.main) - parseInt(data.max_main || 0, 10));
                 if (!packs) { submit(false); return; }
                 var price = parseFloat(data.extra_package_price || 82500);
