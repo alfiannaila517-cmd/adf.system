@@ -984,58 +984,51 @@ include '../../includes/header.php';
         border-right-color: #6366f1;
     }
 
-    /* DIRTY room (kamar habis check-out, perlu dibersihkan) */
-    .grid-room-label.dirty {
-        background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%) !important;
-        color: #854d0e !important;
-        border-right: 2px solid #f59e0b !important;
-        box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.25);
+    /* DIRTY room (kamar habis check-out, perlu dibersihkan):
+       sel nama kamar tetap berukuran & berwarna normal; yang diwarnai baris tanggalnya. */
+    body[data-theme] .grid-date-cell.dirty-row {
+        background-color: rgba(251, 191, 36, 0.13) !important;
+        background-image: repeating-linear-gradient(135deg, rgba(217, 119, 6, 0.07) 0 6px, transparent 6px 12px) !important;
     }
 
-    .grid-room-label.dirty:hover {
-        background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%) !important;
+    body[data-theme] .grid-date-cell.dirty-row.today {
+        background-color: rgba(251, 191, 36, 0.2) !important;
     }
 
-    .room-dirty-row {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        margin-top: 1px;
+    body[data-theme="dark"] .grid-date-cell.dirty-row,
+    body[data-theme="dark"] .grid-date-cell.dirty-row.today {
+        background-color: rgba(251, 191, 36, 0.07) !important;
+        background-image: repeating-linear-gradient(135deg, rgba(251, 191, 36, 0.05) 0 6px, transparent 6px 12px) !important;
     }
 
-    .room-dirty-tag {
-        display: inline-block;
-        background: #d97706;
-        color: #fff;
-        font-size: 0.48rem;
-        font-weight: 800;
-        letter-spacing: 0.2px;
-        padding: 0 3px;
-        border-radius: 4px;
-        line-height: 1.3;
-        text-transform: uppercase;
-        white-space: nowrap;
-    }
-
+    /* Tombol sapu kecil di pojok sel kamar: tanda kotor + klik untuk tandai bersih */
     .room-clean-btn {
-        background: #16a34a;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        padding: 0 4px;
-        font-size: 0.48rem;
-        font-weight: 700;
+        position: absolute;
+        top: 3px;
+        right: 3px;
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(217, 119, 6, 0.45);
+        border-radius: 6px;
+        background: #fef3c7;
+        font-size: 0.62rem;
+        line-height: 1;
         cursor: pointer;
-        letter-spacing: 0.2px;
-        text-transform: uppercase;
-        box-shadow: 0 1px 2px rgba(22, 163, 74, 0.35);
-        transition: transform 0.12s, box-shadow 0.12s;
-        white-space: nowrap;
+        transition: background 0.12s, border-color 0.12s, transform 0.12s;
     }
 
     .room-clean-btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 5px rgba(22, 163, 74, 0.5);
+        background: #dcfce7;
+        border-color: #16a34a;
+        transform: scale(1.08);
+    }
+
+    body[data-theme="dark"] .room-clean-btn {
+        background: rgba(251, 191, 36, 0.18);
+        border-color: rgba(251, 191, 36, 0.45);
     }
 
     .grid-room-type-label {
@@ -2655,10 +2648,7 @@ include '../../includes/header.php';
                             <span class="grid-room-type-label"><?php echo htmlspecialchars($room['type_name']); ?></span>
                             <span class="grid-room-number"><?php echo htmlspecialchars($room['room_number']); ?></span>
                             <?php if ($isDirty): ?>
-                                <div class="room-dirty-row">
-                                    <span class="room-dirty-tag" title="Kamar perlu dibersihkan">🧹 Dirty</span>
-                                    <button type="button" class="room-clean-btn" onclick="event.stopPropagation(); markRoomClean(<?php echo (int)$room['id']; ?>, '<?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?>');">✓ Clean</button>
-                                </div>
+                                <button type="button" class="room-clean-btn" title="Kamar kotor — klik untuk tandai sudah bersih" aria-label="Tandai kamar <?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?> bersih" onclick="event.stopPropagation(); markRoomClean(<?php echo (int)$room['id']; ?>, '<?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?>');">🧹</button>
                             <?php endif; ?>
                         </div>
 
@@ -2678,7 +2668,7 @@ include '../../includes/header.php';
                                 $hasTurnover = ($checkouts > 0 && $checkins > 0);
                             }
                             ?>
-                            <div class="grid-date-cell<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?><?php echo $hasTurnover ? ' has-turnover' : ''; ?>"
+                            <div class="grid-date-cell<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?><?php echo $hasTurnover ? ' has-turnover' : ''; ?><?php echo $isDirty ? ' dirty-row' : ''; ?>"
                                 data-date="<?php echo $date; ?>"
                                 data-room-number="<?php echo htmlspecialchars($room['room_number']); ?>"
                                 data-room-id="<?php echo $room['id']; ?>"
