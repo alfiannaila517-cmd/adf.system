@@ -357,6 +357,19 @@ elseif ($activeTab === 'breakfast_menu') {
     } catch (Exception $e) {
     }
 
+    // Penyajian menu (Hot / Ice) — label merah/biru di form order & portal tamu.
+    $bfHasServeTemp = false;
+    try {
+        $bfHasServeTemp = (bool)$pdo->query("SHOW COLUMNS FROM breakfast_menus LIKE 'serve_temp'")->fetch();
+        if (!$bfHasServeTemp) {
+            $pdo->exec("ALTER TABLE breakfast_menus ADD COLUMN serve_temp VARCHAR(4) NULL DEFAULT NULL AFTER category");
+            $bfHasServeTemp = true;
+        }
+    } catch (Exception $e) {
+        error_log('breakfast_menus.serve_temp: ' . $e->getMessage());
+    }
+    $bfServeTemp = in_array($_POST['serve_temp'] ?? '', ['hot', 'ice'], true) ? $_POST['serve_temp'] : null;
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             if ($_POST['action'] === 'save_portal_templates') {
@@ -486,7 +499,11 @@ elseif ($activeTab === 'breakfast_menu') {
                 }
 
                 error_log("INSERT RESULT: " . ($result ? 'SUCCESS' : 'FAILED'));
-                error_log("LAST INSERT ID: " . $pdo->lastInsertId());
+                $newMenuId = (int)$pdo->lastInsertId();
+                error_log("LAST INSERT ID: " . $newMenuId);
+                if ($bfHasServeTemp && $newMenuId > 0) {
+                    $pdo->prepare("UPDATE breakfast_menus SET serve_temp = ? WHERE id = ?")->execute([$bfServeTemp, $newMenuId]);
+                }
 
                 $message = "✓ Menu breakfast berhasil ditambahkan!";
 
@@ -531,6 +548,9 @@ elseif ($activeTab === 'breakfast_menu') {
                         $menuId
                     ]);
                 }
+                if ($bfHasServeTemp) {
+                    $pdo->prepare("UPDATE breakfast_menus SET serve_temp = ? WHERE id = ?")->execute([$bfServeTemp, $menuId]);
+                }
                 $message = "✓ Menu breakfast berhasil diupdate!";
             } elseif ($_POST['action'] === 'delete_menu') {
                 $menuId = (int)($_POST['menu_id'] ?? 0);
@@ -562,6 +582,7 @@ elseif ($activeTab === 'breakfast_menu') {
             category, 
             price, 
             COALESCE(is_free, IF(price = 0, TRUE, FALSE)) as is_free,
+            " . ($bfHasServeTemp ? "serve_temp," : "") . "
             is_available, 
             image_url, 
             created_at, 
@@ -1581,6 +1602,14 @@ include '../../includes/header.php';
                     </div>
 
                     <div class="form-group">
+                        <label class="form-label">Penyajian</label>
+                        <select name="serve_temp" class="form-select">
+                            <option value="">— Tidak ada</option>
+                            <option value="hot">🔥 Hot (merah)</option>
+                            <option value="ice">🧊 Ice (biru)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label class="form-label">Price (Rp) - Kosongkan jika gratis</label>
                         <input type="number" name="price" class="form-input" placeholder="e.g., 35000 (0 untuk gratis)" step="0.01" min="0" value="0" required>
                     </div>
@@ -1665,7 +1694,11 @@ include '../../includes/header.php';
                                             <span style="font-size:.75rem;color:var(--text-secondary);">-</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><strong><?php echo htmlspecialchars($menu['menu_name']); ?></strong></td>
+                                    <td><strong><?php echo htmlspecialchars($menu['menu_name']); ?></strong>
+                                        <?php if (in_array($menu['serve_temp'] ?? '', ['hot', 'ice'], true)): ?>
+                                            <span class="badge" style="margin-left:.35rem;color:#fff;background:<?php echo $menu['serve_temp'] === 'ice' ? '#0284c7' : '#dc2626'; ?>"><?php echo strtoupper($menu['serve_temp']); ?></span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td style="font-size: 0.85rem; color: var(--text-secondary);">
                                         <?php echo htmlspecialchars($menu['description'] ?? '-'); ?>
                                     </td>
@@ -2209,6 +2242,14 @@ include '../../includes/header.php';
                     </select>
                 </div>
 
+                    <div class="form-group">
+                    <label class="form-label">Penyajian</label>
+                    <select name="serve_temp" id="edit_serve_temp" class="form-select">
+                        <option value="">— Tidak ada</option>
+                        <option value="hot">🔥 Hot (merah)</option>
+                        <option value="ice">🧊 Ice (biru)</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Price (Rp)</label>
                     <input type="number" name="price" id="edit_price" class="form-input" step="0.01" min="0" required>
@@ -2292,6 +2333,7 @@ include '../../includes/header.php';
         document.getElementById('edit_menu_id').value = menu.id;
         document.getElementById('edit_menu_name').value = menu.menu_name;
         document.getElementById('edit_category').value = menu.category;
+        document.getElementById('edit_serve_temp').value = menu.serve_temp || '';
         document.getElementById('edit_price').value = menu.price;
         document.getElementById('edit_description').value = menu.description || '';
         document.getElementById('edit_is_free').checked = menu.is_free == 1;

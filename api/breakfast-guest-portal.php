@@ -20,6 +20,19 @@ function hotel_date()
     return (int)date('H') < 10 ? date('Y-m-d', strtotime('-1 day')) : date('Y-m-d');
 }
 
+if (!function_exists('bf_menu_label')) {
+    /** Nama menu untuk order & rekap kitchen: "Cappuccino" + serve_temp ice -> "Cappuccino (Ice)". */
+    function bf_menu_label(array $m): string
+    {
+        $name = (string)($m['menu_name'] ?? '');
+        $temp = (string)($m['serve_temp'] ?? '');
+        if (($temp === 'hot' || $temp === 'ice') && !preg_match('/\b(hot|ice|iced)\b/i', $name)) {
+            $name .= $temp === 'ice' ? ' (Ice)' : ' (Hot)';
+        }
+        return $name;
+    }
+}
+
 function ensure_breakfast_orders_table($pdo)
 {
     $pdo->exec("CREATE TABLE IF NOT EXISTS breakfast_orders (
@@ -707,8 +720,12 @@ if ($action === 'get_link') {
         exit;
     }
 
-    $menus = $db->fetchAll("SELECT id, menu_name, category, is_free, price, image_url, description FROM breakfast_menus WHERE is_available = 1 ORDER BY category, menu_name") ?: [];
+    $menus = $db->fetchAll("SELECT * FROM breakfast_menus WHERE is_available = 1 ORDER BY category, menu_name") ?: [];
     $menuMap = [];
+    foreach ($menus as &$m) {
+        $m['menu_name'] = bf_menu_label($m);
+    }
+    unset($m);
     foreach ($menus as $m) {
         $menuMap[(int)$m['id']] = $m;
     }
@@ -1109,9 +1126,10 @@ if ($action === 'submit_link') {
             ];
         } else {
             $placeholders = implode(',', array_fill(0, count($allSelected), '?'));
-            $menus = $db->fetchAll("SELECT id, menu_name, price, is_free FROM breakfast_menus WHERE is_available = 1 AND id IN ($placeholders)", $allSelected) ?: [];
+            $menus = $db->fetchAll("SELECT * FROM breakfast_menus WHERE is_available = 1 AND id IN ($placeholders)", $allSelected) ?: [];
             $menuMap = [];
             foreach ($menus as $m) {
+                $m['menu_name'] = bf_menu_label($m);
                 $menuMap[(int)$m['id']] = $m;
             }
 

@@ -48,6 +48,19 @@ try {
 } catch (Exception $e) { /* ignore */
 }
 
+if (!function_exists('bf_menu_label')) {
+    /** Nama menu untuk order & rekap kitchen: "Cappuccino" + serve_temp ice -> "Cappuccino (Ice)". */
+    function bf_menu_label(array $m): string
+    {
+        $name = (string)($m['menu_name'] ?? '');
+        $temp = (string)($m['serve_temp'] ?? '');
+        if (($temp === 'hot' || $temp === 'ice') && !preg_match('/\b(hot|ice|iced)\b/i', $name)) {
+            $name .= $temp === 'ice' ? ' (Ice)' : ' (Hot)';
+        }
+        return $name;
+    }
+}
+
 // User from session (already validated by requireLogin)
 $validUserId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 
@@ -192,7 +205,6 @@ try {
     $menuQty = $input['menu_qty'] ?? [];
     $menuNote = $input['menu_note'] ?? [];
     $menuExtra = is_array($input['menu_extra'] ?? null) ? $input['menu_extra'] : [];
-    $menuTemp = is_array($input['menu_temp'] ?? null) ? $input['menu_temp'] : [];
     $customExtras = $input['custom_extras'] ?? [];
 
     if (empty($menuItemIds) && empty($customExtras)) {
@@ -208,11 +220,12 @@ try {
         $qty = max(1, (int)($menuQty[$menuId] ?? 1));
         $note = isset($menuNote[$menuId]) ? trim($menuNote[$menuId]) : '';
 
-        $menu = $db->fetchOne("SELECT menu_name, price, is_free, category FROM breakfast_menus WHERE id = ?", [$menuId]);
+        // SELECT *: kolom serve_temp (Hot/Ice) bisa belum ada di database lama.
+        $menu = $db->fetchOne("SELECT * FROM breakfast_menus WHERE id = ?", [$menuId]);
         if ($menu) {
             $item = [
                 'menu_id' => $menuId,
-                'menu_name' => $menu['menu_name'],
+                'menu_name' => bf_menu_label($menu),
                 'quantity' => $qty,
                 'price' => $menu['price'],
                 'is_free' => $menu['is_free'],
@@ -221,12 +234,6 @@ try {
             if ($note !== '') $item['note'] = $note;
             // Menu gratis yang ditandai "Extra BF": ditagih sebagai Extra Breakfast (lihat bf_compute_extra).
             if ($menu['is_free'] && !empty($menuExtra[$menuId])) $item['is_extra'] = 1;
-            // Hot / Ice: disimpan & ditambahkan ke nama agar terlihat di rekap kitchen dan cetakan.
-            $temp = $menuTemp[$menuId] ?? '';
-            if ($temp === 'hot' || $temp === 'ice') {
-                $item['temp'] = $temp;
-                $item['menu_name'] .= $temp === 'ice' ? ' (Ice)' : ' (Hot)';
-            }
             $menuItems[] = $item;
             if (!$menu['is_free']) $totalPrice += ($menu['price'] * $qty);
         }

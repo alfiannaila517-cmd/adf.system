@@ -173,7 +173,6 @@ $editMenuIds = [];
 $editMenuQty = [];
 $editMenuNotes = [];
 $editMenuExtra = [];
-$editMenuTemp = [];
 $editCustomExtras = [];
 if (!empty($_GET['edit'])) {
     $editOrder = $db->fetchOne("SELECT * FROM breakfast_orders WHERE id = ?", [(int)$_GET['edit']]);
@@ -186,21 +185,10 @@ if (!empty($_GET['edit'])) {
                 $editMenuQty[$item['menu_id']] = $item['quantity'];
                 if (!empty($item['note'])) $editMenuNotes[$item['menu_id']] = $item['note'];
                 if (!empty($item['is_extra'])) $editMenuExtra[$item['menu_id']] = true;
-                if (!empty($item['temp'])) $editMenuTemp[$item['menu_id']] = $item['temp'];
             }
         }
     }
 }
-
-// Minuman yang bisa dipesan panas / dingin (kopi, teh, cokelat). Menu yang namanya sudah
-// "Hot ..." / "Ice ..." atau jus tidak diberi pilihan.
-$bfHasTemp = function (array $m): bool {
-    $cat = strtolower((string)($m['category'] ?? ''));
-    $name = strtolower((string)($m['menu_name'] ?? ''));
-    if (!in_array($cat, ['drinks', 'drink', 'beverage', 'beverages'], true)) return false;
-    if (preg_match('/^(hot|ice|iced)\b/', $name) || preg_match('/juice|jus|water|air|espresso|soda/', $name)) return false;
-    return (bool)preg_match('/coffee|kopi|cappuc|capuc|latte|americano|mocha|macchiato|tea|teh|chocolate|coklat|cokelat|milo/', $name);
-};
 
 $pageTitle = 'Breakfast Order';
 // Halaman ini memakai html2pdf (cetak/ekspor) -> footer memuat library-nya.
@@ -1237,6 +1225,7 @@ include '../../includes/header.php';
                                             <div>
                                                 <div class="bf-menu-name"><?php echo htmlspecialchars($m['menu_name']); ?></div>
                                                 <span class="bf-menu-cat" data-cat="<?php echo htmlspecialchars(strtolower((string)$m['category'])); ?>"><?php echo htmlspecialchars((string)$m['category']); ?></span>
+                                                <?php if (in_array($m['serve_temp'] ?? '', ['hot', 'ice'], true)): ?><span class="bf-temp <?php echo $m['serve_temp']; ?>"><?php echo strtoupper($m['serve_temp']); ?></span><?php endif; ?>
                                             </div>
                                         </label>
                                         <div class="bf-menu-qty">
@@ -1248,12 +1237,6 @@ include '../../includes/header.php';
                                                 <div class="bf-seg">
                                                     <label><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="0" <?php echo empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Free</label>
                                                     <label class="xbf"><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="1" <?php echo !empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Extra BF</label>
-                                                </div>
-                                            <?php endif; ?>
-                                            <?php if ($bfHasTemp($m)): $t = $editMenuTemp[$m['id']] ?? 'hot'; ?>
-                                                <div class="bf-seg">
-                                                    <label class="hot"><input type="radio" name="menu_temp[<?php echo $m['id']; ?>]" value="hot" <?php echo $t !== 'ice' ? 'checked' : ''; ?>>Hot</label>
-                                                    <label class="ice"><input type="radio" name="menu_temp[<?php echo $m['id']; ?>]" value="ice" <?php echo $t === 'ice' ? 'checked' : ''; ?>>Ice</label>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -1278,6 +1261,7 @@ include '../../includes/header.php';
                                                 <div class="bf-menu-name"><?php echo htmlspecialchars($m['menu_name']); ?></div>
                                                 <div class="bf-menu-price">Rp <?php echo number_format($m['price'], 0, ',', '.'); ?></div>
                                                 <span class="bf-menu-cat" data-cat="<?php echo htmlspecialchars(strtolower((string)$m['category'])); ?>"><?php echo htmlspecialchars((string)$m['category']); ?></span>
+                                                <?php if (in_array($m['serve_temp'] ?? '', ['hot', 'ice'], true)): ?><span class="bf-temp <?php echo $m['serve_temp']; ?>"><?php echo strtoupper($m['serve_temp']); ?></span><?php endif; ?>
                                             </div>
                                         </label>
                                         <div class="bf-menu-qty">
@@ -1289,12 +1273,6 @@ include '../../includes/header.php';
                                                 <div class="bf-seg">
                                                     <label><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="0" <?php echo empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Free</label>
                                                     <label class="xbf"><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="1" <?php echo !empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Extra BF</label>
-                                                </div>
-                                            <?php endif; ?>
-                                            <?php if ($bfHasTemp($m)): $t = $editMenuTemp[$m['id']] ?? 'hot'; ?>
-                                                <div class="bf-seg">
-                                                    <label class="hot"><input type="radio" name="menu_temp[<?php echo $m['id']; ?>]" value="hot" <?php echo $t !== 'ice' ? 'checked' : ''; ?>>Hot</label>
-                                                    <label class="ice"><input type="radio" name="menu_temp[<?php echo $m['id']; ?>]" value="ice" <?php echo $t === 'ice' ? 'checked' : ''; ?>>Ice</label>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
@@ -1600,8 +1578,7 @@ include '../../includes/header.php';
         var menuItems = [],
             menuQty = {},
             menuNote = {},
-            menuExtra = {},
-            menuTemp = {};
+            menuExtra = {};
         menus.forEach(function(cb) {
             var id = cb.value;
             menuItems.push(id);
@@ -1611,8 +1588,6 @@ include '../../includes/header.php';
             menuNote[id] = n ? n.value.trim() : '';
             var x = document.querySelector('input[name="menu_extra[' + id + ']"]:checked');
             if (x && x.value === '1') menuExtra[id] = 1;
-            var t = document.querySelector('input[name="menu_temp[' + id + ']"]:checked');
-            if (t) menuTemp[id] = t.value;
         });
         return {
             total_pax: parseInt(pax),
@@ -1626,7 +1601,6 @@ include '../../includes/header.php';
             menu_qty: menuQty,
             menu_note: menuNote,
             menu_extra: menuExtra,
-            menu_temp: menuTemp,
             custom_extras: customExtras
         };
     }
