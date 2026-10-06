@@ -69,8 +69,8 @@ $section = static function (string $title, array $rows, array $cols, string $emp
     if (!$rows) {
         $h .= '<tr><td class="empty" colspan="' . count($cols) . '">' . $e($empty) . '</td></tr>';
     }
-    foreach ($rows as $r) {
-        $h .= '<tr>';
+    foreach ($rows as $i => $r) {
+        $h .= '<tr class="' . ($i % 2 ? 'odd' : '') . '">';
         foreach ($cols as [$w, $fn]) {
             $h .= '<td style="width:' . $w . '%">' . $fn($r) . '</td>';
         }
@@ -78,11 +78,10 @@ $section = static function (string $title, array $rows, array $cols, string $emp
     }
     return $h . '</table>';
 };
-$room = static fn($r) => $e($r['room_number']);
+$room = static fn($r) => '<span class="room">' . $e($r['room_number']) . '</span>';
 $type = static fn($r) => $e($r['type_name'] ?: '-');
 $guest = static fn($r) => $e($r['guest_name']);
 $code = static fn($r) => $e($r['booking_code']);
-$phone = static fn($r) => $e($r['phone'] ?: '-');
 $arr = static fn($r) => $d($r['check_in_date']);
 $dep = static fn($r) => $d($r['check_out_date']);
 
@@ -91,30 +90,32 @@ ob_start();
 <style>
     .head { width: 100%; }
     .head td { vertical-align: bottom; }
-    .hotel { font-size: 15pt; color: #111111; }
-    .addr { font-size: 7.5pt; color: #6b6b6b; margin-top: 1mm; }
-    .title { font-size: 9pt; color: #111111; text-align: right; letter-spacing: 2pt; }
-    .date { font-size: 8pt; color: #6b6b6b; text-align: right; margin-top: 1mm; }
+    .hotel { font-size: 15pt; color: #0f2747; }
+    .addr { font-size: 7.5pt; color: #6b7280; margin-top: 1mm; }
+    .title { font-size: 9pt; color: #b08d57; text-align: right; letter-spacing: 2.5pt; }
+    .date { font-size: 8pt; color: #6b7280; text-align: right; margin-top: 1mm; }
     .stats { width: 100%; margin-top: 4mm; }
-    .stats td { width: 16.66%; padding: 0 0 0 2.5mm; border-left: 0.2mm solid #d4d4d4; vertical-align: top; }
+    .stats td { width: 16.66%; padding: 1.5mm 0 1.5mm 2.5mm; border-left: 0.3mm solid #e8dcc6; vertical-align: top; }
     .stats td.first { border-left: 0; padding-left: 0; }
-    .stats .v { font-size: 14pt; color: #111111; }
-    .stats .l { font-size: 6.5pt; color: #7a7a7a; letter-spacing: 0.4pt; }
+    .stats .v { font-size: 14pt; color: #0f2747; }
+    .stats .l { font-size: 6.3pt; color: #8a8f98; letter-spacing: 0.4pt; }
     .sec { width: 100%; margin-top: 7mm; }
-    .sec-t { width: 85%; font-size: 8pt; color: #111111; letter-spacing: 1.2pt; }
-    .sec-n { width: 15%; text-align: right; font-size: 8pt; color: #7a7a7a; }
-    .tbl { width: 100%; margin-top: 1.5mm; }
-    .tbl th { font-size: 6.5pt; font-weight: normal; color: #7a7a7a; letter-spacing: 0.5pt; text-align: left; padding: 1.4mm 2mm 1.4mm 0; border-top: 0.3mm solid #111111; border-bottom: 0.2mm solid #111111; }
-    .tbl td { font-size: 8.5pt; color: #222222; padding: 1.6mm 2mm 1.6mm 0; border-bottom: 0.1mm solid #dcdcdc; vertical-align: top; }
-    .tbl td.empty { color: #9a9a9a; font-style: italic; }
-    .muted { color: #7a7a7a; font-size: 7.5pt; }
-    .recap { width: 100%; margin-top: 1.5mm; }
-    .recap td { font-size: 8.5pt; color: #222222; padding: 1.4mm 2mm 1.4mm 0; border-bottom: 0.1mm solid #dcdcdc; }
-    .recap td.q { text-align: right; color: #111111; padding-right: 4mm; }
+    .sec-t { width: 85%; font-size: 8pt; color: #0f2747; letter-spacing: 1.2pt; border-left: 0.9mm solid #b08d57; padding-left: 2mm; }
+    .sec-n { width: 15%; text-align: right; font-size: 8pt; color: #b08d57; }
+    .tbl { width: 100%; margin-top: 1.8mm; }
+    .tbl th { font-size: 6.5pt; font-weight: normal; color: #0f2747; letter-spacing: 0.5pt; text-align: left; padding: 1.6mm 2mm; background: #eef2f8; border-bottom: 0.3mm solid #0f2747; }
+    .tbl td { font-size: 8.5pt; color: #1f2937; padding: 1.7mm 2mm; border-bottom: 0.1mm solid #e5e7eb; vertical-align: top; }
+    .tbl tr.odd td { background: #fafbfd; }
+    .tbl td.empty { color: #9ca3af; font-style: italic; }
+    .room { color: #0f2747; }
+    .muted { color: #8a8f98; font-size: 7.5pt; }
+    .recap { width: 100%; margin-top: 1.8mm; }
+    .recap td { font-size: 8.5pt; color: #1f2937; padding: 1.5mm 2mm; border-bottom: 0.1mm solid #eadfca; background: #fdfbf7; }
+    .recap td.q { text-align: right; color: #b08d57; padding-right: 4mm; }
 </style>
 <page backtop="10mm" backbottom="14mm" backleft="12mm" backright="12mm">
     <page_footer>
-        <table style="margin-left: 12mm; border-top: 0.1mm solid #cfcfcf;" cellspacing="0">
+        <table style="margin-left: 12mm; border-top: 0.2mm solid #b08d57;" cellspacing="0">
             <tr>
                 <td style="width: 136mm; font-size: 7pt; color: #8a8a8a; padding-top: 1.5mm;">
                     Printed by <?php echo $e($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff'); ?> · <?php echo date('d M Y, H:i'); ?> · ADF System
@@ -139,7 +140,7 @@ ob_start();
             </td>
         </tr>
     </table>
-    <div style="margin-top: 3mm; border-top: 0.3mm solid #111111;"></div>
+    <div style="margin-top: 3mm; height: 0.8mm; font-size: 1pt; line-height: 1pt; border-top: 0.7mm solid #0f2747; border-bottom: 0.25mm solid #b08d57;"></div>
 
     <table class="stats" cellspacing="0">
         <tr>
@@ -155,48 +156,45 @@ ob_start();
     <?php
     echo $section('In-House Guests', $inHouseGuests, [
         'ROOM'      => [8, $room],
-        'ROOM TYPE' => [17, $type],
+        'ROOM TYPE' => [15, $type],
         'GUEST'     => [39, $guest],
-        'BOOKING'   => [16, $code],
+        'BOOKING'   => [18, $code],
         'ARRIVAL'   => [10, $arr],
         'DEPARTURE' => [10, $dep],
     ], 'No in-house guests');
 
     echo $section('Arrivals Today', $checkInToday, [
         'ROOM'      => [8, $room],
-        'ROOM TYPE' => [17, $type],
-        'GUEST'     => [37, $guest],
-        'PHONE'     => [16, $phone],
-        'BOOKING'   => [12, $code],
+        'ROOM TYPE' => [15, $type],
+        'GUEST'     => [49, $guest],
+        'BOOKING'   => [18, $code],
         'DEPARTURE' => [10, $dep],
     ], 'No arrivals today');
 
     echo $section('Departures Today', $checkOutToday, [
         'ROOM'      => [8, $room],
-        'ROOM TYPE' => [17, $type],
+        'ROOM TYPE' => [15, $type],
         'GUEST'     => [39, $guest],
-        'BOOKING'   => [16, $code],
+        'BOOKING'   => [18, $code],
         'ARRIVAL'   => [10, $arr],
         'DEPARTURE' => [10, $dep],
     ], 'No departures today');
 
     echo $section('Departures Tomorrow', $checkOutTomorrow, [
         'ROOM'      => [8, $room],
-        'ROOM TYPE' => [17, $type],
-        'GUEST'     => [37, $guest],
-        'PHONE'     => [16, $phone],
-        'BOOKING'   => [12, $code],
+        'ROOM TYPE' => [15, $type],
+        'GUEST'     => [49, $guest],
+        'BOOKING'   => [18, $code],
         'ARRIVAL'   => [10, $arr],
     ], 'No departures tomorrow');
 
     echo $section('Arrivals Tomorrow', $arrivalTomorrow, [
         'ROOM'      => [8, $room],
-        'ROOM TYPE' => [17, $type],
-        'GUEST'     => [33, $guest],
-        'PHONE'     => [16, $phone],
-        'BOOKING'   => [12, $code],
-        'PAX'       => [5, fn($r) => (int)($r['guest_count'] ?: 1)],
-        'DEPARTURE' => [9, $dep],
+        'ROOM TYPE' => [15, $type],
+        'GUEST'     => [43, $guest],
+        'BOOKING'   => [18, $code],
+        'PAX'       => [6, fn($r) => (int)($r['guest_count'] ?: 1)],
+        'DEPARTURE' => [10, $dep],
     ], 'No arrivals tomorrow');
 
     // Breakfast: kitchen summary + orders
@@ -208,7 +206,7 @@ ob_start();
             foreach ($chunk as $name => $qty) {
                 echo '<td style="width:26%">' . $e($name) . '</td><td class="q" style="width:7.3%">' . (int)$qty . '</td>';
             }
-            for ($i = count($chunk); $i < 3; $i++) echo '<td style="width:26%; border:0"></td><td style="width:7.3%; border:0"></td>';
+            for ($i = count($chunk); $i < 3; $i++) echo '<td style="width:26%; border:0; background:#ffffff"></td><td style="width:7.3%; border:0; background:#ffffff"></td>';
             echo '</tr>';
         }
         echo '</table>';
