@@ -3180,6 +3180,105 @@ include '../../includes/header.php';
             grid-template-columns: repeat(2, 1fr);
         }
     }
+
+    /* ===== Tabel invoice (rapi & presisi) ===== */
+    .hs-table-wrap { overflow-x: auto; }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 {
+        table-layout: fixed;
+        min-width: 1040px;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 th {
+        padding: 10px 12px !important;
+        background: #f8fafc !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        font-size: 0.66rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+        text-align: center;
+        white-space: nowrap;
+    }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 td {
+        height: 48px;
+        padding: 8px 12px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        font-size: 0.8rem !important;
+        line-height: 1.35;
+        color: #0f172a !important;
+        vertical-align: middle;
+    }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 .l { text-align: left; }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 .r { text-align: right; }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 .c { text-align: center; }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 tbody tr:hover td { background: #f8faff !important; }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 td.hs-inv {
+        font-weight: 700;
+        font-size: 0.78rem !important;
+        letter-spacing: 0.01em;
+        color: #3730a3 !important;
+        white-space: nowrap;
+    }
+    .hs-v2 .hs-guest { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    body[data-theme] .main-content .hs-v2 .hs-guest-name {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 0.82rem !important;
+        font-weight: 600;
+        color: #0f172a !important;
+    }
+    body[data-theme] .main-content .hs-v2 .hs-guest-phone {
+        flex-shrink: 0;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        font-size: 0.7rem !important;
+        font-variant-numeric: tabular-nums;
+        color: #475569 !important;
+        -webkit-text-fill-color: #475569 !important;
+        white-space: nowrap;
+    }
+    .hs-v2 .hs-svcs { display: flex; flex-wrap: wrap; gap: 4px; }
+    body[data-theme] .main-content .hs-v2 .hs-svc-pill {
+        margin: 0 !important;
+        padding: 3px 9px !important;
+        border-radius: 999px !important;
+        font-size: 0.7rem !important;
+        white-space: nowrap;
+    }
+    body[data-theme] .main-content .hs-v2 .hs-num {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 td.hs-paid { color: #047857 !important; }
+    body[data-theme] .main-content .hs-v2 .hs-due { color: #b91c1c !important; font-weight: 700; }
+    body[data-theme] .main-content .hs-v2 .hs-lunas {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: #dcfce7;
+        font-size: 0.7rem !important;
+        font-weight: 700;
+        color: #15803d !important;
+        -webkit-text-fill-color: #15803d !important;
+    }
+    body[data-theme] .main-content .hs-v2 .hs-dash { color: #cbd5e1 !important; font-size: 0.75rem !important; }
+    .hs-v2 .hs-stat { display: inline-flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+    body[data-theme] .main-content .hs-v2 .hs-stat .hs-badge { min-width: 84px; margin: 0 !important; }
+    body[data-theme] .main-content .hs-v2 .hs-badge { justify-content: center; }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 td.hs-date {
+        font-size: 0.74rem !important;
+        color: #64748b !important;
+        white-space: nowrap;
+    }
+    body[data-theme] .main-content .hs-v2 .hs-room-badge { min-width: 38px; justify-content: center; }
+
 </style>
 
 <div class="hs-page">
@@ -3195,53 +3294,53 @@ include '../../includes/header.php';
                 <button class="btn-hs btn-hs-primary" id="btnNewInvoice">+ New Invoice</button>
             </div>
         </div>
-    <script>
-        // Fallback: attach button directly in case main script block fails to execute
-        (function() {
-            function tryAttach() {
-                var btn = document.getElementById('btnNewInvoice');
-                var modal = document.getElementById('createModal');
-                if (btn && modal) {
-                    btn.onclick = function() {
-                        if (typeof openCreateModal === 'function') {
-                            openCreateModal();
-                        } else {
-                            modal.classList.add('open');
-                        }
-                    };
+        <script>
+            // Fallback: attach button directly in case main script block fails to execute
+            (function() {
+                function tryAttach() {
+                    var btn = document.getElementById('btnNewInvoice');
+                    var modal = document.getElementById('createModal');
+                    if (btn && modal) {
+                        btn.onclick = function() {
+                            if (typeof openCreateModal === 'function') {
+                                openCreateModal();
+                            } else {
+                                modal.classList.add('open');
+                            }
+                        };
+                    }
                 }
-            }
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', tryAttach);
-            } else {
-                tryAttach();
-            }
-        })();
-    </script>
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', tryAttach);
+                } else {
+                    tryAttach();
+                }
+            })();
+        </script>
 
-    <!-- Stats -->
-    <div class="hs-stats">
-        <div class="hs-stat" style="--c:#6366f1">
-            <div class="val"><?php echo $today['total']; ?></div>
-            <div class="lbl">Invoices Today</div>
+        <!-- Stats -->
+        <div class="hs-stats">
+            <div class="hs-stat" style="--c:#6366f1">
+                <div class="val"><?php echo $today['total']; ?></div>
+                <div class="lbl">Invoices Today</div>
+            </div>
+            <div class="hs-stat" style="--c:#10b981">
+                <div class="val">Rp <?php echo number_format($today['revenue'], 0, ',', '.'); ?></div>
+                <div class="lbl">Revenue Today</div>
+            </div>
+            <div class="hs-stat" style="--c:#3b82f6">
+                <div class="val">Rp <?php echo number_format($today['collected'], 0, ',', '.'); ?></div>
+                <div class="lbl">Collected</div>
+            </div>
+            <div class="hs-stat" style="--c:#ef4444">
+                <div class="val"><?php echo $today['unpaid']; ?></div>
+                <div class="lbl">Unpaid</div>
+            </div>
+            <div class="hs-stat" style="--c:#8b5cf6">
+                <div class="val"><?php echo $today['completed']; ?></div>
+                <div class="lbl">Completed</div>
+            </div>
         </div>
-        <div class="hs-stat" style="--c:#10b981">
-            <div class="val">Rp <?php echo number_format($today['revenue'], 0, ',', '.'); ?></div>
-            <div class="lbl">Revenue Today</div>
-        </div>
-        <div class="hs-stat" style="--c:#3b82f6">
-            <div class="val">Rp <?php echo number_format($today['collected'], 0, ',', '.'); ?></div>
-            <div class="lbl">Collected</div>
-        </div>
-        <div class="hs-stat" style="--c:#ef4444">
-            <div class="val"><?php echo $today['unpaid']; ?></div>
-            <div class="lbl">Unpaid</div>
-        </div>
-        <div class="hs-stat" style="--c:#8b5cf6">
-            <div class="val"><?php echo $today['completed']; ?></div>
-            <div class="lbl">Completed</div>
-        </div>
-    </div>
     </div>
 
     <!-- Revenue per Service Type (this month) -->
@@ -3293,73 +3392,87 @@ include '../../includes/header.php';
                 <div style="font-size:0.8rem">Click "+ New Invoice" to create your first one</div>
             </div>
         <?php else: ?>
-            <table class="hs-table">
+            <table class="hs-table hs-v2">
+                <colgroup>
+                    <col style="width:124px">
+                    <col>
+                    <col style="width:58px">
+                    <col style="width:160px">
+                    <col style="width:96px">
+                    <col style="width:96px">
+                    <col style="width:100px">
+                    <col style="width:104px">
+                    <col style="width:96px">
+                    <col style="width:72px">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th>Invoice #</th>
-                        <th>Guest</th>
+                        <th class="l">Invoice</th>
+                        <th class="l">Guest</th>
                         <th>Room</th>
-                        <th>Services</th>
-                        <th>Price Breakdown</th>
-                        <th>DP</th>
-                        <th>Balance Due</th>
-                        <th>Pay Status</th>
+                        <th class="l">Services</th>
+                        <th class="r">Total</th>
+                        <th class="r">Paid</th>
+                        <th class="r">Balance</th>
                         <th>Status</th>
                         <th>Date</th>
-                        <th>Actions</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($invoices as $inv):
-                        $hsSubtotal = (float)$inv['total'] - (float)$inv['tax_amount'] - (float)$inv['service_charge_amount'] + (float)$inv['discount_amount'];
                         $hsBalanceDue = max(0, (float)$inv['total'] - (float)$inv['paid_amount']);
                     ?>
                         <tr class="hs-row-clickable" onclick="showInvoiceDetail(<?php echo $inv['id']; ?>)">
-                            <td style="font-weight:700;color:#4338ca;white-space:nowrap"><?php echo htmlspecialchars($inv['invoice_number']); ?></td>
+                            <td class="hs-inv"><?php echo htmlspecialchars($inv['invoice_number']); ?></td>
                             <td>
-                                <div style="font-weight:600;display:flex;align-items:center;gap:5px">
+                                <div class="hs-guest">
                                     <?php if (!empty($inv['booking_id']) && isset($inhouseBookingIds[$inv['booking_id']])): ?>
                                         <span class="hs-inhouse-dot" title="Tamu masih in-house"></span>
                                     <?php endif; ?>
-                                    <?php echo htmlspecialchars($inv['guest_name']); ?>
+                                    <span class="hs-guest-name" title="<?php echo htmlspecialchars($inv['guest_name']); ?>"><?php echo htmlspecialchars($inv['guest_name']); ?></span>
+                                    <?php if ($inv['guest_phone']): ?>
+                                        <span class="hs-guest-phone"><?php echo htmlspecialchars($inv['guest_phone']); ?></span>
+                                    <?php endif; ?>
                                 </div>
-                                <?php if ($inv['guest_phone']): ?><div style="font-size:0.6rem;color:var(--text-secondary)"><?php echo htmlspecialchars($inv['guest_phone']); ?></div><?php endif; ?>
                             </td>
-                            <td>
+                            <td class="c">
                                 <?php if ($inv['room_number']): ?>
                                     <span class="hs-room-badge"><?php echo htmlspecialchars($inv['room_number']); ?></span>
                                 <?php else: ?>
-                                    <span style="color:#d1d5db">—</span>
+                                    <span class="hs-dash">—</span>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if (!empty($inv['service_type_counts'])): ?>
-                                    <?php foreach ($inv['service_type_counts'] as $typeCount): ?>
-                                        <?php $svcKey = $typeCount['service_type'];
-                                        $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹']; ?>
-                                        <span class="hs-svc-pill"><?php echo $svcInfo['icon'] ?? ''; ?> <?php echo $svcInfo['label'] ?? $svcKey; ?> (<?php echo (int)$typeCount['cnt']; ?>)</span>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <span style="color:#d1d5db">No items</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <div class="hs-price-breakdown">
-                                    <div class="hs-price-row"><span>Harga Asli:</span><span>Rp <?php echo number_format($hsSubtotal, 0, ',', '.'); ?></span></div>
-                                    <?php if ($inv['discount_amount'] > 0): ?>
-                                        <div class="hs-price-row hs-price-disc"><span>Disc (<?php echo rtrim(rtrim(number_format($inv['discount_rate'], 1), '0'), '.'); ?>%):</span><span>-Rp <?php echo number_format($inv['discount_amount'], 0, ',', '.'); ?></span></div>
+                                <div class="hs-svcs">
+                                    <?php if (!empty($inv['service_type_counts'])): ?>
+                                        <?php foreach ($inv['service_type_counts'] as $typeCount): ?>
+                                            <?php $svcKey = $typeCount['service_type'];
+                                            $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹']; ?>
+                                            <span class="hs-svc-pill"><?php echo $svcInfo['icon'] ?? ''; ?> <?php echo $svcInfo['label'] ?? $svcKey; ?><?php echo (int)$typeCount['cnt'] > 1 ? ' ×' . (int)$typeCount['cnt'] : ''; ?></span>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <span class="hs-dash">No items</span>
                                     <?php endif; ?>
-                                    <div class="hs-price-row hs-price-total"><span>Total:</span><span>Rp <?php echo number_format($inv['total'], 0, ',', '.'); ?></span></div>
                                 </div>
                             </td>
-                            <td style="color:#10b981;font-weight:700;white-space:nowrap">Rp <?php echo number_format($inv['paid_amount'], 0, ',', '.'); ?></td>
-                            <td style="font-weight:700;white-space:nowrap;color:<?php echo $hsBalanceDue > 0 ? '#dc2626' : '#10b981'; ?>">
-                                <?php echo $hsBalanceDue > 0 ? 'Rp ' . number_format($hsBalanceDue, 0, ',', '.') : '✓ Lunas'; ?>
+                            <td class="r hs-num"><?php echo number_format($inv['total'], 0, ',', '.'); ?></td>
+                            <td class="r hs-num hs-paid"><?php echo (float)$inv['paid_amount'] > 0 ? number_format($inv['paid_amount'], 0, ',', '.') : '<span class="hs-dash">—</span>'; ?></td>
+                            <td class="r">
+                                <?php if ($hsBalanceDue > 0): ?>
+                                    <span class="hs-num hs-due"><?php echo number_format($hsBalanceDue, 0, ',', '.'); ?></span>
+                                <?php else: ?>
+                                    <span class="hs-lunas">Lunas</span>
+                                <?php endif; ?>
                             </td>
-                            <td><span class="hs-badge" style="background:<?php echo $payStatusColors[$inv['payment_status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['payment_status']); ?></span></span></td>
-                            <td><span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['status']); ?></span></span></td>
-                            <td style="font-size:0.62rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['service_date'] ?? $inv['created_at'])); ?></td>
-                            <td onclick="event.stopPropagation()">
+                            <td class="c">
+                                <div class="hs-stat">
+                                    <span class="hs-badge" style="background:<?php echo $payStatusColors[$inv['payment_status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['payment_status']); ?></span></span>
+                                    <span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['status']); ?></span></span>
+                                </div>
+                            </td>
+                            <td class="c hs-date"><?php echo date('d M Y', strtotime($inv['service_date'] ?? $inv['created_at'])); ?></td>
+                            <td class="c" onclick="event.stopPropagation()">
                                 <div class="hs-action-dropdown">
                                     <button type="button" class="hs-action-dropdown-btn" onclick="toggleHsActionMenu(event)">Aksi ▾</button>
                                     <div class="hs-action-dropdown-menu">
