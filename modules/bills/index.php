@@ -1225,6 +1225,334 @@ include '../../includes/header.php';
             grid-template-columns: 1fr;
         }
     }
+
+    /* ===================== Tagihan — redesign ===================== */
+    .main-container {
+        --bl-line: #e2e8f0;
+        --bl-soft: #f8fafc;
+        --bl-ink: #0f172a;
+        --bl-muted: #64748b;
+        --bl-navy: #1e3a8a;
+        --bl-blue: #2563eb;
+    }
+    body[data-theme="dark"] .main-container {
+        --bl-line: rgba(255, 255, 255, 0.1);
+        --bl-soft: rgba(255, 255, 255, 0.04);
+        --bl-ink: #e2e8f0;
+        --bl-muted: #94a3b8;
+    }
+    body[data-theme] .main-container .page-header {
+        padding: 14px 18px !important;
+        border-radius: 16px !important;
+        border: 0 !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        box-shadow: 0 14px 30px -18px rgba(30, 58, 138, 0.7) !important;
+    }
+    body[data-theme] .main-container .page-header .page-icon {
+        background: rgba(255, 255, 255, 0.16) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px !important;
+    }
+    body[data-theme] .main-container .page-header h1 {
+        font-size: 1.05rem !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+    body[data-theme] .main-container .page-header p {
+        font-size: 0.72rem !important;
+        color: rgba(255, 255, 255, 0.82) !important;
+        -webkit-text-fill-color: rgba(255, 255, 255, 0.82) !important;
+    }
+    body[data-theme] .main-container .card {
+        padding: 14px 16px !important;
+        border-radius: 16px !important;
+        border: 1px solid var(--bl-line) !important;
+        box-shadow: 0 10px 30px -24px rgba(15, 23, 42, 0.45) !important;
+    }
+    /* Toolbar */
+    body[data-theme] .main-container .bill-form-launch {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: wrap;
+        gap: 10px !important;
+        margin: 0 0 12px !important;
+        padding: 0 0 12px !important;
+        border: 0 !important;
+        border-bottom: 1px solid var(--bl-line) !important;
+        background: none !important;
+        box-shadow: none !important;
+    }
+    body[data-theme] .main-container .bill-toolbar-info {
+        font-size: 0.95rem !important;
+        font-weight: 800 !important;
+        color: var(--bl-ink) !important;
+    }
+    body[data-theme] .main-container .bill-toolbar-controls { gap: 6px !important; flex-wrap: wrap; }
+    body[data-theme] .main-container .bill-toolbar-month label { font-size: 0.62rem !important; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bl-muted) !important; }
+    body[data-theme] .main-container .bill-toolbar-month-input,
+    body[data-theme] .main-container .btn-print-all,
+    body[data-theme] .main-container .btn-open-bill-modal {
+        height: 34px !important;
+        padding: 0 12px !important;
+        border-radius: 9px !important;
+        font-size: 0.74rem !important;
+        font-weight: 700 !important;
+    }
+    body[data-theme] .main-container .btn-print-all {
+        border: 1px solid var(--bl-line) !important;
+        background: var(--bl-soft) !important;
+        color: var(--bl-ink) !important;
+        box-shadow: none !important;
+    }
+    body[data-theme] .main-container .btn-open-bill-modal {
+        border: 0 !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.8) !important;
+    }
+    /* Tab kategori: segmented */
+    body[data-theme] .main-container .category-tabs {
+        display: flex !important;
+        gap: 4px !important;
+        margin-bottom: 12px !important;
+        padding: 4px !important;
+        border: 1px solid var(--bl-line) !important;
+        border-radius: 12px !important;
+        background: var(--bl-soft) !important;
+        overflow-x: auto;
+    }
+    body[data-theme] .main-container .category-btn {
+        flex: 1;
+        min-width: max-content;
+        height: 34px !important;
+        padding: 0 14px !important;
+        border: 0 !important;
+        border-radius: 9px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+        color: var(--bl-muted) !important;
+    }
+    body[data-theme] .main-container .category-btn.active {
+        background: #fff !important;
+        color: #1d4ed8 !important;
+        box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.18) !important;
+    }
+    body[data-theme="dark"] .main-container .category-btn.active { background: rgba(255, 255, 255, 0.08) !important; color: #93c5fd !important; }
+    /* Filter status & tab manual */
+    body[data-theme] .main-container .pay-filter-bar,
+    body[data-theme] .main-container .tabs {
+        display: flex !important;
+        gap: 6px !important;
+        margin: 0 0 12px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: none !important;
+    }
+    body[data-theme] .main-container .pay-filter-btn,
+    body[data-theme] .main-container .tab-btn {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        height: 30px !important;
+        padding: 0 12px !important;
+        border-radius: 999px !important;
+        border: 1px solid var(--bl-line) !important;
+        background: var(--bl-soft) !important;
+        box-shadow: none !important;
+        font-size: 0.72rem !important;
+        font-weight: 700 !important;
+        color: var(--bl-muted) !important;
+    }
+    body[data-theme] .main-container .pay-filter-btn.active,
+    body[data-theme] .main-container .tab-btn.active {
+        border-color: var(--bl-navy) !important;
+        background: var(--bl-navy) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+    /* Mitra drop default */
+    body[data-theme] .main-container .driver-setting-bar {
+        display: flex !important;
+        align-items: flex-end !important;
+        gap: 10px !important;
+        margin-bottom: 12px !important;
+        padding: 10px 12px !important;
+        border-radius: 12px !important;
+        border: 1px dashed var(--bl-line) !important;
+        background: var(--bl-soft) !important;
+    }
+    body[data-theme] .main-container .driver-setting-field label { font-size: 0.62rem !important; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bl-muted) !important; }
+    body[data-theme] .main-container .driver-setting-field input { height: 34px !important; border-radius: 9px !important; font-size: 0.8rem !important; }
+    body[data-theme] .main-container .driver-setting-help { font-size: 0.66rem !important; color: var(--bl-muted) !important; }
+    body[data-theme] .main-container .driver-setting-save { height: 34px !important; border-radius: 9px !important; font-size: 0.74rem !important; font-weight: 700 !important; }
+    /* Kartu rekap mitra */
+    body[data-theme] .main-container .driver-recap-card {
+        margin-bottom: 12px !important;
+        padding: 0 !important;
+        border-radius: 14px !important;
+        border: 1px solid var(--bl-line) !important;
+        background: var(--card-bg, #fff) !important;
+        box-shadow: 0 10px 26px -22px rgba(15, 23, 42, 0.55) !important;
+        overflow: hidden;
+    }
+    .main-container .dr-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--bl-line);
+    }
+    body[data-theme] .main-container .dr-avatar {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+    body[data-theme] .main-container .dr-avatar.motor { background: linear-gradient(135deg, #b45309, #f59e0b); }
+    .main-container .dr-who { flex: 1; min-width: 0; }
+    body[data-theme] .main-container .dr-who b { display: block; font-size: 0.92rem !important; color: var(--bl-ink) !important; }
+    body[data-theme] .main-container .dr-who small { display: block; font-size: 0.7rem !important; color: var(--bl-muted) !important; }
+    .main-container .dr-due { text-align: right; padding: 4px 12px; border-radius: 10px; background: rgba(217, 119, 6, 0.08); }
+    .main-container .dr-due.ok { background: rgba(5, 150, 105, 0.08); }
+    body[data-theme] .main-container .dr-due small { display: block; font-size: 0.6rem !important; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #b45309 !important; }
+    body[data-theme] .main-container .dr-due b { font-size: 0.95rem !important; color: #b45309 !important; font-variant-numeric: tabular-nums; }
+    body[data-theme] .main-container .dr-due.ok small,
+    body[data-theme] .main-container .dr-due.ok b { color: #047857 !important; }
+    body[data-theme] .main-container .btn-print-recap {
+        height: 32px !important;
+        padding: 0 12px !important;
+        border-radius: 9px !important;
+        border: 1px solid var(--bl-line) !important;
+        background: var(--bl-soft) !important;
+        color: var(--bl-ink) !important;
+        font-size: 0.72rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap;
+    }
+    body[data-theme] .main-container .dr-stats {
+        display: grid !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 0 !important;
+        margin: 0 !important;
+        border-bottom: 1px solid var(--bl-line);
+        background: var(--bl-soft);
+    }
+    body[data-theme] .main-container .dr-stat {
+        padding: 9px 14px !important;
+        border: 0 !important;
+        border-right: 1px solid var(--bl-line) !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        text-align: left !important;
+    }
+    body[data-theme] .main-container .dr-stat:last-child { border-right: 0 !important; }
+    body[data-theme] .main-container .dr-stat .l { font-size: 0.6rem !important; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bl-muted) !important; }
+    body[data-theme] .main-container .dr-stat .v { font-size: 0.86rem !important; font-weight: 800 !important; color: var(--bl-ink) !important; font-variant-numeric: tabular-nums; }
+    body[data-theme] .main-container .dr-stat.ok .v { color: #047857 !important; }
+    body[data-theme] .main-container .dr-stat.due .v { color: #b45309 !important; }
+    .main-container .dr-table-wrap { overflow-x: auto; }
+    body[data-theme] .main-container .dr-table { width: 100%; border-collapse: collapse; font-size: 0.76rem !important; }
+    body[data-theme] .main-container .dr-table th {
+        padding: 8px 12px !important;
+        background: transparent !important;
+        border-bottom: 1px solid var(--bl-line) !important;
+        font-size: 0.6rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        text-align: left;
+        color: var(--bl-muted) !important;
+    }
+    body[data-theme] .main-container .dr-table td {
+        padding: 9px 12px !important;
+        border-bottom: 1px solid var(--bl-line) !important;
+        vertical-align: middle;
+        color: var(--bl-ink) !important;
+    }
+    body[data-theme] .main-container .dr-table tr:last-child td { border-bottom: 0 !important; }
+    body[data-theme] .main-container .dr-table tbody tr:hover td { background: var(--bl-soft); }
+    body[data-theme] .main-container .dr-table td b { display: block; font-size: 0.76rem !important; font-weight: 600; }
+    body[data-theme] .main-container .dr-table td small { display: block; margin-top: 1px; font-size: 0.66rem !important; color: var(--bl-muted) !important; }
+    .main-container .dr-table .c-date { white-space: nowrap; color: var(--bl-muted) !important; }
+    body[data-theme] .main-container .dr-table .c-num { text-align: right !important; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
+    body[data-theme] .main-container .dr-table .c-owner { color: #047857 !important; }
+    .main-container .dr-table .c-act { text-align: right !important; }
+    .main-container .dr-acts { display: flex; gap: 4px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+    body[data-theme] .main-container .btn-trip-edit,
+    body[data-theme] .main-container .btn-trip-receipt,
+    body[data-theme] .main-container .btn-trip-pay,
+    body[data-theme] .main-container .btn-trip-paid {
+        height: 28px !important;
+        padding: 0 10px !important;
+        border-radius: 8px !important;
+        font-size: 0.7rem !important;
+        font-weight: 700 !important;
+        display: inline-flex !important;
+        align-items: center;
+        box-shadow: none !important;
+    }
+    body[data-theme] .main-container .btn-trip-edit,
+    body[data-theme] .main-container .btn-trip-receipt {
+        border: 1px solid var(--bl-line) !important;
+        background: var(--card-bg, #fff) !important;
+        color: var(--bl-ink) !important;
+    }
+    body[data-theme] .main-container .btn-trip-pay {
+        border: 0 !important;
+        background: linear-gradient(135deg, #047857, #10b981) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+    body[data-theme] .main-container .btn-trip-paid {
+        border: 0 !important;
+        background: #dcfce7 !important;
+        color: #15803d !important;
+    }
+    body[data-theme] .main-container .gp-chip {
+        display: inline-block;
+        padding: 0 6px;
+        border-radius: 999px;
+        font-size: 0.6rem !important;
+        font-weight: 700;
+    }
+    body[data-theme] .main-container .gp-chip.ok { background: #dcfce7; color: #15803d !important; }
+    body[data-theme] .main-container .gp-chip.part { background: #fef3c7; color: #b45309 !important; }
+    body[data-theme] .main-container .gp-chip.due { background: #fee2e2; color: #b91c1c !important; }
+    body[data-theme] .main-container .dr-empty { padding: 14px; text-align: center; font-size: 0.74rem; color: var(--bl-muted) !important; }
+    /* Tagihan manual / bulanan */
+    body[data-theme] .main-container .bill-row {
+        padding: 12px 14px !important;
+        margin-bottom: 8px !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--bl-line) !important;
+        background: var(--card-bg, #fff) !important;
+        box-shadow: none !important;
+    }
+    body[data-theme] .main-container .bill-row h4 { font-size: 0.86rem !important; color: var(--bl-ink) !important; }
+    body[data-theme] .main-container .bill-row p { font-size: 0.72rem !important; color: var(--bl-muted) !important; }
+    body[data-theme] .main-container .btn-action { height: 28px !important; border-radius: 8px !important; font-size: 0.7rem !important; font-weight: 700 !important; }
+    /* Modal bayar & edit trip */
+    body[data-theme] .dp-modal { border-radius: 16px !important; padding: 18px !important; }
+    body[data-theme] .dp-modal h3 { font-size: 0.98rem !important; }
+    body[data-theme] .dp-btn-confirm { border-radius: 10px !important; }
+    body[data-theme] .dp-btn-cancel { border-radius: 10px !important; }
+    @media (max-width: 760px) {
+        body[data-theme] .main-container .dr-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        body[data-theme] .main-container .dr-stat { border-bottom: 1px solid var(--bl-line) !important; }
+        .main-container .dr-head { flex-wrap: wrap; }
+        .main-container .dr-due { order: 3; }
+    }
 </style>
 
 <div class="main-container">
@@ -1234,19 +1562,8 @@ include '../../includes/header.php';
             <div class="page-icon">🧾</div>
             <div>
                 <h1>Tagihan</h1>
-                <p>Ringkas, cepat, dan mudah dipantau</p>
+                <p>Tagihan mitra (driver, motor, trip), manual, bulanan &amp; gudang</p>
             </div>
-        </div>
-        <div class="page-header-badges">
-            <?php if (!$hideDriverTabs): ?>
-                <span class="ph-badge">🚕 Driver</span>
-                <span class="ph-badge">🧭 Trip</span>
-            <?php endif; ?>
-            <span class="ph-badge">🧾 Manual</span>
-            <span class="ph-badge">🔁 Bulanan</span>
-            <?php if ($showGudangBillTab): ?>
-                <span class="ph-badge">📦 Gudang</span>
-            <?php endif; ?>
         </div>
     </div>
 
@@ -1254,10 +1571,9 @@ include '../../includes/header.php';
     <div class="content-grid">
         <!-- LIST TAGIHAN -->
         <div class="card">
-            <h2>📋 Daftar Tagihan</h2>
 
             <div class="bill-form-launch">
-                <div class="bill-toolbar-info"><span class="ico">⚡</span>Ringkasan cepat</div>
+                <div class="bill-toolbar-info">Daftar Tagihan</div>
                 <div class="bill-toolbar-controls">
                     <div class="bill-toolbar-month">
                         <label>📅 Bulan</label>
@@ -1559,8 +1875,9 @@ include '../../includes/header.php';
     // Catalog data for driver split suggestions in edit modal
     window.CATALOG_DATA_BILLS = <?php
                                 try {
+                                    $pdo = Database::getInstance()->getConnection();
                                     $catStmt = $pdo->prepare("SELECT service_type, item_name, default_price, driver_rate FROM hotel_service_catalog WHERE business_id=? AND is_active=1 ORDER BY sort_order, item_name");
-                                    $catStmt->execute([$businessId]);
+                                    $catStmt->execute([(int)($_SESSION['business_id'] ?? 1)]);
                                     $catRows = $catStmt->fetchAll(PDO::FETCH_ASSOC);
                                     $catByType = [];
                                     foreach ($catRows as $cr) {
@@ -2206,6 +2523,18 @@ include '../../includes/header.php';
     let lastDriverRecap = [];
     let driverPayFilter = 'all'; // all | unpaid | paid
 
+    function initialsOf(name) {
+        const parts = String(name || '?').replace(/^(bp\.?|bpk\.?|bapak|pak|ibu|bu|mr\.?|mrs\.?)\s+/i, '').trim().split(/\s+/);
+        return ((parts[0] || '?')[0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+    }
+
+    // Status pembayaran invoice tamu (tagihan mitra muncul sejak invoice dibuat).
+    function guestPayChip(st) {
+        const map = { paid: ['ok', 'Tamu lunas'], partial: ['part', 'Tamu cicil'], unpaid: ['due', 'Tamu belum bayar'] };
+        const v = map[st];
+        return v ? `<span class="gp-chip ${v[0]}">${v[1]}</span>` : '';
+    }
+
     async function loadDriverRecap() {
         const month = document.getElementById('filterMonth').value;
         const recapEl = document.getElementById('driverRecapSection');
@@ -2277,9 +2606,9 @@ include '../../includes/header.php';
 
         let html = settingsBar + `
             <div class="pay-filter-bar">
-                <button class="pay-filter-btn ${driverPayFilter === 'all' ? 'active' : ''}" onclick="setDriverPayFilter('all')"><span class="ico">📋</span>Semua Trip</button>
-                <button class="pay-filter-btn ${driverPayFilter === 'unpaid' ? 'active' : ''}" onclick="setDriverPayFilter('unpaid')"><span class="ico">⏳</span>Belum Dibayar</button>
-                <button class="pay-filter-btn ${driverPayFilter === 'paid' ? 'active' : ''}" onclick="setDriverPayFilter('paid')"><span class="ico">✅</span>Sudah Dibayar</button>
+                <button class="pay-filter-btn ${driverPayFilter === 'all' ? 'active' : ''}" onclick="setDriverPayFilter('all')">Semua</button>
+                <button class="pay-filter-btn ${driverPayFilter === 'unpaid' ? 'active' : ''}" onclick="setDriverPayFilter('unpaid')">Belum Dibayar</button>
+                <button class="pay-filter-btn ${driverPayFilter === 'paid' ? 'active' : ''}" onclick="setDriverPayFilter('paid')">Sudah Dibayar</button>
             </div>
         `;
 
@@ -2310,53 +2639,62 @@ include '../../includes/header.php';
             const scopedNarayanaTrips = baseRows.filter(r => r.service_type === 'narayana_trip').length;
 
             const driverNameSafe = (dr.partner_owner || 'Tanpa Pemilik').replace(/'/g, "\\'");
+            const svcLabelOf = t => typeLabel[t] || String(t || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-            const detailRows = rows.slice(0, 15).map(d => `
+            const detailRows = rows.map(d => `
                 <tr>
-                    <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                    <td>${typeLabel[d.service_type] || d.service_type}<br><span style="color:#94a0b8;">${d.label || ''}</span></td>
-                    <td>${d.guest_name || '—'}${d.room_number ? '<br><span style="color:#94a0b8;">Kamar ' + d.room_number + '</span>' : ''}</td>
-                    <td style="text-align:right;font-weight:700;">Rp ${formatNumber(d.total_price)}</td>
-                    <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
-                    <td style="text-align:right;">
-                        <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
-                            <button class="btn-trip-edit" onclick="editDriverTripAmount(${d.trip_id}, '${d.source || 'trip'}', ${d.total_price}, ${d.owner_amount}, '${driverNameSafe}', '${typeLabel[d.service_type] || d.service_type}', '${d.service_type}')">✏️ Edit</button>
+                    <td class="c-date">${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td><b>${svcLabelOf(d.service_type)}</b><small>${escHtml(d.label || '')}</small></td>
+                    <td><b>${escHtml(d.guest_name || '—')}</b><small>${d.room_number ? 'Kamar ' + escHtml(d.room_number) + ' · ' : ''}${guestPayChip(d.guest_pay)}</small></td>
+                    <td class="c-num">Rp ${formatNumber(d.total_price)}</td>
+                    <td class="c-num c-owner">Rp ${formatNumber(d.owner_amount)}</td>
+                    <td class="c-act">
+                        <div class="dr-acts">
+                            <button class="btn-trip-edit" title="Edit nominal" onclick="editDriverTripAmount(${d.trip_id}, '${d.source || 'trip'}', ${d.total_price}, ${d.owner_amount}, '${driverNameSafe}', '${svcLabelOf(d.service_type)}', '${d.service_type}')">Edit</button>
                             ${d.paid
-                                ? `<button class="btn-trip-receipt" onclick="printDriverTripReceipt(${idx}, ${d.trip_id}, '${d.source || 'trip'}')">🖨️ Cetak</button><span class="btn-trip-paid">✅ Lunas</span>`
+                                ? `<button class="btn-trip-receipt" onclick="printDriverTripReceipt(${idx}, ${d.trip_id}, '${d.source || 'trip'}')">Cetak</button><span class="btn-trip-paid">Lunas</span>`
                                 : `<button class="btn-trip-pay" onclick="payDriverTrip(${d.trip_id}, '${d.service_type}', ${d.owner_amount}, '${driverNameSafe}', '${d.source || 'trip'}')">Bayar</button>`
                             }
                         </div>
                     </td>
                 </tr>`).join('');
 
+            const countBy = t => baseRows.filter(r => r.service_type === t).length;
+            const breakdown = isTripTab
+                ? `${baseRows.length} trip`
+                : [['car_rental', 'Rental'], ['airport_drop', 'Airport'], ['harbor_drop', 'Harbor']]
+                    .map(([k, l]) => countBy(k) ? `${countBy(k)} ${l}` : '')
+                    .concat(baseRows.filter(r => !['car_rental', 'airport_drop', 'harbor_drop'].includes(r.service_type)).length
+                        ? [baseRows.filter(r => !['car_rental', 'airport_drop', 'harbor_drop'].includes(r.service_type)).length + ' lainnya'] : [])
+                    .filter(Boolean).join(' · ');
+
             html += `
                 <div class="driver-recap-card">
-                    <div class="dr-name">
-                        <span>${isTripTab ? '🧭' : '🤝'} ${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + dr.owner_phone + '</span>' : ''}</span>
-                        <button class="btn-print-recap" onclick="printDriverRecap(${idx})">🖨️ Cetak Rekap</button>
+                    <div class="dr-head">
+                        <div class="dr-avatar">${initialsOf(dr.partner_owner)}</div>
+                        <div class="dr-who">
+                            <b>${escHtml(dr.partner_owner || 'Tanpa Pemilik')}</b>
+                            <small>${dr.owner_phone ? escHtml(dr.owner_phone) + ' · ' : ''}${breakdown}</small>
+                        </div>
+                        <div class="dr-due ${scopedUnpaidTotal > 0 ? '' : 'ok'}">
+                            <small>${scopedUnpaidTotal > 0 ? 'Belum dibayar' : 'Semua lunas'}</small>
+                            <b>Rp ${formatNumber(scopedUnpaidTotal)}</b>
+                        </div>
+                        <button class="btn-print-recap" onclick="printDriverRecap(${idx})">Cetak Rekap</button>
                     </div>
                     <div class="dr-stats">
-                        ${isTripTab 
-                            ? `<div class="dr-stat"><div class="v">${baseRows.length}</div><div class="l">Narayana Trip</div></div>`
-                            : `
-                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'car_rental').length}</div><div class="l">🚗 Rental Mobil</div></div>
-                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'airport_drop').length}</div><div class="l">✈️ Airport Drop</div></div>
-                                <div class="dr-stat"><div class="v">${baseRows.filter(r => r.service_type === 'harbor_drop').length}</div><div class="l">⚓ Harbor Drop</div></div>
-                            `}
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedTotalRevenue)}</div><div class="l">Total Revenue</div></div>
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedOwnerTotal)}</div><div class="l">Bagian Pemilik (${scopedAvgPct}%)</div></div>
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedHotelTotal)}</div><div class="l">Komisi Hotel</div></div>
-                    </div>
-                    <div class="dr-paid-summary">
-                        <span>✅ Sudah Dibayar: <strong style="color:#16794d;">Rp ${formatNumber(scopedPaidTotal)}</strong> (${scopedPaidTrips} trip)</span>
-                        <span>⏳ Belum Dibayar: <strong style="color:#d97706;">Rp ${formatNumber(scopedUnpaidTotal)}</strong> (${scopedUnpaidTrips} trip)</span>
+                        <div class="dr-stat"><div class="l">Total tarif</div><div class="v">Rp ${formatNumber(scopedTotalRevenue)}</div></div>
+                        <div class="dr-stat"><div class="l">Bagian mitra (${scopedAvgPct}%)</div><div class="v">Rp ${formatNumber(scopedOwnerTotal)}</div></div>
+                        <div class="dr-stat"><div class="l">Komisi hotel</div><div class="v">Rp ${formatNumber(scopedHotelTotal)}</div></div>
+                        <div class="dr-stat ok"><div class="l">Sudah dibayar (${scopedPaidTrips})</div><div class="v">Rp ${formatNumber(scopedPaidTotal)}</div></div>
+                        <div class="dr-stat due"><div class="l">Belum dibayar (${scopedUnpaidTrips})</div><div class="v">Rp ${formatNumber(scopedUnpaidTotal)}</div></div>
                     </div>
                     ${detailRows ? `
-                    <div style="font-size:11px;font-weight:700;color:#475569;margin-top:8px;">Detail Transaksi</div>
-                    <table>
-                        <thead><tr><th>Tanggal</th><th>Jenis</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Pemilik</th><th style="text-align:right;">Aksi</th></tr></thead>
+                    <div class="dr-table-wrap">
+                    <table class="dr-table">
+                        <thead><tr><th>Tanggal</th><th>Layanan</th><th>Tamu</th><th class="c-num">Total</th><th class="c-num">Mitra</th><th class="c-act">Aksi</th></tr></thead>
                         <tbody>${detailRows}</tbody>
-                    </table>` : '<p style="color:#999;font-size:11px;text-align:center;padding:8px;">Tidak ada trip dengan filter ini</p>'}
+                    </table></div>` : '<p class="dr-empty">Tidak ada transaksi dengan filter ini</p>'}
                 </div>`;
         });
 
@@ -2417,9 +2755,9 @@ include '../../includes/header.php';
 
         let html = `
             <div class="pay-filter-bar">
-                <button class="pay-filter-btn ${motorPayFilter === 'all' ? 'active' : ''}" onclick="setMotorPayFilter('all')"><span class="ico">📋</span>Semua Rental</button>
-                <button class="pay-filter-btn ${motorPayFilter === 'unpaid' ? 'active' : ''}" onclick="setMotorPayFilter('unpaid')"><span class="ico">⏳</span>Belum Dibayar</button>
-                <button class="pay-filter-btn ${motorPayFilter === 'paid' ? 'active' : ''}" onclick="setMotorPayFilter('paid')"><span class="ico">✅</span>Sudah Dibayar</button>
+                <button class="pay-filter-btn ${motorPayFilter === 'all' ? 'active' : ''}" onclick="setMotorPayFilter('all')">Semua</button>
+                <button class="pay-filter-btn ${motorPayFilter === 'unpaid' ? 'active' : ''}" onclick="setMotorPayFilter('unpaid')">Belum Dibayar</button>
+                <button class="pay-filter-btn ${motorPayFilter === 'paid' ? 'active' : ''}" onclick="setMotorPayFilter('paid')">Sudah Dibayar</button>
             </div>
         `;
 
@@ -2447,19 +2785,19 @@ include '../../includes/header.php';
 
             const motorNameSafe = (motor.partner_owner || 'Tanpa Pemilik').replace(/'/g, "\\'");
 
-            const detailRows = rows.slice(0, 15).map(d => `
+            const detailRows = rows.map(d => `
                 <tr>
-                    <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                    <td>${d.motor_name || '—'}<br><span style="color:#94a0b8;">${d.plate_number || ''}</span></td>
-                    <td>${d.guest_name || '—'}${d.room_number ? '<br><span style="color:#94a0b8;">Kamar ' + d.room_number + '</span>' : ''}</td>
-                    <td style="text-align:right;font-weight:700;">Rp ${formatNumber(d.total_price)}</td>
-                    <td style="text-align:right;font-weight:700;color:#16794d;">Rp ${formatNumber(d.owner_amount)}</td>
-                    <td style="text-align:right;">
-                        <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;flex-wrap:wrap;">
-                            <button class="btn-trip-edit" onclick="editMotorRentalAmount(${d.rental_id}, ${d.total_price}, ${d.owner_amount}, '${motorNameSafe}')">✏️ Edit</button>
-                            <button class="btn-trip-edit" onclick="toggleMotorPartnerPaidStatus(${d.rental_id}, ${d.paid ? 0 : 1})">${d.paid ? '↩️ Set Belum' : '✅ Set Lunas'}</button>
+                    <td class="c-date">${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td><b>${escHtml(d.motor_name || '—')}</b><small>${escHtml(d.plate_number || '')}</small></td>
+                    <td><b>${escHtml(d.guest_name || '—')}</b><small>${d.room_number ? 'Kamar ' + escHtml(d.room_number) + ' · ' : ''}${guestPayChip(d.invoice_payment_status)}</small></td>
+                    <td class="c-num">Rp ${formatNumber(d.total_price)}</td>
+                    <td class="c-num c-owner">Rp ${formatNumber(d.owner_amount)}</td>
+                    <td class="c-act">
+                        <div class="dr-acts">
+                            <button class="btn-trip-edit" onclick="editMotorRentalAmount(${d.rental_id}, ${d.total_price}, ${d.owner_amount}, '${motorNameSafe}')">Edit</button>
+                            <button class="btn-trip-edit" onclick="toggleMotorPartnerPaidStatus(${d.rental_id}, ${d.paid ? 0 : 1})">${d.paid ? 'Set Belum' : 'Set Lunas'}</button>
                             ${d.paid
-                                ? `<span class="btn-trip-paid">✅ Lunas</span>`
+                                ? `<span class="btn-trip-paid">Lunas</span>`
                                 : `<button class="btn-trip-pay" onclick="payMotorRental(${d.rental_id}, ${d.owner_amount}, '${motorNameSafe}')">Bayar</button>`
                             }
                         </div>
@@ -2468,26 +2806,31 @@ include '../../includes/header.php';
 
             html += `
                 <div class="driver-recap-card">
-                    <div class="dr-name">
-                        <span>🏍️ ${motor.partner_owner || 'Tanpa Pemilik'}${motor.owner_phone ? ' <span style="font-weight:400;color:#6b7690;font-size:11px;">&middot; ' + motor.owner_phone + '</span>' : ''}</span>
-                        <button class="btn-print-recap" onclick="printMotorRecap(${idx})">🖨️ Cetak Rekap</button>
+                    <div class="dr-head">
+                        <div class="dr-avatar motor">${initialsOf(motor.partner_owner)}</div>
+                        <div class="dr-who">
+                            <b>${escHtml(motor.partner_owner || 'Tanpa Pemilik')}</b>
+                            <small>${motor.owner_phone ? escHtml(motor.owner_phone) + ' · ' : ''}${baseRows.length} rental motor</small>
+                        </div>
+                        <div class="dr-due ${scopedUnpaidTotal > 0 ? '' : 'ok'}">
+                            <small>${scopedUnpaidTotal > 0 ? 'Belum dibayar' : 'Semua lunas'}</small>
+                            <b>Rp ${formatNumber(scopedUnpaidTotal)}</b>
+                        </div>
+                        <button class="btn-print-recap" onclick="printMotorRecap(${idx})">Cetak Rekap</button>
                     </div>
                     <div class="dr-stats">
-                        <div class="dr-stat"><div class="v">${baseRows.length}</div><div class="l">🏍️ Total Rental</div></div>
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedTotalRevenue)}</div><div class="l">Total Revenue</div></div>
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedOwnerTotal)}</div><div class="l">Bagian Mitra (${scopedAvgPct}%)</div></div>
-                        <div class="dr-stat"><div class="v">Rp ${formatNumber(scopedHotelTotal)}</div><div class="l">Komisi Hotel</div></div>
-                    </div>
-                    <div class="dr-paid-summary">
-                        <span>✅ Sudah Dibayar: <strong style="color:#16794d;">Rp ${formatNumber(scopedPaidTotal)}</strong> (${scopedPaidTrips} rental)</span>
-                        <span>⏳ Belum Dibayar: <strong style="color:#d97706;">Rp ${formatNumber(scopedUnpaidTotal)}</strong> (${scopedUnpaidTrips} rental)</span>
+                        <div class="dr-stat"><div class="l">Total tarif</div><div class="v">Rp ${formatNumber(scopedTotalRevenue)}</div></div>
+                        <div class="dr-stat"><div class="l">Bagian mitra (${scopedAvgPct}%)</div><div class="v">Rp ${formatNumber(scopedOwnerTotal)}</div></div>
+                        <div class="dr-stat"><div class="l">Komisi hotel</div><div class="v">Rp ${formatNumber(scopedHotelTotal)}</div></div>
+                        <div class="dr-stat ok"><div class="l">Sudah dibayar (${scopedPaidTrips})</div><div class="v">Rp ${formatNumber(scopedPaidTotal)}</div></div>
+                        <div class="dr-stat due"><div class="l">Belum dibayar (${scopedUnpaidTrips})</div><div class="v">Rp ${formatNumber(scopedUnpaidTotal)}</div></div>
                     </div>
                     ${detailRows ? `
-                    <div style="font-size:11px;font-weight:700;color:#475569;margin-top:8px;">Detail Transaksi</div>
-                    <table>
-                        <thead><tr><th>Tanggal</th><th>Motor</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Mitra</th><th style="text-align:right;">Aksi</th></tr></thead>
+                    <div class="dr-table-wrap">
+                    <table class="dr-table">
+                        <thead><tr><th>Tanggal</th><th>Motor</th><th>Tamu</th><th class="c-num">Total</th><th class="c-num">Mitra</th><th class="c-act">Aksi</th></tr></thead>
                         <tbody>${detailRows}</tbody>
-                    </table>` : '<p style="color:#999;font-size:11px;text-align:center;padding:8px;">Tidak ada rental dengan filter ini</p>'}
+                    </table></div>` : '<p class="dr-empty">Tidak ada rental dengan filter ini</p>'}
                 </div>`;
         });
 

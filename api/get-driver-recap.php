@@ -117,7 +117,6 @@ try {
             LEFT JOIN rental_cars rc ON rc.id = cb.car_id
             WHERE hi.business_id=?
               AND hi.status NOT IN ('cancelled')
-              AND hi.payment_status = 'paid'
               AND hii.service_type IN ('car_rental','airport_drop','harbor_drop')
               AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
               AND COALESCE(rc.partner_owner, ?) != ''
@@ -234,6 +233,7 @@ try {
                 IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price) AS owner_amount,
                 hii.driver_paid,
                 hii.driver_paid_at,
+                hi.payment_status AS guest_pay,
                 {$detailSelectCashbookId},
                 {$detailSelectPaymentMethod},
                 rc.car_name,
@@ -250,7 +250,6 @@ try {
                 {$detailJoinCashbook}
             WHERE hi.business_id=?
               AND hi.status NOT IN ('cancelled')
-              AND hi.payment_status = 'paid'
               AND hii.service_type IN ('car_rental','airport_drop','harbor_drop')
               AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
               AND COALESCE(rc.partner_owner, ?) != ''
@@ -281,6 +280,7 @@ try {
                 'owner_amount' => (float)$detail['owner_amount'],
                 'paid' => (bool)$detail['driver_paid'],
                 'driver_paid_at' => $detail['driver_paid_at'],
+                'guest_pay' => $detail['guest_pay'] ?? null,
                 'driver_paid_cashbook_id' => isset($detail['driver_paid_cashbook_id']) ? (int)$detail['driver_paid_cashbook_id'] : 0,
                 'payment_method' => $detail['payment_method'] ?? null,
             ];
@@ -298,7 +298,7 @@ try {
             $pStmt = $pdo->prepare("SELECT
                     hii.id AS trip_id, hii.service_type, hii.description, hii.total_price,
                     COALESCE(hii.owner_amount, 0) AS owner_amount, COALESCE(hii.hotel_commission, 0) AS hotel_commission,
-                    hii.partner_name, hii.driver_paid, hii.driver_paid_at, {$pSelectCashbookId}, {$pSelectPaymentMethod},
+                    hii.partner_name, hii.driver_paid, hii.driver_paid_at, hi.payment_status AS guest_pay, {$pSelectCashbookId}, {$pSelectPaymentMethod},
                     hi.guest_name, hi.room_number, COALESCE(hii.start_datetime, hi.created_at) AS trx_date,
                     p.phone AS partner_phone
                 FROM hotel_invoice_items hii
@@ -307,7 +307,6 @@ try {
                 {$pJoinCashbook}
                 WHERE hi.business_id = ?
                   AND hi.status NOT IN ('cancelled')
-                  AND hi.payment_status = 'paid'
                   AND hii.partner_name IS NOT NULL AND hii.partner_name <> ''
                   AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
                 ORDER BY trx_date DESC, hii.id DESC");
@@ -367,13 +366,14 @@ try {
                     'trx_date' => $pd['trx_date'],
                     'guest_name' => $pd['guest_name'],
                     'room_number' => $pd['room_number'],
-                    'label' => $svcLabel . ($desc !== '' && $desc !== $svcLabel ? ' - ' . $desc : ''),
+                    'label' => $desc !== '' ? $desc : $svcLabel,
                     'service_type' => $svc,
                     'source' => 'legacy',
                     'total_price' => $amount,
                     'owner_amount' => (float)$pd['owner_amount'],
                     'paid' => (bool)$pd['driver_paid'],
                     'driver_paid_at' => $pd['driver_paid_at'],
+                    'guest_pay' => $pd['guest_pay'] ?? null,
                     'driver_paid_cashbook_id' => isset($pd['driver_paid_cashbook_id']) ? (int)$pd['driver_paid_cashbook_id'] : 0,
                     'payment_method' => $pd['payment_method'] ?? null,
                 ];
@@ -401,7 +401,7 @@ try {
             hii.id as trip_id, hii.service_type, {$dropSelectTripType}, {$dropSelectGuideName}, hii.description, hii.total_price,
             IF(hii.owner_amount > 0 OR hii.hotel_commission > 0, hii.owner_amount, hii.total_price) as owner_amount,
             COALESCE(hii.hotel_commission, 0) as hotel_commission,
-            hii.driver_paid, hii.driver_paid_at, {$dropSelectCashbookId},
+            hii.driver_paid, hii.driver_paid_at, hi.payment_status AS guest_pay, {$dropSelectCashbookId},
             {$dropSelectPaymentMethod}
             FROM hotel_invoice_items hii
             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
@@ -409,7 +409,6 @@ try {
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop','narayana_trip')
               {$noPartnerSql}
               AND hi.status NOT IN ('cancelled')
-              AND hi.payment_status = 'paid'
               AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
               AND (
                   hii.service_type = 'narayana_trip'
@@ -535,6 +534,7 @@ try {
                 'owner_amount' => (float)$detail['owner_amount'],
                 'paid' => (bool)$detail['driver_paid'],
                 'driver_paid_at' => $detail['driver_paid_at'],
+                'guest_pay' => $detail['guest_pay'] ?? null,
                 'driver_paid_cashbook_id' => isset($detail['driver_paid_cashbook_id']) ? (int)$detail['driver_paid_cashbook_id'] : 0,
                 'payment_method' => $detail['payment_method'] ?? null,
             ];
