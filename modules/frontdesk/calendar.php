@@ -930,6 +930,30 @@ include '../../includes/header.php';
     body[data-theme] .calendar-grid .grid-room-type-header { min-height: 30px !important; padding-top: 1px !important; padding-bottom: 1px !important; }
     body[data-theme] .calendar-grid .booking-bar-container { top: 1px !important; }
 
+    /* Teks kalender sedikit lebih besar (angka tanggal tetap) */
+    body[data-theme] .calendar-grid .grid-month-label span { font-size: 0.86rem !important; }
+    body[data-theme] .calendar-grid .grid-header-room,
+    body[data-theme] .calendar-grid .grid-footer-room { font-size: 0.8rem !important; }
+    body[data-theme] .calendar-grid .cal-h-dow { font-size: 0.7rem !important; }
+    body[data-theme] .calendar-grid .cal-h-occ,
+    body[data-theme] .calendar-grid .cal-h-avail { font-size: 0.68rem !important; padding: 1px 7px; }
+    body[data-theme] .calendar-grid .grid-room-number { font-size: 0.9rem !important; }
+    body[data-theme] .calendar-grid .grid-room-type-header { font-size: 0.86rem !important; }
+    body[data-theme] .calendar-grid .type-avail-count { font-size: 0.9rem !important; }
+    body[data-theme] .calendar-grid .type-price-text { font-size: 0.72rem !important; }
+    /* Teks reservasi di balok: lebih besar, tidak pernah keluar dari balok */
+    body[data-theme] .calendar-grid .booking-bar { min-width: 0; }
+    body[data-theme] .calendar-grid .booking-bar > span {
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.7rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.01em;
+    }
     /* Dark mode */
     body[data-theme="dark"] .calendar-grid .grid-month-room,
     body[data-theme="dark"] .calendar-grid .grid-month-label,
