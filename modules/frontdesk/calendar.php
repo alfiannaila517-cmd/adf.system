@@ -829,6 +829,125 @@ include '../../includes/header.php';
         display: none;
     }
 
+    /* ===== Header tanggal kalender (redesign) ===== */
+    body[data-theme] .calendar-grid .grid-month-room,
+    body[data-theme] .calendar-grid .grid-month-label {
+        background: #1e3a8a !important;
+        border-color: #1e3a8a !important;
+        border-bottom: 0 !important;
+        min-height: 30px;
+    }
+    body[data-theme] .calendar-grid .grid-month-label {
+        border-right: 1px solid rgba(255, 255, 255, 0.18) !important;
+    }
+    body[data-theme] .calendar-grid .grid-month-label span {
+        background: #1e3a8a !important;
+        padding: 0 12px !important;
+        font-size: 0.78rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.12em;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+    body[data-theme] .calendar-grid .grid-header-room,
+    body[data-theme] .calendar-grid .grid-footer-room {
+        background: #f1f5f9 !important;
+        border-right: 1px solid #cbd5e1 !important;
+        font-size: 0.72rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.12em;
+        color: #1e3a8a !important;
+        -webkit-text-fill-color: #1e3a8a !important;
+    }
+    body[data-theme] .calendar-grid .cal-h {
+        gap: 1px !important;
+        min-height: 64px !important;
+        padding: 6px 4px !important;
+        background: #ffffff !important;
+        border-right: 1px solid #e2e8f0 !important;
+        color: #0f172a !important;
+    }
+    body[data-theme] .calendar-grid .grid-header-date.cal-h { border-bottom: 2px solid #cbd5e1 !important; }
+    body[data-theme] .calendar-grid .grid-footer-date.cal-h { border-top: 2px solid #cbd5e1 !important; }
+    body[data-theme] .calendar-grid .cal-h.weekend { background: #fff7f7 !important; }
+    body[data-theme] .calendar-grid .cal-h-dow {
+        font-size: 0.62rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.1em;
+        color: #64748b !important;
+        line-height: 1.1;
+    }
+    body[data-theme] .calendar-grid .cal-h.weekend .cal-h-dow { color: #dc2626 !important; }
+    body[data-theme] .calendar-grid .cal-h-day {
+        font-size: 1.05rem !important;
+        font-weight: 800 !important;
+        line-height: 1.15;
+        color: #0f172a !important;
+        font-variant-numeric: tabular-nums;
+    }
+    body[data-theme] .calendar-grid .cal-h-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 2px;
+    }
+    body[data-theme] .calendar-grid .cal-h-occ,
+    body[data-theme] .calendar-grid .cal-h-avail {
+        padding: 1px 6px;
+        border-radius: 999px;
+        font-size: 0.6rem !important;
+        font-weight: 800 !important;
+        line-height: 1.5;
+        white-space: nowrap;
+    }
+    body[data-theme] .calendar-grid .cal-h-occ { background: #eef2ff; color: #3730a3 !important; }
+    body[data-theme] .calendar-grid .cal-h-avail { background: #dcfce7; color: #15803d !important; }
+    body[data-theme] .calendar-grid .cal-h-avail.full { background: #fee2e2; color: #b91c1c !important; }
+    /* Hari ini */
+    body[data-theme] .calendar-grid .cal-h.today {
+        background: #eff6ff !important;
+        box-shadow: inset 0 3px 0 #2563eb;
+    }
+    body[data-theme] .calendar-grid .cal-h.today .cal-h-dow { color: #2563eb !important; }
+    body[data-theme] .calendar-grid .cal-h.today .cal-h-day {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        height: 24px;
+        padding: 0 4px;
+        border-radius: 8px;
+        background: #2563eb;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+
+    /* Dark mode */
+    body[data-theme="dark"] .calendar-grid .grid-month-room,
+    body[data-theme="dark"] .calendar-grid .grid-month-label,
+    body[data-theme="dark"] .calendar-grid .grid-month-label span { background: #172554 !important; border-color: #172554 !important; }
+    body[data-theme="dark"] .calendar-grid .grid-header-room,
+    body[data-theme="dark"] .calendar-grid .grid-footer-room {
+        background: #0f172a !important;
+        border-right-color: #334155 !important;
+        color: #93c5fd !important;
+        -webkit-text-fill-color: #93c5fd !important;
+    }
+    body[data-theme="dark"] .calendar-grid .cal-h {
+        background: #111a2e !important;
+        border-right-color: #1e293b !important;
+        border-color: #1e293b !important;
+    }
+    body[data-theme="dark"] .calendar-grid .cal-h.weekend { background: #1a1625 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h-dow { color: #94a3b8 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h.weekend .cal-h-dow { color: #f87171 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h-day { color: #f1f5f9 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h-occ { background: rgba(99, 102, 241, 0.18); color: #c7d2fe !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h-avail { background: rgba(16, 185, 129, 0.15); color: #6ee7b7 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h-avail.full { background: rgba(239, 68, 68, 0.18); color: #fca5a5 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h.today { background: rgba(37, 99, 235, 0.16) !important; box-shadow: inset 0 3px 0 #3b82f6; }
+    body[data-theme="dark"] .calendar-grid .cal-h.today .cal-h-dow { color: #93c5fd !important; }
+
     /* Footer Row - Bottom Date Reference */
     .calendar-grid-footer {
         display: contents;
@@ -2753,7 +2872,7 @@ include '../../includes/header.php';
                     $currentMonth = null;
                     $spanCount = 0;
                     foreach ($dates as $i => $date) {
-                        $monthKey = date('M Y', strtotime($date));
+                        $monthKey = date('F Y', strtotime($date));
                         if ($monthKey !== $currentMonth) {
                             if ($currentMonth !== null) {
                                 $monthSpans[] = ['label' => strtoupper($currentMonth), 'span' => $spanCount];
@@ -2782,10 +2901,14 @@ include '../../includes/header.php';
                         $avail = $availPerDate[$date] ?? 0;
                         $occPct = $totalRoomCount > 0 ? round((($totalRoomCount - $avail) / $totalRoomCount) * 100, 1) : 0;
                     ?>
-                        <div class="grid-header-date<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?>">
-                            <span class="grid-header-date-day"><?php echo strtoupper(substr(date('D', strtotime($date)), 0, 3)); ?> <?php echo date('d', strtotime($date)); ?></span>
-                            <span class="grid-header-date-occ"><?php echo number_format($occPct, 0); ?>%</span>
-                            <span class="grid-header-date-avail <?php echo $avail === 0 ? 'full' : ''; ?>"><?php echo $avail; ?></span>
+                        <?php $isWeekend = in_array(date('N', strtotime($date)), ['6', '7'], true); ?>
+                        <div class="grid-header-date cal-h<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?><?php echo $isWeekend ? ' weekend' : ''; ?>">
+                            <span class="cal-h-dow"><?php echo strtoupper(date('D', strtotime($date))); ?></span>
+                            <span class="cal-h-day"><?php echo date('d', strtotime($date)); ?></span>
+                            <span class="cal-h-meta">
+                                <span class="cal-h-occ" title="Okupansi"><?php echo number_format($occPct, 0); ?>%</span>
+                                <span class="cal-h-avail<?php echo $avail === 0 ? ' full' : ''; ?>" title="Kamar tersedia"><?php echo $avail; ?> free</span>
+                            </span>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -3008,10 +3131,14 @@ include '../../includes/header.php';
                         $avail = $availPerDate[$date] ?? 0;
                         $occPct = $totalRoomCount > 0 ? round((($totalRoomCount - $avail) / $totalRoomCount) * 100, 0) : 0;
                     ?>
-                        <div class="grid-footer-date<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?>">
-                            <span class="grid-footer-date-day"><?php echo strtoupper(substr(date('D', strtotime($date)), 0, 3)); ?> <?php echo date('d', strtotime($date)); ?></span>
-                            <span class="grid-footer-date-num"><?php echo $occPct; ?>%</span>
-                            <span class="grid-header-date-avail <?php echo $avail === 0 ? 'full' : ''; ?>"><?php echo $avail; ?></span>
+                        <?php $isWeekend = in_array(date('N', strtotime($date)), ['6', '7'], true); ?>
+                        <div class="grid-footer-date cal-h<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?><?php echo $isWeekend ? ' weekend' : ''; ?>">
+                            <span class="cal-h-dow"><?php echo strtoupper(date('D', strtotime($date))); ?></span>
+                            <span class="cal-h-day"><?php echo date('d', strtotime($date)); ?></span>
+                            <span class="cal-h-meta">
+                                <span class="cal-h-occ" title="Okupansi"><?php echo $occPct; ?>%</span>
+                                <span class="cal-h-avail<?php echo $avail === 0 ? ' full' : ''; ?>" title="Kamar tersedia"><?php echo $avail; ?> free</span>
+                            </span>
                         </div>
                     <?php endforeach; ?>
                 </div>
