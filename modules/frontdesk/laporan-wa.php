@@ -37,7 +37,10 @@ $respond = static function (array $data): void {
     exit;
 };
 
-if (!$wa->isConfigured() || !$targets) {
+// mode=link: hanya buat link PDF (untuk Bagikan manual lewat wa.me), tanpa gateway.
+$linkOnly = ($_POST['mode'] ?? '') === 'link';
+
+if (!$linkOnly && (!$wa->isConfigured() || !$targets)) {
     $respond(['ok' => false, 'detail' => 'WhatsApp belum diatur. Isi token & tujuan laporan di Pengaturan → WhatsApp.']);
 }
 
@@ -49,11 +52,25 @@ try {
 }
 
 try {
-    $pub = WhatsAppHelper::publishTempFile($bytes, 'pdf'); // dihapus otomatis setelah 2 jam
+    $pub = WhatsAppHelper::publishTempFile($bytes, 'pdf', 'laporan-' . $today); // dihapus otomatis setelah 2 hari
 } catch (\Throwable $e) {
     $respond(['ok' => false, 'detail' => $e->getMessage()]);
 }
+if ($linkOnly) {
+    $respond(['ok' => true, 'url' => $pub['url'], 'text' => rtrim($waText) . "
+
+📄 *PDF Laporan:*
+" . $pub['url'] . "
+_(link berlaku 2 hari)_"]);
+}
 @set_time_limit(30 + 60 * count($targets));
+
+// Link PDF selalu dicantumkan di teks: sebagian paket gateway tidak meneruskan lampiran.
+$waText = rtrim($waText) . "
+
+📄 *PDF Laporan:*
+" . $pub['url'] . "
+_(link berlaku 2 hari)_";
 
 $results = [];
 foreach ($targets as $t) {

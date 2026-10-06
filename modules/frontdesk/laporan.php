@@ -1028,7 +1028,19 @@ $section = static function (string $title, array $rows, array $cols, string $emp
         }
 
         // Cadangan bila perangkat tidak bisa membagikan file: unduh PDF, lalu buka WhatsApp dengan ringkasan.
-        function fallback(file) {
+        async function fallback(file, win) {
+            try {
+                const fd = new FormData();
+                fd.append('mode', 'link');
+                const r = await (await fetch('laporan-wa.php', { method: 'POST', body: fd, credentials: 'same-origin' })).json();
+                if (r.ok && r.text) {
+                    const url = 'https://wa.me/?text=' + encodeURIComponent(r.text);
+                    if (win && !win.closed) win.location.href = url; else window.open(url, '_blank');
+                    toast('WhatsApp dibuka dengan ringkasan + link PDF (berlaku 2 hari).', 6000);
+                    return;
+                }
+            } catch (e) {}
+            if (win && !win.closed) win.close();
             const a = document.createElement('a');
             a.href = URL.createObjectURL(file);
             a.download = PDF_NAME;
@@ -1041,6 +1053,8 @@ $section = static function (string $title, array $rows, array $cols, string $emp
         }
 
         async function share() {
+            // Perangkat tanpa berbagi file (umumnya desktop): buka jendela sekarang, diisi link WhatsApp nanti.
+            const win = !navigator.canShare ? window.open('about:blank', '_blank') : null;
             btn.disabled = true;
             label.textContent = 'Menyiapkan PDF...';
             try {
@@ -1055,10 +1069,10 @@ $section = static function (string $title, array $rows, array $cols, string $emp
                             btn.disabled = false;
                             return;
                         }
-                        if (e.name !== 'AbortError') fallback(file);
+                        if (e.name !== 'AbortError') await fallback(file, win);
                     }
                 } else {
-                    fallback(file);
+                    await fallback(file, win);
                 }
             } catch (e) {
                 toast('Gagal menyiapkan PDF: ' + e.message, 6000);

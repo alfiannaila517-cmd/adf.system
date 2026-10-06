@@ -161,5 +161,5 @@ $waText = "*DAILY REPORT — " . date('d M Y') . "*\n"
     . "Departures today: " . count($checkOutToday) . "\n"
     . "Arrivals tomorrow: " . count($arrivalTomorrow) . "\n"
     . ($breakfastOrders ? "Breakfast: " . count($breakfastOrders) . " orders · {$breakfastPax} pax\n" : '')
-    . "\nFull details in the attached PDF.";
+    . "\nFull details in the PDF report.";
 

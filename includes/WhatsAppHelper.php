@@ -173,16 +173,22 @@ class WhatsAppHelper
     /** Status perangkat; $token = uji token yang belum disimpan. 'connected' sudah dinormalisasi. */
     /**
      * Simpan file sementara di uploads/wa-tmp dengan nama acak (tidak bisa ditebak) agar bisa diunduh
-     * gateway; file lebih dari 2 jam dihapus otomatis. @return array{path:string,url:string}
+     * gateway / dibuka dari link di pesan; file lebih dari 2 hari dihapus otomatis agar hosting tidak penuh.
+     * @return array{path:string,url:string}
      */
-    public static function publishTempFile(string $bytes, string $ext = 'pdf'): array
+    public static function publishTempFile(string $bytes, string $ext = 'pdf', string $prefix = ''): array
     {
         $dir = BASE_PATH . '/uploads/wa-tmp';
         if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        // Folder tidak boleh bisa dijelajah; file hanya bisa dibuka lewat nama acaknya.
+        if (!is_file($dir . '/.htaccess')) @file_put_contents($dir . '/.htaccess', "Options -Indexes
+");
+        if (!is_file($dir . '/index.html')) @file_put_contents($dir . '/index.html', '');
         foreach (glob($dir . '/*.' . $ext) ?: [] as $old) {
-            if (filemtime($old) < time() - 7200) @unlink($old);
+            if (filemtime($old) < time() - 2 * 86400) @unlink($old);
         }
-        $name = bin2hex(random_bytes(16)) . '.' . $ext;
+        $prefix = trim(preg_replace('/[^a-z0-9-]+/', '-', strtolower($prefix)), '-');
+        $name = ($prefix !== '' ? $prefix . '-' : '') . bin2hex(random_bytes(12)) . '.' . $ext;
         if (file_put_contents($dir . '/' . $name, $bytes) === false) {
             throw new \RuntimeException('Tidak bisa menulis file sementara di uploads/wa-tmp');
         }
