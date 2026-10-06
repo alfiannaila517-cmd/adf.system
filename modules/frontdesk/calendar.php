@@ -2501,27 +2501,6 @@ include '../../includes/header.php';
 </style>
 
 <div class="calendar-container">
-    <!-- Header -->
-    <div class="calendar-header">
-        <div>
-            <h1><span class="icon">📆</span> Calendar Booking</h1>
-        </div>
-        <div class="calendar-controls">
-            <a href="<?php echo BASE_URL; ?>/modules/frontdesk/reservasi.php" class="btn-nav">
-                📋 List View
-            </a>
-            <a href="<?php echo BASE_URL; ?>/modules/frontdesk/breakfast.php" class="btn-nav">
-                🍽️ Breakfast List
-            </a>
-            <a href="<?php echo BASE_URL; ?>/modules/frontdesk/settings.php" class="btn-nav">
-                ⚙️ Settings
-            </a>
-            <a href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php" class="btn-nav">
-                📊 Dashboard
-            </a>
-        </div>
-    </div>
-
     <?php
     // DASHBOARD STATS FETCH
     try {
@@ -2561,32 +2540,203 @@ include '../../includes/header.php';
 
 
 
-    <!-- Search Bar -->
-    <div class="search-reservation-bar">
-        <div class="search-input-wrapper">
-            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input type="text" id="searchReservation" class="search-input" placeholder="Search reservations, guests, and more" autocomplete="off">
-            <button class="search-clear-btn" id="searchClearBtn" onclick="clearSearch()" style="display:none;">×</button>
+    <!-- Toolbar kalender: judul + menu, lalu navigasi tanggal, pencarian, reservasi baru -->
+    <div class="cal-toolbar">
+        <div class="cal-tb-top">
+            <div class="cal-tb-title">
+                <h1>Calendar Booking</h1>
+                <small><?php echo date('d M', strtotime($startDate)); ?> – <?php echo date('d M Y', strtotime($startDate . ' +29 days')); ?></small>
+            </div>
+            <div class="cal-tb-links">
+                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/reservasi.php">List View</a>
+                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/breakfast.php">Breakfast</a>
+                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php">Dashboard</a>
+                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/settings.php">Settings</a>
+            </div>
         </div>
-        <div class="search-results-dropdown" id="searchResults" style="display:none;"></div>
+        <div class="cal-tb-bar">
+            <div class="cal-tb-nav">
+                <button class="nav-btn cal-arrow" id="prevMonthBtn" type="button" aria-label="Sebelumnya">‹</button>
+                <button class="nav-btn today-btn" id="todayBtn" type="button" onclick="goToToday()">Today</button>
+                <button class="nav-btn cal-arrow" id="nextMonthBtn" type="button" aria-label="Berikutnya">›</button>
+                <input type="date" class="nav-date-input" id="dateInput" value="<?php echo $startDate; ?>" onchange="changeDate()">
+            </div>
+            <div class="search-reservation-bar">
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input type="text" id="searchReservation" class="search-input" placeholder="Cari tamu, kode booking, kamar…" autocomplete="off">
+                    <button class="search-clear-btn" id="searchClearBtn" onclick="clearSearch()" style="display:none;">×</button>
+                </div>
+                <div class="search-results-dropdown" id="searchResults" style="display:none;"></div>
+            </div>
+            <button class="nav-btn" id="newReservationBtn" type="button" onclick="openNewReservationForm()">+ New Reservation</button>
+        </div>
     </div>
+    <style>
+        body[data-theme] .cal-toolbar {
+            margin-bottom: 0.65rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 14px;
+            background: var(--fd-card);
+            border: 1px solid var(--fd-edge);
+            box-shadow: var(--fd-shadow);
+        }
 
-    <!-- Navigation -->
-    <div class="calendar-nav">
-        <button class="nav-btn" id="prevMonthBtn" type="button">‹</button>
-        <button class="nav-btn today-btn" id="todayBtn" type="button" onclick="goToToday()">TODAY</button>
-        <button class="nav-btn" id="nextMonthBtn" type="button">›</button>
-        <input type="date" class="nav-date-input" id="dateInput" value="<?php echo $startDate; ?>" onchange="changeDate()">
-        <span class="date-display">
-            <?php echo date('M d', strtotime($startDate)); ?> - <?php echo date('M d, Y', strtotime($startDate . ' +29 days')); ?>
-        </span>
-        <button class="nav-btn" id="newReservationBtn" type="button" onclick="openNewReservationForm()" style="background: linear-gradient(135deg, #1e3a8a, #1d4ed8); color: #fff; margin-left: auto;">
-            ➕ New Reservation
-        </button>
-    </div>
+        body[data-theme] .cal-tb-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            padding-bottom: 0.55rem;
+            margin-bottom: 0.55rem;
+            border-bottom: 1px solid var(--fd-line);
+        }
+
+        body[data-theme] .main-content .cal-tb-title h1 {
+            margin: 0;
+            font-size: 0.95rem !important;
+            font-weight: 700 !important;
+            color: var(--fd-text) !important;
+            -webkit-text-fill-color: var(--fd-text) !important;
+            background: none !important;
+        }
+
+        body[data-theme] .main-content .cal-tb-title small {
+            display: block;
+            font-size: 0.66rem !important;
+            color: var(--fd-muted) !important;
+        }
+
+        body[data-theme] .cal-tb-links {
+            display: inline-flex;
+            padding: 3px;
+            gap: 2px;
+            border-radius: 10px;
+            background: var(--fd-tile);
+            border: 1px solid var(--fd-line);
+        }
+
+        body[data-theme] .main-content .cal-tb-links a {
+            height: 26px;
+            padding: 0 0.7rem;
+            display: inline-flex;
+            align-items: center;
+            border-radius: 7px;
+            font-size: 0.68rem !important;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--fd-text-2) !important;
+            -webkit-text-fill-color: var(--fd-text-2) !important;
+        }
+
+        body[data-theme] .main-content .cal-tb-links a:hover {
+            background: var(--fd-accent-soft);
+            color: var(--fd-accent-text) !important;
+            -webkit-text-fill-color: var(--fd-accent-text) !important;
+        }
+
+        body[data-theme] .cal-tb-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        body[data-theme] .cal-tb-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        body[data-theme] .main-content .cal-tb-nav .cal-arrow {
+            width: 30px !important;
+            height: 30px !important;
+            padding: 0 !important;
+            border-radius: 8px !important;
+            border: 1px solid var(--fd-input-border) !important;
+            background: var(--fd-input-bg) !important;
+            color: var(--fd-text) !important;
+            -webkit-text-fill-color: var(--fd-text) !important;
+            font-size: 1rem !important;
+            line-height: 1 !important;
+            box-shadow: none !important;
+        }
+
+        body[data-theme] .main-content .cal-tb-nav .today-btn {
+            height: 30px !important;
+            padding: 0 0.75rem !important;
+            border-radius: 8px !important;
+            font-size: 0.68rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.02em !important;
+            background: var(--fd-accent-soft) !important;
+            border: 1px solid rgba(37, 99, 235, 0.3) !important;
+            color: var(--fd-accent-text) !important;
+            -webkit-text-fill-color: var(--fd-accent-text) !important;
+            box-shadow: none !important;
+        }
+
+        body[data-theme] .main-content .cal-tb-nav .nav-date-input {
+            height: 30px !important;
+            margin-left: 4px;
+            padding: 0 0.55rem !important;
+            border-radius: 8px !important;
+            font-size: 0.72rem !important;
+            background: var(--fd-input-bg) !important;
+            border: 1px solid var(--fd-input-border) !important;
+            color: var(--fd-text) !important;
+        }
+
+        body[data-theme] .main-content .cal-tb-bar .search-reservation-bar {
+            flex: 1;
+            min-width: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: none !important;
+            border: 0 !important;
+            box-shadow: none !important;
+        }
+
+        body[data-theme] .main-content .cal-tb-bar .search-input-wrapper {
+            height: 30px;
+            padding: 0 0.6rem !important;
+            border-radius: 8px !important;
+        }
+
+        body[data-theme] .main-content .cal-tb-bar .search-input {
+            height: 28px !important;
+            font-size: 0.74rem !important;
+        }
+
+        body[data-theme] .main-content .cal-tb-bar #newReservationBtn {
+            flex-shrink: 0;
+            height: 30px !important;
+            padding: 0 0.9rem !important;
+            border-radius: 8px !important;
+            border: 0 !important;
+            background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+            color: #fff !important;
+            -webkit-text-fill-color: #fff !important;
+            font-size: 0.7rem !important;
+            font-weight: 700 !important;
+            box-shadow: 0 6px 14px -8px rgba(29, 78, 216, 0.7) !important;
+        }
+
+        @media (max-width: 860px) {
+            body[data-theme] .cal-tb-bar {
+                flex-wrap: wrap;
+            }
+
+            body[data-theme] .main-content .cal-tb-bar .search-reservation-bar {
+                order: 3;
+                flex-basis: 100%;
+            }
+        }
+    </style>
 
     <!-- Calendar Grid - WRAPPED IN SCROLL CONTAINER -->
     <div class="calendar-scroll-wrapper" id="drag-container" style="overflow-x: auto; cursor: grab; user-select: none;">

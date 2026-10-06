@@ -3122,7 +3122,117 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
             <!-- Flash Messages -->
             <?php // Nama variabel khusus: dulu $success/$error milik halaman ikut tertimpa di sini.
-            if ($flashSuccess = getFlash('success')): ?>
+            $flashSuccess = getFlash('success');
+            // Buku Kas: sukses ditampilkan sebagai popup centang hijau di tengah layar yang hilang sendiri.
+            if ($flashSuccess && strpos($_SERVER['PHP_SELF'] ?? '', '/modules/cashbook/') !== false):
+                $okDetail = trim(preg_replace('/^(Transaksi berhasil( ditambahkan)?!?)\s*/u', '', preg_replace('/^✅\s*/u', '', strip_tags((string)$flashSuccess))));
+            ?>
+                <div class="ok-pop" id="okPop" role="status" aria-live="polite">
+                    <div class="ok-pop-card">
+                        <svg class="ok-pop-ic" viewBox="0 0 52 52" aria-hidden="true">
+                            <circle cx="26" cy="26" r="24" />
+                            <path d="M15 27.5l7.5 7.5L37.5 19" />
+                        </svg>
+                        <b>Transaksi berhasil disimpan</b>
+                        <?php if ($okDetail !== ''): ?><small><?php echo htmlspecialchars($okDetail); ?></small><?php endif; ?>
+                    </div>
+                </div>
+                <style>
+                    .ok-pop {
+                        position: fixed;
+                        inset: 0;
+                        z-index: 10090;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 16px;
+                        pointer-events: none;
+                        background: rgba(15, 23, 42, 0.18);
+                        animation: okFade 1.9s ease forwards;
+                    }
+
+                    .ok-pop-card {
+                        min-width: 240px;
+                        max-width: 340px;
+                        padding: 22px 26px 20px;
+                        border-radius: 18px;
+                        background: #ffffff;
+                        box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.45);
+                        text-align: center;
+                        animation: okPopIn 0.28s cubic-bezier(.2, 1.3, .5, 1) both;
+                    }
+
+                    body[data-theme="dark"] .ok-pop-card {
+                        background: #111a2e;
+                        border: 1px solid rgba(255, 255, 255, 0.1);
+                    }
+
+                    .ok-pop-ic {
+                        width: 60px;
+                        height: 60px;
+                        margin: 0 auto 10px;
+                        display: block;
+                    }
+
+                    .ok-pop-ic circle {
+                        fill: #059669;
+                    }
+
+                    .ok-pop-ic path {
+                        fill: none;
+                        stroke: #ffffff;
+                        stroke-width: 4.5;
+                        stroke-linecap: round;
+                        stroke-linejoin: round;
+                        stroke-dasharray: 40;
+                        stroke-dashoffset: 40;
+                        animation: okDraw 0.35s 0.2s ease-out forwards;
+                    }
+
+                    body[data-theme] .ok-pop-card b {
+                        display: block;
+                        font-size: 0.95rem;
+                        color: #0f172a !important;
+                        -webkit-text-fill-color: #0f172a !important;
+                    }
+
+                    body[data-theme] .ok-pop-card small {
+                        display: block;
+                        margin-top: 4px;
+                        font-size: 0.74rem;
+                        line-height: 1.45;
+                        color: #64748b !important;
+                        -webkit-text-fill-color: #64748b !important;
+                    }
+
+                    body[data-theme="dark"] .ok-pop-card b {
+                        color: #e2e8f0 !important;
+                        -webkit-text-fill-color: #e2e8f0 !important;
+                    }
+
+                    body[data-theme="dark"] .ok-pop-card small {
+                        color: #94a3b8 !important;
+                        -webkit-text-fill-color: #94a3b8 !important;
+                    }
+
+                    @keyframes okPopIn {
+                        from { opacity: 0; transform: scale(0.85); }
+                        to { opacity: 1; transform: none; }
+                    }
+
+                    @keyframes okDraw {
+                        to { stroke-dashoffset: 0; }
+                    }
+
+                    @keyframes okFade {
+                        0%, 80% { opacity: 1; }
+                        100% { opacity: 0; visibility: hidden; }
+                    }
+                </style>
+                <script>
+                    setTimeout(() => { const p = document.getElementById('okPop'); if (p) p.remove(); }, 2000);
+                </script>
+            <?php elseif ($flashSuccess): ?>
                 <div class="alert alert-success fade-in" style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); color: var(--success); padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem;">
                     <i data-feather="check-circle" style="width: 20px; height: 20px; vertical-align: middle;"></i>
                     <?php echo $flashSuccess; ?>
