@@ -1044,6 +1044,17 @@ include '../../includes/header.php';
                                             <button class="action-dropdown-item item-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>', <?php echo $otaFee; ?>, '<?php echo addslashes($otaName); ?>')">Bayar</button>
                                         <?php endif; ?>
                                         <div class="action-dropdown-divider"></div>
+                                        <?php
+                                        // Chat WhatsApp tamu (wa.me): 08xx / +62 / 8xx -> 62xx.
+                                        $waDigits = preg_replace('/\D+/', '', (string)($booking['phone'] ?? ''));
+                                        if ($waDigits !== '' && $waDigits[0] === '0') $waDigits = '62' . substr($waDigits, 1);
+                                        elseif ($waDigits !== '' && $waDigits[0] === '8') $waDigits = '62' . $waDigits;
+                                        if (strlen($waDigits) >= 9):
+                                            $waMsg = 'Hello ' . $booking['guest_name'] . ', this is Front Office ' . (defined('BUSINESS_NAME') ? BUSINESS_NAME : '') . ' regarding your reservation ' . $booking['booking_code'] . '.'; ?>
+                                            <a class="action-dropdown-item item-wa" href="https://wa.me/<?php echo $waDigits; ?>?text=<?php echo rawurlencode($waMsg); ?>" target="_blank" rel="noopener">Chat WhatsApp</a>
+                                        <?php else: ?>
+                                            <span class="action-dropdown-item item-wa is-off" title="Nomor telepon tamu belum ada">WhatsApp (no. kosong)</span>
+                                        <?php endif; ?>
                                         <button class="action-dropdown-item item-pdf" onclick="savePDF(<?php echo $booking['id']; ?>)">Simpan PDF</button>
                                         <button class="action-dropdown-item item-edit" onclick="editBooking(<?php echo $booking['id']; ?>)">Edit Booking</button>
                                         <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
