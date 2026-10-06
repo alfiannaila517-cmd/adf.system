@@ -94,6 +94,10 @@ try {
              WHERE id = ?"
         );
         $stmt->execute([$totalPrice, $ownerAmount, $hotelCommission, $tripId]);
+        try {
+            $pdo->prepare("UPDATE hotel_invoice_items SET partner_amount = ? WHERE id = ? AND partner_id IS NOT NULL")->execute([$ownerAmount, $tripId]);
+        } catch (Exception $ignore) {
+        }
     }
 
     echo json_encode(['success' => true, 'message' => 'Nominal berhasil diperbarui']);

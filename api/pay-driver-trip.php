@@ -57,7 +57,7 @@ try {
     $cashAccountId = (int)($_POST['cash_account_id'] ?? 0);
     $driverName = trim($_POST['driver_name'] ?? 'Driver');
 
-    if (!$tripId || !in_array($sourceType, ['car_rental', 'airport_drop', 'harbor_drop', 'narayana_trip'], true)) {
+    if (!$tripId || (!in_array($sourceType, ['car_rental', 'airport_drop', 'harbor_drop', 'narayana_trip'], true) && $source !== 'legacy') || !preg_match('/^[a-z0-9_]+$/', $sourceType)) {
         throw new Exception('Data trip tidak valid');
     }
 
@@ -111,7 +111,7 @@ try {
             : (float)$trip['total_price'];
         $label = ($sourceType === 'airport_drop'
             ? 'Airport Drop'
-            : ($sourceType === 'harbor_drop' ? 'Harbor Drop' : 'Narayana Trip')) .
+            : ($sourceType === 'harbor_drop' ? 'Harbor Drop' : ($sourceType === 'narayana_trip' ? 'Narayana Trip' : ucwords(str_replace('_', ' ', $sourceType))))) .
             ($trip['description'] ? " - {$trip['description']}" : '');
         $guestLabel = $trip['guest_name'] ? " - {$trip['guest_name']}" : '';
         $updateSql = "UPDATE hotel_invoice_items SET driver_paid = 1, driver_paid_at = NOW(), driver_paid_cashbook_id = ? WHERE id = ?";

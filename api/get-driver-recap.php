@@ -87,6 +87,9 @@ try {
     $hasHiiDriverPaidCashbookId = $columnExists($pdo, 'hotel_invoice_items', 'driver_paid_cashbook_id');
     $hasHiiTripType = $columnExists($pdo, 'hotel_invoice_items', 'trip_type');
     $hasHiiGuideName = $columnExists($pdo, 'hotel_invoice_items', 'guide_name');
+    // Mitra yang dipilih saat input Hotel Service (sumber utama). Item lama tanpa mitra memakai alur lama.
+    $hasHiiPartner = $columnExists($pdo, 'hotel_invoice_items', 'partner_name');
+    $noPartnerSql = $hasHiiPartner ? " AND (hii.partner_name IS NULL OR hii.partner_name = '')" : '';
 
     // ── Owner recap (car rental + airport/harbor drop trips with a linked driver car) ──
     $recap = [];
@@ -118,6 +121,8 @@ try {
               AND hii.service_type IN ('car_rental','airport_drop','harbor_drop')
               AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
               AND COALESCE(rc.partner_owner, ?) != ''
+              AND (cb.car_id IS NOT NULL OR hii.service_type = 'car_rental')
+              {$noPartnerSql}
             GROUP BY COALESCE(rc.partner_owner, ?), rc.owner_phone
             ORDER BY total_revenue DESC");
         $ownerStmt->execute([$dropOwnerName, $businessId, $businessId, $monthStart, $monthEnd, $dropOwnerName, $dropOwnerName]);
@@ -249,6 +254,8 @@ try {
               AND hii.service_type IN ('car_rental','airport_drop','harbor_drop')
               AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
               AND COALESCE(rc.partner_owner, ?) != ''
+              AND (cb.car_id IS NOT NULL OR hii.service_type = 'car_rental')
+              {$noPartnerSql}
             ORDER BY trx_date DESC, hii.id DESC");
         $detailStmt->execute([$dropOwnerName, $businessId, $businessId, $monthStart, $monthEnd, $dropOwnerName]);
         $seenDetailKeys = [];
@@ -282,6 +289,100 @@ try {
         error_log('get-driver-recap detail query fallback: ' . $detailErr->getMessage());
     }
 
+    // ── Item Hotel Service dengan mitra yang dipilih saat input ─────────────────
+    if ($hasHiiPartner) {
+        try {
+            $pSelectCashbookId = $hasHiiDriverPaidCashbookId ? 'hii.driver_paid_cashbook_id' : '0 as driver_paid_cashbook_id';
+            $pSelectPaymentMethod = $hasCashbookPaymentMethod ? 'paycb.payment_method' : 'NULL as payment_method';
+            $pJoinCashbook = ($hasCashBookTable && $hasHiiDriverPaidCashbookId) ? 'LEFT JOIN cash_book paycb ON hii.driver_paid_cashbook_id = paycb.id' : '';
+            $pStmt = $pdo->prepare("SELECT
+                    hii.id AS trip_id, hii.service_type, hii.description, hii.total_price,
+                    COALESCE(hii.owner_amount, 0) AS owner_amount, COALESCE(hii.hotel_commission, 0) AS hotel_commission,
+                    hii.partner_name, hii.driver_paid, hii.driver_paid_at, {$pSelectCashbookId}, {$pSelectPaymentMethod},
+                    hi.guest_name, hi.room_number, COALESCE(hii.start_datetime, hi.created_at) AS trx_date,
+                    p.phone AS partner_phone
+                FROM hotel_invoice_items hii
+                JOIN hotel_invoices hi ON hi.id = hii.invoice_id
+                LEFT JOIN hotel_service_partners p ON p.id = hii.partner_id
+                {$pJoinCashbook}
+                WHERE hi.business_id = ?
+                  AND hi.status NOT IN ('cancelled')
+                  AND hi.payment_status = 'paid'
+                  AND hii.partner_name IS NOT NULL AND hii.partner_name <> ''
+                  AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
+                ORDER BY trx_date DESC, hii.id DESC");
+            $pStmt->execute([$businessId, $monthStart, $monthEnd]);
+            $svcLabelMap = ['car_rental' => 'Rental Mobil', 'airport_drop' => 'Airport Drop', 'harbor_drop' => 'Harbor Drop', 'narayana_trip' => 'Narayana Trip'];
+            try {
+                foreach ($pdo->query("SELECT type_key, type_label FROM hotel_service_types")->fetchAll(PDO::FETCH_ASSOC) as $tl) {
+                    $svcLabelMap[$tl['type_key']] = $tl['type_label'];
+                }
+            } catch (Exception $ignore) {
+            }
+            foreach ($pStmt->fetchAll(PDO::FETCH_ASSOC) as $pd) {
+                $pName = trim((string)$pd['partner_name']);
+                $pKey = $ownerKey($pName);
+                if (!isset($indexMap[$pKey])) {
+                    $recap[] = [
+                        'partner_owner' => $pName,
+                        'owner_phone' => $pd['partner_phone'] ?? null,
+                        'total_trips' => 0,
+                        'total_revenue' => 0.0,
+                        'owner_total' => 0.0,
+                        'hotel_total' => 0.0,
+                        'avg_comm_pct' => 0,
+                        'cars' => '',
+                        'rental_trips' => 0,
+                        'airport_trips' => 0,
+                        'harbor_trips' => 0,
+                        'airport_total' => 0.0,
+                        'harbor_total' => 0.0,
+                        'paid_total' => 0.0,
+                        'unpaid_total' => 0.0,
+                        'paid_trips' => 0,
+                        'unpaid_trips' => 0,
+                        'detail_rows' => [],
+                    ];
+                    $indexMap[$pKey] = count($recap) - 1;
+                }
+                $idx = $indexMap[$pKey];
+                $svc = (string)$pd['service_type'];
+                $svcLabel = $svcLabelMap[$svc] ?? ucwords(str_replace('_', ' ', $svc));
+                $amount = (float)$pd['total_price'];
+                $recap[$idx]['total_trips'] += 1;
+                $recap[$idx]['total_revenue'] += $amount;
+                $recap[$idx]['owner_total'] += (float)$pd['owner_amount'];
+                $recap[$idx]['hotel_total'] += (float)$pd['hotel_commission'];
+                $recap[$idx]['avg_comm_pct'] = $recap[$idx]['total_revenue'] > 0 ? round($recap[$idx]['owner_total'] / $recap[$idx]['total_revenue'] * 100, 1) : 0;
+                if ($svc === 'car_rental') $recap[$idx]['rental_trips'] += 1;
+                if ($svc === 'airport_drop') { $recap[$idx]['airport_trips'] += 1; $recap[$idx]['airport_total'] += $amount; }
+                if ($svc === 'harbor_drop') { $recap[$idx]['harbor_trips'] += 1; $recap[$idx]['harbor_total'] += $amount; }
+                $labels = array_filter(array_map('trim', explode(',', (string)$recap[$idx]['cars'])));
+                if (!in_array($svcLabel, $labels, true)) $labels[] = $svcLabel;
+                $recap[$idx]['cars'] = implode(', ', $labels);
+                if (empty($recap[$idx]['owner_phone']) && !empty($pd['partner_phone'])) $recap[$idx]['owner_phone'] = $pd['partner_phone'];
+                $desc = trim((string)$pd['description']);
+                $detailMap[$pKey][] = [
+                    'trip_id' => (int)$pd['trip_id'],
+                    'trx_date' => $pd['trx_date'],
+                    'guest_name' => $pd['guest_name'],
+                    'room_number' => $pd['room_number'],
+                    'label' => $svcLabel . ($desc !== '' && $desc !== $svcLabel ? ' - ' . $desc : ''),
+                    'service_type' => $svc,
+                    'source' => 'legacy',
+                    'total_price' => $amount,
+                    'owner_amount' => (float)$pd['owner_amount'],
+                    'paid' => (bool)$pd['driver_paid'],
+                    'driver_paid_at' => $pd['driver_paid_at'],
+                    'driver_paid_cashbook_id' => isset($pd['driver_paid_cashbook_id']) ? (int)$pd['driver_paid_cashbook_id'] : 0,
+                    'payment_method' => $pd['payment_method'] ?? null,
+                ];
+            }
+        } catch (Exception $partnerErr) {
+            error_log('get-driver-recap partner items: ' . $partnerErr->getMessage());
+        }
+    }
+
     // ── Airport/Harbor Drop trips without explicit linked owner ─────────────────
     $dropKey = $ownerKey($dropOwnerName);
 
@@ -306,6 +407,7 @@ try {
             JOIN hotel_invoices hi ON hii.invoice_id = hi.id
             {$dropJoinCashbook}
             WHERE hi.business_id=? AND hii.service_type IN ('airport_drop','harbor_drop','narayana_trip')
+              {$noPartnerSql}
               AND hi.status NOT IN ('cancelled')
               AND hi.payment_status = 'paid'
               AND DATE(COALESCE(hii.start_datetime, hi.created_at)) BETWEEN ? AND ?
