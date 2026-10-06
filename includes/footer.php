@@ -253,8 +253,8 @@
 
                    .admin-chat-panel {
                        position: fixed;
-                       bottom: 78px;
-                       right: 92px;
+                       top: 76px;
+                       right: 24px;
                        width: 356px;
                        max-width: calc(100vw - 48px);
                        max-height: 60vh;
@@ -432,13 +432,14 @@
                        .admin-chat-panel {
                            right: 12px;
                            left: 12px;
-                           bottom: 68px;
+                           top: 70px;
                            width: auto;
                            max-width: none;
                        }
                    }
                </style>
-               <div class="admin-chat-fab" onclick="toggleAdminChat()" title="Pesan Staff" aria-label="Buka pesan staff">
+               <!-- Tombol melayang disembunyikan: pengumuman dibuka dari menu lonceng di top bar. -->
+               <div class="admin-chat-fab" style="display:none" onclick="toggleAdminChat()" title="Pesan Staff" aria-label="Buka pesan staff">
                    <span class="fab-chat-icon" aria-hidden="true">
                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
                            <path d="M4 4.75C4 3.78 4.78 3 5.75 3h12.5C19.22 3 20 3.78 20 4.75v8.5c0 .97-.78 1.75-1.75 1.75H11.8l-3.22 3a.75.75 0 0 1-1.26-.55V15H5.75A1.75 1.75 0 0 1 4 13.25v-8.5z" />
@@ -470,8 +471,8 @@
                    const ADMIN_CHAT_CAN_DELETE = <?php echo $canStaffChatDelete ? 'true' : 'false'; ?>;
                    let adminChatOpen = false;
 
-                   function toggleAdminChat() {
-                       adminChatOpen = !adminChatOpen;
+                   function toggleAdminChat(force) {
+                       adminChatOpen = typeof force === 'boolean' ? force : !adminChatOpen;
                        const panel = document.getElementById('adminChatPanel');
                        if (adminChatOpen) {
                            panel.classList.add('open');

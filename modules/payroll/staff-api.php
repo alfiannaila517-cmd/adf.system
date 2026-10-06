@@ -1162,13 +1162,13 @@ if ($action === 'notifications') {
     // Get notifications from notifications table (both leave + overtime responses)
     $notifs = $db->fetchAll("SELECT id, type, title, message, data, is_read, created_at 
         FROM notifications 
-        WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        ORDER BY created_at DESC LIMIT 20", [$empId]) ?: [];
+        WHERE user_id = ? AND created_at >= CURDATE()
+        ORDER BY created_at DESC LIMIT 30", [$empId]) ?: []; // reset harian: hanya notifikasi hari ini
     // Also get legacy leave notifications if notifications table is empty
     if (empty($notifs)) {
         $legacy = $db->fetchAll("SELECT id, leave_type, start_date, end_date, status, admin_notes, approved_at 
             FROM leave_requests 
-            WHERE employee_id = ? AND status IN ('approved','rejected') AND approved_at IS NOT NULL AND approved_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE employee_id = ? AND status IN ('approved','rejected') AND approved_at IS NOT NULL AND approved_at >= CURDATE()
             ORDER BY approved_at DESC LIMIT 20", [$empId]) ?: [];
         echo json_encode(['success' => true, 'data' => $legacy, 'source' => 'legacy']);
         exit;
@@ -1189,6 +1189,11 @@ if ($action === 'notif_mark_read') {
 }
 
 if ($action === 'chat_list') {
+    // Pengumuman direset bulanan: pesan sebelum bulan ini dihapus.
+    try {
+        $db->query("DELETE FROM staff_chat_messages WHERE created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')");
+    } catch (\Throwable $e) {
+    }
     $rows = $db->fetchAll("SELECT id, message, created_by_name, created_at FROM staff_chat_messages ORDER BY id DESC LIMIT 50") ?: [];
     echo json_encode(['success' => true, 'data' => $rows]);
     exit;

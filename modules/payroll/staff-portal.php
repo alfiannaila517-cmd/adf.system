@@ -3528,106 +3528,137 @@ header('Expires: 0');
 
             <div id="homeMainContent">
 
-            <!-- iPhone Guide -->
-            <div class="install-guide" id="iosGuide" style="display:none;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                    <span style="font-size:20px;">🍎</span>
-                    <div style="font-weight:700;font-size:13px;color:var(--navy);">Install di iPhone / iPad</div>
-                    <button style="margin-left:auto;background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted);" onclick="this.parentElement.parentElement.style.display='none';localStorage.setItem('ios_guide_dismissed','1');">✕</button>
-                </div>
-                <div style="font-size:11px;color:var(--text);line-height:1.6;">
-                    <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
-                        <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">1</span>
-                        <span>Tap tombol <strong style="background:#e5e7eb;padding:1px 6px;border-radius:4px;">⬆️ Share</strong> di bagian bawah Safari</span>
+                <!-- iPhone Guide -->
+                <div class="install-guide" id="iosGuide" style="display:none;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:20px;">🍎</span>
+                        <div style="font-weight:700;font-size:13px;color:var(--navy);">Install di iPhone / iPad</div>
+                        <button style="margin-left:auto;background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted);" onclick="this.parentElement.parentElement.style.display='none';localStorage.setItem('ios_guide_dismissed','1');">✕</button>
                     </div>
-                    <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
-                        <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">2</span>
-                        <span>Scroll ke bawah, pilih <strong style="background:#e5e7eb;padding:1px 6px;border-radius:4px;">➕ Add to Home Screen</strong></span>
+                    <div style="font-size:11px;color:var(--text);line-height:1.6;">
+                        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+                            <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">1</span>
+                            <span>Tap tombol <strong style="background:#e5e7eb;padding:1px 6px;border-radius:4px;">⬆️ Share</strong> di bagian bawah Safari</span>
+                        </div>
+                        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+                            <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">2</span>
+                            <span>Scroll ke bawah, pilih <strong style="background:#e5e7eb;padding:1px 6px;border-radius:4px;">➕ Add to Home Screen</strong></span>
+                        </div>
+                        <div style="display:flex;align-items:flex-start;gap:8px;">
+                            <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">3</span>
+                            <span>Tap <strong style="background:var(--gold);color:var(--navy);padding:1px 6px;border-radius:4px;">Add</strong> — icon akan muncul di home screen</span>
+                        </div>
                     </div>
-                    <div style="display:flex;align-items:flex-start;gap:8px;">
-                        <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">3</span>
-                        <span>Tap <strong style="background:var(--gold);color:var(--navy);padding:1px 6px;border-radius:4px;">Add</strong> — icon akan muncul di home screen</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Target Jam - Donut Chart (berisi juga Status Absen Hari Ini, diringkas jadi satu container) -->
-            <div class="card target-jam-card">
-                <div class="card-title">📊 Target Jam Bulan Ini</div>
-                <div id="monthlySummary">
-                    <div class="loading"><span class="spin"></span> Memuat...</div>
-                </div>
-                <div class="tj-divider"></div>
-                <div class="card-title tj-substatus-title">📋 Status Absen Hari Ini</div>
-                <div id="todayStatus">
-                    <div class="loading"><span class="spin"></span> Memuat...</div>
-                </div>
-            </div>
-
-            <!-- Absen: Face Scan (primary) & Absen Manual (secondary fallback) -->
-            <div class="absen-section-label">⏱️ Absensi Hari Ini</div>
-            <div class="absen-btns-row">
-                <!-- Scan Wajah -->
-                <div class="absen-link" onclick="openFaceScan()">
-                    <div class="al-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M4 17v1.5A1.5 1.5 0 0 0 5.5 20H7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            <path d="M17 20h1.5a1.5 1.5 0 0 0 1.5-1.5V17" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                            <circle cx="9" cy="10" r="1.1" fill="white" />
-                            <circle cx="15" cy="10" r="1.1" fill="white" />
-                            <path d="M9 15c.9.8 2 1.2 3 1.2s2.1-.4 3-1.2" stroke="white" stroke-width="1.6" stroke-linecap="round" />
-                        </svg></div>
-                    <div class="al-title">Face Scan</div>
-                    <div class="al-sub">Absen otomatis</div>
                 </div>
 
-                <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
-                <button type="button" class="absen-link absen-link-manual" onclick="openManualAttendance()">
-                    <div class="al-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M12 2v3"></path>
-                            <path d="M12 19v3"></path>
-                            <path d="M2 12h3"></path>
-                            <path d="M19 12h3"></path>
-                            <circle cx="12" cy="12" r="8"></circle>
-                        </svg>
+                <!-- Target Jam - Donut Chart (berisi juga Status Absen Hari Ini, diringkas jadi satu container) -->
+                <div class="card target-jam-card">
+                    <div class="card-title">📊 Target Jam Bulan Ini</div>
+                    <div id="monthlySummary">
+                        <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
-                    <div class="al-title">Absen Manual</div>
-                    <div class="al-sub">Fallback / GPS</div>
-                </button>
-            </div>
-
-            <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam / Stock -->
-            <div class="card" style="padding:14px 8px;">
-                <div class="qm-grid">
-                    <div class="qm-item" onclick="openStaffSection('lemburSection')">
-                        <div class="qm-icon qm-icon-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5"></path><path d="M9 2h6"></path></svg></div>
-                        <div class="qm-label">Ajukan<br>Lembur</div>
-                    </div>
-                    <div class="qm-item" onclick="openStaffSection('cutiSection')">
-                        <div class="qm-icon qm-icon-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect><path d="M3 9.5h18"></path><path d="M8 2.5v4"></path><path d="M16 2.5v4"></path><path d="M7.5 14l2 2 3-3.5"></path></svg></div>
-                        <div class="qm-label">Ajukan<br>Cuti</div>
-                    </div>
-                    <div class="qm-item" onclick="openStaffSection('teamSchedSection')">
-                        <div class="qm-icon qm-icon-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect><path d="M3 9.5h18"></path><path d="M8 2.5v4"></path><path d="M16 2.5v4"></path><path d="M7.5 14h2"></path><path d="M11.5 14h2"></path><path d="M15.5 14h2"></path><path d="M7.5 17.5h2"></path><path d="M11.5 17.5h2"></path></svg></div>
-                        <div class="qm-label">Jadwal<br>Kerja</div>
-                    </div>
-                    <div class="qm-item" onclick="openStaffSection('monitorSection')">
-                        <div class="qm-icon qm-icon-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"></path><path d="M10 20V4"></path><path d="M16 20v-7"></path><path d="M20 20v-4"></path></svg></div>
-                        <div class="qm-label">Detail<br>Absensi</div>
-                    </div>
-                    <div class="qm-item" onclick="openStaffSection('uniformSection')">
-                        <div class="qm-icon qm-icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5 5 6l1.5 3L9 7.5V20h6V7.5l2.5 1.5L19 6l-3-2.5-2.3 1.4a3 3 0 0 1-3.4 0L8 3.5z"></path></svg></div>
-                        <div class="qm-label">Jadwal<br>Seragam</div>
-                    </div>
-                    <div id="quickMenuStock" class="qm-item" onclick="goToStockPage()" style="display:none;">
-                        <div class="qm-icon qm-icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"></path><path d="M3 8l9 5 9-5"></path><path d="M12 13v8"></path></svg></div>
-                        <div class="qm-label">Stock</div>
+                    <div class="tj-divider"></div>
+                    <div class="card-title tj-substatus-title">📋 Status Absen Hari Ini</div>
+                    <div id="todayStatus">
+                        <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
                 </div>
-            </div>
+
+                <!-- Absen: Face Scan (primary) & Absen Manual (secondary fallback) -->
+                <div class="absen-section-label">⏱️ Absensi Hari Ini</div>
+                <div class="absen-btns-row">
+                    <!-- Scan Wajah -->
+                    <div class="absen-link" onclick="openFaceScan()">
+                        <div class="al-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M4 17v1.5A1.5 1.5 0 0 0 5.5 20H7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M17 20h1.5a1.5 1.5 0 0 0 1.5-1.5V17" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                <circle cx="9" cy="10" r="1.1" fill="white" />
+                                <circle cx="15" cy="10" r="1.1" fill="white" />
+                                <path d="M9 15c.9.8 2 1.2 3 1.2s2.1-.4 3-1.2" stroke="white" stroke-width="1.6" stroke-linecap="round" />
+                            </svg></div>
+                        <div class="al-title">Face Scan</div>
+                        <div class="al-sub">Absen otomatis</div>
+                    </div>
+
+                    <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
+                    <button type="button" class="absen-link absen-link-manual" onclick="openManualAttendance()">
+                        <div class="al-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M12 2v3"></path>
+                                <path d="M12 19v3"></path>
+                                <path d="M2 12h3"></path>
+                                <path d="M19 12h3"></path>
+                                <circle cx="12" cy="12" r="8"></circle>
+                            </svg>
+                        </div>
+                        <div class="al-title">Absen Manual</div>
+                        <div class="al-sub">Fallback / GPS</div>
+                    </button>
+                </div>
+
+                <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam / Stock -->
+                <div class="card" style="padding:14px 8px;">
+                    <div class="qm-grid">
+                        <div class="qm-item" onclick="openStaffSection('lemburSection')">
+                            <div class="qm-icon qm-icon-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="13" r="8"></circle>
+                                    <path d="M12 9v4l2.5 2.5"></path>
+                                    <path d="M9 2h6"></path>
+                                </svg></div>
+                            <div class="qm-label">Ajukan<br>Lembur</div>
+                        </div>
+                        <div class="qm-item" onclick="openStaffSection('cutiSection')">
+                            <div class="qm-icon qm-icon-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect>
+                                    <path d="M3 9.5h18"></path>
+                                    <path d="M8 2.5v4"></path>
+                                    <path d="M16 2.5v4"></path>
+                                    <path d="M7.5 14l2 2 3-3.5"></path>
+                                </svg></div>
+                            <div class="qm-label">Ajukan<br>Cuti</div>
+                        </div>
+                        <div class="qm-item" onclick="openStaffSection('teamSchedSection')">
+                            <div class="qm-icon qm-icon-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect>
+                                    <path d="M3 9.5h18"></path>
+                                    <path d="M8 2.5v4"></path>
+                                    <path d="M16 2.5v4"></path>
+                                    <path d="M7.5 14h2"></path>
+                                    <path d="M11.5 14h2"></path>
+                                    <path d="M15.5 14h2"></path>
+                                    <path d="M7.5 17.5h2"></path>
+                                    <path d="M11.5 17.5h2"></path>
+                                </svg></div>
+                            <div class="qm-label">Jadwal<br>Kerja</div>
+                        </div>
+                        <div class="qm-item" onclick="openStaffSection('monitorSection')">
+                            <div class="qm-icon qm-icon-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 20V10"></path>
+                                    <path d="M10 20V4"></path>
+                                    <path d="M16 20v-7"></path>
+                                    <path d="M20 20v-4"></path>
+                                </svg></div>
+                            <div class="qm-label">Detail<br>Absensi</div>
+                        </div>
+                        <div class="qm-item" onclick="openStaffSection('uniformSection')">
+                            <div class="qm-icon qm-icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M8 3.5 5 6l1.5 3L9 7.5V20h6V7.5l2.5 1.5L19 6l-3-2.5-2.3 1.4a3 3 0 0 1-3.4 0L8 3.5z"></path>
+                                </svg></div>
+                            <div class="qm-label">Jadwal<br>Seragam</div>
+                        </div>
+                        <div id="quickMenuStock" class="qm-item" onclick="goToStockPage()" style="display:none;">
+                            <div class="qm-icon qm-icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"></path>
+                                    <path d="M3 8l9 5 9-5"></path>
+                                    <path d="M12 13v8"></path>
+                                </svg></div>
+                            <div class="qm-label">Stock</div>
+                        </div>
+                    </div>
+                </div>
 
             </div><!-- /homeMainContent -->
 
@@ -6656,7 +6687,7 @@ header('Expires: 0');
                 const notifs = data.data || [];
                 const source = data.source || 'legacy';
                 if (notifs.length === 0) {
-                    document.getElementById('notifList').innerHTML = '<div class="np-empty">🔔 Belum ada notifikasi</div>';
+                    document.getElementById('notifList').innerHTML = '<div class="np-empty">🔔 Belum ada notifikasi hari ini</div>';
                     return;
                 }
                 let html = '';
@@ -6773,6 +6804,7 @@ header('Expires: 0');
         // sama seperti di karimunjawa-explore. Didukung Android/Chrome & iOS Safari 16.4+ (PWA installed).
         window._notifUnread = 0;
         window._chatUnread = 0;
+
         function syncAppIconBadge() {
             if (!('setAppBadge' in navigator)) return;
             const total = (window._notifUnread || 0) + (window._chatUnread || 0);
@@ -7703,9 +7735,13 @@ header('Expires: 0');
             const params = new URLSearchParams(window.location.search);
             const open = params.get('open');
             if (open === 'notif') {
-                setTimeout(() => { if (!notifOpen) toggleNotifs(); }, 600);
+                setTimeout(() => {
+                    if (!notifOpen) toggleNotifs();
+                }, 600);
             } else if (open === 'chat') {
-                setTimeout(() => { if (!chatOpen) toggleChat(); }, 600);
+                setTimeout(() => {
+                    if (!chatOpen) toggleChat();
+                }, 600);
             }
         })();
     </script>

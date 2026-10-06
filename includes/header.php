@@ -2584,6 +2584,16 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             <span id="adminNotifCount" class="np-count">0</span>
                             <button type="button" class="np-close" onclick="toggleAdminNotif(false)" aria-label="Tutup">&times;</button>
                         </div>
+                        <?php
+                        $npRole = strtolower((string)($_SESSION['role'] ?? ''));
+                        $npCanAnnounce = in_array($npRole, ['owner', 'admin', 'developer', 'manager'], true);
+                        if ($npCanAnnounce): ?>
+                            <button type="button" class="np-announce" onclick="openStaffAnnounce()">
+                                <span class="np-announce-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8v18L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span>
+                                <span><b>Kirim pengumuman ke staff</b><small>Pesan tampil di Staff Portal semua karyawan</small></span>
+                                <span class="np-announce-go">›</span>
+                            </button>
+                        <?php endif; ?>
                         <div id="adminNotifList" class="np-list">
                             <div class="np-empty">Memuat…</div>
                         </div>
@@ -2693,6 +2703,37 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             -webkit-text-fill-color: currentColor;
                         }
 
+                        .np-announce {
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            width: calc(100% - 20px);
+                            margin: 8px 10px 2px;
+                            padding: 9px 12px;
+                            border-radius: 12px;
+                            border: 1px solid rgba(37, 99, 235, 0.25);
+                            background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(124, 58, 237, 0.08));
+                            text-align: left;
+                            cursor: pointer;
+                            font-family: inherit;
+                        }
+                        .np-announce:hover { border-color: rgba(37, 99, 235, 0.5); }
+                        .np-announce-ic {
+                            flex-shrink: 0;
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+                            color: #fff;
+                        }
+                        .np-announce-ic svg { width: 16px; height: 16px; stroke: #ffffff !important; }
+                        .np-announce > span:nth-child(2) { flex: 1; min-width: 0; }
+                        body[data-theme] .np-panel .np-announce b { display: block; font-size: 0.78rem !important; color: var(--np-ink, #0f172a) !important; }
+                        body[data-theme] .np-panel .np-announce small { display: block; font-size: 0.66rem !important; color: var(--np-muted, #64748b) !important; }
+                        body[data-theme] .np-panel .np-announce-go { font-size: 1.1rem; color: #2563eb !important; }
                         .np-head {
                             display: flex;
                             align-items: center;
@@ -3310,6 +3351,15 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         const w = Math.min(380, window.innerWidth - 24);
                         panel.style.top = (r.bottom + 10) + 'px';
                         panel.style.left = Math.max(12, Math.min(r.right - w + 40, window.innerWidth - w - 12)) + 'px';
+                    }
+
+                    // Lonceng -> panel pengumuman ke staff (panel ada di footer).
+                    function openStaffAnnounce() {
+                        toggleAdminNotif(false);
+                        if (typeof toggleAdminChat === 'function') {
+                            toggleAdminChat(true);
+                            setTimeout(function() { var t = document.getElementById('adminChatText'); if (t) t.focus(); }, 60);
+                        }
                     }
 
                     function toggleAdminNotif(force) {

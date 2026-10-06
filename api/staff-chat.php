@@ -31,6 +31,8 @@ try {
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_created (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // Pengumuman direset bulanan: hanya pesan bulan berjalan yang disimpan.
+    $db->query("DELETE FROM staff_chat_messages WHERE created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')");
 } catch (Exception $e) {
 }
 
