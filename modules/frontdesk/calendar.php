@@ -4376,7 +4376,7 @@ include '../../includes/header.php';
                 submitBookingPayment.busy = false;
                 if (payNeedsReload) {
                     payNeedsReload = false;
-                    setTimeout(() => location.reload(), 1400);
+                    setTimeout(() => saveScrollAndReload(), 1400);
                 }
             });
     }
@@ -5152,7 +5152,7 @@ include '../../includes/header.php';
                 closeReservationModal();
                 const ciDate = document.getElementById('checkInDate')?.value;
                 if (ciDate) {
-                    sessionStorage.setItem('calendarScrollToDate', ciDate);
+                    sessionStorage.setItem('calendarScrollToDate', ciDate); sessionStorage.setItem('calendarScrollTs', String(Date.now()));
                     location.reload();
                 } else {
                     saveScrollAndReload();
@@ -5345,11 +5345,11 @@ include '../../includes/header.php';
                 const dateCell = scroller ? scroller.querySelector(`.grid-date-cell[data-date="${ciDate}"]`) : null;
                 if (dateCell) {
                     // Date is in current range — save target date and reload
-                    sessionStorage.setItem('calendarScrollToDate', ciDate);
+                    sessionStorage.setItem('calendarScrollToDate', ciDate); sessionStorage.setItem('calendarScrollTs', String(Date.now()));
                     location.reload();
                 } else {
                     // Date is outside range — reload with start= so it's visible
-                    sessionStorage.setItem('calendarScrollToDate', ciDate);
+                    sessionStorage.setItem('calendarScrollToDate', ciDate); sessionStorage.setItem('calendarScrollTs', String(Date.now()));
                     window.location.search = '?start=' + ciDate;
                 }
             } else {
@@ -5677,9 +5677,9 @@ include '../../includes/header.php';
 
     // Save scroll position before reload so we return to same spot
     function saveScrollAndReload() {
-        const scroller = document.getElementById('calendarScroller');
+        const scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
         if (scroller) {
-            sessionStorage.setItem('calendarScrollLeft', scroller.scrollLeft);
+            sessionStorage.setItem('calendarScrollLeft', scroller.scrollLeft); sessionStorage.setItem('calendarScrollTs', String(Date.now()));
         }
         location.reload();
     }
@@ -5874,7 +5874,17 @@ include '../../includes/header.php';
                 // ========================================
                 // AUTO-SCROLL: restore saved position or scroll to today
                 // ========================================
-                setTimeout(() => {
+                // Posisi tersimpan hanya dipakai bila baru saja disimpan (reload setelah aksi). Refresh biasa /
+                // nilai lama yang tertinggal -> selalu kembali ke hari ini di kolom ke-3.
+                try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+                const scrollTs = parseInt(sessionStorage.getItem('calendarScrollTs') || '0', 10);
+                const scrollFresh = scrollTs > 0 && (Date.now() - scrollTs) < 20000;
+                if (!scrollFresh) {
+                    sessionStorage.removeItem('calendarScrollToDate');
+                    sessionStorage.removeItem('calendarScrollLeft');
+                }
+                sessionStorage.removeItem('calendarScrollTs');
+                const applyCalendarScroll = () => {
                     const scrollToDate = sessionStorage.getItem('calendarScrollToDate');
                     const savedScroll = sessionStorage.getItem('calendarScrollLeft');
 
@@ -5896,7 +5906,14 @@ include '../../includes/header.php';
                         scrollCalendarToDate(window.fdLocalYmd(twoDaysAgo), scroller);
                         console.log('✅ Auto-scrolled to today:', todayStr);
                     }
-                }, 100);
+                };
+                // Ingat target sekali, lalu terapkan lagi setelah halaman selesai dimuat (browser bisa
+                // memulihkan posisi scroll lama sesudah skrip ini berjalan).
+                let calTarget = null;
+                setTimeout(() => { applyCalendarScroll(); calTarget = scroller.scrollLeft; }, 60);
+                window.addEventListener('load', () => setTimeout(() => {
+                    if (calTarget !== null && Math.abs(scroller.scrollLeft - calTarget) > 2) scroller.scrollLeft = calTarget;
+                }, 150), { once: true });
             }
         } catch (e) {
             console.error('❌ Error in Drag Scroll setup:', e);
@@ -10179,7 +10196,7 @@ include '../../includes/header.php';
             .then(data => {
                 if (data.success) {
                     editResOk('Reservasi berhasil diperbarui');
-                    setTimeout(() => location.reload(), 1300);
+                    setTimeout(() => saveScrollAndReload(), 1300);
 
                     // ✅ FIX: Refresh data booking di side panel
                     const bookingId = document.getElementById('editResBookingId').value;
