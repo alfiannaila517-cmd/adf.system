@@ -3007,56 +3007,168 @@ include '../../includes/header.php';
         const sumPaid = rows.filter(r => r.paid).reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
         const sumUnpaid = rows.filter(r => !r.paid).reduce((s, r) => s + (parseFloat(r.owner_amount) || 0), 0);
 
-        const rowsHtml = rows.map((d, i) => `
+        printPartnerReport({
+            title: 'Rekap Tagihan Mitra Motor',
+            code: 'MTR',
+            partner: motor.partner_owner || 'Tanpa Pemilik',
+            phone: motor.owner_phone || '',
+            monthVal,
+            monthLabel,
+            colItem: 'Motor',
+            unitLabel: 'rental',
+            rows: rows.map(d => ({
+                date: d.trx_date,
+                item: d.motor_name || '—',
+                sub: d.plate_number || '',
+                guest: d.guest_name || '—',
+                room: d.room_number || '',
+                total: parseFloat(d.total_price) || 0,
+                owner: parseFloat(d.owner_amount) || 0,
+                paid: !!d.paid
+            }))
+        });
+    }
+
+    // Laporan rekap tagihan ke mitra: kop surat resmi (logo & data perusahaan dari Pengaturan).
+    function printPartnerReport(opt) {
+        const M = DRIVER_RECEIPT_META || {};
+        const companyName = M.companyName || (BILL_PDF_META && BILL_PDF_META.companyName) || 'Hotel';
+        const logoUrl = resolveAssetUrl(M.companyLogo || (BILL_PDF_META && BILL_PDF_META.companyLogo) || '');
+        const contact = [M.companyPhone ? 'Telp. ' + M.companyPhone : '', M.companyEmail || '', M.companyWebsite || ''].filter(Boolean).join('  ·  ');
+        const rows = opt.rows || [];
+        const sumTotal = rows.reduce((t, r) => t + r.total, 0);
+        const sumOwner = rows.reduce((t, r) => t + r.owner, 0);
+        const sumPaid = rows.filter(r => r.paid).reduce((t, r) => t + r.owner, 0);
+        const sumUnpaid = sumOwner - sumPaid;
+        const sumHotel = Math.max(0, sumTotal - sumOwner);
+        const ym = String(opt.monthVal || '').replace('-', '');
+        const ini = String(opt.partner || 'X').replace(/^(bp\.?|bpk\.?|bapak|pak|ibu|bu)\s+/i, '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'MTR';
+        const docNo = `${opt.code}/${ym || '-'}/${ini}`;
+        const today = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+        const fmtDate = v => new Date(v).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        const e = escapeHtml;
+
+        const body = rows.map((r, i) => `
             <tr>
-                <td>${i + 1}</td>
-                <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                <td>${d.motor_name || '—'}<br><small>${d.plate_number || ''}</small></td>
-                <td>${d.guest_name || '—'}${d.room_number ? ' (Kamar ' + d.room_number + ')' : ''}</td>
-                <td style="text-align:right;">Rp ${formatNumber(d.total_price)}</td>
-                <td style="text-align:right;">Rp ${formatNumber(d.owner_amount)}</td>
-                <td style="text-align:center;">${d.paid ? '✅ Lunas' : '⏳ Belum'}</td>
+                <td class="c">${i + 1}</td>
+                <td class="nw">${fmtDate(r.date)}</td>
+                <td><b>${e(r.item)}</b>${r.sub ? `<small>${e(r.sub)}</small>` : ''}</td>
+                <td>${e(r.guest)}${r.room ? `<small>Kamar ${e(r.room)}</small>` : ''}</td>
+                <td class="r">${formatNumber(r.total)}</td>
+                <td class="r b">${formatNumber(r.owner)}</td>
+                <td class="c"><span class="st ${r.paid ? 'ok' : 'due'}">${r.paid ? 'Dibayar' : 'Belum'}</span></td>
             </tr>`).join('');
 
-        const pw = window.open('', '_blank', 'width=900,height=700');
-        pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-            <title>Rekap Motor Mitra - ${motor.partner_owner || 'Tanpa Pemilik'}</title>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 24px; color: #1a2540; }
-                h1 { font-size: 18px; margin-bottom: 2px; }
-                .sub { color: #6b7690; font-size: 12px; margin-bottom: 16px; }
-                .summary { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-                .summary div { border: 1px solid #e2e6ee; border-radius: 6px; padding: 8px 14px; font-size: 12px; }
-                .summary b { display: block; font-size: 15px; }
-                table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-                th, td { border: 1px solid #d8dee8; padding: 5px 6px; }
-                th { background: #f3f5fb; text-align: left; }
-                small { color: #6b7690; }
-                .footer { margin-top: 28px; display: flex; justify-content: space-between; font-size: 12px; }
-                .footer div { text-align: center; width: 200px; }
-                .footer .line { margin-top: 48px; border-top: 1px solid #333; padding-top: 4px; }
-                @media print { .no-print { display: none; } }
-            </style></head><body>
-            <button class="no-print" onclick="window.print()" style="float:right;padding:6px 14px;">🖨️ Cetak</button>
-            <h1>Rekap Tagihan Motor Mitra</h1>
-            <div class="sub">${motor.partner_owner || 'Tanpa Pemilik'}${motor.owner_phone ? ' · ' + motor.owner_phone : ''} &mdash; Periode ${monthLabel}</div>
-            <div class="summary">
-                <div><b>${rows.length}</b>Total Rental</div>
-                <div><b>Rp ${formatNumber(sumRevenue)}</b>Total Revenue</div>
-                <div><b>Rp ${formatNumber(sumOwner)}</b>Bagian Mitra</div>
-                <div><b>Rp ${formatNumber(sumPaid)}</b>Sudah Dibayar</div>
-                <div><b>Rp ${formatNumber(sumUnpaid)}</b>Belum Dibayar</div>
-            </div>
-            <table>
-                <thead><tr><th>#</th><th>Tanggal</th><th>Motor</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Bagian Mitra</th><th style="text-align:center;">Status</th></tr></thead>
-                <tbody>${rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#999;">Tidak ada rental bulan ini</td></tr>'}</tbody>
-            </table>
-            <div class="footer">
-                <div>Mitra<div class="line">${motor.partner_owner || ''}</div></div>
-                <div>Hotel<div class="line">Frontdesk</div></div>
-            </div></body></html>`);
-        pw.document.close();
-        pw.focus();
+        const html = `<!DOCTYPE html><html lang="id"><head><meta charset="utf-8">
+<title>${e(opt.title)} - ${e(opt.partner)} - ${e(opt.monthLabel)}</title>
+<style>
+    @page { size: A4; margin: 14mm 14mm 16mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; font-size: 11.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { max-width: 820px; margin: 0 auto; padding: 22px 26px 30px; }
+    .kop { display: flex; align-items: center; gap: 16px; padding-bottom: 12px; border-bottom: 3px double #1e3a8a; }
+    .kop img, .kop .lf { width: 64px; height: 64px; object-fit: contain; flex-shrink: 0; }
+    .kop .lf { display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #1e3a8a; color: #fff; font-weight: 800; font-size: 20px; }
+    .kop .id { flex: 1; text-align: center; }
+    .kop .nm { font-size: 20px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #1e3a8a; }
+    .kop .tg { font-size: 11px; font-style: italic; color: #475569; margin-top: 1px; }
+    .kop .ad { font-size: 10.5px; color: #475569; margin-top: 3px; line-height: 1.45; }
+    .kop .sp { width: 64px; flex-shrink: 0; }
+    .doc { text-align: center; margin: 16px 0 14px; }
+    .doc h1 { margin: 0; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; }
+    .doc .no { margin-top: 3px; font-size: 10.5px; color: #64748b; }
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin-bottom: 14px; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+    .meta div { display: flex; gap: 8px; }
+    .meta span { width: 92px; color: #64748b; flex-shrink: 0; }
+    .meta b { font-weight: 700; }
+    .sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+    .sum div { padding: 8px 12px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .sum small { display: block; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+    .sum b { display: block; margin-top: 2px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+    .sum .due { background: #fff7ed; border-color: #fed7aa; }
+    .sum .due b { color: #c2410c; }
+    .sum .ok b { color: #047857; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: #1e3a8a; color: #fff; font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; padding: 7px 8px; text-align: left; }
+    tbody td { padding: 7px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    tbody tr:nth-child(even) td { background: #f8fafc; }
+    td small { display: block; color: #64748b; font-size: 10px; margin-top: 1px; }
+    .r { text-align: right; font-variant-numeric: tabular-nums; }
+    .c { text-align: center; }
+    .nw { white-space: nowrap; }
+    .b { font-weight: 700; }
+    tfoot td { padding: 8px; font-weight: 800; border-top: 2px solid #1e3a8a; }
+    .st { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 9.5px; font-weight: 700; }
+    .st.ok { background: #dcfce7; color: #15803d; }
+    .st.due { background: #ffedd5; color: #c2410c; }
+    .note { margin-top: 12px; padding: 9px 12px; border-left: 3px solid #1e3a8a; background: #f8fafc; font-size: 10.5px; color: #334155; line-height: 1.5; }
+    .sign { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-top: 26px; text-align: center; }
+    .sign .t { font-size: 10.5px; color: #475569; }
+    .sign .l { margin-top: 58px; padding-top: 4px; border-top: 1px solid #0f172a; font-weight: 700; }
+    .sign .s { font-size: 9.5px; color: #64748b; }
+    .foot { margin-top: 20px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
+    .tool { position: fixed; top: 12px; right: 12px; }
+    .tool button { padding: 8px 16px; border: 0; border-radius: 8px; background: #1e3a8a; color: #fff; font-weight: 700; cursor: pointer; }
+    @media print { .tool { display: none; } .page { padding: 0; } }
+</style></head><body>
+<div class="tool"><button onclick="window.print()">Cetak / Simpan PDF</button></div>
+<div class="page">
+    <div class="kop">
+        ${logoUrl ? `<img src="${e(logoUrl)}" alt="Logo">` : `<div class="lf">${e(companyName.slice(0, 2).toUpperCase())}</div>`}
+        <div class="id">
+            <div class="nm">${e(companyName)}</div>
+            ${M.companyTagline ? `<div class="tg">${e(M.companyTagline)}</div>` : ''}
+            <div class="ad">${M.companyAddress ? e(M.companyAddress) + '<br>' : ''}${e(contact)}</div>
+        </div>
+        <div class="sp"></div>
+    </div>
+
+    <div class="doc">
+        <h1>${e(opt.title)}</h1>
+        <div class="no">No. ${e(docNo)}</div>
+    </div>
+
+    <div class="meta">
+        <div><span>Kepada</span><b>${e(opt.partner)}</b></div>
+        <div><span>Periode</span><b>${e(opt.monthLabel || '-')}</b></div>
+        <div><span>Telepon</span><b>${e(opt.phone || '-')}</b></div>
+        <div><span>Tanggal cetak</span><b>${today}</b></div>
+    </div>
+
+    <div class="sum">
+        <div><small>Jumlah ${e(opt.unitLabel)}</small><b>${rows.length}</b></div>
+        <div><small>Total tarif tamu</small><b>Rp ${formatNumber(sumTotal)}</b></div>
+        <div class="ok"><small>Sudah dibayar</small><b>Rp ${formatNumber(sumPaid)}</b></div>
+        <div class="due"><small>Sisa dibayar ke mitra</small><b>Rp ${formatNumber(sumUnpaid)}</b></div>
+    </div>
+
+    <table>
+        <thead><tr><th class="c" style="width:28px">No</th><th style="width:84px">Tanggal</th><th>${e(opt.colItem)}</th><th>Tamu</th><th class="r" style="width:96px">Tarif Tamu</th><th class="r" style="width:104px">Bagian Mitra</th><th class="c" style="width:70px">Status</th></tr></thead>
+        <tbody>${body || `<tr><td colspan="7" class="c" style="color:#94a3b8;padding:18px">Tidak ada ${e(opt.unitLabel)} pada periode ini</td></tr>`}</tbody>
+        <tfoot><tr><td colspan="4">Total</td><td class="r">Rp ${formatNumber(sumTotal)}</td><td class="r">Rp ${formatNumber(sumOwner)}</td><td></td></tr></tfoot>
+    </table>
+
+    <div class="note">
+        Bagian mitra: <b>Rp ${formatNumber(sumOwner)}</b> · komisi hotel: <b>Rp ${formatNumber(sumHotel)}</b>.
+        Sudah dibayar <b>Rp ${formatNumber(sumPaid)}</b>, sisa yang akan dibayarkan kepada mitra <b>Rp ${formatNumber(sumUnpaid)}</b>.
+        Mohon diperiksa; bila ada perbedaan data harap menghubungi Front Office.
+    </div>
+
+    <div class="sign">
+        <div><div class="t">Mitra,</div><div class="l">${e(opt.partner)}</div><div class="s">Penerima</div></div>
+        <div><div class="t">Dibuat oleh,</div><div class="l">${e(CURRENT_STAFF_NAME || 'Front Office')}</div><div class="s">Front Office</div></div>
+        <div><div class="t">Disetujui oleh,</div><div class="l">&nbsp;</div><div class="s">Manager</div></div>
+    </div>
+
+    <div class="foot"><span>${e(companyName)} · ${e(docNo)}</span><span>Dicetak ${new Date().toLocaleString('id-ID')}</span></div>
+</div>
+</body></html>`;
+
+        const w = window.open('', '_blank', 'width=920,height=760');
+        if (!w) { alert('Izinkan pop-up untuk mencetak laporan.'); return; }
+        w.document.write(html);
+        w.document.close();
+        w.focus();
     }
 
     function editMotorRentalAmount(rentalId, totalPrice, ownerAmount, mitraName) {
@@ -3228,67 +3340,26 @@ include '../../includes/header.php';
         const sumPaid = rows.filter(r => r.paid).reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
         const sumUnpaid = rows.filter(r => !r.paid).reduce((sum, r) => sum + (parseFloat(r.owner_amount) || 0), 0);
 
-        const rowsHtml = rows.map((d, i) => `
-            <tr>
-                <td>${i + 1}</td>
-                <td>${new Date(d.trx_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                <td>${typeLabel[d.service_type] || d.service_type}<br><small>${d.label || ''}</small></td>
-                <td>${d.guest_name || '—'}${d.room_number ? ' (Kamar ' + d.room_number + ')' : ''}</td>
-                <td style="text-align:right;">Rp ${formatNumber(d.total_price)}</td>
-                <td style="text-align:right;">Rp ${formatNumber(d.owner_amount)}</td>
-                <td style="text-align:center;">${d.paid ? 'Lunas' : 'Belum'}</td>
-            </tr>`).join('');
-
-        const printWindow = window.open('', '_blank', 'width=900,height=700');
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <title>Rekap Trip - ${dr.partner_owner || 'Tanpa Pemilik'}</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 24px; color: #1a2540; }
-                    h1 { font-size: 18px; margin-bottom: 2px; }
-                    .sub { color: #6b7690; font-size: 12px; margin-bottom: 16px; }
-                    .summary { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-                    .summary div { border: 1px solid #e2e6ee; border-radius: 6px; padding: 8px 14px; font-size: 12px; }
-                    .summary b { display: block; font-size: 15px; }
-                    table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-                    th, td { border: 1px solid #d8dee8; padding: 5px 6px; }
-                    th { background: #f3f5fb; text-align: left; }
-                    small { color: #6b7690; }
-                    .footer { margin-top: 28px; display: flex; justify-content: space-between; font-size: 12px; }
-                    .footer div { text-align: center; width: 200px; }
-                    .footer .line { margin-top: 48px; border-top: 1px solid #333; padding-top: 4px; }
-                    @media print { .no-print { display: none; } }
-                </style>
-            </head>
-            <body>
-                <button class="no-print" onclick="window.print()" style="float:right;padding:6px 14px;">Cetak</button>
-                <h1>${isTripTab ? 'Rekap Tagihan Trip (Guide)' : 'Rekap Trip Driver / Mitra'}</h1>
-                <div class="sub">${dr.partner_owner || 'Tanpa Pemilik'}${dr.owner_phone ? ' · ' + dr.owner_phone : ''} &mdash; Periode ${monthLabel}</div>
-                <div class="summary">
-                    <div><b>${rows.length}</b>Total Trip</div>
-                    <div><b>Rp ${formatNumber(sumRevenue)}</b>Total Revenue</div>
-                    <div><b>Rp ${formatNumber(sumOwner)}</b>Bagian Pemilik</div>
-                    <div><b>Rp ${formatNumber(sumPaid)}</b>Sudah Dibayar</div>
-                    <div><b>Rp ${formatNumber(sumUnpaid)}</b>Belum Dibayar</div>
-                </div>
-                <table>
-                    <thead>
-                        <tr><th>#</th><th>Tanggal</th><th>Jenis</th><th>Tamu</th><th style="text-align:right;">Total</th><th style="text-align:right;">Bagian Pemilik</th><th style="text-align:center;">Status</th></tr>
-                    </thead>
-                    <tbody>${rowsHtml || '<tr><td colspan="7" style="text-align:center;color:#999;">Tidak ada trip bulan ini</td></tr>'}</tbody>
-                </table>
-                <div class="footer">
-                    <div>Driver / Mitra<div class="line">${dr.partner_owner || ''}</div></div>
-                    <div>Hotel<div class="line">Frontdesk</div></div>
-                </div>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
+        printPartnerReport({
+            title: isTripTab ? 'Rekap Tagihan Guide Trip' : 'Rekap Tagihan Mitra Transport',
+            code: isTripTab ? 'TRP' : 'DRV',
+            partner: dr.partner_owner || 'Tanpa Pemilik',
+            phone: dr.owner_phone || '',
+            monthVal,
+            monthLabel,
+            colItem: 'Layanan',
+            unitLabel: isTripTab ? 'trip' : 'transaksi',
+            rows: rows.map(d => ({
+                date: d.trx_date,
+                item: typeLabel[d.service_type] || String(d.service_type || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                sub: d.label && d.label !== typeLabel[d.service_type] ? d.label : '',
+                guest: d.guest_name || '—',
+                room: d.room_number || '',
+                total: parseFloat(d.total_price) || 0,
+                owner: parseFloat(d.owner_amount) || 0,
+                paid: !!d.paid
+            }))
+        });
     }
 
     function escapeHtml(value) {
