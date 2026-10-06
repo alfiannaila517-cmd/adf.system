@@ -474,6 +474,8 @@ try {
         error_log('Push notification error (check-out): ' . $pushErr->getMessage());
     }
 
+    $hkCheckoutBooking = $booking;
+
     echo json_encode([
         'success' => true,
         'message' => "Check-out berhasil! {$booking['guest_name']} - Room {$booking['room_number']}" . $cashbookMsg,
@@ -499,3 +501,14 @@ try {
 
 // Flush output buffer
 ob_end_flush();
+
+// ═══ HOUSEKEEPING: notifikasi Staff Portal + push "kamar perlu dibersihkan" (setelah respons terkirim) ═══
+if (!empty($hkCheckoutBooking)) {
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    } elseif (function_exists('litespeed_finish_request')) {
+        litespeed_finish_request();
+    }
+    require_once dirname(__DIR__) . '/includes/HkNotifyHelper.php';
+    hkNotifyGuestMovement($db, 'checkout', $hkCheckoutBooking);
+}

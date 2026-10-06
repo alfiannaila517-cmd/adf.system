@@ -496,4 +496,7 @@ if (!empty($waCheckinBooking)) {
     } catch (\Throwable $waErr) {
         error_log('WA check-in: ' . $waErr->getMessage());
     }
+    // Notifikasi Staff Portal + push ke staf Housekeeping.
+    require_once dirname(__DIR__) . '/includes/HkNotifyHelper.php';
+    hkNotifyGuestMovement($db, 'checkin', $waCheckinBooking);
 }

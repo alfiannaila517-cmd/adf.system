@@ -2908,6 +2908,31 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         body[data-theme] .np-panel .np-decide textarea { background-color: var(--np-bg) !important; color: var(--np-ink) !important; }
                         body[data-theme] .np-panel .np-done.ok { color: #059669 !important; }
                         body[data-theme] .np-panel .np-done.no { color: #b91c1c !important; }
+
+                        /* Versi ringkas: satu baris per pengajuan agar daftar panjang tetap rapi */
+                        .np-panel { width: 360px; }
+                        .np-head { padding: 11px 14px 10px; }
+                        .np-head b { font-size: 0.86rem; }
+                        .np-list { padding: 6px; }
+                        .np-item { padding: 8px 10px; margin-bottom: 4px; border-radius: 10px; }
+                        .np-item:hover { border-color: #bfdbfe; }
+                        .np-item-top { gap: 9px; }
+                        .np-av { width: 28px; height: 28px; font-size: 0.66rem; }
+                        .np-who b { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; }
+                        .np-who b .np-tag { padding: 1px 6px; font-size: 0.54rem; }
+                        .np-who small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.66rem; margin-top: 1px; }
+                        .np-item-top > .np-actions { display: flex; gap: 4px; margin: 0; flex-shrink: 0; }
+                        .np-ic { width: 28px; height: 28px; border-radius: 8px; border: 1px solid transparent; display: grid; place-items: center; font-size: 0.8rem; font-weight: 800; cursor: pointer; }
+                        body[data-theme] .np-panel .np-ic.ok { background: #059669; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+                        body[data-theme] .np-panel .np-ic.ok:hover { background: #047857; }
+                        body[data-theme] .np-panel .np-ic.no { background: transparent; border-color: rgba(220, 38, 38, 0.35); color: #b91c1c !important; }
+                        body[data-theme] .np-panel .np-ic.no:hover { background: rgba(220, 38, 38, 0.08); }
+                        body[data-theme="dark"] .np-panel .np-ic.no { color: #fca5a5 !important; }
+                        .np-decide { display: flex; gap: 6px; margin: 8px 0 0 37px; }
+                        .np-decide input { flex: 1; min-width: 0; height: 30px; padding: 0 9px; border-radius: 8px; border: 1px solid var(--np-line); font: inherit; font-size: 0.72rem; }
+                        body[data-theme] .np-panel .np-decide input { background-color: var(--np-bg) !important; color: var(--np-ink) !important; }
+                        .np-decide .np-btn { height: 30px; padding: 0 10px; font-size: 0.7rem; }
+                        .np-item-top .np-done { flex-shrink: 0; padding: 0; font-size: 0.7rem; }
                     </style>
 
                     <?php if (!empty($adfsubState['sync_error']) && $adfsubRole === 'developer'): ?>
@@ -3202,16 +3227,18 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
                     function npItem(kind, id, name, tag, tagClass, line, reason) {
                         const initials = String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+                        const sub = line + (reason ? ' · ' + reason : '');
                         return `<div class="np-item" id="notif-${kind}-${id}">
                             <div class="np-item-top">
                                 <span class="np-av">${npEsc(initials)}</span>
-                                <span class="np-who"><b>${npEsc(name)}</b><small>${npEsc(line)}</small></span>
-                                <span class="np-tag ${tagClass}">${npEsc(tag)}</span>
-                            </div>
-                            ${reason ? `<div class="np-reason">${npEsc(reason)}</div>` : ''}
-                            <div class="np-actions">
-                                <button type="button" class="np-btn ok" onclick="npDecide('${kind}', ${id}, 'approve')">Setujui</button>
-                                <button type="button" class="np-btn no" onclick="npDecide('${kind}', ${id}, 'reject')">Tolak</button>
+                                <span class="np-who">
+                                    <b>${npEsc(name)} <span class="np-tag ${tagClass}">${npEsc(tag)}</span></b>
+                                    <small title="${npEsc(sub)}">${npEsc(sub)}</small>
+                                </span>
+                                <span class="np-actions">
+                                    <button type="button" class="np-ic ok" title="Setujui" aria-label="Setujui" onclick="npDecide('${kind}', ${id}, 'approve')">✓</button>
+                                    <button type="button" class="np-ic no" title="Tolak" aria-label="Tolak" onclick="npDecide('${kind}', ${id}, 'reject')">✕</button>
+                                </span>
                             </div>
                         </div>`;
                     }
@@ -3253,18 +3280,18 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         const isOk = action === 'approve';
                         const box = document.createElement('div');
                         box.className = 'np-decide';
-                        box.innerHTML = `<textarea placeholder="${isOk ? 'Catatan (opsional)' : 'Alasan penolakan (opsional)'}"></textarea>
-                            <div class="np-actions">
-                                <button type="button" class="np-btn ghost">Batal</button>
-                                <button type="button" class="np-btn ${isOk ? 'ok' : 'no'}">${isOk ? 'Konfirmasi setujui' : 'Konfirmasi tolak'}</button>
-                            </div>`;
+                        box.innerHTML = `<input type="text" placeholder="${isOk ? 'Catatan (opsional)' : 'Alasan penolakan (opsional)'}">
+                            <button type="button" class="np-btn ghost">Batal</button>
+                            <button type="button" class="np-btn ${isOk ? 'ok' : 'no'}">${isOk ? 'Setujui' : 'Tolak'}</button>`;
                         item.querySelector('.np-actions').style.display = 'none';
                         item.appendChild(box);
-                        box.querySelector('textarea').focus();
+                        const inp = box.querySelector('input');
+                        inp.focus();
+                        inp.addEventListener('keydown', e => { if (e.key === 'Enter') box.querySelector('.np-btn:not(.ghost)').click(); });
                         box.querySelector('.ghost').onclick = () => { box.remove(); item.querySelector('.np-actions').style.display = ''; };
                         box.querySelector('.np-btn:not(.ghost)').onclick = function() {
                             this.disabled = true;
-                            approveReject(kind === 'ot' ? 'overtime' : 'leave', action, id, box.querySelector('textarea').value);
+                            approveReject(kind === 'ot' ? 'overtime' : 'leave', action, id, inp.value);
                         };
                     }
 
@@ -3288,8 +3315,8 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             if (!data.success) throw new Error(data.message || 'Gagal memproses');
                             if (el) {
                                 const ok = action === 'approve';
-                                el.querySelectorAll('.np-actions, .np-decide, .np-reason').forEach(x => x.remove());
-                                el.insertAdjacentHTML('beforeend', '<div class="np-done ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓ Disetujui' : '✕ Ditolak') + '</div>');
+                                el.querySelectorAll('.np-actions, .np-decide').forEach(x => x.remove());
+                                el.querySelector('.np-item-top').insertAdjacentHTML('beforeend', '<span class="np-done ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓ Disetujui' : '✕ Ditolak') + '</span>');
                                 setTimeout(() => { el.remove(); checkAdminNotifs(); if (!document.querySelector('.np-item')) loadAdminNotifs(); }, 1400);
                             }
                         } catch (e) {
