@@ -2,7 +2,8 @@
 
 /**
  * FRONT DESK - LAPORAN HARIAN
- * Laporan occupancy, in-house, check-in/out hari ini, dan breakfast orders
+ * Occupancy, tamu in-house, check-in/out hari ini & besok, dan order sarapan.
+ * PDF (laporan-pdf.php) memakai data yang sama (laporan-data.php) dan bisa langsung dibagikan ke WhatsApp.
  */
 
 define('APP_ACCESS', true);
@@ -24,1203 +25,755 @@ if (!$auth->hasPermission('frontdesk')) {
 }
 
 $pageTitle = 'Laporan Harian';
-$today = date('Y-m-d');
-$todayDisplay = date('l, d F Y');
+require __DIR__ . '/laporan-data.php';
 
-// Get company info
-$company = getCompanyInfo();
+$logoUrl = $company['invoice_logo'] ?? $company['logo'] ?? null;
+$pdfName = 'Laporan-Harian-' . preg_replace('/[^A-Za-z0-9]+/', '-', (string)$company['name']) . '-' . $today . '.pdf';
 
-// ============================================
-// DATA COLLECTION
-// ============================================
+// Ringkasan untuk pesan WhatsApp (menyertai file PDF).
+$waText = "*LAPORAN HARIAN — " . date('d M Y') . "*\n"
+    . $company['name'] . "\n\n"
+    . "Occupancy: {$occupancyRate}% ({$occupiedRooms}/{$totalRooms} kamar)\n"
+    . "In house: " . count($inHouseGuests) . " tamu\n"
+    . "Check-in hari ini: " . count($checkInToday) . "\n"
+    . "Check-out hari ini: " . count($checkOutToday) . "\n"
+    . "Kedatangan besok: " . count($arrivalTomorrow) . "\n"
+    . ($breakfastOrders ? "Sarapan: " . count($breakfastOrders) . " order · {$breakfastPax} pax\n" : '')
+    . "\nDetail lengkap di file PDF terlampir.";
 
-try {
-    // 1. OCCUPANCY STATS
-    $totalRoomsQuery = "SELECT COUNT(*) as total FROM rooms WHERE status != 'maintenance'";
-    $totalRooms = $db->fetchOne($totalRoomsQuery)['total'];
-
-    $occupiedRoomsQuery = "SELECT COUNT(DISTINCT room_id) as occupied 
-                           FROM bookings 
-                           WHERE status = 'checked_in'";
-    $occupiedRooms = $db->fetchOne($occupiedRoomsQuery)['occupied'];
-
-    $occupancyRate = $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100, 1) : 0;
-
-    // 2. IN-HOUSE GUESTS
-    $inHouseQuery = "SELECT 
-            b.id as booking_id,
-            b.booking_code,
-            g.guest_name,
-            r.room_number,
-            b.check_in_date,
-            b.check_out_date,
-            b.payment_status
-        FROM bookings b
-        INNER JOIN guests g ON b.guest_id = g.id
-        INNER JOIN rooms r ON b.room_id = r.id
-        WHERE b.status = 'checked_in'
-        ORDER BY r.room_number ASC";
-    $inHouseGuests = $db->fetchAll($inHouseQuery);
-
-    // 3. CHECK-IN TODAY - Only guests with check-in date TODAY but NOT YET checked in (status = confirmed)
-    $checkInTodayQuery = "SELECT 
-            b.booking_code,
-            g.guest_name,
-            r.room_number,
-            b.check_in_date,
-            b.check_out_date,
-            b.actual_checkin_time
-        FROM bookings b
-        INNER JOIN guests g ON b.guest_id = g.id
-        INNER JOIN rooms r ON b.room_id = r.id
-        WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'pending')
-        ORDER BY b.check_in_date ASC";
-    $checkInToday = $db->fetchAll($checkInTodayQuery, [$today]);
-
-    // 4. CHECK-OUT TODAY - Only guests with status checked_in and checkout date is today
-    $checkOutTodayQuery = "SELECT 
-            b.booking_code,
-            g.guest_name,
-            r.room_number,
-            b.check_in_date,
-            b.check_out_date
-        FROM bookings b
-        INNER JOIN guests g ON b.guest_id = g.id
-        INNER JOIN rooms r ON b.room_id = r.id
-        WHERE b.check_out_date = ? AND b.status = 'checked_in'
-        ORDER BY r.room_number ASC";
-    $checkOutToday = $db->fetchAll($checkOutTodayQuery, [$today]);
-
-    // 5. TOMORROW DATE
-    $tomorrow = date('Y-m-d', strtotime('+1 day'));
-
-    // 6. CHECK-OUT TOMORROW
-    $checkOutTomorrowQuery = "SELECT 
-            b.booking_code,
-            g.guest_name,
-            g.phone,
-            r.room_number,
-            b.check_in_date,
-            b.check_out_date
-        FROM bookings b
-        INNER JOIN guests g ON b.guest_id = g.id
-        INNER JOIN rooms r ON b.room_id = r.id
-        WHERE b.check_out_date = ? AND b.status = 'checked_in'
-        ORDER BY r.room_number ASC";
-    $checkOutTomorrow = $db->fetchAll($checkOutTomorrowQuery, [$tomorrow]);
-
-    // 7. ARRIVAL TOMORROW (All reservations)
-    $arrivalTomorrowQuery = "SELECT 
-            b.booking_code,
-            g.guest_name,
-            g.phone,
-            r.room_number,
-            b.check_in_date,
-            b.check_out_date,
-            b.guest_count
-        FROM bookings b
-        INNER JOIN guests g ON b.guest_id = g.id
-        INNER JOIN rooms r ON b.room_id = r.id
-        WHERE b.check_in_date = ? AND b.status IN ('confirmed', 'pending')
-        ORDER BY r.room_number ASC";
-    $arrivalTomorrow = $db->fetchAll($arrivalTomorrowQuery, [$tomorrow]);
-
-    // 8. BREAKFAST ORDERS TODAY — direct DB query (same logic as breakfast.php sidebar)
-    $breakfastOrders = [];
-    try {
-        $bfQuery = "SELECT bo.* FROM breakfast_orders bo
-            WHERE bo.breakfast_date = ?
-            AND bo.id = (
-                SELECT MAX(bo2.id) FROM breakfast_orders bo2
-                WHERE bo2.guest_name = bo.guest_name
-                  AND bo2.breakfast_date = bo.breakfast_date
-                  AND bo2.room_number = bo.room_number
-            )
-            ORDER BY bo.breakfast_time ASC, bo.id ASC";
-        $breakfastOrders = $db->fetchAll($bfQuery, [$today]);
-        foreach ($breakfastOrders as &$bfOrder) {
-            $bfOrder['menu_items'] = json_decode($bfOrder['menu_items'], true) ?: [];
-            $decodedRoom = json_decode($bfOrder['room_number'], true);
-            if (is_array($decodedRoom)) {
-                $bfOrder['room_number'] = implode(', ', $decodedRoom);
-            }
-        }
-        unset($bfOrder);
-    } catch (Exception $e) {
-    }
-
-    // Rekap total pesanan per menu (untuk kitchen prep)
-    $menuRecap = [];
-    foreach ($breakfastOrders as $order) {
-        foreach ($order['menu_items'] as $item) {
-            $menuName = trim($item['menu_name'] ?? '');
-            if ($menuName === '') continue;
-            $qty = (int)($item['quantity'] ?? 1);
-            if (!isset($menuRecap[$menuName])) $menuRecap[$menuName] = 0;
-            $menuRecap[$menuName] += $qty;
-        }
-    }
-    arsort($menuRecap);
-} catch (Exception $e) {
-    error_log("Laporan Error: " . $e->getMessage());
-    $error = $e->getMessage();
-}
+$fmtD = static fn($v) => $v ? date('d M', strtotime($v)) : '-';
 
 include '../../includes/header.php';
 ?>
 
 <style>
-    /* ===== LAPORAN HARIAN - ELEGANT COMPACT ===== */
-    .laporan-container {
-        max-width: 100%;
+    /* Selector + .main-content .rp-wrap: menang atas aturan font global header (:is(td, th, button, ...)) */
+    body[data-theme] .main-content .rp-wrap {
+        max-width: 1400px;
         margin: 0 auto;
-        padding: 1rem 0.5rem;
+        padding-bottom: 1.5rem;
     }
 
-    .action-buttons {
-        display: flex;
-        gap: 0.5rem;
-        justify-content: flex-end;
-        margin-bottom: 1rem;
-    }
-
-    .action-buttons .btn {
-        padding: 0.45rem 1.1rem;
-        border: none;
-        border-radius: 8px;
-        font-weight: 700;
-        font-size: 0.8rem;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        transition: all 0.2s;
-        color: #fff;
-        letter-spacing: 0.3px;
-    }
-
-    .action-buttons .btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-    }
-
-    .btn-pdf {
-        background: #4f46e5;
-        color: #fff;
-    }
-
-    .btn-pdf:hover {
-        background: #4338ca;
-    }
-
-    .btn-print {
-        background: #475569;
-        color: #fff;
-    }
-
-    .btn-print:hover {
-        background: #334155;
-    }
-
-    .btn-wa {
-        background: #22c55e;
-        color: #fff;
-    }
-
-    .btn-wa:hover {
-        background: #16a34a;
-    }
-
-    .report-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 0.6rem;
-        border-bottom: 2px solid #4f46e5;
-        margin-bottom: 1rem;
-        gap: 0.75rem;
-    }
-
-    [data-theme="dark"] .report-header {
-        border-bottom-color: #6366f1;
-    }
-
-    .report-header-left {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .report-logo {
-        width: 48px;
-        height: 48px;
-        border-radius: 10px;
-        object-fit: contain;
-        flex-shrink: 0;
-    }
-
-    .report-logo-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 10px;
-        background: #eef2ff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        flex-shrink: 0;
-    }
-
-    [data-theme="dark"] .report-logo-icon {
-        background: #312e81;
-    }
-
-    .report-header-left .hotel-name {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin: 0;
-    }
-
-    [data-theme="dark"] .report-header-left .hotel-name {
-        color: #e2e8f0;
-    }
-
-    .report-header-left .hotel-detail {
-        font-size: 0.65rem;
-        color: #64748b;
-        line-height: 1.4;
-        margin-top: 2px;
-    }
-
-    .report-header-right {
-        text-align: right;
-        flex-shrink: 0;
-    }
-
-    .report-header-right .report-title {
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #4f46e5;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        margin: 0;
-    }
-
-    [data-theme="dark"] .report-header-right .report-title {
-        color: #818cf8;
-    }
-
-    .report-header-right .report-date {
-        font-size: 0.7rem;
-        color: #64748b;
-        margin-top: 2px;
-    }
-
-    .report-stamp {
-        text-align: center;
-        margin-top: 1.25rem;
-        padding-top: 0.75rem;
-        border-top: 1px dashed #e2e8f0;
-    }
-
-    [data-theme="dark"] .report-stamp {
-        border-top-color: #334155;
-    }
-
-    .report-stamp .stamp-line {
-        font-size: 0.6rem;
-        color: #94a3b8;
-        line-height: 1.6;
-    }
-
-    .report-stamp .stamp-system {
-        font-weight: 600;
-        color: #4f46e5;
-        font-size: 0.6rem;
-        letter-spacing: 0.5px;
-    }
-
-    [data-theme="dark"] .report-stamp .stamp-system {
-        color: #818cf8;
-    }
-
-    .stats-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.6rem;
-        margin-bottom: 1.25rem;
-    }
-
-    .stat-item {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 0.75rem 0.5rem;
-        text-align: center;
-        transition: all 0.2s;
-    }
-
-    .stat-item:hover {
-        border-color: #c7d2fe;
-        background: #eef2ff;
-    }
-
-    [data-theme="dark"] .stat-item {
-        background: #1e293b;
-        border-color: #334155;
-    }
-
-    [data-theme="dark"] .stat-item:hover {
-        border-color: #4f46e5;
-        background: #1e1b4b;
-    }
-
-    .stat-item .stat-val {
-        font-size: 1.5rem;
-        font-weight: 800;
-        color: #4f46e5;
-        line-height: 1;
-    }
-
-    [data-theme="dark"] .stat-item .stat-val {
-        color: #818cf8;
-    }
-
-    .stat-item .stat-lbl {
-        font-size: 0.6rem;
-        color: #94a3b8;
-        font-weight: 500;
-        margin-top: 0.2rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .rpt-section {
+    body[data-theme] .main-content .rp-wrap .rp-card {
+        border-radius: 14px;
+        background: var(--fd-card);
+        border: 1px solid var(--fd-edge);
+        box-shadow: var(--fd-shadow);
+        padding: 0.85rem 1rem;
         margin-bottom: 0.75rem;
     }
 
-    .rpt-section-head {
+    /* Toolbar */
+    body[data-theme] .main-content .rp-wrap .rp-toolbar {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.4rem 0;
-        border-bottom: 1px solid #e2e8f0;
-        margin-bottom: 0.35rem;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
     }
 
-    [data-theme="dark"] .rpt-section-head {
-        border-bottom-color: #475569;
-    }
-
-    .rpt-section-head .sec-title {
-        font-size: 0.8rem;
-        font-weight: 700;
-        color: #1e293b;
+    body[data-theme] .main-content .rp-wrap .rp-toolbar h1 {
         margin: 0;
+        font-size: 0.95rem !important;
+        font-weight: 700;
+        color: var(--fd-text) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-toolbar h1 small {
+        display: block;
+        font-size: 0.68rem !important;
+        font-weight: 500;
+        color: var(--fd-muted) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-actions {
         display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-btn {
+        display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-    }
-
-    [data-theme="dark"] .rpt-section-head .sec-title {
-        color: #e2e8f0;
-    }
-
-    .rpt-section-head .sec-count {
-        font-size: 0.65rem;
+        height: 32px;
+        padding: 0 0.85rem;
+        border-radius: 9px;
+        border: 1px solid transparent;
+        font-size: 0.72rem !important;
         font-weight: 600;
-        color: #4f46e5;
-        background: #eef2ff;
-        padding: 0.15rem 0.5rem;
+        text-decoration: none;
+        cursor: pointer;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2));
+        box-shadow: 0 4px 10px -4px rgba(29, 78, 216, 0.5);
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-btn.ghost {
+        background: var(--fd-tile);
+        border-color: var(--fd-line);
+        box-shadow: none;
+        color: var(--fd-text) !important;
+        -webkit-text-fill-color: var(--fd-text) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-btn.wa {
+        background: linear-gradient(135deg, #059669, #10b981);
+        box-shadow: 0 4px 10px -4px rgba(5, 150, 105, 0.55);
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-btn:disabled {
+        opacity: 0.6;
+        cursor: wait;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-btn svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
+    /* Kop + statistik */
+    body[data-theme] .main-content .rp-wrap .rp-kop {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding-bottom: 0.75rem;
+        margin-bottom: 0.75rem;
+        border-bottom: 2px solid var(--fd-accent);
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-kop img,
+    body[data-theme] .main-content .rp-wrap .rp-kop .rp-kop-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: #fff;
+        box-shadow: 0 0 0 1px var(--fd-line);
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-kop-icon {
+        display: grid;
+        place-items: center;
+        font-size: 1.4rem;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-kop b {
+        display: block;
+        font-size: 0.95rem;
+        color: var(--fd-text) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-kop small {
+        display: block;
+        font-size: 0.66rem !important;
+        color: var(--fd-muted) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-kop .rp-kop-title {
+        margin-left: auto;
+        text-align: right;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-kop .rp-kop-title b {
+        font-size: 0.8rem;
+        letter-spacing: 0.12em;
+        color: var(--fd-accent-text) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-stats {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-stat {
+        padding: 0.2rem 0.85rem;
+        border-left: 1px solid var(--fd-line);
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-stat:first-child {
+        border-left: 0;
+        padding-left: 0;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-stat b {
+        display: block;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--fd-text) !important;
+        font-variant-numeric: tabular-nums;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-stat span {
+        font-size: 0.56rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fd-muted) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-stat.accent b {
+        color: var(--fd-accent-text) !important;
+    }
+
+    /* Bagian & tabel */
+    body[data-theme] .main-content .rp-wrap .rp-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-grid .rp-card {
+        margin-bottom: 0;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-row-gap {
+        margin-bottom: 0.75rem;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-sec-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.55rem;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-sec-head h3 {
+        margin: 0;
+        font-size: 0.8rem !important;
+        font-weight: 700;
+        color: var(--fd-text) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-count {
+        min-width: 22px;
+        padding: 0.05rem 0.5rem;
+        border-radius: 999px;
+        background: var(--fd-accent-soft);
+        color: var(--fd-accent-text) !important;
+        font-size: 0.64rem;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-table-wrap {
+        overflow-x: auto;
         border-radius: 10px;
+        border: 1px solid var(--fd-line);
     }
 
-    [data-theme="dark"] .rpt-section-head .sec-count {
-        background: #312e81;
-        color: #a5b4fc;
-    }
-
-    .rpt-table {
+    body[data-theme] .main-content .rp-wrap table.rp-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.78rem;
     }
 
-    .rpt-table th {
-        background: #f8fafc;
-        padding: 0.35rem 0.5rem;
-        text-align: left;
-        font-weight: 600;
-        font-size: 0.68rem;
-        color: #64748b;
-        border-bottom: 1px solid #e2e8f0;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-    }
-
-    [data-theme="dark"] .rpt-table th {
-        background: #1e293b;
-        color: #94a3b8;
-        border-bottom-color: #334155;
-    }
-
-    .rpt-table td {
-        padding: 0.35rem 0.5rem;
-        border-bottom: 1px solid #f1f5f9;
-        color: #334155;
-        font-size: 0.78rem;
-    }
-
-    [data-theme="dark"] .rpt-table td {
-        border-bottom-color: #1e293b;
-        color: #cbd5e1;
-    }
-
-    .rpt-table tbody tr:hover {
-        background: #f8fafc;
-    }
-
-    [data-theme="dark"] .rpt-table tbody tr:hover {
-        background: #1e293b;
-    }
-
-    .room-tag {
-        display: inline-block;
-        background: #4f46e5;
+    body[data-theme] .main-content .rp-wrap .rp-table th {
+        padding: 0.5rem 0.65rem;
+        background: var(--fd-accent) !important;
         color: #fff !important;
-        padding: 0.1rem 0.4rem;
-        border-radius: 4px;
-        font-weight: 600;
-        font-size: 0.7rem;
-        min-width: 28px;
-        text-align: center;
-    }
-
-    [data-theme="dark"] .room-tag {
-        background: #6366f1;
-    }
-
-    .pay-badge {
-        display: inline-block;
-        padding: 0.1rem 0.35rem;
-        border-radius: 3px;
-        font-size: 0.62rem;
-        font-weight: 600;
+        -webkit-text-fill-color: #fff;
+        font-size: 0.56rem !important;
+        font-weight: 700;
+        letter-spacing: 0.07em;
         text-transform: uppercase;
-        letter-spacing: 0.3px;
+        text-align: left;
+        white-space: nowrap;
     }
 
-    .pay-paid {
-        background: #dcfce7;
-        color: #166534;
+    body[data-theme] .main-content .rp-wrap .rp-table td {
+        padding: 0.45rem 0.65rem;
+        border-top: 1px solid var(--fd-line);
+        font-size: 0.74rem !important;
+        color: var(--fd-text-2) !important;
+        vertical-align: middle;
     }
 
-    .pay-unpaid {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    .pay-partial {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    [data-theme="dark"] .pay-paid {
-        background: rgba(22, 163, 74, 0.2);
-        color: #4ade80;
-    }
-
-    [data-theme="dark"] .pay-unpaid {
-        background: rgba(239, 68, 68, 0.2);
-        color: #fca5a5;
-    }
-
-    [data-theme="dark"] .pay-partial {
-        background: rgba(245, 158, 11, 0.2);
-        color: #fcd34d;
-    }
-
-    .loc-tag {
-        display: inline-block;
-        padding: 0.1rem 0.35rem;
-        border-radius: 3px;
-        font-size: 0.62rem;
-        font-weight: 500;
-    }
-
-    .loc-restaurant {
-        background: #ede9fe;
-        color: #5b21b6;
-    }
-
-    .loc-room_service {
-        background: #e0e7ff;
-        color: #3730a3;
-    }
-
-    .loc-take_away {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    [data-theme="dark"] .loc-restaurant {
-        background: rgba(139, 92, 246, 0.2);
-        color: #a78bfa;
-    }
-
-    [data-theme="dark"] .loc-room_service {
-        background: rgba(99, 102, 241, 0.2);
-        color: #818cf8;
-    }
-
-    [data-theme="dark"] .loc-take_away {
-        background: rgba(245, 158, 11, 0.2);
-        color: #fcd34d;
-    }
-
-    .menu-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        font-size: 0.72rem;
-    }
-
-    .menu-list li {
-        padding: 1px 0;
-    }
-
-    .menu-list .qty {
+    body[data-theme] .main-content .rp-wrap .rp-table td.name {
+        color: var(--fd-text) !important;
         font-weight: 600;
-        color: #4f46e5;
-        margin-right: 3px;
     }
 
-    [data-theme="dark"] .menu-list .qty {
-        color: #818cf8;
+    body[data-theme] .main-content .rp-wrap .rp-table td small {
+        display: block;
+        font-size: 0.64rem !important;
+        font-weight: 500;
+        color: var(--fd-muted) !important;
     }
 
-    .empty-msg {
+    body[data-theme] .main-content .rp-wrap .rp-table tbody tr:hover td {
+        background: var(--fd-accent-soft);
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-room {
+        display: inline-block;
+        min-width: 38px;
+        padding: 0.12rem 0.45rem;
+        border-radius: 7px;
+        background: linear-gradient(135deg, var(--fd-accent), var(--fd-accent-2));
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 0.68rem;
+        font-weight: 700;
         text-align: center;
-        padding: 1rem;
-        color: #94a3b8;
-        font-size: 0.78rem;
-        font-style: italic;
     }
 
-    /* Breakfast card layout - 2 column grid */
-    .bf-cards {
+    body[data-theme] .main-content .rp-wrap .rp-pay {
+        display: inline-block;
+        padding: 0.1rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.6rem;
+        font-weight: 700;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-pay.paid { background: rgba(5, 150, 105, 0.12); color: #047857 !important; }
+    body[data-theme] .main-content .rp-wrap .rp-pay.partial { background: rgba(217, 119, 6, 0.14); color: #b45309 !important; }
+    body[data-theme] .main-content .rp-wrap .rp-pay.unpaid { background: rgba(220, 38, 38, 0.1); color: #b91c1c !important; }
+    body[data-theme="dark"] .main-content .rp-wrap .rp-pay.paid { color: #6ee7b7 !important; }
+    body[data-theme="dark"] .main-content .rp-wrap .rp-pay.partial { color: #fbbf24 !important; }
+    body[data-theme="dark"] .main-content .rp-wrap .rp-pay.unpaid { color: #fca5a5 !important; }
+
+    body[data-theme] .main-content .rp-wrap .rp-empty {
+        padding: 0.85rem;
+        border-radius: 10px;
+        border: 1px dashed var(--fd-input-border);
+        text-align: center;
+        font-size: 0.72rem;
+        color: var(--fd-muted) !important;
+    }
+
+    /* Sarapan */
+    body[data-theme] .main-content .rp-wrap .rp-recap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-bottom: 0.7rem;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-recap span {
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(217, 119, 6, 0.1);
+        border: 1px solid rgba(217, 119, 6, 0.25);
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: var(--fd-text) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-recap span b {
+        margin-left: 0.25rem;
+        color: #b45309 !important;
+    }
+
+    body[data-theme="dark"] .main-content .rp-wrap .rp-recap span b { color: #fbbf24 !important; }
+
+    body[data-theme] .main-content .rp-wrap .rp-bf-grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 0.55rem;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-bf {
+        padding: 0.6rem 0.7rem;
+        border-radius: 11px;
+        background: var(--fd-tile);
+        border: 1px solid var(--fd-line);
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-bf-top {
+        display: flex;
+        align-items: center;
         gap: 0.5rem;
     }
 
-    .bf-card {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 0.55rem 0.7rem;
-        position: relative;
-        transition: all 0.2s;
-    }
-
-    .bf-card:hover {
-        border-color: #c7d2fe;
-        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
-    }
-
-    [data-theme="dark"] .bf-card {
-        background: #1e293b;
-        border-color: #334155;
-    }
-
-    [data-theme="dark"] .bf-card:hover {
-        border-color: #4f46e5;
-        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
-    }
-
-    .bf-card-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.25rem;
-        gap: 0.4rem;
-    }
-
-    .bf-card-guest {
-        font-weight: 700;
-        font-size: 0.78rem;
-        color: #1e293b;
-        white-space: nowrap;
+    body[data-theme] .main-content .rp-wrap .rp-bf-top b {
+        flex: 1;
+        min-width: 0;
         overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    [data-theme="dark"] .bf-card-guest {
-        color: #e2e8f0;
-    }
-
-    .bf-card-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.3rem 0.5rem;
-        align-items: center;
-        font-size: 0.68rem;
-        color: #64748b;
-        margin-bottom: 0.2rem;
-    }
-
-    [data-theme="dark"] .bf-card-meta {
-        color: #94a3b8;
-    }
-
-    .bf-card-menus {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.2rem;
-    }
-
-    .bf-card-menus .bf-menu-tag {
-        background: #eef2ff;
-        color: #4338ca;
-        padding: 0.08rem 0.35rem;
-        border-radius: 4px;
-        font-size: 0.65rem;
-        font-weight: 500;
         white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 0.76rem;
+        color: var(--fd-text) !important;
     }
 
-    [data-theme="dark"] .bf-card-menus .bf-menu-tag {
-        background: #312e81;
-        color: #a5b4fc;
+    body[data-theme] .main-content .rp-wrap .rp-bf-meta {
+        margin: 0.3rem 0 0.4rem;
+        font-size: 0.64rem;
+        color: var(--fd-muted) !important;
     }
 
-    .bf-card-actions {
+    body[data-theme] .main-content .rp-wrap .rp-bf-items {
         display: flex;
-        gap: 0.3rem;
-        margin-top: 0.3rem;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-bf-items span {
+        padding: 0.1rem 0.45rem;
+        border-radius: 6px;
+        background: var(--fd-accent-soft);
+        font-size: 0.64rem;
+        color: var(--fd-text-2) !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-bf-note {
+        margin-top: 0.35rem;
+        font-size: 0.64rem;
+        color: #b45309 !important;
+    }
+
+    body[data-theme] .main-content .rp-wrap .rp-bf-actions {
+        display: flex;
         justify-content: flex-end;
+        gap: 0.3rem;
+        margin-top: 0.45rem;
     }
 
-    .bf-card-actions .bf-edit,
-    .bf-card-actions .bf-del {
-        border: none;
-        padding: 0.15rem 0.45rem;
-        border-radius: 4px;
-        font-size: 0.62rem;
+    body[data-theme] .main-content .rp-wrap .rp-mini {
+        height: 24px;
+        padding: 0 0.6rem;
+        border-radius: 7px;
+        border: 1px solid rgba(37, 99, 235, 0.3);
+        background: var(--fd-accent-soft);
+        color: var(--fd-accent-text) !important;
+        -webkit-text-fill-color: var(--fd-accent-text) !important;
+        font-size: 0.64rem !important;
+        font-weight: 600;
         cursor: pointer;
-        font-weight: 500;
-        transition: all 0.15s;
     }
 
-    .bf-card-actions .bf-edit {
-        background: #e0e7ff;
-        color: #3730a3;
+    body[data-theme] .main-content .rp-wrap .rp-mini.del {
+        border-color: rgba(220, 38, 38, 0.3);
+        background: rgba(220, 38, 38, 0.08);
+        color: #b91c1c !important;
+        -webkit-text-fill-color: #b91c1c !important;
     }
 
-    .bf-card-actions .bf-edit:hover {
-        background: #c7d2fe;
+    body[data-theme="dark"] .main-content .rp-wrap .rp-mini.del {
+        color: #fca5a5 !important;
+        -webkit-text-fill-color: #fca5a5 !important;
     }
 
-    .bf-card-actions .bf-del {
-        background: #fee2e2;
-        color: #991b1b;
+    body[data-theme="dark"] .main-content .rp-wrap .rp-bf-note {
+        color: #fbbf24 !important;
     }
 
-    .bf-card-actions .bf-del:hover {
-        background: #fecaca;
+    body[data-theme] .main-content .rp-wrap .rp-stamp {
+        margin-top: 0.25rem;
+        text-align: center;
+        font-size: 0.64rem;
+        color: var(--fd-muted) !important;
     }
 
-    [data-theme="dark"] .bf-card-actions .bf-edit {
-        background: rgba(99, 102, 241, 0.2);
-        color: #a5b4fc;
+    /* Toast */
+    .rp-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        z-index: 10070;
+        max-width: calc(100% - 32px);
+        padding: 0.65rem 1rem;
+        border-radius: 12px;
+        background: #0f172a;
+        color: #fff;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.55);
+        transform: translate(-50%, 20px);
+        opacity: 0;
+        transition: opacity 0.2s, transform 0.2s;
+        pointer-events: none;
     }
 
-    [data-theme="dark"] .bf-card-actions .bf-del {
-        background: rgba(239, 68, 68, 0.2);
-        color: #fca5a5;
+    .rp-toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
     }
 
-    @media (max-width: 640px) {
-        .bf-cards {
+    @media (max-width: 900px) {
+        body[data-theme] .main-content .rp-wrap .rp-grid {
             grid-template-columns: 1fr;
         }
-    }
 
-    .print-footer {
-        display: none;
-    }
-
-    @media print {
-        body * {
-            visibility: hidden;
+        body[data-theme] .main-content .rp-wrap .rp-stats {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            row-gap: 0.6rem;
         }
 
-        .laporan-container,
-        .laporan-container * {
-            visibility: visible;
+        body[data-theme] .main-content .rp-wrap .rp-stat:nth-child(4) {
+            border-left: 0;
+            padding-left: 0;
         }
 
-        .laporan-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            max-width: 100%;
-            padding: 12mm 15mm;
-        }
-
-        .action-buttons {
-            display: none !important;
-        }
-
-        .bf-act {
-            display: none !important;
-        }
-
-        .bf-card-actions {
-            display: none !important;
-        }
-
-        .bf-cards {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .stat-item {
-            background: #f8fafc !important;
-            border: 1px solid #d1d5db !important;
-        }
-
-        .rpt-table th {
-            background: #f3f4f6 !important;
-        }
-
-        .room-tag {
-            background: #4f46e5 !important;
-            color: #fff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        .pay-badge,
-        .loc-tag {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        .report-logo {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        .report-stamp {
-            border-top: 1px dashed #d1d5db !important;
-        }
-
-        .report-stamp .stamp-system {
-            color: #4f46e5 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-
-        .rpt-section {
-            page-break-inside: avoid;
-        }
-
-        .print-footer {
-            display: block;
-            position: fixed;
-            bottom: 8mm;
-            right: 12mm;
-            font-size: 7pt;
-            color: #999;
-            text-align: right;
-        }
-
-        .print-footer .sys {
-            font-weight: 600;
-            color: #4f46e5;
-        }
-    }
-
-    @media (max-width: 640px) {
-        .laporan-container {
-            padding: 0.5rem;
-        }
-
-        .stats-row {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .report-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.5rem;
-        }
-
-        .report-header-right {
-            text-align: left;
-        }
-
-        .rpt-table {
-            font-size: 0.72rem;
-        }
-
-        .action-buttons {
-            flex-wrap: wrap;
+        body[data-theme] .main-content .rp-wrap .rp-kop .rp-kop-title {
+            display: none;
         }
     }
 </style>
 
-<div class="laporan-container">
-    <!-- Action Buttons -->
-    <div class="action-buttons">
-        <button class="btn btn-pdf" onclick="exportToPDF()">📄 Export PDF</button>
-        <button class="btn btn-print" onclick="window.print()">🖨️ Print</button>
-        <button class="btn btn-wa" onclick="shareToWhatsApp()">📱 WhatsApp</button>
+<?php
+/** Tabel bagian: $cols = [judul => fungsi isi sel(row)] */
+$rpTable = static function (array $rows, array $cols, string $empty): void {
+    if (!$rows) {
+        echo '<div class="rp-empty">' . htmlspecialchars($empty) . '</div>';
+        return;
+    }
+    echo '<div class="rp-table-wrap"><table class="rp-table"><thead><tr>';
+    foreach (array_keys($cols) as $label) echo '<th>' . htmlspecialchars($label) . '</th>';
+    echo '</tr></thead><tbody>';
+    foreach ($rows as $r) {
+        echo '<tr>';
+        foreach ($cols as $fn) echo $fn($r);
+        echo '</tr>';
+    }
+    echo '</tbody></table></div>';
+};
+$h = static fn($v) => htmlspecialchars((string)$v);
+$cRoom = static fn($r) => '<td><span class="rp-room">' . htmlspecialchars((string)$r['room_number']) . '</span></td>';
+$cName = static fn($r) => '<td class="name">' . htmlspecialchars((string)$r['guest_name']) . '</td>';
+$cCode = static fn($r) => '<td>' . htmlspecialchars((string)$r['booking_code']) . '</td>';
+$cIn = static fn($r) => '<td>' . $fmtD($r['check_in_date']) . '</td>';
+$cOut = static fn($r) => '<td>' . $fmtD($r['check_out_date']) . '</td>';
+$cPhone = static fn($r) => '<td>' . htmlspecialchars((string)($r['phone'] ?: '-')) . '</td>';
+$section = static function (string $title, array $rows, array $cols, string $empty) use ($rpTable): void {
+    echo '<div class="rp-card"><div class="rp-sec-head"><h3>' . htmlspecialchars($title) . '</h3><span class="rp-count">' . count($rows) . '</span></div>';
+    $rpTable($rows, $cols, $empty);
+    echo '</div>';
+};
+?>
+
+<div class="rp-wrap">
+    <!-- Toolbar -->
+    <div class="rp-toolbar">
+        <h1>Laporan Harian <small><?php echo $h($todayDisplay); ?></small></h1>
+        <div class="rp-actions">
+            <a class="rp-btn ghost" href="laporan-pdf.php" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v8H6z" /></svg>
+                Lihat & Cetak
+            </a>
+            <a class="rp-btn" href="laporan-pdf.php?download=1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+                Unduh PDF
+            </a>
+            <button type="button" class="rp-btn wa" id="rpShareWa">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.1 4.9 4.3 2.4.9 2.9.8 3.4.7.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3zM12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 4.9L2 22l5.3-1.4c1.4.8 3 1.2 4.7 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2z" /></svg>
+                <span>Kirim PDF ke WhatsApp</span>
+            </button>
+        </div>
     </div>
 
-    <!-- Report Header -->
-    <div class="report-header">
-        <div class="report-header-left">
-            <?php
-            $logoUrl = $company['invoice_logo'] ?? $company['logo'] ?? null;
-            if ($logoUrl): ?>
-                <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="Logo" class="report-logo">
+    <!-- Kop & ringkasan -->
+    <div class="rp-card">
+        <div class="rp-kop">
+            <?php if ($logoUrl): ?>
+                <img src="<?php echo $h($logoUrl); ?>" alt="Logo">
             <?php else: ?>
-                <div class="report-logo-icon"><?php echo $company['icon']; ?></div>
+                <span class="rp-kop-icon"><?php echo $company['icon']; ?></span>
             <?php endif; ?>
             <div>
-                <div class="hotel-name"><?php echo htmlspecialchars($company['name']); ?></div>
-                <div class="hotel-detail">
-                    <?php if ($company['address']): echo htmlspecialchars($company['address']);
-                    endif; ?>
-                    <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
-                        <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
-                </div>
+                <b><?php echo $h($company['name']); ?></b>
+                <small><?php echo $h(implode(' · ', array_filter([$company['address'], $company['phone'], $company['email']]))); ?></small>
+            </div>
+            <div class="rp-kop-title">
+                <b>LAPORAN HARIAN</b>
+                <small><?php echo $h($todayDisplay); ?></small>
             </div>
         </div>
-        <div class="report-header-right">
-            <div class="report-title">Laporan Harian</div>
-            <div class="report-date"><?php echo $todayDisplay; ?></div>
+        <div class="rp-stats">
+            <div class="rp-stat accent"><b><?php echo $occupancyRate; ?>%</b><span>Occupancy · <?php echo $occupiedRooms . '/' . $totalRooms; ?></span></div>
+            <div class="rp-stat"><b><?php echo count($inHouseGuests); ?></b><span>In house</span></div>
+            <div class="rp-stat"><b><?php echo count($checkInToday); ?></b><span>Check-in hari ini</span></div>
+            <div class="rp-stat"><b><?php echo count($checkOutToday); ?></b><span>Check-out hari ini</span></div>
+            <div class="rp-stat"><b><?php echo count($arrivalTomorrow); ?></b><span>Tiba besok</span></div>
+            <div class="rp-stat"><b><?php echo $breakfastPax; ?></b><span>Pax sarapan</span></div>
         </div>
     </div>
 
-    <!-- Stats -->
-    <div class="stats-row">
-        <div class="stat-item">
-            <div class="stat-val"><?php echo $occupancyRate; ?>%</div>
-            <div class="stat-lbl">Occupancy</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-val"><?php echo count($inHouseGuests); ?></div>
-            <div class="stat-lbl">In House</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-val"><?php echo count($checkInToday); ?></div>
-            <div class="stat-lbl">Check-in</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-val"><?php echo count($checkOutToday); ?></div>
-            <div class="stat-lbl">Check-out</div>
-        </div>
+    <?php
+    $section('Tamu In-House', $inHouseGuests, [
+        'Kamar'  => $cRoom,
+        'Tamu'   => static fn($r) => '<td class="name">' . htmlspecialchars((string)$r['guest_name']) . ($r['type_name'] ? '<small>' . htmlspecialchars((string)$r['type_name']) . '</small>' : '') . '</td>',
+        'Kode'   => $cCode,
+        'Masuk'  => $cIn,
+        'Keluar' => $cOut,
+        'Bayar'  => static fn($r) => '<td><span class="rp-pay ' . $r['pay_state'] . '">' . $payStateLabel[$r['pay_state']] . '</span>' . ($r['balance'] > 0 ? '<small>Sisa Rp ' . number_format($r['balance'], 0, ',', '.') . '</small>' : '') . '</td>',
+    ], 'Tidak ada tamu in-house');
+    ?>
+
+    <div class="rp-grid rp-row-gap">
+        <?php
+        $section('Check-in Hari Ini', $checkInToday, ['Kamar' => $cRoom, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Keluar' => $cOut], 'Tidak ada kedatangan hari ini');
+        $section('Check-out Hari Ini', $checkOutToday, ['Kamar' => $cRoom, 'Tamu' => $cName, 'Kode' => $cCode, 'Masuk' => $cIn], 'Tidak ada check-out hari ini');
+        ?>
+    </div>
+    <div class="rp-grid rp-row-gap">
+        <?php
+        $section('Check-out Besok', $checkOutTomorrow, ['Kamar' => $cRoom, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Masuk' => $cIn], 'Tidak ada check-out besok');
+        $section('Kedatangan Besok', $arrivalTomorrow, ['Kamar' => $cRoom, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Pax' => static fn($r) => '<td>' . (int)($r['guest_count'] ?: 1) . '</td>', 'Keluar' => $cOut], 'Tidak ada kedatangan besok');
+        ?>
     </div>
 
-    <!-- In-House Guests -->
-    <?php if (count($inHouseGuests) > 0): ?>
-        <div class="rpt-section">
-            <div class="rpt-section-head">
-                <h3 class="sec-title">👥 In-House Guests</h3>
-                <span class="sec-count"><?php echo count($inHouseGuests); ?></span>
-            </div>
-            <table class="rpt-table">
-                <thead>
-                    <tr>
-                        <th>Room</th>
-                        <th>Guest</th>
-                        <th>Code</th>
-                        <th>In</th>
-                        <th>Out</th>
-                        <th>Payment</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($inHouseGuests as $g): ?>
-                        <tr>
-                            <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                            <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                            <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
-                            <td><span class="pay-badge pay-<?php echo $g['payment_status']; ?>"><?php echo strtoupper($g['payment_status']); ?></span></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+    <!-- Sarapan -->
+    <div class="rp-card">
+        <div class="rp-sec-head">
+            <h3>Order Sarapan</h3>
+            <span class="rp-count" id="rpBfCount"><?php echo count($breakfastOrders); ?></span>
         </div>
-    <?php endif; ?>
-
-    <!-- Check-in Today -->
-    <?php if (count($checkInToday) > 0): ?>
-        <div class="rpt-section">
-            <div class="rpt-section-head">
-                <h3 class="sec-title">📥 Check-in Today</h3>
-                <span class="sec-count"><?php echo count($checkInToday); ?></span>
-            </div>
-            <table class="rpt-table">
-                <thead>
-                    <tr>
-                        <th>Room</th>
-                        <th>Guest</th>
-                        <th>Code</th>
-                        <th>Out</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($checkInToday as $g): ?>
-                        <tr>
-                            <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                            <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                            <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
-                        </tr>
+        <?php if (!$breakfastOrders): ?>
+            <div class="rp-empty">Belum ada order sarapan hari ini</div>
+        <?php else: ?>
+            <?php if ($menuRecap): ?>
+                <div class="rp-recap">
+                    <?php foreach ($menuRecap as $menuName => $qty): ?>
+                        <span><?php echo $h($menuName); ?><b>×<?php echo (int)$qty; ?></b></span>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-
-    <!-- Check-out Today -->
-    <?php if (count($checkOutToday) > 0): ?>
-        <div class="rpt-section">
-            <div class="rpt-section-head">
-                <h3 class="sec-title">📤 Check-out Today</h3>
-                <span class="sec-count"><?php echo count($checkOutToday); ?></span>
-            </div>
-            <table class="rpt-table">
-                <thead>
-                    <tr>
-                        <th>Room</th>
-                        <th>Guest</th>
-                        <th>Code</th>
-                        <th>In</th>
-                        <th>Out</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($checkOutToday as $g): ?>
-                        <tr>
-                            <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                            <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                            <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-
-    <!-- Check-out Tomorrow -->
-    <?php if (count($checkOutTomorrow) > 0): ?>
-        <div class="rpt-section">
-            <div class="rpt-section-head">
-                <h3 class="sec-title">📤 Check-out Tomorrow</h3>
-                <span class="sec-count"><?php echo count($checkOutTomorrow); ?></span>
-            </div>
-            <table class="rpt-table">
-                <thead>
-                    <tr>
-                        <th>Room</th>
-                        <th>Guest</th>
-                        <th>Code</th>
-                        <th>In</th>
-                        <th>Out</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($checkOutTomorrow as $g): ?>
-                        <tr>
-                            <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                            <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                            <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-
-    <!-- Arrival Tomorrow -->
-    <?php if (count($arrivalTomorrow) > 0): ?>
-        <div class="rpt-section">
-            <div class="rpt-section-head">
-                <h3 class="sec-title">✈️ Arrival Tomorrow</h3>
-                <span class="sec-count"><?php echo count($arrivalTomorrow); ?></span>
-            </div>
-            <table class="rpt-table">
-                <thead>
-                    <tr>
-                        <th>Room</th>
-                        <th>Guest</th>
-                        <th>Phone</th>
-                        <th>Code</th>
-                        <th>Pax</th>
-                        <th>In</th>
-                        <th>Out</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($arrivalTomorrow as $g): ?>
-                        <tr>
-                            <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                            <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                            <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
-                            <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
-                            <td><?php echo $g['guest_count'] ?: '1'; ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
-                            <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-
-    <!-- Breakfast Orders -->
-    <?php if (count($breakfastOrders) > 0): ?>
-        <div class="rpt-section" style="margin-top: 1rem; border-top: 2px solid #1e293b; padding-top: 0.75rem;">
-            <div class="rpt-section-head">
-                <h3 class="sec-title">🍳 Breakfast Orders</h3>
-                <span class="sec-count"><?php echo count($breakfastOrders); ?></span>
-            </div>
-
-            <?php if (!empty($menuRecap)): ?>
-                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:.6rem .85rem;margin-bottom:.85rem;">
-                    <div style="font-size:.75rem;font-weight:700;color:#92400e;margin-bottom:.4rem;">📋 Rekap Total per Menu (untuk kitchen)</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
-                        <?php foreach ($menuRecap as $menuName => $qty): ?>
-                            <span style="background:#fff;border:1px solid #fde68a;border-radius:6px;padding:.25rem .6rem;font-size:.72rem;font-weight:600;color:#374151;">
-                                <?php echo htmlspecialchars($menuName); ?>
-                                <strong style="color:#d97706;margin-left:.25rem;">×<?php echo $qty; ?></strong>
-                            </span>
-                        <?php endforeach; ?>
-                    </div>
                 </div>
             <?php endif; ?>
-
-            <div class="bf-cards">
+            <div class="rp-bf-grid">
                 <?php foreach ($breakfastOrders as $order): ?>
-                    <div class="bf-card" id="bf-row-<?php echo $order['id']; ?>">
-                        <div class="bf-card-top">
-                            <span class="bf-card-guest"><?php echo htmlspecialchars($order['guest_name']); ?></span>
-                            <span class="room-tag"><?php echo htmlspecialchars($order['room_number'] ?: '-'); ?></span>
+                    <div class="rp-bf" id="bf-row-<?php echo (int)$order['id']; ?>">
+                        <div class="rp-bf-top">
+                            <span class="rp-room"><?php echo $h($order['room_number'] ?: '-'); ?></span>
+                            <b title="<?php echo $h($order['guest_name']); ?>"><?php echo $h($order['guest_name']); ?></b>
                         </div>
-                        <div class="bf-card-meta">
-                            <span>🕐 <?php echo $order['breakfast_time'] ? date('H:i', strtotime($order['breakfast_time'])) : '-'; ?></span>
-                            <span>👤 <?php echo $order['total_pax']; ?> pax</span>
-                            <span class="loc-tag loc-<?php echo $order['location']; ?>"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></span>
+                        <div class="rp-bf-meta">
+                            <?php echo $order['breakfast_time'] ? date('H:i', strtotime($order['breakfast_time'])) : '-'; ?>
+                            · <?php echo (int)$order['total_pax']; ?> pax · <?php echo $h($bfLocationLabel($order['location'] ?? '')); ?>
                         </div>
-                        <div class="bf-card-menus">
+                        <div class="rp-bf-items">
                             <?php foreach ($order['menu_items'] as $item): ?>
-                                <span class="bf-menu-tag">
-                                    x<?php echo $item['quantity']; ?> <?php echo htmlspecialchars($item['menu_name']); ?>
-                                    <?php if (!empty($item['is_custom'])): ?><span style="font-size:.55rem;color:#f59e0b;font-weight:700"> (Manual)</span><?php endif; ?>
-                                    <?php if (empty($item['is_free']) && (float)($item['price'] ?? 0) > 0): ?>
-                                        <span style="font-size:.6rem;color:#10b981;font-weight:600;margin-left:2px">Rp <?php echo number_format((float)$item['price'] * (int)($item['quantity'] ?? 1), 0, ',', '.'); ?></span>
-                                    <?php endif; ?>
-                                </span>
+                                <span><?php echo (int)($item['quantity'] ?? 1); ?>× <?php echo $h($item['menu_name'] ?? '?'); ?></span>
                             <?php endforeach; ?>
                         </div>
-                        <?php if ((float)($order['total_price'] ?? 0) > 0): ?>
-                            <div style="font-size:.68rem;font-weight:700;color:#10b981;margin-top:.3rem">💰 Total Extra: Rp <?php echo number_format((float)$order['total_price'], 0, ',', '.'); ?></div>
+                        <?php if (!empty($order['special_requests'])): ?>
+                            <div class="rp-bf-note">Catatan: <?php echo $h($order['special_requests']); ?></div>
                         <?php endif; ?>
-                        <div class="bf-card-actions">
-                            <button class="bf-edit" onclick="editBreakfastOrder(<?php echo $order['id']; ?>)" title="Edit">✏️ Edit</button>
-                            <button class="bf-del" onclick="deleteBreakfastOrder(<?php echo $order['id']; ?>, '<?php echo htmlspecialchars(addslashes($order['guest_name'])); ?>')" title="Delete">🗑️</button>
+                        <div class="rp-bf-actions">
+                            <button type="button" class="rp-mini" onclick="location.href='breakfast.php?edit=<?php echo (int)$order['id']; ?>'">Edit</button>
+                            <button type="button" class="rp-mini del" onclick="deleteBreakfastOrder(<?php echo (int)$order['id']; ?>, <?php echo $h(json_encode((string)$order['guest_name'])); ?>)">Hapus</button>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
 
-    <!-- Report Stamp -->
-    <div class="report-stamp">
-        <div class="stamp-line">Dicetak oleh: <strong><?php echo htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff'); ?></strong></div>
-        <div class="stamp-system">Dicetak dari ADF System — Narayana Hotel © 2026</div>
-        <div class="stamp-line"><?php echo date('d M Y, H:i'); ?> WIB</div>
+    <div class="rp-stamp">
+        Dibuat oleh <?php echo $h($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff'); ?> · <?php echo date('d M Y, H:i'); ?> WIB · ADF System
     </div>
 </div>
 
+<div class="rp-toast" id="rpToast"></div>
+
 <script>
-    function exportToPDF() {
-        var w = window.open('export-daily-report.php', '_blank');
-        if (!w || w.closed) {
-            window.location.href = 'export-daily-report.php';
+    (function() {
+        const PDF_URL = 'laporan-pdf.php?download=1';
+        const PDF_NAME = <?php echo json_encode($pdfName); ?>;
+        const WA_TEXT = <?php echo json_encode($waText, JSON_UNESCAPED_UNICODE); ?>;
+        const btn = document.getElementById('rpShareWa');
+        const label = btn.querySelector('span');
+        let pdfFile = null;
+        let pdfPromise = null;
+
+        function toast(msg, ms) {
+            const t = document.getElementById('rpToast');
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(t._h);
+            t._h = setTimeout(() => t.classList.remove('show'), ms || 4000);
         }
-    }
+
+        // PDF disiapkan di latar belakang sejak halaman dibuka, agar tombol bagikan langsung jalan
+        // (browser hanya mengizinkan menu Share sesaat setelah klik).
+        function loadPdf() {
+            if (!pdfPromise) {
+                pdfPromise = fetch(PDF_URL, { credentials: 'same-origin' })
+                    .then(r => {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.blob();
+                    })
+                    .then(b => (pdfFile = new File([b], PDF_NAME, { type: 'application/pdf' })))
+                    .catch(e => {
+                        pdfPromise = null;
+                        throw e;
+                    });
+            }
+            return pdfPromise;
+        }
+
+        function canShareFile(f) {
+            try {
+                return !!(navigator.canShare && navigator.canShare({ files: [f] }));
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Cadangan bila perangkat tidak bisa membagikan file: unduh PDF, lalu buka WhatsApp dengan ringkasan.
+        function fallback(file) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(file);
+            a.download = PDF_NAME;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+            window.open('https://wa.me/?text=' + encodeURIComponent(WA_TEXT), '_blank');
+            toast('PDF sudah diunduh. Di WhatsApp, pilih kontak lalu lampirkan file "' + PDF_NAME + '".', 7000);
+        }
+
+        async function share() {
+            btn.disabled = true;
+            label.textContent = 'Menyiapkan PDF...';
+            try {
+                const file = pdfFile || await loadPdf();
+                if (canShareFile(file)) {
+                    try {
+                        await navigator.share({ files: [file], title: 'Laporan Harian', text: WA_TEXT });
+                    } catch (e) {
+                        if (e.name === 'NotAllowedError') {
+                            // Izin klik kedaluwarsa saat menunggu PDF: minta ketuk sekali lagi (PDF sudah siap).
+                            label.textContent = 'Ketuk lagi untuk membagikan';
+                            btn.disabled = false;
+                            return;
+                        }
+                        if (e.name !== 'AbortError') fallback(file);
+                    }
+                } else {
+                    fallback(file);
+                }
+            } catch (e) {
+                toast('Gagal menyiapkan PDF: ' + e.message, 6000);
+            }
+            label.textContent = 'Kirim PDF ke WhatsApp';
+            btn.disabled = false;
+        }
+
+        btn.addEventListener('click', share);
+        window.addEventListener('load', () => setTimeout(() => loadPdf().catch(() => {}), 800));
+        window.rpToast = toast;
+    })();
 
     function deleteBreakfastOrder(id, guestName) {
-        if (!confirm('Hapus order breakfast untuk ' + guestName + '?')) return;
+        if (!confirm('Hapus order sarapan untuk ' + guestName + '?')) return;
         fetch('../../api/breakfast-order-action.php', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    action: 'delete',
-                    id: id
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', id: id })
             })
             .then(r => r.json())
             .then(data => {
-                if (data.success) {
-                    var row = document.getElementById('bf-row-' + id);
-                    if (row) row.remove();
-                    // Update count
-                    var countEl = document.querySelector('.rpt-section .sec-count');
-                    var cards = document.querySelectorAll('.bf-card');
-                    if (countEl) countEl.textContent = cards.length;
-                    showNotification('Order breakfast dihapus', 'success');
-                } else {
-                    showNotification(data.message || 'Gagal menghapus', 'error');
-                }
+                if (!data.success) throw new Error(data.message || 'Gagal menghapus');
+                const row = document.getElementById('bf-row-' + id);
+                if (row) row.remove();
+                document.getElementById('rpBfCount').textContent = document.querySelectorAll('.rp-bf').length;
+                window.rpToast('Order sarapan dihapus');
             })
-            .catch(() => showNotification('Gagal menghapus', 'error'));
-    }
-
-    function editBreakfastOrder(id) {
-        window.location.href = 'breakfast.php?edit=' + id;
-    }
-
-    function shareToWhatsApp() {
-        // Build WhatsApp message with link to report
-        var reportUrl = window.location.origin + window.location.pathname.replace('laporan.php', 'export-daily-report.php') + '?noprint=1';
-
-        var text = '*📊 DAILY REPORT - <?php echo date("d M Y"); ?>*\n\n';
-        text += '🏨 *<?php echo addslashes($company['name'] ?? 'Hotel'); ?>*\n\n';
-        text += '📈 *Occupancy:* <?php echo $occupancyRate; ?>%\n';
-        text += '👥 *In House:* <?php echo count($inHouseGuests); ?> tamu\n';
-        text += '📥 *Check-in Hari Ini:* <?php echo count($checkInToday); ?>\n';
-        text += '📤 *Check-out Hari Ini:* <?php echo count($checkOutToday); ?>\n';
-        <?php if (count($breakfastOrders) > 0): ?>
-            text += '🍳 *Breakfast Orders:* <?php echo count($breakfastOrders); ?>\n';
-        <?php endif; ?>
-        text += '\n📄 *Lihat Laporan Lengkap:*\n' + reportUrl;
-
-        var whatsappUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
-        window.open(whatsappUrl, '_blank');
+            .catch(e => window.rpToast(e.message || 'Gagal menghapus'));
     }
 </script>
-
-<!-- Print Footer Watermark -->
-<div class="print-footer">
-    <div><span class="sys">✓ Dicetak dari ADF System — Narayana Hotel</span></div>
-    <div style="font-size: 6pt; color: #ccc; margin-top: 2px;">Oleh: <?php echo htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff'); ?> | <?php echo date('d M Y H:i'); ?></div>
-</div>
 
 <?php include '../../includes/footer.php'; ?>
