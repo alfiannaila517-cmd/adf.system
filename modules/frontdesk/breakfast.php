@@ -81,29 +81,49 @@ foreach (array_merge($freeMenus, $paidMenus) as $mx) {
 $inHouseGuests = [];
 $guestQuotaMap = [];
 try {
-    $quotaRows = $pdo->query("SELECT booking_id, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, child_menu_ids, extra_main_price, extra_drink_price, extra_child_price, breakfast_date FROM breakfast_guest_quota")->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($quotaRows as $qr) {
-        $guestQuotaMap[(int)$qr['booking_id']] = $qr;
+    // Tabel kuota bisa belum ada (dibuat saat link/setup pertama): jangan sampai daftar tamu kosong.
+    try {
+        $quotaRows = $pdo->query("SELECT booking_id, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, child_menu_ids, extra_main_price, extra_drink_price, extra_child_price, breakfast_date FROM breakfast_guest_quota")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($quotaRows as $qr) {
+            $guestQuotaMap[(int)$qr['booking_id']] = $qr;
+        }
+    } catch (Exception $e) {
     }
 
+    // Satu baris per grup booking (group_id) atau per tamu; pax = dewasa + anak dari reservasi.
     $stmt = $pdo->prepare("
-        SELECT g.id as guest_id, g.guest_name, COALESCE(g.phone,'') as guest_phone,
-               GROUP_CONCAT(DISTINCT r.room_number ORDER BY r.room_number SEPARATOR ',') as rooms,
-               GROUP_CONCAT(DISTINCT b.id ORDER BY b.id SEPARATOR ',') as booking_ids
+        SELECT MIN(g.id) AS guest_id,
+               GROUP_CONCAT(DISTINCT g.guest_name ORDER BY b.id SEPARATOR '||') AS guest_names,
+               COALESCE(MAX(NULLIF(g.phone, '')), '') AS guest_phone,
+               GROUP_CONCAT(DISTINCT r.room_number ORDER BY r.room_number SEPARATOR ',') AS rooms,
+               GROUP_CONCAT(DISTINCT b.id ORDER BY b.id SEPARATOR ',') AS booking_ids,
+               COUNT(DISTINCT b.id) AS room_count,
+               SUM(GREATEST(1, COALESCE(b.adults, 1) + COALESCE(b.children, 0))) AS res_pax
         FROM bookings b
         JOIN guests g ON b.guest_id = g.id
         JOIN rooms r ON b.room_id = r.id
         WHERE b.status = 'checked_in'
         AND NOT EXISTS (
-            SELECT 1 FROM breakfast_orders bo 
-            WHERE bo.breakfast_date = ? 
+            SELECT 1 FROM breakfast_orders bo
+            WHERE bo.breakfast_date = ?
             AND bo.room_number LIKE CONCAT('%\"', r.room_number, '\"%')
         )
-        GROUP BY g.id, g.guest_name
+        GROUP BY COALESCE(NULLIF(b.group_id, ''), CONCAT('G', g.id))
         ORDER BY MIN(r.room_number) ASC
     ");
     $stmt->execute([$today]);
     $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($inHouseGuests as &$ig) {
+        $ig['guest_name'] = implode(', ', array_unique(array_filter(explode('||', (string)$ig['guest_names']))));
+        // Pax yang sudah disetel (Setup) disimpan di breakfast_guest_quota per booking.
+        $setPax = null;
+        foreach (array_map('intval', explode(',', (string)$ig['booking_ids'])) as $bid) {
+            if (isset($guestQuotaMap[$bid])) $setPax = ($setPax ?? 0) + (int)$guestQuotaMap[$bid]['max_main'];
+        }
+        $ig['pax_set'] = $setPax !== null && $setPax > 0;
+        $ig['pax'] = $ig['pax_set'] ? $setPax : max(1, (int)$ig['res_pax']);
+    }
+    unset($ig);
 } catch (Exception $e) {
 }
 
@@ -1086,6 +1106,300 @@ include '../../includes/header.php';
             flex-direction: column
         }
     }
+    /* ===== Daftar tamu & link sarapan ===== */
+    body[data-theme] .main-content .bf-wrap .bf-guest-list {
+        max-height: 320px;
+        padding: 6px !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--fd-line) !important;
+        background: var(--fd-tile) !important;
+        display: grid;
+        gap: 6px;
+    }
+
+    body[data-theme] .main-content .bf-wrap label.bf-guest-item {
+        display: flex !important;
+        align-items: center;
+        gap: 10px;
+        margin: 0 !important;
+        padding: 9px 10px !important;
+        background: var(--fd-input-bg) !important;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-guest-item .guest-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-guest-item .guest-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bfg-tag {
+        flex-shrink: 0;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: var(--fd-accent-soft);
+        color: var(--fd-accent-text) !important;
+        font-size: 0.58rem;
+        font-weight: 700;
+    }
+
+    body[data-theme] .main-content .bf-wrap .guest-room b.bfg-pax {
+        color: var(--fd-text) !important;
+        font-weight: 700;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bfg-src {
+        margin-left: 2px;
+        padding: 0 6px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.16);
+        font-size: 0.56rem;
+        color: var(--fd-muted) !important;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bfg-sent {
+        color: #047857 !important;
+        font-weight: 700;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-guest-tools {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-wa-phone {
+        max-width: 110px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 0.62rem !important;
+        color: var(--fd-muted) !important;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-setup-guest-btn {
+        height: 28px;
+        padding: 0 10px !important;
+        border-radius: 8px !important;
+        border: 1px solid var(--fd-input-border) !important;
+        background: var(--fd-input-bg) !important;
+        color: var(--fd-text-2) !important;
+        -webkit-text-fill-color: var(--fd-text-2) !important;
+        font-size: 0.68rem !important;
+        font-weight: 600;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-wa-send {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: #25d366;
+        color: #fff !important;
+        cursor: pointer;
+        box-shadow: 0 4px 10px -4px rgba(37, 211, 102, 0.7);
+        transition: transform 0.12s;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-wa-send:hover {
+        transform: scale(1.08);
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-wa-send:disabled,
+    body[data-theme] .main-content .bf-wrap .bfg-bulk-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-wa-send svg,
+    body[data-theme] .main-content .bf-wrap .bfg-bulk-btn svg {
+        width: 16px;
+        height: 16px;
+        fill: #fff !important;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bfg-bulk {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 8px;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bfg-bulk-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 32px;
+        padding: 0 14px;
+        border: 0;
+        border-radius: 9px;
+        background: #25d366;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 0.72rem !important;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    /* Modal setup & nomor */
+    .bfg-modal {
+        max-width: 360px !important;
+    }
+
+    .bfg-field-label {
+        display: block;
+        margin: 4px 0 6px;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--text-muted, #64748b) !important;
+    }
+
+    .bfg-stepper {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .bfg-stepper button {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        background: rgba(37, 99, 235, 0.08);
+        color: #1d4ed8 !important;
+        font-size: 1.1rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .bfg-stepper input,
+    .bfg-input {
+        flex: 1;
+        width: 100%;
+        height: 38px;
+        padding: 0 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        background: var(--bg-primary, #fff) !important;
+        color: inherit !important;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .bfg-input {
+        font-weight: 500;
+        text-align: left;
+    }
+
+    .bfg-hint {
+        margin: 10px 0 0;
+        font-size: 0.7rem;
+        line-height: 1.5;
+        color: var(--text-muted, #64748b) !important;
+    }
+
+    .bfg-check {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        font-size: 0.72rem;
+    }
+
+    .bfg-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .bfg-btn {
+        height: 34px;
+        padding: 0 16px;
+        border-radius: 9px;
+        border: 0;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 0.76rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .bfg-btn.green {
+        background: #25d366;
+    }
+
+    .bfg-btn.ghost {
+        background: transparent;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        color: var(--text-muted, #64748b) !important;
+        -webkit-text-fill-color: var(--text-muted, #64748b) !important;
+    }
+
+    /* Spesifisitas tinggi: gaya global input (tema terang) menimpa latar checkbox & ukuran angka */
+    body[data-theme] #guestList input[type="checkbox"]:checked {
+        background-color: #2563eb !important;
+        border-color: #2563eb !important;
+    }
+
+    body[data-theme] #guestSetupModal #setupPax,
+    body[data-theme] #phoneAskModal #phoneAskInput {
+        font-size: 1rem !important;
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+        background: #ffffff !important;
+    }
+
+    body[data-theme="dark"] #guestSetupModal #setupPax,
+    body[data-theme="dark"] #phoneAskModal #phoneAskInput {
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
+        background: rgba(255, 255, 255, 0.06) !important;
+    }
+
+    .bfg-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        z-index: 10070;
+        padding: 10px 16px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #064e3b, #047857);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 0.78rem;
+        box-shadow: 0 16px 40px -12px rgba(4, 120, 87, 0.55);
+        transform: translate(-50%, 20px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .bfg-toast.err {
+        background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+    }
+
+    .bfg-toast.show {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
 </style>
 
 <div class="bf-wrap">
@@ -1112,7 +1426,7 @@ include '../../includes/header.php';
 
                 <!-- Guest Selection -->
                 <div class="bf-section">
-                    <div class="bf-title">👤 Pilih Tamu In-House <span class="bf-title-note">bisa pilih beberapa</span></div>
+                    <div class="bf-title">👤 Tamu In-House <span class="bf-title-note">centang beberapa untuk 1 link gabungan</span></div>
                     <?php if (count($inHouseGuests) > 0 || $editOrder): ?>
                         <div class="bf-group">
                             <?php if ($editOrder): ?>
@@ -1127,52 +1441,55 @@ include '../../includes/header.php';
                                     data-rooms="<?php echo htmlspecialchars($editRoomStr); ?>"
                                     data-booking="<?php echo $editOrder['booking_id']; ?>">
                             <?php else: ?>
-                                <label class="bf-label">Pilih Tamu (centang 1 atau lebih) *</label>
                                 <div class="bf-guest-list" id="guestList">
                                     <?php foreach ($inHouseGuests as $g):
-                                        $roomList = $g['rooms'];
-                                        $bookingIdFirst = explode(',', $g['booking_ids'])[0];
-                                        $savedQuota = $guestQuotaMap[(int)$bookingIdFirst] ?? [];
-                                        $savedChildIds = json_decode($savedQuota['child_menu_ids'] ?? '[]', true);
-                                        if (!is_array($savedChildIds)) $savedChildIds = [];
-                                        $savedChildIds = array_values(array_unique(array_map('intval', $savedChildIds)));
+                                        $bIds = array_map('intval', explode(',', (string)$g['booking_ids']));
+                                        $pax = (int)$g['pax'];
                                     ?>
                                         <label class="bf-guest-item">
-                                            <input type="checkbox" name="guest_checks[]" value="<?php echo $g['guest_id']; ?>"
+                                            <input type="checkbox" name="guest_checks[]" value="<?php echo (int)$g['guest_id']; ?>"
                                                 data-name="<?php echo htmlspecialchars($g['guest_name']); ?>"
-                                                data-rooms="<?php echo htmlspecialchars($roomList); ?>"
-                                                data-booking="<?php echo $bookingIdFirst; ?>"
+                                                data-rooms="<?php echo htmlspecialchars($g['rooms']); ?>"
+                                                data-booking="<?php echo $bIds[0]; ?>"
+                                                data-booking-ids="<?php echo htmlspecialchars(json_encode($bIds)); ?>"
                                                 data-phone="<?php echo htmlspecialchars($g['guest_phone'] ?? ''); ?>"
-                                                data-adults="<?php echo (int)($savedQuota['adult_count'] ?? 1); ?>"
-                                                data-child-young="<?php echo (int)($savedQuota['child_young_count'] ?? 0); ?>"
+                                                data-pax="<?php echo $pax; ?>"
+                                                data-adults="<?php echo $pax; ?>"
+                                                data-child-young="0"
                                                 data-child-old="0"
-                                                data-total-pax="<?php echo (int)($savedQuota['total_pax'] ?? 0); ?>"
-                                                data-max-main="<?php echo (int)($savedQuota['max_main'] ?? 2); ?>"
-                                                data-max-drink="<?php echo (int)($savedQuota['max_drink'] ?? 2); ?>"
-                                                data-max-child="<?php echo (int)($savedQuota['max_child'] ?? 2); ?>"
-                                                data-extra-main-price="<?php echo (int)($savedQuota['extra_main_price'] ?? 75000); ?>"
-                                                data-extra-drink-price="<?php echo (int)((isset($savedQuota['extra_drink_price']) && (int)$savedQuota['extra_drink_price'] === 75000) ? 20000 : ($savedQuota['extra_drink_price'] ?? 20000)); ?>"
-                                                data-extra-child-price="<?php echo (int)($savedQuota['extra_child_price'] ?? 75000); ?>"
-                                                data-child-menu-ids="<?php echo htmlspecialchars(json_encode($savedChildIds)); ?>">
+                                                data-total-pax="<?php echo $pax; ?>"
+                                                data-max-main="<?php echo $pax; ?>"
+                                                data-max-drink="<?php echo $pax; ?>"
+                                                data-max-child="0"
+                                                data-child-menu-ids="[]">
                                             <div class="guest-info">
-                                                <div class="guest-name"><?php echo htmlspecialchars($g['guest_name']); ?></div>
-                                                <div class="guest-room">🛏️ Room <?php echo $roomList; ?></div>
+                                                <div class="guest-name">
+                                                    <?php echo htmlspecialchars($g['guest_name']); ?>
+                                                    <?php if ((int)$g['room_count'] > 1): ?><span class="bfg-tag">Grup · <?php echo (int)$g['room_count']; ?> kamar</span><?php endif; ?>
+                                                </div>
+                                                <div class="guest-room">
+                                                    Room <?php echo htmlspecialchars(str_replace(',', ', ', $g['rooms'])); ?>
+                                                    · <b class="bfg-pax"><?php echo $pax; ?> pax</b>
+                                                    <span class="bfg-src"><?php echo $g['pax_set'] ? 'disetel' : 'dari reservasi'; ?></span>
+                                                    <span class="bfg-sent" hidden>· link terkirim</span>
+                                                </div>
                                             </div>
                                             <div class="bf-guest-tools">
-                                                <?php if (!empty($g['guest_phone'])): ?>
-                                                    <span class="bf-wa-phone" title="<?php echo htmlspecialchars($g['guest_phone']); ?>"><?php echo htmlspecialchars($g['guest_phone']); ?></span>
-                                                <?php else: ?>
-                                                    <span class="bf-wa-phone">No phone</span>
-                                                <?php endif; ?>
+                                                <span class="bf-wa-phone" title="<?php echo htmlspecialchars($g['guest_phone'] ?: 'Belum ada nomor'); ?>"><?php echo htmlspecialchars($g['guest_phone'] ?: 'No phone'); ?></span>
                                                 <button type="button" class="bf-setup-guest-btn" onclick="openGuestSetup(event,this)">Setup</button>
-                                                <button type="button" class="bf-link-guest-btn" onclick="sendGuestSelectionLink(event,this)">Link</button>
+                                                <button type="button" class="bf-wa-send" title="Kirim link sarapan via WhatsApp" aria-label="Kirim link via WhatsApp" onclick="sendGuestSelectionLink(event,this)">
+                                                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z" /></svg>
+                                                </button>
                                             </div>
                                         </label>
                                     <?php endforeach; ?>
                                 </div>
-                                <div class="bf-guest-count" id="guestCount">0 tamu dipilih</div>
-                                <div class="bf-wa-row" style="margin-top:.55rem">
-                                    <button type="button" class="bf-link-send" onclick="sendSelectedGuestsPortalLinks()">🔗+📲 Buat Link & Kirim WA (terpilih)</button>
+                                <div class="bfg-bulk">
+                                    <span class="bf-guest-count" id="guestCount">0 tamu dipilih</span>
+                                    <button type="button" class="bfg-bulk-btn" id="bulkLinkBtn" onclick="sendSelectedGuestsPortalLinks()" disabled>
+                                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89A11.82 11.82 0 0 0 12.05 0z" /></svg>
+                                        <span>Kirim 1 link gabungan</span>
+                                    </button>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -1393,26 +1710,42 @@ include '../../includes/header.php';
 </div>
 
 <div class="bf-modal-backdrop" id="guestSetupModal">
-    <div class="bf-modal">
+    <div class="bf-modal bfg-modal">
         <div class="bf-modal-head">
-            <div class="bf-modal-title" id="guestSetupTitle">Guest Setup</div>
+            <div class="bf-modal-title" id="guestSetupTitle">Setup</div>
             <button type="button" class="bf-modal-close" onclick="closeGuestSetup()">✕</button>
         </div>
-        <div class="bf-link-grid">
-            <div class="bf-link-group"><label>Jatah Pax (Dewasa)</label><input type="number" id="setupPax" min="0" max="20" oninput="updateSetupPax()"></div>
-            <div class="bf-link-group"><label>Jatah Kids (Anak)</label><input type="number" id="setupKids" min="0" max="20" oninput="updateSetupPax()"></div>
-            <div class="bf-link-group"><label>Total Pax</label><input type="number" id="setupTotalPax" min="0" max="40" readonly></div>
+        <label class="bfg-field-label" for="setupPax">Jatah sarapan (pax)</label>
+        <div class="bfg-stepper">
+            <button type="button" onclick="stepSetupPax(-1)" aria-label="Kurangi">−</button>
+            <input type="number" id="setupPax" min="1" max="60">
+            <button type="button" onclick="stepSetupPax(1)" aria-label="Tambah">+</button>
         </div>
-        <div style="margin-top:.6rem;font-size:.72rem;color:var(--text-muted);line-height:1.5">
-            <b>Jatah Pax</b> = jatah sarapan dewasa (makanan + minuman). <b>Jatah Kids</b> = jatah menu anak.<br>
-            Jika tamu memilih lebih dari jatah, sistem otomatis mendeteksi kelebihannya dan tercatat sebagai <b>Extra Breakfast</b> untuk ditagih saat check-out.
-        </div>
-        <div class="bf-wa-row" style="justify-content:flex-end;margin-top:.8rem">
-            <button type="button" class="bf-btn-reset" onclick="closeGuestSetup()">Cancel</button>
-            <button type="button" class="bf-link-send" onclick="saveGuestSetup()">Save Setup</button>
+        <p class="bfg-hint" id="setupHint"></p>
+        <div class="bfg-modal-actions">
+            <button type="button" class="bfg-btn ghost" onclick="closeGuestSetup()">Batal</button>
+            <button type="button" class="bfg-btn" id="setupSaveBtn" onclick="saveGuestSetup()">Simpan</button>
         </div>
     </div>
 </div>
+
+<div class="bf-modal-backdrop" id="phoneAskModal">
+    <div class="bf-modal bfg-modal">
+        <div class="bf-modal-head">
+            <div class="bf-modal-title">Nomor WhatsApp tamu</div>
+            <button type="button" class="bf-modal-close" onclick="phoneAskDone(null)">✕</button>
+        </div>
+        <p class="bfg-hint" id="phoneAskText" style="margin-top:0"></p>
+        <input type="tel" class="bfg-input" id="phoneAskInput" placeholder="08xx atau +62…">
+        <label class="bfg-check"><input type="checkbox" id="phoneAskSave" checked> Simpan nomor ke data tamu</label>
+        <div class="bfg-modal-actions">
+            <button type="button" class="bfg-btn ghost" onclick="phoneAskDone('')">Salin link saja</button>
+            <button type="button" class="bfg-btn green" onclick="phoneAskDone(document.getElementById('phoneAskInput').value)">Kirim</button>
+        </div>
+    </div>
+</div>
+
+<div class="bfg-toast" id="bfgToast"></div>
 
 <script>
     // Guest checkbox counter
@@ -1461,69 +1794,6 @@ include '../../includes/header.php';
         cb.dataset.extraDrinkPrice = String(extraDrinkPrice);
         cb.dataset.extraChildPrice = String(extraChildPrice);
         cb.dataset.childMenuIds = JSON.stringify(childMenuIds);
-    }
-
-    function openGuestSetup(evt, btn) {
-        evt.preventDefault();
-        evt.stopPropagation();
-        var row = btn.closest('.bf-guest-item');
-        var cb = row ? row.querySelector('input[name="guest_checks[]"]') : null;
-        if (!cb) return;
-        activeSetupCheckbox = cb;
-
-        document.getElementById('guestSetupTitle').textContent = 'Setup: ' + (cb.dataset.name || 'Guest');
-        var curPax = parseInt(cb.dataset.maxMain || cb.dataset.adults || '2', 10) || 2;
-        var curKids = parseInt(cb.dataset.maxChild || cb.dataset.childYoung || '0', 10) || 0;
-        document.getElementById('setupPax').value = curPax;
-        document.getElementById('setupKids').value = curKids;
-        document.getElementById('setupTotalPax').value = curPax + curKids;
-
-        document.getElementById('guestSetupModal').classList.add('show');
-    }
-
-    function closeGuestSetup() {
-        document.getElementById('guestSetupModal').classList.remove('show');
-        activeSetupCheckbox = null;
-    }
-
-    function updateSetupPax() {
-        var pax = Math.max(0, parseInt(document.getElementById('setupPax').value || '0', 10) || 0);
-        var kids = Math.max(0, parseInt(document.getElementById('setupKids').value || '0', 10) || 0);
-        document.getElementById('setupTotalPax').value = pax + kids;
-    }
-
-    function saveGuestSetup() {
-        if (!activeSetupCheckbox) return;
-
-        var pax = Math.max(0, parseInt(document.getElementById('setupPax').value || '2', 10) || 2);
-        var kids = Math.max(0, parseInt(document.getElementById('setupKids').value || '0', 10) || 0);
-        // Jatah Pax dewasa => kuota makanan & minuman. Jatah Kids => kuota menu anak.
-        var adults = pax;
-        var kidYoung = kids;
-        var kidOld = 0;
-        var food = pax;
-        var drink = pax;
-        var fruit = kids;
-        var extraFood = 75000;
-        var extraDrink = 20000;
-        var extraFruit = 0; // Kids / fruit portion is always free.
-
-        activeSetupCheckbox.dataset.adults = String(adults);
-        activeSetupCheckbox.dataset.childYoung = String(kidYoung);
-        activeSetupCheckbox.dataset.childOld = String(kidOld);
-        activeSetupCheckbox.dataset.totalPax = String(adults + kidYoung + kidOld);
-        activeSetupCheckbox.dataset.maxMain = String(food);
-        activeSetupCheckbox.dataset.maxDrink = String(drink);
-        activeSetupCheckbox.dataset.maxChild = String(fruit);
-        activeSetupCheckbox.dataset.extraMainPrice = String(extraFood);
-        activeSetupCheckbox.dataset.extraDrinkPrice = String(extraDrink);
-        activeSetupCheckbox.dataset.extraChildPrice = String(extraFruit);
-
-        if (activeSetupCheckbox.checked) {
-            applyGuestSettingsFromCheckbox(activeSetupCheckbox);
-        }
-
-        closeGuestSetup();
     }
 
     // Jumlah pax otomatis dari menu: total qty makanan (1 tamu = 1 makanan); bila hanya minuman,
@@ -1703,7 +1973,8 @@ include '../../includes/header.php';
                 room_number: roomsStr ? roomsStr.split(',').map(function(r) {
                     return r.trim();
                 }) : [],
-                booking_id: parseInt(cb.dataset.booking) || null
+                booking_id: parseInt(cb.dataset.booking) || null,
+                booking_ids: JSON.parse(cb.dataset.bookingIds || '[]')
             });
         });
 
@@ -2017,69 +2288,6 @@ include '../../includes/header.php';
         });
     }
 
-    async function createGuestPortalLinkFromCheckbox(cb) {
-        var adultCount = parseInt(cb.dataset.adults || '1', 10);
-        var childYoung = parseInt(cb.dataset.childYoung || '0', 10);
-        var childOld = 0;
-        var quotaMain = parseInt(cb.dataset.maxMain || '2', 10);
-        var quotaDrink = parseInt(cb.dataset.maxDrink || '2', 10);
-        var quotaChild = parseInt(cb.dataset.maxChild || '0', 10);
-        var extraMainPrice = 75000;
-        var extraDrinkPrice = parseFloat(cb.dataset.extraDrinkPrice || '20000');
-        if (Math.round(extraDrinkPrice) === 75000) extraDrinkPrice = 20000;
-        var extraChildPrice = 75000;
-        var expireHours = 24;
-
-        if (!Number.isFinite(adultCount) || adultCount < 0) adultCount = 0;
-        if (!Number.isFinite(childYoung) || childYoung < 0) childYoung = 0;
-        if (!Number.isFinite(childOld) || childOld < 0) childOld = 0;
-        if (!Number.isFinite(quotaMain) || quotaMain < 0) quotaMain = 0;
-        if (!Number.isFinite(quotaDrink) || quotaDrink < 0) quotaDrink = 0;
-        if (!Number.isFinite(quotaChild) || quotaChild < 0) quotaChild = 0;
-        if (!Number.isFinite(extraMainPrice) || extraMainPrice < 0) extraMainPrice = 75000;
-        if (!Number.isFinite(extraDrinkPrice) || extraDrinkPrice < 0) extraDrinkPrice = 20000;
-        if (!Number.isFinite(extraChildPrice) || extraChildPrice < 0) extraChildPrice = 75000;
-        if (!Number.isFinite(expireHours) || expireHours < 1) expireHours = 24;
-
-        var body = {
-            action: 'create_link',
-            guest_id: parseInt(cb.value, 10) || null,
-            guest_name: cb.dataset.name || '',
-            guest_phone: cb.dataset.phone || '',
-            booking_id: parseInt(cb.dataset.booking, 10) || null,
-            room_number: (cb.dataset.rooms || '').split(',').map(function(r) {
-                return r.trim();
-            }).filter(Boolean),
-            breakfast_date: <?php echo json_encode($today); ?>,
-            // New quota structure
-            adult_count: adultCount,
-            child_young_count: childYoung, // < 7 years old
-            child_old_count: childOld, // >= 7 years old
-            total_pax: adultCount + childYoung + childOld,
-            max_main: quotaMain,
-            max_drink: quotaDrink,
-            max_child: quotaChild,
-            extra_main_price: extraMainPrice,
-            extra_drink_price: extraDrinkPrice,
-            extra_child_price: extraChildPrice,
-            child_menu_ids: getSelectedChildMenuIdsFromGuest(cb),
-            expire_hours: expireHours
-        };
-
-        var res = await fetch(linkContext.createApi, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        });
-        var data = await res.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Gagal membuat link tamu');
-        }
-        return data.data || {};
-    }
-
     function buildPortalLinkWaMessage(guestName, roomLabel, portalLink) {
         var template = (linkContext.portalLinkTemplate || '').trim();
         if (!template) {
@@ -2129,60 +2337,206 @@ include '../../includes/header.php';
         return deduped.join('\n').trim();
     }
 
-    async function sendGuestSelectionLink(evt, btn) {
+    // ═══ Link sarapan: jatah pax dari reservasi (bisa disetel), grup = 1 link, kirim via WhatsApp ═══
+    var bfgSetupCb = null;
+
+    function bfgToast(msg, kind) {
+        var t = document.getElementById('bfgToast');
+        t.textContent = msg;
+        t.className = 'bfg-toast show ' + (kind || 'ok');
+        clearTimeout(t._h);
+        t._h = setTimeout(function() { t.className = 'bfg-toast'; }, 4500);
+    }
+
+    function bfgRowOf(cb) {
+        return cb.closest('.bf-guest-item');
+    }
+
+    function bfgSetPax(cb, pax, source) {
+        cb.dataset.pax = cb.dataset.adults = cb.dataset.totalPax = cb.dataset.maxMain = cb.dataset.maxDrink = String(pax);
+        var row = bfgRowOf(cb);
+        row.querySelector('.bfg-pax').textContent = pax + ' pax';
+        if (source) row.querySelector('.bfg-src').textContent = source;
+    }
+
+    function openGuestSetup(evt, btn) {
         evt.preventDefault();
         evt.stopPropagation();
-        var row = btn.closest('.bf-guest-item');
-        var cb = row ? row.querySelector('input[name="guest_checks[]"]') : null;
+        var cb = bfgRowOf(btn).querySelector('input[name="guest_checks[]"]');
         if (!cb) return;
+        bfgSetupCb = cb;
+        document.getElementById('guestSetupTitle').textContent = 'Setup: ' + (cb.dataset.name || 'Guest');
+        document.getElementById('setupPax').value = parseInt(cb.dataset.pax || '1', 10) || 1;
+        document.getElementById('setupHint').textContent = 'Room ' + (cb.dataset.rooms || '-').replace(/,/g, ', ') +
+            '. 1 pax = 1 makanan + 1 minuman. Pilihan di luar jatah ditagih Rp 82.500 per paket saat check-out.';
+        document.getElementById('guestSetupModal').classList.add('show');
+        setTimeout(function() { document.getElementById('setupPax').select(); }, 50);
+    }
 
+    function closeGuestSetup() {
+        document.getElementById('guestSetupModal').classList.remove('show');
+        bfgSetupCb = null;
+    }
+
+    function stepSetupPax(d) {
+        var el = document.getElementById('setupPax');
+        el.value = Math.max(1, Math.min(60, (parseInt(el.value, 10) || 1) + d));
+    }
+
+    async function saveGuestSetup() {
+        if (!bfgSetupCb) return;
+        var pax = Math.max(1, Math.min(60, parseInt(document.getElementById('setupPax').value, 10) || 1));
+        var btn = document.getElementById('setupSaveBtn');
+        btn.disabled = true;
         try {
-            var linkData = await createGuestPortalLinkFromCheckbox(cb);
-            var portalLink = linkData.short_link || linkData.link_url || '';
-            var phone = normalizeWaPhone(cb.dataset.phone || '');
+            var res = await fetch(linkContext.createApi, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_setup', booking_ids: JSON.parse(bfgSetupCb.dataset.bookingIds || '[]'), pax: pax })
+            });
+            var data = await res.json();
+            if (!data.success) throw new Error(data.message || 'Gagal menyimpan');
+            bfgSetPax(bfgSetupCb, pax, 'disetel');
+            closeGuestSetup();
+            bfgToast('Jatah ' + pax + ' pax tersimpan');
+        } catch (e) {
+            bfgToast(e.message, 'err');
+        }
+        btn.disabled = false;
+    }
+
+    // Gabungkan beberapa baris (kamar/grup) menjadi 1 link: kamar & pax dijumlahkan.
+    function bfgCombine(cbs) {
+        var names = [], rooms = [], ids = [], pax = 0, phone = '', guestId = null;
+        cbs.forEach(function(cb) {
+            var n = (cb.dataset.name || '').trim();
+            if (n && names.indexOf(n) === -1) names.push(n);
+            (cb.dataset.rooms || '').split(',').map(function(r) { return r.trim(); }).filter(Boolean).forEach(function(r) {
+                if (rooms.indexOf(r) === -1) rooms.push(r);
+            });
+            JSON.parse(cb.dataset.bookingIds || '[]').forEach(function(id) { if (ids.indexOf(id) === -1) ids.push(id); });
+            pax += parseInt(cb.dataset.pax || '1', 10) || 1;
+            if (!phone && cb.dataset.phone) { phone = cb.dataset.phone; guestId = parseInt(cb.value, 10) || null; }
+        });
+        if (!guestId) guestId = parseInt(cbs[0].value, 10) || null;
+        return { names: names, rooms: rooms, ids: ids, pax: pax, phone: phone, guestId: guestId };
+    }
+
+    async function bfgCreateLink(c) {
+        var res = await fetch(linkContext.createApi, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'create_link',
+                guest_id: c.guestId,
+                guest_name: c.names.join(', '),
+                guest_phone: c.phone,
+                booking_id: c.ids[0] || null,
+                booking_ids: c.ids,
+                room_number: c.rooms,
+                breakfast_date: <?php echo json_encode($today); ?>,
+                adult_count: c.pax,
+                child_young_count: 0,
+                total_pax: c.pax,
+                max_main: c.pax,
+                max_drink: c.pax,
+                max_child: 0,
+                expire_hours: 24
+            })
+        });
+        var data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Gagal membuat link');
+        return data.data || {};
+    }
+
+    var phoneAskResolve = null;
+
+    function askPhone(label) {
+        document.getElementById('phoneAskText').textContent = label + ' belum punya nomor WhatsApp. Masukkan nomor untuk mengirim link.';
+        document.getElementById('phoneAskInput').value = '';
+        document.getElementById('phoneAskModal').classList.add('show');
+        setTimeout(function() { document.getElementById('phoneAskInput').focus(); }, 50);
+        return new Promise(function(resolve) { phoneAskResolve = resolve; });
+    }
+
+    function phoneAskDone(value) {
+        document.getElementById('phoneAskModal').classList.remove('show');
+        if (phoneAskResolve) {
+            phoneAskResolve(value === null ? null : String(value).trim());
+            phoneAskResolve = null;
+        }
+    }
+
+    async function bfgSend(cbs, btn) {
+        var c = bfgCombine(cbs);
+        if (btn) btn.disabled = true;
+        try {
+            var link = await bfgCreateLink(c);
+            var portalLink = link.short_link || link.link_url || '';
+            var label = c.names.join(', ');
+            var phone = c.phone, typed = false;
             if (!phone) {
-                prompt('Link portal berhasil dibuat. Salin link berikut untuk dikirim manual:', portalLink);
-                return;
-            }
-            var msg = buildPortalLinkWaMessage(cb.dataset.name || 'Tamu', cb.dataset.rooms || '-', portalLink);
-            window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
-        } catch (err) {
-            alert('❌ ' + err.message);
-        }
-    }
-
-    async function sendSelectedGuestsPortalLinks() {
-        var selected = Array.from(document.querySelectorAll('input[name="guest_checks[]"]:checked'));
-        if (!selected.length) {
-            alert('Pilih minimal 1 tamu.');
-            return;
-        }
-
-        var success = 0;
-        var manualLinks = [];
-        for (var i = 0; i < selected.length; i++) {
-            var cb = selected[i];
-            try {
-                var linkData = await createGuestPortalLinkFromCheckbox(cb);
-                var portalLink = linkData.short_link || linkData.link_url || '';
-                var phone = normalizeWaPhone(cb.dataset.phone || '');
-                if (phone) {
-                    var msg = buildPortalLinkWaMessage(cb.dataset.name || 'Tamu', cb.dataset.rooms || '-', portalLink);
-                    window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
-                    success++;
-                } else {
-                    manualLinks.push((cb.dataset.name || 'Tamu') + ': ' + portalLink);
+                phone = await askPhone(label);
+                if (phone === null) return;
+                if (phone === '') {
+                    try { await navigator.clipboard.writeText(portalLink); bfgToast('Link disalin — tempel ke chat tamu'); }
+                    catch (e) { prompt('Salin link berikut:', portalLink); }
+                    return;
                 }
-            } catch (err) {
-                manualLinks.push((cb.dataset.name || 'Tamu') + ': ERROR - ' + err.message);
+                typed = true;
             }
+            var msg = buildPortalLinkWaMessage(label, c.rooms.join(', '), portalLink);
+            var res = await fetch(linkContext.createApi, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'send_wa', target: phone, message: msg, guest_id: c.guestId, save_phone: typed && document.getElementById('phoneAskSave').checked ? 1 : 0, ref: 'breakfast ' + c.rooms.join(',') })
+            });
+            var r = await res.json();
+            if (r.success) {
+                bfgToast('Link sarapan terkirim ke ' + (r.target || phone) + ' (' + c.pax + ' pax)');
+                cbs.forEach(function(cb) {
+                    var s = bfgRowOf(cb).querySelector('.bfg-sent');
+                    if (s) s.hidden = false;
+                    if (typed) cb.dataset.phone = phone;
+                });
+            } else {
+                // Gateway belum diatur / gagal: buka WhatsApp dengan pesan siap kirim.
+                var wa = normalizeWaPhone(phone);
+                window.open('https://wa.me/' + wa + '?text=' + encodeURIComponent(msg), '_blank');
+                if (r.gateway) bfgToast('Gateway gagal (' + r.message + ') — WhatsApp dibuka manual', 'err');
+            }
+        } catch (e) {
+            bfgToast(e.message, 'err');
+        } finally {
+            if (btn) btn.disabled = false;
         }
-
-        if (manualLinks.length) {
-            prompt('Sebagian link perlu kirim manual (copy text di bawah):', manualLinks.join('\n'));
-        }
-        alert('Selesai. Link WA otomatis dibuka untuk ' + success + ' tamu.');
     }
+
+    function sendGuestSelectionLink(evt, btn) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        var cb = bfgRowOf(btn).querySelector('input[name="guest_checks[]"]');
+        if (cb) bfgSend([cb], btn);
+    }
+
+    function sendSelectedGuestsPortalLinks() {
+        var selected = Array.from(document.querySelectorAll('input[name="guest_checks[]"]:checked'));
+        if (!selected.length) return bfgToast('Pilih minimal 1 tamu', 'err');
+        bfgSend(selected, document.getElementById('bulkLinkBtn'));
+    }
+
+    // Tombol gabungan: aktif & menampilkan total pax tamu yang dicentang.
+    document.querySelectorAll('input[name="guest_checks[]"]').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var sel = Array.from(document.querySelectorAll('input[name="guest_checks[]"]:checked'));
+            var btn = document.getElementById('bulkLinkBtn');
+            if (!btn) return;
+            btn.disabled = sel.length === 0;
+            var pax = sel.reduce(function(s, x) { return s + (parseInt(x.dataset.pax || '1', 10) || 1); }, 0);
+            btn.querySelector('span').textContent = sel.length > 1 ? 'Kirim 1 link gabungan · ' + sel.length + ' tamu · ' + pax + ' pax' :
+                (sel.length === 1 ? 'Kirim link · ' + pax + ' pax' : 'Kirim 1 link gabungan');
+        });
+    });
 
     function normalizeWaPhone(rawPhone) {
         var p = String(rawPhone || '').replace(/[^0-9]/g, '');

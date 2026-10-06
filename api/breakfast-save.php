@@ -10,6 +10,7 @@ define('APP_ACCESS', true);
 require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/BreakfastHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -133,7 +134,8 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
     // Tanpa data jatah, hanya item Extra BF yang ditagih (tarif default).
     $extraMain = ($foundQuota ? max(0, $sumMain - $maxMain) : 0) + $forcedMain;
     $extraDrink = ($foundQuota ? max(0, $sumDrink - $maxDrink) : 0) + $forcedDrink;
-    $charge = ($extraMain * $extraMainPrice) + ($extraDrink * $extraDrinkPrice);
+    // Harga per paket (1 makanan + 1 minuman di luar jatah).
+    $charge = bf_extra_packages($extraMain, $extraDrink) * bf_extra_package_price($db);
 
     $result['charge'] = (float)$charge;
     $result['extra_main'] = $extraMain;
@@ -332,6 +334,9 @@ try {
             }
             if (!empty($guest['booking_id'])) {
                 $allBookingIds[] = (int)$guest['booking_id'];
+            }
+            foreach ((array)($guest['booking_ids'] ?? []) as $gbid) {
+                if ((int)$gbid > 0) $allBookingIds[] = (int)$gbid;
             }
             foreach ($gRooms as $r) {
                 if (!empty($r) && !in_array($r, $allRooms)) $allRooms[] = $r;

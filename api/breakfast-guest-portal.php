@@ -9,6 +9,7 @@
 define('APP_ACCESS', true);
 require_once '../config/config.php';
 require_once '../config/database.php';
+require_once '../includes/BreakfastHelper.php';
 
 header('Content-Type: application/json');
 
@@ -491,6 +492,66 @@ try {
     exit;
 }
 
+// ═══ Front desk: simpan jatah pax (Setup) & kirim link lewat WhatsApp gateway ═══
+if ($action === 'save_setup' || $action === 'send_wa') {
+    require_once '../includes/auth.php';
+    $auth = new Auth();
+    $auth->requireLogin();
+    if (!$auth->hasPermission('frontdesk')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Forbidden']);
+        exit;
+    }
+
+    if ($action === 'save_setup') {
+        // Jatah total disimpan di booking pertama; booking lain dalam baris/grup = 0 agar tidak dihitung dobel.
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)($body['booking_ids'] ?? [])))));
+        $pax = max(1, min(60, (int)($body['pax'] ?? 1)));
+        if (!$ids) {
+            echo json_encode(['success' => false, 'message' => 'Booking tidak ditemukan']);
+            exit;
+        }
+        ensure_breakfast_quota_table($pdo);
+        $price = bf_extra_package_price($db);
+        $stmt = $pdo->prepare("INSERT INTO breakfast_guest_quota
+            (booking_id, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, extra_main_price, extra_drink_price, extra_child_price, created_by)
+            VALUES (?, ?, 0, 0, ?, ?, ?, 0, ?, 0, 0, ?)
+            ON DUPLICATE KEY UPDATE adult_count = VALUES(adult_count), child_young_count = 0, child_old_count = 0,
+                total_pax = VALUES(total_pax), max_main = VALUES(max_main), max_drink = VALUES(max_drink), max_child = 0,
+                extra_main_price = VALUES(extra_main_price), extra_drink_price = 0, extra_child_price = 0, updated_at = NOW()");
+        foreach ($ids as $i => $bid) {
+            $p = $i === 0 ? $pax : 0;
+            $stmt->execute([$bid, $p, $p, $p, $p, $price, $_SESSION['user_id'] ?? null]);
+        }
+        echo json_encode(['success' => true, 'pax' => $pax]);
+        exit;
+    }
+
+    // send_wa: kirim pesan berisi link lewat Fonnte; simpan nomor ke data tamu bila sebelumnya kosong.
+    require_once '../includes/WhatsAppHelper.php';
+    $wa = new WhatsAppHelper($db);
+    $target = WhatsAppHelper::normalizeTarget((string)($body['target'] ?? ''));
+    $message = trim((string)($body['message'] ?? ''));
+    if ($target === '' || $message === '') {
+        echo json_encode(['success' => false, 'message' => 'Nomor WhatsApp tidak valid']);
+        exit;
+    }
+    $guestId = (int)($body['guest_id'] ?? 0);
+    if ($guestId > 0 && !empty($body['save_phone'])) {
+        try {
+            $db->query("UPDATE guests SET phone = ? WHERE id = ? AND (phone IS NULL OR phone = '')", [(string)$body['target'], $guestId]);
+        } catch (\Throwable $e) {
+        }
+    }
+    if (!$wa->isConfigured()) {
+        echo json_encode(['success' => false, 'gateway' => false, 'target' => $target, 'message' => 'WhatsApp gateway belum diatur']);
+        exit;
+    }
+    $res = $wa->send($target, $message, null, null, 'breakfast', (string)($body['ref'] ?? 'breakfast link'));
+    echo json_encode(['success' => $res['ok'], 'gateway' => true, 'target' => $target, 'message' => $res['detail']]);
+    exit;
+}
+
 if ($action === 'create_link') {
     require_once '../includes/auth.php';
     $auth = new Auth();
@@ -527,10 +588,11 @@ if ($action === 'create_link') {
     $totalDrinkQuota = $maxDrink;
     $totalChildQuota = $maxChild;
 
-    $extraMainPrice = max(0, to_float($body['extra_main_price'] ?? 75000, 75000));
-    $extraDrinkPrice = max(0, to_float($body['extra_drink_price'] ?? 20000, 20000));
-    if ((int)round($extraDrinkPrice) === 75000) $extraDrinkPrice = 20000.0;
-    $extraChildPrice = max(0, to_float($body['extra_child_price'] ?? 75000, 75000));
+    // Extra dihitung per paket (lihat BreakfastHelper); harga disimpan di extra_main_price.
+    $extraMainPrice = bf_extra_package_price($db);
+    $extraDrinkPrice = 0.0;
+    $extraChildPrice = 0.0;
+    $otherBookingIds = array_values(array_diff(array_unique(array_filter(array_map('intval', (array)($body['booking_ids'] ?? [])))), [(int)$bookingId]));
 
     $childMenuIds = $body['child_menu_ids'] ?? [];
     if (!is_array($childMenuIds)) $childMenuIds = [];
@@ -625,6 +687,13 @@ if ($action === 'create_link') {
                     $extraChildPrice,
                     $userId
                 ]);
+        }
+
+        foreach ($otherBookingIds as $obid) {
+            $pdo->prepare("INSERT INTO breakfast_guest_quota (booking_id, guest_name, breakfast_date, adult_count, total_pax, max_main, max_drink, max_child, extra_main_price, created_by)
+                VALUES (?, ?, ?, 0, 0, 0, 0, 0, ?, ?)
+                ON DUPLICATE KEY UPDATE adult_count = 0, total_pax = 0, max_main = 0, max_drink = 0, max_child = 0, updated_at = NOW()")
+                ->execute([$obid, $guestName, $breakfastDate, $extraMainPrice, $userId]);
         }
 
         $shortCode = null;
@@ -878,6 +947,7 @@ if ($action === 'get_link') {
             'extra_main_price' => (float)$extraMainPrice,
             'extra_drink_price' => (float)$extraDrinkPrice,
             'extra_child_price' => (float)$extraChildPrice,
+            'extra_package_price' => bf_extra_package_price($db),
             'main_menus' => $mainMenus,
             'drink_menus' => $drinkMenus,
             'child_menus' => $childMenus,
@@ -1243,6 +1313,10 @@ if ($action === 'submit_link') {
             }
         }
 
+        // Extra Breakfast per paket (1 makanan + 1 minuman di luar jatah).
+        $extraPackages = bf_extra_packages($extraMainCount, $extraDrinkCount);
+        $extraChargeTotal = $extraPackages * bf_extra_package_price($db);
+
         $guestName = $link['guest_name'];
         $breakfastDate = $link['breakfast_date'];
         $bookingId = !empty($link['booking_id']) ? (int)$link['booking_id'] : null;
@@ -1355,9 +1429,7 @@ if ($action === 'submit_link') {
         }
 
         if (($extraMainCount > 0 || $extraDrinkCount > 0 || $extraChildCount > 0) && $targetBookingId > 0 && $extraChargeTotal > 0) {
-            $extraLabel = [];
-            if ($extraMainCount > 0) $extraLabel[] = 'main x' . $extraMainCount;
-            if ($extraDrinkCount > 0) $extraLabel[] = 'drink x' . $extraDrinkCount;
+            $extraLabel = ['package x' . $extraPackages . ' (main+' . $extraMainCount . ', drink+' . $extraDrinkCount . ')'];
             // Kids/child portion is free - not added to the charge label.
             $extraNotes = 'Auto extra from guest portal [' . implode(', ', $extraLabel) . '] token=' . ($link['short_code'] ?? $token) . ' date=' . $breakfastDate;
 
@@ -1457,6 +1529,7 @@ if ($action === 'submit_link') {
                 'extra_main_count' => $extraMainCount,
                 'extra_child_count' => $extraChildCount,
                 'extra_total_price' => (float)$extraChargeTotal,
+                'extra_packages' => $extraPackages ?? 0,
                 'paid_menu_total' => (float)$paidMenuTotal
             ]
         ]);
