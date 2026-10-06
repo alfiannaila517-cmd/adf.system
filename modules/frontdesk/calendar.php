@@ -3321,7 +3321,10 @@ include '../../includes/header.php';
 
         // Guest name & phone
         document.getElementById('sp-guest-name').textContent = booking.guest_name || '-';
-        document.getElementById('sp-guest-phone').textContent = booking.guest_phone || '-';
+        const phoneEl = document.getElementById('sp-guest-phone');
+        phoneEl.textContent = booking.guest_phone || '';
+        phoneEl.style.display = booking.guest_phone ? '' : 'none';
+        document.getElementById('sp-sub').textContent = [booking.booking_code, booking.room_number ? 'Room ' + booking.room_number : '', booking.room_type || ''].filter(Boolean).join(' · ');
 
         // WhatsApp link
         const waPhone = booking.guest_phone ? booking.guest_phone.replace(/^0/, '62').replace(/[^0-9]/g, '') : '';
@@ -3349,8 +3352,9 @@ include '../../includes/header.php';
             checked_out: '#f1f5f9;color:#64748b',
             cancelled: '#fce4ec;color:#e53935'
         };
-        statusEl.textContent = '● ' + (statusMap[booking.status] || booking.status);
-        statusEl.style.cssText = 'font-size:0.78rem;font-weight:700;padding:4px 12px;border-radius:20px;background:' + (statusColorMap[booking.status] || '#f1f5f9;color:#475569');
+        statusEl.textContent = statusMap[booking.status] || booking.status;
+        statusEl.style.cssText = '';
+        statusEl.className = 'sp-status-badge st-' + (booking.status || 'pending');
 
         // Source badge - SIMPLIFIED & FIXED
         let bkSrc = (booking.booking_source || 'walk_in').trim().toLowerCase();
@@ -3399,6 +3403,7 @@ include '../../includes/header.php';
         // Guest counts
         document.getElementById('sp-adults').textContent = booking.adults || 1;
         document.getElementById('sp-children').textContent = booking.children || 0;
+        document.getElementById('sp-nights').textContent = booking.total_nights || 1;
 
         // Multi-room group booking (e.g. Mrs Hilda 10 rooms) -> show ONE consolidated tagihan
         // regardless of which room's bar was clicked.
@@ -3408,6 +3413,8 @@ include '../../includes/header.php';
         const balance = isGroup ? (booking.combined_balance || 0) : ((booking.final_price || 0) - (booking.paid_amount || 0));
         const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);
         document.getElementById('sp-balance').textContent = fmtR(Math.max(0, balance));
+        document.getElementById('sp-balance-box').classList.toggle('paid', balance <= 0);
+        document.getElementById('sp-balance-label').textContent = balance <= 0 ? 'Lunas · tidak ada tagihan' : 'Balance due';
 
         // Folio table
         let folioRows = '';
@@ -3427,8 +3434,11 @@ include '../../includes/header.php';
         if (isGroup) {
             // Room charge per room in the group
             booking.group_bookings.forEach(function(gb) {
-                totalDebit += parseFloat(gb.final_price || 0);
-                folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + (gb.type_name || '') + ' (' + (gb.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights || 1) + ' night(s)</div></td><td class="text-right">' + fmtR(gb.final_price) + '</td><td class="text-right">-</td></tr>';
+                const roomExtras = (booking.group_extras || []).filter(ex => String(ex.room_number || '') === String(gb.room_number || ''))
+                    .reduce((t, ex) => t + parseFloat(ex.total_price || 0), 0);
+                const gross = Math.max(0, parseFloat(gb.final_price || 0) + parseFloat(gb.discount || 0) - roomExtras);
+                totalDebit += gross;
+                folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + escHtml(gb.type_name || '') + ' (' + escHtml(gb.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights || 1) + ' night(s)</div></td><td class="text-right">' + fmtR(gross) + '</td><td class="text-right">-</td></tr>';
                 if (parseFloat(gb.discount) > 0) {
                     totalCredit += parseFloat(gb.discount);
                     folioRows += '<tr><td><div class="folio-desc-title">Promo Discount (' + (gb.room_number || '') + ')</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(gb.discount) + '</td></tr>';
@@ -3448,9 +3458,12 @@ include '../../includes/header.php';
             });
         } else {
             // Room charge as debit
-            const roomTotal = (booking.room_price || 0) * (booking.total_nights || 1);
-            totalDebit += parseFloat(booking.final_price || roomTotal);
-            folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + (booking.room_type || '') + ' (' + (booking.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights || 1) + ' night(s)</div></td><td class="text-right">' + fmtR(booking.final_price || roomTotal) + '</td><td class="text-right">-</td></tr>';
+            const extrasSum = (booking.extras || []).reduce((t, ex) => t + parseFloat(ex.total_price || 0), 0);
+            const roomTotal = booking.final_price != null ?
+                Math.max(0, parseFloat(booking.final_price || 0) + parseFloat(booking.discount || 0) - extrasSum) :
+                (booking.room_price || 0) * (booking.total_nights || 1);
+            totalDebit += roomTotal;
+            folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + escHtml(booking.room_type || '') + ' (' + escHtml(booking.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights || 1) + ' night(s) × ' + fmtR(booking.room_price) + '</div></td><td class="text-right">' + fmtR(roomTotal) + '</td><td class="text-right">-</td></tr>';
 
             // Extras as debit
             if (booking.extras && booking.extras.length > 0) {
@@ -3540,16 +3553,15 @@ include '../../includes/header.php';
                 currentGroupRoomsMap[gb.id] = gb;
                 const isActive = gb.id === booking.id;
                 const hasNote = !!(gb.special_request && gb.special_request.trim() !== '');
-                html += `<div style="padding:0.6rem;background:${isActive ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.05)'};border-radius:6px;border-left:3px solid ${isActive ? '#10b981' : '#6366f1'};cursor:pointer;transition:all 0.2s;" onclick="if(event.target.closest('div') && ${gb.id} !== ${booking.id}) { console.log('Switching to room', ${gb.id}); closeBookingQuickView(); setTimeout(() => viewBooking(${gb.id}, event), 100); }">`;
-                html += `<div style="display:flex;align-items:center;justify-content:space-between;">`;
-                html += `<div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);">🚪 ${escHtml(gb.room_number)} <span style="font-weight:400;color:var(--text-secondary);font-size:0.8rem;">${escHtml(gb.type_name)}</span>`;
-                if (isActive) html += ` <span style="color:#10b981;font-size:0.7rem;font-weight:700;margin-left:0.4rem;">● AKTIF</span>`;
-                if (hasNote) html += ` <span class="status-dot dot-yellow" style="position:static;margin-left:0.4rem;" title="${escHtml(gb.special_request)}"></span>`;
+                html += `<div class="sp-group-room${isActive ? ' on' : ''}" onclick="if (${gb.id} !== ${booking.id}) { closeBookingQuickView(); setTimeout(() => viewBooking(${gb.id}, event), 100); }">`;
+                html += `<div class="sp-gr-top"><div><b>Room ${escHtml(gb.room_number)}</b> <small>${escHtml(gb.type_name)}</small>`;
+                if (isActive) html += ` <span class="sp-gr-on">Aktif</span>`;
+                if (hasNote) html += ` <span class="status-dot dot-yellow" style="position:static;margin-left:4px;" title="${escHtml(gb.special_request)}"></span>`;
                 html += `</div>`;
-                html += `<button type="button" onclick="event.stopPropagation(); openRoomNoteEditor(${gb.id})" title="Masukkan catatan/request tamu" style="border:none;background:rgba(99,102,241,0.1);color:#6366f1;font-size:0.7rem;font-weight:600;padding:3px 8px;border-radius:12px;cursor:pointer;white-space:nowrap;">📝 Catatan</button>`;
+                html += `<button type="button" class="sp-gr-note" onclick="event.stopPropagation(); openRoomNoteEditor(${gb.id})" title="Masukkan catatan/request tamu">Catatan</button>`;
                 html += `</div>`;
-                html += `<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.3rem;">Harga: ${fmtR(gb.room_price)} | Diskon: ${fmtR(gb.discount)} | Total: ${fmtR(gb.final_price)}</div>`;
-                if (hasNote) html += `<div style="font-size:0.78rem;color:#b45309;margin-top:0.3rem;font-style:italic;">📌 ${escHtml(gb.special_request)}</div>`;
+                html += `<div class="sp-gr-price">${fmtR(gb.room_price)}${parseFloat(gb.discount) > 0 ? ' · disc ' + fmtR(gb.discount) : ''} · <b>${fmtR(gb.final_price)}</b></div>`;
+                if (hasNote) html += `<div class="sp-gr-noteline">${escHtml(gb.special_request)}</div>`;
                 html += `</div>`;
             });
             groupRoomsList.innerHTML = html;
@@ -3562,21 +3574,31 @@ include '../../includes/header.php';
         }
 
         // Action buttons
+        const spIco = {
+            pay: '<path d="M2 7h20v12H2z"/><path d="M2 11h20"/>',
+            in: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/>',
+            out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+            move: '<path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+            edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+            del: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>'
+        };
+        const spBtn = (cls, ico, label, onclick) => '<button class="sp-action-btn ' + cls + '" onclick="' + onclick + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + spIco[ico] + '</svg><span>' + label + '</span></button>';
+        const editCall = 'closeBookingQuickView(); openEditReservationModal(' + booking.id + ')';
         let actions = '';
         const outstandingBalance = isGroup ? (booking.combined_balance || 0) : Math.max(0, (booking.final_price || 0) - (booking.paid_amount || 0));
         if (booking.payment_status !== 'paid' || outstandingBalance > 0) {
-            actions += '<button class="sp-action-btn success" onclick="openBookingPaymentModal()">💳 Payment</button>';
+            actions += spBtn('success', 'pay', 'Payment', 'openBookingPaymentModal()');
         }
         if (booking.status === 'confirmed' || booking.status === 'pending') {
-            actions += '<button class="sp-action-btn primary" onclick="quickViewCheckIn()">🏨 Check-in</button>';
-            actions += '<button class="sp-action-btn warning" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')">✏️ Edit</button>';
-            actions += '<button class="sp-action-btn danger" onclick="quickViewDeleteBooking()">🗑️ Delete</button>';
+            actions += spBtn('primary', 'in', 'Check-in', 'quickViewCheckIn()');
+            actions += spBtn('', 'edit', 'Edit', editCall);
+            actions += spBtn('danger', 'del', 'Delete', 'quickViewDeleteBooking()');
         } else if (booking.status === 'checked_in') {
-            actions += '<button class="sp-action-btn danger" onclick="quickViewCheckOut()">📤 Check-out</button>';
-            actions += '<button class="sp-action-btn" onclick="quickViewMoveRoom()">🔄 Move</button>';
-            actions += '<button class="sp-action-btn warning" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')">✏️ Edit</button>';
+            actions += spBtn('danger', 'out', 'Check-out', 'quickViewCheckOut()');
+            actions += spBtn('', 'move', 'Move', 'quickViewMoveRoom()');
+            actions += spBtn('', 'edit', 'Edit', editCall);
         } else if (booking.status === 'checked_out') {
-            actions += '<button class="sp-action-btn warning" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')">✏️ Edit</button>';
+            actions += spBtn('', 'edit', 'Edit', editCall);
         }
         document.getElementById('sp-actions').innerHTML = actions;
 
@@ -7787,6 +7809,7 @@ include '../../includes/header.php';
                 <div class="guest-avatar" id="sp-avatar">MS</div>
                 <div class="guest-header-info">
                     <h2 id="sp-guest-name">Guest Name</h2>
+                    <p id="sp-sub" class="sp-sub">-</p>
                     <p id="sp-guest-phone" class="guest-phone-text">-</p>
                 </div>
             </div>
@@ -7830,14 +7853,17 @@ include '../../includes/header.php';
 
         <!-- Guest Info Row -->
         <div class="sp-guest-info-row">
-            <div class="sp-info-icon" title="Adults"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <div class="sp-info-icon" title="Dewasa"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
-                </svg> <span id="sp-adults">1</span></div>
-            <div class="sp-info-icon" title="Children"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                </svg> <b id="sp-adults">1</b> dewasa</div>
+            <div class="sp-info-icon" title="Anak"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="7" r="4" />
                     <path d="M5.5 21v-2a4 4 0 0 1 3-3.87M18.5 21v-2a4 4 0 0 0-3-3.87" />
-                </svg> <span id="sp-children">0</span></div>
+                </svg> <b id="sp-children">0</b> anak</div>
+            <div class="sp-info-icon" title="Malam"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg> <b id="sp-nights">1</b> malam</div>
         </div>
 
         <!-- Tabs -->
@@ -7849,16 +7875,19 @@ include '../../includes/header.php';
 
         <!-- Tab Content: Folio -->
         <div class="sp-tab-content active" id="sp-tab-folio">
-            <div class="sp-balance-box">
-                <div class="sp-balance-label">Balance due</div>
-                <div class="sp-balance-amount" id="sp-balance">Rp0</div>
+            <div class="sp-balance-box" id="sp-balance-box">
+                <div>
+                    <div class="sp-balance-label" id="sp-balance-label">Balance due</div>
+                    <div class="sp-balance-amount" id="sp-balance">Rp0</div>
+                </div>
+                <button type="button" class="sp-note-btn" onclick="openRoomNoteEditor(currentPaymentBooking.id)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                    Catatan
+                </button>
             </div>
-            <div id="sp-folio-note-banner" style="display:none;align-items:flex-start;gap:0.5rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.8rem;">
+            <div id="sp-folio-note-banner" class="sp-note-banner" style="display:none;">
                 <span class="status-dot dot-yellow" style="position:static;margin-top:3px;flex-shrink:0;"></span>
-                <span id="sp-folio-note-text" style="font-size:0.82rem;color:#92400e;font-style:italic;"></span>
-            </div>
-            <div style="display:flex;justify-content:flex-end;margin-bottom:0.6rem;">
-                <button type="button" class="sp-action-btn" style="padding:5px 12px;font-size:0.75rem;" onclick="openRoomNoteEditor(currentPaymentBooking.id)">📝 Catatan</button>
+                <span id="sp-folio-note-text"></span>
             </div>
             <table class="sp-folio-table">
                 <thead>
@@ -7911,9 +7940,9 @@ include '../../includes/header.php';
             </div>
 
             <!-- Group Bookings / Related Rooms -->
-            <div id="sp-group-rooms-section" style="display:none;margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border-color);">
-                <h4 style="margin:0 0 0.8rem 0;font-size:0.9rem;color:var(--text-secondary);">📦 Kamar dalam Grup:</h4>
-                <div id="sp-group-rooms-list" style="display:grid;gap:0.6rem;"></div>
+            <div id="sp-group-rooms-section" class="sp-detail-section" style="display:none;">
+                <h4>Kamar dalam grup</h4>
+                <div id="sp-group-rooms-list" class="sp-group-list"></div>
             </div>
         </div>
 
@@ -8732,6 +8761,571 @@ include '../../includes/header.php';
     }
 
     /* Scrollbar styling (side panel handled above) */
+
+    /* ===== Side panel reservasi — redesign ===== */
+    #bookingQuickView {
+        --sp-bg: #ffffff;
+        --sp-soft: #f8fafc;
+        --sp-line: #e2e8f0;
+        --sp-ink: #0f172a;
+        --sp-muted: #64748b;
+        background: rgba(15, 23, 42, 0.42);
+        backdrop-filter: blur(3px);
+    }
+
+    body[data-theme="dark"] #bookingQuickView {
+        --sp-bg: #0f172a;
+        --sp-soft: rgba(255, 255, 255, 0.04);
+        --sp-line: rgba(255, 255, 255, 0.1);
+        --sp-ink: #e2e8f0;
+        --sp-muted: #94a3b8;
+    }
+
+    #bookingQuickView .guest-side-panel {
+        width: 440px;
+        padding: 0;
+        background: var(--sp-bg);
+        border-left: 1px solid var(--sp-line);
+        box-shadow: -24px 0 60px -20px rgba(15, 23, 42, 0.45);
+    }
+
+    #bookingQuickView .guest-side-panel > *:not(.side-panel-header):not(.sp-actions) {
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+
+    #bookingQuickView .side-panel-header {
+        margin: 0 0 12px;
+        padding: 18px 20px 16px;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    }
+
+    #bookingQuickView .guest-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.16) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+
+    body[data-theme] #bookingQuickView .guest-header-info h2 {
+        margin: 0 !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        line-height: 1.3;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-sub,
+    body[data-theme] #bookingQuickView .guest-phone-text {
+        margin: 2px 0 0 !important;
+        font-size: 0.72rem !important;
+        color: rgba(255, 255, 255, 0.82) !important;
+        -webkit-text-fill-color: rgba(255, 255, 255, 0.82) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-icon-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        background: rgba(255, 255, 255, 0.14) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 1.2rem !important;
+    }
+
+    #bookingQuickView .sp-status-row {
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    body[data-theme] #bookingQuickView .sp-status-badge,
+    body[data-theme] #bookingQuickView .sp-source-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px !important;
+        border-radius: 999px !important;
+        font-size: 0.7rem !important;
+        font-weight: 700 !important;
+        border: 1px solid transparent;
+    }
+
+    #bookingQuickView .sp-status-badge::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    body[data-theme] #bookingQuickView .sp-status-badge.st-checked_in { background: #dcfce7 !important; color: #15803d !important; -webkit-text-fill-color: #15803d !important; }
+    body[data-theme] #bookingQuickView .sp-status-badge.st-confirmed { background: #dbeafe !important; color: #1d4ed8 !important; -webkit-text-fill-color: #1d4ed8 !important; }
+    body[data-theme] #bookingQuickView .sp-status-badge.st-pending { background: #fef3c7 !important; color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; }
+    body[data-theme] #bookingQuickView .sp-status-badge.st-checked_out { background: #f1f5f9 !important; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+    body[data-theme] #bookingQuickView .sp-status-badge.st-cancelled { background: #fee2e2 !important; color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
+
+    body[data-theme] #bookingQuickView .sp-source-badge {
+        background: var(--sp-soft) !important;
+        border-color: var(--sp-line);
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    /* Timeline */
+    #bookingQuickView .sp-timeline {
+        margin-bottom: 10px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: var(--sp-soft);
+        border: 1px solid var(--sp-line);
+    }
+
+    #bookingQuickView .sp-timeline-track {
+        height: 4px;
+        border-radius: 999px;
+        background: var(--sp-line);
+    }
+
+    #bookingQuickView .sp-timeline-progress {
+        border-radius: 999px;
+        background: linear-gradient(90deg, #2563eb, #10b981);
+    }
+
+    body[data-theme] #bookingQuickView .sp-timeline-label {
+        font-size: 0.6rem !important;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-timeline-date {
+        font-size: 0.78rem !important;
+        font-weight: 700;
+        color: var(--sp-ink) !important;
+        -webkit-text-fill-color: var(--sp-ink) !important;
+    }
+
+    /* Tamu & malam */
+    #bookingQuickView .sp-guest-info-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 14px;
+        padding: 0;
+        background: none;
+        border: 0;
+    }
+
+    body[data-theme] #bookingQuickView .sp-info-icon {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: var(--sp-soft);
+        border: 1px solid var(--sp-line);
+        font-size: 0.72rem !important;
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-info-icon b {
+        color: var(--sp-ink) !important;
+        -webkit-text-fill-color: var(--sp-ink) !important;
+    }
+
+    /* Tabs: segmented */
+    #bookingQuickView .sp-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        margin-bottom: 12px;
+        padding: 4px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--sp-soft);
+        border: 1px solid var(--sp-line);
+    }
+
+    body[data-theme] #bookingQuickView .sp-tab {
+        height: 32px;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 9px !important;
+        background: transparent !important;
+        font-size: 0.76rem !important;
+        font-weight: 700;
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-tab.active {
+        background: var(--sp-bg) !important;
+        color: #1d4ed8 !important;
+        -webkit-text-fill-color: #1d4ed8 !important;
+        box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.18);
+    }
+
+    /* Saldo */
+    #bookingQuickView .sp-balance-box {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(220, 38, 38, 0.06);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+    }
+
+    #bookingQuickView .sp-balance-box.paid {
+        background: rgba(5, 150, 105, 0.07);
+        border-color: rgba(5, 150, 105, 0.25);
+    }
+
+    body[data-theme] #bookingQuickView .sp-balance-label {
+        font-size: 0.62rem !important;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #b91c1c !important;
+        -webkit-text-fill-color: #b91c1c !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-balance-amount {
+        font-size: 1.25rem !important;
+        font-weight: 800;
+        color: #b91c1c !important;
+        -webkit-text-fill-color: #b91c1c !important;
+    }
+
+    body[data-theme] #bookingQuickView .paid .sp-balance-label,
+    body[data-theme] #bookingQuickView .paid .sp-balance-amount {
+        color: #047857 !important;
+        -webkit-text-fill-color: #047857 !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-note-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 32px;
+        padding: 0 12px !important;
+        border-radius: 9px !important;
+        border: 1px solid var(--sp-line) !important;
+        background: var(--sp-bg) !important;
+        font-size: 0.74rem !important;
+        font-weight: 700;
+        color: var(--sp-ink) !important;
+        -webkit-text-fill-color: var(--sp-ink) !important;
+        cursor: pointer;
+    }
+
+    #bookingQuickView .sp-note-banner {
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 10px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    body[data-theme] #bookingQuickView #sp-folio-note-text {
+        font-size: 0.76rem !important;
+        font-style: italic;
+        color: #92400e !important;
+        -webkit-text-fill-color: #92400e !important;
+    }
+
+    /* Folio */
+    #bookingQuickView .sp-folio-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        border: 1px solid var(--sp-line);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    body[data-theme] #bookingQuickView .sp-folio-table th {
+        padding: 8px 12px !important;
+        background: var(--sp-soft) !important;
+        border-bottom: 1px solid var(--sp-line) !important;
+        font-size: 0.6rem !important;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-folio-table td {
+        padding: 9px 12px !important;
+        border-bottom: 1px solid var(--sp-line) !important;
+        font-size: 0.76rem !important;
+        color: var(--sp-ink) !important;
+        -webkit-text-fill-color: var(--sp-ink) !important;
+        vertical-align: top;
+    }
+
+    body[data-theme] #bookingQuickView .sp-folio-table .folio-desc-title {
+        font-size: 0.76rem !important;
+        font-weight: 600;
+    }
+
+    body[data-theme] #bookingQuickView .sp-folio-table .folio-desc-sub {
+        font-size: 0.66rem !important;
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-folio-total td {
+        border-bottom: 0 !important;
+        background: var(--sp-soft) !important;
+        font-weight: 800;
+    }
+
+    /* Details & Room */
+    body[data-theme] #bookingQuickView .sp-detail-section h4 {
+        margin: 0 0 6px !important;
+        font-size: 0.62rem !important;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    #bookingQuickView .sp-detail-section {
+        margin-bottom: 12px;
+        padding: 4px 14px;
+        border-radius: 12px;
+        border: 1px solid var(--sp-line);
+    }
+
+    #bookingQuickView .sp-detail-section h4 {
+        padding-top: 10px;
+    }
+
+    body[data-theme] #bookingQuickView .sp-detail-row {
+        padding: 8px 0 !important;
+        border-bottom: 1px dashed var(--sp-line) !important;
+        font-size: 0.78rem !important;
+    }
+
+    #bookingQuickView .sp-detail-row:last-child {
+        border-bottom: 0 !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-detail-row span {
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-detail-row strong {
+        color: var(--sp-ink) !important;
+        -webkit-text-fill-color: var(--sp-ink) !important;
+        text-align: right;
+    }
+
+    body[data-theme] #bookingQuickView .sp-room-card {
+        margin-bottom: 12px;
+        padding: 14px !important;
+        border-radius: 12px !important;
+        background: var(--sp-soft) !important;
+        border: 1px solid var(--sp-line) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-room-type {
+        font-size: 0.62rem !important;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-room-number {
+        font-size: 1.15rem !important;
+        font-weight: 800;
+        color: var(--sp-ink) !important;
+        -webkit-text-fill-color: var(--sp-ink) !important;
+    }
+
+    #bookingQuickView .sp-group-list {
+        display: grid;
+        gap: 6px;
+        padding-bottom: 10px;
+    }
+
+    #bookingQuickView .sp-group-room {
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--sp-line);
+        background: var(--sp-bg);
+        cursor: pointer;
+    }
+
+    #bookingQuickView .sp-group-room.on {
+        border-color: rgba(5, 150, 105, 0.4);
+        background: rgba(5, 150, 105, 0.06);
+    }
+
+    #bookingQuickView .sp-gr-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    body[data-theme] #bookingQuickView .sp-gr-top b {
+        font-size: 0.8rem !important;
+        color: var(--sp-ink) !important;
+        -webkit-text-fill-color: var(--sp-ink) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-gr-top small,
+    body[data-theme] #bookingQuickView .sp-gr-price {
+        font-size: 0.7rem !important;
+        color: var(--sp-muted) !important;
+        -webkit-text-fill-color: var(--sp-muted) !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-gr-on {
+        margin-left: 4px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: rgba(5, 150, 105, 0.12);
+        font-size: 0.6rem !important;
+        font-weight: 700;
+        color: #047857 !important;
+        -webkit-text-fill-color: #047857 !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-gr-note {
+        padding: 3px 9px !important;
+        border-radius: 999px !important;
+        border: 1px solid var(--sp-line) !important;
+        background: var(--sp-soft) !important;
+        font-size: 0.66rem !important;
+        font-weight: 700;
+        color: #1d4ed8 !important;
+        -webkit-text-fill-color: #1d4ed8 !important;
+        cursor: pointer;
+    }
+
+    body[data-theme] #bookingQuickView .sp-gr-noteline {
+        margin-top: 4px;
+        font-size: 0.7rem !important;
+        font-style: italic;
+        color: #b45309 !important;
+        -webkit-text-fill-color: #b45309 !important;
+    }
+
+    /* Tombol aksi: menempel di bawah */
+    #bookingQuickView .sp-actions {
+        position: sticky;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+        grid-auto-flow: column;
+        gap: 8px;
+        margin-top: auto;
+        padding: 12px 20px 16px;
+        background: var(--sp-bg);
+        border-top: 1px solid var(--sp-line);
+    }
+
+    body[data-theme] #bookingQuickView .sp-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 0;
+        height: 40px;
+        padding: 0 8px !important;
+        border-radius: 10px !important;
+        border: 1px solid var(--sp-line) !important;
+        background: var(--sp-bg) !important;
+        font-size: 0.76rem !important;
+        font-weight: 700;
+        color: var(--sp-ink) !important;
+        -webkit-text-fill-color: var(--sp-ink) !important;
+        white-space: nowrap;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    #bookingQuickView .sp-action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px -12px rgba(15, 23, 42, 0.5);
+    }
+
+    body[data-theme] #bookingQuickView .sp-action-btn.success {
+        border: 0 !important;
+        background: linear-gradient(135deg, #047857, #10b981) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-action-btn.primary {
+        border: 0 !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-action-btn.danger {
+        border-color: rgba(220, 38, 38, 0.35) !important;
+        background: rgba(220, 38, 38, 0.06) !important;
+        color: #b91c1c !important;
+        -webkit-text-fill-color: #b91c1c !important;
+    }
+
+    body[data-theme="dark"] #bookingQuickView .sp-balance-label,
+    body[data-theme="dark"] #bookingQuickView .sp-balance-amount,
+    body[data-theme="dark"] #bookingQuickView .sp-action-btn.danger {
+        color: #fca5a5 !important;
+        -webkit-text-fill-color: #fca5a5 !important;
+    }
+
+    body[data-theme="dark"] #bookingQuickView .paid .sp-balance-label,
+    body[data-theme="dark"] #bookingQuickView .paid .sp-balance-amount {
+        color: #6ee7b7 !important;
+        -webkit-text-fill-color: #6ee7b7 !important;
+    }
+
+    body[data-theme="dark"] #bookingQuickView #sp-folio-note-text,
+    body[data-theme="dark"] #bookingQuickView .sp-gr-noteline {
+        color: #fcd34d !important;
+        -webkit-text-fill-color: #fcd34d !important;
+    }
+
+    body[data-theme="dark"] #bookingQuickView .sp-tab.active,
+    body[data-theme="dark"] #bookingQuickView .sp-gr-note {
+        color: #93c5fd !important;
+        -webkit-text-fill-color: #93c5fd !important;
+    }
+
+    body[data-theme="dark"] #bookingQuickView .sp-tab.active {
+        background: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    @media (max-width: 480px) {
+        #bookingQuickView .guest-side-panel {
+            width: 100vw;
+            max-width: 100vw;
+        }
+    }
 </style>
 
 <!-- EXTEND STAY MODAL -->
