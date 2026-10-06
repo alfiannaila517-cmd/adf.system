@@ -2481,18 +2481,6 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     height: 13px !important;
                 }
 
-                #adminNotifBell svg {
-                    width: 17px !important;
-                    height: 17px !important;
-                }
-
-                #adminNotifBadge {
-                    top: -5px !important;
-                    right: -7px !important;
-                    min-width: 14px !important;
-                    height: 14px !important;
-                    font-size: 0.55rem !important;
-                }
 
                 .main-content > .top-bar .adfsub-pro-pill,
                 .main-content > .top-bar .adfsub-head-pill {
@@ -2579,22 +2567,348 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                         <span>End Shift</span>
                     </a>
 
-                    <!-- Notification Bell -->
-                    <div id="adminNotifBell" style="position:relative;cursor:pointer;" onclick="toggleAdminNotif()">
-                        <i data-feather="bell" style="width:22px;height:22px;color:var(--text-muted);transition:color .2s;"></i>
-                        <span id="adminNotifBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;min-width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;padding:0 4px;"></span>
-                    </div>
+                    <!-- Notification Bell: tombol tersendiri; panel dipindah ke <body> oleh JS
+                         (top bar ber-overflow:hidden memotong panel bila tetap di dalamnya). -->
+                    <button type="button" id="adminNotifBell" class="tb-bell" onclick="toggleAdminNotif()" aria-label="Notifikasi" title="Notifikasi">
+                        <i data-feather="bell"></i>
+                        <span id="adminNotifBadge" class="tb-bell-badge"></span>
+                    </button>
 
                     <!-- Notification Panel -->
-                    <div id="adminNotifPanel" style="display:none;position:absolute;top:60px;right:120px;width:400px;max-height:500px;background:#fff;border-radius:12px;box-shadow:0 10px 50px rgba(0,0,0,.15);border:1px solid #e5e7eb;z-index:999;overflow:hidden;">
-                        <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
-                            <span style="font-weight:700;font-size:0.9rem;color:#1e293b;">📋 Pengajuan Staff</span>
-                            <span id="adminNotifCount" style="background:#ef4444;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px;display:none;">0</span>
+                    <div id="adminNotifPanel" class="np-panel" role="dialog" aria-label="Notifikasi">
+                        <div class="np-head">
+                            <div>
+                                <b>Notifikasi</b>
+                                <small>Pengajuan staf menunggu persetujuan</small>
+                            </div>
+                            <span id="adminNotifCount" class="np-count">0</span>
+                            <button type="button" class="np-close" onclick="toggleAdminNotif(false)" aria-label="Tutup">&times;</button>
                         </div>
-                        <div id="adminNotifList" style="max-height:420px;overflow-y:auto;padding:4px 0;">
-                            <div style="padding:30px;text-align:center;color:#94a3b8;font-size:0.8rem;">Memuat...</div>
+                        <div id="adminNotifList" class="np-list">
+                            <div class="np-empty">Memuat…</div>
                         </div>
                     </div>
+                    <style>
+                        .main-content > .top-bar .tb-bell {
+                            position: relative;
+                            width: 34px;
+                            height: 34px;
+                            margin: 0 0.15rem 0 0.35rem;
+                            display: grid;
+                            place-items: center;
+                            border-radius: 10px;
+                            border: 1px solid rgba(148, 163, 184, 0.35);
+                            background: rgba(255, 255, 255, 0.75);
+                            color: #475569;
+                            cursor: pointer;
+                            transition: background 0.15s, border-color 0.15s, color 0.15s;
+                        }
+
+                        .main-content > .top-bar .tb-bell:hover,
+                        .main-content > .top-bar .tb-bell.open {
+                            background: #eef2ff;
+                            border-color: #93c5fd;
+                            color: #1d4ed8;
+                        }
+
+                        body[data-theme="dark"] .main-content > .top-bar .tb-bell {
+                            background: rgba(255, 255, 255, 0.06);
+                            border-color: rgba(255, 255, 255, 0.14);
+                            color: #cbd5e1;
+                        }
+
+                        body[data-theme="dark"] .main-content > .top-bar .tb-bell:hover,
+                        body[data-theme="dark"] .main-content > .top-bar .tb-bell.open {
+                            background: rgba(59, 130, 246, 0.18);
+                            color: #93c5fd;
+                        }
+
+                        .main-content > .top-bar .tb-bell svg {
+                            width: 17px !important;
+                            height: 17px !important;
+                            color: inherit !important;
+                            stroke: currentColor !important;
+                        }
+
+                        .tb-bell-badge {
+                            position: absolute;
+                            top: -6px;
+                            right: -6px;
+                            display: none;
+                            align-items: center;
+                            justify-content: center;
+                            min-width: 17px;
+                            height: 17px;
+                            padding: 0 4px;
+                            border-radius: 9px;
+                            border: 2px solid #fff;
+                            background: #ef4444;
+                            color: #fff !important;
+                            -webkit-text-fill-color: #fff !important;
+                            font-size: 0.55rem;
+                            font-weight: 800;
+                            line-height: 1;
+                        }
+
+                        /* Panel notifikasi (di <body>, posisi fixed di bawah lonceng) */
+                        .np-panel {
+                            --np-bg: #ffffff;
+                            --np-ink: #0f172a;
+                            --np-muted: #64748b;
+                            --np-line: #e2e8f0;
+                            --np-soft: #f8fafc;
+                            position: fixed;
+                            z-index: 10040;
+                            display: none;
+                            width: 380px;
+                            max-width: calc(100vw - 24px);
+                            max-height: min(70vh, 560px);
+                            flex-direction: column;
+                            border-radius: 16px;
+                            background: var(--np-bg);
+                            border: 1px solid var(--np-line);
+                            box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.4);
+                            overflow: hidden;
+                        }
+
+                        body[data-theme="dark"] .np-panel {
+                            --np-bg: #111a2e;
+                            --np-ink: #e2e8f0;
+                            --np-muted: #94a3b8;
+                            --np-line: rgba(255, 255, 255, 0.1);
+                            --np-soft: rgba(255, 255, 255, 0.04);
+                        }
+
+                        .np-panel.show {
+                            display: flex;
+                            animation: npIn 0.14s ease-out;
+                        }
+
+                        @keyframes npIn {
+                            from { opacity: 0; transform: translateY(-6px); }
+                            to { opacity: 1; transform: none; }
+                        }
+
+                        .np-panel * {
+                            -webkit-text-fill-color: currentColor;
+                        }
+
+                        .np-head {
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            padding: 14px 16px 12px;
+                            border-bottom: 1px solid var(--np-line);
+                        }
+
+                        .np-head > div {
+                            flex: 1;
+                            min-width: 0;
+                        }
+
+                        .np-head b {
+                            display: block;
+                            font-size: 0.92rem;
+                            color: var(--np-ink);
+                        }
+
+                        .np-head small {
+                            display: block;
+                            font-size: 0.7rem;
+                            color: var(--np-muted);
+                        }
+
+                        .np-count {
+                            display: none;
+                            min-width: 22px;
+                            padding: 2px 8px;
+                            border-radius: 999px;
+                            background: #fee2e2;
+                            color: #b91c1c;
+                            font-size: 0.68rem;
+                            font-weight: 800;
+                            text-align: center;
+                        }
+
+                        .np-close {
+                            border: 0;
+                            background: transparent;
+                            color: var(--np-muted);
+                            font-size: 22px;
+                            line-height: 1;
+                            cursor: pointer;
+                            padding: 0 2px;
+                        }
+
+                        .np-list {
+                            overflow-y: auto;
+                            padding: 8px;
+                        }
+
+                        .np-empty {
+                            padding: 34px 16px;
+                            text-align: center;
+                            font-size: 0.78rem;
+                            color: var(--np-muted);
+                        }
+
+                        .np-empty .np-empty-ic {
+                            width: 44px;
+                            height: 44px;
+                            margin: 0 auto 8px;
+                            border-radius: 50%;
+                            display: grid;
+                            place-items: center;
+                            background: rgba(5, 150, 105, 0.1);
+                            color: #059669;
+                            font-size: 1.2rem;
+                        }
+
+                        .np-item {
+                            padding: 11px 12px;
+                            margin-bottom: 6px;
+                            border-radius: 12px;
+                            background: var(--np-soft);
+                            border: 1px solid var(--np-line);
+                        }
+
+                        .np-item-top {
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                        }
+
+                        .np-av {
+                            width: 34px;
+                            height: 34px;
+                            flex-shrink: 0;
+                            border-radius: 50%;
+                            display: grid;
+                            place-items: center;
+                            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+                            color: #fff;
+                            font-size: 0.78rem;
+                            font-weight: 700;
+                        }
+
+                        .np-who {
+                            flex: 1;
+                            min-width: 0;
+                        }
+
+                        .np-who b {
+                            display: block;
+                            overflow: hidden;
+                            white-space: nowrap;
+                            text-overflow: ellipsis;
+                            font-size: 0.8rem;
+                            color: var(--np-ink);
+                        }
+
+                        .np-who small {
+                            display: block;
+                            font-size: 0.68rem;
+                            color: var(--np-muted);
+                        }
+
+                        .np-tag {
+                            flex-shrink: 0;
+                            padding: 2px 8px;
+                            border-radius: 999px;
+                            font-size: 0.6rem;
+                            font-weight: 800;
+                            letter-spacing: 0.03em;
+                            text-transform: uppercase;
+                        }
+
+                        .np-tag.ot { background: rgba(217, 119, 6, 0.14); color: #b45309; }
+                        .np-tag.leave { background: rgba(37, 99, 235, 0.12); color: #1d4ed8; }
+                        .np-tag.sick { background: rgba(220, 38, 38, 0.1); color: #b91c1c; }
+                        body[data-theme="dark"] .np-tag.ot { color: #fbbf24; }
+                        body[data-theme="dark"] .np-tag.leave { color: #93c5fd; }
+                        body[data-theme="dark"] .np-tag.sick { color: #fca5a5; }
+
+                        .np-reason {
+                            margin: 8px 0 0 44px;
+                            font-size: 0.72rem;
+                            line-height: 1.45;
+                            color: var(--np-muted);
+                        }
+
+                        .np-actions {
+                            display: grid;
+                            grid-template-columns: 1fr 1fr;
+                            gap: 6px;
+                            margin: 10px 0 0 44px;
+                        }
+
+                        .np-btn {
+                            height: 30px;
+                            border-radius: 8px;
+                            border: 1px solid transparent;
+                            font-size: 0.72rem;
+                            font-weight: 700;
+                            cursor: pointer;
+                        }
+
+                        .np-btn.ok { background: #059669; color: #fff; }
+                        .np-btn.ok:hover { background: #047857; }
+                        .np-btn.no { background: transparent; border-color: rgba(220, 38, 38, 0.35); color: #b91c1c; }
+                        .np-btn.no:hover { background: rgba(220, 38, 38, 0.08); }
+                        .np-btn.ghost { background: transparent; border-color: var(--np-line); color: var(--np-muted); }
+                        body[data-theme="dark"] .np-btn.no { color: #fca5a5; }
+                        .np-btn:disabled { opacity: 0.6; cursor: wait; }
+
+                        .np-decide {
+                            margin: 10px 0 0 44px;
+                        }
+
+                        .np-decide textarea {
+                            width: 100%;
+                            min-height: 54px;
+                            padding: 7px 9px;
+                            border-radius: 8px;
+                            border: 1px solid var(--np-line);
+                            background: var(--np-bg);
+                            color: var(--np-ink);
+                            font: inherit;
+                            font-size: 0.74rem;
+                            resize: vertical;
+                        }
+
+                        .np-decide .np-actions {
+                            margin-left: 0;
+                        }
+
+                        .np-done {
+                            padding: 6px 0 2px 44px;
+                            font-size: 0.74rem;
+                            font-weight: 700;
+                        }
+
+                        .np-done.ok { color: #059669; }
+                        .np-done.no { color: #b91c1c; }
+
+                        /* style.css memaksa warna & latar elemen (kedua tema): kunci yang penting */
+                        body[data-theme] .np-panel { background-color: var(--np-bg) !important; opacity: 1 !important; backdrop-filter: none !important; }
+                        body[data-theme="dark"] .np-panel { background-color: #111a2e !important; }
+                        body[data-theme] .np-panel .np-item { background-color: var(--np-soft) !important; }
+                        body[data-theme="dark"] .np-panel .np-item { background-color: #18233a !important; }
+                        body[data-theme] .np-panel .np-head b, body[data-theme] .np-panel .np-who b { color: var(--np-ink) !important; }
+                        body[data-theme] .np-panel .np-head small, body[data-theme] .np-panel .np-who small, body[data-theme] .np-panel .np-reason, body[data-theme] .np-panel .np-empty { color: var(--np-muted) !important; }
+                        body[data-theme] .np-panel .np-av, body[data-theme] .np-panel .np-btn.ok { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+                        body[data-theme] .np-panel .np-count { color: #b91c1c !important; }
+                        body[data-theme] .np-panel .np-tag.ot { color: #b45309 !important; }
+                        body[data-theme] .np-panel .np-tag.leave { color: #1d4ed8 !important; }
+                        body[data-theme] .np-panel .np-tag.sick, body[data-theme] .np-panel .np-btn.no { color: #b91c1c !important; }
+                        body[data-theme="dark"] .np-panel .np-tag.ot { color: #fbbf24 !important; }
+                        body[data-theme="dark"] .np-panel .np-tag.leave { color: #93c5fd !important; }
+                        body[data-theme="dark"] .np-panel .np-tag.sick, body[data-theme="dark"] .np-panel .np-btn.no { color: #fca5a5 !important; }
+                        body[data-theme] .np-panel .np-btn.ghost { color: var(--np-muted) !important; }
+                        body[data-theme] .np-panel .np-decide textarea { background-color: var(--np-bg) !important; color: var(--np-ink) !important; }
+                        body[data-theme] .np-panel .np-done.ok { color: #059669 !important; }
+                        body[data-theme] .np-panel .np-done.no { color: #b91c1c !important; }
+                    </style>
 
                     <?php if (!empty($adfsubState['sync_error']) && $adfsubRole === 'developer'): ?>
                         <!-- Developer: sinkron ke adfsystem.store gagal, kunci/tagihan tidak akan ter-update -->
@@ -2849,83 +3163,112 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     // ═══ Admin Notification System ═══
                     let adminNotifOpen = false;
                     const NOTIF_BASE = '<?php echo BASE_URL; ?>';
+                    const npEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-                    function toggleAdminNotif() {
-                        adminNotifOpen = !adminNotifOpen;
+                    // Panel di <body> (top bar ber-overflow:hidden), posisi tepat di bawah lonceng.
+                    function npPlace() {
+                        const bell = document.getElementById('adminNotifBell');
                         const panel = document.getElementById('adminNotifPanel');
+                        if (!bell || !panel) return;
+                        if (panel.parentNode !== document.body) document.body.appendChild(panel);
+                        const r = bell.getBoundingClientRect();
+                        const w = Math.min(380, window.innerWidth - 24);
+                        panel.style.top = (r.bottom + 10) + 'px';
+                        panel.style.left = Math.max(12, Math.min(r.right - w + 40, window.innerWidth - w - 12)) + 'px';
+                    }
+
+                    function toggleAdminNotif(force) {
+                        adminNotifOpen = typeof force === 'boolean' ? force : !adminNotifOpen;
+                        const panel = document.getElementById('adminNotifPanel');
+                        const bell = document.getElementById('adminNotifBell');
                         if (adminNotifOpen) {
-                            panel.style.display = 'block';
+                            npPlace();
+                            panel.classList.add('show');
+                            bell && bell.classList.add('open');
                             loadAdminNotifs();
                         } else {
-                            panel.style.display = 'none';
+                            panel.classList.remove('show');
+                            bell && bell.classList.remove('open');
                         }
                     }
 
                     document.addEventListener('click', function(e) {
                         if (adminNotifOpen && !e.target.closest('#adminNotifBell') && !e.target.closest('#adminNotifPanel')) {
-                            adminNotifOpen = false;
-                            document.getElementById('adminNotifPanel').style.display = 'none';
+                            toggleAdminNotif(false);
                         }
                     });
+                    document.addEventListener('keydown', e => { if (e.key === 'Escape' && adminNotifOpen) toggleAdminNotif(false); });
+                    window.addEventListener('resize', () => { if (adminNotifOpen) npPlace(); });
+
+                    function npItem(kind, id, name, tag, tagClass, line, reason) {
+                        const initials = String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+                        return `<div class="np-item" id="notif-${kind}-${id}">
+                            <div class="np-item-top">
+                                <span class="np-av">${npEsc(initials)}</span>
+                                <span class="np-who"><b>${npEsc(name)}</b><small>${npEsc(line)}</small></span>
+                                <span class="np-tag ${tagClass}">${npEsc(tag)}</span>
+                            </div>
+                            ${reason ? `<div class="np-reason">${npEsc(reason)}</div>` : ''}
+                            <div class="np-actions">
+                                <button type="button" class="np-btn ok" onclick="npDecide('${kind}', ${id}, 'approve')">Setujui</button>
+                                <button type="button" class="np-btn no" onclick="npDecide('${kind}', ${id}, 'reject')">Tolak</button>
+                            </div>
+                        </div>`;
+                    }
 
                     async function loadAdminNotifs() {
+                        const list = document.getElementById('adminNotifList');
                         try {
                             const res = await fetch(NOTIF_BASE + '/api/get-notifications.php?type=admin_pending');
                             const data = await res.json();
                             const leaves = data.pending_leaves || [];
                             const overtimes = data.pending_overtimes || [];
-                            const total = leaves.length + overtimes.length;
 
-                            if (total === 0) {
-                                document.getElementById('adminNotifList').innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:0.8rem;">✅ Tidak ada pengajuan pending</div>';
+                            if (leaves.length + overtimes.length === 0) {
+                                list.innerHTML = '<div class="np-empty"><div class="np-empty-ic">✓</div>Tidak ada pengajuan yang menunggu</div>';
                                 return;
                             }
 
+                            const leaveTag = { cuti: ['Cuti', 'leave'], sakit: ['Sakit', 'sick'], izin: ['Izin', 'leave'], cuti_khusus: ['Cuti Khusus', 'leave'] };
                             let html = '';
                             overtimes.forEach(o => {
-                                html += `<div style="padding:12px 18px;border-bottom:1px solid #f8fafc;" id="notif-ot-${o.id}">
-                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                                        <span style="font-size:14px;">⏰</span>
-                                        <span style="font-weight:700;font-size:0.78rem;color:#1e293b;">${o.full_name}</span>
-                                        <span style="margin-left:auto;background:#fef3c7;color:#92400e;font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:8px;">LEMBUR</span>
-                                    </div>
-                                    <div style="font-size:0.75rem;color:#64748b;margin-bottom:8px;">📅 ${o.overtime_date} — ${o.reason||'Tidak ada keterangan'}</div>
-                                    <div style="display:flex;gap:6px;">
-                                        <button onclick="approveReject('overtime','approve',${o.id})" style="flex:1;padding:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">✅ Setujui</button>
-                                        <button onclick="approveReject('overtime','reject',${o.id})" style="flex:1;padding:6px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">❌ Tolak</button>
-                                    </div>
-                                </div>`;
+                                html += npItem('ot', o.id, o.full_name, 'Lembur', 'ot', o.overtime_date, o.reason || '');
                             });
                             leaves.forEach(l => {
-                                const tl = {
-                                    cuti: '🏖️ Cuti',
-                                    sakit: '🩺 Sakit',
-                                    izin: '📋 Izin',
-                                    cuti_khusus: '⭐ Cuti Khusus'
-                                } [l.leave_type] || l.leave_type;
-                                html += `<div style="padding:12px 18px;border-bottom:1px solid #f8fafc;" id="notif-lv-${l.id}">
-                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                                        <span style="font-size:14px;">📝</span>
-                                        <span style="font-weight:700;font-size:0.78rem;color:#1e293b;">${l.full_name}</span>
-                                        <span style="margin-left:auto;background:#dbeafe;color:#1e40af;font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:8px;">${tl}</span>
-                                    </div>
-                                    <div style="font-size:0.75rem;color:#64748b;margin-bottom:4px;">📅 ${l.start_date} s/d ${l.end_date}</div>
-                                    ${l.reason ? `<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">💬 ${l.reason}</div>` : ''}
-                                    <div style="display:flex;gap:6px;">
-                                        <button onclick="approveReject('leave','approve',${l.id})" style="flex:1;padding:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">✅ Setujui</button>
-                                        <button onclick="approveReject('leave','reject',${l.id})" style="flex:1;padding:6px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">❌ Tolak</button>
-                                    </div>
-                                </div>`;
+                                const t = leaveTag[l.leave_type] || [l.leave_type, 'leave'];
+                                html += npItem('lv', l.id, l.full_name, t[0], t[1], l.start_date + (l.end_date && l.end_date !== l.start_date ? ' – ' + l.end_date : ''), l.reason || '');
                             });
-                            document.getElementById('adminNotifList').innerHTML = html;
+                            list.innerHTML = html;
                         } catch (e) {
-                            document.getElementById('adminNotifList').innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444;font-size:0.8rem;">Gagal memuat</div>';
+                            list.innerHTML = '<div class="np-empty">Gagal memuat notifikasi</div>';
                         }
                     }
 
-                    async function approveReject(type, action, id) {
-                        const notes = prompt(action === 'reject' ? 'Alasan penolakan (opsional):' : 'Catatan (opsional):');
-                        if (notes === null) return;
+                    // Setujui / Tolak: kolom catatan muncul di dalam kartu (pengganti prompt() bawaan browser).
+                    function npDecide(kind, id, action) {
+                        const item = document.getElementById('notif-' + kind + '-' + id);
+                        if (!item) return;
+                        const old = item.querySelector('.np-decide');
+                        if (old) old.remove();
+                        const isOk = action === 'approve';
+                        const box = document.createElement('div');
+                        box.className = 'np-decide';
+                        box.innerHTML = `<textarea placeholder="${isOk ? 'Catatan (opsional)' : 'Alasan penolakan (opsional)'}"></textarea>
+                            <div class="np-actions">
+                                <button type="button" class="np-btn ghost">Batal</button>
+                                <button type="button" class="np-btn ${isOk ? 'ok' : 'no'}">${isOk ? 'Konfirmasi setujui' : 'Konfirmasi tolak'}</button>
+                            </div>`;
+                        item.querySelector('.np-actions').style.display = 'none';
+                        item.appendChild(box);
+                        box.querySelector('textarea').focus();
+                        box.querySelector('.ghost').onclick = () => { box.remove(); item.querySelector('.np-actions').style.display = ''; };
+                        box.querySelector('.np-btn:not(.ghost)').onclick = function() {
+                            this.disabled = true;
+                            approveReject(kind === 'ot' ? 'overtime' : 'leave', action, id, box.querySelector('textarea').value);
+                        };
+                    }
+
+                    async function approveReject(type, action, id, notes) {
                         const fd = new FormData();
                         if (type === 'overtime') {
                             fd.append('action', action === 'approve' ? 'approve_overtime' : 'reject_overtime');
@@ -2934,27 +3277,25 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             fd.append('action', action === 'approve' ? 'approve_leave' : 'reject_leave');
                             fd.append('leave_id', id);
                         }
-                        fd.append('admin_notes', notes);
+                        fd.append('admin_notes', notes || '');
+                        const el = document.getElementById('notif-' + (type === 'overtime' ? 'ot' : 'lv') + '-' + id);
                         try {
                             const res = await fetch(NOTIF_BASE + '/api/get-notifications.php?type=admin_action', {
                                 method: 'POST',
                                 body: fd
                             });
                             const data = await res.json();
-                            if (data.success) {
-                                const el = document.getElementById('notif-' + (type === 'overtime' ? 'ot' : 'lv') + '-' + id);
-                                if (el) {
-                                    el.innerHTML = '<div style="padding:8px;text-align:center;color:' + (action === 'approve' ? '#16a34a' : '#ef4444') + ';font-size:0.78rem;font-weight:700;">' + (action === 'approve' ? '✅ Disetujui' : '❌ Ditolak') + '</div>';
-                                    setTimeout(() => {
-                                        el.style.display = 'none';
-                                        checkAdminNotifs();
-                                    }, 1500);
-                                }
-                            } else {
-                                alert(data.message || 'Gagal memproses');
+                            if (!data.success) throw new Error(data.message || 'Gagal memproses');
+                            if (el) {
+                                const ok = action === 'approve';
+                                el.querySelectorAll('.np-actions, .np-decide, .np-reason').forEach(x => x.remove());
+                                el.insertAdjacentHTML('beforeend', '<div class="np-done ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓ Disetujui' : '✕ Ditolak') + '</div>');
+                                setTimeout(() => { el.remove(); checkAdminNotifs(); if (!document.querySelector('.np-item')) loadAdminNotifs(); }, 1400);
                             }
                         } catch (e) {
-                            alert('Error: ' + e.message);
+                            alert(e.message || 'Gagal memproses');
+                            const btn = el && el.querySelector('.np-decide .np-btn:not(.ghost)');
+                            if (btn) btn.disabled = false;
                         }
                     }
 
@@ -2983,7 +3324,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             if (cntEl) {
                                 if (count > 0) {
                                     cntEl.textContent = count;
-                                    cntEl.style.display = 'inline';
+                                    cntEl.style.display = 'inline-block';
                                 } else {
                                     cntEl.style.display = 'none';
                                 }
