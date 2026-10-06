@@ -141,6 +141,52 @@ $token = trim((string)($_GET['t'] ?? ''));
             color: var(--muted);
         }
 
+        /* Kartu tamu ringkas */
+        .guest { padding: 12px 14px; }
+        .g-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+        .g-who { min-width: 0; }
+        .guest-name { font-size: 15px; }
+        .guest-sub { font-size: 11.5px; }
+        .g-hours {
+            flex-shrink: 0;
+            text-align: right;
+            padding: 5px 9px;
+            border-radius: 9px;
+            background: #eef2f8;
+            line-height: 1.15;
+        }
+        .g-hours b { display: block; font-size: 12.5px; color: var(--navy); }
+        .g-hours span { font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+        .allow-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+        .ac {
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: var(--gold-soft);
+            font-size: 11.5px;
+            color: #8a6d3b;
+            white-space: nowrap;
+        }
+        .ac b { color: var(--navy); font-size: 12px; }
+        .ac.kid { background: #ecfdf5; color: var(--green); }
+        .ac.kid b { color: var(--green); }
+        .g-rules { margin: 9px 0 0; padding-left: 16px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+        .g-spot {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px 12px;
+            border-radius: 11px;
+            border: 1px dashed #cdbb98;
+            background: #fffdf8;
+            font-family: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        .g-spot > span:first-child { font-size: 17px; }
+        .g-spot span:last-child { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+        .g-spot b { display: block; font-size: 12.5px; color: var(--navy); }
         /* Notices */
         .notice {
             margin: 14px 0 0;
@@ -506,6 +552,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     </div>
                     <span class="label">Time</span>
                     <div class="seg times" id="timeSeg"></div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:6px">Breakfast is served from 07:00 to 10:00.</div>
                     <span class="label" id="locLabel">Location</span>
                     <input class="input" id="location" maxlength="120" value="Main Restaurant">
                     <span class="label">Notes (optional)</span>
@@ -586,18 +633,26 @@ $token = trim((string)($_GET['t'] ?? ''));
                 var rooms = (data.room_number || []).join(', ');
                 var pax = parseInt(data.max_main || 0, 10);
                 var kids = parseInt(data.max_child || 0, 10);
+                var chip = function(n, label) { return '<span class="ac"><b>' + n + '</b> ' + label + '</span>'; };
                 $('guestCard').innerHTML =
-                    '<div class="guest-name">' + esc(data.guest_name) + '</div>' +
-                    '<div class="guest-sub">Room ' + esc(rooms || '-') + ' · Breakfast on ' + esc(fmtDate(data.breakfast_date)) + '</div>' +
-                    '<div class="allow">' +
-                    '<div><b>' + pax + '</b><span>Guests</span></div>' +
-                    '<div><b>' + pax + '</b><span>Main</span></div>' +
-                    '<div><b>' + pax + '</b><span>Juice</span></div>' +
-                    '<div><b>' + pax + '</b><span>Coffee / Tea</span></div>' +
-                    (kids ? '<div><b>' + kids + '</b><span>Kids</span></div>' : '') +
+                    '<div class="g-top">' +
+                    '<div class="g-who"><div class="guest-name">' + esc(data.guest_name) + '</div>' +
+                    '<div class="guest-sub">Room ' + esc(rooms || '-') + ' · ' + esc(fmtDate(data.breakfast_date)) + '</div></div>' +
+                    '<div class="g-hours"><b>07:00–10:00</b><span>Breakfast</span></div>' +
                     '</div>' +
-                    (kids ? '<div class="note-bar" style="color:#047857">Kids under 7 eat free: 1 pancake or waffle and 1 drink each.</div>' : '') +
-                    '<div class="note-bar">Each guest enjoys 1 main course, 1 fresh juice and 1 coffee or tea. Each additional main course is an extra breakfast (' + rp(data.extra_package_price || 82500) + ') and includes 1 more juice and coffee/tea.</div>';
+                    '<div class="allow-chips">' +
+                    chip(pax, pax === 1 ? 'guest' : 'guests') + chip(pax, 'main') + chip(pax, 'juice') + chip(pax, 'coffee/tea') +
+                    (kids ? '<span class="ac kid"><b>' + kids + '</b> kid' + (kids === 1 ? '' : 's') + ' · free</span>' : '') +
+                    '</div>' +
+                    '<ul class="g-rules">' +
+                    '<li>Per guest: 1 main course, 1 fresh juice and 1 coffee or tea.</li>' +
+                    (kids ? '<li>Kids under 7: 1 pancake or waffle + 1 drink, complimentary.</li>' : '') +
+                    '<li>Extra main course ' + rp(data.extra_package_price || 82500) + ', includes 1 more juice and coffee/tea.</li>' +
+                    '</ul>' +
+                    ((data.is_locked || data.auto_on_the_spot_midnight) ? '' :
+                        '<button type="button" class="g-spot" id="btnSpotTop"><span>🍽️</span><span><b>Order on the spot</b>Choose directly at the restaurant tomorrow</span></button>');
+                var top = $('btnSpotTop');
+                if (top) top.addEventListener('click', function() { $('btnOnSpot').click(); });
             }
 
             function itemRow(m, group) {
@@ -694,7 +749,7 @@ $token = trim((string)($_GET['t'] ?? ''));
 
             function renderTimes() {
                 var out = [];
-                for (var mins = 6 * 60 + 30; mins <= 10 * 60; mins += 30) {
+                for (var mins = 7 * 60; mins <= 10 * 60; mins += 30) {
                     var v = String(Math.floor(mins / 60)).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
                     out.push('<button type="button" data-v="' + v + '" class="' + (v === time ? 'on' : '') + '">' + v + '</button>');
                 }
