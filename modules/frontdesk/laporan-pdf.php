@@ -90,38 +90,42 @@ ob_start();
 ?>
 <style>
     .head { width: 100%; }
-    .head td { vertical-align: bottom; }
-    .hotel { font-size: 15pt; color: #0f2747; }
-    .addr { font-size: 7.5pt; color: #6b7280; margin-top: 1mm; }
-    .title { font-size: 9pt; color: #b08d57; text-align: right; letter-spacing: 2.5pt; }
-    .date { font-size: 8pt; color: #6b7280; text-align: right; margin-top: 1mm; }
-    .stats { width: 100%; margin-top: 4mm; }
-    .stats td { width: 16.66%; padding: 1.5mm 0 1.5mm 2.5mm; border-left: 0.3mm solid #e8dcc6; vertical-align: top; }
-    .stats td.first { border-left: 0; padding-left: 0; }
-    .stats .v { font-size: 14pt; color: #0f2747; }
-    .stats .l { font-size: 6.3pt; color: #8a8f98; letter-spacing: 0.4pt; }
+    .head td { vertical-align: middle; }
+    .hotel { font-size: 19pt; color: #0f2747; }
+    .addr { font-size: 8.8pt; color: #5b6472; margin-top: 1.2mm; }
+    .title { font-size: 12pt; color: #b08d57; text-align: right; letter-spacing: 2.5pt; }
+    .date { font-size: 10pt; color: #0f2747; text-align: right; margin-top: 1.2mm; }
+    .stats { width: 100%; margin-top: 5mm; }
+    .stats td { width: 16.66%; padding: 2.6mm 2.4mm; vertical-align: top; background: #eef3fa; border-left: 1.2mm solid #ffffff; }
+    .stats td.first { border-left: 0; background: #0f2747; }
+    .stats td.gold { background: #f7efe2; }
+    .stats .v { font-size: 19pt; color: #0f2747; }
+    .stats td.first .v { color: #ffffff; }
+    .stats td.gold .v { color: #8a6a35; }
+    .stats .l { font-size: 7.6pt; color: #5b6472; letter-spacing: 0.4pt; }
+    .stats td.first .l { color: #d6c3a0; }
     .sec { width: 100%; margin-top: 7mm; }
-    .sec-t { width: 85%; font-size: 8pt; color: #0f2747; letter-spacing: 1.2pt; border-left: 0.9mm solid #b08d57; padding-left: 2mm; }
-    .sec-n { width: 15%; text-align: right; font-size: 8pt; color: #b08d57; }
-    .tbl { width: 100%; margin-top: 1.8mm; }
-    .tbl th { font-size: 6.5pt; font-weight: normal; color: #0f2747; letter-spacing: 0.5pt; text-align: left; padding: 1.6mm 2mm; background: #eef2f8; border-bottom: 0.3mm solid #0f2747; }
-    .tbl td { font-size: 8.5pt; color: #1f2937; padding: 1.7mm 2mm; border-bottom: 0.1mm solid #e5e7eb; vertical-align: top; }
-    .tbl tr.odd td { background: #fafbfd; }
-    .tbl td.empty { color: #9ca3af; font-style: italic; }
-    .room { color: #0f2747; }
-    .muted { color: #8a8f98; font-size: 7.5pt; }
-    .recap { width: 100%; margin-top: 1.8mm; }
-    .recap td { font-size: 8.5pt; color: #1f2937; padding: 1.5mm 2mm; border-bottom: 0.1mm solid #eadfca; background: #fdfbf7; }
-    .recap td.q { text-align: right; color: #b08d57; padding-right: 4mm; }
+    .sec-t { width: 88%; font-size: 10.5pt; color: #ffffff; letter-spacing: 1.2pt; background: #0f2747; border-left: 1.6mm solid #b08d57; padding: 1.8mm 3mm; }
+    .sec-n { width: 12%; text-align: center; font-size: 10.5pt; color: #ffffff; background: #b08d57; padding: 1.8mm 2mm; }
+    .tbl { width: 100%; margin-top: 0; }
+    .tbl th { font-size: 7.6pt; font-weight: normal; color: #0f2747; letter-spacing: 0.3pt; text-align: left; padding: 2.2mm 1.8mm; background: #dfe7f3; border-bottom: 0.4mm solid #0f2747; }
+    .tbl td { font-size: 10.5pt; color: #111827; padding: 2.2mm 1.8mm; border-bottom: 0.15mm solid #dfe4ec; vertical-align: top; }
+    .tbl tr.odd td { background: #f5f8fc; }
+    .tbl td.empty { color: #8a93a3; font-style: italic; font-size: 9.5pt; }
+    .room { color: #1e3a8a; }
+    .muted { color: #6b7280; font-size: 9pt; }
+    .recap { width: 100%; margin-top: 0; }
+    .recap td { font-size: 10.5pt; color: #111827; padding: 2.2mm 2.4mm; border-bottom: 0.15mm solid #eadfca; background: #fbf6ec; }
+    .recap td.q { text-align: right; color: #8a6a35; padding-right: 4mm; font-size: 11pt; }
 </style>
 <page backtop="10mm" backbottom="14mm" backleft="12mm" backright="12mm">
     <page_footer>
-        <table style="margin-left: 12mm; border-top: 0.2mm solid #b08d57;" cellspacing="0">
+        <table style="margin-left: 12mm; border-top: 0.4mm solid #b08d57;" cellspacing="0">
             <tr>
-                <td style="width: 136mm; font-size: 7pt; color: #8a8a8a; padding-top: 1.5mm;">
+                <td style="width: 136mm; font-size: 8pt; color: #6b7280; padding-top: 1.5mm;">
                     Printed by <?php echo $e($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff'); ?> · <?php echo date('d M Y, H:i'); ?> · ADF System
                 </td>
-                <td style="width: 50mm; font-size: 7pt; color: #8a8a8a; text-align: right; padding-top: 1.5mm;">Page [[page_cu]] of [[page_nb]]</td>
+                <td style="width: 50mm; font-size: 8pt; color: #6b7280; text-align: right; padding-top: 1.5mm;">Page [[page_cu]] of [[page_nb]]</td>
             </tr>
         </table>
     </page_footer>
@@ -129,19 +133,19 @@ ob_start();
     <table class="head" cellspacing="0">
         <tr>
             <?php if ($logoSrc !== ''): ?>
-                <!--LOGO--><td style="width: 10%;"><img src="<?php echo $e($logoSrc); ?>" style="width: 15mm; height: 15mm;"></td><!--/LOGO-->
+                <!--LOGO--><td style="width: 11%;"><img src="<?php echo $e($logoSrc); ?>" style="width: 18mm; height: 18mm;"></td><!--/LOGO-->
             <?php endif; ?>
-            <td style="width: <?php echo $logoSrc !== '' ? '60' : '70'; ?>%;">
+            <td style="width: <?php echo $logoSrc !== '' ? '57' : '68'; ?>%;">
                 <div class="hotel"><?php echo $e($company['name']); ?></div>
                 <div class="addr"><?php echo $e(implode('  ·  ', array_filter([$company['address'], $company['phone'], $company['email']]))); ?></div>
             </td>
-            <td style="width: 30%;">
+            <td style="width: 32%;">
                 <div class="title">DAILY REPORT</div>
                 <div class="date"><?php echo $e($todayDisplay); ?></div>
             </td>
         </tr>
     </table>
-    <div style="margin-top: 3mm; height: 0.8mm; font-size: 1pt; line-height: 1pt; border-top: 0.7mm solid #0f2747; border-bottom: 0.25mm solid #b08d57;"></div>
+    <div style="margin-top: 3.5mm; height: 1mm; font-size: 1pt; line-height: 1pt; border-top: 1.2mm solid #0f2747; border-bottom: 0.5mm solid #b08d57;"></div>
 
     <table class="stats" cellspacing="0">
         <tr>
@@ -150,7 +154,7 @@ ob_start();
             <td><span class="v"><?php echo count($checkInToday); ?></span><br><span class="l">ARRIVALS TODAY</span></td>
             <td><span class="v"><?php echo count($checkOutToday); ?></span><br><span class="l">DEPARTURES TODAY</span></td>
             <td><span class="v"><?php echo count($arrivalTomorrow); ?></span><br><span class="l">ARRIVALS TOMORROW</span></td>
-            <td><span class="v"><?php echo $breakfastPax; ?></span><br><span class="l">BREAKFAST PAX</span></td>
+            <td class="gold"><span class="v"><?php echo $breakfastPax; ?></span><br><span class="l">BREAKFAST PAX</span></td>
         </tr>
     </table>
 
