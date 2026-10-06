@@ -3233,6 +3233,14 @@ include '../../includes/header.php';
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    /* Jarak kolom Room – Service */
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 td:nth-child(5),
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 th:nth-child(5) { padding-left: 16px !important; }
+    body[data-theme] .main-content .hs-v2 .hs-room-badge { display: inline-flex; padding: 3px 8px !important; font-size: 0.68rem !important; }
+    /* Invoice dibatalkan: baris diredupkan */
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 tr.hs-row-cancelled td { opacity: 0.55; }
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 tr.hs-row-cancelled td:last-child,
+    body[data-theme] .main-content .hs-table-wrap table.hs-v2 tr.hs-row-cancelled td:nth-last-child(2) { opacity: 1; }
     .hs-v2 .hs-svc-one {
         display: inline-flex;
         align-items: center;
@@ -3428,8 +3436,8 @@ include '../../includes/header.php';
                     <col style="width:104px">
                     <col>
                     <col style="width:128px">
-                    <col style="width:62px">
-                    <col style="width:150px">
+                    <col style="width:84px">
+                    <col style="width:170px">
                     <col style="width:100px">
                     <col style="width:100px">
                     <col style="width:100px">
@@ -3458,7 +3466,7 @@ include '../../includes/header.php';
                         $hsFirst = $hsSvcs ? ($serviceTypes[$hsSvcs[0]['service_type']] ?? ['label' => $hsSvcs[0]['service_type'], 'icon' => '🔹']) : null;
                         $hsSvcAll = implode(', ', array_map(fn($t) => ($serviceTypes[$t['service_type']]['label'] ?? $t['service_type']) . ' ×' . (int)$t['cnt'], $hsSvcs));
                     ?>
-                        <tr class="hs-row-clickable" onclick="showInvoiceDetail(<?php echo $inv['id']; ?>)" title="<?php echo htmlspecialchars($inv['invoice_number']); ?>">
+                        <tr class="hs-row-clickable<?php echo $inv['status'] === 'cancelled' ? ' hs-row-cancelled' : ''; ?>" onclick="showInvoiceDetail(<?php echo $inv['id']; ?>)" title="<?php echo htmlspecialchars($inv['invoice_number']); ?>">
                             <td class="hs-date"><?php echo date('d M Y', strtotime($inv['service_date'] ?? $inv['created_at'])); ?></td>
                             <td>
                                 <div class="hs-guest">
@@ -3517,7 +3525,7 @@ include '../../includes/header.php';
                                             <div class="hs-action-dropdown-divider"></div>
                                             <div class="hs-action-dropdown-status">
                                                 <span>Ubah Status</span>
-                                                <select onchange="updateStatus(<?php echo $inv['id']; ?>,this.value);this.blur()">
+                                                <select onchange="updateStatus(<?php echo $inv['id']; ?>,this.value,this);this.blur()">
                                                     <?php foreach (['pending', 'confirmed', 'completed', 'cancelled'] as $s): ?>
                                                         <option value="<?php echo $s; ?>" <?php echo $inv['status'] === $s ? 'selected' : ''; ?>><?php echo ucfirst($s); ?></option>
                                                     <?php endforeach; ?>
@@ -4039,6 +4047,6 @@ include '../../includes/header.php';
         document.getElementById('invoiceDetailOverlay').classList.remove('open');
     }
 </script>
-<script src="../../assets/js/hotel-services-fn.js?v=20260807"></script>
+<script src="../../assets/js/hotel-services-fn.js?v=20261006"></script>
 
 <?php include '../../includes/footer.php'; ?>

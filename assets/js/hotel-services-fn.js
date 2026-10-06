@@ -815,7 +815,11 @@ function submitCreate () {
 }
 
 // ── Status ────────────────────────────────────────────────────────────────────
-function updateStatus (id, status) {
+// Warna badge status invoice (sama dengan $statusColors di hotel-services.php).
+const HS_STATUS_COLORS = { pending: '#b45309', confirmed: '#1d4ed8', completed: '#047857', cancelled: '#b91c1c' }
+
+function updateStatus (id, status, sel) {
+  const row = sel ? sel.closest('tr') : null
   const fd = new FormData()
   fd.append('action', 'update_status')
   fd.append('id', id)
@@ -827,8 +831,18 @@ function updateStatus (id, status) {
   })
     .then(r => r.json())
     .then(res => {
-      if (!res.success) alert('Failed to update status')
+      if (!res.success) { alert('Failed to update status'); return }
+      // Perbarui badge status di baris tanpa memuat ulang halaman.
+      const badge = row ? row.querySelector('.hs-stat .hs-badge:nth-child(2)') : null
+      if (badge) {
+        badge.style.background = HS_STATUS_COLORS[status] || '#64748b'
+        const t = badge.querySelector('.hs-badge-text')
+        if (t) t.textContent = status.toUpperCase()
+      }
+      if (row) row.classList.toggle('hs-row-cancelled', status === 'cancelled')
+      document.querySelectorAll('.hs-action-dropdown-menu.show, .hs-action-dropdown.open').forEach(m => m.classList.remove('show', 'open'))
     })
+    .catch(() => alert('Failed to update status'))
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────
