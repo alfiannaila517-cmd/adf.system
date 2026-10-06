@@ -272,13 +272,70 @@ try {
 } catch (\Throwable $e) {
 }
 
+// ── Kategori layanan & mitra ─────────────────────────────────────────────────────
+// Kategori = kelompok utama di form input (Mobil → Harbor Drop / Rental Mobil / City Tour, dst.).
+$hsCategories = [
+    'mobil' => ['label' => 'Mobil', 'icon' => '🚗'],
+    'motor' => ['label' => 'Motor', 'icon' => '🛵'],
+    'trip'  => ['label' => 'Trip',  'icon' => '🚤'],
+    'hotel' => ['label' => 'Hotel', 'icon' => '🏨'],
+];
+$hsDefaultCategory = function (string $typeKey): string {
+    if (in_array($typeKey, ['airport_drop', 'harbor_drop', 'car_rental', 'city_tour'], true)) return 'mobil';
+    if ($typeKey === 'motor_rental') return 'motor';
+    if ($typeKey === 'narayana_trip') return 'trip';
+    return 'hotel';
+};
+try {
+    $pdo->query("SELECT category FROM hotel_service_types LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_service_types ADD COLUMN category VARCHAR(20) DEFAULT NULL AFTER type_icon");
+    } catch (\Throwable $e2) {
+        error_log('hotel_service_types category migration: ' . $e2->getMessage());
+    }
+}
+try {
+    $catFill = $pdo->prepare("SELECT id, type_key FROM hotel_service_types WHERE business_id=? AND (category IS NULL OR category='')");
+    $catFill->execute([$businessId]);
+    $catUpd = $pdo->prepare("UPDATE hotel_service_types SET category=? WHERE id=?");
+    foreach ($catFill->fetchAll(PDO::FETCH_ASSOC) as $cf) {
+        $catUpd->execute([$hsDefaultCategory((string)$cf['type_key']), $cf['id']]);
+    }
+} catch (\Throwable $e) {
+}
+$pdo->exec("CREATE TABLE IF NOT EXISTS hotel_service_partners (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    business_id  INT NOT NULL DEFAULT 1,
+    partner_name VARCHAR(120) NOT NULL,
+    category     VARCHAR(20) NOT NULL DEFAULT 'mobil',
+    phone        VARCHAR(40) DEFAULT NULL,
+    is_active    TINYINT(1) NOT NULL DEFAULT 1,
+    sort_order   INT NOT NULL DEFAULT 0,
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_biz_cat (business_id, category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+try {
+    $pdo->query("SELECT partner_id FROM hotel_service_catalog LIMIT 1");
+} catch (\Throwable $e) {
+    try {
+        $pdo->exec("ALTER TABLE hotel_service_catalog ADD COLUMN partner_id INT DEFAULT NULL COMMENT 'mitra default'");
+    } catch (\Throwable $e2) {
+        error_log('hotel_service_catalog partner_id migration: ' . $e2->getMessage());
+    }
+}
+
 // ── Load service types from DB ─────────────────────────────────────────────────
 $serviceTypes = [];
 try {
-    $stStmt = $pdo->prepare("SELECT type_key, type_label, type_icon FROM hotel_service_types WHERE business_id=? AND is_active=1 ORDER BY sort_order, type_label");
+    $stStmt = $pdo->prepare("SELECT type_key, type_label, type_icon, category FROM hotel_service_types WHERE business_id=? AND is_active=1 ORDER BY sort_order, type_label");
     $stStmt->execute([$businessId]);
     foreach ($stStmt->fetchAll(PDO::FETCH_ASSOC) as $st) {
-        $serviceTypes[$st['type_key']] = ['label' => $st['type_label'], 'icon' => $st['type_icon']];
+        $serviceTypes[$st['type_key']] = [
+            'label'    => $st['type_label'],
+            'icon'     => $st['type_icon'],
+            'category' => ($st['category'] ?? '') !== '' ? $st['category'] : $hsDefaultCategory((string)$st['type_key']),
+        ];
     }
 } catch (\Throwable $e) {
 }
@@ -294,6 +351,7 @@ if (empty($serviceTypes)) {
         'narayana_trip'  => ['label' => 'Narayana Trip',   'icon' => '🚤'],
         'lain_lain'      => ['label' => 'Lain-lain',       'icon' => '📦'],
     ];
+    foreach ($serviceTypes as $k => $v) $serviceTypes[$k]['category'] = $hsDefaultCategory($k);
 }
 
 $statusColors    = ['pending' => '#b45309', 'confirmed' => '#1d4ed8', 'completed' => '#047857', 'cancelled' => '#b91c1c'];
@@ -1336,14 +1394,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $driverRate = max(0, (float)($_POST['driver_rate'] ?? 0));
             $unit  = trim($_POST['unit'] ?? 'unit');
             $sort  = (int)($_POST['sort_order'] ?? 0);
+            $partnerId = (int)($_POST['partner_id'] ?? 0) ?: null;
             if (!$name) throw new Exception('Item name is required');
             if (!isset($serviceTypes[$stype])) throw new Exception('Invalid service type');
+            if ($driverRate > $price && $price > 0) throw new Exception('Bayar ke mitra tidak boleh melebihi harga ke tamu');
             if ($cid) {
-                $pdo->prepare("UPDATE hotel_service_catalog SET service_type=?,item_name=?,default_price=?,driver_rate=?,unit=?,sort_order=? WHERE id=? AND business_id=?")
-                    ->execute([$stype, $name, $price, $driverRate, $unit, $sort, $cid, $businessId]);
+                $pdo->prepare("UPDATE hotel_service_catalog SET service_type=?,item_name=?,default_price=?,driver_rate=?,partner_id=?,unit=?,sort_order=? WHERE id=? AND business_id=?")
+                    ->execute([$stype, $name, $price, $driverRate, $partnerId, $unit, $sort, $cid, $businessId]);
             } else {
-                $pdo->prepare("INSERT INTO hotel_service_catalog (business_id,service_type,item_name,default_price,driver_rate,unit,sort_order) VALUES (?,?,?,?,?,?,?)")
-                    ->execute([$businessId, $stype, $name, $price, $driverRate, $unit, $sort]);
+                $pdo->prepare("INSERT INTO hotel_service_catalog (business_id,service_type,item_name,default_price,driver_rate,partner_id,unit,sort_order) VALUES (?,?,?,?,?,?,?,?)")
+                    ->execute([$businessId, $stype, $name, $price, $driverRate, $partnerId, $unit, $sort]);
                 $cid = (int)$pdo->lastInsertId();
             }
             ob_clean();
@@ -1368,13 +1428,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $typeLabel = trim($_POST['type_label'] ?? '');
             $typeIcon  = trim($_POST['type_icon'] ?? '🔹');
             $sortOrder = (int)($_POST['sort_order'] ?? 0);
+            $category  = (string)($_POST['category'] ?? '');
+            if (!isset($hsCategories[$category])) $category = $hsDefaultCategory($typeKey);
             if (!$typeKey || !$typeLabel) throw new Exception('Key and Label are required');
             if ($stId) {
-                $pdo->prepare("UPDATE hotel_service_types SET type_key=?,type_label=?,type_icon=?,sort_order=? WHERE id=? AND business_id=?")
-                    ->execute([$typeKey, $typeLabel, $typeIcon, $sortOrder, $stId, $businessId]);
+                $pdo->prepare("UPDATE hotel_service_types SET type_key=?,type_label=?,type_icon=?,category=?,sort_order=? WHERE id=? AND business_id=?")
+                    ->execute([$typeKey, $typeLabel, $typeIcon, $category, $sortOrder, $stId, $businessId]);
             } else {
-                $pdo->prepare("INSERT INTO hotel_service_types (business_id,type_key,type_label,type_icon,sort_order) VALUES (?,?,?,?,?)")
-                    ->execute([$businessId, $typeKey, $typeLabel, $typeIcon, $sortOrder]);
+                $pdo->prepare("INSERT INTO hotel_service_types (business_id,type_key,type_label,type_icon,category,sort_order) VALUES (?,?,?,?,?,?)")
+                    ->execute([$businessId, $typeKey, $typeLabel, $typeIcon, $category, $sortOrder]);
                 $stId = (int)$pdo->lastInsertId();
             }
             ob_clean();
@@ -1398,6 +1460,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 }
             }
             $pdo->prepare("DELETE FROM hotel_service_types WHERE id=? AND business_id=?")->execute([$stId, $businessId]);
+            ob_clean();
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        // ── MITRA LAYANAN (simpan / hapus) ────────────────────────────────────────────
+        if ($action === 'save_partner') {
+            $pid = (int)($_POST['partner_id'] ?? 0);
+            $pname = trim((string)($_POST['partner_name'] ?? ''));
+            $pcat = (string)($_POST['category'] ?? 'mobil');
+            $pphone = trim((string)($_POST['phone'] ?? ''));
+            $pactive = !empty($_POST['is_active']) ? 1 : 0;
+            if ($pname === '') throw new Exception('Nama mitra wajib diisi');
+            if (!isset($hsCategories[$pcat])) $pcat = 'mobil';
+            if ($pid > 0) {
+                $pdo->prepare("UPDATE hotel_service_partners SET partner_name=?, category=?, phone=?, is_active=? WHERE id=? AND business_id=?")
+                    ->execute([mb_substr($pname, 0, 120), $pcat, $pphone ?: null, $pactive, $pid, $businessId]);
+            } else {
+                $pdo->prepare("INSERT INTO hotel_service_partners (business_id, partner_name, category, phone, is_active) VALUES (?,?,?,?,?)")
+                    ->execute([$businessId, mb_substr($pname, 0, 120), $pcat, $pphone ?: null, $pactive]);
+                $pid = (int)$pdo->lastInsertId();
+            }
+            ob_clean();
+            echo json_encode(['success' => true, 'id' => $pid]);
+            exit;
+        }
+        if ($action === 'delete_partner') {
+            $pid = (int)($_POST['partner_id'] ?? 0);
+            if (!$pid) throw new Exception('Mitra tidak valid');
+            // Mitra yang dipakai katalog dilepas dari katalog (bukan menghapus item katalog).
+            $pdo->prepare("UPDATE hotel_service_catalog SET partner_id=NULL WHERE partner_id=? AND business_id=?")->execute([$pid, $businessId]);
+            $pdo->prepare("DELETE FROM hotel_service_partners WHERE id=? AND business_id=?")->execute([$pid, $businessId]);
             ob_clean();
             echo json_encode(['success' => true]);
             exit;
@@ -2058,6 +2152,14 @@ try {
     $availableCars = $carStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) {
     $availableCars = [];
+}
+
+try {
+    $partnerStmt = $pdo->prepare("SELECT id, partner_name, category, phone, is_active FROM hotel_service_partners WHERE business_id=? ORDER BY category, partner_name");
+    $partnerStmt->execute([$businessId]);
+    $hsPartners = $partnerStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) {
+    $hsPartners = [];
 }
 
 try {
@@ -3092,6 +3194,186 @@ include '../../includes/header.php';
         display: block;
     }
 
+
+    /* ===== Modal Pengaturan Hotel Services (redesign) ===== */
+    #settingsModal .hss-modal {
+        max-width: 960px !important;
+        width: 100%;
+        padding: 0 !important;
+        border-radius: 16px !important;
+        overflow: hidden !important;
+        display: flex;
+        flex-direction: column;
+        max-height: 90vh !important;
+    }
+    #settingsModal .hss-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 20px;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    }
+    body[data-theme] #settingsModal .hss-head h3 {
+        margin: 0 !important;
+        font-size: 0.98rem !important;
+        font-weight: 700 !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+    body[data-theme] #settingsModal .hss-head small {
+        display: block;
+        font-size: 0.68rem !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        -webkit-text-fill-color: rgba(255, 255, 255, 0.8) !important;
+    }
+    body[data-theme] #settingsModal .hss-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+    }
+    #settingsModal .hss-tabs {
+        display: flex;
+        gap: 4px;
+        margin: 12px 20px 0 !important;
+        padding: 4px;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 12px;
+        background: #f8fafc;
+        overflow-x: auto;
+    }
+    body[data-theme] #settingsModal .hss-tabs .hs-tab {
+        flex: 1;
+        margin: 0 !important;
+        padding: 7px 12px !important;
+        border: 0 !important;
+        border-radius: 9px;
+        font-size: 0.76rem !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+        white-space: nowrap;
+        background: transparent;
+    }
+    body[data-theme] #settingsModal .hss-tabs .hs-tab.active {
+        background: #fff;
+        color: #1d4ed8 !important;
+        box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.18);
+    }
+    #settingsModal .hss-body {
+        padding: 14px 20px 18px;
+        overflow-y: auto;
+        min-height: 0;
+    }
+    #settingsModal .hss-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+    body[data-theme] #settingsModal .hss-bar span {
+        font-size: 0.72rem !important;
+        color: #64748b !important;
+        line-height: 1.4;
+    }
+    body[data-theme] #settingsModal .hss-add {
+        flex-shrink: 0;
+        height: 32px;
+        padding: 0 14px;
+        border: 0;
+        border-radius: 9px;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 0.74rem !important;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    #settingsModal .hss-tbl-wrap {
+        max-height: 56vh;
+        overflow: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+    }
+    body[data-theme] #settingsModal .hss-tbl { font-size: 0.78rem !important; }
+    body[data-theme] #settingsModal .hss-tbl th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 8px 8px !important;
+        background: #1e3a8a !important;
+        border-bottom: 0 !important;
+        font-size: 0.62rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.06em;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+    body[data-theme] #settingsModal .hss-tbl td {
+        padding: 5px 6px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+    }
+    body[data-theme] #settingsModal .hss-tbl tr:last-child td { border-bottom: 0 !important; }
+    body[data-theme] #settingsModal .hss-tbl td input[type="text"],
+    body[data-theme] #settingsModal .hss-tbl td input[type="number"],
+    body[data-theme] #settingsModal .hss-tbl td select {
+        height: 30px;
+        padding: 0 8px !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        background: #fff !important;
+        font-size: 0.76rem !important;
+        color: #0f172a !important;
+    }
+    body[data-theme] #settingsModal .hss-tbl td input:focus,
+    body[data-theme] #settingsModal .hss-tbl td select:focus {
+        outline: none;
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+    #settingsModal .hss-tbl .r { text-align: right; }
+    #settingsModal .hss-tbl .c { text-align: center; }
+    #settingsModal .hss-tbl input.r { text-align: right; }
+    #settingsModal .hss-tbl input.c { text-align: center; }
+    #settingsModal .hss-tbl input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2563eb; }
+    body[data-theme] #settingsModal .cProfit { font-weight: 700; font-variant-numeric: tabular-nums; color: #047857 !important; }
+    body[data-theme] #settingsModal .cProfit.neg { color: #b91c1c !important; }
+    #settingsModal .hss-act { white-space: nowrap; text-align: right; }
+    body[data-theme] #settingsModal .hss-act button {
+        width: 28px;
+        height: 28px;
+        padding: 0 !important;
+        border-radius: 8px !important;
+        font-size: 0.8rem !important;
+        font-weight: 800;
+    }
+    body[data-theme] #settingsModal .hss-empty {
+        padding: 18px;
+        text-align: center;
+        font-size: 0.74rem;
+        color: #94a3b8 !important;
+    }
+    #settingsModal .hss-tbl tr.saved td { background: #f0fdf4 !important; transition: background 0.3s; }
+    /* Tab Invoice & Perusahaan */
+    body[data-theme] #settingsModal #pane-inv .hs-field label {
+        font-size: 0.62rem !important;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #64748b !important;
+    }
+    body[data-theme] #settingsModal #pane-inv .hs-field input,
+    body[data-theme] #settingsModal #pane-inv .hs-field textarea {
+        border-radius: 9px !important;
+        font-size: 0.8rem !important;
+    }
     /* Catalog table */
     .cat-tbl {
         width: 100%;
@@ -3708,14 +3990,22 @@ include '../../includes/header.php';
 
 <!-- ══ SETTINGS MODAL ══════════════════════════════════════════════════════════════════════ -->
 <div id="settingsModal" class="hs-modal-overlay" onclick="if(event.target===this)closeSettingsModal()">
-    <div class="hs-modal" style="max-width:700px">
-        <h3>⚙️ Pengaturan Hotel Services</h3>
-        <div class="hs-tabs">
-            <button class="hs-tab active" id="tab-inv" onclick="switchTab('inv')"> 🏨 Invoice &amp; Perusahaan</button>
-            <button class="hs-tab" id="tab-catalog" onclick="switchTab('catalog')">📂 Katalog Harga</button>
-            <button class="hs-tab" id="tab-svctype" onclick="switchTab('svctype')">🏷️ Tipe Layanan</button>
-            <button class="hs-tab" id="tab-guide" onclick="switchTab('guide')">🧭 Guide Trip</button>
+    <div class="hs-modal hss-modal">
+        <div class="hss-head">
+            <div>
+                <h3>Pengaturan Hotel Services</h3>
+                <small>Mitra, katalog harga, tipe layanan &amp; data invoice</small>
+            </div>
+            <button type="button" class="hss-close" onclick="closeSettingsModal()" aria-label="Tutup">&times;</button>
         </div>
+        <div class="hs-tabs hss-tabs">
+            <button class="hs-tab active" id="tab-inv" onclick="switchTab('inv')">Invoice &amp; Perusahaan</button>
+            <button class="hs-tab" id="tab-partner" onclick="switchTab('partner')">Mitra</button>
+            <button class="hs-tab" id="tab-catalog" onclick="switchTab('catalog')">Katalog Harga</button>
+            <button class="hs-tab" id="tab-svctype" onclick="switchTab('svctype')">Tipe Layanan</button>
+            <button class="hs-tab" id="tab-guide" onclick="switchTab('guide')">Guide Trip</button>
+        </div>
+        <div class="hss-body">
 
         <!-- TAB 1: Invoice & Company -->
         <div class="hs-tab-pane active" id="pane-inv">
@@ -3748,46 +4038,94 @@ include '../../includes/header.php';
                 </div>
             </div>
             <div class="hs-modal-footer">
-                <button class="btn-hs btn-hs-secondary" onclick="closeSettingsModal()">Cancel</button>
-                <button class="btn-hs btn-hs-primary" id="btnSaveSettings" onclick="saveSettings()">💾 Save Settings</button>
+                <button class="btn-hs btn-hs-secondary" onclick="closeSettingsModal()">Batal</button>
+                <button class="btn-hs btn-hs-primary" id="btnSaveSettings" onclick="saveSettings()">Simpan Pengaturan</button>
             </div>
         </div>
 
-        <!-- TAB 2: Catalog Harga -->
-        <div class="hs-tab-pane" id="pane-catalog">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem">
-                <span style="font-size:0.78rem;color:#64748b">Database item layanan &amp; harga default. Klik item saat tambah invoice untuk isi otomatis.</span>
-                <button class="btn-hs btn-hs-primary" style="font-size:0.78rem;padding:0.35rem 0.85rem" onclick="addCatalogRow()">+ Tambah Item</button>
+        <!-- TAB: Mitra -->
+        <div class="hs-tab-pane" id="pane-partner">
+            <div class="hss-bar">
+                <span>Daftar mitra penyedia layanan (sopir/pemilik mobil, rental motor, dll.). Dipakai di katalog &amp; Tagihan.</span>
+                <button class="hss-add" onclick="addPartnerRow()">+ Tambah Mitra</button>
             </div>
-            <div style="overflow-x:auto;max-height:55vh;overflow-y:auto">
-                <table class="cat-tbl">
+            <div class="hss-tbl-wrap">
+                <table class="cat-tbl hss-tbl">
                     <thead>
                         <tr>
-                            <th style="min-width:130px">Tipe Layanan</th>
-                            <th style="min-width:140px">Nama Item</th>
-                            <th style="width:110px">Harga Default</th>
-                            <th style="width:110px">🚗 Bayar Driver</th>
-                            <th style="width:75px">Satuan</th>
-                            <th style="width:50px">Urut</th>
-                            <th style="width:80px"></th>
+                            <th>Nama Mitra</th>
+                            <th style="width:130px">Kategori</th>
+                            <th style="width:150px">Telepon</th>
+                            <th style="width:70px" class="c">Aktif</th>
+                            <th style="width:76px"></th>
                         </tr>
                     </thead>
-                    <tbody id="catalogBody"><?php
-                                            foreach ($catalogRows as $cr): ?>
-                            <tr id="ctr<?php echo $cr['id']; ?>">
-                                <td><select class="cSType">
-                                        <?php foreach ($serviceTypes as $sk => $sv): ?>
-                                            <option value="<?php echo $sk; ?>" <?php echo $cr['service_type'] === $sk ? 'selected' : ''; ?>><?php echo $sv['icon'] . ' ' . $sv['label']; ?></option>
+                    <tbody id="partnerBody">
+                        <?php foreach ($hsPartners as $p): ?>
+                            <tr id="ptr<?php echo (int)$p['id']; ?>">
+                                <td><input type="text" class="pName" value="<?php echo htmlspecialchars($p['partner_name'], ENT_QUOTES); ?>"></td>
+                                <td><select class="pCat">
+                                        <?php foreach ($hsCategories as $ck => $cv): if ($ck === 'hotel') continue; ?>
+                                            <option value="<?php echo $ck; ?>" <?php echo $p['category'] === $ck ? 'selected' : ''; ?>><?php echo $cv['icon'] . ' ' . $cv['label']; ?></option>
+                                        <?php endforeach; ?>
+                                    </select></td>
+                                <td><input type="text" class="pPhone" value="<?php echo htmlspecialchars((string)($p['phone'] ?? ''), ENT_QUOTES); ?>" placeholder="08xx"></td>
+                                <td class="c"><input type="checkbox" class="pActive" <?php echo (int)$p['is_active'] ? 'checked' : ''; ?>></td>
+                                <td class="hss-act">
+                                    <button class="btn-cat-save" title="Simpan" onclick="savePartnerRow(<?php echo (int)$p['id']; ?>)">✓</button>
+                                    <button class="btn-cat-del" title="Hapus" onclick="deletePartnerRow(<?php echo (int)$p['id']; ?>)">✕</button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php if (!$hsPartners): ?><div class="hss-empty" id="partnerEmpty">Belum ada mitra. Klik "+ Tambah Mitra".</div><?php endif; ?>
+            </div>
+        </div>
+
+        <!-- TAB: Katalog Harga -->
+        <div class="hs-tab-pane" id="pane-catalog">
+            <div class="hss-bar">
+                <span>Harga ke tamu, bayar ke mitra &amp; mitra default per item. Untung hotel = harga tamu − bayar mitra.</span>
+                <button class="hss-add" onclick="addCatalogRow()">+ Tambah Item</button>
+            </div>
+            <div class="hss-tbl-wrap">
+                <table class="cat-tbl hss-tbl">
+                    <thead>
+                        <tr>
+                            <th style="width:150px">Tipe Layanan</th>
+                            <th>Nama Item</th>
+                            <th style="width:104px" class="r">Harga Tamu</th>
+                            <th style="width:104px" class="r">Bayar Mitra</th>
+                            <th style="width:92px" class="r">Untung</th>
+                            <th style="width:150px">Mitra Default</th>
+                            <th style="width:70px">Satuan</th>
+                            <th style="width:76px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="catalogBody">
+                        <?php foreach ($catalogRows as $cr):
+                            $crCat = $serviceTypes[$cr['service_type']]['category'] ?? 'hotel'; ?>
+                            <tr id="ctr<?php echo $cr['id']; ?>" data-partner="<?php echo (int)($cr['partner_id'] ?? 0); ?>">
+                                <td><select class="cSType" onchange="catRowTypeChanged(this)">
+                                        <?php foreach ($hsCategories as $ck => $cv): ?>
+                                            <optgroup label="<?php echo $cv['icon'] . ' ' . $cv['label']; ?>">
+                                                <?php foreach ($serviceTypes as $sk => $sv): if (($sv['category'] ?? 'hotel') !== $ck) continue; ?>
+                                                    <option value="<?php echo $sk; ?>" <?php echo $cr['service_type'] === $sk ? 'selected' : ''; ?>><?php echo $sv['icon'] . ' ' . $sv['label']; ?></option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
                                         <?php endforeach; ?>
                                     </select></td>
                                 <td><input type="text" class="cName" value="<?php echo htmlspecialchars($cr['item_name'], ENT_QUOTES); ?>"></td>
-                                <td><input type="number" class="cPrice" value="<?php echo $cr['default_price']; ?>" min="0"></td>
-                                <td><input type="number" class="cDriverRate" value="<?php echo (float)($cr['driver_rate'] ?? 0); ?>" min="0" placeholder="0"></td>
+                                <td><input type="number" class="cPrice r" value="<?php echo (float)$cr['default_price']; ?>" min="0" oninput="catRowCalc(this)"></td>
+                                <td><input type="number" class="cDriverRate r" value="<?php echo (float)($cr['driver_rate'] ?? 0); ?>" min="0" oninput="catRowCalc(this)"></td>
+                                <td class="r"><span class="cProfit"></span></td>
+                                <td><select class="cPartner"></select></td>
                                 <td><input type="text" class="cUnit" value="<?php echo htmlspecialchars($cr['unit'] ?? 'unit', ENT_QUOTES); ?>"></td>
-                                <td><input type="number" class="cSort" value="<?php echo $cr['sort_order']; ?>" style="width:45px"></td>
-                                <td style="display:flex;gap:3px">
-                                    <button class="btn-cat-save" onclick="saveCatalogRow(<?php echo $cr['id']; ?>)">💾</button>
-                                    <button class="btn-cat-del" onclick="deleteCatalogRow(<?php echo $cr['id']; ?>)">✕</button>
+                                <td class="hss-act">
+                                    <input type="hidden" class="cSort" value="<?php echo (int)$cr['sort_order']; ?>">
+                                    <button class="btn-cat-save" title="Simpan" onclick="saveCatalogRow(<?php echo $cr['id']; ?>)">✓</button>
+                                    <button class="btn-cat-del" title="Hapus" onclick="deleteCatalogRow(<?php echo $cr['id']; ?>)">✕</button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -3796,36 +4134,43 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <!-- TAB 3: Tipe Layanan -->
+        <!-- TAB: Tipe Layanan -->
         <div class="hs-tab-pane" id="pane-svctype">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem">
-                <span style="font-size:0.78rem;color:#64748b">Kelola tipe layanan yang tersedia di invoice. Key harus unik (huruf kecil, underscore).</span>
-                <button class="btn-hs btn-hs-primary" style="font-size:0.78rem;padding:0.35rem 0.85rem" onclick="addSvcTypeRow()">+ Tambah Tipe</button>
+            <div class="hss-bar">
+                <span>Tipe layanan dikelompokkan per kategori (Mobil, Motor, Trip, Hotel). Key unik: huruf kecil &amp; underscore.</span>
+                <button class="hss-add" onclick="addSvcTypeRow()">+ Tambah Tipe</button>
             </div>
-            <div style="overflow-x:auto;max-height:55vh;overflow-y:auto">
-                <table class="cat-tbl">
+            <div class="hss-tbl-wrap">
+                <table class="cat-tbl hss-tbl">
                     <thead>
                         <tr>
-                            <th style="width:40px">Icon</th>
-                            <th style="min-width:110px">Key</th>
-                            <th style="min-width:140px">Label</th>
-                            <th style="width:50px">Urut</th>
-                            <th style="width:80px"></th>
+                            <th style="width:56px" class="c">Icon</th>
+                            <th>Label</th>
+                            <th style="width:150px">Key</th>
+                            <th style="width:130px">Kategori</th>
+                            <th style="width:64px" class="c">Urut</th>
+                            <th style="width:76px"></th>
                         </tr>
                     </thead>
                     <tbody id="svcTypeBody">
                         <?php
                         $allSvcTypes = $pdo->prepare("SELECT * FROM hotel_service_types WHERE business_id=? ORDER BY sort_order, type_label");
                         $allSvcTypes->execute([$businessId]);
-                        foreach ($allSvcTypes->fetchAll(PDO::FETCH_ASSOC) as $st): ?>
+                        foreach ($allSvcTypes->fetchAll(PDO::FETCH_ASSOC) as $st):
+                            $stCat = ($st['category'] ?? '') !== '' ? $st['category'] : $hsDefaultCategory((string)$st['type_key']); ?>
                             <tr id="str<?php echo $st['id']; ?>">
-                                <td><input type="text" class="stIcon" value="<?php echo htmlspecialchars($st['type_icon'], ENT_QUOTES); ?>" style="width:40px;text-align:center"></td>
-                                <td><input type="text" class="stKey" value="<?php echo htmlspecialchars($st['type_key'], ENT_QUOTES); ?>"></td>
+                                <td class="c"><input type="text" class="stIcon c" value="<?php echo htmlspecialchars($st['type_icon'], ENT_QUOTES); ?>"></td>
                                 <td><input type="text" class="stLabel" value="<?php echo htmlspecialchars($st['type_label'], ENT_QUOTES); ?>"></td>
-                                <td><input type="number" class="stSort" value="<?php echo $st['sort_order']; ?>" style="width:45px"></td>
-                                <td style="display:flex;gap:3px">
-                                    <button class="btn-cat-save" onclick="saveSvcType(<?php echo $st['id']; ?>)">💾</button>
-                                    <button class="btn-cat-del" onclick="deleteSvcType(<?php echo $st['id']; ?>)">✕</button>
+                                <td><input type="text" class="stKey" value="<?php echo htmlspecialchars($st['type_key'], ENT_QUOTES); ?>"></td>
+                                <td><select class="stCat">
+                                        <?php foreach ($hsCategories as $ck => $cv): ?>
+                                            <option value="<?php echo $ck; ?>" <?php echo $stCat === $ck ? 'selected' : ''; ?>><?php echo $cv['icon'] . ' ' . $cv['label']; ?></option>
+                                        <?php endforeach; ?>
+                                    </select></td>
+                                <td class="c"><input type="number" class="stSort c" value="<?php echo (int)$st['sort_order']; ?>"></td>
+                                <td class="hss-act">
+                                    <button class="btn-cat-save" title="Simpan" onclick="saveSvcType(<?php echo $st['id']; ?>)">✓</button>
+                                    <button class="btn-cat-del" title="Hapus" onclick="deleteSvcType(<?php echo $st['id']; ?>)">✕</button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -3834,20 +4179,20 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <!-- TAB 4: Guide Narayana Trip -->
+        <!-- TAB: Guide Narayana Trip -->
         <div class="hs-tab-pane" id="pane-guide">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem">
-                <span style="font-size:0.78rem;color:#64748b">Kelola daftar guide untuk layanan Narayana Trip (Open/Private). Nama guide ini akan dipakai di Tagihan.</span>
-                <button class="btn-hs btn-hs-primary" style="font-size:0.78rem;padding:0.35rem 0.85rem" onclick="addGuideRow()">+ Tambah Guide</button>
+            <div class="hss-bar">
+                <span>Guide untuk layanan kategori Trip. Nama guide dipakai sebagai mitra di Tagihan.</span>
+                <button class="hss-add" onclick="addGuideRow()">+ Tambah Guide</button>
             </div>
-            <div style="overflow-x:auto;max-height:55vh;overflow-y:auto">
-                <table class="cat-tbl">
+            <div class="hss-tbl-wrap">
+                <table class="cat-tbl hss-tbl">
                     <thead>
                         <tr>
-                            <th style="min-width:180px">Nama Guide</th>
-                            <th style="min-width:130px">Telepon</th>
-                            <th style="width:60px">Urut</th>
-                            <th style="width:90px"></th>
+                            <th>Nama Guide</th>
+                            <th style="width:170px">Telepon</th>
+                            <th style="width:64px" class="c">Urut</th>
+                            <th style="width:76px"></th>
                         </tr>
                     </thead>
                     <tbody id="guideBody">
@@ -3855,10 +4200,10 @@ include '../../includes/header.php';
                             <tr id="gtr<?php echo (int)$g['id']; ?>">
                                 <td><input type="text" class="gName" value="<?php echo htmlspecialchars($g['guide_name'], ENT_QUOTES); ?>"></td>
                                 <td><input type="text" class="gPhone" value="<?php echo htmlspecialchars((string)($g['phone'] ?? ''), ENT_QUOTES); ?>"></td>
-                                <td><input type="number" class="gSort" value="<?php echo (int)($g['sort_order'] ?? 0); ?>" style="width:45px"></td>
-                                <td style="display:flex;gap:3px">
-                                    <button class="btn-cat-save" onclick="saveGuideRow(<?php echo (int)$g['id']; ?>)">💾</button>
-                                    <button class="btn-cat-del" onclick="deleteGuideRow(<?php echo (int)$g['id']; ?>)">✕</button>
+                                <td class="c"><input type="number" class="gSort c" value="<?php echo (int)($g['sort_order'] ?? 0); ?>"></td>
+                                <td class="hss-act">
+                                    <button class="btn-cat-save" title="Simpan" onclick="saveGuideRow(<?php echo (int)$g['id']; ?>)">✓</button>
+                                    <button class="btn-cat-del" title="Hapus" onclick="deleteGuideRow(<?php echo (int)$g['id']; ?>)">✕</button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -3867,6 +4212,7 @@ include '../../includes/header.php';
             </div>
         </div>
 
+        </div>
     </div>
 </div>
 
@@ -3967,7 +4313,9 @@ include '../../includes/header.php';
         window.RENTAL_MOTORS = <?php echo json_encode(array_map(fn($m) => ['id' => (int)$m['id'], 'label' => ($m['motor_name'] ?? '') . ' (' . ($m['plate_number'] ?? '') . ')', 'daily_rate' => (float)$m['daily_rate'], 'partner_owner' => $m['partner_owner'] ?? '', 'owner_phone' => $m['owner_phone'] ?? '', 'commission_type' => $m['commission_type'] ?? 'percent', 'commission_pct' => (float)($m['owner_commission_pct'] ?? 0), 'driver_daily_rate' => (float)($m['driver_daily_rate'] ?? 0)], $availableMotors), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.RENTAL_CARS = <?php echo json_encode(array_map(fn($c) => ['id' => (int)$c['id'], 'label' => ($c['car_name'] ?? '') . ' (' . ($c['plate_number'] ?? '') . ')' . (!empty($c['car_type']) ? ' - ' . $c['car_type'] : ''), 'daily_rate' => (float)$c['daily_rate'], 'partner_owner' => $c['partner_owner'] ?? '', 'commission_type' => $c['commission_type'] ?? 'percent', 'commission_pct' => (float)($c['owner_commission_pct'] ?? 0), 'commission_nominal' => (float)($c['commission_nominal'] ?? 0), 'driver_daily_rate' => (float)($c['driver_daily_rate'] ?? 0)], $availableCars), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.TRIP_GUIDES = <?php echo json_encode(array_map(fn($g) => ['id' => (int)$g['id'], 'name' => $g['guide_name'], 'phone' => $g['phone'] ?? '', 'sort_order' => (int)($g['sort_order'] ?? 0)], $tripGuides), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
-        window.SVC_OPTIONS = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? '')], array_keys($serviceTypes), $serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.SVC_OPTIONS = <?php echo json_encode(array_map(fn($k, $v) => ['val' => $k, 'lbl' => ($v['icon'] ?? '') . ' ' . ($v['label'] ?? ''), 'cat' => $v['category'] ?? 'hotel'], array_keys($serviceTypes), $serviceTypes), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
+        window.HS_CATEGORIES = <?php echo json_encode($hsCategories, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}'; ?>;
+        window.HS_PARTNERS = <?php echo json_encode(array_map(fn($p) => ['id' => (int)$p['id'], 'name' => $p['partner_name'], 'cat' => $p['category'], 'phone' => $p['phone'] ?? '', 'active' => (int)$p['is_active']], $hsPartners), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.CATALOG_LIST = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit'] ?? 'unit'], $catalogRows), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
         window.HS_DETAILS = <?php echo json_encode($hsDetailsForJs, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}'; ?>;

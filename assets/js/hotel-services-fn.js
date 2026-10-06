@@ -965,6 +965,7 @@ function submitPay () {
 function openSettingsModal () {
   document.getElementById('settingsModal').classList.add('open')
   switchTab('inv')
+  document.querySelectorAll('#catalogBody tr').forEach(initCatalogRow)
 }
 
 function closeSettingsModal () {
@@ -972,7 +973,7 @@ function closeSettingsModal () {
 }
 
 function switchTab (t) {
-  ;['inv', 'catalog', 'svctype', 'guide'].forEach(id => {
+  ;['inv', 'partner', 'catalog', 'svctype', 'guide'].forEach(id => {
     document.getElementById('tab-' + id).classList.toggle('active', id === t)
     document.getElementById('pane-' + id).classList.toggle('active', id === t)
   })
@@ -1062,17 +1063,83 @@ function addCatalogRow () {
   const tr = document.createElement('tr')
   tr.id = 'ctr' + id
   tr.innerHTML =
-    `<td><select class="cSType">${buildSvcOptsFor()}</select></td>` +
-    `<td><input type="text" class="cName" placeholder="ex: Honda Beat 1 Hari"></td>` +
-    `<td><input type="number" class="cPrice" value="0" min="0"></td>` +
-    `<td><input type="number" class="cDriverRate" value="0" min="0" placeholder="0"></td>` +
+    `<td><select class="cSType" onchange="catRowTypeChanged(this)">${buildSvcOptsGrouped()}</select></td>` +
+    `<td><input type="text" class="cName" placeholder="mis. Drop Pelabuhan"></td>` +
+    `<td><input type="number" class="cPrice r" value="0" min="0" oninput="catRowCalc(this)"></td>` +
+    `<td><input type="number" class="cDriverRate r" value="0" min="0" oninput="catRowCalc(this)"></td>` +
+    `<td class="r"><span class="cProfit"></span></td>` +
+    `<td><select class="cPartner"></select></td>` +
     `<td><input type="text" class="cUnit" value="unit"></td>` +
-    `<td><input type="number" class="cSort" value="0" style="width:45px"></td>` +
-    `<td style="display:flex;gap:3px">` +
-    `<button class="btn-cat-save" onclick="saveCatalogRow('${id}')">💾</button>` +
-    `<button class="btn-cat-del" onclick="document.getElementById('ctr${id}').remove()">✕</button>` +
+    `<td class="hss-act"><input type="hidden" class="cSort" value="0">` +
+    `<button class="btn-cat-save" title="Simpan" onclick="saveCatalogRow('${id}')">✓</button> ` +
+    `<button class="btn-cat-del" title="Hapus" onclick="document.getElementById('ctr${id}').remove()">✕</button>` +
     `</td>`
   document.getElementById('catalogBody').prepend(tr)
+  initCatalogRow(tr)
+  tr.querySelector('.cName').focus()
+}
+
+// Opsi tipe layanan dikelompokkan per kategori.
+function buildSvcOptsGrouped (selected = '') {
+  const cats = window.HS_CATEGORIES || {}
+  return Object.keys(cats).map(ck => {
+    const opts = SVC_OPTIONS.filter(o => (o.cat || 'hotel') === ck)
+    if (!opts.length) return ''
+    return `<optgroup label="${cats[ck].icon} ${cats[ck].label}">` + opts.map(o => `<option value="${o.val}" ${o.val === selected ? 'selected' : ''}>${o.lbl}</option>`).join('') + '</optgroup>'
+  }).join('')
+}
+
+function svcCategoryOf (stype) {
+  const o = SVC_OPTIONS.find(x => x.val === stype)
+  return o ? (o.cat || 'hotel') : 'hotel'
+}
+
+// Dropdown mitra default: hanya mitra aktif dengan kategori yang sama (Hotel: tanpa mitra).
+function fillCatalogPartner (tr, keepId) {
+  const sel = tr.querySelector('.cPartner')
+  if (!sel) return
+  const cat = svcCategoryOf(tr.querySelector('.cSType').value)
+  const cur = keepId != null ? String(keepId) : sel.value
+  if (cat === 'hotel' || cat === 'trip') {
+    sel.innerHTML = `<option value="">${cat === 'trip' ? 'Guide dipilih saat input' : '— Tanpa mitra —'}</option>`
+    sel.disabled = true
+    return
+  }
+  sel.disabled = false
+  const list = (window.HS_PARTNERS || []).filter(p => p.cat === cat && (p.active || String(p.id) === cur))
+  sel.innerHTML = '<option value="">— Pilih mitra —</option>' + list.map(p => `<option value="${p.id}" ${String(p.id) === cur ? 'selected' : ''}>${escapeHtmlHs(p.name)}</option>`).join('')
+}
+
+function escapeHtmlHs (v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
+function catRowCalc (el) {
+  const tr = el.closest ? el.closest('tr') : el
+  const price = parseFloat(tr.querySelector('.cPrice').value) || 0
+  const pay = parseFloat(tr.querySelector('.cDriverRate').value) || 0
+  const out = tr.querySelector('.cProfit')
+  if (!out) return
+  const profit = price - pay
+  out.textContent = pay > 0 ? profit.toLocaleString('id-ID') : '—'
+  out.classList.toggle('neg', profit < 0)
+}
+
+function catRowTypeChanged (sel) {
+  const tr = sel.closest('tr')
+  fillCatalogPartner(tr)
+  const cat = svcCategoryOf(sel.value)
+  const pay = tr.querySelector('.cDriverRate')
+  pay.disabled = cat === 'hotel'
+  if (cat === 'hotel') { pay.value = 0; catRowCalc(tr) }
+}
+
+function initCatalogRow (tr) {
+  if (!tr || !tr.querySelector('.cSType')) return
+  fillCatalogPartner(tr, tr.dataset.partner && tr.dataset.partner !== '0' ? tr.dataset.partner : '')
+  const cat = svcCategoryOf(tr.querySelector('.cSType').value)
+  tr.querySelector('.cDriverRate').disabled = cat === 'hotel'
+  catRowCalc(tr)
 }
 
 function saveCatalogRow (cid) {
@@ -1085,6 +1152,7 @@ function saveCatalogRow (cid) {
   fd.append('item_name', tr.querySelector('.cName').value.trim())
   fd.append('default_price', tr.querySelector('.cPrice').value)
   fd.append('driver_rate', tr.querySelector('.cDriverRate')?.value || 0)
+  fd.append('partner_id', tr.querySelector('.cPartner')?.value || '')
   fd.append('unit', tr.querySelector('.cUnit').value.trim() || 'unit')
   fd.append('sort_order', tr.querySelector('.cSort').value)
   fetch('hotel-services.php', {
@@ -1096,6 +1164,7 @@ function saveCatalogRow (cid) {
     .then(res => {
       if (res.success) {
         tr.id = 'ctr' + res.id
+        tr.dataset.partner = tr.querySelector('.cPartner')?.value || ''
         tr.querySelectorAll('button')[0].setAttribute(
           'onclick',
           'saveCatalogRow(' + res.id + ')'
@@ -1104,8 +1173,8 @@ function saveCatalogRow (cid) {
           'onclick',
           'deleteCatalogRow(' + res.id + ')'
         )
-        tr.style.background = '#f0fdf4'
-        setTimeout(() => (tr.style.background = ''), 1500)
+        tr.classList.add('saved')
+        setTimeout(() => tr.classList.remove('saved'), 1500)
       } else {
         alert('Error: ' + (res.message || 'failed'))
       }
@@ -1744,13 +1813,14 @@ function addSvcTypeRow () {
   const tr = document.createElement('tr')
   tr.id = 'str' + id
   tr.innerHTML =
-    `<td><input type="text" class="stIcon" value="🔹" style="width:40px;text-align:center"></td>` +
-    `<td><input type="text" class="stKey" placeholder="e.g. spa_treatment"></td>` +
-    `<td><input type="text" class="stLabel" placeholder="e.g. Spa Treatment"></td>` +
-    `<td><input type="number" class="stSort" value="0" style="width:45px"></td>` +
-    `<td style="display:flex;gap:3px">` +
-    `<button class="btn-cat-save" onclick="saveSvcType('${id}')">💾</button>` +
-    `<button class="btn-cat-del" onclick="document.getElementById('str${id}').remove()">✕</button>` +
+    `<td class="c"><input type="text" class="stIcon c" value="🔹"></td>` +
+    `<td><input type="text" class="stLabel" placeholder="mis. City Tour"></td>` +
+    `<td><input type="text" class="stKey" placeholder="mis. city_tour"></td>` +
+    `<td><select class="stCat">` + Object.keys(window.HS_CATEGORIES || {}).map(ck => `<option value="${ck}">${window.HS_CATEGORIES[ck].icon} ${window.HS_CATEGORIES[ck].label}</option>`).join('') + `</select></td>` +
+    `<td class="c"><input type="number" class="stSort c" value="0"></td>` +
+    `<td class="hss-act">` +
+    `<button class="btn-cat-save" title="Simpan" onclick="saveSvcType('${id}')">✓</button> ` +
+    `<button class="btn-cat-del" title="Hapus" onclick="document.getElementById('str${id}').remove()">✕</button>` +
     `</td>`
   document.getElementById('svcTypeBody').prepend(tr)
 }
@@ -1765,6 +1835,7 @@ function saveSvcType (stId) {
   fd.append('type_key', tr.querySelector('.stKey').value.trim())
   fd.append('type_label', tr.querySelector('.stLabel').value.trim())
   fd.append('sort_order', tr.querySelector('.stSort').value || 0)
+  fd.append('category', tr.querySelector('.stCat')?.value || '')
   fetch('hotel-services.php', {
     method: 'POST',
     body: fd,
@@ -1812,6 +1883,75 @@ function deleteSvcType (stId) {
     })
 }
 
+// ── MITRA LAYANAN ────────────────────────────────────────────────────────────
+let partnerRowCnt = 0
+
+function addPartnerRow () {
+  partnerRowCnt++
+  const id = 'new_' + partnerRowCnt
+  const tr = document.createElement('tr')
+  tr.id = 'ptr' + id
+  const cats = window.HS_CATEGORIES || {}
+  tr.innerHTML =
+    `<td><input type="text" class="pName" placeholder="Nama mitra"></td>` +
+    `<td><select class="pCat">` + Object.keys(cats).filter(ck => ck !== 'hotel').map(ck => `<option value="${ck}">${cats[ck].icon} ${cats[ck].label}</option>`).join('') + `</select></td>` +
+    `<td><input type="text" class="pPhone" placeholder="08xx"></td>` +
+    `<td class="c"><input type="checkbox" class="pActive" checked></td>` +
+    `<td class="hss-act"><button class="btn-cat-save" title="Simpan" onclick="savePartnerRow('${id}')">✓</button> ` +
+    `<button class="btn-cat-del" title="Hapus" onclick="document.getElementById('ptr${id}').remove()">✕</button></td>`
+  document.getElementById('partnerBody').prepend(tr)
+  const empty = document.getElementById('partnerEmpty')
+  if (empty) empty.remove()
+  tr.querySelector('.pName').focus()
+}
+
+function savePartnerRow (pid) {
+  const tr = document.getElementById('ptr' + pid)
+  if (!tr) return
+  const name = tr.querySelector('.pName').value.trim()
+  if (!name) { alert('Nama mitra wajib diisi'); return }
+  const fd = new FormData()
+  fd.append('action', 'save_partner')
+  fd.append('partner_id', isNaN(pid) ? 0 : pid)
+  fd.append('partner_name', name)
+  fd.append('category', tr.querySelector('.pCat').value)
+  fd.append('phone', tr.querySelector('.pPhone').value.trim())
+  fd.append('is_active', tr.querySelector('.pActive').checked ? 1 : 0)
+  fetch('hotel-services.php', { method: 'POST', body: fd, credentials: 'include' })
+    .then(r => r.json())
+    .then(res => {
+      if (!res.success) { alert('Error: ' + (res.message || 'failed')); return }
+      tr.id = 'ptr' + res.id
+      tr.querySelectorAll('button')[0].setAttribute('onclick', 'savePartnerRow(' + res.id + ')')
+      tr.querySelectorAll('button')[1].setAttribute('onclick', 'deletePartnerRow(' + res.id + ')')
+      // Perbarui daftar mitra di halaman (dropdown katalog & form)
+      const list = window.HS_PARTNERS || (window.HS_PARTNERS = [])
+      const item = { id: res.id, name: name, cat: tr.querySelector('.pCat').value, phone: tr.querySelector('.pPhone').value.trim(), active: tr.querySelector('.pActive').checked ? 1 : 0 }
+      const idx = list.findIndex(p => p.id === res.id)
+      if (idx > -1) list[idx] = item; else list.push(item)
+      document.querySelectorAll('#catalogBody tr').forEach(r => fillCatalogPartner(r))
+      tr.classList.add('saved')
+      setTimeout(() => tr.classList.remove('saved'), 1500)
+    })
+    .catch(() => alert('Network error'))
+}
+
+function deletePartnerRow (pid) {
+  if (!confirm('Hapus mitra ini? Item katalog yang memakainya akan dikosongkan mitranya.')) return
+  const fd = new FormData()
+  fd.append('action', 'delete_partner')
+  fd.append('partner_id', pid)
+  fetch('hotel-services.php', { method: 'POST', body: fd, credentials: 'include' })
+    .then(r => r.json())
+    .then(res => {
+      if (!res.success) { alert('Error: ' + (res.message || 'failed')); return }
+      const el = document.getElementById('ptr' + pid)
+      if (el) el.remove()
+      window.HS_PARTNERS = (window.HS_PARTNERS || []).filter(p => p.id !== pid)
+      document.querySelectorAll('#catalogBody tr').forEach(r => fillCatalogPartner(r))
+    })
+}
+
 // ── NARAYANA TRIP GUIDE MANAGEMENT ──────────────────────────────────────────
 let guideRowCnt = 0
 
@@ -1822,11 +1962,11 @@ function addGuideRow () {
   tr.id = 'gtr' + id
   tr.innerHTML =
     `<td><input type="text" class="gName" placeholder="Nama guide"></td>` +
-    `<td><input type="text" class="gPhone" placeholder="08xx..."></td>` +
-    `<td><input type="number" class="gSort" value="0" style="width:45px"></td>` +
-    `<td style="display:flex;gap:3px">` +
-    `<button class="btn-cat-save" onclick="saveGuideRow('${id}')">💾</button>` +
-    `<button class="btn-cat-del" onclick="document.getElementById('gtr${id}').remove()">✕</button>` +
+    `<td><input type="text" class="gPhone" placeholder="08xx"></td>` +
+    `<td class="c"><input type="number" class="gSort c" value="0"></td>` +
+    `<td class="hss-act">` +
+    `<button class="btn-cat-save" title="Simpan" onclick="saveGuideRow('${id}')">✓</button> ` +
+    `<button class="btn-cat-del" title="Hapus" onclick="document.getElementById('gtr${id}').remove()">✕</button>` +
     `</td>`
   document.getElementById('guideBody').prepend(tr)
 }
