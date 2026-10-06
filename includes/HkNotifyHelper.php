@@ -1,25 +1,16 @@
 <?php
 
 /**
- * Notifikasi untuk staf Housekeeping (Staff Portal) saat tamu check-in / check-out:
+ * Notifikasi untuk semua staf (Staff Portal) saat tamu check-in / check-out:
  *   - baris di tabel notifications (muncul di lonceng Staff Portal)
  *   - push notification ke HP staf yang mengaktifkan notifikasi
- * Staf HK = karyawan aktif dengan departemen/jabatan housekeeping (sama dengan pembagian kamar HK).
+ * Penerima: semua karyawan aktif (FO, HK, F&B, dll) agar seluruh tim tahu pergerakan tamu.
  * Tidak pernah melempar exception: check-in/out tidak boleh gagal karena notifikasi.
  */
 function hkNotifyGuestMovement($db, string $event, array $booking): void
 {
     try {
-        $employees = $db->fetchAll(
-            "SELECT id FROM payroll_employees
-             WHERE is_active = 1
-               AND (
-                    LOWER(COALESCE(department, '')) LIKE '%housekeeping%'
-                    OR LOWER(COALESCE(department, '')) = 'hk'
-                    OR LOWER(COALESCE(position, '')) LIKE '%housekeeping%'
-                    OR LOWER(COALESCE(position, '')) LIKE 'hk%'
-               )"
-        ) ?: [];
+        $employees = $db->fetchAll("SELECT id FROM payroll_employees WHERE is_active = 1") ?: [];
         $ids = array_map('intval', array_column($employees, 'id'));
         if (!$ids) return;
 
@@ -34,8 +25,8 @@ function hkNotifyGuestMovement($db, string $event, array $booking): void
         $roomLabel = 'Kamar ' . $room . ($type !== '' ? ' (' . $type . ')' : '');
 
         if ($event === 'checkout') {
-            $title = '🧹 ' . $roomLabel . ' perlu dibersihkan';
-            $message = $guest . ' check-out pukul ' . date('H:i') . '. Kamar kosong & kotor — siapkan untuk tamu berikutnya.';
+            $title = '🚪 Tamu check-out · ' . $roomLabel;
+            $message = $guest . ' check-out pukul ' . date('H:i') . '. Kamar kosong & perlu dibersihkan (HK).';
             $kind = 'hk_checkout';
         } else {
             $out = !empty($booking['check_out_date']) ? date('d M', strtotime($booking['check_out_date'])) : '-';
@@ -67,7 +58,7 @@ function hkNotifyGuestMovement($db, string $event, array $booking): void
             error_log('HK notify (table): ' . $e->getMessage());
         }
 
-        // Push ke HP staf HK.
+        // Push ke HP staf.
         try {
             require_once __DIR__ . '/PushNotificationHelper.php';
             $slug = defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : '';
