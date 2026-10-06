@@ -1454,6 +1454,35 @@ include '../../includes/header.php';
         z-index: 50;
     }
 
+    /* Pilihan tanggal (klik 1 = check-in): pill putus-putus mulai TENGAH sel, seperti bar booking;
+       memanjang mengikuti kursor sampai tengah sel check-out. */
+    .fc-preview {
+        position: absolute;
+        top: 2px;
+        left: 50%;
+        height: 24px;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        padding: 0 8px;
+        border: 2px dashed #6366f1;
+        border-radius: 999px;
+        background: rgba(99, 102, 241, 0.12);
+        color: #4338ca;
+        font-size: 0.6rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        pointer-events: none;
+        transition: width 0.08s ease-out;
+    }
+
+    body[data-theme="dark"] .fc-preview {
+        background: rgba(129, 140, 248, 0.16);
+        border-color: #818cf8;
+        color: #c7d2fe;
+    }
+
     .grid-date-cell.drag-over {
         background: rgba(99, 102, 241, 0.15) !important;
         outline: 2px dashed #6366f1;
@@ -4151,21 +4180,42 @@ include '../../includes/header.php';
             element
         };
 
-        // Highlight the clicked cell
-        element.style.background = 'rgba(99, 102, 241, 0.25)';
-        element.style.outline = '2px solid #6366f1';
-        element.style.outlineOffset = '-2px';
+        // Tanda check-in: pill putus-putus dari tengah sel (bukan kotak penuh).
+        const pill = document.createElement('div');
+        pill.className = 'fc-preview';
+        pill.textContent = 'Check-in';
+        element.appendChild(pill);
+        firstClick.pill = pill;
+        fcResize(element);
 
         // Show tooltip
         showClickHint(element, roomNumber, date);
     }
 
-    function clearFirstClick() {
-        if (firstClick && firstClick.element) {
-            firstClick.element.style.background = '';
-            firstClick.element.style.outline = '';
-            firstClick.element.style.outlineOffset = '';
+    // Lebar pill: dari tengah sel check-in sampai tengah sel yang disorot (minimal setengah sel).
+    function fcResize(target) {
+        if (!firstClick || !firstClick.pill) return;
+        const a = firstClick.element.getBoundingClientRect();
+        let w = a.width / 2 - 3;
+        let nights = 0;
+        if (target && target !== firstClick.element && target.getAttribute('data-room-id') === firstClick.roomId &&
+            target.getAttribute('data-date') > firstClick.date) {
+            const b = target.getBoundingClientRect();
+            w = (b.left + b.width / 2) - (a.left + a.width / 2) - 3;
+            nights = Math.round((new Date(target.getAttribute('data-date')) - new Date(firstClick.date)) / 86400000);
         }
+        firstClick.pill.style.width = Math.max(18, w) + 'px';
+        firstClick.pill.textContent = nights > 0 ? nights + ' malam' : 'Check-in';
+    }
+
+    document.addEventListener('mouseover', e => {
+        if (!firstClick) return;
+        const cell = e.target.closest && e.target.closest('.grid-date-cell');
+        if (cell) fcResize(cell);
+    });
+
+    function clearFirstClick() {
+        if (firstClick && firstClick.pill) firstClick.pill.remove();
         firstClick = null;
         // Remove hint
         const hint = document.getElementById('clickBookingHint');
@@ -4298,7 +4348,7 @@ include '../../includes/header.php';
 
             // OTA: disable Pay All & paid amount (OTA pays later at check-in)
             if (paidAmountInput) {
-                paidAmountInput.value = 0;
+                paidAmountInput.value = '';
                 paidAmountInput.disabled = true;
                 paidAmountInput.style.opacity = '0.5';
             }
@@ -4508,16 +4558,15 @@ include '../../includes/header.php';
                 result.rooms.forEach(room => {
                     const roomRateBadge = IS_STAFF_VIEW ?
                         '' :
-                        `<span style="color: #10b981; font-weight: bold;">(Rp ${parseInt(room.base_price).toLocaleString('id-ID')}/night)</span>`;
+                        `<span class="nr-price">Rp ${parseInt(room.base_price).toLocaleString('id-ID')}<small style="font-weight:500">/mlm</small></span>`;
                     html += `
-                    <label class="room-checkbox-item" style="display: block; padding: 8px; margin-bottom: 5px; background: white; border-radius: 3px; cursor: pointer; transition: all 0.2s;">
-                        <input type="checkbox" name="rooms[]" value="${room.id}" 
+                    <label class="room-checkbox-item">
+                        <input type="checkbox" name="rooms[]" value="${room.id}"
                                data-price="${room.base_price}"
                                data-room="${room.room_number}"
                                data-type="${room.type_name}"
-                               onchange="calculateMultiRoomTotalCalendar()"
-                               style="margin-right: 8px;">
-                        <strong>Room ${room.room_number}</strong> - ${room.type_name}
+                               onchange="calculateMultiRoomTotalCalendar()">
+                        <span class="nr-room"><b>Room ${room.room_number}</b><small>${room.type_name}</small></span>
                         ${roomRateBadge}
                     </label>
                 `;
@@ -4559,17 +4608,7 @@ include '../../includes/header.php';
         const discountInput = document.getElementById('discount');
         const buttons = document.querySelectorAll('.disc-type-btn-cal');
 
-        buttons.forEach(btn => {
-            if (btn.dataset.type === type) {
-                btn.classList.add('active');
-                btn.style.background = '#6366f1';
-                btn.style.color = 'white';
-            } else {
-                btn.classList.remove('active');
-                btn.style.background = 'white';
-                btn.style.color = '#6366f1';
-            }
-        });
+        buttons.forEach(btn => btn.classList.toggle('active', btn.dataset.type === type));
 
         discountTypeInput.value = type;
         discountLabel.textContent = type === 'percent' ? '%' : 'Rp';
@@ -4618,9 +4657,9 @@ include '../../includes/header.php';
             if (otaFeeRow) otaFeeRow.style.display = 'none';
             if (totalRooms > 0) {
                 document.getElementById('selectedRoomsSummaryCalendar').innerHTML =
-                    '<strong>Selected for Block:</strong> ' + totalRooms + ' room(s) × ' + nights + ' night(s)';
+                    '<strong>Diblok:</strong> ' + totalRooms + ' kamar × ' + nights + ' malam';
             } else {
-                document.getElementById('selectedRoomsSummaryCalendar').innerHTML = '<em style="color: #ef4444;">Belum ada room yang dipilih</em>';
+                document.getElementById('selectedRoomsSummaryCalendar').innerHTML = '<em style="color:#b91c1c">Belum ada kamar dipilih</em>';
             }
             return;
         }
@@ -4690,9 +4729,9 @@ include '../../includes/header.php';
         // Update summary
         if (totalRooms > 0) {
             document.getElementById('selectedRoomsSummaryCalendar').innerHTML =
-                '<strong>Selected:</strong> ' + totalRooms + ' room(s) × ' + nights + ' night(s) = Rp ' + subtotal.toLocaleString('id-ID');
+                '<strong>Dipilih:</strong> ' + totalRooms + ' kamar × ' + nights + ' malam = Rp ' + subtotal.toLocaleString('id-ID');
         } else {
-            document.getElementById('selectedRoomsSummaryCalendar').innerHTML = '<em style="color: #ef4444;">Belum ada room yang dipilih</em>';
+            document.getElementById('selectedRoomsSummaryCalendar').innerHTML = '<em style="color:#b91c1c">Belum ada kamar dipilih</em>';
         }
     }
 
@@ -5653,11 +5692,13 @@ include '../../includes/header.php';
 
 <!-- RESERVATION MODAL - POPUP SYSTEM 2028 -->
 <div id="reservationModal" class="modal-overlay">
-    <div class="modal-content modal-compact">
-        <button class="modal-close" onclick="closeReservationModal()">×</button>
-
+    <div class="modal-content modal-compact modal-compact-booking">
         <div class="modal-header-compact">
-            <h2>New Reservation</h2>
+            <div>
+                <h2>New Reservation</h2>
+                <small>Bisa memilih lebih dari 1 kamar sekaligus</small>
+            </div>
+            <button type="button" class="close-btn" onclick="closeReservationModal()" aria-label="Tutup">&times;</button>
         </div>
 
         <form id="reservationForm" onsubmit="submitReservation(event)">
@@ -5676,32 +5717,32 @@ include '../../includes/header.php';
                             <option value="block_room">Block Room</option>
                         </select>
                     </div>
-                    <div class="input-compact" id="blockHintWrap" style="justify-content:flex-end;">
-                        <label style="opacity:0;">Info</label>
-                        <small style="color:#b45309;background:#fffbeb;border:1px solid #fde68a;padding:8px 10px;border-radius:8px;display:block;">Mode Block Room dipakai untuk maintenance, deep cleaning, owner use, dll.</small>
+                    <div class="input-compact" id="blockHintWrap">
+                        <label>&nbsp;</label>
+                        <small class="nr-hint">Block Room: untuk maintenance, deep cleaning, owner use, dll.</small>
                     </div>
                 </div>
 
                 <!-- GUEST INFO -->
                 <div id="guestInfoSection" class="form-row-2col">
                     <div class="input-compact">
-                        <label>Guest Name*</label>
-                        <input type="text" id="guestName" name="guest_name" required placeholder="Full name">
+                        <label>Nama tamu *</label>
+                        <input type="text" id="guestName" name="guest_name" required placeholder="Nama lengkap">
                     </div>
                     <div class="input-compact">
-                        <label>Phone</label>
-                        <input type="text" id="guestPhone" name="guest_phone" placeholder="Phone/WA">
+                        <label>Telepon / WA</label>
+                        <input type="text" id="guestPhone" name="guest_phone" placeholder="08xx">
                     </div>
                 </div>
 
                 <!-- DATES -->
                 <div class="form-row-2col">
                     <div class="input-compact">
-                        <label>Check In*</label>
+                        <label>Check-in *</label>
                         <input type="date" id="checkInDate" name="check_in_date" required onchange="loadAvailableRoomsCalendar()">
                     </div>
                     <div class="input-compact">
-                        <label>Check Out*</label>
+                        <label>Check-out *</label>
                         <input type="date" id="checkOutDate" name="check_out_date" required onchange="loadAvailableRoomsCalendar()">
                     </div>
                 </div>
@@ -5729,27 +5770,26 @@ include '../../includes/header.php';
 
                 <!-- ROOMS SELECTION (MULTI SELECT) -->
                 <div class="input-compact">
-                    <label>Select Rooms* (dapat pilih lebih dari 1)</label>
-                    <div id="availabilityInfoCalendar" style="margin-bottom: 8px; font-size: 0.85rem;"></div>
-                    <div id="roomsChecklistCalendar" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #f9f9f9;">
-                        <em style="color: #888;">Pilih tanggal untuk melihat room yang tersedia...</em>
+                    <div class="nr-label-row">
+                        <label>Pilih kamar *</label>
+                        <span id="availabilityInfoCalendar"></span>
                     </div>
-                    <div id="selectedRoomsSummaryCalendar" style="margin-top: 8px; font-size: 0.85rem; color: #6366f1;"></div>
+                    <div id="roomsChecklistCalendar" class="rooms-checklist">
+                        <em>Pilih tanggal untuk melihat kamar yang tersedia…</em>
+                    </div>
+                    <div id="selectedRoomsSummaryCalendar" class="nr-selected"></div>
                 </div>
 
                 <!-- GUESTS -->
                 <div class="input-compact" id="guestCountSection">
-                    <label>Guests</label>
-                    <div class="guest-inputs">
-                        <input type="number" id="adultCount" name="adult_count" value="1" min="1" style="flex:1;">
-                        <span style="font-size:0.75rem; color:#888; padding:0 4px;">adult</span>
-                    </div>
+                    <label>Jumlah tamu (dewasa)</label>
+                    <input type="number" id="adultCount" name="adult_count" value="1" min="1">
                 </div>
 
                 <!-- SOURCE & PAYMENT METHOD -->
                 <div class="form-row-2col" id="sourcePaymentSection">
                     <div class="input-compact">
-                        <label>Booking Source <span style="color: red;">*</span></label>
+                        <label>Sumber booking *</label>
                         <select id="bookingSource" name="booking_source" onchange="updateSourceDetails()" required>
                             <option value="">-- Pilih Booking Source --</option>
                             <?php
@@ -5778,7 +5818,7 @@ include '../../includes/header.php';
                         </select>
                     </div>
                     <div class="input-compact">
-                        <label>Payment Method</label>
+                        <label>Metode bayar</label>
                         <select name="payment_method" id="paymentMethod" onchange="calculateFinalPrice()">
                             <option value="cash">Cash</option>
                             <option value="transfer">Transfer</option>
@@ -5791,55 +5831,53 @@ include '../../includes/header.php';
                 <!-- PRICE SUMMARY -->
                 <div class="price-summary-compact" id="priceSummarySection">
                     <div class="price-line">
-                        <span>Total Rooms:</span>
+                        <span>Kamar</span>
                         <strong id="totalRoomsDisplayCalendar">0 rooms</strong>
                     </div>
                     <div class="price-line">
-                        <span>Nights:</span>
+                        <span>Malam</span>
                         <strong id="displayNights">0</strong>
                     </div>
                     <div class="price-line">
-                        <span>Subtotal:</span>
+                        <span>Subtotal</span>
                         <strong id="subtotalDisplayCalendar">Rp 0</strong>
                     </div>
-                    <div class="price-line" style="flex-direction: column; align-items: flex-start;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%; margin-bottom: 0.5rem;">
-                            <span>Discount:</span>
-                            <div class="discount-type-toggle" style="display: flex; gap: 0; margin-left: auto;">
-                                <button type="button" class="disc-type-btn-cal active" data-type="rp" onclick="setDiscountTypeCalendar('rp')" style="padding: 4px 10px; font-size: 0.75rem; border: 1px solid #6366f1; background: #6366f1; color: white; border-radius: 4px 0 0 4px; cursor: pointer;">Rp</button>
-                                <button type="button" class="disc-type-btn-cal" data-type="percent" onclick="setDiscountTypeCalendar('percent')" style="padding: 4px 10px; font-size: 0.75rem; border: 1px solid #6366f1; background: white; color: #6366f1; border-radius: 0 4px 4px 0; cursor: pointer;">%</button>
+                    <div class="price-line nr-discount">
+                        <span>Diskon</span>
+                        <div class="nr-discount-ctl">
+                            <div class="discount-type-toggle">
+                                <button type="button" class="disc-type-btn disc-type-btn-cal active" data-type="rp" onclick="setDiscountTypeCalendar('rp')">Rp</button>
+                                <button type="button" class="disc-type-btn disc-type-btn-cal" data-type="percent" onclick="setDiscountTypeCalendar('percent')">%</button>
                             </div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%;">
-                            <input type="number" id="discount" name="discount" value="0" min="0" onchange="calculateMultiRoomTotalCalendar()" style="text-align:right; flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="0">
+                            <input type="number" id="discount" name="discount" value="" min="0" inputmode="decimal" oninput="calculateMultiRoomTotalCalendar()" onchange="calculateMultiRoomTotalCalendar()" placeholder="0">
                             <input type="hidden" id="discountType" name="discount_type" value="rp">
-                            <span id="discountTypeLabel" style="font-size: 0.8rem; color: #888; min-width: 30px;">Rp</span>
+                            <span id="discountTypeLabel">Rp</span>
                         </div>
-                        <div id="discountPreview" style="font-size: 0.75rem; color: #10b981; margin-top: 4px;"></div>
                     </div>
-                    <div class="price-line" id="otaFeeRow" style="display: none; background: #fef3c7; padding: 8px; border-radius: 6px; margin: 4px 0;">
-                        <span style="color: #92400e;">OTA Fee (<span id="otaFeePercentDisplay">0</span>%):</span>
-                        <strong id="otaFeeAmountDisplay" style="color: #dc2626;">- Rp 0</strong>
+                    <div id="discountPreview" class="nr-disc-preview"></div>
+                    <div class="price-line" id="otaFeeRow" style="display: none;">
+                        <span>OTA fee (<span id="otaFeePercentDisplay">0</span>%)</span>
+                        <strong id="otaFeeAmountDisplay">- Rp 0</strong>
                         <input type="hidden" id="otaFeeAmount" name="ota_fee_amount" value="0">
                     </div>
                     <div class="price-line-total">
-                        <span>GRAND TOTAL:</span>
-                        <strong id="grandTotalDisplayCalendar" style="color:#10b981; font-size: 1.3rem;">Rp 0</strong>
+                        <span>Grand total</span>
+                        <strong id="grandTotalDisplayCalendar">Rp 0</strong>
                     </div>
                 </div>
 
                 <!-- PAYMENT -->
                 <div class="input-compact" id="paymentSection">
-                    <label>Initial Payment (DP) - Rp</label>
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <input type="number" id="paidAmount" name="paid_amount" value="0" placeholder="0" style="flex: 1;">
-                        <button type="button" onclick="payFullMultiRoomCalendar()" class="btn-pay-all" title="Pay Full Amount">Pay All</button>
+                    <label>Pembayaran awal (DP) · Rp</label>
+                    <div class="nr-pay-row">
+                        <input type="number" id="paidAmount" name="paid_amount" value="" min="0" inputmode="numeric" placeholder="0">
+                        <button type="button" onclick="payFullMultiRoomCalendar()" class="btn-pay-all" title="Bayar penuh">Bayar penuh</button>
                     </div>
                 </div>
             </div>
 
             <div class="modal-footer-compact">
-                <button type="button" class="btn-cancel" onclick="closeReservationModal()">Cancel</button>
+                <button type="button" class="btn-cancel" onclick="closeReservationModal()">Batal</button>
                 <button type="submit" class="btn-save" id="reservationSubmitBtn">Save Reservation</button>
             </div>
         </form>
@@ -6086,6 +6124,506 @@ include '../../includes/header.php';
 
     .form-compact::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
+    }
+
+    /* ===== New Reservation (redesign) — selector #reservationModal agar menang atas gaya lama & global ===== */
+    #reservationModal {
+        --nr-bg: #ffffff;
+        --nr-soft: #f8fafc;
+        --nr-line: #e2e8f0;
+        --nr-ink: #0f172a;
+        --nr-muted: #64748b;
+        --nr-input: #ffffff;
+        --nr-input-line: #cbd5e1;
+        background: rgba(15, 23, 42, 0.5) !important;
+        backdrop-filter: blur(3px);
+    }
+
+    body[data-theme="dark"] #reservationModal {
+        --nr-bg: #0f172a;
+        --nr-soft: rgba(255, 255, 255, 0.04);
+        --nr-line: rgba(255, 255, 255, 0.1);
+        --nr-ink: #e2e8f0;
+        --nr-muted: #94a3b8;
+        --nr-input: rgba(255, 255, 255, 0.05);
+        --nr-input-line: rgba(148, 163, 184, 0.35);
+    }
+
+    #reservationModal .modal-compact-booking {
+        width: 100% !important;
+        max-width: 640px !important;
+        max-height: calc(100vh - 32px) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 0 !important;
+        border-radius: 16px !important;
+        background: var(--nr-bg) !important;
+        border: 1px solid var(--nr-line) !important;
+        box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.45) !important;
+        overflow: hidden !important;
+    }
+
+    #reservationModal .modal-header-compact {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 12px;
+        margin: 0 !important;
+        padding: 14px 18px !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    #reservationModal .modal-header-compact h2 {
+        margin: 0 !important;
+        font-size: 0.98rem !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+
+    #reservationModal .modal-header-compact small {
+        display: block;
+        font-size: 0.68rem !important;
+        color: rgba(255, 255, 255, 0.78) !important;
+        -webkit-text-fill-color: rgba(255, 255, 255, 0.78) !important;
+    }
+
+    #reservationModal .close-btn {
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        background: rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        font-size: 20px !important;
+        line-height: 1 !important;
+    }
+
+    #reservationModal form {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        flex: 1;
+    }
+
+    #reservationModal .form-compact {
+        overflow-y: auto !important;
+        padding: 6px 18px 14px !important;
+        display: block !important;
+    }
+
+    #reservationModal .nr-sec {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 12px 0 8px;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--nr-muted) !important;
+    }
+
+    #reservationModal .nr-sec::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--nr-line);
+    }
+
+    #reservationModal .form-row-2col {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    #reservationModal .input-compact {
+        margin-bottom: 10px !important;
+    }
+
+    #reservationModal .form-row-2col .input-compact {
+        margin-bottom: 0 !important;
+    }
+
+    body[data-theme] #reservationModal .input-compact label {
+        display: block;
+        margin: 0 0 4px !important;
+        font-size: 0.62rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--nr-muted) !important;
+    }
+
+    body[data-theme] #reservationModal .input-compact input,
+    body[data-theme] #reservationModal .input-compact select,
+    body[data-theme] #reservationModal .input-compact textarea,
+    body[data-theme] #reservationModal .nr-discount-ctl input[type="number"] {
+        width: 100%;
+        height: 36px;
+        padding: 0 10px !important;
+        border-radius: 9px !important;
+        border: 1px solid var(--nr-input-line) !important;
+        background: var(--nr-input) !important;
+        color: var(--nr-ink) !important;
+        font-size: 0.8rem !important;
+        box-shadow: none !important;
+    }
+
+    body[data-theme] #reservationModal .input-compact textarea {
+        height: auto;
+        min-height: 58px;
+        padding: 8px 10px !important;
+        line-height: 1.45;
+        resize: vertical;
+    }
+
+    body[data-theme] #reservationModal .input-compact input:focus,
+    body[data-theme] #reservationModal .input-compact select:focus,
+    body[data-theme] #reservationModal .input-compact textarea:focus,
+    body[data-theme] #reservationModal .nr-discount-ctl input:focus {
+        outline: none !important;
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }
+
+    /* Pilih kamar: kartu 2 kolom */
+    #reservationModal .nr-label-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    #reservationModal #availabilityInfo small,
+    #reservationModal #availabilityInfo {
+        font-size: 0.66rem !important;
+    }
+
+    #reservationModal .rooms-checklist {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        max-height: 220px !important;
+        overflow-y: auto !important;
+        padding: 6px !important;
+        border-radius: 10px !important;
+        border: 1px solid var(--nr-line) !important;
+        background: var(--nr-soft) !important;
+    }
+
+    #reservationModal .rooms-checklist > em,
+    #reservationModal .rooms-checklist > div {
+        grid-column: 1 / -1;
+        padding: 14px;
+        font-size: 0.74rem;
+        text-align: center;
+    }
+
+    body[data-theme] #reservationModal .room-checkbox-item {
+        display: flex !important;
+        align-items: center;
+        gap: 9px;
+        margin: 0 !important;
+        padding: 8px 10px !important;
+        border-radius: 9px !important;
+        border: 1px solid var(--nr-line) !important;
+        background: var(--nr-bg) !important;
+        cursor: pointer;
+        font-size: 0.76rem !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        transition: border-color 0.15s, background 0.15s;
+    }
+
+    #reservationModal .room-checkbox-item:hover {
+        border-color: #93c5fd !important;
+    }
+
+    #reservationModal .room-checkbox-item:has(input:checked) {
+        border-color: #2563eb !important;
+        background: rgba(37, 99, 235, 0.08) !important;
+        box-shadow: inset 0 0 0 1px #2563eb;
+    }
+
+    body[data-theme] #reservationModal .room-checkbox-item input[type="checkbox"] {
+        width: 16px !important;
+        height: 16px !important;
+        margin: 0 !important;
+        flex-shrink: 0;
+        accent-color: #2563eb;
+    }
+
+    #reservationModal .room-checkbox-item .nr-room {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        line-height: 1.25;
+    }
+
+    #reservationModal .room-checkbox-item .nr-room b {
+        font-size: 0.8rem;
+        color: var(--nr-ink) !important;
+    }
+
+    #reservationModal .room-checkbox-item .nr-room small {
+        font-size: 0.66rem;
+        color: var(--nr-muted) !important;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    #reservationModal .room-checkbox-item .nr-price {
+        margin-left: auto;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #047857 !important;
+        white-space: nowrap;
+    }
+
+    body[data-theme="dark"] #reservationModal .room-checkbox-item .nr-price {
+        color: #6ee7b7 !important;
+    }
+
+    #reservationModal .nr-selected {
+        margin-top: 6px;
+        font-size: 0.72rem !important;
+        color: #1d4ed8 !important;
+    }
+
+    body[data-theme="dark"] #reservationModal .nr-selected {
+        color: #93c5fd !important;
+    }
+
+    /* Ringkasan harga */
+    #reservationModal .price-summary-compact {
+        margin: 4px 0 12px !important;
+        padding: 10px 14px !important;
+        border-radius: 12px !important;
+        background: var(--nr-soft) !important;
+        border: 1px solid var(--nr-line) !important;
+    }
+
+    #reservationModal .price-line {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 10px;
+        padding: 4px 0 !important;
+        margin: 0 !important;
+        font-size: 0.78rem !important;
+        color: var(--nr-muted) !important;
+        background: none !important;
+    }
+
+    #reservationModal .price-line strong {
+        color: var(--nr-ink) !important;
+        font-size: 0.8rem !important;
+    }
+
+    #reservationModal .nr-discount-ctl {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    #reservationModal .discount-type-toggle {
+        display: inline-flex;
+        padding: 2px;
+        border-radius: 8px;
+        background: var(--nr-bg);
+        border: 1px solid var(--nr-input-line);
+    }
+
+    body[data-theme] #reservationModal .disc-type-btn {
+        height: 26px;
+        min-width: 32px;
+        padding: 0 8px !important;
+        border: 0 !important;
+        border-radius: 6px !important;
+        background: transparent !important;
+        color: var(--nr-muted) !important;
+        -webkit-text-fill-color: var(--nr-muted) !important;
+        font-size: 0.72rem !important;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    body[data-theme] #reservationModal .disc-type-btn.active {
+        background: #2563eb !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+
+    body[data-theme] #reservationModal .nr-discount-ctl input[type="number"] {
+        width: 130px;
+        height: 32px;
+        text-align: right;
+    }
+
+    #reservationModal #discountTypeLabel {
+        min-width: 22px;
+        font-size: 0.72rem;
+        color: var(--nr-muted) !important;
+    }
+
+    #reservationModal .nr-disc-preview {
+        text-align: right;
+        font-size: 0.68rem !important;
+        color: #047857 !important;
+    }
+
+    #reservationModal #otaFeeRow {
+        padding: 6px 8px !important;
+        margin: 4px 0 !important;
+        border-radius: 8px;
+        background: rgba(217, 119, 6, 0.1) !important;
+    }
+
+    #reservationModal #otaFeeRow span {
+        color: #b45309 !important;
+    }
+
+    #reservationModal #otaFeeAmountDisplay {
+        color: #b91c1c !important;
+    }
+
+    #reservationModal .price-line-total {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        margin-top: 6px !important;
+        padding: 10px 0 2px !important;
+        border-top: 1px solid var(--nr-line) !important;
+        font-size: 0.72rem !important;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--nr-ink) !important;
+        background: none !important;
+    }
+
+    #reservationModal #grandTotalDisplay {
+        font-size: 1.15rem !important;
+        letter-spacing: 0;
+        color: #047857 !important;
+    }
+
+    body[data-theme="dark"] #reservationModal #grandTotalDisplay,
+    body[data-theme="dark"] #reservationModal .nr-disc-preview {
+        color: #6ee7b7 !important;
+    }
+
+    #reservationModal .nr-pay-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    body[data-theme] #reservationModal .btn-pay-all {
+        flex-shrink: 0;
+        height: 36px;
+        padding: 0 14px !important;
+        border-radius: 9px !important;
+        border: 1px solid #059669 !important;
+        background: rgba(5, 150, 105, 0.08) !important;
+        color: #047857 !important;
+        -webkit-text-fill-color: #047857 !important;
+        font-size: 0.74rem !important;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    body[data-theme] #reservationModal .btn-pay-all:hover {
+        background: #059669 !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    /* Footer */
+    #reservationModal .modal-footer-compact {
+        display: flex !important;
+        justify-content: flex-end !important;
+        gap: 8px !important;
+        margin: 0 !important;
+        padding: 12px 18px !important;
+        border-top: 1px solid var(--nr-line) !important;
+        background: var(--nr-soft) !important;
+        position: static !important;
+    }
+
+    body[data-theme] #reservationModal .btn-cancel,
+    body[data-theme] #reservationModal .btn-save {
+        height: 38px;
+        padding: 0 18px !important;
+        border-radius: 10px !important;
+        font-size: 0.8rem !important;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    body[data-theme] #reservationModal .btn-cancel {
+        border: 1px solid var(--nr-line) !important;
+        background: var(--nr-bg) !important;
+        color: var(--nr-muted) !important;
+        -webkit-text-fill-color: var(--nr-muted) !important;
+    }
+
+    body[data-theme] #reservationModal .btn-save {
+        border: 0 !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.8) !important;
+    }
+
+    @media (max-width: 600px) {
+        #reservationModal .form-row-2col,
+        #reservationModal .rooms-checklist {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    #reservationModal #grandTotalDisplayCalendar {
+        font-size: 1.15rem !important;
+        letter-spacing: 0;
+        color: #047857 !important;
+    }
+
+    body[data-theme="dark"] #reservationModal #grandTotalDisplayCalendar {
+        color: #6ee7b7 !important;
+    }
+
+    #reservationModal .nr-hint {
+        display: flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 6px 10px;
+        border-radius: 9px;
+        background: rgba(217, 119, 6, 0.08);
+        border: 1px solid rgba(217, 119, 6, 0.25);
+        color: #b45309 !important;
+        font-size: 0.68rem !important;
+        line-height: 1.35;
+    }
+
+    body[data-theme="dark"] #reservationModal .nr-hint {
+        color: #fbbf24 !important;
+    }
+
+    #reservationModal [style*="display: none"],
+    #reservationModal [style*="display:none"] {
+        display: none !important;
+    }
+
+    #reservationModal .input-compact#paymentSection,
+    #reservationModal .input-compact#guestCountSection {
+        flex-direction: column;
     }
 </style>
 
