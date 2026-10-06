@@ -11,6 +11,13 @@ require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/BreakfastHelper.php';
 
+/** Normalisasi nomor WA (sama dengan WhatsAppHelper::normalizeTarget). */
+function WhatsAppHelperNormalize(string $t): string
+{
+    require_once __DIR__ . '/../includes/WhatsAppHelper.php';
+    return WhatsAppHelper::normalizeTarget($t);
+}
+
 header('Content-Type: application/json');
 
 $db = Database::getInstance();
@@ -493,7 +500,7 @@ try {
 }
 
 // ═══ Front desk: simpan jatah pax (Setup) & kirim link lewat WhatsApp gateway ═══
-if ($action === 'save_setup' || $action === 'send_wa') {
+if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone') {
     require_once '../includes/auth.php';
     $auth = new Auth();
     $auth->requireLogin();
@@ -527,6 +534,19 @@ if ($action === 'save_setup' || $action === 'send_wa') {
             $stmt->execute([$bid, $p, $k, $p + $k, $p, $p * 2, $k, json_encode($kidMenuIds), $price, $_SESSION['user_id'] ?? null]);
         }
         echo json_encode(['success' => true, 'pax' => $pax, 'kids' => $kids]);
+        exit;
+    }
+
+    if ($action === 'save_phone') {
+        // Ubah nomor WhatsApp tamu dari daftar Breakfast.
+        $guestId = (int)($body['guest_id'] ?? 0);
+        $phone = trim((string)($body['phone'] ?? ''));
+        if ($guestId <= 0 || $phone === '' || WhatsAppHelperNormalize($phone) === '') {
+            echo json_encode(['success' => false, 'message' => 'Nomor WhatsApp tidak valid']);
+            exit;
+        }
+        $db->query("UPDATE guests SET phone = ? WHERE id = ?", [mb_substr($phone, 0, 30), $guestId]);
+        echo json_encode(['success' => true, 'phone' => $phone]);
         exit;
     }
 

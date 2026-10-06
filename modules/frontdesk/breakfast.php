@@ -1500,6 +1500,75 @@ include '../../includes/header.php';
         color: #94a3b8 !important;
         -webkit-text-fill-color: #94a3b8 !important;
     }
+    /* Nomor WA di sebelah nama (klik untuk ubah) */
+    body[data-theme] .main-content .bf-wrap .bfg-phone {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+        margin-left: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(5, 150, 105, 0.28);
+        background: rgba(5, 150, 105, 0.07);
+        font-size: 0.74rem !important;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: #047857 !important;
+        -webkit-text-fill-color: #047857 !important;
+        cursor: pointer;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bfg-phone svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bfg-phone.empty {
+        border-style: dashed;
+        border-color: rgba(220, 38, 38, 0.35);
+        background: rgba(220, 38, 38, 0.05);
+        color: #b91c1c !important;
+        -webkit-text-fill-color: #b91c1c !important;
+    }
+
+    body[data-theme="dark"] .main-content .bf-wrap .bfg-phone {
+        color: #6ee7b7 !important;
+        -webkit-text-fill-color: #6ee7b7 !important;
+    }
+
+    body[data-theme="dark"] .main-content .bf-wrap .bfg-phone.empty {
+        color: #fca5a5 !important;
+        -webkit-text-fill-color: #fca5a5 !important;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-guest-item .guest-name > .bfg-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Popup gagal kirim */
+    .bfg-fail-reason {
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(220, 38, 38, 0.07);
+        border: 1px solid rgba(220, 38, 38, 0.25);
+        font-size: 0.76rem;
+        line-height: 1.45;
+    }
+
+    body[data-theme] .bfg-fail-reason,
+    body[data-theme] .bfg-fail-reason b {
+        color: #991b1b !important;
+        -webkit-text-fill-color: #991b1b !important;
+    }
+
+    body[data-theme="dark"] .bfg-fail-reason,
+    body[data-theme="dark"] .bfg-fail-reason b {
+        color: #fca5a5 !important;
+        -webkit-text-fill-color: #fca5a5 !important;
+    }
 </style>
 
 <div class="bf-wrap">
@@ -1565,7 +1634,8 @@ include '../../includes/header.php';
                                                 data-child-menu-ids="[]">
                                             <div class="guest-info">
                                                 <div class="guest-name">
-                                                    <?php echo htmlspecialchars($g['guest_name']); ?>
+                                                    <span class="bfg-name"><?php echo htmlspecialchars($g['guest_name']); ?></span>
+                                                    <span class="bfg-phone<?php echo empty($g['guest_phone']) ? ' empty' : ''; ?>" title="Klik untuk ubah nomor WhatsApp" onclick="editGuestPhone(event,this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg><span><?php echo htmlspecialchars($g['guest_phone'] ?: 'Tambah nomor'); ?></span></span>
                                                     <?php if ((int)$g['room_count'] > 1): ?><span class="bfg-tag">Grup · <?php echo (int)$g['room_count']; ?> kamar</span><?php endif; ?>
                                                 </div>
                                                 <div class="guest-room">
@@ -1576,7 +1646,6 @@ include '../../includes/header.php';
                                                 </div>
                                             </div>
                                             <div class="bf-guest-tools">
-                                                <span class="bf-wa-phone" title="<?php echo htmlspecialchars($g['guest_phone'] ?: 'Belum ada nomor'); ?>"><?php echo htmlspecialchars($g['guest_phone'] ?: 'No phone'); ?></span>
                                                 <button type="button" class="bf-setup-guest-btn" onclick="openGuestSetup(event,this)">Setup</button>
                                                 <button type="button" class="bf-wa-send" title="Kirim link sarapan via WhatsApp" aria-label="Kirim link via WhatsApp" onclick="sendGuestSelectionLink(event,this)">
                                                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z" /></svg>
@@ -1848,6 +1917,21 @@ include '../../includes/header.php';
         <div class="bfg-modal-actions">
             <button type="button" class="bfg-btn ghost" onclick="phoneAskDone('')">Salin link saja</button>
             <button type="button" class="bfg-btn green" onclick="phoneAskDone(document.getElementById('phoneAskInput').value)">Kirim</button>
+        </div>
+    </div>
+</div>
+
+<div class="bf-modal-backdrop" id="waFailModal">
+    <div class="bf-modal bfg-modal">
+        <div class="bf-modal-head">
+            <div class="bf-modal-title">WhatsApp belum terkirim</div>
+            <button type="button" class="bf-modal-close" onclick="waFailClose()">✕</button>
+        </div>
+        <div class="bfg-fail-reason" id="waFailReason"></div>
+        <p class="bfg-hint" style="margin-top:0">Link sarapan sudah dibuat. Kirim manual lewat WhatsApp, atau salin link-nya. Cek juga nomor tamu dan status perangkat di Pengaturan WhatsApp.</p>
+        <div class="bfg-modal-actions">
+            <button type="button" class="bfg-btn ghost" onclick="waFailCopy()">Salin link</button>
+            <button type="button" class="bfg-btn green" onclick="waFailOpen()">Buka WhatsApp</button>
         </div>
     </div>
 </div>
@@ -2593,9 +2677,9 @@ include '../../includes/header.php';
 
     var phoneAskResolve = null;
 
-    function askPhone(label) {
-        document.getElementById('phoneAskText').textContent = label + ' belum punya nomor WhatsApp. Masukkan nomor untuk mengirim link.';
-        document.getElementById('phoneAskInput').value = '';
+    function askPhone(label, current, text) {
+        document.getElementById('phoneAskText').textContent = text || (label + ' belum punya nomor WhatsApp. Masukkan nomor untuk mengirim link.');
+        document.getElementById('phoneAskInput').value = current || '';
         document.getElementById('phoneAskModal').classList.add('show');
         setTimeout(function() { document.getElementById('phoneAskInput').focus(); }, 50);
         return new Promise(function(resolve) { phoneAskResolve = resolve; });
@@ -2642,15 +2726,62 @@ include '../../includes/header.php';
                     if (typed) cb.dataset.phone = phone;
                 });
             } else {
-                // Gateway belum diatur / gagal: buka WhatsApp dengan pesan siap kirim.
-                var wa = normalizeWaPhone(phone);
-                window.open('https://wa.me/' + wa + '?text=' + encodeURIComponent(msg), '_blank');
-                if (r.gateway) bfgToast('Gateway gagal (' + r.message + ') — WhatsApp dibuka manual', 'err');
+                // Gateway belum diatur / gagal: tampilkan alasannya; tombol "Buka WhatsApp" diklik langsung
+                // oleh petugas (window.open setelah proses async diblokir popup-blocker browser).
+                waFail = { phone: phone, msg: msg, link: portalLink };
+                document.getElementById('waFailReason').innerHTML = '<b>' + (r.gateway ? 'Gateway menolak' : 'Gateway belum aktif') + ':</b> ' +
+                    String(r.message || 'Tidak diketahui').replace(/[&<>]/g, function(ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]; }) +
+                    '<br>Nomor tujuan: ' + (r.target || phone);
+                document.getElementById('waFailModal').classList.add('show');
             }
         } catch (e) {
             bfgToast(e.message, 'err');
         } finally {
             if (btn) btn.disabled = false;
+        }
+    }
+
+    var waFail = null;
+
+    function waFailClose() {
+        document.getElementById('waFailModal').classList.remove('show');
+    }
+
+    function waFailOpen() {
+        if (!waFail) return;
+        window.open('https://wa.me/' + normalizeWaPhone(waFail.phone) + '?text=' + encodeURIComponent(waFail.msg), '_blank');
+        waFailClose();
+    }
+
+    async function waFailCopy() {
+        if (!waFail) return;
+        try { await navigator.clipboard.writeText(waFail.link); bfgOk('Link disalin', 'Tempel ke chat tamu'); }
+        catch (e) { prompt('Salin link berikut:', waFail.link); }
+        waFailClose();
+    }
+
+    // Ubah nomor WhatsApp tamu langsung dari daftar.
+    async function editGuestPhone(evt, chip) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        var cb = bfgRowOf(chip).querySelector('input[name="guest_checks[]"]');
+        if (!cb) return;
+        var phone = await askPhone(cb.dataset.name, cb.dataset.phone, 'Nomor WhatsApp ' + cb.dataset.name + ':');
+        if (!phone) return;
+        try {
+            var res = await fetch(linkContext.createApi, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_phone', guest_id: parseInt(cb.value, 10), phone: phone })
+            });
+            var r = await res.json();
+            if (!r.success) throw new Error(r.message || 'Gagal menyimpan nomor');
+            cb.dataset.phone = phone;
+            chip.querySelector('span').textContent = phone;
+            chip.classList.remove('empty');
+            bfgOk('Nomor tersimpan', phone);
+        } catch (e) {
+            bfgToast(e.message, 'err');
         }
     }
 
