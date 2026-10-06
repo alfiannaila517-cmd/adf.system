@@ -95,24 +95,31 @@ function bf_compute_extra($db, array $bookingIds, array $menuItems)
             foreach ($cids as $cid) $childIds[(int)$cid] = true;
         }
     }
-    if (!$foundQuota) return $result;
 
     $sumMain = 0;
     $sumDrink = 0;
+    $forcedMain = 0;  // item yang ditandai "Extra BF" oleh front desk
+    $forcedDrink = 0;
     foreach ($menuItems as $mi) {
         $mid = (int)($mi['menu_id'] ?? 0);
         $qty = max(1, (int)($mi['quantity'] ?? 1));
-        if ($mid > 0 && isset($childIds[$mid])) continue; // kids menu = free
         $cat = strtolower(trim((string)($mi['category'] ?? '')));
-        if ($cat === 'drinks' || $cat === 'beverages') {
+        $isDrink = ($cat === 'drinks' || $cat === 'beverages');
+        if (!empty($mi['is_extra'])) {
+            if ($isDrink) $forcedDrink += $qty; else $forcedMain += $qty;
+            continue;
+        }
+        if ($mid > 0 && isset($childIds[$mid])) continue; // kids menu = free
+        if ($isDrink) {
             $sumDrink += $qty;
         } else {
             $sumMain += $qty;
         }
     }
 
-    $extraMain = max(0, $sumMain - $maxMain);
-    $extraDrink = max(0, $sumDrink - $maxDrink);
+    // Tanpa data jatah, hanya item Extra BF yang ditagih (tarif default).
+    $extraMain = ($foundQuota ? max(0, $sumMain - $maxMain) : 0) + $forcedMain;
+    $extraDrink = ($foundQuota ? max(0, $sumDrink - $maxDrink) : 0) + $forcedDrink;
     $charge = ($extraMain * $extraMainPrice) + ($extraDrink * $extraDrinkPrice);
 
     $result['charge'] = (float)$charge;
@@ -184,6 +191,8 @@ try {
     $menuItemIds = $input['menu_items'] ?? [];
     $menuQty = $input['menu_qty'] ?? [];
     $menuNote = $input['menu_note'] ?? [];
+    $menuExtra = is_array($input['menu_extra'] ?? null) ? $input['menu_extra'] : [];
+    $menuTemp = is_array($input['menu_temp'] ?? null) ? $input['menu_temp'] : [];
     $customExtras = $input['custom_extras'] ?? [];
 
     if (empty($menuItemIds) && empty($customExtras)) {
@@ -210,6 +219,14 @@ try {
                 'category' => $menu['category'] ?? ''
             ];
             if ($note !== '') $item['note'] = $note;
+            // Menu gratis yang ditandai "Extra BF": ditagih sebagai Extra Breakfast (lihat bf_compute_extra).
+            if ($menu['is_free'] && !empty($menuExtra[$menuId])) $item['is_extra'] = 1;
+            // Hot / Ice: disimpan & ditambahkan ke nama agar terlihat di rekap kitchen dan cetakan.
+            $temp = $menuTemp[$menuId] ?? '';
+            if ($temp === 'hot' || $temp === 'ice') {
+                $item['temp'] = $temp;
+                $item['menu_name'] .= $temp === 'ice' ? ' (Ice)' : ' (Hot)';
+            }
             $menuItems[] = $item;
             if (!$menu['is_free']) $totalPrice += ($menu['price'] * $qty);
         }

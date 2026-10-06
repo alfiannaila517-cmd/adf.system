@@ -493,7 +493,7 @@ body[data-theme] .main-content .bf-wrap .bf-menu-item:hover {
     transform: translateY(-1px);
 }
 
-body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input:checked) {
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked) {
     border-color: var(--fd-accent-2) !important;
     background: var(--fd-accent-soft) !important;
     box-shadow: inset 0 0 0 1px var(--fd-accent-2), 0 6px 14px -10px rgba(29, 78, 216, 0.6) !important;
@@ -597,14 +597,14 @@ body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="kids"],
 body[data-theme="dark"] .main-content .bf-wrap .bf-menu-cat[data-cat="kid"] { color: #c4b5fd !important; -webkit-text-fill-color: #c4b5fd !important; }
 
 /* Qty di kanan nama menu, catatan satu baris di bawah (muncul saat menu dicentang) */
-body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input:checked) {
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     column-gap: 0.5rem;
 }
 
-body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input:checked) .bf-menu-note {
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-note {
     grid-column: 1 / -1;
     margin-top: 0.45rem !important;
 }
@@ -703,6 +703,102 @@ body[data-theme] .main-content .bf-wrap .bf-textarea::placeholder {
     font-size: inherit !important;
     color: var(--fd-muted) !important;
     opacity: 0.8;
+}
+
+/* Sarapan: pilihan per menu (Free / Extra BF, Hot / Ice) — tampil saat menu dicentang */
+body[data-theme] .main-content .bf-wrap .bf-menu-opts {
+    display: none;
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.45rem;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-opts:has(.bf-seg) {
+    display: flex;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+    background: var(--fd-input-bg);
+    border: 1px solid var(--fd-input-border);
+}
+
+body[data-theme] .main-content .bf-wrap .bf-seg label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 0.6rem;
+    margin: 0 !important;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.66rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    color: var(--fd-muted) !important;
+    -webkit-text-fill-color: var(--fd-muted) !important;
+    transition: background 0.15s, color 0.15s;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-seg input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-seg label:hover {
+    background: var(--fd-accent-soft);
+}
+
+/* Aktif: Free hijau, Extra BF oranye, Hot merah bata, Ice biru */
+body[data-theme] .main-content .bf-wrap .bf-seg label:has(input:checked) {
+    background: #059669;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-seg label.xbf:has(input:checked) {
+    background: #d97706;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-seg label.hot:has(input:checked) {
+    background: #dc2626;
+}
+
+body[data-theme] .main-content .bf-wrap .bf-seg label.ice:has(input:checked) {
+    background: #0284c7;
+}
+
+/* Kartu menu yang ditandai Extra BF: aksen oranye */
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked):has(.xbf input:checked) {
+    border-color: #d97706 !important;
+    background: rgba(217, 119, 6, 0.08) !important;
+    box-shadow: inset 0 0 0 1px #d97706, 0 6px 14px -10px rgba(217, 119, 6, 0.6) !important;
+}
+
+/* Badge Extra BF di daftar order hari ini */
+body[data-theme] .main-content .bf-wrap .bf-order-xbf {
+    display: inline-block;
+    margin-left: 0.25rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: rgba(217, 119, 6, 0.14);
+    color: #b45309 !important;
+    -webkit-text-fill-color: #b45309 !important;
+    font-size: 0.55rem !important;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+body[data-theme="dark"] .main-content .bf-wrap .bf-order-xbf {
+    color: #fbbf24 !important;
+    -webkit-text-fill-color: #fbbf24 !important;
 }
 
 /* ---------- LAPORAN ---------- */

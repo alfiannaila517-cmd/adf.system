@@ -172,6 +172,8 @@ $editOrder = null;
 $editMenuIds = [];
 $editMenuQty = [];
 $editMenuNotes = [];
+$editMenuExtra = [];
+$editMenuTemp = [];
 $editCustomExtras = [];
 if (!empty($_GET['edit'])) {
     $editOrder = $db->fetchOne("SELECT * FROM breakfast_orders WHERE id = ?", [(int)$_GET['edit']]);
@@ -183,10 +185,22 @@ if (!empty($_GET['edit'])) {
                 $editMenuIds[] = $item['menu_id'];
                 $editMenuQty[$item['menu_id']] = $item['quantity'];
                 if (!empty($item['note'])) $editMenuNotes[$item['menu_id']] = $item['note'];
+                if (!empty($item['is_extra'])) $editMenuExtra[$item['menu_id']] = true;
+                if (!empty($item['temp'])) $editMenuTemp[$item['menu_id']] = $item['temp'];
             }
         }
     }
 }
+
+// Minuman yang bisa dipesan panas / dingin (kopi, teh, cokelat). Menu yang namanya sudah
+// "Hot ..." / "Ice ..." atau jus tidak diberi pilihan.
+$bfHasTemp = function (array $m): bool {
+    $cat = strtolower((string)($m['category'] ?? ''));
+    $name = strtolower((string)($m['menu_name'] ?? ''));
+    if (!in_array($cat, ['drinks', 'drink', 'beverage', 'beverages'], true)) return false;
+    if (preg_match('/^(hot|ice|iced)\b/', $name) || preg_match('/juice|jus|water|air|espresso|soda/', $name)) return false;
+    return (bool)preg_match('/coffee|kopi|cappuc|capuc|latte|americano|mocha|macchiato|tea|teh|chocolate|coklat|cokelat|milo/', $name);
+};
 
 $pageTitle = 'Breakfast Order';
 // Halaman ini memakai html2pdf (cetak/ekspor) -> footer memuat library-nya.
@@ -366,7 +380,7 @@ include '../../includes/header.php';
         border-color: var(--primary-color)
     }
 
-    .bf-menu-item:has(input:checked) {
+    .bf-menu-item:has(input[type="checkbox"]:checked) {
         border-color: #10b981;
         background: rgba(16, 185, 129, .1)
     }
@@ -417,7 +431,7 @@ include '../../includes/header.php';
         border-top: 1px dashed var(--bg-tertiary)
     }
 
-    .bf-menu-item:has(input:checked) .bf-menu-qty {
+    .bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-qty {
         display: flex
     }
 
@@ -437,7 +451,7 @@ include '../../includes/header.php';
         margin-top: .35rem
     }
 
-    .bf-menu-item:has(input:checked) .bf-menu-note {
+    .bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-note {
         display: block
     }
 
@@ -1189,7 +1203,7 @@ include '../../includes/header.php';
                         </div>
                         <div class="bf-group">
                             <label class="bf-label">Jam *</label>
-                            <input type="time" name="breakfast_time" id="bfTime" class="bf-input" required value="<?php echo $editOrder ? $editOrder['breakfast_time'] : ''; ?>">
+                            <input type="time" name="breakfast_time" id="bfTime" class="bf-input" required value="<?php echo $editOrder ? $editOrder['breakfast_time'] : '07:00'; ?>">
                         </div>
                         <div class="bf-group">
                             <label class="bf-label">Tanggal</label>
@@ -1229,6 +1243,20 @@ include '../../includes/header.php';
                                             <span class="bf-qty-label">Qty</span>
                                             <input type="number" name="menu_qty[<?php echo $m['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$m['id']] ?? 1; ?>" class="bf-qty-input">
                                         </div>
+                                        <div class="bf-menu-opts">
+                                            <?php if (!empty($m['is_free'])): ?>
+                                                <div class="bf-seg">
+                                                    <label><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="0" <?php echo empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Free</label>
+                                                    <label class="xbf"><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="1" <?php echo !empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Extra BF</label>
+                                                </div>
+                                            <?php endif; ?>
+                                            <?php if ($bfHasTemp($m)): $t = $editMenuTemp[$m['id']] ?? 'hot'; ?>
+                                                <div class="bf-seg">
+                                                    <label class="hot"><input type="radio" name="menu_temp[<?php echo $m['id']; ?>]" value="hot" <?php echo $t !== 'ice' ? 'checked' : ''; ?>>Hot</label>
+                                                    <label class="ice"><input type="radio" name="menu_temp[<?php echo $m['id']; ?>]" value="ice" <?php echo $t === 'ice' ? 'checked' : ''; ?>>Ice</label>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
                                         <div class="bf-menu-note">
                                             <input type="text" name="menu_note[<?php echo $m['id']; ?>]" class="bf-note-input" placeholder="Catatan: pedas/tidak, dll" value="<?php echo htmlspecialchars($editMenuNotes[$m['id']] ?? ''); ?>">
                                         </div>
@@ -1255,6 +1283,20 @@ include '../../includes/header.php';
                                         <div class="bf-menu-qty">
                                             <span class="bf-qty-label">Qty</span>
                                             <input type="number" name="menu_qty[<?php echo $m['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$m['id']] ?? 1; ?>" class="bf-qty-input">
+                                        </div>
+                                        <div class="bf-menu-opts">
+                                            <?php if (!empty($m['is_free'])): ?>
+                                                <div class="bf-seg">
+                                                    <label><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="0" <?php echo empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Free</label>
+                                                    <label class="xbf"><input type="radio" name="menu_extra[<?php echo $m['id']; ?>]" value="1" <?php echo !empty($editMenuExtra[$m['id']]) ? 'checked' : ''; ?>>Extra BF</label>
+                                                </div>
+                                            <?php endif; ?>
+                                            <?php if ($bfHasTemp($m)): $t = $editMenuTemp[$m['id']] ?? 'hot'; ?>
+                                                <div class="bf-seg">
+                                                    <label class="hot"><input type="radio" name="menu_temp[<?php echo $m['id']; ?>]" value="hot" <?php echo $t !== 'ice' ? 'checked' : ''; ?>>Hot</label>
+                                                    <label class="ice"><input type="radio" name="menu_temp[<?php echo $m['id']; ?>]" value="ice" <?php echo $t === 'ice' ? 'checked' : ''; ?>>Ice</label>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="bf-menu-note">
                                             <input type="text" name="menu_note[<?php echo $m['id']; ?>]" class="bf-note-input" placeholder="Catatan: pedas/tidak, dll" value="<?php echo htmlspecialchars($editMenuNotes[$m['id']] ?? ''); ?>">
@@ -1357,6 +1399,7 @@ include '../../includes/header.php';
                                 <span class="bf-order-tag">
                                     <?php echo htmlspecialchars($item['menu_name'] ?? '?'); ?>
                                     <?php if (($item['quantity'] ?? 1) > 1): ?>×<?php echo $item['quantity']; ?><?php endif; ?>
+                                    <?php if (!empty($item['is_extra'])): ?><span class="bf-order-xbf">Extra BF</span><?php endif; ?>
                                     <?php if (!empty($item['note'])): ?><span class="bf-order-note">(<?php echo htmlspecialchars($item['note']); ?>)</span><?php endif; ?>
                                 </span>
                             <?php endforeach; ?>
@@ -1556,7 +1599,9 @@ include '../../includes/header.php';
         }
         var menuItems = [],
             menuQty = {},
-            menuNote = {};
+            menuNote = {},
+            menuExtra = {},
+            menuTemp = {};
         menus.forEach(function(cb) {
             var id = cb.value;
             menuItems.push(id);
@@ -1564,6 +1609,10 @@ include '../../includes/header.php';
             menuQty[id] = q ? parseInt(q.value) || 1 : 1;
             var n = document.querySelector('input[name="menu_note[' + id + ']"]');
             menuNote[id] = n ? n.value.trim() : '';
+            var x = document.querySelector('input[name="menu_extra[' + id + ']"]:checked');
+            if (x && x.value === '1') menuExtra[id] = 1;
+            var t = document.querySelector('input[name="menu_temp[' + id + ']"]:checked');
+            if (t) menuTemp[id] = t.value;
         });
         return {
             total_pax: parseInt(pax),
@@ -1576,6 +1625,8 @@ include '../../includes/header.php';
             menu_items: menuItems,
             menu_qty: menuQty,
             menu_note: menuNote,
+            menu_extra: menuExtra,
+            menu_temp: menuTemp,
             custom_extras: customExtras
         };
     }
@@ -1806,7 +1857,8 @@ include '../../includes/header.php';
             totalPrice += lineTotal;
             html += '<tr style="border-bottom:1px solid #f3f4f6">';
             html += '<td style="padding:10px 12px;font-weight:600">' + escHtml(it.menu_name || '?');
-            if (it.is_free) html += ' <span style="color:#10b981;font-size:10px;font-weight:400">(Free)</span>';
+            if (it.is_extra) html += ' <span style="color:#b45309;font-size:10px;font-weight:700">(Extra BF)</span>';
+            else if (it.is_free) html += ' <span style="color:#10b981;font-size:10px;font-weight:400">(Free)</span>';
             html += '</td>';
             html += '<td style="padding:10px 12px;text-align:center">' + qty + '</td>';
             html += '<td style="padding:10px 12px;color:#92400e;font-style:italic">' + escHtml(it.note || '-') + '</td>';
