@@ -4379,8 +4379,9 @@ include '../../includes/header.php';
 
         const hint = document.createElement('div');
         hint.id = 'clickBookingHint';
-        hint.innerHTML = `📌 Check-in: <b>${formatDateShort(date)}</b> · Room ${roomNumber}<br><small>Klik tanggal check-out untuk buat reservasi</small>`;
-        hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#4338ca;color:#fff;padding:8px 16px;border-radius:8px;font-size:0.75rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);text-align:center;pointer-events:none;';
+        hint.innerHTML = '<span class="cbh-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>' +
+            '<div><b class="cbh-title">Check-in ' + formatDateShort(date) + ' · Room ' + roomNumber + '</b>' +
+            '<small>Klik tanggal check-out untuk membuat reservasi · <kbd>Esc</kbd> batal</small></div>';
         document.body.appendChild(hint);
 
         // Auto-dismiss after 8s
@@ -6775,6 +6776,726 @@ include '../../includes/header.php';
     #reservationModal .input-compact#guestCountSection {
         flex-direction: column;
     }
+    /* ===== Edit Reservation: gaya sama dengan New Reservation ===== */
+    #editResModal {
+        --nr-bg: #ffffff;
+        --nr-soft: #f8fafc;
+        --nr-line: #e2e8f0;
+        --nr-ink: #0f172a;
+        --nr-muted: #64748b;
+        --nr-input: #ffffff;
+        --nr-input-line: #cbd5e1;
+        background: rgba(15, 23, 42, 0.5) !important;
+        backdrop-filter: blur(3px);
+    }
+
+    body[data-theme="dark"] #editResModal {
+        --nr-bg: #0f172a;
+        --nr-soft: rgba(255, 255, 255, 0.04);
+        --nr-line: rgba(255, 255, 255, 0.1);
+        --nr-ink: #e2e8f0;
+        --nr-muted: #94a3b8;
+        --nr-input: rgba(255, 255, 255, 0.05);
+        --nr-input-line: rgba(148, 163, 184, 0.35);
+    }
+
+    #editResModal .modal-compact-booking {
+        width: 100% !important;
+        max-width: 640px !important;
+        max-height: calc(100vh - 32px) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 0 !important;
+        border-radius: 16px !important;
+        background: var(--nr-bg) !important;
+        border: 1px solid var(--nr-line) !important;
+        box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.45) !important;
+        overflow: hidden !important;
+    }
+
+    #editResModal .modal-header-compact {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 12px;
+        margin: 0 !important;
+        padding: 14px 18px !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    #editResModal .modal-header-compact h2 {
+        margin: 0 !important;
+        font-size: 0.98rem !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+
+    #editResModal .modal-header-compact small {
+        display: block;
+        font-size: 0.68rem !important;
+        color: rgba(255, 255, 255, 0.78) !important;
+        -webkit-text-fill-color: rgba(255, 255, 255, 0.78) !important;
+    }
+
+    #editResModal .close-btn {
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        background: rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        font-size: 20px !important;
+        line-height: 1 !important;
+    }
+
+    #editResModal form {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        flex: 1;
+    }
+
+    #editResModal .form-compact {
+        overflow-y: auto !important;
+        padding: 6px 18px 14px !important;
+        display: block !important;
+    }
+
+    #editResModal .nr-sec {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 12px 0 8px;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--nr-muted) !important;
+    }
+
+    #editResModal .nr-sec::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--nr-line);
+    }
+
+    #editResModal .form-row-2col {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    #editResModal .input-compact {
+        margin-bottom: 10px !important;
+    }
+
+    #editResModal .form-row-2col .input-compact {
+        margin-bottom: 0 !important;
+    }
+
+    body[data-theme] #editResModal .input-compact label {
+        display: block;
+        margin: 0 0 4px !important;
+        font-size: 0.62rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--nr-muted) !important;
+    }
+
+    body[data-theme] #editResModal .input-compact input,
+    body[data-theme] #editResModal .input-compact select,
+    body[data-theme] #editResModal .input-compact textarea,
+    body[data-theme] #editResModal .nr-discount-ctl input[type="number"] {
+        width: 100%;
+        height: 36px;
+        padding: 0 10px !important;
+        border-radius: 9px !important;
+        border: 1px solid var(--nr-input-line) !important;
+        background: var(--nr-input) !important;
+        color: var(--nr-ink) !important;
+        font-size: 0.8rem !important;
+        box-shadow: none !important;
+    }
+
+    body[data-theme] #editResModal .input-compact textarea {
+        height: auto;
+        min-height: 58px;
+        padding: 8px 10px !important;
+        line-height: 1.45;
+        resize: vertical;
+    }
+
+    body[data-theme] #editResModal .input-compact input:focus,
+    body[data-theme] #editResModal .input-compact select:focus,
+    body[data-theme] #editResModal .input-compact textarea:focus,
+    body[data-theme] #editResModal .nr-discount-ctl input:focus {
+        outline: none !important;
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }
+
+    /* Pilih kamar: kartu 2 kolom */
+    #editResModal .nr-label-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    #editResModal #availabilityInfo small,
+    #editResModal #availabilityInfo {
+        font-size: 0.66rem !important;
+    }
+
+    #editResModal .rooms-checklist {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        max-height: 220px !important;
+        overflow-y: auto !important;
+        padding: 6px !important;
+        border-radius: 10px !important;
+        border: 1px solid var(--nr-line) !important;
+        background: var(--nr-soft) !important;
+    }
+
+    #editResModal .rooms-checklist > em,
+    #editResModal .rooms-checklist > div {
+        grid-column: 1 / -1;
+        padding: 14px;
+        font-size: 0.74rem;
+        text-align: center;
+    }
+
+    body[data-theme] #editResModal .room-checkbox-item {
+        display: flex !important;
+        align-items: center;
+        gap: 9px;
+        margin: 0 !important;
+        padding: 8px 10px !important;
+        border-radius: 9px !important;
+        border: 1px solid var(--nr-line) !important;
+        background: var(--nr-bg) !important;
+        cursor: pointer;
+        font-size: 0.76rem !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        transition: border-color 0.15s, background 0.15s;
+    }
+
+    #editResModal .room-checkbox-item:hover {
+        border-color: #93c5fd !important;
+    }
+
+    #editResModal .room-checkbox-item:has(input:checked) {
+        border-color: #2563eb !important;
+        background: rgba(37, 99, 235, 0.08) !important;
+        box-shadow: inset 0 0 0 1px #2563eb;
+    }
+
+    body[data-theme] #editResModal .room-checkbox-item input[type="checkbox"] {
+        width: 16px !important;
+        height: 16px !important;
+        margin: 0 !important;
+        flex-shrink: 0;
+        accent-color: #2563eb;
+    }
+
+    #editResModal .room-checkbox-item .nr-room {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        line-height: 1.25;
+    }
+
+    #editResModal .room-checkbox-item .nr-room b {
+        font-size: 0.8rem;
+        color: var(--nr-ink) !important;
+    }
+
+    #editResModal .room-checkbox-item .nr-room small {
+        font-size: 0.66rem;
+        color: var(--nr-muted) !important;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    #editResModal .room-checkbox-item .nr-price {
+        margin-left: auto;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #047857 !important;
+        white-space: nowrap;
+    }
+
+    body[data-theme="dark"] #editResModal .room-checkbox-item .nr-price {
+        color: #6ee7b7 !important;
+    }
+
+    #editResModal .nr-selected {
+        margin-top: 6px;
+        font-size: 0.72rem !important;
+        color: #1d4ed8 !important;
+    }
+
+    body[data-theme="dark"] #editResModal .nr-selected {
+        color: #93c5fd !important;
+    }
+
+    /* Ringkasan harga */
+    #editResModal .price-summary-compact {
+        margin: 4px 0 12px !important;
+        padding: 10px 14px !important;
+        border-radius: 12px !important;
+        background: var(--nr-soft) !important;
+        border: 1px solid var(--nr-line) !important;
+    }
+
+    #editResModal .price-line {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 10px;
+        padding: 4px 0 !important;
+        margin: 0 !important;
+        font-size: 0.78rem !important;
+        color: var(--nr-muted) !important;
+        background: none !important;
+    }
+
+    #editResModal .price-line strong {
+        color: var(--nr-ink) !important;
+        font-size: 0.8rem !important;
+    }
+
+    #editResModal .nr-discount-ctl {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    #editResModal .discount-type-toggle {
+        display: inline-flex;
+        padding: 2px;
+        border-radius: 8px;
+        background: var(--nr-bg);
+        border: 1px solid var(--nr-input-line);
+    }
+
+    body[data-theme] #editResModal .disc-type-btn {
+        height: 26px;
+        min-width: 32px;
+        padding: 0 8px !important;
+        border: 0 !important;
+        border-radius: 6px !important;
+        background: transparent !important;
+        color: var(--nr-muted) !important;
+        -webkit-text-fill-color: var(--nr-muted) !important;
+        font-size: 0.72rem !important;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    body[data-theme] #editResModal .disc-type-btn.active {
+        background: #2563eb !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+
+    body[data-theme] #editResModal .nr-discount-ctl input[type="number"] {
+        width: 130px;
+        height: 32px;
+        text-align: right;
+    }
+
+    #editResModal #discountTypeLabel {
+        min-width: 22px;
+        font-size: 0.72rem;
+        color: var(--nr-muted) !important;
+    }
+
+    #editResModal .nr-disc-preview {
+        text-align: right;
+        font-size: 0.68rem !important;
+        color: #047857 !important;
+    }
+
+    #editResModal #otaFeeRow {
+        padding: 6px 8px !important;
+        margin: 4px 0 !important;
+        border-radius: 8px;
+        background: rgba(217, 119, 6, 0.1) !important;
+    }
+
+    #editResModal #otaFeeRow span {
+        color: #b45309 !important;
+    }
+
+    #editResModal #otaFeeAmountDisplay {
+        color: #b91c1c !important;
+    }
+
+    #editResModal .price-line-total {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        margin-top: 6px !important;
+        padding: 10px 0 2px !important;
+        border-top: 1px solid var(--nr-line) !important;
+        font-size: 0.72rem !important;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--nr-ink) !important;
+        background: none !important;
+    }
+
+    #editResModal #grandTotalDisplay {
+        font-size: 1.15rem !important;
+        letter-spacing: 0;
+        color: #047857 !important;
+    }
+
+    body[data-theme="dark"] #editResModal #grandTotalDisplay,
+    body[data-theme="dark"] #editResModal .nr-disc-preview {
+        color: #6ee7b7 !important;
+    }
+
+    #editResModal .nr-pay-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    body[data-theme] #editResModal .btn-pay-all {
+        flex-shrink: 0;
+        height: 36px;
+        padding: 0 14px !important;
+        border-radius: 9px !important;
+        border: 1px solid #059669 !important;
+        background: rgba(5, 150, 105, 0.08) !important;
+        color: #047857 !important;
+        -webkit-text-fill-color: #047857 !important;
+        font-size: 0.74rem !important;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    body[data-theme] #editResModal .btn-pay-all:hover {
+        background: #059669 !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    /* Footer */
+    #editResModal .modal-footer-compact {
+        display: flex !important;
+        justify-content: flex-end !important;
+        gap: 8px !important;
+        margin: 0 !important;
+        padding: 12px 18px !important;
+        border-top: 1px solid var(--nr-line) !important;
+        background: var(--nr-soft) !important;
+        position: static !important;
+    }
+
+    body[data-theme] #editResModal .btn-cancel,
+    body[data-theme] #editResModal .btn-save {
+        height: 38px;
+        padding: 0 18px !important;
+        border-radius: 10px !important;
+        font-size: 0.8rem !important;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    body[data-theme] #editResModal .btn-cancel {
+        border: 1px solid var(--nr-line) !important;
+        background: var(--nr-bg) !important;
+        color: var(--nr-muted) !important;
+        -webkit-text-fill-color: var(--nr-muted) !important;
+    }
+
+    body[data-theme] #editResModal .btn-save {
+        border: 0 !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.8) !important;
+    }
+
+    @media (max-width: 600px) {
+        #editResModal .form-row-2col,
+        #editResModal .rooms-checklist {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    #editResModal #grandTotalDisplayCalendar {
+        font-size: 1.15rem !important;
+        letter-spacing: 0;
+        color: #047857 !important;
+    }
+
+    body[data-theme="dark"] #editResModal #grandTotalDisplayCalendar {
+        color: #6ee7b7 !important;
+    }
+
+    #editResModal .nr-hint {
+        display: flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 6px 10px;
+        border-radius: 9px;
+        background: rgba(217, 119, 6, 0.08);
+        border: 1px solid rgba(217, 119, 6, 0.25);
+        color: #b45309 !important;
+        font-size: 0.68rem !important;
+        line-height: 1.35;
+    }
+
+    body[data-theme="dark"] #editResModal .nr-hint {
+        color: #fbbf24 !important;
+    }
+
+    #editResModal [style*="display: none"],
+    #editResModal [style*="display:none"] {
+        display: none !important;
+    }
+
+    #editResModal .input-compact#paymentSection,
+    #editResModal .input-compact#guestCountSection {
+        flex-direction: column;
+    }
+
+    #editResModal {
+        padding: 16px;
+    }
+
+    body[data-theme] #editResModal textarea {
+        font-family: inherit !important;
+    }
+
+    #editResModal .er-ota {
+        padding: 6px 8px !important;
+        margin: 4px 0 !important;
+        border-radius: 8px;
+        background: rgba(217, 119, 6, 0.1) !important;
+    }
+
+    #editResModal .er-ota span,
+    #editResModal .er-ota small {
+        color: #b45309 !important;
+    }
+
+    #editResModal .er-ota strong {
+        color: #b91c1c !important;
+    }
+
+    #editResModal #editResTotal {
+        font-size: 1.15rem !important;
+        letter-spacing: 0;
+        color: #047857 !important;
+    }
+
+    body[data-theme="dark"] #editResModal #editResTotal {
+        color: #6ee7b7 !important;
+    }
+
+    #editResModal .er-group {
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--nr-soft);
+        border: 1px solid var(--nr-line);
+    }
+
+    #editResModal .er-group-title {
+        margin-bottom: 6px;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--nr-muted) !important;
+    }
+
+    #editResModal .er-room {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 6px 0;
+        border-top: 1px dashed var(--nr-line);
+        font-size: 0.74rem;
+        color: var(--nr-ink) !important;
+    }
+
+    #editResModal .er-room:first-of-type {
+        border-top: 0;
+    }
+
+    #editResModal .er-room small {
+        color: var(--nr-muted) !important;
+    }
+
+    #editResModal .er-room .on {
+        margin-left: 4px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: rgba(5, 150, 105, 0.12);
+        color: #047857 !important;
+        font-size: 0.6rem;
+        font-weight: 700;
+    }
+
+    /* Hint pilih tanggal di kalender */
+    #clickBookingHint {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: calc(100vw - 32px);
+        padding: 10px 16px 10px 10px;
+        border-radius: 14px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-left: 4px solid #2563eb;
+        box-shadow: 0 18px 40px -14px rgba(15, 23, 42, 0.45);
+        transform: translateX(-50%);
+        pointer-events: none;
+        animation: cbhIn 0.22s ease-out;
+    }
+
+    body[data-theme="dark"] #clickBookingHint {
+        background: #111a2e;
+        border-color: rgba(255, 255, 255, 0.12);
+        border-left-color: #60a5fa;
+    }
+
+    #clickBookingHint .cbh-ic {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+    }
+
+    body[data-theme] #clickBookingHint b.cbh-title {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+
+    body[data-theme] #clickBookingHint small {
+        display: block;
+        margin-top: 1px;
+        font-size: 0.7rem;
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+    }
+
+    body[data-theme="dark"] #clickBookingHint b.cbh-title {
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
+    }
+
+    body[data-theme="dark"] #clickBookingHint small {
+        color: #94a3b8 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+    }
+
+    #clickBookingHint kbd {
+        padding: 1px 5px;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+        font-family: inherit;
+        font-size: 0.62rem;
+    }
+
+    @keyframes cbhIn {
+        from { opacity: 0; transform: translate(-50%, 10px); }
+    }
+
+    /* Popup sukses edit */
+    .er-ok {
+        position: fixed;
+        inset: 0;
+        z-index: 10090;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        background: rgba(15, 23, 42, 0.18);
+        animation: erOkFade 1.5s ease forwards;
+    }
+
+    .er-ok-card {
+        min-width: 240px;
+        padding: 22px 26px 20px;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 24px 60px -16px rgba(15, 23, 42, 0.45);
+        text-align: center;
+        animation: erOkIn 0.28s cubic-bezier(.2, 1.3, .5, 1) both;
+    }
+
+    body[data-theme="dark"] .er-ok-card {
+        background: #111a2e;
+    }
+
+    .er-ok-card svg {
+        display: block;
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 10px;
+    }
+
+    .er-ok-card circle {
+        fill: #059669;
+    }
+
+    .er-ok-card path {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 4.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 40;
+        stroke-dashoffset: 40;
+        animation: erOkDraw 0.35s 0.15s ease-out forwards;
+    }
+
+    body[data-theme] .er-ok-card b {
+        display: block;
+        font-size: 0.95rem;
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+
+    body[data-theme="dark"] .er-ok-card b {
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
+    }
+
+    @keyframes erOkIn { from { opacity: 0; transform: scale(0.85); } }
+    @keyframes erOkDraw { to { stroke-dashoffset: 0; } }
+    @keyframes erOkFade { 0%, 80% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 </style>
 
 <style>
@@ -8038,45 +8759,73 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<!-- EDIT RESERVATION MODAL -->
+<!-- EDIT RESERVATION MODAL (desain sama dengan New Reservation) -->
 <div id="editResModal" class="edit-res-overlay" onclick="if(event.target===this)closeEditResModal()">
-    <div class="edit-res-modal" style="max-width:520px;">
-        <h3>✏️ Edit Reservasi</h3>
-        <input type="hidden" id="editResBookingId">
-        <div class="form-row">
-            <div class="form-group">
-                <label>Nama Tamu</label>
-                <input type="text" id="editResGuestName">
+    <div class="modal-content modal-compact modal-compact-booking">
+        <div class="modal-header-compact">
+            <div>
+                <h2>Edit Reservation</h2>
+                <small id="editResSub">Ubah data tamu, tanggal &amp; harga</small>
             </div>
-            <div class="form-group">
-                <label>Telepon</label>
-                <input type="text" id="editResGuestPhone">
-            </div>
+            <button type="button" class="close-btn" onclick="closeEditResModal()" aria-label="Tutup">&times;</button>
         </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Check-in</label>
-                <input type="date" id="editResCheckIn" onchange="updateEditResInfo()">
-            </div>
-            <div class="form-group">
-                <label>Check-out</label>
-                <input type="date" id="editResCheckOut" onchange="updateEditResInfo()">
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="editResEmail">
-            </div>
-            <div class="form-group">
-                <label>No. KTP/Paspor</label>
-                <input type="text" id="editResIdNumber">
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Booking Source</label>
-                <select id="editResSource" onchange="updateEditResInfo()">
+
+        <form onsubmit="event.preventDefault(); submitEditReservation();">
+            <input type="hidden" id="editResBookingId">
+            <div class="form-compact">
+                <div class="nr-sec">Tamu</div>
+                <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Nama tamu *</label>
+                        <input type="text" id="editResGuestName" required placeholder="Nama lengkap">
+                    </div>
+                    <div class="input-compact">
+                        <label>Telepon / WA</label>
+                        <input type="text" id="editResGuestPhone" placeholder="08xx">
+                    </div>
+                </div>
+                <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Email</label>
+                        <input type="email" id="editResEmail" placeholder="email@contoh.com">
+                    </div>
+                    <div class="input-compact">
+                        <label>No. KTP / Paspor</label>
+                        <input type="text" id="editResIdNumber">
+                    </div>
+                </div>
+
+                <div class="nr-sec">Menginap</div>
+                <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Check-in *</label>
+                        <input type="date" id="editResCheckIn" required onchange="updateEditResInfo()">
+                    </div>
+                    <div class="input-compact">
+                        <label>Check-out *</label>
+                        <input type="date" id="editResCheckOut" required onchange="updateEditResInfo()">
+                    </div>
+                </div>
+                <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Jumlah tamu (dewasa)</label>
+                        <input type="number" id="editResNumGuests" min="1" max="30" value="1">
+                    </div>
+                    <div class="input-compact">
+                        <label>Harga / malam · Rp</label>
+                        <input type="number" id="editResRoomPrice" min="0" step="1000" onchange="updateEditResInfo()">
+                    </div>
+                </div>
+
+                <div id="editResGroupBookings" class="er-group" style="display:none;">
+                    <div class="er-group-title">Kamar dalam reservasi grup</div>
+                    <div id="editResGroupList"></div>
+                </div>
+
+                <div class="nr-sec">Sumber &amp; Harga</div>
+                <div class="input-compact">
+                    <label>Sumber booking</label>
+                    <select id="editResSource" onchange="updateEditResInfo()">
                     <?php
                     $directSrc = array_filter($bookingSources ?? [], fn($s) => ($s['source_type'] ?? '') === 'direct');
                     $otaSrcList = array_filter($bookingSources ?? [], fn($s) => ($s['source_type'] ?? '') !== 'direct');
@@ -8100,46 +8849,52 @@ include '../../includes/header.php';
                         <option value="ota">OTA Lainnya</option>
                     <?php endif; ?>
                 </select>
-            </div>
-            <div class="form-group">
-                <label>Harga/Malam</label>
-                <input type="number" id="editResRoomPrice" onchange="updateEditResInfo()">
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Jumlah Tamu</label>
-                <input type="number" id="editResNumGuests" min="1" max="10" value="1">
-            </div>
-            <div class="form-group">
-                <label>Diskon</label>
-                <div style="display:flex; align-items:center; gap:0;">
-                    <button type="button" class="edit-disc-type-btn active" data-type="rp" onclick="setEditDiscType('rp')" style="padding:5px 10px;font-size:0.75rem;border:1px solid #6366f1;background:#6366f1;color:white;border-radius:4px 0 0 4px;cursor:pointer;">Rp</button>
-                    <button type="button" class="edit-disc-type-btn" data-type="percent" onclick="setEditDiscType('percent')" style="padding:5px 10px;font-size:0.75rem;border:1px solid #6366f1;background:white;color:#6366f1;border-radius:0 4px 4px 0;cursor:pointer;">%</button>
-                    <input type="number" id="editResDiscount" min="0" value="0" onchange="updateEditResInfo()" style="flex:1;margin-left:6px;">
                 </div>
-                <input type="hidden" id="editResDiscountType" value="rp">
+
+                <div class="price-summary-compact">
+                    <div class="price-line">
+                        <span>Malam</span>
+                        <strong id="editResNights">0</strong>
+                    </div>
+                    <div class="price-line">
+                        <span>Subtotal</span>
+                        <strong id="editResSubtotal">Rp 0</strong>
+                    </div>
+                    <div class="price-line nr-discount">
+                        <span>Diskon</span>
+                        <div class="nr-discount-ctl">
+                            <div class="discount-type-toggle">
+                                <button type="button" class="disc-type-btn edit-disc-type-btn active" data-type="rp" onclick="setEditDiscType('rp')">Rp</button>
+                                <button type="button" class="disc-type-btn edit-disc-type-btn" data-type="percent" onclick="setEditDiscType('percent')">%</button>
+                            </div>
+                            <input type="number" id="editResDiscount" min="0" value="" placeholder="0" inputmode="decimal" onchange="updateEditResInfo()">
+                            <input type="hidden" id="editResDiscountType" value="rp">
+                        </div>
+                    </div>
+                    <div id="editResDiscPreview" class="nr-disc-preview"></div>
+                    <div class="price-line er-ota" id="editResOtaRow" style="display:none;">
+                        <span>OTA fee (<span id="editResOtaPct">0</span>%) <small>· dipotong saat masuk buku kas</small></span>
+                        <strong id="editResOtaAmt">- Rp 0</strong>
+                    </div>
+                    <div class="price-line-total">
+                        <span>Grand total</span>
+                        <strong id="editResTotal">Rp 0</strong>
+                    </div>
+                </div>
+
+                <div class="input-compact">
+                    <label>Permintaan khusus</label>
+                    <textarea id="editResSpecialRequests" placeholder="Catatan untuk tamu / kamar"></textarea>
+                </div>
             </div>
-        </div>
-        <div class="form-group">
-            <label>Permintaan Khusus</label>
-            <textarea id="editResSpecialRequests"></textarea>
-        </div>
-        <div id="editResInfo" style="background:rgba(99,102,241,0.06);border-radius:8px;padding:0.6rem;font-size:0.8rem;color:var(--text-secondary);"></div>
 
-        <!-- Group Bookings Section (if multiple rooms) -->
-        <div id="editResGroupBookings" style="display:none;margin-top:1rem;padding:0.8rem;background:rgba(59,130,246,0.08);border-radius:8px;border-left:3px solid #3b82f6;">
-            <div style="font-weight:700;font-size:0.85rem;margin-bottom:0.6rem;color:var(--text-primary);">📦 Kamar dalam Reservasi Grup:</div>
-            <div id="editResGroupList" style="font-size:0.8rem;line-height:1.6;"></div>
-        </div>
-
-        <div class="modal-actions">
-            <button class="btn-cancel" onclick="closeEditResModal()">Batal</button>
-            <button class="btn-save" onclick="submitEditReservation()">💾 Simpan</button>
-        </div>
+            <div class="modal-footer-compact">
+                <button type="button" class="btn-cancel" onclick="closeEditResModal()">Batal</button>
+                <button type="submit" class="btn-save" id="editResSaveBtn">Simpan Perubahan</button>
+            </div>
+        </form>
     </div>
 </div>
-
 <script>
     // ===== DRAG & DROP BOOKING BARS =====
     (function() {
@@ -8448,24 +9203,21 @@ include '../../includes/header.php';
                 setEditDiscType('rp');
                 const discInput = document.getElementById('editResDiscount');
                 if (discInput) {
-                    discInput.value = parseFloat(b.discount) || 0;
+                    discInput.value = parseFloat(b.discount) > 0 ? parseFloat(b.discount) : '';
                 }
+                document.getElementById('editResSub').textContent = [b.booking_code, b.room_number ? 'Room ' + b.room_number : '', b.room_type || b.type_name || ''].filter(Boolean).join(' · ') || 'Ubah data tamu, tanggal & harga';
 
                 // Display group bookings if multiple rooms
                 const groupSection = document.getElementById('editResGroupBookings');
                 const groupList = document.getElementById('editResGroupList');
                 if (b.group_bookings && b.group_bookings.length > 1) {
+                    const fmtR = (v) => 'Rp ' + new Intl.NumberFormat('id-ID').format(v || 0);
+                    const escH = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
                     let html = '';
-                    b.group_bookings.forEach(function(gb, idx) {
-                        const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);
-                        html += `<div style="padding:0.5rem;background:var(--card-bg);border-radius:6px;margin-bottom:0.4rem;border-left:2px solid ${gb.id === b.id ? '#10b981' : '#cbd5e1'};">`;
-                        html += `<div style="font-weight:600;color:var(--text-primary);">🚪 Kamar ${gb.room_number} (${gb.type_name})`;
-                        if (gb.id === b.id) html += ` <span style="color:#10b981;font-size:0.75rem;font-weight:700;">● AKTIF</span>`;
-                        html += `</div>`;
-                        html += `<div style="color:var(--text-secondary);font-size:0.75rem;margin-top:0.2rem;">`;
-                        html += `Harga: ${fmtR(gb.room_price)} | Diskon: ${fmtR(gb.discount)} | Total: ${fmtR(gb.final_price)}`;
-                        html += `</div>`;
-                        html += `</div>`;
+                    b.group_bookings.forEach(function(gb) {
+                        html += '<div class="er-room"><div><b>Room ' + escH(gb.room_number) + '</b> <small>' + escH(gb.type_name) + '</small>' +
+                            (gb.id === b.id ? '<span class="on">DIEDIT</span>' : '') + '</div>' +
+                            '<small>' + fmtR(gb.room_price) + (parseFloat(gb.discount) > 0 ? ' · disc ' + fmtR(gb.discount) : '') + ' · <b>' + fmtR(gb.final_price) + '</b></small></div>';
                     });
                     groupList.innerHTML = html;
                     groupSection.style.display = 'block';
@@ -8495,19 +9247,8 @@ include '../../includes/header.php';
 
     function setEditDiscType(type) {
         const discInput = document.getElementById('editResDiscount');
-        const discTypeInput = document.getElementById('editResDiscountType');
-        discTypeInput.value = type;
-        document.querySelectorAll('.edit-disc-type-btn').forEach(btn => {
-            if (btn.dataset.type === type) {
-                btn.classList.add('active');
-                btn.style.background = '#6366f1';
-                btn.style.color = 'white';
-            } else {
-                btn.classList.remove('active');
-                btn.style.background = 'white';
-                btn.style.color = '#6366f1';
-            }
-        });
+        document.getElementById('editResDiscountType').value = type;
+        document.querySelectorAll('.edit-disc-type-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.type === type));
         if (type === 'percent') {
             discInput.max = 100;
             discInput.placeholder = '0-100';
@@ -8519,33 +9260,38 @@ include '../../includes/header.php';
     }
 
     function updateEditResInfo() {
+        const fmt = v => 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(v || 0));
         const ci = document.getElementById('editResCheckIn').value;
         const co = document.getElementById('editResCheckOut').value;
         const price = parseFloat(document.getElementById('editResRoomPrice').value) || 0;
         const discVal = parseFloat(document.getElementById('editResDiscount').value) || 0;
         const discType = document.getElementById('editResDiscountType').value;
         const source = document.getElementById('editResSource').value;
-        const feePercent = (typeof OTA_FEES !== 'undefined' && OTA_FEES[source]) ? OTA_FEES[source] : 0;
+        const feePercent = (typeof OTA_FEES !== 'undefined' && OTA_FEES[source]) ? parseFloat(OTA_FEES[source]) : 0;
 
-        if (ci && co) {
-            const nights = Math.ceil((new Date(co) - new Date(ci)) / 86400000);
-            const subtotal = price * nights;
-            const discount = discType === 'percent' ? Math.round(subtotal * discVal / 100) : discVal;
-            const afterDiscount = subtotal - discount;
-            const feeAmount = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
-            // Total tagihan tetap bruto; fee OTA dipotong saat tercatat di buku kas (check-in).
-            const total = afterDiscount;
+        const nights = (ci && co) ? Math.max(0, Math.ceil((new Date(co) - new Date(ci)) / 86400000)) : 0;
+        const subtotal = price * nights;
+        const discount = discType === 'percent' ? Math.round(subtotal * discVal / 100) : discVal;
+        const afterDiscount = Math.max(0, subtotal - discount);
+        const feeAmount = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
 
-            let html = `<strong>${nights} malam</strong> × Rp ${new Intl.NumberFormat('id-ID').format(price)} = Rp ${new Intl.NumberFormat('id-ID').format(subtotal)}`;
-            if (discount > 0) {
-                html += `<br>Diskon${discType === 'percent' ? ' (' + discVal + '%)' : ''}: <span style="color:#ef4444;">- Rp ${new Intl.NumberFormat('id-ID').format(discount)}</span>`;
-            }
-            if (feePercent > 0) {
-                html += `<br><span style="color:#92400e;">Fee OTA (${feePercent}%): Rp ${new Intl.NumberFormat('id-ID').format(feeAmount)} <small>(dipotong saat masuk buku kas)</small></span>`;
-            }
-            html += `<br><strong style="color:#10b981;">Total: Rp ${new Intl.NumberFormat('id-ID').format(total)}</strong>`;
-            document.getElementById('editResInfo').innerHTML = html;
-        }
+        document.getElementById('editResNights').textContent = nights + (nights ? ' × ' + fmt(price) : '');
+        document.getElementById('editResSubtotal').textContent = fmt(subtotal);
+        document.getElementById('editResDiscPreview').textContent = discount > 0 ? '- ' + fmt(discount) + (discType === 'percent' ? ' (' + discVal + '%)' : '') : '';
+        document.getElementById('editResOtaRow').style.display = feePercent > 0 ? '' : 'none';
+        document.getElementById('editResOtaPct').textContent = feePercent;
+        document.getElementById('editResOtaAmt').textContent = '- ' + fmt(feeAmount);
+        // Total tagihan tetap bruto; fee OTA dipotong saat tercatat di buku kas (check-in).
+        document.getElementById('editResTotal').textContent = fmt(afterDiscount);
+    }
+
+    function editResOk(text) {
+        const p = document.createElement('div');
+        p.className = 'er-ok';
+        p.innerHTML = '<div class="er-ok-card"><svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27.5l7.5 7.5L37.5 19"/></svg><b></b></div>';
+        p.querySelector('b').textContent = text;
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1500);
     }
 
     // Live update edit form info
@@ -8605,23 +9351,8 @@ include '../../includes/header.php';
             })
             .then(data => {
                 if (data.success) {
-                    console.log('✅ Update result:', JSON.stringify(data));
-                    let msg = '✅ ' + data.message;
-                    if (data.data) {
-                        msg += '\nSource DB: ' + (data.data.booking_source || '(kosong)');
-                        msg += '\nIntended: ' + (data.data.intended_source || '?');
-                    }
-                    if (data.debug) {
-                        msg += '\n\n--- DEBUG ---';
-                        msg += '\nDB: ' + (data.debug.current_db || '?');
-                        msg += '\nMain rows: ' + data.debug.main_update_rows;
-                        msg += '\nStandalone rows: ' + data.debug.standalone_rows;
-                        msg += '\nStandalone err: ' + (data.debug.standalone_error || 'none');
-                        msg += '\nPOST val: ' + data.debug.post_booking_source;
-                        msg += '\nOriginal: ' + data.debug.original_source;
-                        msg += '\nVerified row: ' + JSON.stringify(data.debug.verified_row);
-                    }
-                    alert(msg);
+                    editResOk('Reservasi berhasil diperbarui');
+                    setTimeout(() => location.reload(), 1300);
 
                     // ✅ FIX: Refresh data booking di side panel
                     const bookingId = document.getElementById('editResBookingId').value;

@@ -567,13 +567,305 @@ include '../../includes/header.php';
     @media (max-width: 900px) {
         .edit-layout { grid-template-columns: 1fr; }
     }
+
+    /* ===== Redesign: gaya sama dengan form New Reservation ===== */
+    .edit-page {
+        --nr-bg: #ffffff;
+        --nr-soft: #f8fafc;
+        --nr-line: #e2e8f0;
+        --nr-ink: #0f172a;
+        --nr-muted: #64748b;
+        --nr-input: #ffffff;
+        --nr-input-line: #cbd5e1;
+        max-width: 1180px;
+    }
+
+    body[data-theme="dark"] .main-content .edit-page {
+        --nr-bg: #0f172a;
+        --nr-soft: rgba(255, 255, 255, 0.04);
+        --nr-line: rgba(255, 255, 255, 0.1);
+        --nr-ink: #e2e8f0;
+        --nr-muted: #94a3b8;
+        --nr-input: rgba(255, 255, 255, 0.05);
+        --nr-input-line: rgba(148, 163, 184, 0.35);
+    }
+
+    body[data-theme] .main-content .edit-page .edit-card {
+        background: var(--nr-bg) !important;
+        border: 1px solid var(--nr-line);
+        border-radius: 16px;
+        box-shadow: 0 24px 60px -24px rgba(15, 23, 42, 0.35);
+    }
+
+    body[data-theme] .main-content .edit-page .edit-card-header {
+        padding: 14px 20px;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .edit-card-header h2 {
+        font-size: 0.98rem !important;
+        font-weight: 700 !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    body[data-theme] .main-content .edit-page .edit-card-header .booking-code {
+        font-family: inherit;
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.85) !important;
+        -webkit-text-fill-color: rgba(255, 255, 255, 0.85) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .edit-card-header .status-badge {
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    .edit-page .edit-card-body {
+        padding: 6px 20px 18px;
+    }
+
+    .edit-page .edit-layout {
+        gap: 24px;
+    }
+
+    body[data-theme] .main-content .edit-page .section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 14px 0 8px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        font-size: 0.62rem !important;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--nr-muted) !important;
+        -webkit-text-fill-color: var(--nr-muted) !important;
+    }
+
+    .edit-page .section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--nr-line);
+    }
+
+    .edit-page .form-row {
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .edit-page .form-row .form-group {
+        margin-bottom: 0;
+    }
+
+    .edit-page .form-group {
+        margin-bottom: 10px;
+    }
+
+    body[data-theme] .main-content .edit-page .form-group label {
+        margin: 0 0 4px !important;
+        font-size: 0.62rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--nr-muted) !important;
+        -webkit-text-fill-color: var(--nr-muted) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .form-group input,
+    body[data-theme] .main-content .edit-page .form-group select,
+    body[data-theme] .main-content .edit-page .form-group textarea,
+    body[data-theme] .main-content .edit-page .add-extra-row input,
+    body[data-theme] .main-content .edit-page .add-extra-row select {
+        height: 36px;
+        padding: 0 10px !important;
+        border-radius: 9px !important;
+        border: 1px solid var(--nr-input-line) !important;
+        background: var(--nr-input) !important;
+        color: var(--nr-ink) !important;
+        -webkit-text-fill-color: var(--nr-ink) !important;
+        font-size: 0.8rem !important;
+    }
+
+    body[data-theme] .main-content .edit-page .form-group textarea {
+        height: auto;
+        min-height: 64px;
+        padding: 8px 10px !important;
+    }
+
+    body[data-theme] .main-content .edit-page .form-group input:focus,
+    body[data-theme] .main-content .edit-page .form-group select:focus,
+    body[data-theme] .main-content .edit-page .form-group textarea:focus {
+        outline: none;
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }
+
+    /* Diskon: toggle Rp / % seperti New Reservation */
+    .edit-page .discount-row {
+        gap: 8px;
+    }
+
+    .edit-page .discount-row .disc-type-btn:first-of-type {
+        margin-left: 0;
+    }
+
+    body[data-theme] .main-content .edit-page .disc-type-btn {
+        height: 30px;
+        min-width: 36px;
+        padding: 0 8px !important;
+        border: 1px solid var(--nr-line) !important;
+        border-radius: 7px !important;
+        background: var(--nr-soft) !important;
+        color: var(--nr-muted) !important;
+        -webkit-text-fill-color: var(--nr-muted) !important;
+        font-size: 0.72rem !important;
+        font-weight: 700;
+    }
+
+    body[data-theme] .main-content .edit-page .disc-type-btn.active {
+        border-color: #2563eb !important;
+        background: #2563eb !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+    }
+
+    /* Kartu kamar grup */
+    body[data-theme] .main-content .edit-page .room-card {
+        background: var(--nr-soft) !important;
+        border: 1px solid var(--nr-line) !important;
+        border-radius: 12px !important;
+    }
+
+    body[data-theme] .main-content .edit-page .room-card-title {
+        color: var(--nr-ink) !important;
+        -webkit-text-fill-color: var(--nr-ink) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .btn-add-room,
+    body[data-theme] .main-content .edit-page .btn-add-extra {
+        border-radius: 9px !important;
+        border: 1px dashed #93c5fd !important;
+        background: rgba(37, 99, 235, 0.06) !important;
+        color: #1d4ed8 !important;
+        -webkit-text-fill-color: #1d4ed8 !important;
+        font-weight: 700;
+    }
+
+    body[data-theme] .main-content .edit-page .paid-info {
+        margin-top: 12px;
+        border-radius: 10px;
+    }
+
+    /* Ringkasan harga */
+    body[data-theme] .main-content .edit-page .price-box {
+        padding: 10px 14px !important;
+        border-radius: 12px !important;
+        background: var(--nr-soft) !important;
+        border: 1px solid var(--nr-line) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .price-line {
+        padding: 4px 0;
+        font-size: 0.78rem;
+        color: var(--nr-muted) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .price-line strong {
+        font-size: 0.8rem;
+        color: var(--nr-ink);
+    }
+
+    body[data-theme] .main-content .edit-page .ota-fee-row {
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(217, 119, 6, 0.1) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .price-line-total {
+        margin-top: 6px;
+        padding: 10px 0 2px;
+        border-top: 1px solid var(--nr-line);
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--nr-ink) !important;
+    }
+
+    body[data-theme] .main-content .edit-page #dispTotal {
+        font-size: 1.15rem;
+        letter-spacing: 0;
+        color: #047857 !important;
+        -webkit-text-fill-color: #047857 !important;
+    }
+
+    body[data-theme="dark"] .main-content .edit-page #dispTotal {
+        color: #6ee7b7 !important;
+        -webkit-text-fill-color: #6ee7b7 !important;
+    }
+
+    /* Tombol */
+    .edit-page .btn-row {
+        justify-content: flex-end;
+        gap: 8px;
+        padding-top: 12px;
+        border-top: 1px solid var(--nr-line);
+    }
+
+    body[data-theme] .main-content .edit-page .btn-save,
+    body[data-theme] .main-content .edit-page .btn-cancel {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        padding: 0 20px !important;
+        border-radius: 10px !important;
+        font-size: 0.8rem !important;
+        font-weight: 700;
+        transform: none !important;
+    }
+
+    body[data-theme] .main-content .edit-page .btn-cancel {
+        order: -1;
+        border: 1px solid var(--nr-line) !important;
+        background: var(--nr-bg) !important;
+        color: var(--nr-muted) !important;
+        -webkit-text-fill-color: var(--nr-muted) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .btn-save {
+        border: 0 !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.8) !important;
+    }
+
+    body[data-theme] .main-content .edit-page .extras-header h3 {
+        font-size: 0.78rem !important;
+        color: var(--nr-ink) !important;
+    }
+
+    @media (max-width: 900px) {
+        .edit-page .edit-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .edit-page .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="edit-page">
     <div class="edit-card">
         <div class="edit-card-header">
             <div>
-                <h2>✏️ Edit Reservasi<?php if ($isGroup): ?><span class="group-badge">📦 <?php echo count($groupBookings); ?> Rooms</span><?php endif; ?></h2>
+                <h2>Edit Reservation<?php if ($isGroup): ?><span class="group-badge">📦 <?php echo count($groupBookings); ?> Rooms</span><?php endif; ?></h2>
             </div>
             <div class="booking-code"><?php echo htmlspecialchars($booking['booking_code']); ?><?php if ($isGroup): ?> (Group)<?php endif; ?> ·
                 <span class="status-badge status-<?php echo $booking['status']; ?>"><?php echo strtoupper(str_replace('_', ' ', $booking['status'])); ?></span>
@@ -601,7 +893,7 @@ include '../../includes/header.php';
                 <div class="edit-layout">
                     <!-- ========== LEFT COLUMN: Guest + Dates + Rooms ========== -->
                     <div class="edit-col">
-                        <h3 class="section-title">👤 Info Tamu & Tanggal</h3>
+                        <h3 class="section-title">Tamu &amp; Tanggal</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Nama Tamu *</label>
@@ -633,7 +925,7 @@ include '../../includes/header.php';
                             </div>
                         </div>
 
-                        <h3 class="section-title">🏠 Kamar</h3>
+                        <h3 class="section-title">Kamar</h3>
 
                         <!-- ROOM(S) -->
                         <?php if ($isGroup): ?>
@@ -772,15 +1064,15 @@ include '../../includes/header.php';
 
                     <!-- ========== RIGHT COLUMN: Discount + Extras + Price + Actions ========== -->
                     <div class="edit-col">
-                        <h3 class="section-title">💰 Harga & Diskon</h3>
+                        <h3 class="section-title">Harga &amp; Diskon</h3>
 
                         <!-- DISCOUNT -->
                         <div class="form-group">
                             <label>Diskon<?php echo $isGroup ? ' (Total)' : ''; ?></label>
                             <div class="discount-row">
-                                <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscType('rp')" style="border-radius:4px 0 0 4px;">Rp</button>
-                                <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscType('percent')" style="border-radius:0 4px 4px 0;">%</button>
-                                <input type="number" name="discount_value" id="discountValue" value="<?php echo $isGroup ? 0 : $booking['discount']; ?>" min="0" style="flex:1;" onchange="recalculate()">
+                                <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscType('rp')">Rp</button>
+                                <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscType('percent')">%</button>
+                                <input type="number" name="discount_value" id="discountValue" value="<?php echo (!$isGroup && (float)$booking['discount'] > 0) ? (float)$booking['discount'] : ''; ?>" placeholder="0" min="0" style="flex:1;" onchange="recalculate()">
                                 <input type="hidden" name="discount_type" id="discountType" value="rp">
                             </div>
                         </div>
@@ -792,7 +1084,7 @@ include '../../includes/header.php';
                         </div>
 
                         <!-- EXTRAS -->
-                        <h3 class="section-title">🛏️ Tambahan / Extras</h3>
+                        <h3 class="section-title">Tambahan / Extras</h3>
                         <div class="extras-section">
                             <div class="extras-header">
                                 <h3>Item Extras</h3>
@@ -850,7 +1142,7 @@ include '../../includes/header.php';
                         </div>
 
                         <!-- PRICE SUMMARY -->
-                        <h3 class="section-title">📊 Ringkasan Harga</h3>
+                        <h3 class="section-title">Ringkasan Harga</h3>
                         <div class="price-box">
                             <div class="price-line">
                                 <span>Malam:</span>
@@ -879,8 +1171,8 @@ include '../../includes/header.php';
                         </div>
 
                         <div class="btn-row">
-                            <button type="submit" class="btn-save" id="btnSave">💾 Simpan Perubahan</button>
-                            <a href="reservasi.php" class="btn-cancel">❌ Batal</a>
+                            <button type="submit" class="btn-save" id="btnSave">Simpan Perubahan</button>
+                            <a href="reservasi.php" class="btn-cancel">Batal</a>
                         </div>
                     </div>
                 </div><!-- /edit-layout -->
@@ -1006,7 +1298,7 @@ include '../../includes/header.php';
         // Get current single room data
         const currentRoomId = document.getElementById('roomSelect').value;
         const currentRoomPrice = document.getElementById('roomPrice').value;
-        const discVal = document.getElementById('discountValue') ? document.getElementById('discountValue').value : '0';
+        const discVal = document.getElementById('discountValue') ? document.getElementById('discountValue').value || '0' : '0';
 
         // Replace single room section with group room cards
         const roomSection = document.querySelector('.form-row:has(#roomSelect)');
