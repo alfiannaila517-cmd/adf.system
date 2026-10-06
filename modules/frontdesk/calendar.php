@@ -906,7 +906,8 @@ include '../../includes/header.php';
     /* Hari ini */
     body[data-theme] .calendar-grid .cal-h.today {
         background: #eff6ff !important;
-        box-shadow: inset 0 3px 0 #2563eb;
+        box-shadow: inset 0 3px 0 #ffffff;
+        border-top-color: #ffffff !important;
     }
     body[data-theme] .calendar-grid .cal-h.today .cal-h-dow { color: #2563eb !important; }
     body[data-theme] .calendar-grid .cal-h.today .cal-h-day {
@@ -921,6 +922,13 @@ include '../../includes/header.php';
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
     }
+
+    /* Baris kamar lebih ringkas (hanya nomor kamar) */
+    body[data-theme] .calendar-grid .grid-room-label { min-height: 26px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+    body[data-theme] .calendar-grid .grid-date-cell { min-height: 26px !important; }
+    body[data-theme] .calendar-grid .grid-room-number { font-size: 0.82rem !important; }
+    body[data-theme] .calendar-grid .grid-room-type-header { min-height: 30px !important; padding-top: 1px !important; padding-bottom: 1px !important; }
+    body[data-theme] .calendar-grid .booking-bar-container { top: 1px !important; }
 
     /* Dark mode */
     body[data-theme="dark"] .calendar-grid .grid-month-room,
@@ -945,7 +953,7 @@ include '../../includes/header.php';
     body[data-theme="dark"] .calendar-grid .cal-h-occ { background: rgba(99, 102, 241, 0.18); color: #c7d2fe !important; }
     body[data-theme="dark"] .calendar-grid .cal-h-avail { background: rgba(16, 185, 129, 0.15); color: #6ee7b7 !important; }
     body[data-theme="dark"] .calendar-grid .cal-h-avail.full { background: rgba(239, 68, 68, 0.18); color: #fca5a5 !important; }
-    body[data-theme="dark"] .calendar-grid .cal-h.today { background: rgba(37, 99, 235, 0.16) !important; box-shadow: inset 0 3px 0 #3b82f6; }
+    body[data-theme="dark"] .calendar-grid .cal-h.today { background: rgba(37, 99, 235, 0.16) !important; box-shadow: none; }
     body[data-theme="dark"] .calendar-grid .cal-h.today .cal-h-dow { color: #93c5fd !important; }
 
     /* Footer Row - Bottom Date Reference */
@@ -2949,7 +2957,6 @@ include '../../includes/header.php';
                     <?php foreach ($typeRooms as $room): ?>
                         <?php $isDirty = (($room['status'] ?? '') === 'cleaning'); ?>
                         <div class="grid-room-label<?php echo $isDirty ? ' dirty' : ''; ?>" data-room-id="<?php echo (int)$room['id']; ?>">
-                            <span class="grid-room-type-label"><?php echo htmlspecialchars($room['type_name']); ?></span>
                             <span class="grid-room-number"><?php echo htmlspecialchars($room['room_number']); ?></span>
                             <?php if ($isDirty): ?>
                                 <button type="button" class="room-clean-btn" title="Kamar kotor — klik untuk tandai sudah bersih" aria-label="Tandai kamar <?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?> bersih" onclick="event.stopPropagation(); markRoomClean(<?php echo (int)$room['id']; ?>, '<?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?>');">🧹</button>
