@@ -4295,7 +4295,9 @@ include '../../includes/header.php';
         const rawSource = (b.booking_source || '').trim();
         const bookingSource = rawSource.toLowerCase().replace(/\.com|\.co\.id|\.id/g, '').replace(/[^a-z0-9]/g, '');
         // Check: exact match in OTA list OR fuzzy match (source contains OTA keyword or vice versa)
-        const isOTA = rawSource && (
+        // Hotel Collect (seluruh tagihan dibayar langsung ke hotel) diperlakukan seperti booking langsung
+        const hotelCollect = total > 0 && (parseFloat(b.direct_amount) || 0) + 0.01 >= total;
+        const isOTA = !hotelCollect && rawSource && (
             otaSources.includes(rawSource) ||
             otaSources.includes(rawSource.toLowerCase()) ||
             otaSources.some(s => bookingSource.includes(s) || s.includes(bookingSource))

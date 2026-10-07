@@ -3026,7 +3026,9 @@ include '../../includes/header.php';
 
                 // Detect OTA booking from booking_source
                 const bookingSource = (booking.booking_source || '').toLowerCase();
-                const isOta = !DIRECT_SOURCES.includes(bookingSource) && bookingSource !== '' && bookingSource !== 'other';
+                // Hotel Collect (seluruh tagihan dibayar langsung ke hotel) diperlakukan seperti booking langsung
+                const hotelCollect = finalPrice > 0 && (parseFloat(booking.direct_amount) || 0) + 0.01 >= finalPrice;
+                const isOta = !hotelCollect && !DIRECT_SOURCES.includes(bookingSource) && bookingSource !== '' && bookingSource !== 'other';
                 const sourceName = OTA_NAMES[bookingSource] || (booking.booking_source || '').charAt(0).toUpperCase() + (booking.booking_source || '').slice(1);
                 const feePercent = OTA_FEES[bookingSource] || 0;
 

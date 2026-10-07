@@ -160,6 +160,21 @@ try {
         }
     }
 
+    // Hotel Collect (OTA, tamu bayar langsung ke hotel): seluruh tagihan = direct_amount. Diperlakukan
+    // seperti booking langsung — tidak ada auto-pembayaran OTA dan tidak dipotong fee OTA di buku kas.
+    $hotelCollect = false;
+    if ($isOTA) {
+        try {
+            $dRow = $db->fetchOne("SELECT COALESCE(direct_amount, 0) AS d FROM bookings WHERE id = ?", [$bookingId]);
+            $hotelCollect = (float)$booking['final_price'] > 0 && (float)($dRow['d'] ?? 0) + 0.01 >= (float)$booking['final_price'];
+        } catch (\Throwable $e) {
+            // kolom direct_amount belum ada
+        }
+        if ($hotelCollect) {
+            $isOTA = false;
+        }
+    }
+
     // Kolom yang dipakai UPDATE status di bawah dipastikan ada SEBELUM transaksi (ALTER di dalam
     // transaksi memicu implicit commit). Tanpa kolom ini UPDATE gagal diam-diam.
     foreach (['checked_in_by' => 'INT NULL', 'actual_checkin_time' => 'DATETIME NULL'] as $ensureCol => $ensureType) {
@@ -378,7 +393,7 @@ try {
                 'guest_name'     => $booking['guest_name'],
                 'booking_code'   => $booking['booking_code'],
                 'room_number'    => $booking['room_number'],
-                'booking_source' => $booking['booking_source'],
+                'booking_source' => $hotelCollect ? 'direct' : $booking['booking_source'],
                 'booking_notes'  => $booking['notes'] ?? $booking['special_request'] ?? '',
                 'final_price'    => $booking['final_price'],
                 'total_paid'     => $totalPaid,

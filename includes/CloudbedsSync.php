@@ -222,10 +222,9 @@ class CloudbedsSync
                     }
                 }
             }
-            if ($collect === 'hotel') {
-                $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Hotel Collect (tamu bayar di hotel) — belum dibuat otomatis, buat manual atau tentukan aturannya.'];
-                continue;
-            }
+            // Hotel Collect: tamu bayar langsung ke hotel → booking dibuat dengan direct_amount = harga
+            // (diperlakukan seperti booking langsung; komisi OTA ditagih OTA terpisah, dicatat di catatan booking).
+            $hotelCollect = $collect === 'hotel';
             if ($sourceKey === '') {
                 $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Sumber "' . $srcName . '" belum dipasangkan di Pemetaan sumber booking.'];
                 continue;
@@ -274,7 +273,9 @@ class CloudbedsSync
                 'guest' => $it['guest'], 'phone' => (string)($raw['guestPhone'] ?? $raw['guestCellPhone'] ?? ''), 'email' => (string)($raw['guestEmail'] ?? ''),
                 'source_key' => $sourceKey, 'source_name' => (string)$srcName, 'third_party_id' => $it['third_party_id'],
                 'rooms' => $roomsPlan,
-                'msg' => 'Buat booking: Room ' . implode(', ', array_column($roomsPlan, 'room_no')) . ' · Rp ' . number_format(array_sum(array_column($roomsPlan, 'price')), 0, ',', '.') . ' · ' . $sourceKey,
+                'hotel_collect' => $hotelCollect,
+                'msg' => 'Buat booking: Room ' . implode(', ', array_column($roomsPlan, 'room_no')) . ' · Rp ' . number_format(array_sum(array_column($roomsPlan, 'price')), 0, ',', '.') . ' · ' . $sourceKey
+                    . ($hotelCollect ? ' · Hotel Collect (tamu bayar di hotel)' : ''),
             ];
         }
 
@@ -291,6 +292,14 @@ class CloudbedsSync
             return $plan + ['done' => []];
         }
         $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'errors' => []];
+        // Kolom direct_amount (Hotel Collect) dibuat sebelum transaksi: ALTER di dalam transaksi = implicit commit
+        try {
+            require_once __DIR__ . '/BookingSourceHelper.php';
+            if (function_exists('bs_ensure_direct_amount')) {
+                bs_ensure_direct_amount($this->db->getConnection());
+            }
+        } catch (\Throwable $e) {
+        }
         foreach ($plan['actions'] as $a) {
             try {
                 if ($a['type'] === 'link') {
@@ -337,6 +346,20 @@ class CloudbedsSync
             $guestId = (int)$conn->lastInsertId();
             $groupId = count($a['rooms']) > 1 ? 'CB-' . $a['cb'] : null;
             $note = 'Cloudbeds #' . $a['cb'] . ($a['third_party_id'] ? ' · ' . $a['source_name'] . ' ' . $a['third_party_id'] : ' · ' . $a['source_name']);
+            $hotelCollect = !empty($a['hotel_collect']);
+            if ($hotelCollect) {
+                $fee = 0.0;
+                try {
+                    $st = $conn->prepare("SELECT fee_percent FROM booking_sources WHERE source_key = ? LIMIT 1");
+                    $st->execute([$a['source_key']]);
+                    $fee = (float)($st->fetchColumn() ?: 0);
+                } catch (\Throwable $e) {
+                }
+                $total = array_sum(array_column($a['rooms'], 'price'));
+                $note .= "\nHOTEL COLLECT: tamu bayar langsung ke hotel (seperti booking langsung)."
+                    . ($fee > 0 ? ' Komisi OTA ' . rtrim(rtrim(number_format($fee, 2, ',', ''), '0'), ',') . '% ≈ Rp ' . number_format($total * $fee / 100, 0, ',', '.') . ' ditagih OTA terpisah.' : '');
+                // direct_amount = seluruh tagihan dibayar langsung (kolom dibuat bila belum ada; ALTER di luar transaksi)
+            }
             foreach ($a['rooms'] as $r) {
                 $nights = max(1, (int)round((strtotime($r['co']) - strtotime($r['ci'])) / 86400));
                 $code = 'BK-' . date('Ymd') . '-' . str_pad((string)random_int(1, 9999), 4, '0', STR_PAD_LEFT);
@@ -351,6 +374,9 @@ class CloudbedsSync
                         round($r['price'] / $nights), $r['price'], $r['price'], $a['source_key'], mb_substr($a['source_name'] . ($a['third_party_id'] ? ' #' . $a['third_party_id'] : ''), 0, 50),
                         $note, $userId ?: null]);
                 $bid = (int)$conn->lastInsertId();
+                if ($hotelCollect) {
+                    $conn->prepare("UPDATE bookings SET direct_amount = ? WHERE id = ?")->execute([$r['price'], $bid]);
+                }
                 $conn->prepare("INSERT IGNORE INTO cloudbeds_booking_links (cb_reservation_id, booking_id, how) VALUES (?, ?, 'create')")->execute([$a['cb'], $bid]);
             }
             $conn->commit();
