@@ -6,6 +6,10 @@
  *  - Pindah ke tipe kamar yang SAMA      → harga per malam tetap (harga booking).
  *  - Upgrade / downgrade (tipe berbeda)  → harga per malam mengikuti harga asli tipe kamar baru.
  *  - Diskon (Rp) booking tidak berubah; extras tetap ditagihkan.
+ *  - Booking OTA (tiket, agoda, …): harga OTA tetap; upgrade menambah selisih harga asli tipe kamar
+ *    yang sudah dipotong fee OTA: harga baru = harga lama + (harga tipe baru − harga tipe lama) × (1 − fee%).
+ *    Downgrade booking OTA tidak mengurangi harga (sudah dibayar OTA). Kenaikan tagihan dicatat di
+ *    bookings.direct_amount = dibayar tamu langsung ke hotel, tanpa potongan fee OTA.
  *  - Staf boleh mengisi harga manual (room_price) — menggantikan harga otomatis.
  *  - Tamu in-house pindah di tengah menginap: malam sebelum tanggal efektif tetap seperti tagihan lama,
  *    malam sesudahnya harga baru. room_price = harga kamar yang sedang ditempati (dipakai extend/pindah
@@ -26,6 +30,7 @@ try {
     require_once '../config/config.php';
     require_once '../config/database.php';
     require_once '../includes/auth.php';
+    require_once '../includes/BookingSourceHelper.php';
 
     $auth = new Auth();
     if (!$auth->isLoggedIn()) {
@@ -38,6 +43,7 @@ try {
     }
 
     $conn = Database::getInstance()->getConnection();
+    bs_ensure_direct_amount($conn);
 
     $bookingId = (int)($_POST['booking_id'] ?? 0);
     $newCheckIn = trim($_POST['new_check_in'] ?? '');
@@ -138,7 +144,17 @@ try {
     $newBase = (float)($newRoom['base_price'] ?? 0);
     $changeKind = !$roomChanged ? 'none' : (!$typeChanged ? 'same' : ($newBase > $oldBase ? 'upgrade' : ($newBase < $oldBase ? 'downgrade' : 'same')));
 
-    $autoPrice = $typeChanged ? $newBase : $oldPrice;
+    // Sumber booking: OTA → selisih upgrade sudah dipotong fee, downgrade tanpa pengurangan
+    $source = strtolower((string)($booking['booking_source'] ?? ''));
+    $isOta = bs_is_ota($conn, $source);
+    $feePct = $isOta ? bs_ota_fee_percent($conn, $source) : 0.0;
+    $surcharge = 0.0;
+    if ($isOta) {
+        $surcharge = $typeChanged ? round(max(0, $newBase - $oldBase) * (1 - $feePct / 100), 2) : 0.0;
+        $autoPrice = $oldPrice + $surcharge;
+    } else {
+        $autoPrice = $typeChanged ? $newBase : $oldPrice;
+    }
     if ($autoPrice <= 0) $autoPrice = $oldPrice ?: $newBase;
     $newPrice = ($manualPrice !== null && $manualPrice >= 0) ? $manualPrice : $autoPrice;
 
@@ -150,6 +166,11 @@ try {
         $beforeTotal = max(0, round((float)$booking['total_price'] - $oldPrice * max(0, $oldNights - $nightsBefore), 2));
     }
     $totalPrice = round($beforeTotal + $newPrice * $nightsAfter, 2);
+    // Jumlah malam tetap: total lama + selisih harga untuk malam yang terdampak. Menjaga total campuran
+    // (mis. malam extend dengan harga berbeda, atau pindah kamar sebelumnya) tetap tepat.
+    if ($nights === (int)$booking['total_nights'] && (float)$booking['total_price'] > 0) {
+        $totalPrice = round((float)$booking['total_price'] + ($newPrice - $oldPrice) * $nightsAfter, 2);
+    }
     $storedPrice = $newPrice;
     $discount = (float)($booking['discount'] ?? 0);
 
@@ -161,6 +182,9 @@ try {
     } catch (PDOException $e) {
     }
     $finalPrice = max(0, $totalPrice - $discount) + $extrasTotal;
+    // Bagian dibayar langsung ke hotel (booking OTA): bertambah/berkurang mengikuti perubahan tagihan
+    $oldDirect = (float)($booking['direct_amount'] ?? 0);
+    $newDirect = $isOta ? max(0, round($oldDirect + ($finalPrice - (float)$booking['final_price']), 2)) : $oldDirect;
     $paidAmount = (float)($booking['paid_amount'] ?? 0);
     $paymentStatus = $paidAmount <= 0 ? 'unpaid' : ($paidAmount >= $finalPrice ? 'paid' : 'partial');
 
@@ -188,6 +212,12 @@ try {
         'paid' => $paidAmount,
         'balance' => max(0, $finalPrice - $paidAmount),
         'is_in_house' => $isInHouse,
+        'is_ota' => $isOta,
+        'source' => $source,
+        'fee_percent' => $feePct,
+        'surcharge' => $surcharge,
+        'direct_amount' => $newDirect,
+        'ota_amount' => max(0, $finalPrice - $newDirect),
     ];
 
     if ($isPreview) {
@@ -205,16 +235,17 @@ try {
         $note = '[' . date('d/m/Y H:i') . '] ' . $kindLabel . ': ' . $booking['room_number'] . ' (' . $booking['type_name'] . ') -> '
             . $newRoom['room_number'] . ' (' . $newRoom['type_name'] . ')'
             . ($isInHouse ? ' mulai ' . date('d/m/Y', strtotime($effective)) : '')
-            . ', harga/malam Rp ' . number_format($oldPrice, 0, ',', '.') . ' -> Rp ' . number_format($newPrice, 0, ',', '.');
+            . ', harga/malam Rp ' . number_format($oldPrice, 0, ',', '.') . ' -> Rp ' . number_format($newPrice, 0, ',', '.')
+            . ($isOta && $newDirect > $oldDirect ? ' (OTA ' . $source . ': +Rp ' . number_format($newDirect - $oldDirect, 0, ',', '.') . ' dibayar langsung, fee ' . rtrim(rtrim(number_format($feePct, 2, '.', ''), '0'), '.') . '%)' : '');
         $noteSql = ", notes = TRIM(CONCAT(COALESCE(notes, ''), CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE '\n' END, ?))";
         $noteParams[] = $note;
     }
 
     $stmt = $conn->prepare("UPDATE bookings SET
             check_in_date = ?, check_out_date = ?, room_id = ?, total_nights = ?,
-            room_price = ?, total_price = ?, final_price = ?, payment_status = ?, updated_at = NOW() $noteSql
+            room_price = ?, total_price = ?, final_price = ?, payment_status = ?, direct_amount = ?, updated_at = NOW() $noteSql
         WHERE id = ?");
-    $stmt->execute(array_merge([$checkIn, $checkOut, $roomId, $nights, $storedPrice, $totalPrice, $finalPrice, $paymentStatus], $noteParams, [$bookingId]));
+    $stmt->execute(array_merge([$checkIn, $checkOut, $roomId, $nights, $storedPrice, $totalPrice, $finalPrice, $paymentStatus, $newDirect], $noteParams, [$bookingId]));
 
     // Tamu in-house pindah kamar: kamar lama dibersihkan, kamar baru terisi.
     if ($isInHouse && $roomChanged) {

@@ -383,7 +383,9 @@ try {
                 'final_price'    => $booking['final_price'],
                 'total_paid'     => $totalPaid,
                 'is_new_reservation' => false,
-                'is_ota_checkin' => $isOTA && !$payNow
+                'is_ota_checkin' => $isOTA && !$payNow,
+                // Bagian yang dibayar langsung ke hotel (upgrade/extend) tidak ikut dipotong fee OTA
+                'ota_gross'      => max(0, (float)$booking['final_price'] - (float)($db->fetchOne("SELECT COALESCE(direct_amount, 0) AS d FROM bookings WHERE id = ?", [$bookingId])['d'] ?? 0))
             ]);
 
             $cashbookSynced = $syncResult['success'];

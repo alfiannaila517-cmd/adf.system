@@ -82,3 +82,45 @@ if (!function_exists('bs_set_source')) {
         return $up->rowCount();
     }
 }
+
+if (!function_exists('bs_ensure_direct_amount')) {
+    /**
+     * bookings.direct_amount = bagian tagihan booking OTA yang dibayar tamu LANGSUNG ke hotel
+     * (selisih upgrade, malam extend). Bagian ini tidak dipotong fee OTA dan boleh dibayar tunai/transfer.
+     */
+    function bs_ensure_direct_amount(PDO $pdo): void
+    {
+        static $done = false;
+        if ($done) return;
+        try {
+            if (!$pdo->query("SHOW COLUMNS FROM bookings LIKE 'direct_amount'")->fetch()) {
+                $pdo->exec("ALTER TABLE bookings ADD COLUMN direct_amount DECIMAL(12,2) NOT NULL DEFAULT 0");
+            }
+            $done = true;
+        } catch (\Throwable $e) {
+            error_log('bs_ensure_direct_amount: ' . $e->getMessage());
+        }
+    }
+}
+
+if (!function_exists('bs_ota_fee_percent')) {
+    /** Persen fee OTA untuk source_key (0 bila bukan OTA) — sumber sama dengan potongan buku kas. */
+    function bs_ota_fee_percent(PDO $pdo, string $source): float
+    {
+        if (!bs_is_ota($pdo, $source)) return 0.0;
+        try {
+            $st = $pdo->prepare("SELECT fee_percent FROM booking_sources WHERE source_key = ? AND is_active = 1 LIMIT 1");
+            $st->execute([strtolower(trim($source))]);
+            $fee = $st->fetchColumn();
+            if ($fee !== false) return (float)$fee;
+        } catch (\Throwable $e) {
+        }
+        try {
+            require_once __DIR__ . '/CashbookHelper.php';
+            $cb = new CashbookHelper(Database::getInstance());
+            return (float)($cb->calculateOtaFee(100, $source)['fee_percent'] ?? 0);
+        } catch (\Throwable $e) {
+            return 0.0;
+        }
+    }
+}

@@ -4347,15 +4347,19 @@ include '../../includes/header.php';
         const srcName = ((typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[src]) || src || 'Direct').trim();
         const methodInput = document.getElementById('paymentMethodPay');
         const methodButtons = document.querySelectorAll('#bookingPaymentModal .payment-method-btn');
+        // Booking OTA dengan selisih upgrade / extend: bagian itu dibayar tamu langsung (cash/transfer/QRIS, tanpa fee)
+        const directDue = isGroup ? 0 : (parseFloat(currentPaymentBooking.direct_amount) || 0);
+        const allowDirect = isOta && directDue > 0;
         methodButtons.forEach(btn => {
             const ota = btn.dataset.value === 'ota';
-            btn.style.display = (isOta ? ota : !ota) ? '' : 'none';
+            btn.style.display = (allowDirect || (isOta ? ota : !ota)) ? '' : 'none';
             btn.classList.toggle('active', isOta ? ota : btn.dataset.value === 'cash');
         });
         if (methodInput) methodInput.value = isOta ? 'ota' : 'cash';
-        payOtaCtx = isOta ? { pct: parseFloat((OTA_FEES || {})[src]) || 0, name: srcName, status: currentPaymentBooking.status } : null;
+        payOtaCtx = isOta ? { pct: parseFloat((OTA_FEES || {})[src]) || 0, name: srcName, status: currentPaymentBooking.status, direct: directDue, remaining: remaining } : null;
         document.getElementById('paySrcInfo').innerHTML = isOta ?
-            '<b>Booking via ' + escHtml(srcName) + '</b> · dibayar oleh OTA' + (payOtaCtx.pct ? ' · fee ' + payOtaCtx.pct + '%' : '') :
+            '<b>Booking via ' + escHtml(srcName) + '</b> · dibayar oleh OTA' + (payOtaCtx.pct ? ' · fee ' + payOtaCtx.pct + '%' : '') +
+            (allowDirect ? '<br><b>Selisih upgrade/extend Rp ' + Math.round(directDue).toLocaleString('id-ID') + '</b> dibayar langsung oleh tamu (Cash/Transfer/QRIS, tanpa fee)' : '') :
             '<b>Booking ' + escHtml(srcName) + '</b> · pembayaran langsung dari tamu';
         document.getElementById('paySrcInfo').className = 'pay-src ' + (isOta ? 'ota' : 'direct');
         updatePayOtaNet();
@@ -4380,7 +4384,8 @@ include '../../includes/header.php';
     window.updatePayOtaNet = function updatePayOtaNet() {
         const box = document.getElementById('payOtaNet');
         if (!box) return;
-        if (!payOtaCtx) { box.style.display = 'none'; return; }
+        const mth = (document.getElementById('paymentMethodPay') || {}).value || '';
+        if (!payOtaCtx || (mth !== 'ota' && mth.indexOf('ota_') !== 0)) { box.style.display = 'none'; return; }
         const gross = parseFloat(document.getElementById('paymentAmount').value) || 0;
         const fee = Math.round(gross * payOtaCtx.pct / 100);
         const f = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
@@ -6086,6 +6091,12 @@ include '../../includes/header.php';
                     if (payMethodInput) {
                         payMethodInput.value = this.dataset.value;
                     }
+                    // Booking OTA: bayar langsung = selisih upgrade/extend; OTA = sisa tagihan
+                    if (typeof payOtaCtx !== 'undefined' && payOtaCtx && payOtaCtx.direct > 0) {
+                        const amt = document.getElementById('paymentAmount');
+                        amt.value = this.dataset.value === 'ota' ? payOtaCtx.remaining : Math.min(payOtaCtx.remaining, Math.round(payOtaCtx.direct));
+                    }
+                    if (typeof updatePayOtaNet === 'function') updatePayOtaNet();
                 });
             });
 
@@ -9666,92 +9677,152 @@ include '../../includes/header.php';
     <div class="mv-modal">
         <div class="mv-head">
             <div class="mv-head-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
-            <div class="mv-head-t"><strong>Pindah Kamar</strong><span id="mvSub">-</span></div>
+            <div class="mv-head-t"><div class="mv-title">Pindah Kamar</div><div class="mv-sub" id="mvSub">-</div></div>
             <button type="button" class="mv-x" onclick="closeMoveModal()" aria-label="Tutup">&times;</button>
         </div>
         <div class="mv-body">
-            <div class="mv-rooms">
-                <div class="mv-from"><label>Dari</label><div id="mvFrom"></div></div>
-                <div class="mv-arrow">&rarr;</div>
-                <div class="mv-to"><label>Ke kamar</label><select id="mvRoom" onchange="mvChanged('room')"></select></div>
+            <div class="mv-sec">
+                <div class="mv-lbl">Kamar</div>
+                <div class="mv-rooms">
+                    <div class="mv-from" id="mvFrom"></div>
+                    <div class="mv-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+                    <select id="mvRoom" class="mv-in" onchange="mvChanged('room')"></select>
+                </div>
             </div>
-            <div class="mv-grid">
-                <div><label>Check-in</label><input type="date" id="mvCheckIn" onchange="mvChanged('checkin')"></div>
-                <div><label>Check-out</label><input type="date" id="mvCheckOut" onchange="mvChanged('dates')"></div>
+            <div class="mv-sec mv-2col">
+                <div><div class="mv-lbl">Check-in</div><input type="date" id="mvCheckIn" class="mv-in" onchange="mvChanged('checkin')"></div>
+                <div><div class="mv-lbl">Check-out</div><input type="date" id="mvCheckOut" class="mv-in" onchange="mvChanged('dates')"></div>
             </div>
-            <div class="mv-eff" id="mvEffWrap">
-                <label>Pindah mulai tanggal</label>
-                <input type="date" id="mvEff" onchange="mvChanged('eff')">
-                <small>Malam sebelum tanggal ini tetap dihitung harga kamar lama.</small>
+            <div class="mv-sec mv-eff" id="mvEffWrap">
+                <div class="mv-lbl">Pindah mulai tanggal</div>
+                <input type="date" id="mvEff" class="mv-in" onchange="mvChanged('eff')">
+                <div class="mv-hint">Malam sebelum tanggal ini tetap dihitung seperti tagihan lama.</div>
             </div>
-            <div class="mv-price">
-                <div class="mv-price-top"><label>Harga per malam</label><span class="mv-kind same" id="mvKind">-</span></div>
-                <div class="mv-price-in"><span>Rp</span><input type="number" id="mvPrice" min="0" step="1000" oninput="mvChanged('price')"></div>
-                <small id="mvPriceHint"></small>
+            <div class="mv-sec mv-price">
+                <div class="mv-price-top"><div class="mv-lbl">Harga per malam</div><span class="mv-kind same" id="mvKind">-</span></div>
+                <div class="mv-price-in"><span>Rp</span><input type="number" id="mvPrice" class="mv-in" min="0" step="1000" oninput="mvChanged('price')"></div>
+                <div class="mv-hint" id="mvPriceHint"></div>
                 <button type="button" class="mv-link" id="mvPriceReset" onclick="mvResetPrice()" style="display:none;">Pakai harga otomatis</button>
             </div>
+            <div class="mv-ota" id="mvOta" style="display:none;"></div>
             <div class="mv-err" id="mvErr" style="display:none;"></div>
             <div class="mv-sum" id="mvSummary" style="display:none;"></div>
         </div>
         <div class="mv-foot">
-            <button type="button" class="mv-btn" onclick="closeMoveModal()">Batal</button>
+            <button type="button" class="mv-btn mv-btn-ghost" onclick="closeMoveModal()">Batal</button>
             <button type="button" class="mv-btn mv-btn-primary" id="mvSave" onclick="mvSubmit()" disabled>Simpan</button>
         </div>
     </div>
 </div>
+
+<!-- EXTEND STAY MODAL -->
+<div id="extendModal" class="mv-overlay" onclick="if(event.target===this)closeExtendModal()">
+    <div class="mv-modal">
+        <div class="mv-head mv-head-green">
+            <div class="mv-head-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg></div>
+            <div class="mv-head-t"><div class="mv-title">Extend Stay</div><div class="mv-sub" id="extendGuestName">-</div></div>
+            <button type="button" class="mv-x" onclick="closeExtendModal()" aria-label="Tutup">&times;</button>
+        </div>
+        <input type="hidden" id="extendBookingId">
+        <div class="mv-body">
+            <div class="mv-sec mv-2col">
+                <div><div class="mv-lbl">Check-out sekarang</div><div class="mv-static" id="extendCurrentCO">-</div></div>
+                <div><div class="mv-lbl">Check-out baru</div><div class="mv-static mv-static-hi" id="extendNewCO">-</div></div>
+            </div>
+            <div class="mv-sec">
+                <div class="mv-lbl">Tambah malam</div>
+                <div class="mv-step">
+                    <button type="button" onclick="adjustExtendNights(-1)">−</button>
+                    <input type="number" id="extendNights" class="mv-in" value="1" min="1" max="30">
+                    <button type="button" onclick="adjustExtendNights(1)">+</button>
+                </div>
+            </div>
+            <div class="mv-sec mv-price">
+                <div class="mv-lbl">Harga per malam tambahan</div>
+                <div class="mv-price-in"><span>Rp</span><input type="number" id="extendPrice" class="mv-in" min="0" step="1000" oninput="extPriceEdited=true;extPreview()"></div>
+                <div class="mv-hint" id="extendPriceHint"></div>
+            </div>
+            <div class="mv-ota" id="extendOta" style="display:none;"></div>
+            <div class="mv-err" id="extendErr" style="display:none;"></div>
+            <div class="mv-sum" id="extendSummary" style="display:none;"></div>
+        </div>
+        <div class="mv-foot">
+            <button type="button" class="mv-btn mv-btn-ghost" onclick="closeExtendModal()">Batal</button>
+            <button type="button" class="mv-btn mv-btn-primary mv-btn-green" id="extendSave" onclick="submitExtendStay()">Extend Stay</button>
+        </div>
+    </div>
+</div>
 <style>
+    /* Popup Pindah Kamar & Extend — selector ber-ID agar tidak tertimpa aturan teks global */
     .mv-overlay { position: fixed; inset: 0; z-index: 100000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .55); backdrop-filter: blur(3px); }
     .mv-overlay.active { display: flex; }
-    .mv-modal { width: min(480px, 100%); max-height: calc(100vh - 32px); overflow: auto; border-radius: 18px; background: #fff; box-shadow: 0 30px 70px rgba(0, 0, 0, .35); animation: mvIn .18s ease-out; }
+    #moveRoomModal .mv-modal, #extendModal .mv-modal { width: min(460px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 30px 70px rgba(0, 0, 0, .35); animation: mvIn .18s ease-out; font-family: inherit; }
     @keyframes mvIn { from { transform: translateY(8px) scale(.98); opacity: 0; } }
-    .mv-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; }
-    .mv-head-ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .3); }
-    .mv-head-ic svg { width: 18px; height: 18px; }
-    .mv-head-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-    .mv-head-t strong { font-size: 1rem; color: #fff; }
-    .mv-head-t span { font-size: .74rem; color: rgba(255, 255, 255, .85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mv-x { width: 30px; height: 30px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .14); color: #fff; font-size: 1.2rem; cursor: pointer; }
-    .mv-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-    .mv-body label { display: block; font-size: .64rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-    .mv-body input, .mv-body select { width: 100%; height: 38px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; font-size: .86rem; font-weight: 600; color: #0f172a; box-sizing: border-box; }
-    .mv-body input:focus, .mv-body select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); background: #fff; }
-    .mv-body input:disabled { opacity: .6; }
-    .mv-rooms { display: grid; grid-template-columns: 1fr auto 1.4fr; gap: 8px; align-items: end; }
-    #mvFrom { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe; }
-    #mvFrom b { font-size: .95rem; color: #1e3a8a; }
-    #mvFrom span { font-size: .72rem; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mv-arrow { height: 38px; display: grid; place-items: center; color: #94a3b8; font-size: 1.1rem; }
-    .mv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .mv-eff { padding: 10px 12px; border-radius: 12px; background: #fffbeb; border: 1px solid #fde68a; }
-    .mv-eff small, .mv-price small { display: block; margin-top: 4px; font-size: .7rem; color: #64748b; }
-    .mv-price { padding: 10px 12px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; }
-    .mv-price-top { display: flex; align-items: center; justify-content: space-between; }
-    .mv-price-in { display: flex; align-items: center; gap: 6px; }
-    .mv-price-in span { font-weight: 800; color: #64748b; font-size: .86rem; }
-    .mv-price-in input { font-size: 1.05rem; font-weight: 800; background: #fff; }
-    .mv-kind { padding: 3px 10px; border-radius: 999px; font-size: .64rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-    .mv-kind.up { background: #dcfce7; color: #166534; }
-    .mv-kind.down { background: #fef3c7; color: #92400e; }
-    .mv-kind.same { background: #dbeafe; color: #1e40af; }
-    .mv-link { margin-top: 4px; padding: 0; border: 0; background: none; color: #2563eb; font-size: .72rem; font-weight: 700; cursor: pointer; }
-    .mv-err { padding: 9px 12px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: .78rem; font-weight: 600; }
-    .mv-sum { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-    .mv-sum > div { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; font-size: .8rem; border-bottom: 1px solid #f1f5f9; }
-    .mv-sum > div:last-child { border-bottom: 0; }
-    .mv-sum span { color: #64748b; }
-    .mv-sum b { color: #0f172a; text-align: right; }
-    .mv-sum .tot { background: #eff6ff; }
-    .mv-sum .tot b { color: #1e3a8a; font-size: .92rem; }
-    .mv-sum em { font-style: normal; font-size: .72rem; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
-    .mv-sum em.plus { background: #fee2e2; color: #b91c1c; }
-    .mv-sum em.minus { background: #dcfce7; color: #166534; }
-    .mv-sum .neg { color: #059669; }
-    .mv-sum .due { color: #dc2626; }
-    .mv-sum .paid { color: #059669; }
-    .mv-foot { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #f1f5f9; }
-    .mv-btn { flex: 1; height: 40px; border-radius: 10px; border: 1px solid #e2e8f0; background: #f1f5f9; color: #334155; font-weight: 700; font-size: .86rem; cursor: pointer; }
-    .mv-btn-primary { border: 0; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; }
-    .mv-btn:disabled { opacity: .5; cursor: not-allowed; }
+    #moveRoomModal .mv-head, #extendModal .mv-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: linear-gradient(135deg, #1e3a8a, #2563eb); flex-shrink: 0; }
+    #extendModal .mv-head-green { background: linear-gradient(135deg, #065f46, #059669); }
+    #moveRoomModal .mv-head-ic, #extendModal .mv-head-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); color: #fff; flex-shrink: 0; }
+    #moveRoomModal .mv-head-ic svg, #extendModal .mv-head-ic svg { width: 19px; height: 19px; }
+    #moveRoomModal .mv-head-t, #extendModal .mv-head-t { flex: 1; min-width: 0; }
+    body #moveRoomModal .mv-title, body #extendModal .mv-title { font-size: 1.02rem !important; font-weight: 800 !important; color: #fff !important; -webkit-text-fill-color: #fff !important; line-height: 1.25; }
+    body #moveRoomModal .mv-sub, body #extendModal .mv-sub { margin-top: 2px; font-size: .8rem !important; font-weight: 600 !important; color: rgba(255, 255, 255, .92) !important; -webkit-text-fill-color: rgba(255, 255, 255, .92) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #moveRoomModal .mv-x, #extendModal .mv-x { width: 32px; height: 32px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, .18); color: #fff !important; font-size: 1.3rem; line-height: 1; cursor: pointer; flex-shrink: 0; }
+    #moveRoomModal .mv-x:hover, #extendModal .mv-x:hover { background: rgba(255, 255, 255, .3); }
+    #moveRoomModal .mv-body, #extendModal .mv-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+    body #moveRoomModal .mv-lbl, body #extendModal .mv-lbl { margin-bottom: 5px; font-size: .68rem !important; font-weight: 800 !important; letter-spacing: .06em; text-transform: uppercase; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+    #moveRoomModal .mv-2col, #extendModal .mv-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    body #moveRoomModal .mv-in, body #extendModal .mv-in { width: 100%; height: 40px; padding: 0 12px; box-sizing: border-box; border: 1px solid #cbd5e1 !important; border-radius: 10px !important; background: #fff !important; font-size: .9rem !important; font-weight: 700 !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; font-family: inherit; }
+    body #moveRoomModal .mv-in:focus, body #extendModal .mv-in:focus { outline: none; border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+    body #moveRoomModal .mv-in:disabled { background: #f1f5f9 !important; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+    #moveRoomModal .mv-rooms { display: grid; grid-template-columns: 1fr 26px 1.25fr; gap: 8px; align-items: center; }
+    #moveRoomModal .mv-from { min-height: 40px; display: flex; flex-direction: column; justify-content: center; padding: 4px 12px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe; box-sizing: border-box; }
+    body #moveRoomModal .mv-from b { font-size: 1rem !important; font-weight: 800 !important; color: #1e3a8a !important; -webkit-text-fill-color: #1e3a8a !important; line-height: 1.2; }
+    body #moveRoomModal .mv-from span { font-size: .72rem !important; font-weight: 600 !important; color: #334155 !important; -webkit-text-fill-color: #334155 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #moveRoomModal .mv-arrow { color: #64748b; display: grid; place-items: center; }
+    #moveRoomModal .mv-arrow svg { width: 18px; height: 18px; }
+    #moveRoomModal .mv-eff { padding: 10px 12px; border-radius: 12px; background: #fffbeb; border: 1px solid #fde68a; }
+    body #moveRoomModal .mv-hint, body #extendModal .mv-hint { margin-top: 5px; font-size: .74rem !important; font-weight: 500 !important; color: #475569 !important; -webkit-text-fill-color: #475569 !important; line-height: 1.45; }
+    #moveRoomModal .mv-price, #extendModal .mv-price { padding: 12px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; }
+    #moveRoomModal .mv-price-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    #moveRoomModal .mv-price-top .mv-lbl { margin: 0; }
+    #moveRoomModal .mv-price-in, #extendModal .mv-price-in { display: flex; align-items: center; gap: 8px; }
+    body #moveRoomModal .mv-price-in span, body #extendModal .mv-price-in span { font-size: .9rem !important; font-weight: 800 !important; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+    body #moveRoomModal .mv-price-in .mv-in, body #extendModal .mv-price-in .mv-in { font-size: 1.1rem !important; font-weight: 800 !important; }
+    body #moveRoomModal .mv-kind { padding: 3px 10px; border-radius: 999px; font-size: .66rem !important; font-weight: 800 !important; letter-spacing: .04em; text-transform: uppercase; }
+    body #moveRoomModal .mv-kind.up { background: #dcfce7; color: #166534 !important; -webkit-text-fill-color: #166534 !important; }
+    body #moveRoomModal .mv-kind.down { background: #fef3c7; color: #92400e !important; -webkit-text-fill-color: #92400e !important; }
+    body #moveRoomModal .mv-kind.same { background: #dbeafe; color: #1e40af !important; -webkit-text-fill-color: #1e40af !important; }
+    body #moveRoomModal .mv-link { margin-top: 6px; padding: 0; border: 0; background: none; font-size: .76rem !important; font-weight: 700 !important; color: #2563eb !important; cursor: pointer; }
+    body #moveRoomModal .mv-ota, body #extendModal .mv-ota { display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #f5f3ff; border: 1px solid #ddd6fe; font-size: .78rem !important; color: #3b0764 !important; -webkit-text-fill-color: #3b0764 !important; line-height: 1.5; }
+    body #moveRoomModal .mv-ota b, body #extendModal .mv-ota b { color: #5b21b6 !important; -webkit-text-fill-color: #5b21b6 !important; }
+    #moveRoomModal .mv-ota svg, #extendModal .mv-ota svg { width: 18px; height: 18px; flex-shrink: 0; color: #7c3aed; margin-top: 1px; }
+    body #moveRoomModal .mv-err, body #extendModal .mv-err { padding: 10px 12px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; font-size: .8rem !important; font-weight: 700 !important; color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
+    #moveRoomModal .mv-sum, #extendModal .mv-sum { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+    #moveRoomModal .mv-sum > div, #extendModal .mv-sum > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
+    #moveRoomModal .mv-sum > div:last-child, #extendModal .mv-sum > div:last-child { border-bottom: 0; }
+    body #moveRoomModal .mv-sum span, body #extendModal .mv-sum span { font-size: .8rem !important; font-weight: 600 !important; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+    body #moveRoomModal .mv-sum b, body #extendModal .mv-sum b { font-size: .84rem !important; font-weight: 800 !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; text-align: right; }
+    #moveRoomModal .mv-sum .tot, #extendModal .mv-sum .tot { background: #eff6ff; }
+    body #moveRoomModal .mv-sum .tot span, body #extendModal .mv-sum .tot span { color: #1e3a8a !important; -webkit-text-fill-color: #1e3a8a !important; font-weight: 800 !important; }
+    body #moveRoomModal .mv-sum .tot b, body #extendModal .mv-sum .tot b { font-size: .98rem !important; color: #1e3a8a !important; -webkit-text-fill-color: #1e3a8a !important; }
+    #moveRoomModal .mv-sum .sub, #extendModal .mv-sum .sub { background: #faf5ff; }
+    body #moveRoomModal .mv-sum em, body #extendModal .mv-sum em { margin-left: 6px; padding: 1px 7px; border-radius: 6px; font-style: normal; font-size: .72rem !important; font-weight: 800 !important; }
+    body #moveRoomModal .mv-sum em.plus, body #extendModal .mv-sum em.plus { background: #fee2e2; color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
+    body #moveRoomModal .mv-sum em.minus { background: #dcfce7; color: #166534 !important; -webkit-text-fill-color: #166534 !important; }
+    body #moveRoomModal .mv-sum .neg { color: #059669 !important; -webkit-text-fill-color: #059669 !important; }
+    body #moveRoomModal .mv-sum .due, body #extendModal .mv-sum .due { color: #dc2626 !important; -webkit-text-fill-color: #dc2626 !important; }
+    body #moveRoomModal .mv-sum .paid, body #extendModal .mv-sum .paid { color: #059669 !important; -webkit-text-fill-color: #059669 !important; }
+    body #moveRoomModal .mv-sum .vio, body #extendModal .mv-sum .vio { color: #6d28d9 !important; -webkit-text-fill-color: #6d28d9 !important; }
+    #extendModal .mv-static { height: 40px; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: #f1f5f9; border: 1px solid #e2e8f0; font-size: .9rem; font-weight: 800; color: #0f172a; box-sizing: border-box; }
+    #extendModal .mv-static-hi { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+    #extendModal .mv-step { display: grid; grid-template-columns: 40px 1fr 40px; gap: 8px; }
+    #extendModal .mv-step button { height: 40px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font-size: 1.2rem; font-weight: 800; color: #0f172a; cursor: pointer; }
+    #extendModal .mv-step .mv-in { text-align: center; }
+    #moveRoomModal .mv-foot, #extendModal .mv-foot { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #fff; flex-shrink: 0; }
+    body #moveRoomModal .mv-btn, body #extendModal .mv-btn, body .mv-notice .mv-btn { height: 42px; border-radius: 11px; font-size: .9rem !important; font-weight: 800 !important; cursor: pointer; font-family: inherit; }
+    body #moveRoomModal .mv-btn-ghost, body #extendModal .mv-btn-ghost { border: 1px solid #cbd5e1; background: #fff; color: #334155 !important; -webkit-text-fill-color: #334155 !important; }
+    body #moveRoomModal .mv-btn-primary, body #extendModal .mv-btn-primary, body .mv-notice .mv-btn-primary { border: 0; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: 0 8px 18px -8px rgba(37, 99, 235, .7); }
+    body #extendModal .mv-btn-green { background: linear-gradient(135deg, #065f46, #059669); box-shadow: 0 8px 18px -8px rgba(5, 150, 105, .7); }
+    body #moveRoomModal .mv-btn:disabled, body #extendModal .mv-btn:disabled { background: #94a3b8; box-shadow: none; cursor: not-allowed; }
     .mv-notice { position: fixed; inset: 0; z-index: 100001; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
     .mv-notice.open { display: flex; }
     .mv-notice-box { width: min(340px, 100%); padding: 22px 20px 16px; border-radius: 16px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); animation: mvIn .18s ease-out; }
@@ -9760,45 +9831,32 @@ include '../../includes/header.php';
     .mv-notice-ic.ok { background: #dcfce7; color: #16a34a; }
     .mv-notice-ic.warn { background: #fef3c7; color: #b45309; }
     .mv-notice-ic.err { background: #fee2e2; color: #dc2626; }
-    .mv-notice-msg { font-size: .86rem; font-weight: 600; color: #0f172a; line-height: 1.5; margin-bottom: 14px; }
+    body .mv-notice-msg { font-size: .88rem !important; font-weight: 700 !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; line-height: 1.5; margin-bottom: 14px; }
     .mv-notice-box .mv-btn { width: 100%; }
-    [data-theme="dark"] .mv-modal, [data-theme="dark"] .mv-notice-box { background: #111a2e; }
-    [data-theme="dark"] .mv-body input, [data-theme="dark"] .mv-body select { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .12); color: #e2e8f0; }
-    [data-theme="dark"] .mv-price, [data-theme="dark"] .mv-sum { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .1); }
-    [data-theme="dark"] .mv-sum > div { border-color: rgba(255, 255, 255, .06); }
-    [data-theme="dark"] .mv-sum b, [data-theme="dark"] .mv-notice-msg { color: #e2e8f0; }
-    [data-theme="dark"] .mv-sum .tot { background: rgba(37, 99, 235, .12); }
-    [data-theme="dark"] #mvFrom { background: rgba(37, 99, 235, .12); border-color: rgba(37, 99, 235, .35); }
-    [data-theme="dark"] #mvFrom b { color: #93c5fd; }
-    [data-theme="dark"] .mv-eff { background: rgba(245, 158, 11, .08); border-color: rgba(245, 158, 11, .3); }
-    [data-theme="dark"] .mv-btn:not(.mv-btn-primary) { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); color: #cbd5e1; }
-    @media (max-width: 480px) { .mv-rooms { grid-template-columns: 1fr; } .mv-arrow { display: none; } }
+    /* Mode gelap */
+    [data-theme="dark"] #moveRoomModal .mv-modal, [data-theme="dark"] #extendModal .mv-modal, [data-theme="dark"] .mv-notice-box,
+    [data-theme="dark"] #moveRoomModal .mv-foot, [data-theme="dark"] #extendModal .mv-foot { background: #111a2e; border-color: rgba(255, 255, 255, .1); }
+    body[data-theme="dark"] #moveRoomModal .mv-in, body[data-theme="dark"] #extendModal .mv-in { background: rgba(255, 255, 255, .06) !important; border-color: rgba(255, 255, 255, .16) !important; color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important; color-scheme: dark; }
+    body[data-theme="dark"] #moveRoomModal .mv-lbl, body[data-theme="dark"] #extendModal .mv-lbl, body[data-theme="dark"] #moveRoomModal .mv-hint, body[data-theme="dark"] #extendModal .mv-hint,
+    body[data-theme="dark"] #moveRoomModal .mv-sum span, body[data-theme="dark"] #extendModal .mv-sum span, body[data-theme="dark"] #moveRoomModal .mv-price-in span, body[data-theme="dark"] #extendModal .mv-price-in span { color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1 !important; }
+    body[data-theme="dark"] #moveRoomModal .mv-sum b, body[data-theme="dark"] #extendModal .mv-sum b, body[data-theme="dark"] .mv-notice-msg { color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important; }
+    [data-theme="dark"] #moveRoomModal .mv-price, [data-theme="dark"] #extendModal .mv-price, [data-theme="dark"] #moveRoomModal .mv-sum, [data-theme="dark"] #extendModal .mv-sum { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .1); }
+    [data-theme="dark"] #moveRoomModal .mv-sum > div, [data-theme="dark"] #extendModal .mv-sum > div { border-color: rgba(255, 255, 255, .06); }
+    [data-theme="dark"] #moveRoomModal .mv-sum .tot, [data-theme="dark"] #extendModal .mv-sum .tot { background: rgba(37, 99, 235, .14); }
+    body[data-theme="dark"] #moveRoomModal .mv-sum .tot span, body[data-theme="dark"] #moveRoomModal .mv-sum .tot b, body[data-theme="dark"] #extendModal .mv-sum .tot span, body[data-theme="dark"] #extendModal .mv-sum .tot b { color: #bfdbfe !important; -webkit-text-fill-color: #bfdbfe !important; }
+    [data-theme="dark"] #moveRoomModal .mv-sum .sub, [data-theme="dark"] #extendModal .mv-sum .sub { background: rgba(124, 58, 237, .1); }
+    [data-theme="dark"] #moveRoomModal .mv-from { background: rgba(37, 99, 235, .14); border-color: rgba(37, 99, 235, .4); }
+    body[data-theme="dark"] #moveRoomModal .mv-from b { color: #bfdbfe !important; -webkit-text-fill-color: #bfdbfe !important; }
+    body[data-theme="dark"] #moveRoomModal .mv-from span { color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1 !important; }
+    [data-theme="dark"] #moveRoomModal .mv-eff { background: rgba(245, 158, 11, .08); border-color: rgba(245, 158, 11, .3); }
+    body[data-theme="dark"] #moveRoomModal .mv-ota, body[data-theme="dark"] #extendModal .mv-ota { background: rgba(124, 58, 237, .1); border-color: rgba(124, 58, 237, .35); color: #e9d5ff !important; -webkit-text-fill-color: #e9d5ff !important; }
+    body[data-theme="dark"] #moveRoomModal .mv-ota b, body[data-theme="dark"] #extendModal .mv-ota b { color: #ddd6fe !important; -webkit-text-fill-color: #ddd6fe !important; }
+    body[data-theme="dark"] #moveRoomModal .mv-btn-ghost, body[data-theme="dark"] #extendModal .mv-btn-ghost { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .16); color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+    [data-theme="dark"] #extendModal .mv-static { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .12); color: #f1f5f9; }
+    [data-theme="dark"] #extendModal .mv-static-hi { background: rgba(16, 185, 129, .12); border-color: rgba(16, 185, 129, .4); color: #a7f3d0; }
+    [data-theme="dark"] #extendModal .mv-step button { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .16); color: #f1f5f9; }
+    @media (max-width: 480px) { #moveRoomModal .mv-rooms { grid-template-columns: 1fr; } #moveRoomModal .mv-arrow { display: none; } }
 </style>
-<!-- EXTEND STAY MODAL -->
-<div id="extendModal" class="extend-modal-overlay" onclick="if(event.target===this)closeExtendModal()">
-    <div class="extend-modal">
-        <h3>➕ Extend Stay</h3>
-        <input type="hidden" id="extendBookingId">
-        <div style="background:rgba(16,185,129,0.08); border-radius:8px; padding:0.75rem; margin-bottom:0.75rem; font-size:0.8rem;">
-            <div><strong>Guest:</strong> <span id="extendGuestName">-</span></div>
-            <div><strong>Current Check-out:</strong> <span id="extendCurrentCO">-</span></div>
-        </div>
-        <div class="form-group">
-            <label>Tambah Malam</label>
-            <div style="display:flex; gap:0.5rem; align-items:center;">
-                <button type="button" onclick="adjustExtendNights(-1)" style="width:32px;height:32px;border:1px solid var(--border-color);border-radius:6px;background:transparent;cursor:pointer;font-size:1rem;font-weight:700;color:var(--text-primary);">−</button>
-                <input type="number" id="extendNights" value="1" min="1" max="30" style="width:60px;text-align:center;">
-                <button type="button" onclick="adjustExtendNights(1)" style="width:32px;height:32px;border:1px solid var(--border-color);border-radius:6px;background:transparent;cursor:pointer;font-size:1rem;font-weight:700;color:var(--text-primary);">+</button>
-                <span style="font-size:0.8rem;color:var(--text-secondary);margin-left:0.5rem;">New CO: <strong id="extendNewCO">-</strong></span>
-            </div>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-cancel" onclick="closeExtendModal()">Batal</button>
-            <button class="btn-confirm" onclick="submitExtendStay()">Extend Stay</button>
-        </div>
-    </div>
-</div>
-
 <!-- EDIT RESERVATION MODAL (desain sama dengan New Reservation) -->
 <div id="editResModal" class="edit-res-overlay" onclick="if(event.target===this)closeEditResModal()">
     <div class="modal-content modal-compact modal-compact-booking">
@@ -10186,7 +10244,7 @@ include '../../includes/header.php';
         const inHouse = o.status === 'checked_in';
         const cur = MV_ROOMS.find(r => String(r.id) === String(o.roomId));
         document.getElementById('mvSub').textContent = (o.guest || '-') + (o.code ? ' · ' + o.code : '');
-        document.getElementById('mvFrom').innerHTML = '<b>' + (cur ? cur.no : '-') + '</b><span>' + (cur ? cur.type : '') + '</span>';
+        document.getElementById('mvFrom').innerHTML = '<b>' + (cur ? cur.no : '-') + '</b><span>' + (cur ? cur.type + ' · ' + mvRp(cur.price) : '') + '</span>';
         // Pilihan kamar dikelompokkan per tipe beserta harga asli
         const sel = document.getElementById('mvRoom');
         const groups = {};
@@ -10269,9 +10327,24 @@ include '../../includes/header.php';
                 badge.textContent = kind[0];
                 badge.className = 'mv-kind ' + kind[1];
                 if (!ctx.priceEdited) document.getElementById('mvPrice').value = Math.round(d.new_price);
-                document.getElementById('mvPriceHint').innerHTML = (d.change_kind === 'upgrade' || d.change_kind === 'downgrade') ?
-                    'Harga asli ' + d.new_room.type + ' ' + mvRp(d.new_room.base_price) + ' · sebelumnya ' + mvRp(d.old_price) :
-                    'Harga booking tetap ' + mvRp(d.old_price);
+                const isUpDown = d.change_kind === 'upgrade' || d.change_kind === 'downgrade';
+                document.getElementById('mvPriceHint').innerHTML = d.is_ota ?
+                    (d.change_kind === 'upgrade' ? 'Harga OTA ' + mvRp(d.old_price) + ' + selisih ' + mvRp(d.surcharge) + ' per malam' :
+                        (d.change_kind === 'downgrade' ? 'Booking OTA: harga tetap ' + mvRp(d.old_price) + ' (tidak ada pengembalian)' : 'Harga OTA tetap ' + mvRp(d.old_price))) :
+                    (isUpDown ? 'Harga asli ' + d.new_room.type + ' ' + mvRp(d.new_room.base_price) + ' · sebelumnya ' + mvRp(d.old_price) : 'Harga booking tetap ' + mvRp(d.old_price));
+                // Info booking OTA: selisih upgrade dihitung setelah fee dan dibayar tamu langsung ke hotel
+                const otaBox = document.getElementById('mvOta');
+                if (d.is_ota) {
+                    const src = (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[d.source]) || d.source;
+                    const fp = Math.round(d.fee_percent * 100) / 100;
+                    otaBox.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div>' +
+                        'Booking via <b>' + escHtml(src) + '</b> · fee ' + fp + '%' +
+                        (d.change_kind === 'upgrade' ? '<br>Selisih = (' + mvRp(d.new_room.base_price) + ' − ' + mvRp(d.old_room.base_price) + ') × ' + (100 - fp) + '% = <b>' + mvRp(d.surcharge) + '</b>/malam, dibayar tamu langsung ke hotel (tanpa fee).' : '') +
+                        '</div>';
+                    otaBox.style.display = '';
+                } else {
+                    otaBox.style.display = 'none';
+                }
                 document.getElementById('mvPriceReset').style.display = ctx.priceEdited && Math.round(d.new_price) !== Math.round(d.auto_price) ? '' : 'none';
                 const nightsRow = d.nights_before > 0 ?
                     d.nights_before + ' mlm sebelumnya ' + mvRp(d.before_total) + ' + ' + d.nights_after + ' mlm × ' + mvRp(d.new_price) :
@@ -10283,6 +10356,7 @@ include '../../includes/header.php';
                     (d.discount > 0 ? '<div><span>Diskon (tetap)</span><b class="neg">− ' + mvRp(d.discount) + '</b></div>' : '') +
                     (d.extras > 0 ? '<div><span>Extras</span><b>' + mvRp(d.extras) + '</b></div>' : '') +
                     '<div class="tot"><span>Total baru</span><b>' + mvRp(d.final_price) + (Math.round(diff) !== 0 ? ' <em class="' + (diff > 0 ? 'plus' : 'minus') + '">' + (diff > 0 ? '+' : '−') + mvRp(Math.abs(diff)) + '</em>' : '') + '</b></div>' +
+                    (d.is_ota && d.direct_amount > 0 ? '<div class="sub"><span>Via OTA (dipotong fee)</span><b>' + mvRp(d.ota_amount) + '</b></div><div class="sub"><span>Bayar langsung ke hotel</span><b class="vio">' + mvRp(d.direct_amount) + '</b></div>' : '') +
                     '<div><span>Sudah dibayar</span><b>' + mvRp(d.paid) + '</b></div>' +
                     '<div><span>Sisa tagihan</span><b class="' + (d.balance > 0 ? 'due' : 'paid') + '">' + (d.balance > 0 ? mvRp(d.balance) : 'Lunas') + '</b></div>';
                 document.getElementById('mvSummary').style.display = '';
@@ -10322,17 +10396,17 @@ include '../../includes/header.php';
     };
     // ===== EXTEND STAY FUNCTIONS =====
     let extendCurrentCO = '';
+    let extPriceEdited = false;
+    let extTimer = null;
 
-    window.openExtendModal = function(bookingId, guestName, checkoutDate, nights) {
+    window.openExtendModal = function(bookingId, guestName, checkoutDate) {
         document.getElementById('extendBookingId').value = bookingId;
-        document.getElementById('extendGuestName').textContent = guestName;
-        document.getElementById('extendCurrentCO').textContent = new Date(checkoutDate).toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        });
+        document.getElementById('extendGuestName').textContent = guestName || '-';
+        extendCurrentCO = String(checkoutDate).slice(0, 10);
+        document.getElementById('extendCurrentCO').textContent = mvDate(extendCurrentCO);
         document.getElementById('extendNights').value = 1;
-        extendCurrentCO = checkoutDate;
+        document.getElementById('extendPrice').value = '';
+        extPriceEdited = false;
         updateExtendPreview();
         document.getElementById('extendModal').classList.add('active');
     };
@@ -10343,80 +10417,98 @@ include '../../includes/header.php';
 
     window.adjustExtendNights = function(delta) {
         const input = document.getElementById('extendNights');
-        let val = parseInt(input.value) + delta;
-        if (val < 1) val = 1;
-        if (val > 30) val = 30;
-        input.value = val;
+        input.value = Math.min(30, Math.max(1, (parseInt(input.value, 10) || 1) + delta));
         updateExtendPreview();
     };
 
-    document.addEventListener('change', function(e) {
+    document.addEventListener('input', function(e) {
         if (e.target.id === 'extendNights') updateExtendPreview();
     });
 
     function updateExtendPreview() {
-        const nights = parseInt(document.getElementById('extendNights').value) || 1;
-        const co = new Date(extendCurrentCO);
-        co.setDate(co.getDate() + nights);
-        document.getElementById('extendNewCO').textContent = co.toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        });
+        const nights = Math.max(1, parseInt(document.getElementById('extendNights').value, 10) || 1);
+        document.getElementById('extendNewCO').textContent = mvDate(mvAddDays(extendCurrentCO, nights));
+        extPreview();
     }
 
-    window.submitExtendStay = function() {
-        const bookingId = document.getElementById('extendBookingId').value;
-        const nights = document.getElementById('extendNights').value;
+    function extPayload(preview) {
+        const fd = new FormData();
+        fd.append('booking_id', document.getElementById('extendBookingId').value);
+        fd.append('extra_nights', Math.max(1, parseInt(document.getElementById('extendNights').value, 10) || 1));
+        if (extPriceEdited) fd.append('night_price', document.getElementById('extendPrice').value || '0');
+        if (preview) fd.append('preview', '1');
+        return fd;
+    }
 
-        if (!bookingId || nights < 1) return;
-
-        const formData = new FormData();
-        formData.append('booking_id', bookingId);
-        formData.append('extra_nights', nights);
-
-        fetch('../../api/extend-stay.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(r => {
-                if (!r.ok) {
-                    return r.text().then(text => {
-                        throw {
-                            status: r.status,
-                            statusText: r.statusText,
-                            body: text
-                        };
-                    });
-                }
-                return r.json().catch(err => {
-                    throw {
-                        parseError: true,
-                        message: 'Response bukan JSON'
-                    };
+    window.extPreview = function() {
+        clearTimeout(extTimer);
+        extTimer = setTimeout(function() {
+            const save = document.getElementById('extendSave');
+            save.disabled = true;
+            fetch('../../api/extend-stay.php', { method: 'POST', body: extPayload(true) })
+                .then(r => r.json())
+                .then(res => {
+                    const err = document.getElementById('extendErr');
+                    if (!res.success) {
+                        err.textContent = res.message || 'Tidak bisa diperpanjang';
+                        err.style.display = '';
+                        document.getElementById('extendSummary').style.display = 'none';
+                        return;
+                    }
+                    err.style.display = 'none';
+                    const d = res.data;
+                    if (!extPriceEdited) document.getElementById('extendPrice').value = Math.round(d.night_price);
+                    const fp = Math.round(d.fee_percent * 100) / 100;
+                    document.getElementById('extendPriceHint').textContent = d.is_ota ?
+                        'Harga asli kamar − fee ' + fp + '% = ' + mvRp(d.auto_night) + ' per malam' :
+                        'Harga per malam booking ' + mvRp(d.room_price);
+                    const ota = document.getElementById('extendOta');
+                    if (d.is_ota) {
+                        const src = (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[d.source]) || d.source;
+                        ota.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div>Booking via <b>' + escHtml(src) + '</b>: malam tambahan dibayar tamu <b>langsung ke hotel</b> (Cash/Transfer/QRIS) dan tidak dipotong fee OTA.</div>';
+                        ota.style.display = '';
+                    } else {
+                        ota.style.display = 'none';
+                    }
+                    const nights = Math.max(1, parseInt(document.getElementById('extendNights').value, 10) || 1);
+                    document.getElementById('extendSummary').innerHTML =
+                        '<div><span>Tambahan</span><b>' + nights + ' mlm × ' + mvRp(d.night_price) + ' = ' + mvRp(d.additional_price) + '</b></div>' +
+                        '<div class="tot"><span>Total baru</span><b>' + mvRp(d.final_price) + '<em class="plus">+' + mvRp(d.final_price - d.old_final) + '</em></b></div>' +
+                        (d.is_ota ? '<div class="sub"><span>Bayar langsung ke hotel</span><b class="vio">' + mvRp(d.direct_amount) + '</b></div>' : '') +
+                        '<div><span>Sudah dibayar</span><b>' + mvRp(d.paid) + '</b></div>' +
+                        '<div><span>Sisa tagihan</span><b class="' + (d.balance > 0 ? 'due' : 'paid') + '">' + (d.balance > 0 ? mvRp(d.balance) : 'Lunas') + '</b></div>';
+                    document.getElementById('extendSummary').style.display = '';
+                    save.disabled = false;
+                })
+                .catch(() => {
+                    const err = document.getElementById('extendErr');
+                    err.textContent = 'Gagal menghubungi server';
+                    err.style.display = '';
                 });
-            })
+        }, 200);
+    };
+
+    window.submitExtendStay = function() {
+        const save = document.getElementById('extendSave');
+        save.disabled = true;
+        fetch('../../api/extend-stay.php', { method: 'POST', body: extPayload(false) })
+            .then(r => r.json())
             .then(data => {
                 if (data.success) {
                     closeExtendModal();
                     mvNotice(data.message + ' · tambahan ' + mvRp(data.data.additional_price), 'ok', () => saveScrollAndReload());
                 } else {
-                    mvNotice(data.message, 'err');
+                    save.disabled = false;
+                    const err = document.getElementById('extendErr');
+                    err.textContent = data.message || 'Gagal';
+                    err.style.display = '';
                 }
             })
-            .catch(err => {
-                if (err.status) {
-                    console.error('API Error:', err);
-                    alert('❌ Error ' + err.status + ':\n' + err.body.substring(0, 300));
-                } else if (err.parseError) {
-                    console.error('Parse Error:', err);
-                    alert('❌ Respons server tidak valid');
-                } else {
-                    alert('❌ Error: ' + err.message);
-                }
+            .catch(() => {
+                save.disabled = false;
+                mvNotice('Gagal menghubungi server', 'err');
             });
     };
-
     // ===== EDIT RESERVATION FUNCTIONS =====
     window.openEditReservationModal = function(bookingId) {
         // Fetch booking details

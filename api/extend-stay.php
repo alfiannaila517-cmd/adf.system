@@ -26,6 +26,7 @@ try {
     error_log("database.php loaded");
     
     require_once '../includes/auth.php';
+    require_once '../includes/BookingSourceHelper.php';
     error_log("auth.php loaded");
     
     error_reporting(0);
@@ -47,9 +48,12 @@ try {
     $db = Database::getInstance();
     error_log("Database instance obtained");
     $conn = $db->getConnection();
+    bs_ensure_direct_amount($conn);
 
     $bookingId = intval($_POST['booking_id'] ?? 0);
     $extraNights = intval($_POST['extra_nights'] ?? 0);
+    $manualNight = isset($_POST['night_price']) && $_POST['night_price'] !== '' ? (float)$_POST['night_price'] : null;
+    $isPreview = !empty($_POST['preview']);
 
     if (!$bookingId || $extraNights < 1) {
         throw new Exception('Booking ID and extra nights (min 1) are required');
@@ -98,11 +102,24 @@ try {
         // tabel room_blocks belum ada
     }
 
-    // Use room_price from booking
+    // Harga per malam tambahan:
+    //  - booking direct: harga per malam booking;
+    //  - booking OTA: malam tambahan dibayar tamu langsung ke hotel = harga asli tipe kamar − fee OTA.
+    $source = strtolower((string)($booking['booking_source'] ?? ''));
+    $isOta = bs_is_ota($conn, $source);
+    $feePct = $isOta ? bs_ota_fee_percent($conn, $source) : 0.0;
     $roomPrice = floatval($booking['room_price']);
+    $autoNight = $roomPrice;
+    if ($isOta) {
+        $bp = $conn->prepare("SELECT rt.base_price FROM rooms r JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = ?");
+        $bp->execute([$booking['room_id']]);
+        $base = (float)($bp->fetchColumn() ?: $roomPrice);
+        $autoNight = round($base * (1 - $feePct / 100), 2);
+    }
+    $nightPrice = ($manualNight !== null && $manualNight >= 0) ? $manualNight : $autoNight;
 
     $newTotalNights = $booking['total_nights'] + $extraNights;
-    $additionalPrice = $roomPrice * $extraNights;
+    $additionalPrice = $nightPrice * $extraNights;
     $newTotalPrice = floatval($booking['total_price']) + $additionalPrice;
     $discount = floatval($booking['discount'] ?? 0);
 
@@ -116,6 +133,19 @@ try {
         // tabel booking_extras belum ada
     }
     $finalPrice = max(0, $newTotalPrice - $discount) + $extrasTotal;
+    $oldDirect = (float)($booking['direct_amount'] ?? 0);
+    $newDirect = $isOta ? round($oldDirect + $additionalPrice, 2) : $oldDirect;
+    $paid = (float)($booking['paid_amount'] ?? 0);
+
+    if ($isPreview) {
+        echo json_encode(['success' => true, 'preview' => true, 'data' => [
+            'new_checkout' => $newCheckoutStr, 'night_price' => $nightPrice, 'auto_night' => $autoNight,
+            'room_price' => $roomPrice, 'additional_price' => $additionalPrice, 'final_price' => $finalPrice,
+            'old_final' => (float)$booking['final_price'], 'paid' => $paid, 'balance' => max(0, $finalPrice - $paid),
+            'is_ota' => $isOta, 'source' => $source, 'fee_percent' => $feePct, 'direct_amount' => $newDirect,
+        ]]);
+        exit;
+    }
 
     // Update booking
     $stmt = $conn->prepare("
@@ -124,6 +154,7 @@ try {
             total_nights = ?,
             total_price = ?,
             final_price = ?,
+            direct_amount = ?,
             payment_status = CASE 
                 WHEN paid_amount >= ? THEN 'paid'
                 WHEN paid_amount > 0 THEN 'partial'
@@ -134,7 +165,7 @@ try {
     ");
     $stmt->execute([
         $newCheckoutStr, $newTotalNights, $newTotalPrice,
-        $finalPrice, $finalPrice, $bookingId
+        $finalPrice, $newDirect, $finalPrice, $bookingId
     ]);
 
     echo json_encode([

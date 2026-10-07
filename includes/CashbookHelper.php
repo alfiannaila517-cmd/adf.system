@@ -529,7 +529,10 @@ class CashbookHelper
             if ($isOtaCheckin) {
                 // OTA check-in: calculate NET amount (gross - OTA commission)
                 // final_price is GROSS (room_price * nights - discount), OTA fee not yet deducted
-                $grossAmount = (float)($paymentData['final_price'] ?: $paymentData['amount']);
+                // ota_gross = bagian yang dibayar lewat OTA (tanpa selisih upgrade/extend yang dibayar langsung)
+                $grossAmount = isset($paymentData['ota_gross']) && $paymentData['ota_gross'] > 0
+                    ? (float)$paymentData['ota_gross']
+                    : (float)($paymentData['final_price'] ?: $paymentData['amount']);
                 $otaCalc = $this->calculateOtaFee($grossAmount, $bookingSource);
                 $amountToRecord = $otaCalc['net'];
                 error_log("CashbookHelper: OTA check-in - gross={$grossAmount}, fee={$otaCalc['fee_percent']}%, net={$amountToRecord}");

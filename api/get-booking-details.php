@@ -22,6 +22,7 @@ try {
     $conn = $db->getConnection();
     require_once __DIR__ . '/../includes/BookingSourceHelper.php';
     bs_ensure_schema($conn);
+    bs_ensure_direct_amount($conn);
 
     $bookingId = intval($_GET['id'] ?? 0);
 
@@ -60,7 +61,8 @@ try {
             r.room_number,
             rt.type_name as room_type,
             rt.base_price,
-            b.paid_amount
+            b.paid_amount,
+            COALESCE(b.direct_amount, 0) as direct_amount
         FROM bookings b
         LEFT JOIN guests g ON b.guest_id = g.id
         LEFT JOIN rooms r ON b.room_id = r.id

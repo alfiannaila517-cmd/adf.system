@@ -77,6 +77,21 @@ try {
         }
     }
     $methodIsOta = $paymentMethod === 'ota' || strpos($paymentMethod, 'ota_') === 0;
+    // Booking OTA dengan bagian bayar langsung (selisih upgrade / malam extend): bagian itu dibayar tamu ke
+    // hotel dengan cash/transfer/QRIS → dicatat sebagai pembayaran direct, tanpa potongan fee OTA.
+    $directOnOta = false;
+    if ($isOTA && !$methodIsOta) {
+        $directDue = 0.0;
+        try {
+            $directDue = (float)($db->fetchOne("SELECT direct_amount FROM bookings WHERE id = ?", [$bookingId])['direct_amount'] ?? 0);
+        } catch (\Throwable $e) {
+            // kolom direct_amount belum ada
+        }
+        if ($directDue > 0) {
+            $directOnOta = true;
+            $isOTA = false;
+        }
+    }
     if ($isOTA) {
         // Booking OTA dibayar oleh platform: metode selalu OTA sumbernya.
         $paymentMethod = 'ota_' . (preg_replace('/[^a-z0-9_]/', '', strtolower($bookingSource)) ?: 'ota');
@@ -258,7 +273,7 @@ try {
                 'guest_name'     => $bookingDetails['guest_name'] ?? 'Guest',
                 'booking_code'   => $bookingDetails['booking_code'] ?? '',
                 'room_number'    => $bookingDetails['room_number'] ?? '',
-                'booking_source' => $bookingDetails['booking_source'] ?? 'direct',
+                'booking_source' => $directOnOta ? 'direct' : ($bookingDetails['booking_source'] ?? 'direct'),
                 'final_price'    => $isGroupPayment ? $combinedFinalPrice : ($bookingDetails['final_price'] ?? 0),
                 'total_paid'     => $isGroupPayment ? $combinedTotalPaid : $totalPaid,
                 'is_new_reservation' => false,
