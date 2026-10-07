@@ -3821,6 +3821,22 @@ include '../../includes/header.php';
         panel.classList.add('active');
     }
 
+    // Print dari panel detail: invoice / registration card booking yang sedang dibuka
+    window.toggleSpPrint = function(ev) {
+        ev.stopPropagation();
+        document.getElementById('spPrint').classList.toggle('open');
+    };
+    document.addEventListener('click', function(ev) {
+        const el = document.getElementById('spPrint');
+        if (el && !el.contains(ev.target)) el.classList.remove('open');
+    });
+    window.spPrint = function(type) {
+        document.getElementById('spPrint').classList.remove('open');
+        if (!currentPaymentBooking || !currentPaymentBooking.id) return;
+        const id = encodeURIComponent(currentPaymentBooking.id);
+        window.open(type === 'invoice' ? 'invoice.php?booking_id=' + id : 'registration-card.php?booking_id=' + id + '&autoprint=1', '_blank');
+    };
+
     window.switchSPTab = function switchSPTab(tab) {
         document.querySelectorAll('.sp-tab').forEach(function(t) {
             t.classList.remove('active');
@@ -8089,6 +8105,15 @@ include '../../includes/header.php';
                 </div>
             </div>
             <div class="side-panel-header-right">
+                <div class="sp-print" id="spPrint">
+                    <button type="button" class="sp-icon-btn" onclick="toggleSpPrint(event)" title="Print">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                    </button>
+                    <div class="sp-print-menu">
+                        <button type="button" onclick="spPrint('invoice')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg><span><b>Print Invoice</b><small>Tagihan &amp; pembayaran</small></span></button>
+                        <button type="button" onclick="spPrint('regcard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2M15 12h2M7 16h10"/></svg><span><b>Print Registration Card</b><small>Untuk check-in · house rules &amp; tanda tangan</small></span></button>
+                    </div>
+                </div>
                 <a id="sp-wa-link" href="#" target="_blank" class="sp-icon-btn" title="WhatsApp" style="display:none;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366">
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
@@ -9672,6 +9697,20 @@ include '../../includes/header.php';
     }
 </style>
 
+<style>
+    .sp-print { position: relative; }
+    .sp-print .sp-print-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: 270px; padding: 6px; border-radius: 14px; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 18px 40px -12px rgba(15, 23, 42, .35); display: none; }
+    .sp-print.open .sp-print-menu { display: block; animation: mvIn .15s ease-out; }
+    .sp-print-menu button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 10px; background: none; text-align: left; cursor: pointer; font-family: inherit; }
+    .sp-print-menu button:hover { background: #eff6ff; }
+    body .sp-print-menu svg { width: 30px; height: 30px; padding: 6px; border-radius: 9px; background: #eff6ff; color: #1d4ed8 !important; flex-shrink: 0; box-sizing: border-box; }
+    .sp-print-menu span { display: flex; flex-direction: column; min-width: 0; }
+    body .sp-print-menu b { font-size: .84rem !important; font-weight: 800 !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+    body .sp-print-menu small { font-size: .7rem !important; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+    [data-theme="dark"] .sp-print .sp-print-menu { background: #111a2e; border-color: rgba(255, 255, 255, .12); }
+    [data-theme="dark"] .sp-print-menu button:hover { background: rgba(37, 99, 235, .15); }
+    body[data-theme="dark"] .sp-print-menu b { color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important; }
+</style>
 <!-- PINDAH KAMAR / UPGRADE / DOWNGRADE -->
 <div id="moveRoomModal" class="mv-overlay" onclick="if(event.target===this)closeMoveModal()">
     <div class="mv-modal">
