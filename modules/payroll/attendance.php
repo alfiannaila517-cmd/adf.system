@@ -2397,6 +2397,21 @@
                         body[data-theme] .main-content .att-wrap .att-legend strong { color: var(--a-ink); }
                         body[data-theme] .main-content .att-wrap .att-head-icon, body[data-theme] .main-content .att-wrap .att-head-icon svg { color: #fff !important; stroke: #fff; opacity: 1 !important; }
                         body[data-theme] .main-content .att-wrap .btn-primary { background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; border: 0 !important; box-shadow: none !important; }
+                        /* Judul tabel lebih besar */
+                        body[data-theme] .main-content .att-wrap .tbl th { font-size: .74rem !important; padding: 11px 10px !important; letter-spacing: .04em; }
+                        body[data-theme] .main-content .att-wrap .tbl th span { font-size: .66rem !important; font-weight: 600; letter-spacing: 0; text-transform: none; }
+                        /* Tombol aksi: solid, ikon putih, jelas */
+                        body[data-theme] .main-content .att-wrap .tbl .btn-ic {
+                            width: 30px; height: 30px; border: 0 !important; border-radius: 9px !important;
+                            color: #fff !important; opacity: 1 !important; box-shadow: 0 4px 10px -4px var(--ic-sh, rgba(15,23,42,.35)) !important;
+                            transition: transform .15s ease, filter .15s ease !important;
+                        }
+                        body[data-theme] .main-content .att-wrap .tbl .btn-ic svg { width: 14px !important; height: 14px !important; stroke: #fff !important; color: #fff !important; stroke-width: 2.4; }
+                        body[data-theme] .main-content .att-wrap .tbl .btn-ic:hover { transform: translateY(-1px); filter: brightness(1.08); }
+                        body[data-theme] .main-content .att-wrap .tbl .btn-edit.btn-ic { background: linear-gradient(135deg, #1e40af, #3b82f6) !important; --ic-sh: rgba(37,99,235,.55); }
+                        body[data-theme] .main-content .att-wrap .tbl .btn-del.btn-ic { background: linear-gradient(135deg, #b91c1c, #ef4444) !important; --ic-sh: rgba(220,38,38,.5); }
+                        body[data-theme] .main-content .att-wrap .tbl .btn-green.btn-ic { background: linear-gradient(135deg, #047857, #10b981) !important; --ic-sh: rgba(5,150,105,.5); }
+                        body[data-theme] .main-content .att-wrap .tbl td form { margin: 0; }
                         /* Permukaan & teks (terang/gelap) */
                         body[data-theme] .main-content .att-wrap { --a-card: #fff; }
                         body[data-theme="dark"] .main-content .att-wrap { --a-card: #111a2e; }
