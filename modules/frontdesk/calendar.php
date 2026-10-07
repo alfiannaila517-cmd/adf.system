@@ -5162,7 +5162,7 @@ include '../../includes/header.php';
                 result.rooms.forEach(room => {
                     const roomRateBadge = IS_STAFF_VIEW ?
                         '' :
-                        `<span class="nr-price">Rp ${parseInt(room.base_price).toLocaleString('id-ID')}<small style="font-weight:500">/mlm</small></span>`;
+                        `<span class="nr-price">Rp ${parseInt(room.base_price).toLocaleString('id-ID')}<small style="font-weight:500">/mlm</small>${room.price_source === 'cloudbeds' ? '<small style="display:block;font-size:9px;font-weight:700;color:#0e7490">harga Cloudbeds</small>' : ''}</span>`;
                     html += `
                     <label class="room-checkbox-item">
                         <input type="checkbox" name="rooms[]" value="${room.id}"

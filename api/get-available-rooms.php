@@ -88,6 +88,33 @@ try {
     // Re-index array (remove gaps)
     $availableRooms = array_values($availableRooms);
 
+    // Harga dari Cloudbeds (bila terhubung & harga semua malam sudah tersimpan): base_price = rata-rata
+    // harga per malam, sehingga total di form = jumlah harga Cloudbeds. Selain itu tetap harga tipe kamar.
+    try {
+        $cbKey = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_api_key'");
+        if (!empty($cbKey['setting_value']) && $db->fetchOne("SHOW TABLES LIKE 'cloudbeds_rates'")) {
+            require_once '../includes/CloudbedsRates.php';
+            $cbRates = new CloudbedsRates($db, new CloudbedsClient($db));
+            $nightsCount = (int)$checkInDate->diff($checkOutDate)->days;
+            $byType = [];
+            foreach ($availableRooms as &$ar) {
+                $t = (string)$ar['type_name'];
+                if (!array_key_exists($t, $byType)) {
+                    $byType[$t] = $cbRates->nightly($t, $checkInDate->format('Y-m-d'), $checkOutDate->format('Y-m-d'));
+                }
+                if ($byType[$t] && $nightsCount > 0) {
+                    $ar['base_price_default'] = $ar['base_price'];
+                    $ar['base_price'] = round($byType[$t]['total'] / $nightsCount);
+                    $ar['price_source'] = 'cloudbeds';
+                    $ar['cb_nights'] = $byType[$t]['nights'];
+                }
+            }
+            unset($ar);
+        }
+    } catch (\Throwable $e) {
+        error_log('get-available-rooms Cloudbeds rate: ' . $e->getMessage());
+    }
+
     echo json_encode([
         'success' => true,
         'check_in' => $checkIn,

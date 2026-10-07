@@ -13,6 +13,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/CloudbedsClient.php';
 require_once '../../includes/CloudbedsSync.php';
+require_once '../../includes/CloudbedsRates.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -64,6 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . ($d['errors'] ? '<br>Gagal: ' . htmlspecialchars(implode(' | ', $d['errors'])) : '') . '.');
         }
         header('Location: cloudbeds.php?plan=1&sf=' . urlencode($sf) . '&st=' . urlencode($st));
+        exit;
+    } elseif ($act === 'refresh_rates') {
+        $res = (new CloudbedsRates($db, $cb))->refresh(date('Y-m-d'), date('Y-m-d', strtotime('+90 days')));
+        setFlash($res['ok'] ? 'success' : 'error', $res['ok']
+            ? 'Harga & ketersediaan diperbarui dari Cloudbeds (' . (int)$res['rows'] . ' malam × tipe kamar).'
+            : 'Gagal mengambil harga: ' . htmlspecialchars($res['detail']));
+        header('Location: cloudbeds.php?rates=1#rates');
         exit;
     } elseif ($act === 'toggle_push') {
         $on = !empty($_POST['push_on']);
@@ -599,6 +607,80 @@ include '../../includes/header.php';
                         </tbody>
                     </table>
                 </details>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+    <?php if ($cb->isConfigured()):
+        // ---- Harga & ketersediaan dari Cloudbeds ----
+        $rateSvc = new CloudbedsRates($db, $cb);
+        $rFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['rf'] ?? '') ? $_GET['rf'] : date('Y-m-d');
+        $rDays = 14;
+        $rDates = [];
+        for ($i = 0; $i < $rDays; $i++) $rDates[] = date('Y-m-d', strtotime($rFrom . " +$i days"));
+        $rGrid = $rateSvc->grid($rDates[0], end($rDates));
+        $rLast = $rateSvc->lastFetched();
+        $netKey = (string)($_GET['net'] ?? '');
+        $netFee = 0.0;
+        $netName = '';
+        foreach ($localSources as $ls) {
+            if ($ls['source_key'] === $netKey) { $netFee = (float)$ls['fee_percent']; $netName = $ls['source_name']; }
+        }
+        $rp = fn($v) => $v === null ? '—' : number_format($v / 1000, 0, ',', '.') . 'k';
+    ?>
+        <div class="cbx-card" id="rates">
+            <h3>Harga &amp; ketersediaan Cloudbeds</h3>
+            <p class="cbx-sub">Harga per malam & sisa kamar dari Cloudbeds (sumber harga OTA). Dipakai otomatis sebagai harga kamar di form reservasi baru. Diperbarui tiap jam oleh cron.</p>
+            <div class="cbx-row" style="margin-top:0;justify-content:space-between">
+                <form method="get" class="cbx-row" style="margin:0">
+                    <input type="hidden" name="rates" value="1">
+                    <label class="cbx-label" style="margin:0">Mulai</label>
+                    <input type="date" class="cbx-input" name="rf" value="<?php echo htmlspecialchars($rFrom); ?>" style="width:150px">
+                    <label class="cbx-label" style="margin:0">Harga bersih</label>
+                    <select class="cbx-input" name="net" style="width:170px">
+                        <option value="">Harga Cloudbeds (kotor)</option>
+                        <?php foreach ($localSources as $ls): if ((float)$ls['fee_percent'] <= 0) continue; ?>
+                            <option value="<?php echo htmlspecialchars($ls['source_key']); ?>" <?php echo $ls['source_key'] === $netKey ? 'selected' : ''; ?>><?php echo htmlspecialchars($ls['source_name']); ?> −<?php echo rtrim(rtrim(number_format((float)$ls['fee_percent'], 2, ',', ''), '0'), ','); ?>%</option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="cbx-btn ghost">Tampilkan</button>
+                </form>
+                <form method="post" style="margin:0">
+                    <input type="hidden" name="act" value="refresh_rates">
+                    <button type="submit" class="cbx-btn">Perbarui dari Cloudbeds</button>
+                </form>
+            </div>
+            <p class="cbx-hint" style="margin:.4rem 0 .6rem">Terakhir diperbarui: <?php echo $rLast ? htmlspecialchars(date('d M Y H:i', strtotime($rLast))) : 'belum pernah — klik Perbarui'; ?><?php echo $netName ? ' · menampilkan harga bersih ' . htmlspecialchars($netName) . ' (setelah fee ' . rtrim(rtrim(number_format($netFee, 2, ',', ''), '0'), ',') . '%)' : ''; ?></p>
+            <?php if (!$rGrid): ?>
+                <div class="cbx-note">Belum ada data harga untuk tanggal ini. Klik <b>Perbarui dari Cloudbeds</b>.</div>
+            <?php else: ?>
+                <div style="overflow-x:auto">
+                    <table class="cbx-tbl" style="min-width:900px">
+                        <thead><tr><th>Tipe kamar</th>
+                            <?php foreach ($rDates as $d): $w = (int)date('N', strtotime($d)); ?>
+                                <th style="text-align:center;<?php echo $w >= 6 ? 'background:#7f1d1d !important' : ''; ?>"><?php echo date('D', strtotime($d)); ?><br><?php echo date('d/m', strtotime($d)); ?></th>
+                            <?php endforeach; ?>
+                        </tr></thead>
+                        <tbody>
+                            <?php foreach ($rGrid as $tname => $days): ?>
+                                <tr>
+                                    <td><b><?php echo htmlspecialchars($tname); ?></b><?php $anyPlan = current($days)['plan'] ?? ''; echo $anyPlan ? '<br><small>' . htmlspecialchars($anyPlan) . '</small>' : ''; ?></td>
+                                    <?php foreach ($rDates as $d): $c = $days[$d] ?? null;
+                                        $rate = $c['rate'] ?? null;
+                                        if ($rate !== null && $netFee > 0) $rate = $rate * (1 - $netFee / 100);
+                                        $av = $c['available'] ?? null; ?>
+                                        <td style="text-align:center;white-space:nowrap">
+                                            <b><?php echo $rp($rate); ?></b><br>
+                                            <?php if ($av === null): ?><small>—</small>
+                                            <?php elseif ($av <= 0): ?><span class="cbx-pill bad">penuh</span>
+                                            <?php else: ?><span class="cbx-pill <?php echo $av <= 1 ? 'warn' : 'ok'; ?>"><?php echo $av; ?> sisa</span><?php endif; ?>
+                                        </td>
+                                    <?php endforeach; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="cbx-hint">Harga dalam ribuan rupiah (850k = Rp 850.000). Tipe kamar bertanda # belum dipasangkan di Pemetaan tipe kamar.</p>
             <?php endif; ?>
         </div>
     <?php endif; ?>

@@ -21,6 +21,7 @@ date_default_timezone_set('Asia/Jakarta');
 require_once dirname(__DIR__) . '/config/config.php';
 require_once dirname(__DIR__) . '/config/database.php';
 require_once dirname(__DIR__) . '/includes/CloudbedsSync.php';
+require_once dirname(__DIR__) . '/includes/CloudbedsRates.php';
 
 $force = in_array('force', $argv, true);
 $_SESSION = [];
@@ -79,6 +80,14 @@ foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
             'summary' => $summary,
         ], JSON_UNESCAPED_UNICODE));
         echo date('Y-m-d H:i:s') . " [{$slug}] {$summary}\n";
+
+        // Harga & ketersediaan (90 hari ke depan) diperbarui maks. sekali per jam
+        $rates = new CloudbedsRates($bdb, $cb);
+        $lastRates = $rates->lastFetched();
+        if (!$lastRates || time() - strtotime($lastRates) > 3300 || $force) {
+            $rr = $rates->refresh(date('Y-m-d'), date('Y-m-d', strtotime('+90 days')));
+            echo date('Y-m-d H:i:s') . " [{$slug}] harga: " . ($rr['ok'] ? $rr['rows'] . ' baris' : 'GAGAL ' . $rr['detail']) . "\n";
+        }
     } catch (\Throwable $e) {
         echo date('Y-m-d H:i:s') . " [{$slug}] error: " . $e->getMessage() . "\n";
     }

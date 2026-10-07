@@ -2426,7 +2426,7 @@ include '../../includes/header.php';
                                data-type="${room.type_name}"
                                onchange="onRoomCheckChange()">
                         <span class="nr-room"><b>Room ${room.room_number}</b><small>${room.type_name}</small></span>
-                        <span class="nr-price">Rp ${parseInt(room.base_price).toLocaleString('id-ID')}<small style="font-weight:500">/mlm</small></span>
+                        <span class="nr-price">Rp ${parseInt(room.base_price).toLocaleString('id-ID')}<small style="font-weight:500">/mlm</small>${room.price_source === 'cloudbeds' ? '<small style="display:block;font-size:9px;font-weight:700;color:#0e7490">harga Cloudbeds</small>' : ''}</span>
                     </label>
                 `;
                 });
