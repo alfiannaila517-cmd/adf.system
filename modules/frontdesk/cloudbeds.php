@@ -12,6 +12,7 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once '../../includes/CloudbedsClient.php';
+require_once '../../includes/CloudbedsSync.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -50,6 +51,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($act === 'save_type_map') {
         $cb->saveRoomTypeMap((array)($_POST['type_map'] ?? []));
         setFlash('success', 'Pemetaan tipe kamar tersimpan.');
+    } elseif ($act === 'run_sync') {
+        $sf = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['sf'] ?? '') ? $_POST['sf'] : date('Y-m-d', strtotime('-3 days'));
+        $st = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['st'] ?? '') ? $_POST['st'] : date('Y-m-d', strtotime('+60 days'));
+        $res = (new CloudbedsSync($db, $cb))->apply($sf, $st, (int)($_SESSION['user_id'] ?? 0));
+        if (!$res['ok']) {
+            setFlash('error', 'Sinkron gagal: ' . htmlspecialchars($res['detail']));
+        } else {
+            $d = $res['done'];
+            setFlash($d['errors'] ? 'error' : 'success', 'Sinkron selesai: ' . $d['create'] . ' booking baru, ' . $d['link'] . ' ditautkan, ' . $d['cancel'] . ' dibatalkan'
+                . ($res['counts']['warn'] ? ', ' . $res['counts']['warn'] . ' perlu dicek' : '')
+                . ($d['errors'] ? '<br>Gagal: ' . htmlspecialchars(implode(' | ', $d['errors'])) : '') . '.');
+        }
+        header('Location: cloudbeds.php?plan=1&sf=' . urlencode($sf) . '&st=' . urlencode($st));
+        exit;
     } elseif ($act === 'save_source_map') {
         $cb->saveSourceMap((array)($_POST['source_map'] ?? []));
         setFlash('success', 'Pemetaan sumber booking tersimpan.');
@@ -436,6 +451,84 @@ include '../../includes/header.php';
                             });
                         }
                         echo htmlspecialchars(json_encode($sample, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+                </details>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+    <?php if ($cb->isConfigured()):
+        // ---- Sinkron Cloudbeds → sistem (pratinjau lalu jalankan) ----
+        $sf = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['sf'] ?? '') ? $_GET['sf'] : date('Y-m-d', strtotime('-3 days'));
+        $st = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['st'] ?? '') ? $_GET['st'] : date('Y-m-d', strtotime('+60 days'));
+        $syncer = new CloudbedsSync($db, $cb);
+        $plan = isset($_GET['plan']) ? $syncer->plan($sf, $st) : null;
+        $syncLog = $syncer->recentLog(8);
+        $typeLabel = ['create' => ['Buat booking', 'ok'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'warn' => ['Perlu dicek', 'warn']];
+    ?>
+        <div class="cbx-card">
+            <h3>Sinkron Cloudbeds → Sistem</h3>
+            <p class="cbx-sub">Booking OTA dari Cloudbeds masuk ke Reservasi &amp; Kalender. Selalu tampilkan pratinjau dulu; tidak ada yang berubah sebelum <b>Jalankan sinkron</b>.</p>
+            <form method="get" class="cbx-row" style="margin-top:0">
+                <input type="hidden" name="plan" value="1">
+                <label class="cbx-label" style="margin:0">Check-in dari</label>
+                <input type="date" class="cbx-input" name="sf" value="<?php echo htmlspecialchars($sf); ?>" style="width:150px">
+                <label class="cbx-label" style="margin:0">sampai</label>
+                <input type="date" class="cbx-input" name="st" value="<?php echo htmlspecialchars($st); ?>" style="width:150px">
+                <button type="submit" class="cbx-btn ghost">Pratinjau sinkron</button>
+            </form>
+            <?php if ($plan && !$plan['ok']): ?>
+                <div class="cbx-note" style="margin-top:.6rem;border-color:#fecaca;color:#b91c1c">Gagal: <?php echo htmlspecialchars($plan['detail']); ?></div>
+            <?php elseif ($plan): $c = $plan['counts']; ?>
+                <div class="cbx-row">
+                    <span class="cbx-pill ok"><?php echo (int)$c['create']; ?> booking baru</span>
+                    <span class="cbx-pill"><?php echo (int)$c['link']; ?> ditautkan</span>
+                    <span class="cbx-pill bad"><?php echo (int)$c['cancel']; ?> dibatalkan</span>
+                    <span class="cbx-pill warn"><?php echo (int)$c['warn']; ?> perlu dicek</span>
+                </div>
+                <?php if ($plan['actions']): ?>
+                    <div style="overflow-x:auto;margin-top:.6rem">
+                        <table class="cbx-tbl">
+                            <thead><tr><th>Aksi</th><th>Reservasi Cloudbeds</th><th>Keterangan</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($plan['actions'] as $a): $tl = $typeLabel[$a['type']]; ?>
+                                    <tr>
+                                        <td><span class="cbx-pill <?php echo $tl[1]; ?>"><?php echo $tl[0]; ?></span></td>
+                                        <td><b><?php echo htmlspecialchars($a['label']); ?></b><br><small>#<?php echo htmlspecialchars($a['cb']); ?></small></td>
+                                        <td><?php echo htmlspecialchars($a['msg']); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+                <?php if ($c['create'] + $c['link'] + $c['cancel'] > 0): ?>
+                    <form method="post" class="cbx-row" data-msg="<?php echo htmlspecialchars('Jalankan sinkron sekarang? ' . (int)$c['create'] . ' booking baru, ' . (int)$c['link'] . ' ditautkan, ' . (int)$c['cancel'] . ' dibatalkan.'); ?>" onsubmit="return confirm(this.dataset.msg)">
+                        <input type="hidden" name="act" value="run_sync">
+                        <input type="hidden" name="sf" value="<?php echo htmlspecialchars($sf); ?>">
+                        <input type="hidden" name="st" value="<?php echo htmlspecialchars($st); ?>">
+                        <button type="submit" class="cbx-btn">Jalankan sinkron</button>
+                        <span class="cbx-hint" style="margin:0">"Perlu dicek" tidak dijalankan — selesaikan manual.</span>
+                    </form>
+                <?php else: ?>
+                    <p class="cbx-hint">Tidak ada yang perlu dijalankan.</p>
+                <?php endif; ?>
+            <?php endif; ?>
+            <?php if ($syncLog): ?>
+                <details style="margin-top:.7rem"><summary class="cbx-hint" style="cursor:pointer">Riwayat sinkron</summary>
+                    <table class="cbx-tbl" style="margin-top:.4rem">
+                        <thead><tr><th>Waktu</th><th>Rentang</th><th>Baru</th><th>Taut</th><th>Batal</th><th>Dicek</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($syncLog as $lg): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars(date('d M H:i', strtotime($lg['created_at']))); ?></td>
+                                    <td><?php echo htmlspecialchars($lg['range_from'] . ' → ' . $lg['range_to']); ?></td>
+                                    <td><?php echo (int)$lg['created']; ?></td>
+                                    <td><?php echo (int)$lg['linked']; ?></td>
+                                    <td><?php echo (int)$lg['cancelled']; ?></td>
+                                    <td><?php echo (int)$lg['warnings']; ?><?php echo $lg['detail'] ? ' <span class="cbx-pill bad" title="' . htmlspecialchars($lg['detail']) . '">error</span>' : ''; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </details>
             <?php endif; ?>
         </div>
