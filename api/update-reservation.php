@@ -627,6 +627,10 @@ try {
         $conn->commit();
     }
 
+    $cbEditBookings = [(int)$bookingId];
+    foreach (($groupUpdated ?? []) as $gu) {
+        if (!empty($gu['booking_id'])) $cbEditBookings[] = (int)$gu['booking_id'];
+    }
     echo json_encode([
         'success' => true,
         'message' => $successMsg,
@@ -669,3 +673,9 @@ try {
 }
 error_log("=== update-reservation.php END ===");
 ob_end_flush();
+
+// ═══ CLOUDBEDS: edit reservasi ikut disamakan (setelah respons dikirim) ═══
+if (!empty($cbEditBookings)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, $cbEditBookings, [], true);
+}

@@ -46,6 +46,16 @@ class CloudbedsSync
             cb_payment_id VARCHAR(60) NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_pending_edits (
+            booking_id INT NOT NULL PRIMARY KEY,
+            last_error VARCHAR(255) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_price_sync (
+            cb_reservation_id VARCHAR(40) NOT NULL PRIMARY KEY,
+            synced_total DECIMAL(14,2) NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_sync_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
             range_from DATE NULL,
@@ -330,8 +340,125 @@ class CloudbedsSync
         return ($r['setting_value'] ?? '0') === '1';
     }
 
+    /* ---------------- Edit reservasi: sistem → Cloudbeds ---------------- */
+
+    /** Tandai booking yang diedit (harga, tanggal, kamar, extra) untuk disamakan ke Cloudbeds. */
+    public function markEdited(array $bookingIds): void
+    {
+        $this->ensureTables();
+        foreach (array_filter(array_map('intval', $bookingIds)) as $id) {
+            $this->db->query("INSERT INTO cloudbeds_pending_edits (booking_id) VALUES (?) ON DUPLICATE KEY UPDATE created_at = NOW(), last_error = NULL", [$id]);
+        }
+    }
+
     /**
-     * Kirim blok ke Cloudbeds dengan roomBlockType yang sah: jenis blok itu sendiri / yang tersimpan / yang
+     * Samakan reservasi Cloudbeds dengan sistem untuk booking di antrean edit (atau hanya $onlyIds):
+     * kamar (pindah kamar), tanggal check-out (reservasi buatan sistem), dan total harga (adjustment selisih
+     * terhadap total yang terakhir disamakan). Berhasil → keluar dari antrean; gagal → tetap untuk dicoba lagi.
+     * @return array{done:int, errors:array}
+     */
+    public function processEdits(array $onlyIds = [], int $limit = 20): array
+    {
+        $this->ensureTables();
+        $where = $onlyIds ? ' WHERE pe.booking_id IN (' . implode(',', array_map('intval', $onlyIds)) . ')' : '';
+        $pending = $this->db->fetchAll("SELECT pe.booking_id, l.cb_reservation_id FROM cloudbeds_pending_edits pe
+            LEFT JOIN cloudbeds_booking_links l ON l.booking_id = pe.booking_id" . $where . " ORDER BY pe.created_at LIMIT " . (int)$limit) ?: [];
+        $byCb = [];
+        foreach ($pending as $p) {
+            if (empty($p['cb_reservation_id'])) {
+                continue; // belum tertaut (mis. menunggu dikirim) — tetap di antrean
+            }
+            $byCb[(string)$p['cb_reservation_id']][] = (int)$p['booking_id'];
+        }
+        $done = 0;
+        $errors = [];
+        foreach ($byCb as $cbId => $ids) {
+            try {
+                $changed = $this->syncReservationEdits($cbId);
+                $in = implode(',', array_map('intval', $ids));
+                $this->db->query("DELETE FROM cloudbeds_pending_edits WHERE booking_id IN ($in)");
+                if ($changed) $done++;
+            } catch (\Throwable $e) {
+                $msg = 'Edit reservasi #' . $cbId . ': ' . $e->getMessage();
+                $errors[] = $msg;
+                $in = implode(',', array_map('intval', $ids));
+                $this->db->query("UPDATE cloudbeds_pending_edits SET last_error = ? WHERE booking_id IN ($in)", [mb_substr($msg, 0, 255)]);
+            }
+        }
+        return ['done' => $done, 'errors' => $errors];
+    }
+
+    /** Satu reservasi Cloudbeds: kamar, check-out, harga. true bila ada yang dikirim. */
+    private function syncReservationEdits(string $cbId): bool
+    {
+        $links = $this->db->fetchAll("SELECT booking_id, how FROM cloudbeds_booking_links WHERE cb_reservation_id = ?", [$cbId]) ?: [];
+        if (!$links) return false;
+        $in = implode(',', array_map(fn($l) => (int)$l['booking_id'], $links));
+        $bks = $this->db->fetchAll("SELECT b.id, b.status, b.final_price, DATE(b.check_in_date) ci, DATE(b.check_out_date) co, r.room_number
+            FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id IN ($in) AND b.status <> 'cancelled'") ?: [];
+        if (!$bks) return false;
+        $allPush = !array_filter($links, fn($l) => $l['how'] !== 'push');
+
+        $det = $this->cb->reservationDetail($cbId);
+        if (!$det['ok']) throw new \RuntimeException('detail tidak terbaca: ' . $det['detail']);
+        $raw = is_array($det['raw']) ? $det['raw'] : [];
+        $sent = false;
+
+        // 1) Kamar: kamar sistem yang belum ada di reservasi Cloudbeds menggantikan kamar Cloudbeds yang tidak dipakai lagi
+        $cbRooms = $this->cbRoomsByNo();
+        $want = [];
+        foreach ($bks as $b) {
+            $no = preg_match('/\d{2,4}/', (string)$b['room_number'], $m) ? $m[0] : (string)$b['room_number'];
+            if (isset($cbRooms[$no])) $want[$cbRooms[$no]['room_id']] = $cbRooms[$no];
+        }
+        $have = [];
+        foreach ((array)($det['rooms'] ?? []) as $r) {
+            if ($r['assigned'] && $r['room_id'] !== '') $have[$r['room_id']] = $r;
+        }
+        $toAssign = array_values(array_diff_key($want, $have));
+        $toFree = array_values(array_diff_key($have, $want));
+        foreach ($toAssign as $i => $new) {
+            $p = ['reservationID' => $cbId, 'newRoomID' => $new['room_id'], 'roomTypeID' => $new['type_id']];
+            if (isset($toFree[$i])) $p['oldRoomID'] = $toFree[$i]['room_id'];
+            $r = $this->cb->send('POST', 'postRoomAssign', $p);
+            if (!$r['ok']) throw new \RuntimeException('pindah kamar ditolak: ' . $r['detail']);
+            $sent = true;
+        }
+
+        // 2) Check-out (hanya reservasi buatan sistem; reservasi OTA diubah lewat OTA)
+        $cbEnd = substr((string)($raw['endDate'] ?? ''), 0, 10);
+        $localEnd = max(array_column($bks, 'co'));
+        if ($allPush && $cbEnd !== '' && $localEnd !== $cbEnd) {
+            $r = $this->cb->send('PUT', 'putReservation', ['reservationID' => $cbId, 'checkoutDate' => $localEnd]);
+            if (!$r['ok']) throw new \RuntimeException('ubah check-out ditolak: ' . $r['detail']);
+            $sent = true;
+        }
+
+        // 3) Harga: adjustment sebesar selisih terhadap total yang terakhir disamakan
+        $localTotal = round(array_sum(array_map(fn($b) => (float)$b['final_price'], $bks)), 2);
+        $row = $this->db->fetchOne("SELECT synced_total FROM cloudbeds_price_sync WHERE cb_reservation_id = ?", [$cbId]);
+        if ($row) {
+            $base = (float)$row['synced_total'];
+        } else {
+            $bd = is_array($raw['balanceDetailed'] ?? null) ? $raw['balanceDetailed'] : [];
+            $base = isset($bd['subTotal']) && is_numeric($bd['subTotal']) ? (float)$bd['subTotal'] : (float)($det['total'] ?? $localTotal);
+        }
+        $delta = round($localTotal - $base, 2);
+        if (abs($delta) >= 1) {
+            $r = $this->cb->send('POST', 'postAdjustment', [
+                'reservationID' => $cbId,
+                'type' => 'rate',
+                'amount' => $delta,
+                'notes' => mb_substr('ADF: total sistem Rp ' . number_format($localTotal, 0, ',', '.') . ' (sebelumnya Rp ' . number_format($base, 0, ',', '.') . ')', 0, 250),
+            ]);
+            if (!$r['ok']) throw new \RuntimeException('adjustment harga ditolak: ' . $r['detail'] . (in_array((int)$r['http'], [401, 403], true) ? ' (perlu scope "Adjustment: Write")' : ''));
+            $sent = true;
+        }
+        $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, $localTotal]);
+        return $sent;
+    }
+
+    /** Kirim blok ke Cloudbeds dengan roomBlockType yang sah: jenis blok itu sendiri / yang tersimpan / yang
      * dipakai blok lain di properti, lalu tanpa jenis, lalu jenis umum. Jenis yang berhasil disimpan.
      */
     private function sendBlock(string $method, string $endpoint, array $params, string $prefer): array
@@ -391,7 +518,7 @@ class CloudbedsSync
             $pushErrors = array_values(array_filter($done['errors'], fn($e) => stripos($e, 'Cloudbeds menolak') !== false || stripos($e, 'Cloudbeds') !== false));
             if ($pushErrors) $this->rememberPushError($pushErrors);
         }
-        $sent = ($done['push_status'] ?? 0) + ($done['push_create'] ?? 0) + ($done['push_block'] ?? 0) + ($done['push_pay'] ?? 0);
+        $sent = ($done['push_status'] ?? 0) + ($done['push_create'] ?? 0) + ($done['push_block'] ?? 0) + ($done['push_pay'] ?? 0) + ($done['push_edit'] ?? 0);
         if ($sent > 0) {
             $this->db->query(
                 "INSERT INTO settings (setting_key, setting_value) VALUES ('cloudbeds_last_push_ok', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
@@ -612,6 +739,8 @@ class CloudbedsSync
         }
         // Tautkan dulu (reservasi sudah ada di Cloudbeds), baru tempatkan kamar
         $this->db->query("INSERT IGNORE INTO cloudbeds_booking_links (cb_reservation_id, booking_id, how) VALUES (?, ?, 'push')", [$resId, $a['booking_id']]);
+        // Cloudbeds memakai harga rate plan-nya; harga sistem disamakan lewat antrean edit (adjustment)
+        $this->db->query("INSERT IGNORE INTO cloudbeds_pending_edits (booking_id) VALUES (?)", [$a['booking_id']]);
         $as = $this->cb->send('POST', 'postRoomAssign', ['reservationID' => $resId, 'newRoomID' => $cr['room_id'], 'roomTypeID' => $cr['type_id']]);
         $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", [
             "\n[Dikirim ke Cloudbeds #" . $resId . ($as['ok'] ? '' : ' — kamar belum ditempatkan: ' . mb_substr($as['detail'], 0, 120)) . ']', $a['booking_id'],
@@ -959,10 +1088,15 @@ class CloudbedsSync
             }
             return false;
         }));
-        if (!$mine) {
+        $done = $mine ? $this->executeActions($mine, $userId) : ['errors' => []];
+        if ($this->pushEnabled() && $bookingIds) {
+            $ed = $this->processEdits($bookingIds, 20);
+            $done['push_edit'] = $ed['done'];
+            $done['errors'] = array_merge($done['errors'], $ed['errors']);
+        }
+        if (!$mine && empty($done['push_edit'])) {
             return ['ok' => true, 'skipped' => 'no_push_action'];
         }
-        $done = $this->executeActions($mine, $userId);
         if ($done['errors']) {
             error_log('Cloudbeds pushFor: ' . implode(' | ', $done['errors']));
         }
@@ -977,6 +1111,11 @@ class CloudbedsSync
             return $plan + ['done' => []];
         }
         $done = $this->executeActions($plan['actions'], $userId);
+        if ($this->pushEnabled()) {
+            $ed = $this->processEdits([], 20);
+            $done['push_edit'] = $ed['done'];
+            $done['errors'] = array_merge($done['errors'], $ed['errors']);
+        }
         $this->rememberPushResult($done);
         try {
             $this->db->query(

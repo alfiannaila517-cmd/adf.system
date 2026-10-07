@@ -260,6 +260,7 @@ try {
     $msg = $roomChanged
         ? (['upgrade' => 'Upgrade', 'downgrade' => 'Downgrade'][$changeKind] ?? 'Pindah kamar') . ' ke kamar ' . $newRoom['room_number'] . ' berhasil'
         : 'Tanggal booking berhasil dipindah';
+    $cbEditBookings = [(int)$bookingId];
     echo json_encode(['success' => true, 'message' => $msg, 'data' => $result]);
 } catch (Exception $e) {
     if (isset($conn) && $conn->inTransaction()) $conn->rollBack();
@@ -269,4 +270,10 @@ try {
     if (isset($conn) && $conn->inTransaction()) $conn->rollBack();
     error_log('move-booking fatal: ' . $t->getMessage() . ' @' . $t->getLine());
     echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan server']);
+}
+
+// ═══ CLOUDBEDS: edit reservasi ikut disamakan (setelah respons dikirim) ═══
+if (!empty($cbEditBookings)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse(Database::getInstance(), $cbEditBookings, [], true);
 }

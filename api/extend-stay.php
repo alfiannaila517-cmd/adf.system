@@ -168,6 +168,7 @@ try {
         $finalPrice, $newDirect, $finalPrice, $bookingId
     ]);
 
+    $cbEditBookings = [(int)$bookingId];
     echo json_encode([
         'success' => true,
         'message' => "Menginap diperpanjang {$extraNights} malam. Check-out baru: " . $newCheckout->format('d M Y'),
@@ -192,3 +193,9 @@ try {
 }
 error_log("=== extend-stay.php END ===");
 ob_end_flush();
+
+// ═══ CLOUDBEDS: edit reservasi ikut disamakan (setelah respons dikirim) ═══
+if (!empty($cbEditBookings)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, $cbEditBookings, [], true);
+}

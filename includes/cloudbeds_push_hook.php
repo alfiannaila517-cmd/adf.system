@@ -6,7 +6,7 @@
  * memengaruhi aksi utama; sinkron berkala (cron / halaman dibuka) mencoba lagi.
  */
 if (!function_exists('cloudbedsPushAfterResponse')) {
-    function cloudbedsPushAfterResponse($db, array $bookingIds, array $blockIds = []): void
+    function cloudbedsPushAfterResponse($db, array $bookingIds, array $blockIds = [], bool $edited = false): void
     {
         $bookingIds = array_values(array_filter(array_map('intval', $bookingIds)));
         $blockIds = array_values(array_filter(array_map('intval', $blockIds)));
@@ -45,7 +45,11 @@ if (!function_exists('cloudbedsPushAfterResponse')) {
         }
         try {
             require_once __DIR__ . '/CloudbedsSync.php';
-            (new CloudbedsSync($db, new CloudbedsClient($db)))->pushFor($bookingIds, $blockIds, $userId);
+            $sync = new CloudbedsSync($db, new CloudbedsClient($db));
+            if ($edited) {
+                $sync->markEdited($bookingIds);
+            }
+            $sync->pushFor($bookingIds, $blockIds, $userId);
         } catch (\Throwable $e) {
             error_log('Cloudbeds push: ' . $e->getMessage());
         } finally {

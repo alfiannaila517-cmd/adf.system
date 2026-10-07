@@ -129,6 +129,7 @@ try {
             // Recalculate booking final_price with extras
             recalcFinalPrice($conn, $bookingId);
 
+            if (!empty($bookingId)) $cbEditBookings = [(int)$bookingId];
             echo json_encode([
                 'success' => true,
                 'message' => 'Extra item ditambahkan: ' . $itemName,
@@ -162,6 +163,7 @@ try {
             // Recalculate booking final_price
             recalcFinalPrice($conn, $bookingId);
 
+            if (!empty($bookingId)) $cbEditBookings = [(int)$bookingId];
             echo json_encode([
                 'success' => true,
                 'message' => 'Extra item dihapus'
@@ -237,3 +239,9 @@ function recalcFinalPrice($conn, $bookingId)
 }
 
 ob_end_flush();
+
+// ═══ CLOUDBEDS: edit reservasi ikut disamakan (setelah respons dikirim) ═══
+if (!empty($cbEditBookings)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, $cbEditBookings, [], true);
+}
