@@ -3510,6 +3510,22 @@ header('Expires: 0');
         .ab-manual .ab-ic { background: #f1f5f9; color: #3d5a99; }
         .ab-manual small { color: var(--muted); }
 
+        .tj-wrap { display: flex; align-items: center; gap: 16px; }
+        .tj-donut { position: relative; width: 128px; height: 128px; flex-shrink: 0; }
+        .tj-donut svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 4px 10px rgba(15, 23, 42, .08)); }
+        .tj-arc { transition: stroke-dashoffset 1.2s cubic-bezier(.4, 0, .2, 1); }
+        .tj-center { position: absolute; inset: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; align-content: center; }
+        .tj-center b { font-size: 28px; font-weight: 800; color: #0f172a; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+        .tj-center small { font-size: 13px; font-weight: 800; color: var(--muted); margin-left: 1px; }
+        .tj-center span { flex-basis: 100%; text-align: center; font-size: 8.5px; font-weight: 800; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-top: 4px; }
+        .tj-list { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .tj-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid #f1f5f9; }
+        .tj-row:last-child { border-bottom: none; }
+        .tj-row span { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+        .tj-row span i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .tj-row b { font-size: 14px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .tj-row b small { font-size: 10.5px; font-weight: 600; color: var(--muted); }
+
         /* ═══ HOME: MENU & HALAMAN TURUNAN (Lembur, Cuti, Jadwal, Seragam, Detail Absensi) ═══ */
         #page-home .card { border-radius: 16px; padding: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
         #page-home .card-title { font-size: 13px !important; font-weight: 800; color: #0f172a !important; margin-bottom: 12px; }
@@ -5629,18 +5645,52 @@ header('Expires: 0');
                 const totalHours = parseFloat(s.total_hours) || 0;
                 const target = parseFloat(s.target) || 208;
                 const pct = target > 0 ? Math.min(Math.round(totalHours / target * 100), 100) : 0;
-                const barColor = pct >= 90 ? '#0f8a65,#14a37a' : pct >= 60 ? '#d97706,#f59e0b' : '#3d5a99,#5b82d1';
+                const barColor = pct >= 90 ? ['#14a37a', '#0b6b4e'] : pct >= 60 ? ['#f59e0b', '#d97706'] : ['#6d8fe0', '#3d5a99'];
+                // Donut modern: ring tipis ujung membulat, gradasi, beranimasi; angka di tengah
+                const R = 46,
+                    C = 2 * Math.PI * R;
+                const off = C - (pct / 100) * C;
+                const remain = Math.max(0, target - totalHours);
                 document.getElementById('monthlySummary').innerHTML = `
-            <div class="hk-prog-top">
-                <b>${fmtH(totalHours)}<small> / ${fmtH(target)} jam</small></b>
-                <span><b style="font-size:13px;color:#0f172a">${pct}%</b> dari target</span>
-            </div>
-            <div class="rm-bar" style="margin:8px 0 12px;"><span style="width:${pct}%;background:linear-gradient(90deg,${barColor});"></span></div>
-            <div class="rm-kpis" style="grid-template-columns:repeat(3,1fr)">
-                <div class="rm-kpi"><div class="rm-kpi-val">${parseInt(s.days_present) || 0}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#0f8a65"></i>Hari hadir</div></div>
-                <div class="rm-kpi"><div class="rm-kpi-val">${parseInt(s.days_late) || 0}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#d97706"></i>Terlambat</div></div>
-                <div class="rm-kpi"><div class="rm-kpi-val">${fmtH(Math.max(0, target - totalHours))}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#94a3b8"></i>Sisa jam</div></div>
+            <div class="tj-wrap">
+                <div class="tj-donut">
+                    <svg viewBox="0 0 120 120" aria-hidden="true">
+                        <defs>
+                            <linearGradient id="tjGrad" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stop-color="${barColor[0]}"/>
+                                <stop offset="100%" stop-color="${barColor[1]}"/>
+                            </linearGradient>
+                        </defs>
+                        <circle cx="60" cy="60" r="${R}" fill="none" stroke="#eef2f7" stroke-width="10"/>
+                        <circle class="tj-arc" cx="60" cy="60" r="${R}" fill="none" stroke="url(#tjGrad)" stroke-width="10" stroke-linecap="round"
+                            stroke-dasharray="${C}" stroke-dashoffset="${C}" transform="rotate(-90 60 60)" style="--off:${off}"/>
+                    </svg>
+                    <div class="tj-center">
+                        <b id="donutPctNum">0</b><small>%</small>
+                        <span>dari target</span>
+                    </div>
+                </div>
+                <div class="tj-list">
+                    <div class="tj-row"><span><i style="background:linear-gradient(135deg,${barColor[0]},${barColor[1]})"></i>Jam kerja</span><b>${fmtH(totalHours)}<small> / ${fmtH(target)}</small></b></div>
+                    <div class="tj-row"><span><i style="background:#0f8a65"></i>Hari hadir</span><b>${parseInt(s.days_present) || 0}<small> hari</small></b></div>
+                    <div class="tj-row"><span><i style="background:#d97706"></i>Terlambat</span><b>${parseInt(s.days_late) || 0}<small> kali</small></b></div>
+                    <div class="tj-row"><span><i style="background:#cbd5e1"></i>Sisa jam</span><b>${fmtH(remain)}<small> jam</small></b></div>
+                </div>
             </div>`;
+                // Animasi ring & angka persen
+                requestAnimationFrame(() => {
+                    const arc = document.querySelector('#monthlySummary .tj-arc');
+                    if (arc) arc.style.strokeDashoffset = off;
+                });
+                let cur = 0;
+                const step = () => {
+                    const el = document.getElementById('donutPctNum');
+                    if (!el) return;
+                    cur = Math.min(pct, cur + Math.max(1, Math.round((pct - cur) / 8)));
+                    el.textContent = cur;
+                    if (cur < pct) requestAnimationFrame(step);
+                };
+                requestAnimationFrame(step);
             } catch (e) {
                 document.getElementById('monthlySummary').innerHTML = '<div class="ab-empty" style="color:var(--red)">Gagal memuat target jam</div>';
             }
