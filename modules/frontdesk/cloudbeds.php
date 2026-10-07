@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setFlash('error', 'Sinkron gagal: ' . htmlspecialchars($res['detail']));
         } else {
             $d = $res['done'];
-            setFlash($d['errors'] ? 'error' : 'success', 'Sinkron selesai: ' . $d['create'] . ' booking baru, ' . $d['link'] . ' ditautkan, ' . $d['cancel'] . ' dibatalkan, ' . $d['block'] . ' blok kamar' . ($d['unblock'] ? ', ' . $d['unblock'] . ' blok dicabut' : '') . ($d['push_status'] + $d['push_create'] + $d['push_block'] ? ', dikirim ke Cloudbeds: ' . $d['push_status'] . ' status, ' . $d['push_create'] . ' booking, ' . $d['push_block'] . ' blok' : '')
+            setFlash($d['errors'] ? 'error' : 'success', 'Sinkron selesai: ' . $d['create'] . ' booking baru, ' . $d['link'] . ' ditautkan, ' . $d['cancel'] . ' dibatalkan, ' . $d['block'] . ' blok kamar' . ($d['unblock'] ? ', ' . $d['unblock'] . ' blok dicabut' : '') . ($d['push_status'] + $d['push_create'] + $d['push_block'] + $d['push_pay'] ? ', dikirim ke Cloudbeds: ' . $d['push_status'] . ' status, ' . $d['push_create'] . ' booking, ' . $d['push_block'] . ' blok, ' . $d['push_pay'] . ' pembayaran' : '')
                 . ($res['counts']['warn'] ? ', ' . $res['counts']['warn'] . ' perlu dicek' : '')
                 . ($d['errors'] ? '<br>Gagal: ' . htmlspecialchars(implode(' | ', $d['errors'])) : '') . '.');
         }
@@ -72,6 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ? 'Harga & ketersediaan diperbarui dari Cloudbeds (' . (int)$res['rows'] . ' malam × tipe kamar).'
             : 'Gagal mengambil harga: ' . htmlspecialchars($res['detail']));
         header('Location: cloudbeds.php?rates=1#rates');
+        exit;
+    } elseif ($act === 'toggle_pay') {
+        $on = !empty($_POST['pay_on']);
+        $cb->saveSetting('cloudbeds_pay_enabled', $on ? '1' : '0');
+        if ($on) {
+            // Hanya pembayaran yang dicatat mulai sekarang (yang lama mungkin sudah diketik manual di Cloudbeds)
+            $cb->saveSetting('cloudbeds_pay_since', date('Y-m-d H:i:s'));
+        }
+        setFlash('success', $on ? 'Kirim pembayaran ke Cloudbeds diaktifkan.' : 'Kirim pembayaran ke Cloudbeds dimatikan.');
+        header('Location: cloudbeds.php');
         exit;
     } elseif ($act === 'toggle_push') {
         $on = !empty($_POST['push_on']);
@@ -486,7 +496,7 @@ include '../../includes/header.php';
         $syncer = new CloudbedsSync($db, $cb);
         $plan = isset($_GET['plan']) ? $syncer->plan($sf, $st) : null;
         $syncLog = $syncer->recentLog(8);
-        $typeLabel = ['create' => ['Buat booking', 'ok'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'push_status' => ['Kirim status', 'ok'], 'push_create' => ['Kirim booking', 'ok'], 'push_delblock' => ['Hapus blok', 'ok'], 'push_putblock' => ['Ubah blok', 'ok'], 'push_newblock' => ['Kirim blok', 'ok'], 'warn' => ['Perlu dicek', 'warn']];
+        $typeLabel = ['create' => ['Buat booking', 'ok'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'push_status' => ['Kirim status', 'ok'], 'push_create' => ['Kirim booking', 'ok'], 'push_delblock' => ['Hapus blok', 'ok'], 'push_putblock' => ['Ubah blok', 'ok'], 'push_newblock' => ['Kirim blok', 'ok'], 'push_payment' => ['Kirim bayar', 'ok'], 'warn' => ['Perlu dicek', 'warn']];
     ?>
         <div class="cbx-card">
             <h3>Sinkron Cloudbeds → Sistem</h3>
@@ -535,6 +545,24 @@ include '../../includes/header.php';
                     <button type="submit" class="cbx-btn <?php echo $pushOn ? 'ghost' : ''; ?>"><?php echo $pushOn ? 'Matikan' : 'Aktifkan'; ?></button>
                 </form>
             </div>
+            <?php
+            $payRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_enabled'");
+            $payOn = ($payRow['setting_value'] ?? '0') === '1';
+            $paySince = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_since'");
+            ?>
+            <div class="cbx-status" style="margin-bottom:.75rem;flex-wrap:wrap">
+                <span class="cbx-dot <?php echo $payOn ? 'on' : ''; ?>"></span>
+                <div style="flex:1;min-width:220px">
+                    <b>Kirim pembayaran ke Cloudbeds: <?php echo $payOn ? 'AKTIF' : 'mati'; ?></b>
+                    <small>DP, pelunasan & bayar saat check-in yang dicatat di sistem ikut masuk folio reservasi Cloudbeds (titik merah sisa tagihan hilang). Pembayaran OTA otomatis tidak dikirim.
+                        <?php if ($payOn && !empty($paySince['setting_value'])): ?>Pembayaran dicatat sejak <?php echo htmlspecialchars(date('d M Y H:i', strtotime($paySince['setting_value']))); ?>.<?php endif; ?></small>
+                </div>
+                <form method="post" style="margin:0">
+                    <input type="hidden" name="act" value="toggle_pay">
+                    <?php if (!$payOn): ?><input type="hidden" name="pay_on" value="1"><?php endif; ?>
+                    <button type="submit" class="cbx-btn <?php echo $payOn ? 'ghost' : ''; ?>"><?php echo $payOn ? 'Matikan' : 'Aktifkan'; ?></button>
+                </form>
+            </div>
             <details style="margin:-.25rem 0 .75rem"><summary class="cbx-hint" style="cursor:pointer">Cara memasang Cron Job (sekali saja)</summary>
                 <div class="cbx-note" style="margin-top:.4rem">
                     cPanel → <b>Cron Jobs</b> → Add New Cron Job → Common Settings: <b>Once Per Ten Minutes</b> (*/10 * * * *) → Command:<br>
@@ -558,7 +586,7 @@ include '../../includes/header.php';
                     <span class="cbx-pill"><?php echo (int)$c['link']; ?> ditautkan</span>
                     <span class="cbx-pill bad"><?php echo (int)$c['cancel']; ?> dibatalkan</span>
                     <span class="cbx-pill"><?php echo (int)$c['block']; ?> blok kamar<?php echo $c['unblock'] ? ' · ' . (int)$c['unblock'] . ' dicabut' : ''; ?></span>
-                    <?php if ($c['push_status'] + $c['push_create'] + $c['push_block'] > 0): ?><span class="cbx-pill ok">→ Cloudbeds: <?php echo (int)$c['push_status']; ?> status · <?php echo (int)$c['push_create']; ?> booking · <?php echo (int)$c['push_block']; ?> blok</span><?php endif; ?>
+                    <?php if ($c['push_status'] + $c['push_create'] + $c['push_block'] + $c['push_pay'] > 0): ?><span class="cbx-pill ok">→ Cloudbeds: <?php echo (int)$c['push_status']; ?> status · <?php echo (int)$c['push_create']; ?> booking · <?php echo (int)$c['push_block']; ?> blok · <?php echo (int)$c['push_pay']; ?> bayar</span><?php endif; ?>
                     <span class="cbx-pill warn"><?php echo (int)$c['warn']; ?> perlu dicek</span>
                 </div>
                 <?php if ($plan['actions']): ?>
@@ -577,8 +605,8 @@ include '../../includes/header.php';
                         </table>
                     </div>
                 <?php endif; ?>
-                <?php if ($c['create'] + $c['link'] + $c['cancel'] + $c['block'] + $c['unblock'] + $c['push_status'] + $c['push_create'] + $c['push_block'] > 0): ?>
-                    <form method="post" class="cbx-row" data-msg="<?php echo htmlspecialchars('Jalankan sinkron sekarang? ' . (int)$c['create'] . ' booking baru, ' . (int)$c['link'] . ' ditautkan, ' . (int)$c['cancel'] . ' dibatalkan, ' . (int)$c['block'] . ' blok kamar, ' . (int)$c['unblock'] . ' blok dicabut, ' . (int)$c['push_status'] . ' status, ' . (int)$c['push_create'] . ' booking & ' . (int)$c['push_block'] . ' blok dikirim ke Cloudbeds.'); ?>" onsubmit="return confirm(this.dataset.msg)">
+                <?php if ($c['create'] + $c['link'] + $c['cancel'] + $c['block'] + $c['unblock'] + $c['push_status'] + $c['push_create'] + $c['push_block'] + $c['push_pay'] > 0): ?>
+                    <form method="post" class="cbx-row" data-msg="<?php echo htmlspecialchars('Jalankan sinkron sekarang? ' . (int)$c['create'] . ' booking baru, ' . (int)$c['link'] . ' ditautkan, ' . (int)$c['cancel'] . ' dibatalkan, ' . (int)$c['block'] . ' blok kamar, ' . (int)$c['unblock'] . ' blok dicabut, ' . (int)$c['push_status'] . ' status, ' . (int)$c['push_create'] . ' booking, ' . (int)$c['push_block'] . ' blok & ' . (int)$c['push_pay'] . ' pembayaran dikirim ke Cloudbeds.'); ?>" onsubmit="return confirm(this.dataset.msg)">
                         <input type="hidden" name="act" value="run_sync">
                         <input type="hidden" name="sf" value="<?php echo htmlspecialchars($sf); ?>">
                         <input type="hidden" name="st" value="<?php echo htmlspecialchars($st); ?>">

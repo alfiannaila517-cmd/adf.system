@@ -14,7 +14,8 @@ if (!function_exists('cloudbedsPushAfterResponse')) {
         try {
             $key = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_api_key'");
             $push = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_push_enabled'");
-            if (empty($key['setting_value']) || ($push['setting_value'] ?? '0') !== '1') return;
+            $pay = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_enabled'");
+            if (empty($key['setting_value']) || (($push['setting_value'] ?? '0') !== '1' && ($pay['setting_value'] ?? '0') !== '1')) return;
         } catch (\Throwable $e) {
             return;
         }

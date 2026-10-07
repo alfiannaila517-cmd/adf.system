@@ -70,8 +70,8 @@ foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
         $res = (new CloudbedsSync($bdb, $cb))->apply($from, $to, 0);
         $d = $res['done'] ?? [];
         $summary = $res['ok']
-            ? sprintf('baru %d, taut %d, batal %d, blok %d, cabut %d, kirim status %d, kirim baru %d, kirim blok %d, dicek %d%s',
-                $d['create'] ?? 0, $d['link'] ?? 0, $d['cancel'] ?? 0, $d['block'] ?? 0, $d['unblock'] ?? 0, $d['push_status'] ?? 0, $d['push_create'] ?? 0, $d['push_block'] ?? 0,
+            ? sprintf('baru %d, taut %d, batal %d, blok %d, cabut %d, kirim status %d, kirim baru %d, kirim blok %d, kirim bayar %d, dicek %d%s',
+                $d['create'] ?? 0, $d['link'] ?? 0, $d['cancel'] ?? 0, $d['block'] ?? 0, $d['unblock'] ?? 0, $d['push_status'] ?? 0, $d['push_create'] ?? 0, $d['push_block'] ?? 0, $d['push_pay'] ?? 0,
                 $res['counts']['warn'] ?? 0, !empty($d['errors']) ? ', GAGAL ' . count($d['errors']) : '')
             : 'GAGAL: ' . $res['detail'];
         $cb->saveSetting('cloudbeds_last_auto_sync', json_encode([

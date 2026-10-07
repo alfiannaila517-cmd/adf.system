@@ -38,6 +38,12 @@ class CloudbedsSync
             UNIQUE KEY uk_cb_booking (cb_reservation_id, booking_id),
             KEY idx_booking (booking_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_payment_links (
+            payment_id INT NOT NULL PRIMARY KEY,
+            cb_reservation_id VARCHAR(40) NOT NULL,
+            cb_payment_id VARCHAR(60) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_sync_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
             range_from DATE NULL,
@@ -292,12 +298,17 @@ class CloudbedsSync
             $this->planPushCreate($from, $to, $linkedBookingIds, $actions);
         }
 
+        // ---- Pembayaran di sistem → folio reservasi Cloudbeds ----
+        if ($this->payEnabled()) {
+            $this->planPayments($actions);
+        }
+
         // ---- Blok kamar Cloudbeds → room_blocks (kode CB-<blockID>-<roomID>) ----
         $this->planRoomBlocks($from, $to, $roomByNo, $actions);
 
-        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'warn' => 0];
+        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'warn' => 0];
         foreach ($actions as $a) {
-            $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : $a['type'];
+            $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : ($a['type'] === 'push_payment' ? 'push_pay' : $a['type']);
             $counts[$t]++;
         }
         return ['ok' => true, 'detail' => 'OK', 'actions' => $actions, 'counts' => $counts];
@@ -315,6 +326,99 @@ class CloudbedsSync
     {
         $r = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_push_enabled'");
         return ($r['setting_value'] ?? '0') === '1';
+    }
+
+    public function payEnabled(): bool
+    {
+        $r = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_enabled'");
+        return ($r['setting_value'] ?? '0') === '1';
+    }
+
+    /**
+     * Pembayaran yang dicatat di sistem SETELAH fitur kirim pembayaran aktif, untuk booking yang tertaut ke
+     * Cloudbeds (atau dikirim di sinkron yang sama). Pembayaran OTA otomatis (ota_…) tidak dikirim.
+     */
+    private function planPayments(array &$actions): void
+    {
+        $sinceRow = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_since'");
+        $since = (string)($sinceRow['setting_value'] ?? '');
+        if ($since === '') return;
+        $pending = [];
+        foreach ($actions as $a) {
+            if ($a['type'] === 'push_create') $pending[(int)$a['booking_id']] = true;
+        }
+        $rows = $this->db->fetchAll(
+            "SELECT bp.id, bp.booking_id, bp.amount, bp.payment_method, bp.notes, b.booking_code, g.guest_name,
+                    (SELECT l.cb_reservation_id FROM cloudbeds_booking_links l WHERE l.booking_id = bp.booking_id LIMIT 1) cb_id
+             FROM booking_payments bp
+             JOIN bookings b ON b.id = bp.booking_id
+             LEFT JOIN guests g ON g.id = b.guest_id
+             LEFT JOIN cloudbeds_payment_links pl ON pl.payment_id = bp.id
+             WHERE pl.payment_id IS NULL AND bp.amount > 0
+               AND COALESCE(bp.created_at, bp.payment_date) >= ?
+               AND LOWER(COALESCE(bp.payment_method, '')) NOT LIKE 'ota%'
+             ORDER BY bp.id",
+            [$since]
+        ) ?: [];
+        foreach ($rows as $p) {
+            if (empty($p['cb_id']) && !isset($pending[(int)$p['booking_id']])) continue;
+            $actions[] = ['type' => 'push_payment', 'cb' => (string)($p['cb_id'] ?: '-'), 'booking_id' => (int)$p['booking_id'], 'payment_id' => (int)$p['id'],
+                'amount' => (float)$p['amount'], 'method' => (string)$p['payment_method'], 'code' => (string)$p['booking_code'],
+                'label' => ($p['guest_name'] ?: 'Guest') . ' (' . $p['booking_code'] . ')',
+                'msg' => 'Kirim pembayaran ke Cloudbeds: Rp ' . number_format((float)$p['amount'], 0, ',', '.') . ' · ' . $p['payment_method']];
+        }
+    }
+
+    /** Metode pembayaran Cloudbeds yang paling cocok untuk metode di sistem (cash, transfer, card, qris, …). */
+    private function cbPaymentType(string $local): string
+    {
+        static $methods = null;
+        if ($methods === null) {
+            $methods = [];
+            $r = $this->cb->get('getPaymentMethods', $this->cb->propertyId() !== '' ? ['propertyID' => $this->cb->propertyId()] : []);
+            $walk = function ($d) use (&$walk, &$methods) {
+                if (!is_array($d)) return;
+                $code = $d['method'] ?? $d['type'] ?? $d['code'] ?? null;
+                if ($code !== null && !is_array($code)) {
+                    $methods[] = ['code' => (string)$code, 'name' => strtolower((string)($d['name'] ?? $code))];
+                    return;
+                }
+                foreach ($d as $v) $walk($v);
+            };
+            $walk($r['data'] ?? []);
+        }
+        $l = strtolower($local);
+        $want = in_array($l, ['cash'], true) ? ['cash']
+            : (in_array($l, ['transfer', 'bank_transfer'], true) ? ['transfer', 'bank', 'ebanking', 'wire']
+            : (in_array($l, ['card', 'debit', 'edc', 'credit_card'], true) ? ['debit', 'card', 'credit', 'edc']
+            : (in_array($l, ['qris', 'qr'], true) ? ['qris', 'qr', 'transfer', 'bank'] : ['other', 'cash'])));
+        foreach ($want as $w) {
+            foreach ($methods as $m) {
+                if (strpos(strtolower($m['code']), $w) !== false || strpos($m['name'], $w) !== false) return $m['code'];
+            }
+        }
+        return $l === 'cash' || !$methods ? 'cash' : $methods[0]['code'];
+    }
+
+    /** Catat satu pembayaran ke folio reservasi Cloudbeds; false bila reservasi belum tertaut (dicoba lagi nanti). */
+    private function pushPayment(array $a): bool
+    {
+        $link = $this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [$a['booking_id']]);
+        $cbId = (string)($link['cb_reservation_id'] ?? '');
+        if ($cbId === '') return false;
+        if ($this->db->fetchOne("SELECT payment_id FROM cloudbeds_payment_links WHERE payment_id = ?", [$a['payment_id']])) return false;
+        $r = $this->cb->send('POST', 'postPayment', [
+            'reservationID' => $cbId,
+            'type' => $this->cbPaymentType($a['method']),
+            'amount' => round($a['amount'], 2),
+            'description' => mb_substr('ADF ' . $a['code'] . ' · ' . $a['method'] . ' #' . $a['payment_id'], 0, 100),
+        ]);
+        if (!$r['ok']) {
+            throw new \RuntimeException('Cloudbeds menolak pembayaran: ' . $r['detail'] . (in_array((int)$r['http'], [401, 403], true) ? ' (perlu scope "Payment: Write")' : ''));
+        }
+        $this->db->query("INSERT IGNORE INTO cloudbeds_payment_links (payment_id, cb_reservation_id, cb_payment_id) VALUES (?, ?, ?)",
+            [$a['payment_id'], $cbId, (string)($r['raw']['paymentID'] ?? ($r['data']['paymentID'] ?? ''))]);
+        return true;
     }
 
     /**
@@ -626,7 +730,7 @@ class CloudbedsSync
     /** Jalankan aksi rencana (link/create/cancel/blok/kirim). Peringatan dilewati. */
     private function executeActions(array $actions, int $userId): array
     {
-        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'errors' => []];
+        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'errors' => []];
         // Kolom direct_amount (Hotel Collect) dibuat sebelum transaksi: ALTER di dalam transaksi = implicit commit
         try {
             require_once __DIR__ . '/BookingSourceHelper.php';
@@ -652,6 +756,8 @@ class CloudbedsSync
                         if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak status ' . $stp . ': ' . $r['detail']);
                     }
                     $done['push_status']++;
+                } elseif ($a['type'] === 'push_payment') {
+                    if ($this->pushPayment($a)) $done['push_pay']++;
                 } elseif ($a['type'] === 'push_delblock') {
                     $r = $this->cb->send('DELETE', 'deleteRoomBlock', ['roomBlockID' => $a['cb']]);
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak hapus blok: ' . $r['detail'] . (in_array($r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete" di API key)' : ''));
@@ -699,7 +805,7 @@ class CloudbedsSync
      */
     public function pushFor(array $bookingIds, array $blockIds = [], int $userId = 0): array
     {
-        if (!$this->pushEnabled()) {
+        if (!$this->pushEnabled() && !$this->payEnabled()) {
             return ['ok' => true, 'skipped' => 'push_off'];
         }
         $this->ensureTables();
@@ -737,7 +843,8 @@ class CloudbedsSync
         }
         $mine = array_values(array_filter($plan['actions'], function ($a) use ($bookingIds, $blockIds, $cbIds, $cbBlockIds) {
             switch ($a['type']) {
-                case 'push_create': return in_array((int)$a['booking_id'], $bookingIds, true);
+                case 'push_create':
+                case 'push_payment': return in_array((int)$a['booking_id'], $bookingIds, true);
                 case 'push_status': return isset($cbIds[(string)$a['cb']]);
                 case 'push_newblock': return in_array((int)$a['block_id'], $blockIds, true);
                 case 'push_delblock':

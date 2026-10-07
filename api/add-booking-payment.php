@@ -366,6 +366,7 @@ try {
     }
     $successMessage .= "\nStatus: " . $statusLabel;
 
+    $cbPushBookings = array_map(fn($t) => (int)$t['id'], $targets);
     echo json_encode([
         'success' => true,
         'message' => $successMessage,
@@ -393,3 +394,9 @@ try {
 }
 
 ob_end_flush();
+
+// ═══ CLOUDBEDS: pembayaran ikut tercatat di folio Cloudbeds (setelah respons dikirim) ═══
+if (!empty($cbPushBookings)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, $cbPushBookings);
+}
