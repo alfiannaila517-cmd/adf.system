@@ -214,6 +214,68 @@ class CloudbedsClient
         return ['ok' => $ok, 'http' => $http, 'data' => is_array($json) ? ($json['data'] ?? $json) : null, 'detail' => $detail];
     }
 
+    /** Kumpulkan (rekursif) semua objek yang memiliki salah satu kunci $keys. */
+    private static function collect($data, array $keys): array
+    {
+        $found = [];
+        if (!is_array($data)) {
+            return $found;
+        }
+        foreach ($keys as $k) {
+            if (array_key_exists($k, $data) && !is_array($data[$k])) {
+                return [$data];
+            }
+        }
+        foreach ($data as $v) {
+            if (is_array($v)) {
+                $found = array_merge($found, self::collect($v, $keys));
+            }
+        }
+        return $found;
+    }
+
+    /**
+     * Pratinjau reservasi Cloudbeds (hanya baca) untuk rentang check-in. Semua halaman diambil (maks 5×100).
+     * @return array{ok:bool, detail:string, items:array, raw_sample:mixed}
+     */
+    public function previewReservations(string $from, string $to): array
+    {
+        $items = [];
+        $raw = null;
+        $detail = 'OK';
+        for ($page = 1; $page <= 5; $page++) {
+            $q = ['checkInFrom' => $from, 'checkInTo' => $to, 'pageNumber' => $page, 'pageSize' => 100];
+            if ($this->propertyId() !== '') {
+                $q['propertyID'] = $this->propertyId();
+            }
+            $r = $this->get('getReservations', $q);
+            if (!$r['ok']) {
+                return ['ok' => false, 'detail' => $r['detail'], 'items' => $items, 'raw_sample' => $raw];
+            }
+            $rows = self::collect($r['data'], ['reservationID']);
+            if ($raw === null && $rows) {
+                $raw = $rows[0];
+            }
+            foreach ($rows as $x) {
+                $items[] = [
+                    'id' => (string)($x['reservationID'] ?? ''),
+                    'guest' => (string)($x['guestName'] ?? trim(($x['guestFirstName'] ?? '') . ' ' . ($x['guestLastName'] ?? ''))),
+                    'status' => (string)($x['status'] ?? ''),
+                    'checkin' => substr((string)($x['startDate'] ?? $x['checkInDate'] ?? ''), 0, 10),
+                    'checkout' => substr((string)($x['endDate'] ?? $x['checkOutDate'] ?? ''), 0, 10),
+                    'source' => (string)($x['sourceName'] ?? $x['source'] ?? ''),
+                    'third_party_id' => (string)($x['thirdPartyIdentifier'] ?? ''),
+                    'total' => isset($x['total']) ? (float)$x['total'] : (isset($x['grandTotal']) ? (float)$x['grandTotal'] : null),
+                    'balance' => isset($x['balance']) ? (float)$x['balance'] : null,
+                ];
+            }
+            if (count($rows) < 100) {
+                break;
+            }
+        }
+        return ['ok' => true, 'detail' => $detail, 'items' => $items, 'raw_sample' => $raw];
+    }
+
     /* ---------------- Tes koneksi (hanya baca) ---------------- */
 
     /**
@@ -267,13 +329,19 @@ class CloudbedsClient
 
         $src = $this->get('getSources', $q, $keyOverride);
         $out['steps'][] = ['name' => 'Sumber booking (getSources)', 'ok' => $src['ok'], 'detail' => $src['detail']];
-        foreach (($src['ok'] && is_array($src['data'])) ? $src['data'] : [] as $s) {
+        // Bentuk data getSources bisa datar atau bersarang (per properti); kumpulkan setiap objek yang punya sourceID/sourceName.
+        foreach (self::collect($src['ok'] ? $src['data'] : [], ['sourceID', 'sourceName', 'name']) as $s) {
+            $comm = $s['commission'] ?? $s['commissionPercent'] ?? $s['commission_rate'] ?? null;
+            if (is_array($comm)) {
+                $comm = $comm['value'] ?? $comm['amount'] ?? null;
+            }
             $out['sources'][] = [
-                'id' => (string)($s['sourceID'] ?? ''),
-                'name' => (string)($s['sourceName'] ?? ''),
-                'commission' => isset($s['commission']) ? (float)$s['commission'] : null,
+                'id' => (string)($s['sourceID'] ?? $s['id'] ?? ''),
+                'name' => (string)($s['sourceName'] ?? $s['name'] ?? ''),
+                'commission' => is_numeric($comm) ? (float)$comm : null,
             ];
         }
+        $out['sources_raw_sample'] = is_array($src['data']) ? array_slice($src['data'], 0, 1, true) : $src['data'];
 
         $out['ok'] = $hotels['ok'];
         return $out;

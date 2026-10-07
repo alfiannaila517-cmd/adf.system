@@ -300,14 +300,92 @@ include '../../includes/header.php';
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                <details style="margin-top:.5rem"><summary class="cbx-hint" style="cursor:pointer">Contoh data mentah sumber booking</summary>
+                    <pre style="white-space:pre-wrap;font-size:.62rem;max-height:220px;overflow:auto"><?php echo htmlspecialchars(json_encode($test['sources_raw_sample'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+                </details>
             </div>
         </div>
+    <?php endif; ?>
 
+    <?php if ($cb->isConfigured()):
+        // ---- Pratinjau reservasi Cloudbeds (hanya baca) ----
+        $pvFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['pv_from'] ?? '') ? $_GET['pv_from'] : date('Y-m-d', strtotime('-3 days'));
+        $pvTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['pv_to'] ?? '') ? $_GET['pv_to'] : date('Y-m-d', strtotime('+30 days'));
+        $pv = isset($_GET['preview']) ? $cb->previewReservations($pvFrom, $pvTo) : null;
+        // Booking sistem di rentang yang sama, untuk dicocokkan (tanggal sama + nama mirip)
+        $localBk = [];
+        if ($pv && $pv['ok']) {
+            $localBk = $db->fetchAll("SELECT b.booking_code, b.status, b.booking_source, DATE(b.check_in_date) ci, DATE(b.check_out_date) co, g.guest_name, r.room_number
+                FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id LEFT JOIN rooms r ON r.id = b.room_id
+                WHERE DATE(b.check_in_date) BETWEEN ? AND ?", [$pvFrom, $pvTo]) ?: [];
+        }
+        $nameKey = function ($s) {
+            $w = array_filter(preg_split('/\s+/', strtolower(preg_replace('/[^a-zA-Z ]/', ' ', (string)$s))), fn($x) => strlen($x) >= 3 && !in_array($x, ['mr', 'mrs', 'ms', 'pax'], true));
+            return array_values($w);
+        };
+    ?>
         <div class="cbx-card">
-            <div class="cbx-note">
-                <b>Langkah berikutnya:</b> bila tipe & nomor kamar sudah <b>Cocok</b>, tahap 2 menyambungkan booking OTA dari Cloudbeds ke Reservasi/Kalender secara otomatis.
-                Yang masih <b>Tidak ada / beda</b> sebaiknya disamakan dulu (nama tipe kamar atau nomor kamar) di Cloudbeds atau di Pengaturan Front Desk.
-            </div>
+            <h3>Pratinjau reservasi Cloudbeds</h3>
+            <p class="cbx-sub">Hanya membaca. Menunjukkan booking Cloudbeds dan apakah sudah ada di sistem — dasar untuk sinkron otomatis tahap 2.</p>
+            <form method="get" class="cbx-row" style="margin-top:0">
+                <input type="hidden" name="preview" value="1">
+                <label class="cbx-label" style="margin:0">Check-in dari</label>
+                <input type="date" class="cbx-input" name="pv_from" value="<?php echo htmlspecialchars($pvFrom); ?>" style="width:150px">
+                <label class="cbx-label" style="margin:0">sampai</label>
+                <input type="date" class="cbx-input" name="pv_to" value="<?php echo htmlspecialchars($pvTo); ?>" style="width:150px">
+                <button type="submit" class="cbx-btn">Tampilkan</button>
+            </form>
+            <?php if ($pv && !$pv['ok']): ?>
+                <div class="cbx-note" style="margin-top:.6rem;border-color:#fecaca;color:#b91c1c">Gagal: <?php echo htmlspecialchars($pv['detail']); ?></div>
+            <?php elseif ($pv): ?>
+                <?php
+                $nNew = 0;
+                foreach ($pv['items'] as &$it) {
+                    $it['match'] = null;
+                    $k = $nameKey($it['guest']);
+                    foreach ($localBk as $lb) {
+                        if ($lb['ci'] === $it['checkin'] && $lb['co'] === $it['checkout'] && $k && array_intersect($k, $nameKey($lb['guest_name']))) {
+                            $it['match'] = $lb;
+                            break;
+                        }
+                    }
+                    if (!$it['match'] && !in_array(strtolower($it['status']), ['canceled', 'cancelled', 'no_show'], true)) $nNew++;
+                }
+                unset($it);
+                ?>
+                <p class="cbx-hint" style="margin:.6rem 0"><?php echo count($pv['items']); ?> reservasi di Cloudbeds · <b><?php echo $nNew; ?></b> aktif belum ada di sistem.</p>
+                <div style="overflow-x:auto">
+                    <table class="cbx-tbl">
+                        <thead><tr><th>Cloudbeds</th><th>Tamu</th><th>Tanggal</th><th>Sumber</th><th>Status</th><th>Total</th><th>Di sistem</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($pv['items'] as $it): ?>
+                                <tr>
+                                    <td><small><?php echo htmlspecialchars($it['id']); ?></small><?php echo $it['third_party_id'] ? '<br><small>' . htmlspecialchars($it['third_party_id']) . '</small>' : ''; ?></td>
+                                    <td><b><?php echo htmlspecialchars($it['guest']); ?></b></td>
+                                    <td><?php echo htmlspecialchars(date('d M', strtotime($it['checkin'])) . ' – ' . date('d M', strtotime($it['checkout']))); ?></td>
+                                    <td><?php echo htmlspecialchars($it['source']); ?></td>
+                                    <td><?php echo htmlspecialchars($it['status']); ?></td>
+                                    <td><?php echo $it['total'] !== null ? 'Rp ' . number_format($it['total'], 0, ',', '.') : '—'; ?></td>
+                                    <td><?php if ($it['match']): ?><span class="cbx-pill ok"><?php echo htmlspecialchars($it['match']['booking_code']); ?></span> <small>Room <?php echo htmlspecialchars((string)$it['match']['room_number']); ?></small>
+                                        <?php elseif (in_array(strtolower($it['status']), ['canceled', 'cancelled', 'no_show'], true)): ?><span class="cbx-pill">batal</span>
+                                        <?php else: ?><span class="cbx-pill warn">Belum ada</span><?php endif; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <details style="margin-top:.5rem"><summary class="cbx-hint" style="cursor:pointer">Contoh data mentah 1 reservasi (untuk tahap 2)</summary>
+                    <pre style="white-space:pre-wrap;font-size:.62rem;max-height:260px;overflow:auto"><?php
+                        $sample = $pv['raw_sample'];
+                        // Data pribadi disamarkan di contoh: email & telepon
+                        if (is_array($sample)) {
+                            array_walk_recursive($sample, function (&$v, $k) {
+                                if (is_string($v) && preg_match('/email|phone|cell/i', (string)$k)) $v = '***';
+                            });
+                        }
+                        echo htmlspecialchars(json_encode($sample, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+                </details>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 </div>
