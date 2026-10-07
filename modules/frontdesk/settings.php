@@ -1392,6 +1392,9 @@ include '../../includes/header.php';
         <button class="tab-btn" onclick="location.href='whatsapp.php'">
             💬 WhatsApp
         </button>
+        <button class="tab-btn" onclick="location.href='cloudbeds.php'">
+            🔗 Cloudbeds
+        </button>
     </div>
 
     <!-- ==================== ROOMS TAB ==================== -->

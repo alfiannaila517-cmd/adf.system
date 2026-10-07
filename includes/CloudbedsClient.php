@@ -1,0 +1,213 @@
+<?php
+
+/**
+ * Klien API Cloudbeds (API key "cbat_…", header x-api-key).
+ *
+ * Pengaturan per bisnis di tabel `settings` (database bisnis yang aktif):
+ *   cloudbeds_api_key      API key, DIENKRIPSI (AES-256-CBC); tidak pernah dikirim ke browser
+ *   cloudbeds_property_id  propertyID Cloudbeds (terisi otomatis saat tes koneksi)
+ *   cloudbeds_api_base     opsional, default https://api.cloudbeds.com/api/v1.2
+ *
+ * Tahap 1: hanya baca (tes koneksi, info properti, tipe kamar, kamar, sumber booking).
+ * Kode lama includes/CloudbedPMS.php & CloudbedHelper.php tidak dipakai (menulis ke tabel yang tidak ada).
+ */
+class CloudbedsClient
+{
+    private $db;
+    private $settings = null;
+    public const DEFAULT_BASE = 'https://api.cloudbeds.com/api/v1.2';
+
+    public function __construct($db)
+    {
+        $this->db = $db;
+    }
+
+    /* ---------------- Pengaturan ---------------- */
+
+    private function settings(): array
+    {
+        if ($this->settings === null) {
+            $this->settings = ['cloudbeds_api_key' => '', 'cloudbeds_property_id' => '', 'cloudbeds_api_base' => ''];
+            try {
+                $rows = $this->db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('cloudbeds_api_key','cloudbeds_property_id','cloudbeds_api_base')") ?: [];
+                foreach ($rows as $r) {
+                    $this->settings[$r['setting_key']] = (string)$r['setting_value'];
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        return $this->settings;
+    }
+
+    public function apiKey(): string
+    {
+        return self::decrypt($this->settings()['cloudbeds_api_key']);
+    }
+
+    public function isConfigured(): bool
+    {
+        return $this->apiKey() !== '';
+    }
+
+    /** 4 karakter terakhir key, untuk ditampilkan ("cbat_••••abcd") tanpa membuka key-nya. */
+    public function keyHint(): string
+    {
+        $k = $this->apiKey();
+        return $k === '' ? '' : substr($k, 0, 5) . '••••' . substr($k, -4);
+    }
+
+    public function propertyId(): string
+    {
+        return trim($this->settings()['cloudbeds_property_id']);
+    }
+
+    public function baseUrl(): string
+    {
+        $b = trim($this->settings()['cloudbeds_api_base']);
+        return rtrim($b !== '' ? $b : self::DEFAULT_BASE, '/');
+    }
+
+    public function saveSetting(string $key, string $value): void
+    {
+        if ($key === 'cloudbeds_api_key') {
+            $value = $value === '' ? '' : self::encrypt($value);
+        }
+        $this->db->query(
+            "INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
+            [$key, $value]
+        );
+        $this->settings = null;
+    }
+
+    /* ---------------- Enkripsi key ---------------- */
+
+    private static function secretKey(): string
+    {
+        $seed = defined('DB_PASS') ? DB_PASS : 'adf-cloudbeds-secret';
+        return hash('sha256', $seed . '|adf-cloudbeds', true);
+    }
+
+    private static function encrypt(string $plain): string
+    {
+        $iv = random_bytes(16);
+        $cipher = openssl_encrypt($plain, 'aes-256-cbc', self::secretKey(), OPENSSL_RAW_DATA, $iv);
+        return 'enc:' . base64_encode($iv . $cipher);
+    }
+
+    private static function decrypt(string $stored): string
+    {
+        if ($stored === '' || strpos($stored, 'enc:') !== 0) {
+            return '';
+        }
+        $raw = base64_decode(substr($stored, 4), true);
+        if ($raw === false || strlen($raw) <= 16) {
+            return '';
+        }
+        $plain = openssl_decrypt(substr($raw, 16), 'aes-256-cbc', self::secretKey(), OPENSSL_RAW_DATA, substr($raw, 0, 16));
+        return $plain !== false ? $plain : '';
+    }
+
+    /* ---------------- HTTP ---------------- */
+
+    /**
+     * GET ke endpoint Cloudbeds. $keyOverride = uji key yang baru diketik (belum disimpan).
+     * @return array{ok:bool, http:int, data:mixed, detail:string}
+     */
+    public function get(string $endpoint, array $params = [], ?string $keyOverride = null): array
+    {
+        $key = trim((string)($keyOverride ?? $this->apiKey()), " \t\n\r\0\x0B\"'");
+        if ($key === '') {
+            return ['ok' => false, 'http' => 0, 'data' => null, 'detail' => 'API key Cloudbeds belum diisi'];
+        }
+        if (!function_exists('curl_init')) {
+            return ['ok' => false, 'http' => 0, 'data' => null, 'detail' => 'Ekstensi PHP cURL tidak aktif di server'];
+        }
+        $url = $this->baseUrl() . '/' . ltrim($endpoint, '/') . ($params ? '?' . http_build_query($params) : '');
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 25,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_HTTPHEADER => ['x-api-key: ' . $key, 'Accept: application/json'],
+        ]);
+        $body = curl_exec($ch);
+        $err = curl_error($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($body === false) {
+            return ['ok' => false, 'http' => 0, 'data' => null, 'detail' => 'Tidak bisa menghubungi Cloudbeds: ' . $err];
+        }
+        $json = json_decode($body, true);
+        $ok = $http >= 200 && $http < 300 && is_array($json) && ($json['success'] ?? true) !== false;
+        $detail = $ok ? 'OK' : (is_array($json) ? (string)($json['message'] ?? ('HTTP ' . $http)) : ('HTTP ' . $http));
+        if ($http === 401 || $http === 403) {
+            $detail = 'Ditolak Cloudbeds (HTTP ' . $http . '): ' . $detail . ' — cek API key & scope';
+        }
+        return ['ok' => $ok, 'http' => $http, 'data' => is_array($json) ? ($json['data'] ?? $json) : null, 'detail' => $detail];
+    }
+
+    /* ---------------- Tes koneksi (hanya baca) ---------------- */
+
+    /**
+     * Ambil properti, tipe kamar, kamar dan sumber booking. Tidak mengubah apa pun di Cloudbeds.
+     * propertyID disimpan otomatis bila key baru diuji & tersimpan.
+     */
+    public function testConnection(?string $keyOverride = null): array
+    {
+        $out = ['ok' => false, 'steps' => [], 'property' => null, 'room_types' => [], 'rooms' => [], 'sources' => []];
+
+        $hotels = $this->get('getHotels', [], $keyOverride);
+        $out['steps'][] = ['name' => 'Properti (getHotels)', 'ok' => $hotels['ok'], 'detail' => $hotels['detail']];
+        if (!$hotels['ok']) {
+            return $out;
+        }
+        $list = is_array($hotels['data']) ? array_values($hotels['data']) : [];
+        $prop = $list[0] ?? null;
+        $propertyId = (string)($prop['propertyID'] ?? $this->propertyId());
+        $out['property'] = [
+            'id' => $propertyId,
+            'name' => (string)($prop['propertyName'] ?? ''),
+            'count' => count($list),
+            'currency' => (string)($prop['propertyCurrency']['currencyCode'] ?? ($prop['propertyCurrency'] ?? '')),
+        ];
+        $q = $propertyId !== '' ? ['propertyID' => $propertyId] : [];
+
+        $rt = $this->get('getRoomTypes', $q, $keyOverride);
+        $out['steps'][] = ['name' => 'Tipe kamar (getRoomTypes)', 'ok' => $rt['ok'], 'detail' => $rt['detail']];
+        foreach (($rt['ok'] && is_array($rt['data'])) ? $rt['data'] : [] as $t) {
+            $out['room_types'][] = [
+                'id' => (string)($t['roomTypeID'] ?? ''),
+                'name' => (string)($t['roomTypeName'] ?? ''),
+                'short' => (string)($t['roomTypeNameShort'] ?? ''),
+                'units' => (int)($t['roomTypeUnits'] ?? 0),
+            ];
+        }
+
+        $rm = $this->get('getRooms', $q, $keyOverride);
+        $out['steps'][] = ['name' => 'Kamar (getRooms)', 'ok' => $rm['ok'], 'detail' => $rm['detail']];
+        // getRooms: data = [ {propertyID, rooms: [ {roomID, roomName, roomTypeID, roomTypeName, ...} ]} ]
+        foreach (($rm['ok'] && is_array($rm['data'])) ? $rm['data'] : [] as $blk) {
+            foreach ((array)($blk['rooms'] ?? []) as $r) {
+                $out['rooms'][] = [
+                    'id' => (string)($r['roomID'] ?? ''),
+                    'name' => (string)($r['roomName'] ?? ''),
+                    'type' => (string)($r['roomTypeName'] ?? ''),
+                ];
+            }
+        }
+
+        $src = $this->get('getSources', $q, $keyOverride);
+        $out['steps'][] = ['name' => 'Sumber booking (getSources)', 'ok' => $src['ok'], 'detail' => $src['detail']];
+        foreach (($src['ok'] && is_array($src['data'])) ? $src['data'] : [] as $s) {
+            $out['sources'][] = [
+                'id' => (string)($s['sourceID'] ?? ''),
+                'name' => (string)($s['sourceName'] ?? ''),
+                'commission' => isset($s['commission']) ? (float)$s['commission'] : null,
+            ];
+        }
+
+        $out['ok'] = $hotels['ok'];
+        return $out;
+    }
+}
