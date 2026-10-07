@@ -124,9 +124,12 @@ class CloudbedsSync
         }
 
         $links = [];
-        foreach ($this->db->fetchAll("SELECT cb_reservation_id, booking_id FROM cloudbeds_booking_links") ?: [] as $l) {
+        $linkHow = [];
+        foreach ($this->db->fetchAll("SELECT cb_reservation_id, booking_id, how FROM cloudbeds_booking_links") ?: [] as $l) {
             $links[(string)$l['cb_reservation_id']][] = (int)$l['booking_id'];
+            $linkHow[(string)$l['cb_reservation_id']][(int)$l['booking_id']] = (string)$l['how'];
         }
+        $push = $this->pushEnabled();
         $linkedBookingIds = [];
         foreach ($links as $ids) foreach ($ids as $id) $linkedBookingIds[$id] = true;
 
@@ -158,6 +161,8 @@ class CloudbedsSync
                                 $actions[] = ['type' => 'cancel', 'cb' => $cbId, 'label' => $label, 'booking_id' => (int)$bk['id'], 'msg' => 'Batalkan ' . $bk['booking_code']];
                             }
                         }
+                    } elseif ($push && ($st = $this->outboundStatus($bk['status'], $it['status'], $linkHow[$cbId][(int)$bk['id']] ?? 'link'))) {
+                        $actions[] = ['type' => 'push_status', 'cb' => $cbId, 'label' => $label, 'steps' => $st, 'msg' => 'Kirim ke Cloudbeds: status ' . implode(' → ', $st) . ' (' . $bk['booking_code'] . ')'];
                     } elseif (in_array($bk['status'], ['confirmed', 'pending'], true) && ($bk['ci'] !== $it['checkin'] || $bk['co'] !== $it['checkout'])) {
                         $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Tanggal berubah di Cloudbeds; ' . $bk['booking_code'] . ' masih ' . $bk['ci'] . ' → ' . $bk['co'] . '. Sesuaikan manual.'];
                     }
@@ -282,10 +287,15 @@ class CloudbedsSync
             ];
         }
 
+        // ---- Booking direct baru di sistem → reservasi Cloudbeds ----
+        if ($push) {
+            $this->planPushCreate($from, $to, $linkedBookingIds, $actions);
+        }
+
         // ---- Blok kamar Cloudbeds → room_blocks (kode CB-<blockID>-<roomID>) ----
         $this->planRoomBlocks($from, $to, $roomByNo, $actions);
 
-        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'warn' => 0];
+        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'warn' => 0];
         foreach ($actions as $a) $counts[$a['type']]++;
         return ['ok' => true, 'detail' => 'OK', 'actions' => $actions, 'counts' => $counts];
     }
@@ -294,6 +304,140 @@ class CloudbedsSync
     {
         $last = date('Y-m-d', strtotime($end . ' -1 day'));
         return $last === $start ? 'malam ' . $start : 'malam ' . $start . ' s/d ' . $last;
+    }
+
+    /* ---------------- Sistem → Cloudbeds ---------------- */
+
+    public function pushEnabled(): bool
+    {
+        $r = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_push_enabled'");
+        return ($r['setting_value'] ?? '0') === '1';
+    }
+
+    /**
+     * Status yang perlu dikirim ke Cloudbeds agar sama dengan sistem (urutan langkah), atau [] bila sudah sama.
+     * Check-in/out sistem → Cloudbeds; batal hanya untuk reservasi yang dibuat dari sistem (OTA dibatalkan lewat OTA).
+     */
+    private function outboundStatus(string $local, string $cbStatus, string $how): array
+    {
+        $cb = strtolower($cbStatus);
+        $active = in_array($cb, ['confirmed', 'not_confirmed'], true);
+        if ($local === 'checked_in' && $active) return ['checked_in'];
+        if ($local === 'checked_out' && $active) return ['checked_in', 'checked_out'];
+        if ($local === 'checked_out' && $cb === 'checked_in') return ['checked_out'];
+        if ($local === 'cancelled' && $how === 'push' && ($active)) return ['canceled'];
+        return [];
+    }
+
+    /** Kamar Cloudbeds per nomor kamar sistem: roomID & roomTypeID (dari getRooms). */
+    private function cbRoomsByNo(): array
+    {
+        static $cache = null;
+        if ($cache !== null) return $cache;
+        $cache = [];
+        $rm = $this->cb->get('getRooms', $this->cb->propertyId() !== '' ? ['propertyID' => $this->cb->propertyId()] : []);
+        $walk = function ($d) use (&$walk, &$cache) {
+            if (!is_array($d)) return;
+            if (isset($d['roomID']) && !is_array($d['roomID']) && isset($d['roomName'])) {
+                if (preg_match('/\d{2,4}/', (string)$d['roomName'], $m)) {
+                    $cache[$m[0]] = ['room_id' => (string)$d['roomID'], 'type_id' => (string)($d['roomTypeID'] ?? ''), 'name' => (string)$d['roomName']];
+                }
+                return;
+            }
+            foreach ($d as $v) $walk($v);
+        };
+        $walk($rm['data'] ?? []);
+        return $cache;
+    }
+
+    /**
+     * Booking DIRECT yang dibuat di sistem setelah fitur kirim diaktifkan & belum ada di Cloudbeds → reservasi baru.
+     * Booking lama tidak dikirim (staf selama ini juga mengetiknya manual di Cloudbeds — mencegah dobel).
+     */
+    private function planPushCreate(string $from, string $to, array $linkedBookingIds, array &$actions): void
+    {
+        $sinceRow = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_push_since'");
+        $since = (string)($sinceRow['setting_value'] ?? '');
+        if ($since === '') return;
+        $rows = $this->db->fetchAll(
+            "SELECT b.id, b.booking_code, b.status, b.booking_source, DATE(b.check_in_date) ci, DATE(b.check_out_date) co,
+                    b.adults, b.children, b.created_at, b.notes, r.room_number, g.guest_name, g.phone, g.email, g.nationality,
+                    bs.source_type
+             FROM bookings b
+             JOIN rooms r ON r.id = b.room_id
+             LEFT JOIN guests g ON g.id = b.guest_id
+             LEFT JOIN booking_sources bs ON bs.source_key = b.booking_source
+             WHERE b.status IN ('confirmed','pending','checked_in')
+               AND DATE(b.check_out_date) >= CURDATE()
+               AND DATE(b.check_in_date) BETWEEN ? AND ?
+               AND b.created_at >= ?
+               AND COALESCE(b.notes, '') NOT LIKE 'Cloudbeds #%'",
+            [$from, $to, $since]
+        ) ?: [];
+        $cbRooms = null;
+        foreach ($rows as $b) {
+            if (isset($linkedBookingIds[(int)$b['id']])) continue;
+            $isDirect = $b['source_type'] === 'direct' || ($b['source_type'] === null && in_array($b['booking_source'], ['walk_in', 'phone', 'online', 'direct', 'website', 'email'], true));
+            if (!$isDirect) continue;
+            $label = ($b['guest_name'] ?: 'Guest') . ' · ' . $b['ci'] . ' → ' . $b['co'] . ' · ' . $b['booking_source'] . ' (' . $b['booking_code'] . ')';
+            if ($cbRooms === null) $cbRooms = $this->cbRoomsByNo();
+            $no = preg_match('/\d{2,4}/', (string)$b['room_number'], $m) ? $m[0] : (string)$b['room_number'];
+            $cr = $cbRooms[$no] ?? null;
+            if (!$cr || $cr['type_id'] === '') {
+                $actions[] = ['type' => 'warn', 'cb' => '-', 'label' => $label, 'msg' => 'Room ' . $b['room_number'] . ' tidak ditemukan di Cloudbeds — tidak dikirim.'];
+                continue;
+            }
+            $actions[] = ['type' => 'push_create', 'cb' => '-', 'label' => $label, 'booking_id' => (int)$b['id'], 'booking' => $b, 'cb_room' => $cr,
+                'msg' => 'Kirim ke Cloudbeds: reservasi baru Room ' . $b['room_number'] . ($b['status'] === 'checked_in' ? ' (lalu status checked-in)' : '')];
+        }
+    }
+
+    /** Buat reservasi di Cloudbeds untuk booking direct, tempatkan di kamar yang sama, lalu tautkan. */
+    private function pushCreate(array $a): void
+    {
+        $b = $a['booking'];
+        $cr = $a['cb_room'];
+        $name = trim((string)($b['guest_name'] ?: 'Guest'));
+        $parts = preg_split('/\s+/', $name);
+        $first = count($parts) > 1 ? implode(' ', array_slice($parts, 0, -1)) : $name;
+        $last = count($parts) > 1 ? end($parts) : '-';
+        $nat = strtolower(trim((string)($b['nationality'] ?? '')));
+        $country = ($nat === '' || strpos($nat, 'indo') !== false) ? 'ID' : (strlen($nat) === 2 ? strtoupper($nat) : 'ID');
+        $email = filter_var((string)$b['email'], FILTER_VALIDATE_EMAIL) ? (string)$b['email'] : 'noemail+' . strtolower($b['booking_code']) . '@adfsystem.online';
+        $adults = max(1, (int)$b['adults']);
+        $children = max(0, (int)$b['children']);
+        $params = [
+            'startDate' => $b['ci'],
+            'endDate' => $b['co'],
+            'guestFirstName' => $first,
+            'guestLastName' => $last,
+            'guestCountry' => $country,
+            'guestZip' => '59455',
+            'guestEmail' => $email,
+            'guestPhone' => (string)($b['phone'] ?? ''),
+            'paymentMethod' => 'cash',
+            'sendEmailConfirmation' => 'false',
+            'rooms' => [['roomTypeID' => $cr['type_id'], 'quantity' => 1]],
+            'adults' => [['roomTypeID' => $cr['type_id'], 'quantity' => $adults]],
+            'children' => [['roomTypeID' => $cr['type_id'], 'quantity' => $children]],
+        ];
+        $r = $this->cb->send('POST', 'postReservation', $params);
+        if (!$r['ok']) {
+            throw new \RuntimeException('Cloudbeds menolak reservasi: ' . $r['detail']);
+        }
+        $resId = (string)($r['raw']['reservationID'] ?? ($r['data']['reservationID'] ?? ''));
+        if ($resId === '') {
+            throw new \RuntimeException('Reservasi dibuat tetapi ID tidak terbaca dari jawaban Cloudbeds');
+        }
+        // Tautkan dulu (reservasi sudah ada di Cloudbeds), baru tempatkan kamar
+        $this->db->query("INSERT IGNORE INTO cloudbeds_booking_links (cb_reservation_id, booking_id, how) VALUES (?, ?, 'push')", [$resId, $a['booking_id']]);
+        $as = $this->cb->send('POST', 'postRoomAssign', ['reservationID' => $resId, 'newRoomID' => $cr['room_id'], 'roomTypeID' => $cr['type_id']]);
+        $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", [
+            "\n[Dikirim ke Cloudbeds #" . $resId . ($as['ok'] ? '' : ' — kamar belum ditempatkan: ' . mb_substr($as['detail'], 0, 120)) . ']', $a['booking_id'],
+        ]);
+        if ($b['status'] === 'checked_in') {
+            $this->cb->send('PUT', 'putReservation', ['reservationID' => $resId, 'status' => 'checked_in']);
+        }
     }
 
     /**
@@ -420,7 +564,7 @@ class CloudbedsSync
         if (!$plan['ok']) {
             return $plan + ['done' => []];
         }
-        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'errors' => []];
+        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'errors' => []];
         // Kolom direct_amount (Hotel Collect) dibuat sebelum transaksi: ALTER di dalam transaksi = implicit commit
         try {
             require_once __DIR__ . '/BookingSourceHelper.php';
@@ -440,6 +584,15 @@ class CloudbedsSync
                     $this->db->query("UPDATE bookings SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Dibatalkan via Cloudbeds ', NOW(), ']')), updated_at = NOW()
                         WHERE id = ? AND status IN ('confirmed','pending') AND COALESCE(paid_amount,0) = 0", [$a['booking_id']]);
                     $done['cancel']++;
+                } elseif ($a['type'] === 'push_status') {
+                    foreach ($a['steps'] as $stp) {
+                        $r = $this->cb->send('PUT', 'putReservation', ['reservationID' => $a['cb'], 'status' => $stp]);
+                        if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak status ' . $stp . ': ' . $r['detail']);
+                    }
+                    $done['push_status']++;
+                } elseif ($a['type'] === 'push_create') {
+                    $this->pushCreate($a);
+                    $done['push_create']++;
                 } elseif ($a['type'] === 'unblock') {
                     $this->db->query("UPDATE room_blocks SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Dicabut via Cloudbeds]')) WHERE id = ? AND status = 'active'", [$a['block_id']]);
                     $done['unblock']++;

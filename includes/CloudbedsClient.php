@@ -265,6 +265,41 @@ class CloudbedsClient
      * GET ke endpoint Cloudbeds. $keyOverride = uji key yang baru diketik (belum disimpan).
      * @return array{ok:bool, http:int, data:mixed, detail:string}
      */
+    /**
+     * POST / PUT (form-encoded) ke endpoint Cloudbeds — dipakai tahap Sistem → Cloudbeds.
+     * @return array{ok:bool, http:int, data:mixed, detail:string, raw:mixed}
+     */
+    public function send(string $method, string $endpoint, array $params): array
+    {
+        $key = trim($this->apiKey(), " \t\n\r\0\x0B\"'");
+        if ($key === '') {
+            return ['ok' => false, 'http' => 0, 'data' => null, 'detail' => 'API key Cloudbeds belum diisi', 'raw' => null];
+        }
+        if ($this->propertyId() !== '' && !isset($params['propertyID'])) {
+            $params['propertyID'] = $this->propertyId();
+        }
+        $ch = curl_init($this->baseUrl() . '/' . ltrim($endpoint, '/'));
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_CUSTOMREQUEST => strtoupper($method),
+            CURLOPT_POSTFIELDS => http_build_query($params),
+            CURLOPT_HTTPHEADER => ['x-api-key: ' . $key, 'Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
+        ]);
+        $body = curl_exec($ch);
+        $err = curl_error($ch);
+        $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($body === false) {
+            return ['ok' => false, 'http' => 0, 'data' => null, 'detail' => 'Tidak bisa menghubungi Cloudbeds: ' . $err, 'raw' => null];
+        }
+        $json = json_decode($body, true);
+        $ok = $http >= 200 && $http < 300 && is_array($json) && ($json['success'] ?? true) !== false;
+        $detail = $ok ? 'OK' : (is_array($json) ? (string)($json['message'] ?? ('HTTP ' . $http)) : ('HTTP ' . $http . ' ' . substr((string)$body, 0, 200)));
+        return ['ok' => $ok, 'http' => $http, 'data' => is_array($json) ? ($json['data'] ?? $json) : null, 'detail' => $detail, 'raw' => $json];
+    }
+
     public function get(string $endpoint, array $params = [], ?string $keyOverride = null): array
     {
         $key = trim((string)($keyOverride ?? $this->apiKey()), " \t\n\r\0\x0B\"'");

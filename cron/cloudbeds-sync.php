@@ -6,7 +6,7 @@
 // cPanel → Cron Jobs, tiap 10 menit:
 //   */10 * * * *   /usr/local/bin/php /home/adfb2574/public_html/cron/cloudbeds-sync.php >> /home/adfb2574/cloudbeds_sync_log.txt 2>&1
 //
-// Rentang: check-in 3 hari lalu s/d 120 hari ke depan. Aturannya sama dengan tombol "Jalankan sinkron"
+// Rentang: check-in 14 hari lalu s/d 120 hari ke depan. Aturannya sama dengan tombol "Jalankan sinkron"
 // (tautkan / buat booking / batalkan / blok kamar); yang "Perlu dicek" tidak dijalankan.
 // Tambah argumen "force" untuk menjalankan walau sinkron otomatis belum diaktifkan (tes).
 // Hanya bisa dijalankan dari command line, tidak dari browser.
@@ -33,7 +33,7 @@ if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
 }
 set_time_limit(0);
 
-$from = date('Y-m-d', strtotime('-3 days'));
+$from = date('Y-m-d', strtotime('-14 days'));
 $to = date('Y-m-d', strtotime('+120 days'));
 
 foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
@@ -69,8 +69,8 @@ foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
         $res = (new CloudbedsSync($bdb, $cb))->apply($from, $to, 0);
         $d = $res['done'] ?? [];
         $summary = $res['ok']
-            ? sprintf('baru %d, taut %d, batal %d, blok %d, cabut %d, dicek %d%s',
-                $d['create'] ?? 0, $d['link'] ?? 0, $d['cancel'] ?? 0, $d['block'] ?? 0, $d['unblock'] ?? 0,
+            ? sprintf('baru %d, taut %d, batal %d, blok %d, cabut %d, kirim status %d, kirim baru %d, dicek %d%s',
+                $d['create'] ?? 0, $d['link'] ?? 0, $d['cancel'] ?? 0, $d['block'] ?? 0, $d['unblock'] ?? 0, $d['push_status'] ?? 0, $d['push_create'] ?? 0,
                 $res['counts']['warn'] ?? 0, !empty($d['errors']) ? ', GAGAL ' . count($d['errors']) : '')
             : 'GAGAL: ' . $res['detail'];
         $cb->saveSetting('cloudbeds_last_auto_sync', json_encode([

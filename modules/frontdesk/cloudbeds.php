@@ -59,11 +59,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setFlash('error', 'Sinkron gagal: ' . htmlspecialchars($res['detail']));
         } else {
             $d = $res['done'];
-            setFlash($d['errors'] ? 'error' : 'success', 'Sinkron selesai: ' . $d['create'] . ' booking baru, ' . $d['link'] . ' ditautkan, ' . $d['cancel'] . ' dibatalkan, ' . $d['block'] . ' blok kamar' . ($d['unblock'] ? ', ' . $d['unblock'] . ' blok dicabut' : '')
+            setFlash($d['errors'] ? 'error' : 'success', 'Sinkron selesai: ' . $d['create'] . ' booking baru, ' . $d['link'] . ' ditautkan, ' . $d['cancel'] . ' dibatalkan, ' . $d['block'] . ' blok kamar' . ($d['unblock'] ? ', ' . $d['unblock'] . ' blok dicabut' : '') . ($d['push_status'] + $d['push_create'] ? ', dikirim ke Cloudbeds: ' . $d['push_status'] . ' status, ' . $d['push_create'] . ' booking' : '')
                 . ($res['counts']['warn'] ? ', ' . $res['counts']['warn'] . ' perlu dicek' : '')
                 . ($d['errors'] ? '<br>Gagal: ' . htmlspecialchars(implode(' | ', $d['errors'])) : '') . '.');
         }
         header('Location: cloudbeds.php?plan=1&sf=' . urlencode($sf) . '&st=' . urlencode($st));
+        exit;
+    } elseif ($act === 'toggle_push') {
+        $on = !empty($_POST['push_on']);
+        $cb->saveSetting('cloudbeds_push_enabled', $on ? '1' : '0');
+        if ($on) {
+            // Hanya booking direct yang dibuat mulai sekarang yang dikirim (yang lama sudah diketik manual di Cloudbeds)
+            $cb->saveSetting('cloudbeds_push_since', date('Y-m-d H:i:s'));
+        }
+        setFlash('success', $on ? 'Kirim ke Cloudbeds diaktifkan: check-in/out & booking direct baru dikirim saat sinkron.' : 'Kirim ke Cloudbeds dimatikan.');
+        header('Location: cloudbeds.php');
         exit;
     } elseif ($act === 'toggle_auto') {
         $on = !empty($_POST['auto_on']);
@@ -468,7 +478,7 @@ include '../../includes/header.php';
         $syncer = new CloudbedsSync($db, $cb);
         $plan = isset($_GET['plan']) ? $syncer->plan($sf, $st) : null;
         $syncLog = $syncer->recentLog(8);
-        $typeLabel = ['create' => ['Buat booking', 'ok'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'warn' => ['Perlu dicek', 'warn']];
+        $typeLabel = ['create' => ['Buat booking', 'ok'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'push_status' => ['Kirim status', 'ok'], 'push_create' => ['Kirim booking', 'ok'], 'warn' => ['Perlu dicek', 'warn']];
     ?>
         <div class="cbx-card">
             <h3>Sinkron Cloudbeds → Sistem</h3>
@@ -499,11 +509,29 @@ include '../../includes/header.php';
                     <button type="submit" class="cbx-btn <?php echo $autoOn ? 'ghost' : ''; ?>"><?php echo $autoOn ? 'Matikan' : 'Aktifkan'; ?></button>
                 </form>
             </div>
+            <?php
+            $pushRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_push_enabled'");
+            $pushOn = ($pushRow['setting_value'] ?? '0') === '1';
+            $pushSince = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_push_since'");
+            ?>
+            <div class="cbx-status" style="margin-bottom:.75rem;flex-wrap:wrap">
+                <span class="cbx-dot <?php echo $pushOn ? 'on' : ''; ?>"></span>
+                <div style="flex:1;min-width:220px">
+                    <b>Kirim ke Cloudbeds: <?php echo $pushOn ? 'AKTIF' : 'mati'; ?></b>
+                    <small>Check-in / check-out dari sistem, booking direct baru (walk-in, telepon, website) dibuat & ditempatkan di kamar yang sama, dan pembatalannya.
+                        <?php if ($pushOn && !empty($pushSince['setting_value'])): ?>Booking direct dibuat sejak <?php echo htmlspecialchars(date('d M Y H:i', strtotime($pushSince['setting_value']))); ?>.<?php endif; ?></small>
+                </div>
+                <form method="post" style="margin:0" <?php echo $pushOn ? '' : 'onsubmit="return confirm(\'Aktifkan kirim ke Cloudbeds? Mulai sekarang booking direct baru tidak perlu diketik lagi di Cloudbeds.\')"'; ?>>
+                    <input type="hidden" name="act" value="toggle_push">
+                    <?php if (!$pushOn): ?><input type="hidden" name="push_on" value="1"><?php endif; ?>
+                    <button type="submit" class="cbx-btn <?php echo $pushOn ? 'ghost' : ''; ?>"><?php echo $pushOn ? 'Matikan' : 'Aktifkan'; ?></button>
+                </form>
+            </div>
             <details style="margin:-.25rem 0 .75rem"><summary class="cbx-hint" style="cursor:pointer">Cara memasang Cron Job (sekali saja)</summary>
                 <div class="cbx-note" style="margin-top:.4rem">
                     cPanel → <b>Cron Jobs</b> → Add New Cron Job → Common Settings: <b>Once Per Ten Minutes</b> (*/10 * * * *) → Command:<br>
                     <code style="display:block;margin-top:.35rem;padding:.4rem .5rem;border-radius:6px;background:rgba(15,23,42,.06);word-break:break-all;user-select:all">/usr/local/bin/php <?php echo htmlspecialchars(dirname(dirname(__DIR__))); ?>/cron/cloudbeds-sync.php >> <?php echo htmlspecialchars(dirname(dirname(dirname(__DIR__)))); ?>/cloudbeds_sync_log.txt 2>&amp;1</code>
-                    Aturannya sama dengan tombol <b>Jalankan sinkron</b> (check-in 3 hari lalu s/d 120 hari ke depan); yang "Perlu dicek" tidak dijalankan dan tetap terlihat di pratinjau.
+                    Aturannya sama dengan tombol <b>Jalankan sinkron</b> (check-in 14 hari lalu s/d 120 hari ke depan); yang "Perlu dicek" tidak dijalankan dan tetap terlihat di pratinjau.
                 </div>
             </details>
             <form method="get" class="cbx-row" style="margin-top:0">
@@ -522,6 +550,7 @@ include '../../includes/header.php';
                     <span class="cbx-pill"><?php echo (int)$c['link']; ?> ditautkan</span>
                     <span class="cbx-pill bad"><?php echo (int)$c['cancel']; ?> dibatalkan</span>
                     <span class="cbx-pill"><?php echo (int)$c['block']; ?> blok kamar<?php echo $c['unblock'] ? ' · ' . (int)$c['unblock'] . ' dicabut' : ''; ?></span>
+                    <?php if ($c['push_status'] + $c['push_create'] > 0): ?><span class="cbx-pill ok">→ Cloudbeds: <?php echo (int)$c['push_status']; ?> status · <?php echo (int)$c['push_create']; ?> booking</span><?php endif; ?>
                     <span class="cbx-pill warn"><?php echo (int)$c['warn']; ?> perlu dicek</span>
                 </div>
                 <?php if ($plan['actions']): ?>
@@ -540,8 +569,8 @@ include '../../includes/header.php';
                         </table>
                     </div>
                 <?php endif; ?>
-                <?php if ($c['create'] + $c['link'] + $c['cancel'] + $c['block'] + $c['unblock'] > 0): ?>
-                    <form method="post" class="cbx-row" data-msg="<?php echo htmlspecialchars('Jalankan sinkron sekarang? ' . (int)$c['create'] . ' booking baru, ' . (int)$c['link'] . ' ditautkan, ' . (int)$c['cancel'] . ' dibatalkan, ' . (int)$c['block'] . ' blok kamar, ' . (int)$c['unblock'] . ' blok dicabut.'); ?>" onsubmit="return confirm(this.dataset.msg)">
+                <?php if ($c['create'] + $c['link'] + $c['cancel'] + $c['block'] + $c['unblock'] + $c['push_status'] + $c['push_create'] > 0): ?>
+                    <form method="post" class="cbx-row" data-msg="<?php echo htmlspecialchars('Jalankan sinkron sekarang? ' . (int)$c['create'] . ' booking baru, ' . (int)$c['link'] . ' ditautkan, ' . (int)$c['cancel'] . ' dibatalkan, ' . (int)$c['block'] . ' blok kamar, ' . (int)$c['unblock'] . ' blok dicabut, ' . (int)$c['push_status'] . ' status & ' . (int)$c['push_create'] . ' booking dikirim ke Cloudbeds.'); ?>" onsubmit="return confirm(this.dataset.msg)">
                         <input type="hidden" name="act" value="run_sync">
                         <input type="hidden" name="sf" value="<?php echo htmlspecialchars($sf); ?>">
                         <input type="hidden" name="st" value="<?php echo htmlspecialchars($st); ?>">

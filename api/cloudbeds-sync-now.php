@@ -55,11 +55,11 @@ try {
     $cb->saveSetting('cloudbeds_last_auto_sync', json_encode(['at' => date('Y-m-d H:i:s'), 'ok' => true, 'summary' => 'sedang berjalan…'], JSON_UNESCAPED_UNICODE));
     set_time_limit(120);
 
-    $res = (new CloudbedsSync($db, $cb))->apply(date('Y-m-d', strtotime('-3 days')), date('Y-m-d', strtotime('+120 days')), $userId);
+    $res = (new CloudbedsSync($db, $cb))->apply(date('Y-m-d', strtotime('-14 days')), date('Y-m-d', strtotime('+120 days')), $userId);
     $d = $res['done'] ?? [];
     $summary = $res['ok']
-        ? sprintf('baru %d, taut %d, batal %d, blok %d, cabut %d, dicek %d%s',
-            $d['create'] ?? 0, $d['link'] ?? 0, $d['cancel'] ?? 0, $d['block'] ?? 0, $d['unblock'] ?? 0,
+        ? sprintf('baru %d, taut %d, batal %d, blok %d, cabut %d, kirim status %d, kirim baru %d, dicek %d%s',
+            $d['create'] ?? 0, $d['link'] ?? 0, $d['cancel'] ?? 0, $d['block'] ?? 0, $d['unblock'] ?? 0, $d['push_status'] ?? 0, $d['push_create'] ?? 0,
             $res['counts']['warn'] ?? 0, !empty($d['errors']) ? ', GAGAL ' . count($d['errors']) : '')
         : 'GAGAL: ' . $res['detail'];
     $cb->saveSetting('cloudbeds_last_auto_sync', json_encode([
