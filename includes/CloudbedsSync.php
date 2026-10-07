@@ -282,19 +282,127 @@ class CloudbedsSync
             ];
         }
 
-        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'warn' => 0];
+        // ---- Blok kamar Cloudbeds → room_blocks (kode CB-<blockID>-<roomID>) ----
+        $this->planRoomBlocks($from, $to, $roomByNo, $actions);
+
+        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'warn' => 0];
         foreach ($actions as $a) $counts[$a['type']]++;
         return ['ok' => true, 'detail' => 'OK', 'actions' => $actions, 'counts' => $counts];
     }
 
-    /** Hitung ulang rencana lalu jalankan link / create / cancel. Peringatan tidak dieksekusi. */
+    private static function nightsLabel(string $start, string $end): string
+    {
+        $last = date('Y-m-d', strtotime($end . ' -1 day'));
+        return $last === $start ? 'malam ' . $start : 'malam ' . $start . ' s/d ' . $last;
+    }
+
+    /**
+     * Blok kamar dari Cloudbeds (getRoomBlocks, scope Roomblock: Read). Tanggal selesai diperlakukan seperti
+     * check-out (malam terakhir = sehari sebelumnya), sama dengan room_blocks di sistem.
+     */
+    private function planRoomBlocks(string $from, string $to, array $roomByNo, array &$actions): void
+    {
+        $q = ['startDate' => $from, 'endDate' => $to];
+        if ($this->cb->propertyId() !== '') {
+            $q['propertyID'] = $this->cb->propertyId();
+        }
+        $res = $this->cb->get('getRoomBlocks', $q);
+        if (!$res['ok']) {
+            $actions[] = ['type' => 'warn', 'cb' => '-', 'label' => 'Blok kamar Cloudbeds', 'msg' => 'Tidak bisa dibaca: ' . $res['detail'] . ' (aktifkan scope "Roomblock: Read" di API key Cloudbeds).'];
+            return;
+        }
+        // roomID Cloudbeds → nama kamar (dari getRooms)
+        $cbRoomName = [];
+        $rm = $this->cb->get('getRooms', $this->cb->propertyId() !== '' ? ['propertyID' => $this->cb->propertyId()] : []);
+        $walkRooms = function ($d) use (&$walkRooms, &$cbRoomName) {
+            if (!is_array($d)) return;
+            if (isset($d['roomID']) && !is_array($d['roomID']) && isset($d['roomName'])) {
+                $cbRoomName[(string)$d['roomID']] = (string)$d['roomName'];
+                return;
+            }
+            foreach ($d as $v) $walkRooms($v);
+        };
+        $walkRooms($rm['data'] ?? []);
+
+        $blocks = [];
+        $walkBlocks = function ($d) use (&$walkBlocks, &$blocks) {
+            if (!is_array($d)) return;
+            if (isset($d['roomBlockID']) && !is_array($d['roomBlockID'])) {
+                $blocks[] = $d;
+                return;
+            }
+            foreach ($d as $v) $walkBlocks($v);
+        };
+        $walkBlocks($res['data']);
+
+        $seen = [];
+        foreach ($blocks as $b) {
+            $bid = (string)$b['roomBlockID'];
+            $start = substr((string)($b['startDate'] ?? ''), 0, 10);
+            $end = substr((string)($b['endDate'] ?? ''), 0, 10);
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) continue;
+            if ($end <= $start) $end = date('Y-m-d', strtotime($start . ' +1 day'));
+            $reason = trim((string)($b['roomBlockReason'] ?? $b['roomBlockName'] ?? $b['roomBlockType'] ?? ''));
+            $roomIds = [];
+            foreach ((array)($b['rooms'] ?? []) as $r) {
+                if (is_array($r) && isset($r['roomID'])) $roomIds[] = (string)$r['roomID'];
+                elseif (!is_array($r)) $roomIds[] = (string)$r;
+            }
+            foreach ($roomIds as $rid) {
+                $name = $cbRoomName[$rid] ?? $rid;
+                $no = preg_match('/\d{2,4}/', $name, $m) ? $m[0] : '';
+                $lr = $roomByNo[$no] ?? null;
+                $code = substr('CB-' . $bid . '-' . $rid, 0, 40);
+                $seen[$code] = true;
+                $label = 'Blok ' . ($reason !== '' ? '"' . $reason . '" ' : '') . '· ' . $start . ' → ' . $end . ' · ' . $name;
+                if (!$lr) {
+                    $actions[] = ['type' => 'warn', 'cb' => $bid, 'label' => $label, 'msg' => 'Kamar "' . $name . '" tidak ditemukan di sistem.'];
+                    continue;
+                }
+                $existing = $this->db->fetchOne("SELECT id, block_start_date s, block_end_date e FROM room_blocks WHERE block_code = ? AND status = 'active' LIMIT 1", [$code]);
+                if ($existing) {
+                    if ($existing['s'] !== $start || $existing['e'] !== $end) {
+                        $actions[] = ['type' => 'unblock', 'cb' => $bid, 'label' => $label, 'block_id' => (int)$existing['id'], 'msg' => 'Tanggal blok berubah — blok lama Room ' . $lr['room_number'] . ' dicabut'];
+                        $actions[] = ['type' => 'block', 'cb' => $bid, 'label' => $label, 'room_id' => (int)$lr['id'], 'room_no' => $lr['room_number'], 'code' => $code, 'start' => $start, 'end' => $end, 'reason' => $reason, 'msg' => 'Blok ulang Room ' . $lr['room_number'] . ' (' . self::nightsLabel($start, $end) . ')'];
+                    }
+                    continue;
+                }
+                $conf = $this->db->fetchOne(
+                    "SELECT b.booking_code FROM bookings b WHERE b.room_id = ? AND b.status IN ('pending','confirmed','checked_in')
+                     AND b.check_in_date < ? AND b.check_out_date > ? LIMIT 1",
+                    [(int)$lr['id'], $end, $start]
+                );
+                if ($conf) {
+                    $actions[] = ['type' => 'warn', 'cb' => $bid, 'label' => $label, 'msg' => 'Room ' . $lr['room_number'] . ' ada booking ' . $conf['booking_code'] . ' di tanggal ini — blok tidak dibuat.'];
+                    continue;
+                }
+                $actions[] = ['type' => 'block', 'cb' => $bid, 'label' => $label, 'room_id' => (int)$lr['id'], 'room_no' => $lr['room_number'], 'code' => $code, 'start' => $start, 'end' => $end, 'reason' => $reason,
+                    'msg' => 'Blok Room ' . $lr['room_number'] . ' (' . self::nightsLabel($start, $end) . ')'];
+            }
+        }
+
+        // Blok dari Cloudbeds yang sudah dihapus di sana → dicabut di sistem
+        $local = $this->db->fetchAll(
+            "SELECT rb.id, rb.block_code, rb.block_start_date s, rb.block_end_date e, r.room_number
+             FROM room_blocks rb JOIN rooms r ON r.id = rb.room_id
+             WHERE rb.status = 'active' AND rb.block_code LIKE 'CB-%' AND rb.block_start_date <= ? AND rb.block_end_date > ?",
+            [$to, $from]
+        ) ?: [];
+        foreach ($local as $lb) {
+            if (!isset($seen[$lb['block_code']])) {
+                $actions[] = ['type' => 'unblock', 'cb' => '-', 'label' => 'Blok Room ' . $lb['room_number'] . ' · ' . $lb['s'] . ' → ' . $lb['e'], 'block_id' => (int)$lb['id'], 'msg' => 'Sudah dihapus di Cloudbeds — blok dicabut'];
+            }
+        }
+    }
+
+    /** Hitung ulang rencana lalu jalankan link / create / cancel / block / unblock. Peringatan tidak dieksekusi. */
     public function apply(string $from, string $to, int $userId): array
     {
         $plan = $this->plan($from, $to);
         if (!$plan['ok']) {
             return $plan + ['done' => []];
         }
-        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'errors' => []];
+        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'errors' => []];
         // Kolom direct_amount (Hotel Collect) dibuat sebelum transaksi: ALTER di dalam transaksi = implicit commit
         try {
             require_once __DIR__ . '/BookingSourceHelper.php';
@@ -314,6 +422,17 @@ class CloudbedsSync
                     $this->db->query("UPDATE bookings SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Dibatalkan via Cloudbeds ', NOW(), ']')), updated_at = NOW()
                         WHERE id = ? AND status IN ('confirmed','pending') AND COALESCE(paid_amount,0) = 0", [$a['booking_id']]);
                     $done['cancel']++;
+                } elseif ($a['type'] === 'unblock') {
+                    $this->db->query("UPDATE room_blocks SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Dicabut via Cloudbeds]')) WHERE id = ? AND status = 'active'", [$a['block_id']]);
+                    $done['unblock']++;
+                } elseif ($a['type'] === 'block') {
+                    $uid = $userId > 0 && $this->db->fetchOne("SELECT id FROM users WHERE id = ?", [$userId]) ? $userId : null;
+                    $this->db->query(
+                        "INSERT INTO room_blocks (block_code, room_id, block_start_date, block_end_date, block_reason, notes, status, created_by)
+                         VALUES (?, ?, ?, ?, 'other', ?, 'active', ?)",
+                        [$a['code'], $a['room_id'], $a['start'], $a['end'], 'Cloudbeds' . ($a['reason'] !== '' ? ': ' . $a['reason'] : ''), $uid]
+                    );
+                    $done['block']++;
                 } elseif ($a['type'] === 'create') {
                     $this->createBooking($a, $userId);
                     $done['create']++;
