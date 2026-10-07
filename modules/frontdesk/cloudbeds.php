@@ -50,8 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($act === 'save_type_map') {
         $cb->saveRoomTypeMap((array)($_POST['type_map'] ?? []));
         setFlash('success', 'Pemetaan tipe kamar tersimpan.');
+    } elseif ($act === 'save_source_map') {
+        $cb->saveSourceMap((array)($_POST['source_map'] ?? []));
+        setFlash('success', 'Pemetaan sumber booking tersimpan.');
     }
-    header('Location: cloudbeds.php' . (in_array($act, ['save_key', 'save_type_map'], true) ? '?test=1' : ''));
+    header('Location: cloudbeds.php' . (in_array($act, ['save_key', 'save_type_map', 'save_source_map'], true) ? '?test=1' : ''));
     exit;
 }
 
@@ -278,28 +281,52 @@ include '../../includes/header.php';
             </div>
 
             <div class="cbx-card">
-                <h3>Sumber booking & komisi</h3>
-                <p class="cbx-sub">Komisi Cloudbeds dibandingkan dengan fee OTA di sistem (dipakai untuk harga bersih di buku kas).</p>
-                <table class="cbx-tbl">
-                    <thead><tr><th>Cloudbeds</th><th>Komisi</th><th>Di sistem</th><th>Fee</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($test['sources'] as $s):
-                            $ls = null;
-                            foreach ($localSources as $l) {
-                                $a = $norm($l['source_name']);
-                                $b = $norm($s['name']);
-                                if ($a !== '' && $b !== '' && (strpos($b, $a) !== false || strpos($a, $b) !== false || $norm($l['source_key']) === $b)) { $ls = $l; break; }
-                            }
-                            $diff = $ls && $s['commission'] !== null && abs((float)$ls['fee_percent'] - (float)$s['commission']) > 0.01; ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($s['name']); ?></td>
-                                <td><?php echo $s['commission'] !== null ? rtrim(rtrim(number_format($s['commission'], 2, ',', ''), '0'), ',') . '%' : '—'; ?></td>
-                                <td><?php echo $ls ? htmlspecialchars($ls['source_name']) : '<span class="cbx-pill warn">Belum ada</span>'; ?></td>
-                                <td><?php echo $ls ? rtrim(rtrim(number_format((float)$ls['fee_percent'], 2, ',', ''), '0'), ',') . '%' . ($diff ? ' <span class="cbx-pill warn">beda</span>' : '') : ''; ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                <h3>Pemetaan sumber booking</h3>
+                <p class="cbx-sub">Pasangkan sumber Cloudbeds dengan sumber di sistem. Fee OTA di sistem dipakai untuk harga bersih & buku kas (komisi di Cloudbeds belum diatur).</p>
+                <?php
+                $savedSrc = $cb->sourceMap();
+                $sugSrc = CloudbedsClient::suggestSourceMap($test['sources'], $localSources);
+                $localByKey = [];
+                foreach ($localSources as $l) {
+                    $localByKey[$l['source_key']] = $l;
+                }
+                $srcUnsaved = false;
+                ?>
+                <form method="post">
+                    <input type="hidden" name="act" value="save_source_map">
+                    <table class="cbx-tbl">
+                        <thead><tr><th>Cloudbeds</th><th>Pembayaran</th><th>Sumber di sistem</th><th>Fee</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($test['sources'] as $s):
+                                $sel = $savedSrc[$s['id']] ?? ($sugSrc[$s['id']] ?? '');
+                                if (!isset($savedSrc[$s['id']]) && $sel !== '') $srcUnsaved = true;
+                                $ct = CloudbedsClient::collectType($s['name']);
+                                $ls = $localByKey[$sel] ?? null; ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($s['name']); ?></td>
+                                    <td><?php if ($ct === 'channel'): ?><span class="cbx-pill" style="background:rgba(37,99,235,.1);color:#1d4ed8">OTA terima uang</span>
+                                        <?php elseif ($ct === 'hotel'): ?><span class="cbx-pill" style="background:rgba(5,150,105,.12);color:#047857">Bayar ke hotel</span>
+                                        <?php else: ?><small>—</small><?php endif; ?></td>
+                                    <td>
+                                        <select class="cbx-input" name="source_map[<?php echo htmlspecialchars($s['id']); ?>]" style="max-width:200px">
+                                            <option value="">— belum dipasangkan —</option>
+                                            <?php foreach ($localSources as $l): ?>
+                                                <option value="<?php echo htmlspecialchars($l['source_key']); ?>" <?php echo $l['source_key'] === $sel ? 'selected' : ''; ?>><?php echo htmlspecialchars($l['source_name']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <?php if (!isset($savedSrc[$s['id']]) && $sel !== ''): ?><span class="cbx-pill" style="background:rgba(37,99,235,.1);color:#1d4ed8">saran</span><?php endif; ?>
+                                    </td>
+                                    <td><?php echo $ls ? rtrim(rtrim(number_format((float)$ls['fee_percent'], 2, ',', ''), '0'), ',') . '%' : ''; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <div class="cbx-row">
+                        <button type="submit" class="cbx-btn">Simpan pemetaan sumber</button>
+                        <?php if ($srcUnsaved): ?><span class="cbx-hint" style="margin:0">Ada saran yang belum disimpan.</span><?php endif; ?>
+                    </div>
+                </form>
+                <p class="cbx-hint"><b>Bayar ke hotel</b> (Hotel Collect): tamu membayar di hotel, dicatat seperti booking langsung. <b>OTA terima uang</b> (Channel Collect): uang dari OTA, masuk kas bersih setelah fee saat check-in. Sumber yang tidak dipasangkan dicatat sebagai sumber lain.</p>
                 <details style="margin-top:.5rem"><summary class="cbx-hint" style="cursor:pointer">Contoh data mentah sumber booking</summary>
                     <pre style="white-space:pre-wrap;font-size:.62rem;max-height:220px;overflow:auto"><?php echo htmlspecialchars(json_encode($test['sources_raw_sample'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
                 </details>

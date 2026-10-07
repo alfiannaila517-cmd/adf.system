@@ -128,6 +128,91 @@ class CloudbedsClient
         return $out;
     }
 
+    /**
+     * Pemetaan sumber booking Cloudbeds (sourceID) → source_key di booking_sources (setting cloudbeds_source_map).
+     * @return array<string,string>
+     */
+    public function sourceMap(): array
+    {
+        try {
+            $row = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_source_map'");
+            $map = json_decode((string)($row['setting_value'] ?? ''), true);
+            return is_array($map) ? array_map('strval', $map) : [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function saveSourceMap(array $map): void
+    {
+        $clean = [];
+        foreach ($map as $id => $key) {
+            if (trim((string)$id) !== '' && trim((string)$key) !== '') {
+                $clean[trim((string)$id)] = trim((string)$key);
+            }
+        }
+        $this->saveSetting('cloudbeds_source_map', json_encode($clean, JSON_UNESCAPED_UNICODE));
+    }
+
+    /** "Hotel Collect" = tamu bayar ke hotel; "Channel Collect" = OTA terima uang lalu transfer bersih. */
+    public static function collectType(string $sourceName): string
+    {
+        $n = strtolower($sourceName);
+        if (strpos($n, 'channel collect') !== false) return 'channel';
+        if (strpos($n, 'hotel collect') !== false) return 'hotel';
+        return '';
+    }
+
+    /**
+     * Saran pemetaan sumber: nama sistem terkandung di nama Cloudbeds (Agoda / Priceline → Agoda), sumber
+     * langsung (Walk-In, Phone, Email, Website, Default …) ke sumber direct yang namanya paling mirip.
+     * @param array $cbSources [ ['id'=>, 'name'=>], ... ]
+     * @param array $localSources rows booking_sources (source_key, source_name, source_type)
+     */
+    public static function suggestSourceMap(array $cbSources, array $localSources): array
+    {
+        $norm = fn($s) => preg_replace('/[^a-z0-9]/', '', strtolower((string)$s));
+        $alias = [
+            'walkin' => ['walkin', 'walk_in'], 'phone' => ['phone', 'telepon'], 'email' => ['email'],
+            'website' => ['website', 'online', 'web', 'direct'], 'bookingengine' => ['website', 'online', 'web', 'direct'],
+        ];
+        $out = [];
+        foreach ($cbSources as $s) {
+            $cn = $norm(preg_replace('/\(.*?\)/', '', $s['name']));
+            $best = null;
+            $bestLen = 0;
+            // Sumber langsung dulu: "Website/Booking Engine" tidak boleh terbaca sebagai Booking.com
+            foreach ($alias as $needle => $cands) {
+                if ($best !== null || strpos($cn, $needle) === false) continue;
+                foreach ($localSources as $l) {
+                    foreach ($cands as $c) {
+                        if ($best === null && (strpos($norm($l['source_key']), $c) !== false || strpos($norm($l['source_name']), $c) !== false)) {
+                            $best = $l['source_key'];
+                        }
+                    }
+                }
+                if ($best !== null) {
+                    $out[$s['id']] = $best;
+                }
+            }
+            if ($best !== null) continue;
+            if (preg_match('/website|bookingengine|walkin|phone|email|default/', $cn)) continue;
+            foreach ($localSources as $l) {
+                foreach ([$norm($l['source_name']), $norm($l['source_key'])] as $ln) {
+                    $ln2 = preg_replace('/com$/', '', $ln);
+                    if ($ln2 !== '' && strlen($ln2) > $bestLen && strpos($cn, $ln2) !== false) {
+                        $best = $l['source_key'];
+                        $bestLen = strlen($ln2);
+                    }
+                }
+            }
+            if ($best !== null) {
+                $out[$s['id']] = $best;
+            }
+        }
+        return $out;
+    }
+
     public function baseUrl(): string
     {
         $b = trim($this->settings()['cloudbeds_api_base']);
