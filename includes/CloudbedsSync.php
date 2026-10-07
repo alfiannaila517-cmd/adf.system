@@ -381,10 +381,15 @@ class CloudbedsSync
                     continue;
                 }
                 $conf = $this->db->fetchOne(
-                    "SELECT b.booking_code FROM bookings b WHERE b.room_id = ? AND b.status IN ('pending','confirmed','checked_in')
+                    "SELECT b.booking_code, g.guest_name FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id
+                     WHERE b.room_id = ? AND b.status IN ('pending','confirmed','checked_in')
                      AND b.check_in_date < ? AND b.check_out_date > ? LIMIT 1",
                     [(int)$lr['id'], $end, $start]
                 );
+                // Blok Cloudbeds yang menahan kamar untuk tamu yang sudah ada di sistem (nama blok = nama tamu) → sudah terwakili
+                if ($conf && $reason !== '' && array_intersect(self::nameKey($reason), self::nameKey((string)$conf['guest_name']))) {
+                    continue;
+                }
                 if ($conf) {
                     $actions[] = ['type' => 'warn', 'cb' => $bid, 'label' => $label, 'msg' => 'Room ' . $lr['room_number'] . ' ada booking ' . $conf['booking_code'] . ' di tanggal ini — blok tidak dibuat.'];
                     continue;
