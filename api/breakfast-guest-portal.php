@@ -545,8 +545,32 @@ if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone
             echo json_encode(['success' => false, 'message' => 'Nomor WhatsApp tidak valid']);
             exit;
         }
-        $db->query("UPDATE guests SET phone = ? WHERE id = ?", [mb_substr($phone, 0, 30), $guestId]);
-        echo json_encode(['success' => true, 'phone' => $phone]);
+        $phone = mb_substr($phone, 0, 30);
+        // Satu baris Breakfast bisa berisi beberapa booking/tamu (grup). Semua data tamu di baris itu
+        // ikut diperbarui, supaya nomor yang sama terpakai di Reservasi, Invoice, Kalender, dll.
+        $guestIds = [$guestId];
+        $bookingIds = array_values(array_unique(array_filter(array_map('intval', (array)($body['booking_ids'] ?? [])))));
+        if ($bookingIds) {
+            $ph = implode(',', array_fill(0, count($bookingIds), '?'));
+            foreach ($db->fetchAll("SELECT DISTINCT guest_id FROM bookings WHERE id IN ($ph) AND guest_id IS NOT NULL", $bookingIds) ?: [] as $gr) {
+                $guestIds[] = (int)$gr['guest_id'];
+            }
+        }
+        $guestIds = array_values(array_unique(array_filter($guestIds)));
+        $gph = implode(',', array_fill(0, count($guestIds), '?'));
+        $db->query("UPDATE guests SET phone = ? WHERE id IN ($gph)", array_merge([$phone], $guestIds));
+        // Link sarapan yang masih aktif untuk tamu/booking ini memakai nomor baru juga
+        try {
+            $sql = "UPDATE breakfast_guest_links SET guest_phone = ? WHERE guest_id IN ($gph)";
+            $params = array_merge([$phone], $guestIds);
+            if ($bookingIds) {
+                $sql .= " OR booking_id IN (" . implode(',', array_fill(0, count($bookingIds), '?')) . ")";
+                $params = array_merge($params, $bookingIds);
+            }
+            $db->query($sql, $params);
+        } catch (\Throwable $e) {
+        }
+        echo json_encode(['success' => true, 'phone' => $phone, 'guests_updated' => count($guestIds)]);
         exit;
     }
 

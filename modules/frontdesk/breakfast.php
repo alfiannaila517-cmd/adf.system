@@ -135,6 +135,32 @@ try {
 } catch (Exception $e) {
 }
 
+// Link sarapan yang SUDAH terkirim via WhatsApp untuk hari sarapan ini (log gateway, ref "breakfast 201,204"):
+// ditandai di daftar tamu supaya tidak terkirim dua kali.
+$waSentRooms = [];
+try {
+    $waRows = $pdo->prepare("SELECT ref, target, created_at FROM wa_message_log
+        WHERE type = 'breakfast' AND status = 'sent' AND created_at >= ? ORDER BY id ASC");
+    $waRows->execute([$today . ' 10:00:00']);
+    foreach ($waRows->fetchAll(PDO::FETCH_ASSOC) as $wr) {
+        $refRooms = preg_replace('/^breakfast\s*/i', '', (string)$wr['ref']);
+        foreach (array_filter(array_map('trim', explode(',', $refRooms))) as $rn) {
+            $waSentRooms[$rn] = ['time' => date('H:i', strtotime($wr['created_at'])), 'target' => $wr['target']];
+        }
+    }
+} catch (Exception $e) {
+    // tabel log WA belum ada
+}
+foreach ($inHouseGuests as &$ig) {
+    $ig['wa_sent'] = null;
+    foreach (array_filter(array_map('trim', explode(',', (string)$ig['rooms']))) as $rn) {
+        if (isset($waSentRooms[$rn])) {
+            $ig['wa_sent'] = $waSentRooms[$rn];
+        }
+    }
+}
+unset($ig);
+
 // Map Extra Breakfast (over-quota) per room number for today — used to flag orders
 $extraByRoom = [];
 try {
@@ -1166,8 +1192,50 @@ include '../../includes/header.php';
     }
 
     body[data-theme] .main-content .bf-wrap .bfg-sent {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 4px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: #dcfce7;
         color: #047857 !important;
-        font-weight: 700;
+        -webkit-text-fill-color: #047857 !important;
+        font-size: 0.6rem !important;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bfg-sent[hidden] {
+        display: none;
+    }
+
+    /* WA sudah terkirim: tombol jadi outline + centang agar tidak terkirim dua kali */
+    body[data-theme] .main-content .bf-wrap .bf-wa-send.is-sent {
+        position: relative;
+        background: #fff !important;
+        border: 1.5px solid #25d366 !important;
+        box-shadow: none;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-wa-send.is-sent svg {
+        fill: #25d366 !important;
+    }
+
+    body[data-theme] .main-content .bf-wrap .bf-wa-send.is-sent::after {
+        content: '✓';
+        position: absolute;
+        right: -4px;
+        bottom: -4px;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: #047857;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 900;
+        line-height: 15px;
+        text-align: center;
+        border: 1.5px solid #fff;
     }
 
     body[data-theme] .main-content .bf-wrap .bf-guest-tools {
@@ -1622,6 +1690,7 @@ include '../../includes/header.php';
                                                 data-booking="<?php echo $bIds[0]; ?>"
                                                 data-booking-ids="<?php echo htmlspecialchars(json_encode($bIds)); ?>"
                                                 data-phone="<?php echo htmlspecialchars($g['guest_phone'] ?? ''); ?>"
+                                                data-wa-sent="<?php echo $g['wa_sent'] ? htmlspecialchars($g['wa_sent']['time']) : ''; ?>"
                                                 data-pax="<?php echo $pax; ?>"
                                                 data-kids="<?php echo (int)$g['kids']; ?>"
                                                 data-adults="<?php echo $pax; ?>"
@@ -1642,12 +1711,12 @@ include '../../includes/header.php';
                                                     Room <?php echo htmlspecialchars(str_replace(',', ', ', $g['rooms'])); ?>
                                                     · <b class="bfg-pax"><?php echo $pax; ?> pax<?php echo $g['kids'] ? ' + ' . (int)$g['kids'] . ' kids' : ''; ?></b>
                                                     <span class="bfg-src"><?php echo $g['pax_set'] ? 'disetel' : 'dari reservasi'; ?></span>
-                                                    <span class="bfg-sent" hidden>· link terkirim</span>
+                                                    <span class="bfg-sent"<?php echo $g['wa_sent'] ? '' : ' hidden'; ?>>✓ WA terkirim<?php echo $g['wa_sent'] ? ' ' . htmlspecialchars($g['wa_sent']['time']) : ''; ?></span>
                                                 </div>
                                             </div>
                                             <div class="bf-guest-tools">
                                                 <button type="button" class="bf-setup-guest-btn" onclick="openGuestSetup(event,this)">Setup</button>
-                                                <button type="button" class="bf-wa-send" title="Kirim link sarapan via WhatsApp" aria-label="Kirim link via WhatsApp" onclick="sendGuestSelectionLink(event,this)">
+                                                <button type="button" class="bf-wa-send<?php echo $g['wa_sent'] ? ' is-sent' : ''; ?>" title="<?php echo $g['wa_sent'] ? 'Sudah terkirim ' . htmlspecialchars($g['wa_sent']['time']) . ' — klik untuk kirim ulang' : 'Kirim link sarapan via WhatsApp'; ?>" aria-label="Kirim link via WhatsApp" onclick="sendGuestSelectionLink(event,this)">
                                                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z" /></svg>
                                                 </button>
                                             </div>
@@ -2695,6 +2764,13 @@ include '../../includes/header.php';
 
     async function bfgSend(cbs, btn) {
         var c = bfgCombine(cbs);
+        // Sudah pernah terkirim hari ini? Minta konfirmasi agar tamu tidak menerima link dua kali.
+        var sentInfo = cbs.filter(function(cb) { return cb.dataset.waSent; }).map(function(cb) {
+            return (cb.dataset.rooms || '').replace(/,/g, ', ') + ' (' + cb.dataset.waSent + ')';
+        });
+        if (sentInfo.length && !confirm('Link sarapan SUDAH terkirim via WhatsApp untuk Room ' + sentInfo.join(', ') + '.
+
+Kirim ulang?')) return;
         if (btn) btn.disabled = true;
         try {
             var link = await bfgCreateLink(c);
@@ -2720,9 +2796,15 @@ include '../../includes/header.php';
             var r = await res.json();
             if (r.success) {
                 bfgOk('Link sarapan terkirim', 'WhatsApp ' + (r.target || phone) + ' · ' + c.pax + ' pax' + (c.kids ? ' + ' + c.kids + ' kids' : ''));
+                var now = new Date();
+                var hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
                 cbs.forEach(function(cb) {
-                    var s = bfgRowOf(cb).querySelector('.bfg-sent');
-                    if (s) s.hidden = false;
+                    var row = bfgRowOf(cb);
+                    var s = row.querySelector('.bfg-sent');
+                    if (s) { s.hidden = false; s.textContent = '✓ WA terkirim ' + hhmm; }
+                    var wb = row.querySelector('.bf-wa-send');
+                    if (wb) { wb.classList.add('is-sent'); wb.title = 'Sudah terkirim ' + hhmm + ' — klik untuk kirim ulang'; }
+                    cb.dataset.waSent = hhmm;
                     if (typed) cb.dataset.phone = phone;
                 });
             } else {
@@ -2772,7 +2854,7 @@ include '../../includes/header.php';
             var res = await fetch(linkContext.createApi, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'save_phone', guest_id: parseInt(cb.value, 10), phone: phone })
+                body: JSON.stringify({ action: 'save_phone', guest_id: parseInt(cb.value, 10), booking_ids: JSON.parse(cb.dataset.bookingIds || '[]'), phone: phone })
             });
             var r = await res.json();
             if (!r.success) throw new Error(r.message || 'Gagal menyimpan nomor');

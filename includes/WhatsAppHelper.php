@@ -155,7 +155,10 @@ class WhatsAppHelper
             $this->log($type, '', $ref, 'failed', $res['detail']);
             return $res;
         }
-        $fields = ['target' => $target, 'message' => $message, 'countryCode' => '62'];
+        // normalizeTarget sudah menghasilkan format internasional (0812… → 62812…, +31 6… → 316…).
+        // countryCode '0' mematikan filter kode negara Fonnte; dengan '62' nomor luar negeri
+        // (mis. Belanda +31) ikut dianggap nomor Indonesia sehingga gagal terkirim.
+        $fields = ['target' => $target, 'message' => $message, 'countryCode' => '0'];
         if ($fileUrl !== null) {
             // Lampiran lewat link publik: Fonnte mengunduh file sendiri (didukung lebih banyak paket
             // daripada unggah langsung, yang pada sebagian paket diabaikan diam-diam).
