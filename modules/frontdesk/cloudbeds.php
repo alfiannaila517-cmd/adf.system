@@ -379,11 +379,25 @@ include '../../includes/header.php';
                     if (!$it['match'] && !in_array(strtolower($it['status']), ['canceled', 'cancelled', 'no_show'], true)) $nNew++;
                 }
                 unset($it);
+                // Detail (kamar & total) hanya untuk yang aktif & belum ada di sistem — maks 20 panggilan
+                $typeMapPv = $cb->roomTypeMap();
+                $localRoomByNo = [];
+                foreach ($localRooms as $lr) { $localRoomByNo[(string)$lr['room_number']] = $lr; }
+                $detailSample = null;
+                $nDetail = 0;
+                foreach ($pv['items'] as &$it) {
+                    $it['detail'] = null;
+                    if ($it['match'] || in_array(strtolower($it['status']), ['canceled', 'cancelled', 'no_show'], true) || $nDetail >= 20) continue;
+                    $nDetail++;
+                    $it['detail'] = $cb->reservationDetail($it['id']);
+                    if ($detailSample === null && $it['detail']['ok']) $detailSample = $it['detail']['raw'];
+                }
+                unset($it);
                 ?>
                 <p class="cbx-hint" style="margin:.6rem 0"><?php echo count($pv['items']); ?> reservasi di Cloudbeds · <b><?php echo $nNew; ?></b> aktif belum ada di sistem.</p>
                 <div style="overflow-x:auto">
                     <table class="cbx-tbl">
-                        <thead><tr><th>Cloudbeds</th><th>Tamu</th><th>Tanggal</th><th>Sumber</th><th>Status</th><th>Total</th><th>Di sistem</th></tr></thead>
+                        <thead><tr><th>Cloudbeds</th><th>Tamu</th><th>Tanggal</th><th>Sumber</th><th>Status</th><th>Kamar → sistem</th><th>Total</th><th>Di sistem</th></tr></thead>
                         <tbody>
                             <?php foreach ($pv['items'] as $it): ?>
                                 <tr>
@@ -392,7 +406,18 @@ include '../../includes/header.php';
                                     <td><?php echo htmlspecialchars(date('d M', strtotime($it['checkin'])) . ' – ' . date('d M', strtotime($it['checkout']))); ?></td>
                                     <td><?php echo htmlspecialchars($it['source']); ?></td>
                                     <td><?php echo htmlspecialchars($it['status']); ?></td>
-                                    <td><?php echo $it['total'] !== null ? 'Rp ' . number_format($it['total'], 0, ',', '.') : '—'; ?></td>
+                                    <td><?php if (!empty($it['detail']['rooms'])): foreach ($it['detail']['rooms'] as $dr):
+                                            $no = preg_match('/\d{2,4}/', $dr['room_name'], $mm) ? $mm[0] : '';
+                                            $lt = $typeMapPv[$dr['type_id']] ?? ''; ?>
+                                            <div><?php if ($dr['assigned'] && isset($localRoomByNo[$no])): ?><span class="cbx-pill ok">Room <?php echo htmlspecialchars($no); ?></span>
+                                                <?php elseif ($dr['assigned']): ?><span class="cbx-pill bad"><?php echo htmlspecialchars($dr['room_name']); ?> ?</span>
+                                                <?php else: ?><span class="cbx-pill warn">Belum dapat kamar</span><?php endif; ?>
+                                                <small><?php echo htmlspecialchars($lt ?: $dr['type_name']); ?></small></div>
+                                        <?php endforeach; elseif ($it['detail'] && !$it['detail']['ok']): ?><small style="color:#b91c1c"><?php echo htmlspecialchars($it['detail']['detail']); ?></small>
+                                        <?php else: ?><small>—</small><?php endif; ?></td>
+                                    <td><?php $tot = $it['detail']['total'] ?? $it['total'];
+                                        echo $tot !== null ? 'Rp ' . number_format($tot, 0, ',', '.') : '—';
+                                        if (isset($it['detail']['balance']) && $it['detail']['balance'] !== null) echo '<br><small>sisa Rp ' . number_format($it['detail']['balance'], 0, ',', '.') . '</small>'; ?></td>
                                     <td><?php if ($it['match']): ?><span class="cbx-pill ok"><?php echo htmlspecialchars($it['match']['booking_code']); ?></span> <small>Room <?php echo htmlspecialchars((string)$it['match']['room_number']); ?></small>
                                         <?php elseif (in_array(strtolower($it['status']), ['canceled', 'cancelled', 'no_show'], true)): ?><span class="cbx-pill">batal</span>
                                         <?php else: ?><span class="cbx-pill warn">Belum ada</span><?php endif; ?></td>
@@ -403,7 +428,7 @@ include '../../includes/header.php';
                 </div>
                 <details style="margin-top:.5rem"><summary class="cbx-hint" style="cursor:pointer">Contoh data mentah 1 reservasi (untuk tahap 2)</summary>
                     <pre style="white-space:pre-wrap;font-size:.62rem;max-height:260px;overflow:auto"><?php
-                        $sample = $pv['raw_sample'];
+                        $sample = ['daftar' => $pv['raw_sample'], 'detail' => $detailSample];
                         // Data pribadi disamarkan di contoh: email & telepon
                         if (is_array($sample)) {
                             array_walk_recursive($sample, function (&$v, $k) {

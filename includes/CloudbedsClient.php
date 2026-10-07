@@ -361,6 +361,47 @@ class CloudbedsClient
         return ['ok' => true, 'detail' => $detail, 'items' => $items, 'raw_sample' => $raw];
     }
 
+    /**
+     * Detail satu reservasi (kamar yang ditempatkan, total, sisa) — hanya baca.
+     * @return array{ok:bool, detail:string, rooms:array, total:?float, balance:?float, adults:int, children:int, raw:mixed}
+     */
+    public function reservationDetail(string $reservationId): array
+    {
+        $q = ['reservationID' => $reservationId];
+        if ($this->propertyId() !== '') {
+            $q['propertyID'] = $this->propertyId();
+        }
+        $r = $this->get('getReservation', $q);
+        $out = ['ok' => $r['ok'], 'detail' => $r['detail'], 'rooms' => [], 'total' => null, 'balance' => null, 'adults' => 0, 'children' => 0, 'raw' => $r['data']];
+        if (!$r['ok'] || !is_array($r['data'])) {
+            return $out;
+        }
+        $d = $r['data'];
+        $out['total'] = isset($d['total']) && is_numeric($d['total']) ? (float)$d['total'] : null;
+        $out['balance'] = isset($d['balance']) && is_numeric($d['balance']) ? (float)$d['balance'] : null;
+        // Kamar: "assigned" (sudah dapat nomor kamar) & "unassigned" (baru tipe kamar)
+        foreach (['assigned' => true, 'unassigned' => false] as $key => $isAssigned) {
+            foreach ((array)($d[$key] ?? []) as $rm) {
+                if (!is_array($rm)) continue;
+                $out['rooms'][] = [
+                    'assigned' => $isAssigned,
+                    'room_id' => (string)($rm['roomID'] ?? ''),
+                    'room_name' => (string)($rm['roomName'] ?? ''),
+                    'type_id' => (string)($rm['roomTypeID'] ?? ''),
+                    'type_name' => (string)($rm['roomTypeName'] ?? ''),
+                    'start' => substr((string)($rm['startDate'] ?? $rm['roomCheckIn'] ?? ''), 0, 10),
+                    'end' => substr((string)($rm['endDate'] ?? $rm['roomCheckOut'] ?? ''), 0, 10),
+                    'total' => isset($rm['roomTotal']) && is_numeric($rm['roomTotal']) ? (float)$rm['roomTotal'] : null,
+                    'adults' => (int)($rm['adults'] ?? 0),
+                    'children' => (int)($rm['children'] ?? 0),
+                ];
+                $out['adults'] += (int)($rm['adults'] ?? 0);
+                $out['children'] += (int)($rm['children'] ?? 0);
+            }
+        }
+        return $out;
+    }
+
     /* ---------------- Tes koneksi (hanya baca) ---------------- */
 
     /**
