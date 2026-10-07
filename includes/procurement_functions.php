@@ -1199,6 +1199,9 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
         if (!$po) {
             throw new Exception('Purchase Order not found');
         }
+        if (in_array(strtolower((string)($po['status'] ?? '')), ['cancelled', 'rejected'], true)) {
+            throw new Exception('PO ' . ($po['po_number'] ?? '') . ' sudah dibatalkan, tidak bisa diterima.');
+        }
 
         $db->getConnection()->beginTransaction();
 
@@ -1312,10 +1315,14 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
             }
 
             $unitPrice = isset($item['unit_price']) ? (float)$item['unit_price'] : 0;
-            $lineSubtotal = isset($item['subtotal']) ? (float)$item['subtotal'] : ($receivedQty * $unitPrice);
+            // Harga per unit: unit_price, atau subtotal baris ÷ qty pesanan. Nilai masuk = qty DITERIMA × harga
+            // (dulu memakai subtotal satu baris penuh sehingga penerimaan bertahap menggandakan nilai stok).
+            if ($unitPrice <= 0 && $orderedQty > 0 && isset($item['subtotal'])) {
+                $unitPrice = (float)$item['subtotal'] / $orderedQty;
+            }
             $existingQty = gudangNasitaCurrentQty($stock);
             $existingValue = gudangNasitaCurrentStockValue($stock);
-            $incomingValue = $lineSubtotal > 0 ? $lineSubtotal : ($receivedQty * $unitPrice);
+            $incomingValue = $receivedQty * $unitPrice;
             $newQty = $existingQty + $receivedQty;
             $newValue = $existingValue + $incomingValue;
             $newUnitCost = $newQty > 0 ? ($newValue / $newQty) : $unitPrice;
@@ -4440,7 +4447,7 @@ function getBusinessStockSummaryForStaff($businessSlug)
                         "SELECT gti.item_name, gti.unit, COALESCE(SUM(gti.quantity), 0) AS total_received
                          FROM gudang_nasita_transfer_items gti
                          JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
-                         WHERE {$targetFilterSql}
+                         WHERE {$targetFilterSql} AND COALESCE(gt.status, '') <> 'cancelled'
                          GROUP BY gti.item_name, gti.unit
                          ORDER BY gti.item_name ASC",
                         $targetFilterParams
@@ -4494,8 +4501,8 @@ function getBusinessStockSummaryForStaff($businessSlug)
 
             try {
                 $dailyOutRowsForSummary = $db->fetchAll(
-                    'SELECT item_name, unit, quantity FROM business_stock_daily_out WHERE business_id = ? AND DATE(created_at) = CURDATE()',
-                    [$activeBusinessId]
+                    'SELECT item_name, unit, quantity FROM business_stock_daily_out WHERE business_id = ? AND created_at >= ?',
+                    [$activeBusinessId, businessStockDailyOutSince($db) . ' 00:00:00']
                 );
                 foreach ($dailyOutRowsForSummary as $dailyRow) {
                     $itemName = trim((string)($dailyRow['item_name'] ?? ''));
@@ -5074,5 +5081,41 @@ function recordStaffStockMasukToGudang($itemName, $unit, $qty, $unitPrice, $supp
         if ($originDbName !== '') {
             Database::switchDatabase($originDbName);
         }
+    }
+}
+
+if (!function_exists('businessStockDailyOutSince')) {
+    /**
+     * Tanggal mulai pemakaian harian (business_stock_daily_out) dihitung mengurangi stok bisnis.
+     * Dulu hanya pemakaian HARI INI yang dikurangkan sehingga stok "kembali" setiap tengah malam.
+     * Saat pertama kali dipakai, tanggal ini diset ke hari ini (mulai bersih): stok yang tampil
+     * tidak berubah mendadak, dan sejak itu pemakaian terakumulasi dengan benar.
+     */
+    function businessStockDailyOutSince($db): string
+    {
+        static $cache = [];
+        $dbKey = class_exists('Database') ? Database::getCurrentDatabase() : 'x';
+        if (isset($cache[$dbKey])) {
+            return $cache[$dbKey];
+        }
+        try {
+            $db->query("CREATE TABLE IF NOT EXISTS business_stock_settings (
+                setting_key VARCHAR(64) PRIMARY KEY,
+                setting_value VARCHAR(255) NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $row = $db->fetchOne("SELECT setting_value FROM business_stock_settings WHERE setting_key = 'daily_out_since'");
+            $since = $row['setting_value'] ?? '';
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$since)) {
+                $since = date('Y-m-d');
+                $db->query("INSERT IGNORE INTO business_stock_settings (setting_key, setting_value) VALUES ('daily_out_since', ?)", [$since]);
+                $row = $db->fetchOne("SELECT setting_value FROM business_stock_settings WHERE setting_key = 'daily_out_since'");
+                $since = $row['setting_value'] ?? $since;
+            }
+        } catch (Throwable $e) {
+            error_log('businessStockDailyOutSince: ' . $e->getMessage());
+            $since = date('Y-m-d');
+        }
+        return $cache[$dbKey] = $since;
     }
 }

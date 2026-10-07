@@ -51,6 +51,7 @@ $terkirimPerBisnis = $db->fetchAll(
             COALESCE(SUM(total_qty),0) AS total_qty,
             MAX(COALESCE(tanggal_transfer, transfer_date, created_at)) AS terakhir
      FROM gudang_nasita_transfers
+     WHERE COALESCE(status, '') <> 'cancelled'
      GROUP BY COALESCE(target_business_name, bisnis_tujuan, 'Lainnya')
      ORDER BY total_qty DESC"
 ) ?: [];
@@ -487,6 +488,7 @@ include __DIR__ . '/../../includes/header.php';
                              FROM gudang_nasita_transfers gt
                              JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
                              WHERE COALESCE(gt.target_business_name, gt.bisnis_tujuan, 'Lainnya') = ?
+                               AND COALESCE(gt.status, '') <> 'cancelled'
                              ORDER BY gt.created_at DESC, gti.id ASC LIMIT 50",
                             [$tb['bisnis']]
                         ) ?: [];

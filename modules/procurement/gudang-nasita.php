@@ -422,19 +422,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Hapus histori transfer keluar
+// Batalkan kiriman ke bisnis: stok dikembalikan ke gudang, data tetap tersimpan (status 'cancelled')
+// sehingga hilang dari stok & tagihan bisnis. Bulan yang tagihannya sudah dibayar dikunci.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_gudang_transfer') {
     $tid = (int)($_POST['transfer_id'] ?? 0);
-    if ($tid > 0) {
-        try {
-            $db->query('DELETE FROM gudang_nasita_transfer_items WHERE transfer_id = ?', [$tid]);
-        } catch (Throwable $e) {
+    try {
+        $tr = $tid > 0 ? $db->fetchOne('SELECT * FROM gudang_nasita_transfers WHERE id = ? LIMIT 1', [$tid]) : null;
+        if (!$tr) {
+            throw new Exception('Data kiriman tidak ditemukan.');
         }
-        try {
-            $db->query('DELETE FROM gudang_nasita_transfers WHERE id = ?', [$tid]);
-        } catch (Throwable $e) {
+        if (strtolower((string)($tr['status'] ?? '')) === 'cancelled') {
+            throw new Exception('Kiriman ' . $tr['transfer_number'] . ' sudah dibatalkan sebelumnya.');
         }
-        $_SESSION['success'] = 'Histori transfer dihapus.';
+        $slug = gudangTagihanMatchBizSlug((string)($tr['target_business_name'] ?? ''));
+        $month = date('Y-m', strtotime((string)$tr['created_at']));
+        if ($slug) {
+            try {
+                $paid = $db->fetchOne('SELECT COUNT(*) AS c FROM gudang_nasita_tagihan_payments WHERE business_slug = ? AND bill_month = ?', [$slug, $month]);
+                if ((int)($paid['c'] ?? 0) > 0) {
+                    throw new Exception('Tagihan ' . ($tr['target_business_name'] ?? $slug) . ' bulan ' . $month . ' sudah dibayar, kiriman tidak bisa dibatalkan.');
+                }
+            } catch (PDOException $pe) {
+                // tabel pembayaran belum ada
+            }
+        }
+        $items = $db->fetchAll('SELECT * FROM gudang_nasita_transfer_items WHERE transfer_id = ?', [$tid]) ?: [];
+        foreach ($items as $it) {
+            $qty = (float)($it['quantity'] ?? 0);
+            if ($qty <= 0) {
+                continue;
+            }
+            $res = addGudangNasitaManualStock((string)$it['item_name'], (string)($it['unit'] ?: 'pcs'), $qty, (int)($_SESSION['user_id'] ?? 0), [
+                'unit_price' => (float)($it['unit_price'] ?? 0),
+                'notes' => 'Batal kiriman ' . $tr['transfer_number'] . ' ke ' . ($tr['target_business_name'] ?? ''),
+            ]);
+            if (!($res['success'] ?? false)) {
+                throw new Exception('Gagal mengembalikan stok ' . $it['item_name'] . ': ' . ($res['message'] ?? ''));
+            }
+        }
+        $db->query("UPDATE gudang_nasita_transfers SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes, ''), ' [Dibatalkan ', ?, ']')) WHERE id = ?", [date('d/m/Y H:i'), $tid]);
+        $_SESSION['success'] = 'Kiriman ' . $tr['transfer_number'] . ' dibatalkan, stok dikembalikan ke gudang.';
+    } catch (Throwable $e) {
+        $_SESSION['error'] = $e->getMessage();
     }
     header('Location: gudang-nasita.php');
     exit;
@@ -472,12 +501,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Hapus histori penerimaan dari bisnis (kembalikan ke gudang)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_bisnis_return') {
     $rid = (int)($_POST['return_id'] ?? 0);
-    if ($rid > 0) {
-        try {
-            $db->query("DELETE FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita'", [$rid]);
-        } catch (Throwable $e) {
+    try {
+        $ret = $rid > 0 ? $db->fetchOne("SELECT * FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita' LIMIT 1", [$rid]) : null;
+        if (!$ret) {
+            throw new Exception('Data penerimaan tidak ditemukan.');
         }
-        $_SESSION['success'] = 'Histori penerimaan dari bisnis dihapus.';
+        $month = date('Y-m', strtotime((string)$ret['created_at']));
+        try {
+            $paid = $db->fetchOne('SELECT COUNT(*) AS c FROM gudang_nasita_tagihan_payments WHERE business_slug = ? AND bill_month = ?', [(string)$ret['source_business_slug'], $month]);
+            if ((int)($paid['c'] ?? 0) > 0) {
+                throw new Exception('Tagihan ' . ($ret['source_business_name'] ?: $ret['source_business_slug']) . ' bulan ' . $month . ' sudah dibayar, penerimaan tidak bisa dibatalkan.');
+            }
+            if (strtolower((string)($ret['transfer_type'] ?? '')) === 'suplai') {
+                // Pembayaran suplai dihitung per bisnis (total − sudah dibayar): suplai yang sudah ikut dibayar tidak boleh dibatalkan
+                $supplyPaid = $db->fetchOne('SELECT COUNT(*) AS c FROM gudang_nasita_supply_payments WHERE source_business_slug = ? AND paid_at >= ?', [(string)$ret['source_business_slug'], (string)$ret['created_at']]);
+                if ((int)($supplyPaid['c'] ?? 0) > 0) {
+                    throw new Exception('Suplai ' . $ret['transfer_number'] . ' sudah ikut dibayar Gudang, tidak bisa dibatalkan.');
+                }
+            }
+        } catch (PDOException $pe) {
+            // tabel pembayaran belum ada / kolom berbeda
+        }
+        // Barang ini dulu menambah stok gudang → kurangi lagi sebelum datanya dihapus
+        // (kecuali belum pernah masuk stok gudang / "Belum masuk ke stok Gudang")
+        $qty = (float)($ret['quantity'] ?? 0);
+        $credited = (string)($ret['transfer_number'] ?? '') !== ''
+            && (bool)$db->fetchOne('SELECT id FROM gudang_nasita_movements WHERE notes LIKE ? LIMIT 1', ['%' . $ret['transfer_number'] . '%']);
+        if ($qty > 0 && $credited) {
+            $res = recordGudangNasitaDailyStockOut((string)$ret['item_name'], $qty, (int)($_SESSION['user_id'] ?? 0), [
+                'notes' => 'Batal penerimaan ' . $ret['transfer_number'] . ' dari ' . ($ret['source_business_name'] ?: $ret['source_business_slug']),
+            ]);
+            if (!($res['success'] ?? false)) {
+                throw new Exception('Stok gudang tidak cukup untuk membatalkan penerimaan ini: ' . ($res['message'] ?? ''));
+            }
+        }
+        $db->query("DELETE FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita'", [$rid]);
+        $_SESSION['success'] = 'Penerimaan ' . $ret['transfer_number'] . ' dibatalkan; stok gudang dikurangi dan stok kembali ke bisnis.';
+    } catch (Throwable $e) {
+        $_SESSION['error'] = $e->getMessage();
     }
     header('Location: gudang-nasita.php');
     exit;
@@ -551,18 +612,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $hasJumlahStok = function_exists('gudangNasitaStockHasColumn') ? gudangNasitaStockHasColumn('jumlah_stok') : false;
         $hasBusinessId = function_exists('gudangNasitaStockHasColumn') ? gudangNasitaStockHasColumn('business_id') : false;
         $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
+        $resetValueSql = (function_exists('gudangNasitaStockHasColumn') && gudangNasitaStockHasColumn('total_harga')) ? ', total_harga = 0' : '';
 
         if ($hasBusinessId && $activeBusinessId > 0) {
             if ($hasJumlahStok) {
-                $db->query('UPDATE gudang_nasita_stock SET quantity = 0, jumlah_stok = 0 WHERE COALESCE(is_active,1) = 1 AND business_id = ?', [$activeBusinessId]);
+                $db->query('UPDATE gudang_nasita_stock SET quantity = 0, jumlah_stok = 0' . $resetValueSql . ' WHERE COALESCE(is_active,1) = 1 AND business_id = ?', [$activeBusinessId]);
             } else {
-                $db->query('UPDATE gudang_nasita_stock SET quantity = 0 WHERE COALESCE(is_active,1) = 1 AND business_id = ?', [$activeBusinessId]);
+                $db->query('UPDATE gudang_nasita_stock SET quantity = 0' . $resetValueSql . ' WHERE COALESCE(is_active,1) = 1 AND business_id = ?', [$activeBusinessId]);
             }
         } else {
             if ($hasJumlahStok) {
-                $db->query('UPDATE gudang_nasita_stock SET quantity = 0, jumlah_stok = 0 WHERE COALESCE(is_active,1) = 1');
+                $db->query('UPDATE gudang_nasita_stock SET quantity = 0, jumlah_stok = 0' . $resetValueSql . ' WHERE COALESCE(is_active,1) = 1');
             } else {
-                $db->query('UPDATE gudang_nasita_stock SET quantity = 0 WHERE COALESCE(is_active,1) = 1');
+                $db->query('UPDATE gudang_nasita_stock SET quantity = 0' . $resetValueSql . ' WHERE COALESCE(is_active,1) = 1');
             }
         }
 
@@ -1607,11 +1669,15 @@ Data barang tetap ada, hanya jumlah stok yang di-nolkan. Tindakan ini tidak bisa
                                         <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo htmlspecialchars($transfer['target_business_name']); ?></div>
                                         <div style="font-size:0.812rem; color:var(--text-muted);"><?php echo (int)$transfer['items_count']; ?> item | <?php echo number_format((float)$transfer['total_qty'], 2); ?> qty</div>
                                     </div>
-                                    <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori transfer ini?')">
+                                    <?php if (strtolower((string)($transfer['status'] ?? '')) === 'cancelled'): ?>
+                                        <span style="padding:2px 8px; font-size:0.72rem; font-weight:700; color:#b91c1c; background:#fee2e2; border-radius:0.35rem;">Dibatalkan</span>
+                                    <?php else: ?>
+                                    <form method="POST" style="margin:0;" onsubmit="return confirm('Batalkan kiriman ini? Stok dikembalikan ke gudang dan hilang dari stok & tagihan bisnis.')">
                                         <input type="hidden" name="action" value="delete_gudang_transfer">
                                         <input type="hidden" name="transfer_id" value="<?php echo (int)$transfer['id']; ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                                        <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Batalkan</button>
                                     </form>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -1648,10 +1714,10 @@ Data barang tetap ada, hanya jumlah stok yang di-nolkan. Tindakan ini tidak bisa
                                         <button type="submit" class="btn btn-sm" style="padding:2px 8px; font-size:0.72rem; background:#16a34a; color:#fff; border:none; border-radius:0.35rem;">Sinkron Stok</button>
                                     </form>
                                 <?php endif; ?>
-                                <form method="POST" style="margin:0;" onsubmit="return confirm('Hapus histori penerimaan ini?')">
+                                <form method="POST" style="margin:0;" onsubmit="return confirm('Batalkan penerimaan ini? Stok gudang dikurangi dan barang kembali ke stok bisnis.')">
                                     <input type="hidden" name="action" value="delete_bisnis_return">
                                     <input type="hidden" name="return_id" value="<?php echo (int)$ret['id']; ?>">
-                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Hapus</button>
+                                    <button type="submit" class="btn btn-sm btn-danger" style="padding:2px 8px; font-size:0.72rem;">Batalkan</button>
                                 </form>
                             </div>
                         </div>

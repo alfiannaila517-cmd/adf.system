@@ -75,9 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             throw new Exception('PO tidak ditemukan');
         }
 
-        $allowedDeleteStatuses = ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'completed'];
+        // Hanya PO yang barangnya belum dikirim Gudang (kiriman & tagihan tidak ikut terhapus)
+        $allowedDeleteStatuses = ['draft', 'submitted', 'cancelled', 'rejected', 'pending'];
         if (!in_array(strtolower((string)$poRow['status']), $allowedDeleteStatuses, true)) {
-            throw new Exception('PO dengan status ini tidak boleh dihapus');
+            throw new Exception('PO yang sudah disetujui/dikirim tidak bisa dihapus. Minta Gudang Nasita membatalkan kirimannya bila ada kesalahan.');
         }
 
         $conn = $db->getConnection();

@@ -301,7 +301,7 @@ if ($activeBusinessId > 0) {
                             COALESCE(SUM(gti.quantity), 0) AS total_received
                          FROM gudang_nasita_transfer_items gti
                          JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
-                         WHERE {$targetFilterSql}
+                         WHERE {$targetFilterSql} AND COALESCE(gt.status, '') <> 'cancelled'
                          GROUP BY gti.item_name, gti.unit
                          ORDER BY gti.item_name ASC",
                         $targetFilterParams
@@ -339,7 +339,7 @@ if ($activeBusinessId > 0) {
                             COALESCE(SUM(gti.quantity), 0) AS total_received
                          FROM gudang_nasita_transfer_items gti
                          JOIN gudang_nasita_transfers gt ON gt.id = gti.transfer_id
-                         WHERE {$targetFilterSql}
+                         WHERE {$targetFilterSql} AND COALESCE(gt.status, '') <> 'cancelled'
                          GROUP BY gti.item_name, gti.unit
                          ORDER BY gti.item_name ASC",
                         $targetFilterParams
@@ -504,8 +504,8 @@ if ($activeBusinessId > 0) {
 
     try {
         $dailyOutRows = $db->fetchAll(
-            'SELECT * FROM business_stock_daily_out WHERE business_id = ? AND DATE(created_at) = CURDATE() ORDER BY created_at DESC',
-            [$activeBusinessId]
+            'SELECT * FROM business_stock_daily_out WHERE business_id = ? AND created_at >= ? ORDER BY created_at DESC',
+            [$activeBusinessId, businessStockDailyOutSince($db) . ' 00:00:00']
         );
 
         foreach ($dailyOutRows as $dailyRow) {
@@ -523,6 +523,8 @@ if ($activeBusinessId > 0) {
         $dailyOutRows = [];
         $dailyOutMap = [];
     }
+    // Daftar "Pengeluaran Harian" di layar tetap hanya hari ini; stok memakai semua sejak tanggal mulai
+    $dailyOutRows = array_values(array_filter($dailyOutRows, fn($r) => substr((string)($r["created_at"] ?? ""), 0, 10) === date("Y-m-d")));
 
     try {
         $adjustmentRows = $db->fetchAll(
@@ -614,18 +616,22 @@ if ($masterPdo && $activeBusinessSlug !== '') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reset_business_stock_zero') {
     if ($activeBusinessId > 0) {
         try {
-            foreach ($rawStockSummary as $row) {
-                $itemName = trim((string)($row['item_name'] ?? ''));
-                $unit = trim((string)($row['unit'] ?? 'pcs'));
-                $qty = $computeVisibleQty($itemName, $unit);
+            // Semua item (kiriman Gudang, manual, antar bisnis). Baseline ditambah sebesar stok yang
+            // tampil sehingga stok menjadi 0; dulu baseline ditimpa sehingga stok lama muncul lagi.
+            foreach ($stockMetaMap as $meta) {
+                $itemName = trim((string)($meta['item_name'] ?? ''));
+                $unit = trim((string)($meta['unit'] ?? 'pcs'));
                 if ($itemName === '') {
                     continue;
                 }
-
+                $qty = $computeVisibleQty($itemName, $unit);
+                if ($qty <= 0) {
+                    continue;
+                }
                 $db->query(
                     "INSERT INTO business_stock_reset_baseline (business_id, item_name, unit, baseline_qty, updated_by)
                      VALUES (?, ?, ?, ?, ?)
-                     ON DUPLICATE KEY UPDATE baseline_qty = VALUES(baseline_qty), updated_by = VALUES(updated_by)",
+                     ON DUPLICATE KEY UPDATE baseline_qty = baseline_qty + VALUES(baseline_qty), updated_by = VALUES(updated_by)",
                     [$activeBusinessId, $itemName, $unit, $qty, (int)($currentUser['id'] ?? 0)]
                 );
             }
@@ -818,13 +824,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
             }
 
-            $warehouseEntryNote = $notes !== '' ? 'Bisnis: ' . $notes : 'Pengeluaran stok harian bisnis';
-            $warehouseResult = recordGudangNasitaDailyStockOut($itemName, $qty, (int)($currentUser['id'] ?? 0), [
-                'notes' => $warehouseEntryNote,
-            ]);
-
-            if (!($warehouseResult['success'] ?? false)) {
-                throw new Exception($warehouseResult['message'] ?? 'Gudang Nasita tidak bisa mengurangi stok untuk item ini.');
+            // Hanya mengurangi stok bisnis: stok Gudang Nasita sudah berkurang saat barang dikirim,
+            // jadi memotongnya lagi di sini membuat stok gudang berkurang dua kali.
+            $available = $computeVisibleQty($itemName, $unit);
+            if ($qty > $available + 0.0001) {
+                throw new Exception('Stok ' . $itemName . ' tersedia ' . rtrim(rtrim(number_format($available, 2, '.', ''), '0'), '.') . ' ' . $unit . ', tidak cukup untuk dikeluarkan ' . rtrim(rtrim(number_format($qty, 2, '.', ''), '0'), '.') . '.');
+            }
+            try {
+                $db->query("ALTER TABLE business_stock_daily_out ADD COLUMN gudang_deducted TINYINT(1) NULL DEFAULT NULL");
+            } catch (Throwable $e) {
+                // kolom sudah ada
             }
 
             $db->insert('business_stock_daily_out', [
@@ -834,8 +843,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 'quantity' => $qty,
                 'notes' => $notes !== '' ? $notes : 'Pengeluaran stok harian',
                 'created_by' => (int)($currentUser['id'] ?? 0),
+                'gudang_deducted' => 0,
             ]);
-            $_SESSION['success'] = 'Stock keluar berhasil dicatat dan stok Gudang Nasita telah berkurang.';
+            $_SESSION['success'] = 'Stock keluar berhasil dicatat.';
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Gagal catat stock keluar: ' . $e->getMessage();
         }
@@ -879,6 +889,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             // created by this admin page, which DO reduce Gudang Nasita stock on insert.
             $rowNotes = (string)($row['notes'] ?? '');
             if (strpos($rowNotes, 'via Staff Portal:') !== false) {
+                continue;
+            }
+            // Pencatatan baru (gudang_deducted = 0) tidak pernah memotong stok Gudang
+            if (array_key_exists('gudang_deducted', $row) && $row['gudang_deducted'] !== null && (int)$row['gudang_deducted'] === 0) {
                 continue;
             }
 
@@ -925,9 +939,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $trId = (int)($_POST['transfer_id'] ?? 0);
     if ($masterPdo && $trId > 0) {
         try {
+            $tr = $masterPdo->prepare('SELECT * FROM business_inter_stock_transfers WHERE id = ? AND source_business_slug = ?');
+            $tr->execute([$trId, $activeBusinessSlug]);
+            $trRow = $tr->fetch();
+            if (!$trRow) {
+                throw new Exception('Data transfer tidak ditemukan.');
+            }
+            $trType = strtolower((string)($trRow['transfer_type'] ?? 'antar_bisnis'));
+            if ($trType !== '' && $trType !== 'antar_bisnis') {
+                // Retur / suplai / ambil gudang sudah mengubah stok & tagihan Gudang → hanya Gudang yang bisa membatalkan
+                throw new Exception('Retur/suplai ke Gudang Nasita hanya bisa dibatalkan oleh Gudang Nasita.');
+            }
+            $trMonth = date('Y-m', strtotime((string)($trRow['created_at'] ?? 'now')));
+            $paid = $masterPdo->prepare('SELECT COUNT(*) FROM gudang_nasita_tagihan_payments WHERE bill_month = ? AND business_slug IN (?, ?)');
+            try {
+                $paid->execute([$trMonth, (string)($trRow['source_business_slug'] ?? ''), (string)($trRow['target_business_slug'] ?? '')]);
+                if ((int)$paid->fetchColumn() > 0) {
+                    throw new Exception('Tagihan gudang bulan ' . $trMonth . ' sudah dibayar, transfer tidak bisa dihapus.');
+                }
+            } catch (PDOException $pe) {
+                // tabel pembayaran belum ada
+            }
             $stmt = $masterPdo->prepare('DELETE FROM business_inter_stock_transfers WHERE id = ? AND source_business_slug = ?');
             $stmt->execute([$trId, $activeBusinessSlug]);
-            $_SESSION['success'] = 'Histori transfer keluar dihapus.';
+            $_SESSION['success'] = 'Transfer antar bisnis dibatalkan; stok kembali ke bisnis pengirim.';
         } catch (Throwable $e) {
             $_SESSION['error'] = 'Gagal hapus: ' . $e->getMessage();
         }
@@ -937,6 +972,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_transfer_history') {
+    // Kiriman dari Gudang Nasita hanya bisa dibatalkan oleh Gudang (stok gudang dikembalikan di sana).
+    $_SESSION['error'] = 'Kiriman dari Gudang Nasita tidak bisa dihapus dari bisnis. Minta Gudang Nasita membatalkan kiriman bila ada kesalahan.';
+    header('Location: business-stock-incoming.php');
+    exit;
+}
+if (false) {
     $transferId = isset($_POST['transfer_id']) ? (int)$_POST['transfer_id'] : 0;
 
     if ($transferId <= 0 || $gudangDbNameResolved === '') {

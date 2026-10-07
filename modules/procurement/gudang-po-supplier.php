@@ -37,86 +37,6 @@ if (($_GET['ajax_po_items'] ?? '') === '1') {
     exit;
 }
 
-// TEMP DIAGNOSTIC (auth-gated above) — read-only, shows PO detail rows matching an item
-// name so we can see qty/received_quantity/status without guessing. Remove after debugging.
-if (($_GET['debug_po_item'] ?? '') === '1') {
-    header('Content-Type: application/json');
-    $itemName = trim((string)($_GET['item_name'] ?? 'amer'));
-    $rows = $db->fetchAll(
-        "SELECT poh.id AS po_id, poh.po_number, poh.status AS po_status, poh.created_at,
-                pod.id AS detail_id, pod.item_name, pod.quantity, pod.received_quantity, pod.unit_of_measure
-         FROM purchase_orders_detail pod
-         JOIN purchase_orders_header poh ON poh.id = pod.po_header_id
-         WHERE pod.item_name LIKE ?
-         ORDER BY poh.created_at DESC",
-        ['%' . $itemName . '%']
-    );
-    echo json_encode(['search_term' => $itemName, 'matches' => $rows], JSON_PRETTY_PRINT);
-    exit;
-}
-
-// TEMP DIAGNOSTIC (auth-gated above) — read-only: shows PO header/detail plus every
-// gudang_nasita_movements row tied to it, so we can tell whether receive_goods actually
-// wrote anything for a specific po_number. Remove after debugging "history not showing".
-if (($_GET['debug_po_movements'] ?? '') === '1') {
-    header('Content-Type: application/json');
-    $poNumber = trim((string)($_GET['po_number'] ?? ''));
-    $poHeader = $db->fetchOne('SELECT * FROM purchase_orders_header WHERE po_number = ? LIMIT 1', [$poNumber]);
-    $response = ['po_number_searched' => $poNumber, 'po_header' => $poHeader];
-    if ($poHeader) {
-        $response['detail_items'] = $db->fetchAll(
-            'SELECT id, item_name, quantity, received_quantity FROM purchase_orders_detail WHERE po_header_id = ?',
-            [$poHeader['id']]
-        );
-        $response['movements'] = $db->fetchAll(
-            "SELECT * FROM gudang_nasita_movements WHERE reference_type = 'purchase_order' AND reference_id = ? ORDER BY id DESC",
-            [$poHeader['id']]
-        );
-    }
-    $response['total_in_supplier_movements_all_time'] = (int)($db->fetchOne(
-        "SELECT COUNT(*) AS c FROM gudang_nasita_movements WHERE movement_type = 'in_supplier' AND reference_type = 'purchase_order'"
-    )['c'] ?? 0);
-    echo json_encode($response, JSON_PRETTY_PRINT);
-    exit;
-}
-
-// TEMP DIAGNOSTIC (auth-gated above) — read-only: dumps gudang_nasita_stock columns and
-// replays the exact UPDATE statement receivePurchaseOrderToGudang() uses (rolled back, never
-// committed) so we can see the REAL PDO error instead of the silently-swallowed one from
-// Database::update(). Remove after debugging the "stock not increasing" report.
-if (($_GET['debug_stock_update'] ?? '') === '1') {
-    header('Content-Type: application/json');
-    $stockId = (int)($_GET['stock_id'] ?? 0);
-    $response = [
-        'columns' => $db->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock'),
-        'stock_row' => $stockId > 0 ? $db->fetchOne('SELECT * FROM gudang_nasita_stock WHERE id = ?', [$stockId]) : null,
-    ];
-    if ($stockId > 0) {
-        try {
-            $conn = $db->getConnection();
-            $conn->beginTransaction();
-            $stmt = $conn->prepare("UPDATE gudang_nasita_stock SET quantity = :quantity, harga_beli = :harga_beli, total_harga = :total_harga, supplier_name = :supplier_name, notes = :notes WHERE id = :id");
-            $stmt->execute([
-                'quantity' => 2,
-                'harga_beli' => 1000,
-                'total_harga' => 2000,
-                'supplier_name' => 'Test Supplier',
-                'notes' => 'debug_stock_update test',
-                'id' => $stockId,
-            ]);
-            $response['replay_row_count'] = $stmt->rowCount();
-            $conn->rollBack();
-        } catch (Throwable $e) {
-            if ($db->getConnection()->inTransaction()) {
-                $db->getConnection()->rollBack();
-            }
-            $response['replay_error'] = $e->getMessage();
-        }
-    }
-    echo json_encode($response, JSON_PRETTY_PRINT);
-    exit;
-}
-
 $normalizePoStatus = static function ($status): string {
     $statusText = trim((string)($status ?? ''));
     if ($statusText === '') {
@@ -396,9 +316,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
             }
 
             $poStatusKey = $normalizePoStatus($poRow['status'] ?? '');
-            $allowedStatuses = ['draft', 'submitted', 'approved', 'partially_received', 'cancelled', 'rejected', 'pending', 'waiting', 'completed', 'received'];
-            if (!in_array($poStatusKey, $allowedStatuses, true)) {
-                throw new RuntimeException('Status PO ini tidak boleh dihapus.');
+            // PO yang barangnya sudah masuk stok tidak boleh dihapus: stok & riwayat barang datang tidak ikut kembali.
+            $receivedRow = $db->fetchOne('SELECT COALESCE(SUM(received_quantity), 0) AS r FROM purchase_orders_detail WHERE po_header_id = ?', [$poId]);
+            if (in_array($poStatusKey, ['partially_received', 'completed', 'received'], true) || (float)($receivedRow['r'] ?? 0) > 0) {
+                throw new RuntimeException('PO ' . (string)($poRow['po_number'] ?? '') . ' sudah ada barang yang diterima ke stok, tidak bisa dihapus.');
             }
 
             $conn = $db->getConnection();
