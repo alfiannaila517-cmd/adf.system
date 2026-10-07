@@ -3390,29 +3390,16 @@ header('Expires: 0');
 
         .rm-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0 0 10px; }
         .rm-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; color: var(--muted); }
-        .rm-type { display: flex; align-items: center; justify-content: space-between; font-size: 10px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: .08em; margin: 12px 0 6px; }
-        .rm-type:first-of-type { margin-top: 0; }
-        .rm-type em { font-style: normal; font-weight: 700; color: var(--muted); letter-spacing: .02em; text-transform: none; }
-        .rm-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
-        .rm-tile { position: relative; border: 1px solid var(--border); border-left: 4px solid #cbd5e1; border-radius: 10px; padding: 7px 8px; background: #fff; min-height: 58px; display: flex; flex-direction: column; gap: 2px; }
-        .rm-tile-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-        .rm-tile-num { font-size: 15px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
-        .rm-tile-st { font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 2px 6px; border-radius: 999px; white-space: nowrap; }
-        .rm-tile-guest { font-size: 10.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .rm-tile-note { font-size: 9.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .rm-tile .rm-clean { margin-top: 4px; border: none; border-radius: 7px; padding: 5px 0; font-size: 10px; font-weight: 800; background: #d97706; color: #fff; cursor: pointer; }
-        .rm-tile .rm-clean:active { transform: scale(.97); }
-        .rm-tile.st-inhouse { border-left-color: #0f8a65; }
-        .rm-tile.st-inhouse .rm-tile-st { background: #dcfce7; color: #0b6b4e; }
-        .rm-tile.st-departing { border-left-color: #ea580c; }
-        .rm-tile.st-departing .rm-tile-st { background: #ffedd5; color: #c2410c; }
-        .rm-tile.st-arrival { border-left-color: #3d5a99; }
-        .rm-tile.st-arrival .rm-tile-st { background: #e0e7ff; color: #3730a3; }
-        .rm-tile.st-dirty { border-left-color: #d97706; background: #fffbeb; }
-        .rm-tile.st-dirty .rm-tile-st { background: #fef3c7; color: #b45309; }
-        .rm-tile.st-free .rm-tile-st { background: #f1f5f9; color: #475569; }
-        .rm-tile.st-blocked { border-left-color: #ef4444; background: #fef2f2; }
-        .rm-tile.st-blocked .rm-tile-st { background: #fee2e2; color: #b91c1c; }
+        .room-box { border-radius: 10px; background: #fff; color: #0f172a; border: 1px solid #e2e8f0; font-weight: 800; position: relative; }
+        .room-box .room-type { color: #94a3b8; font-weight: 500; }
+        .room-box .room-guest { color: inherit; font-weight: 600; opacity: .85; }
+        .room-box.avail { background: #fff; color: #334155; border-color: #e2e8f0; }
+        .room-box.occ { background: #ecfdf5; color: #0b6b4e; border-color: #a7f3d0; }
+        .room-box.departing { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
+        .room-box.arrival { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+        .room-box.blocked { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+        .room-box.b2b::after { background: #3d5a99; }
+        .room-box .room-next { color: #3d5a99; }
 
         .rm-nav { display: flex; align-items: center; gap: 6px; }
         .rm-nav button { border: 1px solid var(--border); background: #fff; color: var(--text); border-radius: 9px; height: 30px; min-width: 30px; padding: 0 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
@@ -6035,46 +6022,28 @@ header('Expires: 0');
                 if (rooms.length === 0) {
                     document.getElementById('roomGrid').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Tidak ada data kamar.</div>';
                 } else {
-                    let rh = '';
-                    Object.keys(roomsByType).forEach(typeName => {
-                        const list = roomsByType[typeName];
-                        const freeCount = list.filter(r => r.status === 'available').length;
-                        rh += `<div class="rm-type">${rmEsc(typeName)}<em>${freeCount} kosong · ${list.length} kamar</em></div><div class="rm-tiles">`;
-                        list.forEach(r => {
-                            const arr = arrivalByRoom[r.id];
-                            const departing = r.status === 'occupied' && String(r.check_out_date || '').substring(0, 10) === today;
-                            let cls = 'st-free',
-                                label = 'Kosong',
-                                guest = '',
-                                note = '';
-                            if (r.status === 'occupied') {
-                                cls = departing ? 'st-departing' : 'st-inhouse';
-                                label = departing ? 'Check-out' : 'Menginap';
-                                guest = r.guest_name || 'Guest';
-                                note = departing ? 'Keluar hari ini' : ('s/d ' + rmFmt(r.check_out_date).replace(/ \d{4}$/, ''));
-                                if (r.next_guest) note = '→ ' + r.next_guest + ' (besok)';
-                            } else if (r.status === 'cleaning') {
-                                cls = 'st-dirty';
-                                label = 'Kotor';
-                                note = arr ? 'Tiba: ' + (arr.guest_name || 'Guest') : 'Perlu dibersihkan';
-                            } else if (r.status === 'maintenance' || r.status === 'blocked') {
-                                cls = 'st-blocked';
-                                label = r.status === 'maintenance' ? 'Perbaikan' : 'Diblok';
-                            } else if (arr) {
-                                cls = 'st-arrival';
-                                label = 'Tiba';
-                                guest = arr.guest_name || 'Guest';
-                                note = 'Check-in hari ini';
-                            }
-                            rh += `<div class="rm-tile ${cls}">
-                        <div class="rm-tile-top"><span class="rm-tile-num">${rmEsc(r.room_number)}</span><span class="rm-tile-st">${label}</span></div>
-                        ${guest ? `<div class="rm-tile-guest">${rmEsc(guest)}</div>` : ''}
-                        ${note ? `<div class="rm-tile-note">${rmEsc(note)}</div>` : ''}
-                        ${r.status === 'cleaning' ? `<button class="rm-clean" onclick="markRoomClean(${parseInt(r.id)}, '${rmEsc(String(r.room_number || '').replace(/'/g, ''))}')">✓ Bersih</button>` : ''}
-                    </div>`;
-                        });
-                        rh += '</div>';
+                    let rh = '<div class="room-grid">';
+                    rooms.forEach(r => {
+                        const arr = arrivalByRoom[r.id];
+                        const isOcc = r.status === 'occupied';
+                        const isDirty = r.status === 'cleaning';
+                        const departing = isOcc && String(r.check_out_date || '').substring(0, 10) === today;
+                        const hasB2B = isOcc && r.next_guest;
+                        let boxClass = 'avail';
+                        if (isDirty) boxClass = 'dirty';
+                        else if (r.status === 'maintenance' || r.status === 'blocked') boxClass = 'blocked';
+                        else if (isOcc) boxClass = (departing ? 'departing' : 'occ') + (hasB2B ? ' b2b' : '');
+                        else if (arr) boxClass = 'arrival';
+                        const guest = isOcc ? (r.guest_name || '') : (arr && !isDirty ? (arr.guest_name || '') : '');
+                        rh += `<div class="room-box ${boxClass}">
+                    ${rmEsc(r.room_number)}
+                    <div class="room-type">${rmEsc(r.room_type || '')}</div>
+                    ${guest ? `<div class="room-guest">${rmEsc(guest)}</div>` : ''}
+                    ${hasB2B ? `<div class="room-next">→ ${rmEsc(r.next_guest)}</div>` : ''}
+                    ${isDirty ? `<button class="btn-clean" onclick="markRoomClean(${parseInt(r.id)}, '${rmEsc(String(r.room_number || '').replace(/'/g, ''))}')">✓ Clean</button>` : ''}
+                </div>`;
                     });
+                    rh += '</div>';
                     document.getElementById('roomGrid').innerHTML = rh;
                 }
 
