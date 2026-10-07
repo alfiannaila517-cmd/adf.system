@@ -1,18 +1,4 @@
-                    <?php if ($fpEnabled && $fpCloudId && $fpCloudStatus): ?>
-                        <div style="margin-top:4px; font-size:11px;">
-                            <strong>Status Cloud:</strong>
-                            <?php if ($fpCloudStatus['success']): ?>
-                                <span style="color:#059669; font-weight:700;">✅ <?php echo htmlspecialchars($fpCloudStatus['message'] ?? 'Aktif'); ?></span>
-                            <?php else: ?>
-                                <span style="color:#dc2626; font-weight:700;">⚠️ <?php echo htmlspecialchars($fpCloudStatus['message'] ?? 'Tidak aktif'); ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <details style="margin-top:6px;">
-                            <summary style="font-size:10px; color:#64748b; cursor:pointer;">Debug: Lihat response API</summary>
-                            <pre style="font-size:10px; background:#f3f4f6; color:#334155; border-radius:6px; padding:8px; border:1px solid #e2e8f0; max-width:420px; overflow-x:auto; margin-top:4px;"><?php echo htmlspecialchars(json_encode($fpCloudStatus, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
-                        </details>
-                    <?php endif; ?>
-                    <?php
+<?php
                     /**
                      * Payroll Attendance Dashboard - Redesigned
                      * Tabs: Dashboard Harian | Absen GPS | Fingerprint | Manual | Reset
@@ -2308,6 +2294,122 @@
                                 overflow-x: auto;
                             }
                         }
+
+                        /* ===================== Absensi — redesign ringkas & seragam ===================== */
+                        body[data-theme] .main-content .att-wrap { --a-line: #e2e8f0; --a-soft: #f8fafc; --a-ink: #0f172a; --a-muted: #64748b; }
+                        body[data-theme="dark"] .main-content .att-wrap { --a-line: rgba(255,255,255,.1); --a-soft: rgba(255,255,255,.04); --a-ink: #e2e8f0; --a-muted: #94a3b8; }
+                        /* Header biru */
+                        body[data-theme] .main-content .att-wrap .att-head {
+                            padding: 12px 16px !important;
+                            margin-bottom: 10px !important;
+                            border: 0 !important;
+                            border-radius: 16px !important;
+                            background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+                            box-shadow: 0 14px 30px -18px rgba(30, 58, 138, .7) !important;
+                        }
+                        body[data-theme] .main-content .att-wrap .att-head::before { display: none; }
+                        body[data-theme] .main-content .att-wrap .att-head-icon { width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,.16) !important; border: 1px solid rgba(255,255,255,.3); }
+                        body[data-theme] .main-content .att-wrap .att-head-icon svg { width: 18px; height: 18px; }
+                        body[data-theme] .main-content .att-wrap .att-head h1 { font-size: 1rem !important; color: #fff !important; -webkit-text-fill-color: #fff !important; margin: 0 !important; }
+                        body[data-theme] .main-content .att-wrap .att-head p { font-size: .7rem !important; color: rgba(255,255,255,.8) !important; -webkit-text-fill-color: rgba(255,255,255,.8) !important; }
+                        .att-wrap .att-head-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+                        body[data-theme] .main-content .att-wrap .att-portal {
+                            display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 4px 0 10px;
+                            border-radius: 9px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+                        }
+                        body[data-theme] .main-content .att-wrap .att-portal svg { width: 13px; height: 13px; color: #fff; flex-shrink: 0; }
+                        body[data-theme] .main-content .att-wrap .att-portal input {
+                            width: 240px; border: 0 !important; background: transparent !important; box-shadow: none !important;
+                            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .7rem !important;
+                            color: #fff !important; -webkit-text-fill-color: #fff !important; padding: 0 !important; outline: none;
+                        }
+                        body[data-theme] .main-content .att-wrap .att-portal button {
+                            height: 24px; padding: 0 10px; border: 0; border-radius: 7px; background: #fff;
+                            color: #1d4ed8 !important; font-size: .68rem !important; font-weight: 700; cursor: pointer;
+                        }
+                        body[data-theme] .main-content .att-wrap .att-head .btn {
+                            height: 32px !important; padding: 0 12px !important; border-radius: 9px !important; font-size: .72rem !important;
+                            box-shadow: none !important;
+                        }
+                        body[data-theme] .main-content .att-wrap .att-head .btn-primary { background: rgba(255,255,255,.14) !important; border: 1px solid rgba(255,255,255,.3) !important; color: #fff !important; }
+                        body[data-theme] .main-content .att-wrap .att-head .btn-gold { background: #fff !important; border: 0 !important; color: #1e3a8a !important; -webkit-text-fill-color: #1e3a8a !important; }
+                        /* Ringkasan */
+                        body[data-theme] .main-content .att-wrap .st-row { gap: 8px !important; margin-bottom: 10px !important; }
+                        body[data-theme] .main-content .att-wrap .st-card {
+                            display: grid !important; grid-template-columns: 34px 1fr; grid-template-rows: auto auto auto; column-gap: 10px;
+                            align-items: center; padding: 10px 12px !important; border-radius: 12px !important;
+                            border: 1px solid var(--a-line) !important; box-shadow: none !important; min-height: 0 !important;
+                        }
+                        body[data-theme] .main-content .att-wrap .st-card::before { display: none !important; }
+                        body[data-theme] .main-content .att-wrap .st-card:hover { transform: none !important; }
+                        body[data-theme] .main-content .att-wrap .st-icon { grid-row: 1 / span 3; width: 34px !important; height: 34px !important; margin: 0 !important; border-radius: 10px !important; background: #eff6ff !important; color: #1d4ed8 !important; }
+                        body[data-theme] .main-content .att-wrap .st-icon svg { width: 16px !important; height: 16px !important; }
+                        body[data-theme] .main-content .att-wrap .st-card .lb { font-size: .6rem !important; letter-spacing: .06em; margin: 0 !important; color: var(--a-muted) !important; }
+                        body[data-theme] .main-content .att-wrap .st-card .vl { font-size: 1.15rem !important; line-height: 1.2; margin: 0 !important; color: var(--a-ink) !important; }
+                        body[data-theme] .main-content .att-wrap .st-card .sb { font-size: .62rem !important; margin: 0 !important; color: var(--a-muted) !important; }
+                        body[data-theme] .main-content .att-wrap .st-card:nth-child(2) .st-icon { background: #fff7ed !important; color: #c2410c !important; }
+                        body[data-theme] .main-content .att-wrap .st-card:nth-child(4) .st-icon { background: #f5f3ff !important; color: #6d28d9 !important; }
+                        body[data-theme] .main-content .att-wrap .st-card:nth-child(5) .st-icon { background: #fef2f2 !important; color: #b91c1c !important; }
+                        /* Tab segmented */
+                        body[data-theme] .main-content .att-wrap .att-tabs {
+                            display: flex !important; gap: 3px !important; padding: 4px !important; margin-bottom: 12px !important;
+                            border: 1px solid var(--a-line) !important; border-radius: 12px !important; background: var(--a-soft) !important;
+                            box-shadow: none !important; overflow-x: auto; flex-wrap: nowrap !important;
+                        }
+                        body[data-theme] .main-content .att-wrap .att-tab {
+                            flex: 1 0 auto; height: 32px !important; padding: 0 12px !important; border: 0 !important; border-radius: 9px !important;
+                            background: transparent !important; box-shadow: none !important; white-space: nowrap;
+                            font-size: .74rem !important; font-weight: 700 !important; color: var(--a-muted) !important;
+                            display: inline-flex !important; align-items: center; justify-content: center; gap: 6px;
+                        }
+                        body[data-theme] .main-content .att-wrap .att-tab-icon { width: auto !important; height: auto !important; background: none !important; }
+                        body[data-theme] .main-content .att-wrap .att-tab-icon svg { width: 14px !important; height: 14px !important; }
+                        body[data-theme] .main-content .att-wrap .att-tab.active {
+                            background: #fff !important; color: #1d4ed8 !important; box-shadow: 0 2px 8px -2px rgba(15,23,42,.18) !important;
+                        }
+                        body[data-theme="dark"] .main-content .att-wrap .att-tab.active { background: rgba(255,255,255,.08) !important; color: #93c5fd !important; }
+                        /* Input & tombol */
+                        body[data-theme] .main-content .att-wrap .fi { height: 34px; border-radius: 9px !important; font-size: .78rem !important; }
+                        body[data-theme] .main-content .att-wrap textarea.fi { height: auto; }
+                        body[data-theme] .main-content .att-wrap .btn { border-radius: 9px !important; font-size: .74rem !important; font-weight: 700 !important; }
+                        body[data-theme] .main-content .att-wrap .btn-gold { background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; border: 0 !important; }
+                        body[data-theme] .main-content .att-wrap .btn-ic { width: 28px; height: 28px; padding: 0 !important; display: inline-flex !important; align-items: center; justify-content: center; }
+                        body[data-theme] .main-content .att-wrap .btn-ic svg { width: 13px; height: 13px; }
+                        /* Tabel */
+                        body[data-theme] .main-content .att-wrap .tbl-wrap { border: 1px solid var(--a-line) !important; border-radius: 12px !important; box-shadow: none !important; overflow: auto; margin-bottom: 10px; }
+                        body[data-theme] .main-content .att-wrap .tbl th {
+                            padding: 9px 10px !important; background: #1e3a8a !important; color: #fff !important; -webkit-text-fill-color: #fff !important;
+                            font-size: .62rem !important; letter-spacing: .05em; border: 0 !important; line-height: 1.3;
+                        }
+                        body[data-theme] .main-content .att-wrap .tbl th span { color: rgba(255,255,255,.75) !important; -webkit-text-fill-color: rgba(255,255,255,.75) !important; font-size: .6rem !important; }
+                        body[data-theme] .main-content .att-wrap .tbl td { padding: 8px 10px !important; font-size: .76rem !important; border-bottom: 1px solid var(--a-line) !important; }
+                        body[data-theme] .main-content .att-wrap .tbl tbody tr:nth-child(even) td { background: var(--a-soft); }
+                        body[data-theme] .main-content .att-wrap .tbl td strong { font-size: .78rem !important; }
+                        body[data-theme] .main-content .att-wrap .badge { padding: 2px 9px !important; border-radius: 999px !important; font-size: .62rem !important; font-weight: 700 !important; }
+                        /* Kartu panel */
+                        body[data-theme] .main-content .att-wrap .card { padding: 14px !important; border-radius: 14px !important; border: 1px solid var(--a-line) !important; box-shadow: none !important; }
+                        body[data-theme] .main-content .att-wrap .card-title { font-size: .82rem !important; margin-bottom: 10px !important; }
+                        body[data-theme] .main-content .att-wrap .fl { font-size: .62rem !important; letter-spacing: .05em; text-transform: uppercase; color: var(--a-muted) !important; }
+                        body[data-theme] .main-content .att-wrap .att-legend {
+                            display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 12px; border-radius: 10px;
+                            border: 1px dashed var(--a-line); background: var(--a-soft); font-size: .68rem; color: var(--a-muted);
+                        }
+                        body[data-theme] .main-content .att-wrap .att-legend strong { color: var(--a-ink); }
+                        body[data-theme] .main-content .att-wrap .att-head-icon, body[data-theme] .main-content .att-wrap .att-head-icon svg { color: #fff !important; stroke: #fff; opacity: 1 !important; }
+                        body[data-theme] .main-content .att-wrap .btn-primary { background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; border: 0 !important; box-shadow: none !important; }
+                        /* Permukaan & teks (terang/gelap) */
+                        body[data-theme] .main-content .att-wrap { --a-card: #fff; }
+                        body[data-theme="dark"] .main-content .att-wrap { --a-card: #111a2e; }
+                        body[data-theme] .main-content .att-wrap :is(.st-card, .tbl-wrap, .card, .reset-card) { background: var(--a-card) !important; }
+                        body[data-theme] .main-content .att-wrap .tbl td { background: var(--a-card); color: var(--a-ink) !important; }
+                        body[data-theme] .main-content .att-wrap .tbl tbody tr:nth-child(even) td { background: var(--a-soft); }
+                        body[data-theme] .main-content .att-wrap .tbl tbody tr:hover td { background: rgba(37, 99, 235, .06) !important; }
+                        body[data-theme] .main-content .att-wrap :is(.tbl td strong, .st-card .vl, .card-title) { color: var(--a-ink) !important; -webkit-text-fill-color: var(--a-ink) !important; background: none !important; }
+                        body[data-theme="dark"] .main-content .att-wrap .fi { background: rgba(255,255,255,.05) !important; border-color: var(--a-line) !important; color: var(--a-ink) !important; }
+                        body[data-theme="dark"] .main-content .att-wrap .st-icon { background: rgba(255,255,255,.07) !important; }
+                        @media (max-width: 900px) {
+                            body[data-theme] .main-content .att-wrap .att-portal input { width: 150px; }
+                        }
                     </style>
 
                     <?php if ($msg): ?>
@@ -2325,17 +2427,15 @@
                                     <p>Dashboard harian, GPS, Fingerprint, Manual & Reset</p>
                                 </div>
                             </div>
-                            <div style="display:flex; gap:6px;">
+                            <div class="att-head-actions">
+                                <div class="att-portal" title="Link Staff Portal untuk karyawan">
+                                    <i data-feather="link"></i>
+                                    <input type="text" value="<?php echo htmlspecialchars($staffPortalUrl); ?>" readonly id="portalUrlInput">
+                                    <button type="button" onclick="copyUrl('portalUrlInput')">Salin</button>
+                                </div>
                                 <a href="<?php echo htmlspecialchars($staffPortalUrl); ?>" target="_blank" class="btn btn-primary"><i data-feather="smartphone"></i> Staff Portal</a>
                                 <button onclick="openManualModal()" class="btn btn-gold"><i data-feather="plus-circle"></i> Input Manual</button>
                             </div>
-                        </div>
-
-                        <!-- URL bar -->
-                        <div class="url-bar">
-                            <span class="url-bar-label"><i data-feather="link"></i> Staff Portal</span>
-                            <input type="text" value="<?php echo htmlspecialchars($staffPortalUrl); ?>" readonly id="portalUrlInput">
-                            <button onclick="copyUrl('portalUrlInput')" class="btn btn-primary btn-sm"><i data-feather="copy"></i> Salin</button>
                         </div>
 
                         <!-- Stats -->
@@ -2433,6 +2533,7 @@
                                             // Manual OT takes precedence; otherwise approved request shows actual overtime above 8 hours.
                                             $hasApprovedOT = isset($approvedOTEmployees[(int)$emp['id']]);
                                             $otCounted = $manualOT > 0 ? $manualOT : ($hasApprovedOT ? max(0, round($wh - 8, 2)) : 0);
+                                            $otUnits = (int)floor($otCounted * 60 / 45 + 1e-6); // jumlah kelipatan 45 menit
                                         ?>
                                             <tr>
                                                 <td>
@@ -2461,14 +2562,14 @@
                                                 <td><span class="badge b-<?php echo $statusClass; ?>"><?php echo $statusLabels[$status] ?? $status; ?></span></td>
                                                 <td style="white-space:nowrap;">
                                                     <?php if ($a): ?>
-                                                        <button class="btn btn-edit btn-sm" onclick='openEditModal(<?php echo json_encode($a); ?>)'>✏️</button>
+                                                        <button class="btn btn-edit btn-sm btn-ic" title="Edit absen" onclick='openEditModal(<?php echo json_encode($a); ?>)'><i data-feather="edit-2"></i></button>
                                                         <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus absen <?php echo htmlspecialchars($emp['full_name']); ?>?')">
                                                             <input type="hidden" name="action" value="delete_att">
                                                             <input type="hidden" name="att_id" value="<?php echo $a['id']; ?>">
-                                                            <button type="submit" class="btn btn-del btn-sm">🗑</button>
+                                                            <button type="submit" class="btn btn-del btn-sm btn-ic" title="Hapus"><i data-feather="trash-2"></i></button>
                                                         </form>
                                                     <?php else: ?>
-                                                        <button class="btn btn-green btn-sm" onclick="quickManualAdd(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['full_name'])); ?>', '<?php echo $viewDate; ?>')">➕</button>
+                                                        <button class="btn btn-green btn-sm btn-ic" onclick="quickManualAdd(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['full_name'])); ?>', '<?php echo $viewDate; ?>')" title="Input absen manual"><i data-feather="plus"></i></button>
                                                     <?php endif; ?>
                                                 </td>
                                             </tr>
@@ -2478,10 +2579,10 @@
                             </div>
 
                             <!-- Legend -->
-                            <div style="padding:10px 14px; background:#f8fafc; border-radius:8px; border:1px solid var(--border); display:flex; gap:16px; flex-wrap:wrap; font-size:11px; color:var(--muted);">
-                                <span>📌 <strong>Reguler:</strong> max 8 jam/hari</span>
-                                <span>🔥 <strong>Lembur:</strong> hanya jika diajukan & disetujui, per kelipatan 45 menit</span>
-                                <span>🕐 <strong>Scan:</strong> 1=Masuk, 2=Pulang, 3=Masuk Shift2, 4=Pulang Shift2</span>
+                            <div class="att-legend">
+                                <span><strong>Reguler:</strong> maks 8 jam/hari</span>
+                                <span><strong>Lembur:</strong> hanya bila diajukan &amp; disetujui, per kelipatan 45 menit</span>
+                                <span><strong>Scan:</strong> 1 Masuk · 2 Pulang · 3 Masuk shift 2 · 4 Pulang shift 2</span>
                             </div>
                         </div>
 
@@ -2565,7 +2666,7 @@
                                                             <form method="POST" action="?tab=gps" style="display:inline;" onsubmit="return confirm('Hapus lokasi?')">
                                                                 <input type="hidden" name="action" value="delete_location">
                                                                 <input type="hidden" name="loc_id" value="<?php echo $loc['id']; ?>">
-                                                                <button type="submit" class="btn btn-del btn-sm">🗑</button>
+                                                                <button type="submit" class="btn btn-del btn-sm btn-ic" title="Hapus"><i data-feather="trash-2"></i></button>
                                                             </form>
                                                         </div>
                                                     </div>
