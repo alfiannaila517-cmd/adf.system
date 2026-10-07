@@ -3816,6 +3816,7 @@ include '../../includes/header.php';
 
         // Reset to folio tab
         switchSPTab('folio');
+        loadSpDeposits(booking.id);
 
         // Show panel
         panel.classList.add('active');
@@ -3833,8 +3834,130 @@ include '../../includes/header.php';
     window.spPrint = function(type) {
         document.getElementById('spPrint').classList.remove('open');
         if (!currentPaymentBooking || !currentPaymentBooking.id) return;
+        if (type === 'deposit') return openDepositModal();
         const id = encodeURIComponent(currentPaymentBooking.id);
         window.open(type === 'invoice' ? 'invoice.php?booking_id=' + id : 'registration-card.php?booking_id=' + id + '&autoprint=1', '_blank');
+    };
+
+    // ===== DEPOSIT (uang / kartu identitas) & TANDA TERIMA =====
+    let depType = 'cash';
+    const DEP_ID_LABEL = { KTP: 'KTP', Passport: 'Passport', SIM: 'SIM', Lainnya: 'ID lain' };
+
+    function depText(d) {
+        return d.deposit_type === 'cash' ? 'Cash ' + mvRp(d.amount) : (DEP_ID_LABEL[d.id_type] || d.id_type || 'ID') + (d.id_number ? ' · ' + d.id_number : '');
+    }
+
+    window.loadSpDeposits = function(bookingId) {
+        const box = document.getElementById('sp-deposit');
+        if (!box) return;
+        box.style.display = 'none';
+        fetch('../../api/booking-deposit.php?action=list&booking_id=' + encodeURIComponent(bookingId))
+            .then(r => r.json())
+            .then(res => {
+                const rows = (res && res.data) || [];
+                if (!currentPaymentBooking || String(currentPaymentBooking.id) !== String(bookingId)) return;
+                if (!rows.length) return;
+                box.innerHTML = '<div class="sp-dep-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>Deposit diterima</div>' +
+                    rows.map(d => '<div class="sp-dep-row"><span>' + escHtml(depText(d)) + '</span><button type="button" onclick="printDeposit(' + d.id + ')">Print</button></div>').join('');
+                box.style.display = '';
+            })
+            .catch(() => {});
+    };
+
+    window.printDeposit = function(id) {
+        window.open('deposit-receipt.php?id=' + encodeURIComponent(id) + '&autoprint=1', '_blank');
+    };
+
+    window.setDepType = function(t) {
+        depType = t;
+        document.querySelectorAll('#depositModal .dep-seg button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+        document.getElementById('depCashWrap').style.display = t === 'cash' ? '' : 'none';
+        document.getElementById('depIdWrap').style.display = t === 'id_card' ? '' : 'none';
+    };
+
+    function renderDepList(rows) {
+        const list = document.getElementById('depList');
+        if (!rows.length) {
+            list.style.display = 'none';
+            return;
+        }
+        list.innerHTML = '<div class="mv-lbl">Deposit tersimpan</div>' + rows.map(d =>
+            '<div class="dep-item"><div><b>' + escHtml(depText(d)) + '</b><small>' + escHtml(d.created_at.slice(0, 16)) + (d.received_by ? ' · ' + escHtml(d.received_by) : '') + '</small></div>' +
+            '<button type="button" class="dep-print" onclick="printDeposit(' + d.id + ')">Print</button>' +
+            '<button type="button" class="dep-del" onclick="deleteDeposit(' + d.id + ')" title="Hapus">&times;</button></div>').join('');
+        list.style.display = '';
+    }
+
+    function reloadDepList() {
+        if (!currentPaymentBooking) return;
+        fetch('../../api/booking-deposit.php?action=list&booking_id=' + encodeURIComponent(currentPaymentBooking.id))
+            .then(r => r.json()).then(res => renderDepList((res && res.data) || [])).catch(() => {});
+    }
+
+    window.openDepositModal = function() {
+        const b = currentPaymentBooking;
+        if (!b) return;
+        document.getElementById('depSub').textContent = (b.guest_name || '-') + ' · ' + (b.booking_code || '') + (b.room_number ? ' · Room ' + b.room_number : '');
+        document.getElementById('depAmount').value = '500.000';
+        document.getElementById('depIdType').value = 'KTP';
+        document.getElementById('depIdNo').value = '';
+        document.getElementById('depNotes').value = '';
+        document.getElementById('depErr').style.display = 'none';
+        document.getElementById('depList').style.display = 'none';
+        setDepType('cash');
+        document.getElementById('depositModal').classList.add('active');
+        reloadDepList();
+    };
+
+    window.closeDepositModal = function() {
+        document.getElementById('depositModal').classList.remove('active');
+    };
+
+    window.saveDeposit = function() {
+        const b = currentPaymentBooking;
+        if (!b) return;
+        const btn = document.getElementById('depSave');
+        const err = document.getElementById('depErr');
+        const fd = new FormData();
+        fd.append('action', 'save');
+        fd.append('booking_id', b.id);
+        fd.append('deposit_type', depType);
+        fd.append('amount', mvMoneyVal(document.getElementById('depAmount')));
+        fd.append('id_type', document.getElementById('depIdType').value);
+        fd.append('id_number', document.getElementById('depIdNo').value.trim());
+        fd.append('notes', document.getElementById('depNotes').value.trim());
+        btn.disabled = true;
+        // Tab cetak dibuka saat klik (agar tidak diblokir popup blocker), diarahkan setelah tersimpan
+        const win = window.open('', '_blank');
+        fetch('../../api/booking-deposit.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(res => {
+                btn.disabled = false;
+                if (!res.success) {
+                    if (win) win.close();
+                    err.textContent = res.message || 'Gagal menyimpan';
+                    err.style.display = '';
+                    return;
+                }
+                closeDepositModal();
+                const url = 'deposit-receipt.php?id=' + encodeURIComponent(res.id) + '&autoprint=1';
+                if (win) win.location.href = url; else printDeposit(res.id);
+                loadSpDeposits(b.id);
+            })
+            .catch(() => {
+                btn.disabled = false;
+                if (win) win.close();
+                err.textContent = 'Gagal menghubungi server';
+                err.style.display = '';
+            });
+    };
+
+    window.deleteDeposit = function(id) {
+        const fd = new FormData();
+        fd.append('action', 'delete');
+        fd.append('id', id);
+        fetch('../../api/booking-deposit.php', { method: 'POST', body: fd })
+            .then(() => { reloadDepList(); if (currentPaymentBooking) loadSpDeposits(currentPaymentBooking.id); });
     };
 
     window.switchSPTab = function switchSPTab(tab) {
@@ -8112,6 +8235,7 @@ include '../../includes/header.php';
                     <div class="sp-print-menu">
                         <button type="button" onclick="spPrint('invoice')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg><span><b>Print Invoice</b><small>Tagihan &amp; pembayaran</small></span></button>
                         <button type="button" onclick="spPrint('regcard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2M15 12h2M7 16h10"/></svg><span><b>Print Registration Card</b><small>Untuk check-in · house rules &amp; tanda tangan</small></span></button>
+                        <button type="button" onclick="spPrint('deposit')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span><b>Print Tanda Terima Deposit</b><small>Uang deposit / kartu identitas</small></span></button>
                     </div>
                 </div>
                 <a id="sp-wa-link" href="#" target="_blank" class="sp-icon-btn" title="WhatsApp" style="display:none;">
@@ -8175,6 +8299,7 @@ include '../../includes/header.php';
 
         <!-- Tab Content: Folio -->
         <div class="sp-tab-content active" id="sp-tab-folio">
+            <div class="sp-dep" id="sp-deposit" style="display:none;"></div>
             <div class="sp-balance-box" id="sp-balance-box">
                 <div>
                     <div class="sp-balance-label" id="sp-balance-label">Balance due</div>
@@ -9753,6 +9878,103 @@ include '../../includes/header.php';
         </div>
     </div>
 </div>
+
+<!-- DEPOSIT / TANDA TERIMA -->
+<div id="depositModal" class="mv-overlay" onclick="if(event.target===this)closeDepositModal()">
+    <div class="mv-modal">
+        <div class="mv-head mv-head-gold">
+            <div class="mv-head-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+            <div class="mv-head-t"><div class="mv-title">Tanda Terima Deposit</div><div class="mv-sub" id="depSub">-</div></div>
+            <button type="button" class="mv-x" onclick="closeDepositModal()" aria-label="Tutup">&times;</button>
+        </div>
+        <div class="mv-body">
+            <div class="mv-sec">
+                <div class="mv-lbl">Jenis deposit</div>
+                <div class="dep-seg">
+                    <button type="button" data-t="cash" class="on" onclick="setDepType('cash')">Uang Tunai</button>
+                    <button type="button" data-t="id_card" onclick="setDepType('id_card')">Kartu Identitas</button>
+                </div>
+            </div>
+            <div class="mv-sec mv-price" id="depCashWrap">
+                <div class="mv-lbl">Jumlah deposit</div>
+                <div class="mv-price-in"><span>Rp</span><input type="text" inputmode="numeric" id="depAmount" class="mv-in" autocomplete="off" oninput="mvMoneyInput(this)"></div>
+                <div class="mv-hint">Terbilang otomatis tercetak di tanda terima.</div>
+            </div>
+            <div class="mv-sec mv-2col" id="depIdWrap" style="display:none;">
+                <div><div class="mv-lbl">Jenis kartu</div>
+                    <select id="depIdType" class="mv-in">
+                        <option value="KTP">KTP</option>
+                        <option value="Passport">Passport / Paspor</option>
+                        <option value="SIM">SIM</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+                </div>
+                <div><div class="mv-lbl">Nomor kartu (opsional)</div><input type="text" id="depIdNo" class="mv-in" maxlength="60" autocomplete="off"></div>
+            </div>
+            <div class="mv-sec"><div class="mv-lbl">Keterangan (opsional)</div><input type="text" id="depNotes" class="mv-in" maxlength="255" placeholder="Contoh: dititipkan di brankas FO" autocomplete="off"></div>
+            <div class="mv-err" id="depErr" style="display:none;"></div>
+            <div class="dep-list" id="depList" style="display:none;"></div>
+            <div class="mv-hint" style="margin-top:-4px;">Data deposit otomatis terhapus saat tamu check-out atau ganti bulan.</div>
+        </div>
+        <div class="mv-foot">
+            <button type="button" class="mv-btn mv-btn-ghost" onclick="closeDepositModal()">Batal</button>
+            <button type="button" class="mv-btn mv-btn-primary mv-btn-gold" id="depSave" onclick="saveDeposit()">Simpan &amp; Print</button>
+        </div>
+    </div>
+</div>
+<style>
+    #depositModal .mv-modal { width: min(440px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; background: #fff; box-shadow: 0 30px 70px rgba(0, 0, 0, .35); animation: mvIn .18s ease-out; }
+    #depositModal .mv-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; flex-shrink: 0; }
+    #depositModal .mv-head-gold { background: linear-gradient(135deg, #0f2747, #1e3a8a 60%, #b8913a); }
+    #depositModal .mv-head-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); flex-shrink: 0; }
+    body #depositModal .mv-head-ic svg { width: 19px; height: 19px; color: #fff !important; stroke: #fff !important; }
+    body #depositModal .mv-head-ic svg * { stroke: #fff !important; }
+    #depositModal .mv-head-t { flex: 1; min-width: 0; }
+    body #depositModal .mv-title { font-size: 1.02rem !important; font-weight: 800 !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+    body #depositModal .mv-sub { margin-top: 2px; font-size: .8rem !important; font-weight: 600 !important; color: rgba(255, 255, 255, .92) !important; -webkit-text-fill-color: rgba(255, 255, 255, .92) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #depositModal .mv-x { width: 32px; height: 32px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, .18); color: #fff !important; font-size: 1.3rem; cursor: pointer; }
+    #depositModal .mv-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+    body #depositModal .mv-lbl { margin-bottom: 5px; font-size: .68rem !important; font-weight: 800 !important; letter-spacing: .06em; text-transform: uppercase; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+    #depositModal .mv-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    body #depositModal .mv-in { width: 100%; height: 40px; padding: 0 12px; box-sizing: border-box; border: 1px solid #cbd5e1 !important; border-radius: 10px !important; background: #fff !important; font-size: .9rem !important; font-weight: 700 !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; font-family: inherit; }
+    body #depositModal .mv-in::placeholder, body #moveRoomModal .mv-in::placeholder, body #extendModal .mv-in::placeholder { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; font-weight: 500 !important; }
+    body #depositModal .mv-in:focus { outline: none; border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+    #depositModal .mv-price { padding: 12px; border-radius: 12px; background: #fffaf0; border: 1px solid #ecd9ab; }
+    #depositModal .mv-price-in { display: flex; align-items: center; gap: 8px; }
+    body #depositModal .mv-price-in span { font-size: .9rem !important; font-weight: 800 !important; color: #7a5a17 !important; -webkit-text-fill-color: #7a5a17 !important; }
+    body #depositModal .mv-price-in .mv-in { font-size: 1.15rem !important; font-weight: 800 !important; }
+    body #depositModal .mv-hint { margin-top: 5px; font-size: .74rem !important; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+    #depositModal .dep-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: #f1f5f9; border: 1px solid #e2e8f0; }
+    body #depositModal .dep-seg button { height: 36px; border: 0; border-radius: 9px; background: transparent; font-size: .84rem !important; font-weight: 800 !important; color: #64748b !important; -webkit-text-fill-color: #64748b !important; cursor: pointer; font-family: inherit; }
+    body #depositModal .dep-seg button.on { background: #fff; color: #1e3a8a !important; -webkit-text-fill-color: #1e3a8a !important; box-shadow: 0 2px 8px -2px rgba(15, 23, 42, .2); }
+    body #depositModal .mv-err { padding: 10px 12px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; font-size: .8rem !important; font-weight: 700 !important; color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
+    #depositModal .dep-list { display: flex; flex-direction: column; gap: 6px; }
+    #depositModal .dep-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid #e2e8f0; background: #f8fafc; }
+    #depositModal .dep-item > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    body #depositModal .dep-item b { font-size: .84rem !important; font-weight: 800 !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+    body #depositModal .dep-item small { font-size: .7rem !important; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+    body #depositModal .dep-print { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: #1e3a8a; color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: .74rem !important; font-weight: 800 !important; cursor: pointer; }
+    body #depositModal .dep-del { width: 30px; height: 30px; border: 1px solid #fecaca; border-radius: 8px; background: #fff; color: #dc2626 !important; -webkit-text-fill-color: #dc2626 !important; font-size: 1.1rem; cursor: pointer; }
+    #depositModal .mv-foot { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #fff; }
+    body #depositModal .mv-btn { height: 42px; border-radius: 11px; font-size: .9rem !important; font-weight: 800 !important; cursor: pointer; font-family: inherit; }
+    body #depositModal .mv-btn-ghost { border: 1px solid #cbd5e1; background: #fff; color: #334155 !important; -webkit-text-fill-color: #334155 !important; }
+    body #depositModal .mv-btn-gold { border: 0; background: linear-gradient(135deg, #0f2747, #1e3a8a); color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: 0 8px 18px -8px rgba(15, 39, 71, .7); }
+    body #depositModal .mv-btn:disabled { background: #94a3b8; box-shadow: none; }
+    /* Strip deposit di panel detail */
+    .sp-dep { margin-bottom: 10px; padding: 8px 10px; border-radius: 12px; background: #fffaf0; border: 1px solid #ecd9ab; }
+    body .sp-dep-h { display: flex; align-items: center; gap: 6px; font-size: .66rem !important; font-weight: 800 !important; letter-spacing: .06em; text-transform: uppercase; color: #7a5a17 !important; -webkit-text-fill-color: #7a5a17 !important; margin-bottom: 4px; }
+    .sp-dep-h svg { width: 13px; height: 13px; color: #b8913a; }
+    .sp-dep-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0; }
+    body .sp-dep-row span { font-size: .8rem !important; font-weight: 700 !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+    body .sp-dep-row button { height: 26px; padding: 0 10px; border: 1px solid #ecd9ab; border-radius: 7px; background: #fff; font-size: .7rem !important; font-weight: 800 !important; color: #7a5a17 !important; -webkit-text-fill-color: #7a5a17 !important; cursor: pointer; }
+    [data-theme="dark"] #depositModal .mv-modal, [data-theme="dark"] #depositModal .mv-foot { background: #111a2e; border-color: rgba(255, 255, 255, .1); }
+    body[data-theme="dark"] #depositModal .mv-in { background: rgba(255, 255, 255, .06) !important; border-color: rgba(255, 255, 255, .16) !important; color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important; }
+    body[data-theme="dark"] #depositModal .mv-lbl, body[data-theme="dark"] #depositModal .mv-hint { color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1 !important; }
+    [data-theme="dark"] #depositModal .mv-price { background: rgba(184, 145, 58, .08); border-color: rgba(184, 145, 58, .35); }
+    [data-theme="dark"] #depositModal .dep-seg, [data-theme="dark"] #depositModal .dep-item { background: rgba(255, 255, 255, .04); border-color: rgba(255, 255, 255, .1); }
+    body[data-theme="dark"] #depositModal .dep-item b, body[data-theme="dark"] .sp-dep-row span { color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important; }
+    [data-theme="dark"] .sp-dep { background: rgba(184, 145, 58, .08); border-color: rgba(184, 145, 58, .35); }
+</style>
 
 <!-- EXTEND STAY MODAL -->
 <div id="extendModal" class="mv-overlay" onclick="if(event.target===this)closeExtendModal()">

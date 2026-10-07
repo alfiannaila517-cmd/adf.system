@@ -105,7 +105,7 @@ $houseRules = [
         /* Kop */
         .head { display: flex; align-items: center; gap: 16px; padding-bottom: 12px; border-bottom: 2px solid var(--navy); position: relative; }
         .head::after { content: ''; position: absolute; left: 0; right: 0; bottom: -6px; height: 1px; background: var(--gold); }
-        .head img { width: 64px; height: 64px; object-fit: contain; }
+        .head img { width: 96px; height: 96px; object-fit: contain; flex-shrink: 0; }
         .head .co { flex: 1; }
         .head .co h1 { font-family: 'Cormorant Garamond', serif; font-size: 27px; font-weight: 700; color: var(--navy); letter-spacing: .02em; line-height: 1.05; }
         .head .co p { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.5; }

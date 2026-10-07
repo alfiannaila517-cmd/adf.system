@@ -391,8 +391,8 @@ if (!function_exists('invAmountWords')) {
         .brand .tag { font-style: italic; color: var(--gold); font-size: 11px; margin-top: 2px; }
         .brand .addr { color: var(--muted); font-size: 9.8px; margin-top: 5px; line-height: 1.45; }
         /* Letterhead text block centred, address lines balanced instead of a ragged wrap. */
-        .brand .co { text-align: center; max-width: 340px; }
-        .brand .addr { text-wrap: balance; }
+        .brand .co { text-align: left; max-width: 360px; }
+        .brand .addr { text-wrap: pretty; }
 
         .doc { text-align: right; min-width: 220px; }
         .doc .title {
