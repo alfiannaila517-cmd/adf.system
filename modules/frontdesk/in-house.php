@@ -1246,6 +1246,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<script src="<?php echo BASE_URL; ?>/assets/js/deposit-guard.js?v=20261007"></script>
 <script>
     let currentBookingId = null;
     let currentGuestName = null;
@@ -1257,8 +1258,17 @@ include '../../includes/header.php';
         _coBtn = null,
         _coBtnOrigHTML = null;
 
+    // Check-out: ingatkan dulu bila masih ada deposit (KTP / uang) yang belum dikembalikan
     function doCheckOutGuest(bookingId, guestName, roomNumber) {
-        const btn = event.target.closest('.ih-btn-checkout');
+        const btnEl = (window.event && window.event.target) ? window.event.target.closest('.ih-btn-checkout') : null;
+        if (!btnEl) return;
+        depositGuard('<?php echo BASE_URL; ?>', bookingId, guestName).then(g => {
+            if (g.ok) doCheckOutGuestRaw(bookingId, guestName, roomNumber, btnEl);
+        });
+    }
+
+    function doCheckOutGuestRaw(bookingId, guestName, roomNumber, btnEl) {
+        const btn = btnEl;
         if (!btn) return;
 
         _coBookingId = bookingId;

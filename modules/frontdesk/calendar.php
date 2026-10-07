@@ -3858,7 +3858,12 @@ include '../../includes/header.php';
                 if (!currentPaymentBooking || String(currentPaymentBooking.id) !== String(bookingId)) return;
                 if (!rows.length) return;
                 box.innerHTML = '<div class="sp-dep-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/></svg>Deposit diterima</div>' +
-                    rows.map(d => '<div class="sp-dep-row"><span>' + escHtml(depText(d)) + '</span><button type="button" onclick="printDeposit(' + d.id + ')">Print</button></div>').join('');
+                    rows.map(d => '<div class="sp-dep-row"><span>' + escHtml(depText(d)) + '</span><div class="sp-dep-act">' +
+                        '<button type="button" onclick="printDeposit(' + d.id + ')">Print</button>' +
+                        '<button type="button" onclick="editDeposit(' + d.id + ')">Edit</button>' +
+                        '<button type="button" class="del" onclick="deleteDeposit(' + d.id + ')">Hapus</button></div></div>').join('');
+                window._spDeps = {};
+                rows.forEach(d => { window._spDeps[d.id] = d; });
                 box.style.display = '';
             })
             .catch(() => {});
@@ -3894,9 +3899,16 @@ include '../../includes/header.php';
             .then(r => r.json()).then(res => renderDepList((res && res.data) || [])).catch(() => {});
     }
 
-    window.openDepositModal = function() {
+    let depEditId = 0;
+    window.editDeposit = function(id) {
+        const d = (window._spDeps || {})[id];
+        if (d) openDepositModal(d);
+    };
+
+    window.openDepositModal = function(edit) {
         const b = currentPaymentBooking;
         if (!b) return;
+        depEditId = edit && edit.id ? edit.id : 0;
         document.getElementById('depSub').textContent = (b.guest_name || '-') + ' · ' + (b.booking_code || '') + (b.room_number ? ' · Room ' + b.room_number : '');
         document.getElementById('depAmount').value = '500.000';
         document.getElementById('depIdType').value = 'KTP';
@@ -3905,8 +3917,17 @@ include '../../includes/header.php';
         document.getElementById('depErr').style.display = 'none';
         document.getElementById('depList').style.display = 'none';
         setDepType('cash');
+        if (depEditId) {
+            setDepType(edit.deposit_type === 'id_card' ? 'id_card' : 'cash');
+            document.getElementById('depAmount').value = edit.deposit_type === 'cash' ? mvMoneyFmt(edit.amount) : '500.000';
+            document.getElementById('depIdType').value = edit.id_type || 'KTP';
+            document.getElementById('depIdNo').value = edit.id_number || '';
+            document.getElementById('depNotes').value = edit.notes || '';
+        }
+        document.querySelector('#depositModal .mv-title').textContent = depEditId ? 'Edit Deposit' : 'Tanda Terima Deposit';
+        document.getElementById('depSave').textContent = depEditId ? 'Simpan & Print Ulang' : 'Simpan & Print';
         document.getElementById('depositModal').classList.add('active');
-        reloadDepList();
+        if (depEditId) document.getElementById('depList').style.display = 'none'; else reloadDepList();
     };
 
     window.closeDepositModal = function() {
@@ -3919,8 +3940,9 @@ include '../../includes/header.php';
         const btn = document.getElementById('depSave');
         const err = document.getElementById('depErr');
         const fd = new FormData();
-        fd.append('action', 'save');
+        fd.append('action', depEditId ? 'update' : 'save');
         fd.append('booking_id', b.id);
+        if (depEditId) fd.append('id', depEditId);
         fd.append('deposit_type', depType);
         fd.append('amount', mvMoneyVal(document.getElementById('depAmount')));
         fd.append('id_type', document.getElementById('depIdType').value);
@@ -3952,7 +3974,8 @@ include '../../includes/header.php';
             });
     };
 
-    window.deleteDeposit = function(id) {
+    window.deleteDeposit = async function(id) {
+        if (typeof dgConfirm === 'function' && !(await dgConfirm('Hapus data deposit ini? Pastikan deposit memang sudah dikembalikan atau salah input.', 'Hapus', true))) return;
         const fd = new FormData();
         fd.append('action', 'delete');
         fd.append('id', id);
@@ -4184,11 +4207,17 @@ include '../../includes/header.php';
 
     function doCheckOut() {
         const modal = document.getElementById('bookingDetailsModal');
+        depositGuard('<?php echo BASE_URL; ?>', modal.dataset.bookingId, document.getElementById('detailGuestName').textContent)
+            .then(g => { if (g.ok) doCheckOutRaw(g.shown); });
+    }
+
+    function doCheckOutRaw(skipConfirm) {
+        const modal = document.getElementById('bookingDetailsModal');
         const bookingId = modal.dataset.bookingId;
         const guestName = document.getElementById('detailGuestName').textContent;
         const roomNumber = document.getElementById('detailRoomNumber').textContent;
 
-        if (confirm(`Check-out ${guestName} dari Room ${roomNumber} sekarang?`)) {
+        if (skipConfirm || confirm(`Check-out ${guestName} dari Room ${roomNumber} sekarang?`)) {
             // Show loading state
             const checkOutBtn = document.getElementById('btnCheckOut');
             const originalText = checkOutBtn.innerHTML;
@@ -4386,7 +4415,14 @@ include '../../includes/header.php';
             });
     }
 
+    // Check-out: ingatkan bila masih ada deposit (KTP / uang) yang belum dikembalikan
     window.quickViewCheckOut = function quickViewCheckOut() {
+        if (!currentPaymentBooking) return;
+        const b = currentPaymentBooking;
+        depositGuard('<?php echo BASE_URL; ?>', b.id, b.guest_name).then(g => { if (g.ok) quickViewCheckOutRaw(g.shown); });
+    };
+
+    window.quickViewCheckOutRaw = function quickViewCheckOutRaw(skipConfirm) {
         if (!currentPaymentBooking) {
             alert('Booking data not found');
             return;
@@ -4398,7 +4434,7 @@ include '../../includes/header.php';
 
         // Belum lunas tetap boleh check-out; status belum lunas sudah tampil di banner
         // notifikasi & badge sidebar Front Desk, tidak perlu reminder tambahan di sini.
-        if (confirm(`Check-out ${guestName} dari Room ${roomNumber} sekarang?`)) {
+        if (skipConfirm || confirm(`Check-out ${guestName} dari Room ${roomNumber} sekarang?`)) {
             // Show loading state
             const checkOutBtn = document.querySelector('.qv-checkout-btn');
             let originalText = 'Check-out';
@@ -9879,6 +9915,7 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<script src="<?php echo BASE_URL; ?>/assets/js/deposit-guard.js?v=20261007"></script>
 <!-- DEPOSIT / TANDA TERIMA -->
 <div id="depositModal" class="mv-overlay" onclick="if(event.target===this)closeDepositModal()">
     <div class="mv-modal">
@@ -9964,7 +10001,10 @@ include '../../includes/header.php';
     .sp-dep { margin-bottom: 10px; padding: 8px 10px; border-radius: 12px; background: #fffaf0; border: 1px solid #ecd9ab; }
     body .sp-dep-h { display: flex; align-items: center; gap: 6px; font-size: .66rem !important; font-weight: 800 !important; letter-spacing: .06em; text-transform: uppercase; color: #7a5a17 !important; -webkit-text-fill-color: #7a5a17 !important; margin-bottom: 4px; }
     .sp-dep-h svg { width: 13px; height: 13px; color: #b8913a; }
-    .sp-dep-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 0; }
+    .sp-dep-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px dashed #ecd9ab; }
+    .sp-dep-row:first-of-type { border-top: 0; }
+    .sp-dep-act { display: flex; gap: 4px; flex-shrink: 0; }
+    body .sp-dep-row button.del { border-color: #fecaca; color: #dc2626 !important; -webkit-text-fill-color: #dc2626 !important; }
     body .sp-dep-row span { font-size: .8rem !important; font-weight: 700 !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
     body .sp-dep-row button { height: 26px; padding: 0 10px; border: 1px solid #ecd9ab; border-radius: 7px; background: #fff; font-size: .7rem !important; font-weight: 800 !important; color: #7a5a17 !important; -webkit-text-fill-color: #7a5a17 !important; cursor: pointer; }
     [data-theme="dark"] #depositModal .mv-modal, [data-theme="dark"] #depositModal .mv-foot { background: #111a2e; border-color: rgba(255, 255, 255, .1); }

@@ -336,6 +336,24 @@ try {
             : max(0, (float)$coRow['final_price'] - (float)$coRow['paid_amount']);
     }
     unset($coRow);
+    // Deposit yang masih dipegang FO (KTP / uang) → tampil sebagai pengingat
+    $coIds = array_values(array_filter(array_map('intval', array_column($checkoutGuestsResult ?: [], 'id'))));
+    if ($coIds) {
+        try {
+            $ph = implode(',', array_fill(0, count($coIds), '?'));
+            $depRows = $db->fetchAll("SELECT booking_id, deposit_type, amount, id_type FROM booking_deposits WHERE booking_id IN ({$ph})", $coIds) ?: [];
+            $depBy = [];
+            foreach ($depRows as $dr) {
+                $depBy[(int)$dr['booking_id']][] = $dr['deposit_type'] === 'cash' ? 'Cash Rp ' . number_format((float)$dr['amount'], 0, ',', '.') : ($dr['id_type'] ?: 'ID');
+            }
+            foreach ($checkoutGuestsResult as &$coRow) {
+                $coRow['deposits'] = $depBy[(int)$coRow['id']] ?? [];
+            }
+            unset($coRow);
+        } catch (\Throwable $e) {
+            // tabel booking_deposits belum ada
+        }
+    }
     $stats['checkout_guests'] = $checkoutGuestsResult;
 } catch (\Throwable $e) {
     error_log("Dashboard Stats Error: " . $e->getMessage());
@@ -1935,6 +1953,9 @@ include '../../includes/header.php';
                                 <td style="padding: 0.6rem 0.75rem;">
                                     <div style="font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($guest['guest_name']); ?></div>
                                     <div style="font-size: 0.7rem; color: var(--text-secondary);"><?php echo htmlspecialchars($guest['phone'] ?? '-'); ?></div>
+                                    <?php if (!empty($guest['deposits'])): ?>
+                                        <span title="Kembalikan deposit saat check-out" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 8px;border-radius:999px;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;font-size:0.66rem;font-weight:800;">Deposit: <?php echo htmlspecialchars(implode(' · ', $guest['deposits'])); ?></span>
+                                    <?php endif; ?>
                                 </td>
                                 <td style="padding: 0.6rem 0.75rem; text-align: center;">
                                     <span style="background: #1e3a8a; color: white; padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">

@@ -8,6 +8,7 @@
  *
  * GET  ?action=list&booking_id=
  * POST action=save   booking_id, deposit_type (cash|id_card), amount, id_type, id_number, notes
+ * POST action=update id, deposit_type, amount, id_type, id_number, notes
  * POST action=delete id
  */
 
@@ -65,7 +66,14 @@ try {
         throw new Exception('Metode tidak valid');
     }
 
-    if ($action === 'save') {
+    if ($action === 'save' || $action === 'update') {
+        $editId = $action === 'update' ? (int)($_POST['id'] ?? 0) : 0;
+        if ($editId) {
+            $cur = $pdo->prepare("SELECT booking_id FROM booking_deposits WHERE id = ?");
+            $cur->execute([$editId]);
+            $_POST['booking_id'] = (int)$cur->fetchColumn();
+            if (!$_POST['booking_id']) throw new Exception('Deposit tidak ditemukan');
+        }
         $bookingId = (int)($_POST['booking_id'] ?? 0);
         $type = ($_POST['deposit_type'] ?? 'cash') === 'id_card' ? 'id_card' : 'cash';
         $amount = (float)preg_replace('/\D/', '', (string)($_POST['amount'] ?? '0'));
@@ -83,17 +91,22 @@ try {
         if ($type === 'cash' && $amount <= 0) throw new Exception('Isi jumlah deposit uang');
         if ($type === 'id_card' && $idType === '') throw new Exception('Pilih jenis kartu identitas');
 
+        $vals = [
+            $type,
+            $type === 'cash' ? $amount : 0,
+            $type === 'id_card' ? mb_substr($idType, 0, 30) : null,
+            $idNumber !== '' ? mb_substr($idNumber, 0, 60) : null,
+            $notes !== '' ? mb_substr($notes, 0, 255) : null,
+        ];
+        if ($editId) {
+            $pdo->prepare("UPDATE booking_deposits SET deposit_type = ?, amount = ?, id_type = ?, id_number = ?, notes = ? WHERE id = ?")
+                ->execute(array_merge($vals, [$editId]));
+            echo json_encode(['success' => true, 'id' => $editId, 'message' => 'Deposit diperbarui']);
+            exit;
+        }
         $pdo->prepare("INSERT INTO booking_deposits (booking_id, deposit_type, amount, id_type, id_number, notes, received_by)
             VALUES (?, ?, ?, ?, ?, ?, ?)")
-            ->execute([
-                $bookingId,
-                $type,
-                $type === 'cash' ? $amount : 0,
-                $type === 'id_card' ? mb_substr($idType, 0, 30) : null,
-                $idNumber !== '' ? mb_substr($idNumber, 0, 60) : null,
-                $notes !== '' ? mb_substr($notes, 0, 255) : null,
-                mb_substr((string)($user['full_name'] ?? $user['username'] ?? ''), 0, 100),
-            ]);
+            ->execute(array_merge([$bookingId], $vals, [mb_substr((string)($user['full_name'] ?? $user['username'] ?? ''), 0, 100)]));
         echo json_encode(['success' => true, 'id' => (int)$pdo->lastInsertId(), 'message' => 'Deposit tersimpan']);
         exit;
     }
