@@ -19,6 +19,8 @@ class CloudbedsSync
 {
     private $db;
     private $cb;
+    /** roomBlockType yang dipakai blok Cloudbeds yang sudah ada (nilai sah untuk properti ini) */
+    private $learnedBlockType = '';
     private const MAX_DETAIL = 30;
 
     public function __construct($db, CloudbedsClient $cb)
@@ -326,6 +328,38 @@ class CloudbedsSync
     {
         $r = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_push_enabled'");
         return ($r['setting_value'] ?? '0') === '1';
+    }
+
+    /**
+     * Kirim blok ke Cloudbeds dengan roomBlockType yang sah: jenis blok itu sendiri / yang tersimpan / yang
+     * dipakai blok lain di properti, lalu tanpa jenis, lalu jenis umum. Jenis yang berhasil disimpan.
+     */
+    private function sendBlock(string $method, string $endpoint, array $params, string $prefer): array
+    {
+        $savedRow = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_block_type'");
+        $cands = array_values(array_unique(array_filter([$prefer, (string)($savedRow['setting_value'] ?? ''), $this->learnedBlockType], fn($x) => $x !== '')));
+        $cands[] = null; // tanpa roomBlockType
+        foreach (['blocked_dates', 'out_of_service', 'courtesy_hold', 'block'] as $c) {
+            if (!in_array($c, $cands, true)) $cands[] = $c;
+        }
+        $last = ['ok' => false, 'http' => 0, 'detail' => 'tidak ada jenis blok yang diterima', 'data' => null, 'raw' => null];
+        foreach ($cands as $type) {
+            $p = $params;
+            if ($type !== null) $p['roomBlockType'] = $type;
+            $r = $this->cb->send($method, $endpoint, $p);
+            if ($r['ok']) {
+                if ($type !== null) {
+                    $this->db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('cloudbeds_block_type', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)", [$type]);
+                }
+                return $r;
+            }
+            $last = $r;
+            // Hanya coba jenis lain bila yang ditolak memang jenis bloknya
+            if (stripos($r['detail'], 'roomBlockType') === false && stripos($r['detail'], 'block type') === false) {
+                return $r;
+            }
+        }
+        return $last;
     }
 
     /** Catat hasil kiriman ke Cloudbeds agar terlihat di halaman (galat terakhir / berhasil terakhir). */
@@ -636,6 +670,7 @@ class CloudbedsSync
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) continue;
             if ($end <= $start) $end = date('Y-m-d', strtotime($start . ' +1 day'));
             $reason = trim((string)($b['roomBlockReason'] ?? $b['roomBlockName'] ?? $b['roomBlockType'] ?? ''));
+            if ($this->learnedBlockType === '' && !empty($b['roomBlockType']) && !is_array($b['roomBlockType'])) $this->learnedBlockType = (string)$b['roomBlockType'];
             $roomIds = [];
             foreach ((array)($b['rooms'] ?? []) as $r) {
                 if (is_array($r) && isset($r['roomID'])) $roomIds[] = (string)$r['roomID'];
@@ -703,7 +738,7 @@ class CloudbedsSync
                 if (count($removedHere) >= count($roomIds)) {
                     $actions[] = ['type' => 'push_delblock', 'cb' => $bid, 'label' => $blkLabel, 'msg' => 'Hapus blok di Cloudbeds (dibatalkan di sistem: ' . $roomsTxt . ')'];
                 } else {
-                    $actions[] = ['type' => 'push_putblock', 'cb' => $bid, 'label' => $blkLabel, 'start' => $start, 'end' => $end, 'reason' => $reason,
+                    $actions[] = ['type' => 'push_putblock', 'cb' => $bid, 'label' => $blkLabel, 'start' => $start, 'end' => $end, 'reason' => $reason, 'block_type' => (string)($b['roomBlockType'] ?? ''),
                         'rooms' => array_values(array_diff($roomIds, $removedHere)), 'msg' => 'Keluarkan ' . $roomsTxt . ' dari blok di Cloudbeds'];
                 }
             }
@@ -787,11 +822,11 @@ class CloudbedsSync
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak hapus blok: ' . $r['detail'] . (in_array($r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete" di API key)' : ''));
                     $done['push_block']++;
                 } elseif ($a['type'] === 'push_putblock') {
-                    $r = $this->cb->send('PUT', 'putRoomBlock', ['roomBlockID' => $a['cb'], 'startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'roomBlockType' => 'blocked', 'rooms' => array_map(fn($x) => ['roomID' => $x], $a['rooms'])]);
+                    $r = $this->sendBlock('PUT', 'putRoomBlock', ['roomBlockID' => $a['cb'], 'startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'rooms' => array_map(fn($x) => ['roomID' => $x], $a['rooms'])], $a['block_type'] ?? '');
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak ubah blok: ' . $r['detail']);
                     $done['push_block']++;
                 } elseif ($a['type'] === 'push_newblock') {
-                    $r = $this->cb->send('POST', 'postRoomBlock', ['startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'roomBlockType' => 'blocked', 'rooms' => [['roomID' => $a['cb_room']['room_id']]]]);
+                    $r = $this->sendBlock('POST', 'postRoomBlock', ['startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'rooms' => [['roomID' => $a['cb_room']['room_id']]]], '');
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak blok baru: ' . $r['detail']);
                     $newId = (string)($r['raw']['roomBlockID'] ?? ($r['data']['roomBlockID'] ?? ''));
                     // Kode CB- agar sinkron masuk mengenali blok ini sebagai pasangan; bila ID tidak terbaca, ADFCB- agar tidak dikirim ulang
