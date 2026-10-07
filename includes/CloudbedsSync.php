@@ -310,7 +310,7 @@ class CloudbedsSync
 
         $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'warn' => 0];
         foreach ($actions as $a) {
-            $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : ($a['type'] === 'push_payment' ? 'push_pay' : $a['type']);
+            $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : ($a['type'] === 'push_payment' ? 'push_pay' : ($a['type'] === 'adopt_block' ? 'link' : $a['type']));
             $counts[$t]++;
         }
         return ['ok' => true, 'detail' => 'OK', 'actions' => $actions, 'counts' => $counts];
@@ -360,6 +360,20 @@ class CloudbedsSync
             }
         }
         return $last;
+    }
+
+    /** Nilai pertama dengan nama kunci (tanpa beda huruf besar) di seluruh struktur jawaban. */
+    private static function findValue($data, string $keyLower): string
+    {
+        if (!is_array($data)) return '';
+        foreach ($data as $k => $v) {
+            if (strtolower((string)$k) === $keyLower && !is_array($v) && (string)$v !== '') return (string)$v;
+        }
+        foreach ($data as $v) {
+            $x = self::findValue($v, $keyLower);
+            if ($x !== '') return $x;
+        }
+        return '';
     }
 
     /** Catat hasil kiriman ke Cloudbeds agar terlihat di halaman (galat terakhir / berhasil terakhir). */
@@ -658,6 +672,7 @@ class CloudbedsSync
         $walkBlocks($res['data']);
 
         $seen = [];
+        $adfBlocks = [];
         $push = $this->pushEnabled();
         $seenBlockIds = [];
         foreach ($blocks as $b) {
@@ -677,7 +692,10 @@ class CloudbedsSync
                 elseif (!is_array($r)) $roomIds[] = (string)$r;
             }
             if (stripos($reason, 'ADF:') === 0) {
-                foreach ($roomIds as $rid) $seen[substr('CB-' . $bid . '-' . $rid, 0, 40)] = true;
+                foreach ($roomIds as $rid) {
+                    $seen[substr('CB-' . $bid . '-' . $rid, 0, 40)] = true;
+                    $adfBlocks[] = ['bid' => $bid, 'rid' => $rid, 'start' => $start, 'end' => $end];
+                }
                 continue;
             }
             $removedHere = [];
@@ -784,6 +802,34 @@ class CloudbedsSync
                 $actions[] = ['type' => 'unblock', 'cb' => '-', 'label' => 'Blok Room ' . $lb['room_number'] . ' · ' . $lb['s'] . ' → ' . $lb['e'], 'block_id' => (int)$lb['id'], 'msg' => 'Sudah dihapus di Cloudbeds — blok dicabut'];
             }
         }
+
+        // Blok yang dikirim dari sistem tetapi ID Cloudbeds-nya tidak terbaca (kode ADFCB-)
+        $noId = $this->db->fetchAll(
+            "SELECT rb.id, rb.block_start_date s, rb.block_end_date e, r.room_number
+             FROM room_blocks rb JOIN rooms r ON r.id = rb.room_id
+             WHERE rb.status = 'active' AND rb.block_code LIKE 'ADFCB-%' AND rb.block_start_date <= ? AND rb.block_end_date > ?",
+            [$to, $from]
+        ) ?: [];
+        if ($noId) {
+            $ridByNo = [];
+            foreach ($cbRoomName as $rid => $nm) {
+                if (preg_match('/\d{2,4}/', $nm, $mm)) $ridByNo[$mm[0]] = (string)$rid;
+            }
+            foreach ($noId as $lb) {
+                $no = preg_match('/\d{2,4}/', (string)$lb['room_number'], $mm) ? $mm[0] : (string)$lb['room_number'];
+                $rid = $ridByNo[$no] ?? '';
+                $match = null;
+                foreach ($adfBlocks as $ab) {
+                    if ($ab['rid'] === $rid && $ab['start'] === $lb['s'] && $ab['end'] === $lb['e']) { $match = $ab; break; }
+                }
+                $lbl = 'Blok sistem Room ' . $lb['room_number'] . ' · ' . $lb['s'] . ' → ' . $lb['e'];
+                if ($match) {
+                    $actions[] = ['type' => 'adopt_block', 'cb' => $match['bid'], 'label' => $lbl, 'block_id' => (int)$lb['id'], 'code' => substr('CB-' . $match['bid'] . '-' . $rid, 0, 40), 'msg' => 'Pasangkan dengan blok Cloudbeds #' . $match['bid']];
+                } elseif ($rid !== '') {
+                    $actions[] = ['type' => 'unblock', 'cb' => '-', 'label' => $lbl, 'block_id' => (int)$lb['id'], 'msg' => 'Sudah dihapus di Cloudbeds — blok dicabut'];
+                }
+            }
+        }
     }
 
     /** Jalankan aksi rencana (link/create/cancel/blok/kirim). Peringatan dilewati. */
@@ -828,13 +874,15 @@ class CloudbedsSync
                 } elseif ($a['type'] === 'push_newblock') {
                     $r = $this->sendBlock('POST', 'postRoomBlock', ['startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'rooms' => [['roomID' => $a['cb_room']['room_id']]]], '');
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak blok baru: ' . $r['detail']);
-                    $newId = (string)($r['raw']['roomBlockID'] ?? ($r['data']['roomBlockID'] ?? ''));
+                    $newId = self::findValue($r['raw'], 'roomblockid');
                     // Kode CB- agar sinkron masuk mengenali blok ini sebagai pasangan; bila ID tidak terbaca, ADFCB- agar tidak dikirim ulang
                     $this->db->query("UPDATE room_blocks SET block_code = ? WHERE id = ?", [$newId !== '' ? substr('CB-' . $newId . '-' . $a['cb_room']['room_id'], 0, 40) : 'ADFCB-' . $a['block_id'], $a['block_id']]);
                     $done['push_block']++;
                 } elseif ($a['type'] === 'push_create') {
                     $this->pushCreate($a);
                     $done['push_create']++;
+                } elseif ($a['type'] === 'adopt_block') {
+                    $this->db->query("UPDATE room_blocks SET block_code = ? WHERE id = ? AND block_code LIKE 'ADFCB-%'", [$a['code'], $a['block_id']]);
                 } elseif ($a['type'] === 'unblock') {
                     $this->db->query("UPDATE room_blocks SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Dicabut via Cloudbeds]')) WHERE id = ? AND status = 'active'", [$a['block_id']]);
                     $done['unblock']++;
