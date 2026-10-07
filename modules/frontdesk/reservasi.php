@@ -216,10 +216,18 @@ try {
         $bookings[] = $gBk;
     }
     // Re-sort by status priority + check-in date
+    // Bagian: In-House -> Arrival Today (check-in hari ini) -> Reservasi -> Selesai/Batal
     usort($bookings, function ($a, $b) {
-        $statusOrder = ['checked_in' => 1, 'confirmed' => 2, 'pending' => 3, 'checked_out' => 4, 'cancelled' => 5];
-        $aOrder = $statusOrder[$a['status']] ?? 4;
-        $bOrder = $statusOrder[$b['status']] ?? 4;
+        $todayYmd = date('Y-m-d');
+        $rank = function ($x) use ($todayYmd) {
+            if ($x['status'] === 'checked_in') return 1;
+            if (in_array($x['status'], ['confirmed', 'pending'], true)) {
+                return substr((string)$x['check_in_date'], 0, 10) === $todayYmd ? 2 : ($x['status'] === 'confirmed' ? 3 : 4);
+            }
+            return $x['status'] === 'checked_out' ? 5 : 6;
+        };
+        $aOrder = $rank($a);
+        $bOrder = $rank($b);
         if ($aOrder !== $bOrder) return $aOrder - $bOrder;
         $today = date('Y-m-d');
         $aDiff = abs(strtotime($a['check_in_date']) - strtotime($today));
@@ -469,54 +477,72 @@ include '../../includes/header.php';
         color: var(--text-primary);
     }
 
-    /* Pemisah bagian In-House / Reservasi / Selesai */
+    /* Pemisah bagian In-House / Arrival Today / Reservasi / Selesai: pita lembut dengan aksen kiri */
     body[data-theme] .bookings-table tbody tr.rs-sec td {
-        padding: 14px 12px 6px !important;
+        padding: 0 !important;
         background: transparent !important;
-        border-top: 2px solid var(--rs-sec, #2563eb) !important;
-        border-bottom: 0 !important;
+        border: 0 !important;
         text-align: left !important;
     }
-    body[data-theme] .bookings-table tbody tr.rs-sec:first-child td { border-top: 0 !important; padding-top: 8px !important; }
+    body[data-theme] .bookings-table tbody tr.rs-sec td .rs-sec-band {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 10px 8px 4px;
+        padding: 7px 12px;
+        border-radius: 10px;
+        border-left: 3px solid var(--rs-sec);
+        background: linear-gradient(90deg, var(--rs-sec-bg) 0%, rgba(255, 255, 255, 0) 75%);
+    }
+    body[data-theme] .bookings-table tbody tr.rs-sec:first-child td .rs-sec-band { margin-top: 8px; }
     body[data-theme] .bookings-table tbody tr.rs-sec:hover td { background: transparent !important; }
-    .bookings-table tr.rs-sec-inhouse { --rs-sec: #059669; }
-    .bookings-table tr.rs-sec-reservasi { --rs-sec: #2563eb; }
-    .bookings-table tr.rs-sec-selesai { --rs-sec: #94a3b8; }
+    .bookings-table tr.rs-sec-inhouse { --rs-sec: #059669; --rs-sec-bg: rgba(5, 150, 105, 0.10); }
+    .bookings-table tr.rs-sec-arrival { --rs-sec: #d97706; --rs-sec-bg: rgba(217, 119, 6, 0.11); }
+    .bookings-table tr.rs-sec-reservasi { --rs-sec: #2563eb; --rs-sec-bg: rgba(37, 99, 235, 0.09); }
+    .bookings-table tr.rs-sec-selesai { --rs-sec: #94a3b8; --rs-sec-bg: rgba(148, 163, 184, 0.13); }
     .bookings-table tr.rs-sec .rs-sec-dot {
-        display: inline-block;
         width: 8px;
         height: 8px;
-        margin-right: 6px;
         border-radius: 50%;
         background: var(--rs-sec);
-        vertical-align: middle;
+        box-shadow: 0 0 0 3px var(--rs-sec-bg);
+        flex-shrink: 0;
     }
     body[data-theme] .bookings-table tr.rs-sec b {
-        font-size: 0.74rem !important;
+        font-size: 0.7rem !important;
         font-weight: 800;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         color: var(--rs-sec) !important;
-        vertical-align: middle;
+        -webkit-text-fill-color: var(--rs-sec) !important;
     }
     body[data-theme] .bookings-table tr.rs-sec .rs-sec-count {
-        display: inline-block;
-        margin-left: 6px;
-        padding: 1px 8px;
+        min-width: 20px;
+        padding: 1px 7px;
         border-radius: 999px;
         background: var(--rs-sec);
-        font-size: 0.66rem !important;
-        font-weight: 700;
+        font-size: 0.62rem !important;
+        font-weight: 800;
+        text-align: center;
         color: #fff !important;
         -webkit-text-fill-color: #fff !important;
-        vertical-align: middle;
     }
     body[data-theme] .bookings-table tr.rs-sec small {
-        margin-left: 8px;
-        font-size: 0.66rem !important;
+        font-size: 0.64rem !important;
         color: var(--text-secondary, #64748b) !important;
-        vertical-align: middle;
+        -webkit-text-fill-color: var(--text-secondary, #64748b) !important;
     }
+
+    /* Tabel lebih tinggi, footer ringkas di halaman Reservasi */
+    body[data-theme] .bookings-table-wrapper { max-height: calc(100vh - 165px) !important; }
+    body[data-theme] .main-content footer {
+        margin-top: 10px !important;
+        padding: 6px 0 !important;
+        font-size: 0.66rem !important;
+        line-height: 1.4;
+    }
+    body[data-theme] .main-content footer p { margin: 0 !important; font-size: inherit !important; display: inline; }
+    body[data-theme] .main-content footer p + p::before { content: ' · '; }
 
     .bookings-table tbody tr {
         transition: background 0.2s ease;
@@ -950,31 +976,35 @@ include '../../includes/header.php';
                 <tbody>
                     <?php
                     // Pemisah bagian: Tamu In-House | Reservasi (akan datang) | Selesai / Batal.
-                    $rsSecOf = function ($st) {
+                    $rsToday = date('Y-m-d');
+                    $rsSecOf = function ($bk) use ($rsToday) {
+                        $st = $bk['status'];
                         if ($st === 'checked_in') return 'inhouse';
-                        if ($st === 'confirmed' || $st === 'pending') return 'reservasi';
+                        if ($st === 'confirmed' || $st === 'pending') {
+                            return substr((string)$bk['check_in_date'], 0, 10) === $rsToday ? 'arrival' : 'reservasi';
+                        }
                         return 'selesai';
                     };
-                    $rsSecLabel = ['inhouse' => 'Tamu In-House', 'reservasi' => 'Reservasi', 'selesai' => 'Selesai / Batal'];
-                    $rsSecHint = ['inhouse' => 'sedang menginap', 'reservasi' => 'belum check-in', 'selesai' => 'sudah check-out atau dibatalkan'];
+                    $rsSecLabel = ['inhouse' => 'Tamu In-House', 'arrival' => 'Arrival Today', 'reservasi' => 'Reservasi', 'selesai' => 'Selesai / Batal'];
+                    $rsSecHint = ['inhouse' => 'sedang menginap', 'arrival' => 'check-in hari ini', 'reservasi' => 'akan datang / belum check-in', 'selesai' => 'sudah check-out atau dibatalkan'];
                     $rsSecCount = [];
                     foreach ($bookings as $bk) {
-                        $k = $rsSecOf($bk['status']);
+                        $k = $rsSecOf($bk);
                         $rsSecCount[$k] = ($rsSecCount[$k] ?? 0) + 1;
                     }
                     $rsSecPrev = null;
                     ?>
                     <?php foreach ($bookings as $booking):
-                        $rsSec = $rsSecOf($booking['status']);
+                        $rsSec = $rsSecOf($booking);
                         if ($rsSec !== $rsSecPrev):
                             $rsSecPrev = $rsSec; ?>
                         <tr class="rs-sec rs-sec-<?php echo $rsSec; ?>">
-                            <td colspan="12">
+                            <td colspan="12"><div class="rs-sec-band">
                                 <span class="rs-sec-dot"></span>
                                 <b><?php echo $rsSecLabel[$rsSec]; ?></b>
                                 <span class="rs-sec-count"><?php echo (int)$rsSecCount[$rsSec]; ?></span>
                                 <small><?php echo $rsSecHint[$rsSec]; ?></small>
-                            </td>
+                            </div></td>
                         </tr>
                     <?php endif;
                         $netIncome = calculateNetIncome(
