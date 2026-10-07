@@ -3368,6 +3368,101 @@ header('Expires: 0');
                 grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
             }
         }
+
+        /* ═══ ROOM MONITOR (selaras dengan kalender Frontdesk sistem utama) ═══ */
+        .rm-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+        .rm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+        .rm-title { font-size: 13px; font-weight: 800; color: var(--text); letter-spacing: .01em; }
+        .rm-sub { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+        .rm-occ { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
+        .rm-occ-num { font-size: 30px; font-weight: 800; color: #0f172a; line-height: 1; font-variant-numeric: tabular-nums; }
+        .rm-occ-num small { font-size: 14px; font-weight: 700; color: var(--muted); margin-left: 1px; }
+        .rm-occ-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+        .rm-occ-meta { font-size: 11px; color: var(--muted); text-align: right; }
+        .rm-occ-meta b { color: var(--text); }
+        .rm-bar { height: 8px; border-radius: 999px; background: #eef2f7; overflow: hidden; display: flex; margin: 10px 0 12px; }
+        .rm-bar > span { height: 100%; transition: width .6s ease; }
+        .rm-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .rm-kpi { border: 1px solid var(--border); border-radius: 12px; padding: 8px 6px; text-align: center; background: #fbfcfe; }
+        .rm-kpi-val { font-size: 18px; font-weight: 800; color: #0f172a; line-height: 1.1; font-variant-numeric: tabular-nums; }
+        .rm-kpi-lbl { font-size: 9px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .rm-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+        .rm-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0 0 10px; }
+        .rm-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; color: var(--muted); }
+        .rm-type { display: flex; align-items: center; justify-content: space-between; font-size: 10px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: .08em; margin: 12px 0 6px; }
+        .rm-type:first-of-type { margin-top: 0; }
+        .rm-type em { font-style: normal; font-weight: 700; color: var(--muted); letter-spacing: .02em; text-transform: none; }
+        .rm-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+        .rm-tile { position: relative; border: 1px solid var(--border); border-left: 4px solid #cbd5e1; border-radius: 10px; padding: 7px 8px; background: #fff; min-height: 58px; display: flex; flex-direction: column; gap: 2px; }
+        .rm-tile-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+        .rm-tile-num { font-size: 15px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .rm-tile-st { font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 2px 6px; border-radius: 999px; white-space: nowrap; }
+        .rm-tile-guest { font-size: 10.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rm-tile-note { font-size: 9.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rm-tile .rm-clean { margin-top: 4px; border: none; border-radius: 7px; padding: 5px 0; font-size: 10px; font-weight: 800; background: #d97706; color: #fff; cursor: pointer; }
+        .rm-tile .rm-clean:active { transform: scale(.97); }
+        .rm-tile.st-inhouse { border-left-color: #0f8a65; }
+        .rm-tile.st-inhouse .rm-tile-st { background: #dcfce7; color: #0b6b4e; }
+        .rm-tile.st-departing { border-left-color: #ea580c; }
+        .rm-tile.st-departing .rm-tile-st { background: #ffedd5; color: #c2410c; }
+        .rm-tile.st-arrival { border-left-color: #3d5a99; }
+        .rm-tile.st-arrival .rm-tile-st { background: #e0e7ff; color: #3730a3; }
+        .rm-tile.st-dirty { border-left-color: #d97706; background: #fffbeb; }
+        .rm-tile.st-dirty .rm-tile-st { background: #fef3c7; color: #b45309; }
+        .rm-tile.st-free .rm-tile-st { background: #f1f5f9; color: #475569; }
+        .rm-tile.st-blocked { border-left-color: #ef4444; background: #fef2f2; }
+        .rm-tile.st-blocked .rm-tile-st { background: #fee2e2; color: #b91c1c; }
+
+        .rm-nav { display: flex; align-items: center; gap: 6px; }
+        .rm-nav button { border: 1px solid var(--border); background: #fff; color: var(--text); border-radius: 9px; height: 30px; min-width: 30px; padding: 0 9px; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .rm-nav button:active { background: #f1f5f9; }
+        .rm-period { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+
+        .rmc-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 12px; }
+        .rmc { --col: 58px; --lbl: 62px; position: relative; width: max-content; min-width: 100%; }
+        .rmc-row { display: flex; }
+        .rmc-lbl { position: sticky; left: 0; z-index: 6; width: var(--lbl); flex-shrink: 0; background: #fff; border-right: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; }
+        .rmc-head .rmc-lbl, .rmc-foot .rmc-lbl { font-size: 9px; font-weight: 800; letter-spacing: .1em; color: #1e3a8a; background: #f8fafc; }
+        .rmc-dates { display: flex; }
+        .rmc-h { width: var(--col); flex-shrink: 0; text-align: center; padding: 6px 2px 5px; border-right: 1px solid #eef2f7; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+        .rmc-head .rmc-h { border-bottom: 2px solid #cbd5e1; }
+        .rmc-foot .rmc-h { border-top: 2px solid #cbd5e1; }
+        .rmc-h.weekend { background: #fff7f7; }
+        .rmc-h.today { background: #eef2ff; }
+        .rmc-dow { font-size: 8.5px; font-weight: 800; letter-spacing: .1em; color: #64748b; }
+        .rmc-h.weekend .rmc-dow { color: #dc2626; }
+        .rmc-day { font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.1; font-variant-numeric: tabular-nums; }
+        .rmc-h.today .rmc-day { color: #4f46e5; }
+        .rmc-free { font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 999px; background: #dcfce7; color: #15803d; white-space: nowrap; }
+        .rmc-free.full { background: #fee2e2; color: #b91c1c; }
+        .rmc-type { background: #f8fafc; }
+        .rmc-type { border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
+        .rmc-typename { position: sticky; left: 0; padding: 5px 10px; font-size: 9.5px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+        .rmc-room { border-bottom: 1px solid #f1f5f9; }
+        .rmc-room .rmc-lbl { font-size: 12px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .rmc-track { position: relative; height: 34px; flex-shrink: 0; background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--col) - 1px), #f1f5f9 calc(var(--col) - 1px), #f1f5f9 var(--col)); }
+        .rmc-today { position: absolute; top: 0; bottom: 0; width: var(--col); background: rgba(99, 102, 241, .07); pointer-events: none; }
+        .rmc-bar { position: absolute; top: 7px; height: 20px; border-radius: 3px; transform: skewX(-20deg); background: linear-gradient(135deg, #3d5a99, #5b82d1); box-shadow: 0 1px 3px rgba(15, 23, 42, .18); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0 6px; overflow: visible; }
+        .rmc-bar > span { transform: skewX(20deg); color: #fff; font-size: 9.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-shadow: 0 1px 1px rgba(0, 0, 0, .2); }
+        .rmc-bar.st-in { background: linear-gradient(135deg, #0f8a65, #0b6b4e); }
+        .rmc-bar.past { background: linear-gradient(135deg, #9ca3af, #d1d5db); opacity: .45; box-shadow: none; }
+        .rmc-bar.past > span { color: #374151; text-shadow: none; }
+        .rmc-bar:active { filter: brightness(1.1); }
+        .rmc-pay { position: absolute; top: -4px; right: -2px; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #fff; transform: skewX(20deg); box-shadow: 0 1px 2px rgba(0, 0, 0, .3); }
+        .rmc-pay.paid { background: #22c55e; }
+        .rmc-pay.unpaid { background: #ef4444; }
+        .rm-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; color: var(--muted); }
+        .rm-chip i { width: 16px; height: 9px; border-radius: 2px; transform: skewX(-20deg); display: inline-block; }
+
+        .rm-pop-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+        .rm-pop-row:last-child { border-bottom: none; }
+        .rm-pop-row span { color: var(--muted); }
+        .rm-pop-row b { color: var(--text); text-align: right; }
+        @media (max-width: 380px) {
+            .rm-kpis { grid-template-columns: repeat(2, 1fr); }
+            .rmc { --col: 52px; --lbl: 54px; }
+        }
     </style>
 </head>
 
@@ -3838,37 +3933,48 @@ header('Expires: 0');
                 <div id="occStats">
                     <div class="loading"><span class="spin"></span> Memuat...</div>
                 </div>
-                <div class="card">
-                    <div class="card-title">🏨 Status Kamar</div>
+                <div class="rm-card">
+                    <div class="rm-head">
+                        <div>
+                            <div class="rm-title">Status Kamar</div>
+                            <div class="rm-sub">Kondisi setiap kamar saat ini</div>
+                        </div>
+                    </div>
+                    <div class="rm-legend">
+                        <span><i class="rm-dot" style="background:#0f8a65"></i>Tamu menginap</span>
+                        <span><i class="rm-dot" style="background:#ea580c"></i>Check-out hari ini</span>
+                        <span><i class="rm-dot" style="background:#3d5a99"></i>Tiba hari ini</span>
+                        <span><i class="rm-dot" style="background:#d97706"></i>Perlu dibersihkan</span>
+                        <span><i class="rm-dot" style="background:#cbd5e1"></i>Kosong</span>
+                    </div>
                     <div id="roomGrid">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="card-title">📅 Booking Calendar</div>
-                    <div class="cal-nav">
-                        <button onclick="calNav(-14)">◀ Prev</button>
-                        <span class="cal-period" id="calPeriod"></span>
-                        <button onclick="calNav(14)">Next ▶</button>
+                <div class="rm-card">
+                    <div class="rm-head">
+                        <div>
+                            <div class="rm-title">Kalender Booking</div>
+                            <div class="rm-sub">Ketuk balok untuk melihat detail</div>
+                        </div>
+                        <div class="rm-nav">
+                            <button onclick="calNav(-7)" aria-label="Minggu sebelumnya">‹</button>
+                            <button onclick="calToday()">Hari ini</button>
+                            <button onclick="calNav(7)" aria-label="Minggu berikutnya">›</button>
+                        </div>
                     </div>
-                    <div class="cal-scroll" id="calScroll">
+                    <div class="rm-period" id="calPeriod"></div>
+                    <div class="rmc-scroll" id="calScroll">
                         <div id="calGrid">
                             <div class="loading"><span class="spin"></span> Memuat...</div>
                         </div>
                     </div>
-                    <div class="cal-legend">
-                        <div class="cal-legend-item">
-                            <div class="cal-legend-dot" style="background:#06b6d4;"></div>Confirmed
-                        </div>
-                        <div class="cal-legend-item">
-                            <div class="cal-legend-dot" style="background:#0ea5e9;"></div>Pending
-                        </div>
-                        <div class="cal-legend-item">
-                            <div class="cal-legend-dot" style="background:#16a34a;"></div>Checked In
-                        </div>
-                        <div class="cal-legend-item">
-                            <div class="cal-legend-dot" style="background:#9ca3af;opacity:.4;"></div>Checked Out
-                        </div>
+                    <div class="rm-legend" style="margin:10px 0 0;">
+                        <span class="rm-chip"><i style="background:linear-gradient(135deg,#3d5a99,#5b82d1)"></i>Reservasi</span>
+                        <span class="rm-chip"><i style="background:linear-gradient(135deg,#0f8a65,#0b6b4e)"></i>Check-in</span>
+                        <span class="rm-chip"><i style="background:#9ca3af;opacity:.5"></i>Sudah check-out</span>
+                        <span class="rm-chip"><i class="rm-dot" style="background:#22c55e;transform:none;width:8px;height:8px"></i>Lunas</span>
+                        <span class="rm-chip"><i class="rm-dot" style="background:#ef4444;transform:none;width:8px;height:8px"></i>Belum lunas</span>
                     </div>
                 </div>
             </div>
@@ -5746,8 +5852,46 @@ header('Expires: 0');
             }
         }
 
-        // ═══ OCCUPANCY PAGE ═══
-        let calStartDate = new Date().toISOString().split('T')[0];
+        // ═══ OCCUPANCY PAGE (Room Monitor) ═══
+        // Kalender mulai 3 hari ke belakang: tamu yang baru check-out masih terlihat (samar),
+        // riwayat lama tidak ikut menumpuk — sama seperti balok di kalender Frontdesk.
+        const RM_DAYS = 14;
+        const RM_DAYS_BEFORE = 3;
+        const RM_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const RM_DOW = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+
+        function rmYmd(d) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function rmAddDays(ymd, n) {
+            const d = new Date(ymd + 'T00:00:00');
+            d.setDate(d.getDate() + n);
+            return rmYmd(d);
+        }
+
+        function rmDiff(a, b) {
+            return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+        }
+
+        function rmEsc(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[c]));
+        }
+
+        function rmFmt(ymd) {
+            if (!ymd) return '-';
+            const d = new Date(String(ymd).substring(0, 10) + 'T00:00:00');
+            return d.getDate() + ' ' + RM_MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+        }
+
+        let calStartDate = rmAddDays(rmYmd(new Date()), -RM_DAYS_BEFORE);
+        let rmBookings = [];
 
         // Tandai kamar dirty menjadi bersih (dari denah staff portal)
         async function markRoomClean(roomId, roomNumber) {
@@ -5771,9 +5915,12 @@ header('Expires: 0');
         }
 
         function calNav(days) {
-            const d = new Date(calStartDate);
-            d.setDate(d.getDate() + days);
-            calStartDate = d.toISOString().split('T')[0];
+            calStartDate = rmAddDays(calStartDate, days);
+            loadOccupancy();
+        }
+
+        function calToday() {
+            calStartDate = rmAddDays(rmYmd(new Date()), -RM_DAYS_BEFORE);
             loadOccupancy();
         }
 
@@ -5782,72 +5929,54 @@ header('Expires: 0');
             document.getElementById('calPopupOverlay').style.display = 'none';
         }
 
-        function showBookingPopup(b) {
+        function showBookingPopup(idx) {
+            const b = rmBookings[idx];
+            if (!b) return;
             const statusMap = {
-                'pending': '⏳ Pending',
-                'confirmed': '✅ Confirmed',
-                'checked_in': '🏨 Checked In',
-                'checked_out': '� Checked Out'
+                pending: ['Pending', '#e0e7ff', '#3730a3'],
+                confirmed: ['Confirmed', '#e0e7ff', '#3730a3'],
+                checked_in: ['Checked In', '#dcfce7', '#0b6b4e'],
+                checked_out: ['Checked Out', '#f1f5f9', '#475569']
             };
             const sourceMap = {
-                'walk_in': '🚶 Walk In',
-                'agoda': '🟠 Agoda',
-                'booking': '🔵 Booking.com',
-                'traveloka': '🔷 Traveloka',
-                'airbnb': '🏠 Airbnb',
-                'tiket': '🎫 Tiket.com',
-                'phone': '📞 Phone',
-                'whatsapp': '💬 WhatsApp'
+                walk_in: 'Walk In',
+                agoda: 'Agoda',
+                booking: 'Booking.com',
+                traveloka: 'Traveloka',
+                airbnb: 'Airbnb',
+                tiket: 'Tiket.com',
+                phone: 'Phone',
+                whatsapp: 'WhatsApp',
+                online: 'Website'
             };
             const payMap = {
-                'unpaid': '❌ Belum Bayar',
-                'partial': '⚠️ Sebagian',
-                'paid': '✅ Lunas'
+                unpaid: ['Belum bayar', '#b91c1c'],
+                partial: ['Sebagian', '#b45309'],
+                paid: ['Lunas', '#15803d']
             };
-            const statusColor = {
-                'pending': '#0ea5e9',
-                'confirmed': '#06b6d4',
-                'checked_in': '#16a34a',
-                'checked_out': '#9ca3af'
-            };
-            const cin = b.check_in_date ? new Date(b.check_in_date + 'T00:00:00') : null;
-            const cout = b.check_out_date ? new Date(b.check_out_date + 'T00:00:00') : null;
-            const nights = cin && cout ? Math.round((cout - cin) / 86400000) : '-';
-            const fmtDate = d => d ? d.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'][d.getMonth()] + ' ' + d.getFullYear() : '-';
+            const st = statusMap[b.status] || [b.status || '-', '#f1f5f9', '#475569'];
+            const pay = payMap[b.payment_status] || [b.payment_status || '-', 'var(--text)'];
+            const nights = (b.check_in_date && b.check_out_date) ? rmDiff(b.check_in_date.substring(0, 10), b.check_out_date.substring(0, 10)) : '-';
+            const src = sourceMap[String(b.booking_source || '').toLowerCase()] || b.booking_source || '-';
             document.getElementById('calPopup').innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <div style="font-weight:800;font-size:14px;color:var(--navy);">📋 Detail Booking</div>
-            <button onclick="closeCalPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);">✕</button>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;">
+            <div style="min-width:0;">
+                <div style="font-size:15px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${rmEsc(b.guest_name || 'Guest')}</div>
+                <div style="font-size:10.5px;color:var(--muted);margin-top:2px;">${rmEsc(b.booking_code || '-')} · Room ${rmEsc(b.room_number || '-')}</div>
+            </div>
+            <button onclick="closeCalPopup()" style="background:#f1f5f9;border:none;width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--muted);flex-shrink:0;">✕</button>
         </div>
-        <div style="background:linear-gradient(135deg,${statusColor[b.status]||'#64748b'}20,${statusColor[b.status]||'#64748b'}10);border-left:3px solid ${statusColor[b.status]||'#64748b'};border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:10px;">
-            <div style="font-size:15px;font-weight:800;color:var(--navy);">${b.guest_name||'-'}</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Kode: <strong>${b.booking_code||'-'}</strong></div>
+        <div style="display:flex;gap:6px;margin-bottom:12px;">
+            <span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;background:${st[1]};color:${st[2]};">${st[0]}</span>
+            <span style="font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;background:#f8fafc;color:${pay[1]};border:1px solid var(--border);">${pay[0]}</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
-            <div style="background:#f0fdf4;border-radius:8px;padding:8px;text-align:center;">
-                <div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;">Check-in</div>
-                <div style="font-size:11px;font-weight:800;color:#166534;">${fmtDate(cin)}</div>
-            </div>
-            <div style="background:#fef2f2;border-radius:8px;padding:8px;text-align:center;">
-                <div style="font-size:8px;font-weight:700;color:#dc2626;text-transform:uppercase;">Check-out</div>
-                <div style="font-size:11px;font-weight:800;color:#991b1b;">${fmtDate(cout)}</div>
-            </div>
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;background:#f8fafc;border-radius:12px;padding:10px;margin-bottom:8px;">
+            <div style="text-align:center;"><div style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.08em;">CHECK-IN</div><div style="font-size:12px;font-weight:800;color:#0f172a;">${rmFmt(b.check_in_date)}</div></div>
+            <div style="font-size:10px;font-weight:700;color:#3d5a99;">${nights} mlm →</div>
+            <div style="text-align:center;"><div style="font-size:8.5px;font-weight:800;color:var(--muted);letter-spacing:.08em;">CHECK-OUT</div><div style="font-size:12px;font-weight:800;color:#0f172a;">${rmFmt(b.check_out_date)}</div></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
-            <div style="background:#f8fafc;border-radius:8px;padding:6px;text-align:center;">
-                <div style="font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;">Malam</div>
-                <div style="font-size:16px;font-weight:900;color:var(--navy);">${nights}</div>
-            </div>
-            <div style="background:#f8fafc;border-radius:8px;padding:6px;text-align:center;">
-                <div style="font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;">Status</div>
-                <div style="font-size:10px;font-weight:700;color:${statusColor[b.status]||'#64748b'};">${statusMap[b.status]||b.status}</div>
-            </div>
-            <div style="background:#f8fafc;border-radius:8px;padding:6px;text-align:center;">
-                <div style="font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;">Bayar</div>
-                <div style="font-size:10px;font-weight:700;">${payMap[b.payment_status]||b.payment_status||'-'}</div>
-            </div>
-        </div>
-        <div style="font-size:11px;color:var(--muted);text-align:center;">Sumber: ${sourceMap[b.booking_source]||b.booking_source||'-'}</div>`;
+        <div class="rm-pop-row"><span>Tipe kamar</span><b>${rmEsc(b.room_type || '-')}</b></div>
+        <div class="rm-pop-row"><span>Sumber</span><b>${rmEsc(src)}</b></div>`;
             document.getElementById('calPopup').style.display = 'block';
             document.getElementById('calPopupOverlay').style.display = 'block';
         }
@@ -5857,234 +5986,188 @@ header('Expires: 0');
                 const res = await fetch(API + '&action=occupancy&start=' + calStartDate);
                 const data = await res.json();
                 const d = data.data || {};
+                const today = rmYmd(new Date());
+                const rooms = d.rooms || [];
+                const bookings = (d.bookings || []).filter(b => b.status !== 'cancelled');
+                const roomById = {};
+                rooms.forEach(r => roomById[r.id] = r);
 
-                // Stats with Pie Chart
+                // ── Ringkasan ──
+                const total = parseInt(d.total_rooms) || 0;
                 const occ = parseInt(d.occupied) || 0;
                 const avail = parseInt(d.available) || 0;
-                const total = parseInt(d.total_rooms) || 0;
                 const rate = parseFloat(d.occupancy_rate) || 0;
                 const arrivals = parseInt(d.arrivals_today) || 0;
                 const departures = parseInt(d.departures_today) || 0;
-
-                // SVG donut chart
-                const radius = 54,
-                    cx = 65,
-                    cy = 65,
-                    stroke = 14;
-                const circ = 2 * Math.PI * radius;
-                const occPct = total > 0 ? occ / total : 0;
-                const occLen = circ * occPct;
-                const availLen = circ - occLen;
-
+                const occW = total > 0 ? (occ / total * 100) : 0;
+                const now = new Date();
                 document.getElementById('occStats').innerHTML = `
-            <div class="card" style="margin-bottom:12px;">
-                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;">
-                    <!-- Donut Chart -->
-                    <div style="position:relative;width:130px;height:130px;flex-shrink:0;">
-                        <svg width="130" height="130" viewBox="0 0 130 130">
-                            <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#e5e7eb" stroke-width="${stroke}"/>
-                            <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#0ea5e9" stroke-width="${stroke}"
-                                stroke-dasharray="${occLen} ${availLen}"
-                                stroke-dashoffset="${circ * 0.25}"
-                                stroke-linecap="round"
-                                style="transition:stroke-dasharray .8s ease;"/>
-                            <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#22c55e" stroke-width="${stroke}"
-                                stroke-dasharray="${availLen} ${occLen}"
-                                stroke-dashoffset="${circ * 0.25 - occLen}"
-                                stroke-linecap="round"
-                                style="transition:stroke-dasharray .8s ease;"/>
-                        </svg>
-                        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                            <div style="font-size:24px;font-weight:900;color:var(--navy);line-height:1;">${rate}%</div>
-                            <div style="font-size:8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Occupancy</div>
-                        </div>
+            <div class="rm-card">
+                <div class="rm-occ">
+                    <div>
+                        <div class="rm-occ-label">Okupansi hari ini</div>
+                        <div class="rm-occ-num">${rate}<small>%</small></div>
                     </div>
-                    <!-- Right Stats -->
-                    <div style="flex:1;min-width:160px;">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                            <div style="background:#f0fdf4;border-radius:10px;padding:10px;text-align:center;">
-                                <div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.3px;">Available</div>
-                                <div style="font-size:22px;font-weight:900;color:#16a34a;">${avail}</div>
-                            </div>
-                            <div style="background:#fef2f2;border-radius:10px;padding:10px;text-align:center;">
-                                <div style="font-size:8px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.3px;">Occupied</div>
-                                <div style="font-size:22px;font-weight:900;color:#dc2626;">${occ}</div>
-                            </div>
-                            <div style="background:#eff6ff;border-radius:10px;padding:10px;text-align:center;">
-                                <div style="font-size:8px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.3px;">Total Rooms</div>
-                                <div style="font-size:22px;font-weight:900;color:#2563eb;">${total}</div>
-                            </div>
-                            <div style="background:#fefce8;border-radius:10px;padding:10px;text-align:center;">
-                                <div style="font-size:8px;font-weight:700;color:#ca8a04;text-transform:uppercase;letter-spacing:.3px;">Occ. Rate</div>
-                                <div style="font-size:22px;font-weight:900;color:#ca8a04;">${rate}%</div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="rm-occ-meta"><b>${occ}</b> dari <b>${total}</b> kamar terisi<br>${RM_DOW[now.getDay()].charAt(0) + RM_DOW[now.getDay()].slice(1).toLowerCase()}, ${rmFmt(today)}</div>
                 </div>
-                <!-- Arrivals / Departures -->
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
-                    <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
-                        <div style="width:36px;height:36px;background:#16a34a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">✈️</div>
-                        <div><div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;">Cekin Hari Ini</div><div style="font-size:20px;font-weight:900;color:#16a34a;">${arrivals}</div></div>
-                    </div>
-                    <div style="background:linear-gradient(135deg,#fff7ed,#fed7aa);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
-                        <div style="width:36px;height:36px;background:#ea580c;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">🚪</div>
-                        <div><div style="font-size:8px;font-weight:700;color:#ea580c;text-transform:uppercase;">Cekout Hari Ini</div><div style="font-size:20px;font-weight:900;color:#ea580c;">${departures}</div></div>
-                    </div>
+                <div class="rm-bar"><span style="width:${occW}%;background:linear-gradient(90deg,#0f8a65,#14a37a);"></span></div>
+                <div class="rm-kpis">
+                    <div class="rm-kpi"><div class="rm-kpi-val">${occ}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#0f8a65"></i>Terisi</div></div>
+                    <div class="rm-kpi"><div class="rm-kpi-val">${avail}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#cbd5e1"></i>Kosong</div></div>
+                    <div class="rm-kpi"><div class="rm-kpi-val">${arrivals}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#3d5a99"></i>Check-in</div></div>
+                    <div class="rm-kpi"><div class="rm-kpi-val">${departures}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#ea580c"></i>Check-out</div></div>
                 </div>
             </div>`;
 
-                // Room grid
-                const rooms = d.rooms || [];
-                if (rooms.length === 0) {
-                    document.getElementById('roomGrid').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Tidak ada data kamar.</div>';
-                } else {
-                    let rh = '<div class="room-grid">';
-                    rooms.forEach(r => {
-                        const isOcc = r.status === 'occupied';
-                        const isDirty = r.status === 'cleaning';
-                        const hasB2B = isOcc && r.next_guest;
-                        const boxClass = isDirty ? 'dirty' : (hasB2B ? 'b2b' : (isOcc ? 'occ' : 'avail'));
-                        rh += `<div class="room-box ${boxClass}">
-                    ${r.room_number}
-                    <div class="room-type">${r.room_type||''}</div>
-                    ${isOcc ? `<div class="room-guest">${r.guest_name||''}</div>` : ''}
-                    ${hasB2B ? `<div class="room-next">→ ${r.next_guest}</div>` : ''}
-                    ${isDirty ? `<button class="btn-clean" onclick="markRoomClean(${r.id}, '${(r.room_number||'').replace(/'/g,'')}')">✓ Clean</button>` : ''}
-                </div>`;
-                    });
-                    rh += '</div>';
-                    document.getElementById('roomGrid').innerHTML = rh;
-                }
-
-                // ── Calendar (Frontdesk Style) ──
-                const COL_W = 130; // pixels per day column (match frontdesk)
-                const bookings = d.bookings || [];
-                const start = new Date(d.calendar_start || calStartDate);
-                const days = 14;
-                const dates = [];
-                const today = new Date().toISOString().split('T')[0];
-                for (let i = 0; i < days; i++) {
-                    const dt = new Date(start);
-                    dt.setDate(dt.getDate() + i);
-                    dates.push(dt.toISOString().split('T')[0]);
-                }
-
-                const startM = new Date(dates[0] + 'T00:00:00');
-                const endM = new Date(dates[dates.length - 1] + 'T00:00:00');
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-                document.getElementById('calPeriod').textContent =
-                    startM.getDate() + ' ' + months[startM.getMonth()] + ' - ' + endM.getDate() + ' ' + months[endM.getMonth()] + ' ' + endM.getFullYear();
-
-                // Group rooms by type
+                // ── Status kamar (per tipe) ──
+                const arrivalByRoom = {};
+                bookings.forEach(b => {
+                    if (String(b.check_in_date).substring(0, 10) === today && (b.status === 'confirmed' || b.status === 'pending')) {
+                        arrivalByRoom[b.room_id] = b;
+                    }
+                });
                 const roomsByType = {};
                 rooms.forEach(r => {
                     const t = r.room_type || 'Standard';
-                    if (!roomsByType[t]) roomsByType[t] = [];
-                    roomsByType[t].push(r);
+                    (roomsByType[t] = roomsByType[t] || []).push(r);
                 });
 
-                // Build booking map
-                const bookingMap = {};
-                bookings.forEach(b => {
-                    if (!bookingMap[b.room_id]) bookingMap[b.room_id] = [];
-                    const bStart = b.check_in_date,
-                        bEnd = b.check_out_date;
-                    let startCol = -1,
-                        endCol = -1;
-                    for (let i = 0; i < dates.length; i++) {
-                        if (dates[i] >= bStart && startCol < 0) startCol = i;
-                        if (dates[i] < bEnd) endCol = i;
-                    }
-                    if (bStart < dates[0]) startCol = 0;
-                    if (endCol < 0 && bEnd > dates[0]) endCol = dates.length - 1;
-                    if (startCol >= 0 && endCol >= startCol) {
-                        bookingMap[b.room_id].push({
-                            ...b,
-                            startCol,
-                            span: endCol - startCol + 1
+                if (rooms.length === 0) {
+                    document.getElementById('roomGrid').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Tidak ada data kamar.</div>';
+                } else {
+                    let rh = '';
+                    Object.keys(roomsByType).forEach(typeName => {
+                        const list = roomsByType[typeName];
+                        const freeCount = list.filter(r => r.status === 'available').length;
+                        rh += `<div class="rm-type">${rmEsc(typeName)}<em>${freeCount} kosong · ${list.length} kamar</em></div><div class="rm-tiles">`;
+                        list.forEach(r => {
+                            const arr = arrivalByRoom[r.id];
+                            const departing = r.status === 'occupied' && String(r.check_out_date || '').substring(0, 10) === today;
+                            let cls = 'st-free',
+                                label = 'Kosong',
+                                guest = '',
+                                note = '';
+                            if (r.status === 'occupied') {
+                                cls = departing ? 'st-departing' : 'st-inhouse';
+                                label = departing ? 'Check-out' : 'Menginap';
+                                guest = r.guest_name || 'Guest';
+                                note = departing ? 'Keluar hari ini' : ('s/d ' + rmFmt(r.check_out_date).replace(/ \d{4}$/, ''));
+                                if (r.next_guest) note = '→ ' + r.next_guest + ' (besok)';
+                            } else if (r.status === 'cleaning') {
+                                cls = 'st-dirty';
+                                label = 'Kotor';
+                                note = arr ? 'Tiba: ' + (arr.guest_name || 'Guest') : 'Perlu dibersihkan';
+                            } else if (r.status === 'maintenance' || r.status === 'blocked') {
+                                cls = 'st-blocked';
+                                label = r.status === 'maintenance' ? 'Perbaikan' : 'Diblok';
+                            } else if (arr) {
+                                cls = 'st-arrival';
+                                label = 'Tiba';
+                                guest = arr.guest_name || 'Guest';
+                                note = 'Check-in hari ini';
+                            }
+                            rh += `<div class="rm-tile ${cls}">
+                        <div class="rm-tile-top"><span class="rm-tile-num">${rmEsc(r.room_number)}</span><span class="rm-tile-st">${label}</span></div>
+                        ${guest ? `<div class="rm-tile-guest">${rmEsc(guest)}</div>` : ''}
+                        ${note ? `<div class="rm-tile-note">${rmEsc(note)}</div>` : ''}
+                        ${r.status === 'cleaning' ? `<button class="rm-clean" onclick="markRoomClean(${parseInt(r.id)}, '${rmEsc(String(r.room_number || '').replace(/'/g, ''))}')">✓ Bersih</button>` : ''}
+                    </div>`;
                         });
-                    }
-                });
+                        rh += '</div>';
+                    });
+                    document.getElementById('roomGrid').innerHTML = rh;
+                }
 
-                const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-                let g = `<div class="cal-grid" style="grid-template-columns:95px repeat(${days},${COL_W}px);">`;
+                // ── Kalender (balok noon-to-noon seperti Frontdesk) ──
+                const start = (d.calendar_start || calStartDate).substring(0, 10);
+                const dates = [];
+                for (let i = 0; i < RM_DAYS; i++) dates.push(rmAddDays(start, i));
+                const end = dates[dates.length - 1];
+                const sD = new Date(start + 'T00:00:00'),
+                    eD = new Date(end + 'T00:00:00');
+                document.getElementById('calPeriod').textContent =
+                    sD.getDate() + ' ' + RM_MONTHS[sD.getMonth()] + ' – ' + eD.getDate() + ' ' + RM_MONTHS[eD.getMonth()] + ' ' + eD.getFullYear();
 
-                // Header row
-                g += `<div class="cal-grid-header">`;
-                g += `<div class="cg-hdr-room">ROOMS</div>`;
-                dates.forEach(dt => {
-                    const dd = new Date(dt + 'T00:00:00');
-                    const isTd = dt === today;
-                    g += `<div class="cg-hdr-date${isTd?' today':''}"><span class="cg-hdr-day">${dayNames[dd.getDay()]}</span> <span class="cg-hdr-num">${dd.getDate()}</span></div>`;
-                });
-                g += `</div>`;
+                const col = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--rm-col')) || (window.innerWidth <= 380 ? 52 : 58);
+                const trackW = col * RM_DAYS;
 
-                // Room rows
-                const typeNames = Object.keys(roomsByType);
-                typeNames.forEach(typeName => {
-                    // Type header
-                    g += `<div class="cg-type-hdr">📂 ${typeName}</div>`;
-                    for (let i = 0; i < days; i++) g += `<div class="cg-type-price"></div>`;
-
-                    roomsByType[typeName].forEach(room => {
-                        // Room label
-                        const tShort = (room.room_type || '').toUpperCase().substring(0, 6);
-                        g += `<div class="cg-room"><span class="cg-room-type">${tShort}</span><span class="cg-room-num">${room.room_number}</span></div>`;
-
-                        const roomBookings = bookingMap[room.id] || [];
-                        // Date cells
-                        for (let i = 0; i < days; i++) {
-                            const isTd = dates[i] === today;
-                            g += `<div class="cg-cell${isTd?' today':''}">`;
-                            // Render bars starting on this cell
-                            roomBookings.forEach(rb => {
-                                if (rb.startCol === i) {
-                                    const barW = (rb.span * COL_W) - 10;
-                                    let cls = 's-' + (rb.status || '').replace('_', '-');
-                                    const isCheckedIn = rb.status === 'checked_in';
-                                    const isCheckedOut = rb.status === 'checked_out';
-                                    const isPast = rb.check_out_date < today;
-                                    const icon = isCheckedIn ? '✓ ' : (isCheckedOut || isPast ? '📭 ' : '');
-                                    const name = (rb.guest_name || 'Guest').substring(0, 12);
-                                    const code = (rb.booking_code || '').substring(0, 8);
-                                    const bData = JSON.stringify({
-                                        booking_code: rb.booking_code,
-                                        guest_name: rb.guest_name,
-                                        check_in_date: rb.check_in_date,
-                                        check_out_date: rb.check_out_date,
-                                        status: rb.status,
-                                        booking_source: rb.booking_source,
-                                        payment_status: rb.payment_status
-                                    }).replace(/'/g, '&#39;');
-                                    g += `<div class="bbar-wrap" style="width:${barW}px;" onclick='showBookingPopup(${bData})'>`;
-                                    g += `<div class="bbar ${cls}"><span>${icon}${name} • ${code}</span></div></div>`;
-                                }
-                            });
-                            g += `</div>`;
-                        }
+                // Kamar terpakai per malam (untuk "x free" di header)
+                const usedPerDate = {};
+                dates.forEach(dt => usedPerDate[dt] = 0);
+                bookings.forEach(b => {
+                    const ci = String(b.check_in_date).substring(0, 10),
+                        co = String(b.check_out_date).substring(0, 10);
+                    dates.forEach(dt => {
+                        if (dt >= ci && dt < co) usedPerDate[dt]++;
                     });
                 });
 
-                // Footer row
-                g += `<div class="cal-grid-footer">`;
-                g += `<div class="cg-ftr-room">ROOMS</div>`;
-                dates.forEach(dt => {
+                const headCells = dates.map(dt => {
                     const dd = new Date(dt + 'T00:00:00');
-                    const isTd = dt === today;
-                    g += `<div class="cg-ftr-date${isTd?' today':''}"><span class="cg-hdr-day">${dayNames[dd.getDay()]}</span> <span class="cg-hdr-num">${dd.getDate()}</span></div>`;
+                    const wk = dd.getDay() === 0 || dd.getDay() === 6;
+                    const free = Math.max(0, total - usedPerDate[dt]);
+                    return `<div class="rmc-h${wk ? ' weekend' : ''}${dt === today ? ' today' : ''}">
+                        <span class="rmc-dow">${RM_DOW[dd.getDay()]}</span>
+                        <span class="rmc-day">${dd.getDate()}</span>
+                        <span class="rmc-free${free === 0 ? ' full' : ''}">${free} free</span>
+                    </div>`;
+                }).join('');
+
+                rmBookings = [];
+                const barsByRoom = {};
+                bookings.forEach(b => {
+                    const ci = String(b.check_in_date).substring(0, 10),
+                        co = String(b.check_out_date).substring(0, 10);
+                    let left = rmDiff(start, ci) * col + col / 2;
+                    let right = rmDiff(start, co) * col + col / 2;
+                    left = Math.max(0, left);
+                    right = Math.min(trackW, right);
+                    if (right - left < 8) return;
+                    const r = roomById[b.room_id] || {};
+                    const idx = rmBookings.push({
+                        ...b,
+                        room_number: r.room_number,
+                        room_type: r.room_type
+                    }) - 1;
+                    (barsByRoom[b.room_id] = barsByRoom[b.room_id] || []).push({
+                        b,
+                        idx,
+                        left,
+                        width: right - left - 8,
+                        past: b.status === 'checked_out' || co < today
+                    });
                 });
-                g += `</div>`;
+
+                const todayIdx = dates.indexOf(today);
+                const todayCol = todayIdx >= 0 ? `<div class="rmc-today" style="left:${todayIdx * col}px"></div>` : '';
+                let g = `<div class="rmc" style="--col:${col}px;">`;
+                g += `<div class="rmc-row rmc-head"><div class="rmc-lbl">ROOM</div><div class="rmc-dates">${headCells}</div></div>`;
+                Object.keys(roomsByType).forEach(typeName => {
+                    g += `<div class="rmc-row rmc-type" style="width:calc(var(--lbl) + ${trackW}px);"><div class="rmc-typename">${rmEsc(typeName)}</div></div>`;
+                    roomsByType[typeName].forEach(room => {
+                        g += `<div class="rmc-row rmc-room"><div class="rmc-lbl">${rmEsc(room.room_number)}</div><div class="rmc-track" style="width:${trackW}px">${todayCol}`;
+                        (barsByRoom[room.id] || []).forEach(x => {
+                            const name = x.b.guest_name || 'Guest';
+                            const cls = x.past ? 'past' : (x.b.status === 'checked_in' ? 'st-in' : '');
+                            const paid = x.b.payment_status === 'paid';
+                            const icon = x.past ? '' : (x.b.status === 'checked_in' ? '✓ ' : '');
+                            g += `<div class="rmc-bar ${cls}" style="left:${x.left + 4}px;width:${Math.max(14, x.width)}px" onclick="showBookingPopup(${x.idx})" title="${rmEsc(name)}">
+                                ${x.past ? '' : `<i class="rmc-pay ${paid ? 'paid' : 'unpaid'}"></i>`}
+                                <span>${icon}${rmEsc(name)}</span></div>`;
+                        });
+                        g += `</div></div>`;
+                    });
+                });
+                g += `<div class="rmc-row rmc-foot"><div class="rmc-lbl">ROOM</div><div class="rmc-dates">${headCells}</div></div>`;
                 g += '</div>';
                 document.getElementById('calGrid').innerHTML = g;
 
-                // Scroll to today
-                const todayIdx = dates.indexOf(today);
-                if (todayIdx > 1) {
+                // Geser ke hari ini (sisakan 1 hari sebelumnya terlihat)
+                if (todayIdx > 0) {
                     const scrollEl = document.getElementById('calScroll');
                     setTimeout(() => {
-                        scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * COL_W);
-                    }, 100);
+                        scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * col);
+                    }, 60);
                 }
             } catch (e) {
                 console.error(e);

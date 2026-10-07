@@ -663,7 +663,7 @@ if ($action === 'occupancy') {
             LEFT JOIN room_types rt ON r.room_type_id = rt.id
             LEFT JOIN bookings b ON b.room_id = r.id AND b.status = 'checked_in'
             LEFT JOIN guests g ON b.guest_id = g.id
-            ORDER BY rt.type_name ASC, r.room_number ASC", [$hotelTomorrow]) ?: [];
+            ORDER BY FIELD(rt.type_name, 'Queen Chambers', 'Queen', 'Twin Chambers', 'Twin', 'King Quarters', 'King', 'Deluxe Queen', 'Deluxe King'), rt.type_name ASC, r.floor_number ASC, r.room_number ASC", [$hotelTomorrow]) ?: [];
 
         // Arrivals today (confirmed bookings checking in today)
         $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status IN ('confirmed','pending')", [$today])['c'] ?? 0;
