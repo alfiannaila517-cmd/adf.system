@@ -9700,7 +9700,7 @@ include '../../includes/header.php';
             </div>
             <div class="mv-sec mv-price">
                 <div class="mv-price-top"><div class="mv-lbl">Harga per malam</div><span class="mv-kind same" id="mvKind">-</span></div>
-                <div class="mv-price-in"><span>Rp</span><input type="number" id="mvPrice" class="mv-in" min="0" step="1000" oninput="mvChanged('price')"></div>
+                <div class="mv-price-in"><span>Rp</span><input type="text" inputmode="numeric" id="mvPrice" class="mv-in" autocomplete="off" oninput="mvMoneyInput(this);mvChanged('price')"></div>
                 <div class="mv-hint" id="mvPriceHint"></div>
                 <button type="button" class="mv-link" id="mvPriceReset" onclick="mvResetPrice()" style="display:none;">Pakai harga otomatis</button>
             </div>
@@ -9739,7 +9739,7 @@ include '../../includes/header.php';
             </div>
             <div class="mv-sec mv-price">
                 <div class="mv-lbl">Harga per malam tambahan</div>
-                <div class="mv-price-in"><span>Rp</span><input type="number" id="extendPrice" class="mv-in" min="0" step="1000" oninput="extPriceEdited=true;extPreview()"></div>
+                <div class="mv-price-in"><span>Rp</span><input type="text" inputmode="numeric" id="extendPrice" class="mv-in" autocomplete="off" oninput="mvMoneyInput(this);extPriceEdited=true;extPreview()"></div>
                 <div class="mv-hint" id="extendPriceHint"></div>
             </div>
             <div class="mv-ota" id="extendOta" style="display:none;"></div>
@@ -9761,7 +9761,8 @@ include '../../includes/header.php';
     #moveRoomModal .mv-head, #extendModal .mv-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: linear-gradient(135deg, #1e3a8a, #2563eb); flex-shrink: 0; }
     #extendModal .mv-head-green { background: linear-gradient(135deg, #065f46, #059669); }
     #moveRoomModal .mv-head-ic, #extendModal .mv-head-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); color: #fff; flex-shrink: 0; }
-    #moveRoomModal .mv-head-ic svg, #extendModal .mv-head-ic svg { width: 19px; height: 19px; }
+    body #moveRoomModal .mv-head-ic svg, body #extendModal .mv-head-ic svg { width: 19px; height: 19px; color: #fff !important; stroke: #fff !important; fill: none !important; }
+    body #moveRoomModal .mv-head-ic svg *, body #extendModal .mv-head-ic svg * { stroke: #fff !important; }
     #moveRoomModal .mv-head-t, #extendModal .mv-head-t { flex: 1; min-width: 0; }
     body #moveRoomModal .mv-title, body #extendModal .mv-title { font-size: 1.02rem !important; font-weight: 800 !important; color: #fff !important; -webkit-text-fill-color: #fff !important; line-height: 1.25; }
     body #moveRoomModal .mv-sub, body #extendModal .mv-sub { margin-top: 2px; font-size: .8rem !important; font-weight: 600 !important; color: rgba(255, 255, 255, .92) !important; -webkit-text-fill-color: rgba(255, 255, 255, .92) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -10209,6 +10210,19 @@ include '../../includes/header.php';
         return Math.round((Date.UTC(pb[0], pb[1] - 1, pb[2]) - Date.UTC(pa[0], pa[1] - 1, pa[2])) / 86400000);
     }
     const mvRp = n => 'Rp ' + Math.round(parseFloat(n) || 0).toLocaleString('id-ID');
+    // Input harga dengan pemisah ribuan (688.750); nilai dikirim sebagai angka polos
+    const mvMoneyFmt = n => Math.round(parseFloat(n) || 0).toLocaleString('id-ID');
+    const mvMoneyVal = el => (String(el.value).replace(/\D/g, '') || '0');
+    window.mvMoneyInput = function(el) {
+        const caret = el.selectionStart || 0;
+        const digitsBefore = String(el.value).slice(0, caret).replace(/\D/g, '').length;
+        const digits = String(el.value).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+        el.value = digits ? Number(digits).toLocaleString('id-ID') : '';
+        // Kursor tetap setelah digit yang sama
+        let pos = 0, seen = 0;
+        while (pos < el.value.length && seen < digitsBefore) { if (/\d/.test(el.value[pos])) seen++; pos++; }
+        try { el.setSelectionRange(pos, pos); } catch (e) {}
+    };
     const mvDate = ymd => {
         const p = String(ymd).split('-').map(Number);
         return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -10281,7 +10295,7 @@ include '../../includes/header.php';
         fd.append('new_check_in', document.getElementById('mvCheckIn').value);
         fd.append('new_check_out', document.getElementById('mvCheckOut').value);
         if (mvCtx.status === 'checked_in') fd.append('effective_date', document.getElementById('mvEff').value);
-        if (mvCtx.priceEdited) fd.append('room_price', document.getElementById('mvPrice').value || '0');
+        if (mvCtx.priceEdited) fd.append('room_price', mvMoneyVal(document.getElementById('mvPrice')));
         if (preview) fd.append('preview', '1');
         return fd;
     }
@@ -10326,7 +10340,7 @@ include '../../includes/header.php';
                 const badge = document.getElementById('mvKind');
                 badge.textContent = kind[0];
                 badge.className = 'mv-kind ' + kind[1];
-                if (!ctx.priceEdited) document.getElementById('mvPrice').value = Math.round(d.new_price);
+                if (!ctx.priceEdited) document.getElementById('mvPrice').value = mvMoneyFmt(d.new_price);
                 const isUpDown = d.change_kind === 'upgrade' || d.change_kind === 'downgrade';
                 document.getElementById('mvPriceHint').innerHTML = d.is_ota ?
                     (d.change_kind === 'upgrade' ? 'Harga OTA ' + mvRp(d.old_price) + ' + selisih ' + mvRp(d.surcharge) + ' per malam' :
@@ -10435,7 +10449,7 @@ include '../../includes/header.php';
         const fd = new FormData();
         fd.append('booking_id', document.getElementById('extendBookingId').value);
         fd.append('extra_nights', Math.max(1, parseInt(document.getElementById('extendNights').value, 10) || 1));
-        if (extPriceEdited) fd.append('night_price', document.getElementById('extendPrice').value || '0');
+        if (extPriceEdited) fd.append('night_price', mvMoneyVal(document.getElementById('extendPrice')));
         if (preview) fd.append('preview', '1');
         return fd;
     }
@@ -10457,7 +10471,7 @@ include '../../includes/header.php';
                     }
                     err.style.display = 'none';
                     const d = res.data;
-                    if (!extPriceEdited) document.getElementById('extendPrice').value = Math.round(d.night_price);
+                    if (!extPriceEdited) document.getElementById('extendPrice').value = mvMoneyFmt(d.night_price);
                     const fp = Math.round(d.fee_percent * 100) / 100;
                     document.getElementById('extendPriceHint').textContent = d.is_ota ?
                         'Harga asli kamar − fee ' + fp + '% = ' + mvRp(d.auto_night) + ' per malam' :
