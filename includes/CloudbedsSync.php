@@ -295,8 +295,11 @@ class CloudbedsSync
         // ---- Blok kamar Cloudbeds → room_blocks (kode CB-<blockID>-<roomID>) ----
         $this->planRoomBlocks($from, $to, $roomByNo, $actions);
 
-        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'warn' => 0];
-        foreach ($actions as $a) $counts[$a['type']]++;
+        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'warn' => 0];
+        foreach ($actions as $a) {
+            $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : $a['type'];
+            $counts[$t]++;
+        }
         return ['ok' => true, 'detail' => 'OK', 'actions' => $actions, 'counts' => $counts];
     }
 
@@ -489,6 +492,7 @@ class CloudbedsSync
         $walkBlocks($res['data']);
 
         $seen = [];
+        $push = $this->pushEnabled();
         $seenBlockIds = [];
         foreach ($blocks as $b) {
             $bid = (string)$b['roomBlockID'];
@@ -505,6 +509,11 @@ class CloudbedsSync
                 if (is_array($r) && isset($r['roomID'])) $roomIds[] = (string)$r['roomID'];
                 elseif (!is_array($r)) $roomIds[] = (string)$r;
             }
+            if (stripos($reason, 'ADF:') === 0) {
+                foreach ($roomIds as $rid) $seen[substr('CB-' . $bid . '-' . $rid, 0, 40)] = true;
+                continue;
+            }
+            $removedHere = [];
             foreach ($roomIds as $rid) {
                 $name = $cbRoomName[$rid] ?? $rid;
                 $no = preg_match('/\d{2,4}/', $name, $m) ? $m[0] : '';
@@ -517,11 +526,26 @@ class CloudbedsSync
                     continue;
                 }
                 $existing = $this->db->fetchOne("SELECT id, block_start_date s, block_end_date e FROM room_blocks WHERE block_code = ? AND status = 'active' LIMIT 1", [$code]);
+                // Dibatalkan di sistem (bukan dicabut oleh sinkron) → jangan dibuat ulang; hapus juga di Cloudbeds bila kirim aktif
+                if (!$existing) {
+                    $userCancelled = $this->db->fetchOne("SELECT id FROM room_blocks WHERE block_code = ? AND status = 'cancelled' AND COALESCE(notes,'') NOT LIKE '%[Dicabut via Cloudbeds]%' LIMIT 1", [$code]);
+                    if ($userCancelled) {
+                        if ($push) {
+                            $removedHere[] = $rid;
+                        } else {
+                            $actions[] = ['type' => 'warn', 'cb' => $bid, 'label' => $label, 'msg' => 'Blok Room ' . $lr['room_number'] . ' dibatalkan di sistem tetapi masih ada di Cloudbeds — aktifkan "Kirim ke Cloudbeds" atau hapus di Cloudbeds.'];
+                        }
+                        continue;
+                    }
+                }
                 if ($existing) {
                     if ($existing['s'] !== $start || $existing['e'] !== $end) {
                         $actions[] = ['type' => 'unblock', 'cb' => $bid, 'label' => $label, 'block_id' => (int)$existing['id'], 'msg' => 'Tanggal blok berubah — blok lama Room ' . $lr['room_number'] . ' dicabut'];
                         $actions[] = ['type' => 'block', 'cb' => $bid, 'label' => $label, 'room_id' => (int)$lr['id'], 'room_no' => $lr['room_number'], 'code' => $code, 'start' => $start, 'end' => $end, 'reason' => $reason, 'msg' => 'Blok ulang Room ' . $lr['room_number'] . ' (' . self::nightsLabel($start, $end) . ')'];
                     }
+                    continue;
+                }
+                if ($this->db->fetchOne("SELECT id FROM room_blocks WHERE room_id = ? AND status = 'active' AND block_start_date < ? AND block_end_date > ? LIMIT 1", [(int)$lr['id'], $end, $start])) {
                     continue;
                 }
                 $conf = $this->db->fetchOne(
@@ -540,6 +564,44 @@ class CloudbedsSync
                 }
                 $actions[] = ['type' => 'block', 'cb' => $bid, 'label' => $label, 'room_id' => (int)$lr['id'], 'room_no' => $lr['room_number'], 'code' => $code, 'start' => $start, 'end' => $end, 'reason' => $reason,
                     'msg' => 'Blok Room ' . $lr['room_number'] . ' (' . self::nightsLabel($start, $end) . ')'];
+            }
+            if ($removedHere) {
+                $blkLabel = 'Blok ' . ($reason !== '' ? '"' . $reason . '" ' : '') . '· ' . $start . ' → ' . $end;
+                $roomsTxt = implode(', ', array_map(fn($x) => $cbRoomName[$x] ?? $x, $removedHere));
+                if (count($removedHere) >= count($roomIds)) {
+                    $actions[] = ['type' => 'push_delblock', 'cb' => $bid, 'label' => $blkLabel, 'msg' => 'Hapus blok di Cloudbeds (dibatalkan di sistem: ' . $roomsTxt . ')'];
+                } else {
+                    $actions[] = ['type' => 'push_putblock', 'cb' => $bid, 'label' => $blkLabel, 'start' => $start, 'end' => $end, 'reason' => $reason,
+                        'rooms' => array_values(array_diff($roomIds, $removedHere)), 'msg' => 'Keluarkan ' . $roomsTxt . ' dari blok di Cloudbeds'];
+                }
+            }
+        }
+
+        // Blok baru yang dibuat di sistem (setelah kirim diaktifkan) → blok di Cloudbeds
+        if ($push) {
+            $sinceRow = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_push_since'");
+            $since = (string)($sinceRow['setting_value'] ?? '');
+            if ($since !== '') {
+                $newLocal = $this->db->fetchAll(
+                    "SELECT rb.id, rb.block_start_date s, rb.block_end_date e, rb.block_reason, rb.notes, r.room_number
+                     FROM room_blocks rb JOIN rooms r ON r.id = rb.room_id
+                     WHERE rb.status = 'active' AND COALESCE(rb.block_code,'') NOT LIKE 'CB-%' AND COALESCE(rb.block_code,'') NOT LIKE 'ADFCB-%' AND rb.created_at >= ?
+                       AND rb.block_end_date > CURDATE() AND rb.block_start_date <= ? AND rb.block_end_date > ?",
+                    [$since, $to, $from]
+                ) ?: [];
+                $cbRooms = $newLocal ? $this->cbRoomsByNo() : [];
+                foreach ($newLocal as $nb) {
+                    $no = preg_match('/\d{2,4}/', (string)$nb['room_number'], $mm) ? $mm[0] : (string)$nb['room_number'];
+                    $cr = $cbRooms[$no] ?? null;
+                    $lbl = 'Blok sistem Room ' . $nb['room_number'] . ' · ' . $nb['s'] . ' → ' . $nb['e'];
+                    if (!$cr) {
+                        $actions[] = ['type' => 'warn', 'cb' => '-', 'label' => $lbl, 'msg' => 'Room ' . $nb['room_number'] . ' tidak ditemukan di Cloudbeds — blok tidak dikirim.'];
+                        continue;
+                    }
+                    $why = trim(str_replace('_', ' ', (string)$nb['block_reason']) . ($nb['notes'] ? ' - ' . $nb['notes'] : ''));
+                    $actions[] = ['type' => 'push_newblock', 'cb' => '-', 'label' => $lbl, 'block_id' => (int)$nb['id'], 'cb_room' => $cr, 'start' => $nb['s'], 'end' => $nb['e'],
+                        'reason' => mb_substr('ADF: ' . ($why ?: 'block'), 0, 100), 'msg' => 'Kirim blok ke Cloudbeds: Room ' . $nb['room_number'] . ' (' . self::nightsLabel($nb['s'], $nb['e']) . ')'];
+                }
             }
         }
 
@@ -564,7 +626,7 @@ class CloudbedsSync
         if (!$plan['ok']) {
             return $plan + ['done' => []];
         }
-        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'errors' => []];
+        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'errors' => []];
         // Kolom direct_amount (Hotel Collect) dibuat sebelum transaksi: ALTER di dalam transaksi = implicit commit
         try {
             require_once __DIR__ . '/BookingSourceHelper.php';
@@ -590,6 +652,21 @@ class CloudbedsSync
                         if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak status ' . $stp . ': ' . $r['detail']);
                     }
                     $done['push_status']++;
+                } elseif ($a['type'] === 'push_delblock') {
+                    $r = $this->cb->send('DELETE', 'deleteRoomBlock', ['roomBlockID' => $a['cb']]);
+                    if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak hapus blok: ' . $r['detail'] . (in_array($r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete" di API key)' : ''));
+                    $done['push_block']++;
+                } elseif ($a['type'] === 'push_putblock') {
+                    $r = $this->cb->send('PUT', 'putRoomBlock', ['roomBlockID' => $a['cb'], 'startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'rooms' => $a['rooms']]);
+                    if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak ubah blok: ' . $r['detail']);
+                    $done['push_block']++;
+                } elseif ($a['type'] === 'push_newblock') {
+                    $r = $this->cb->send('POST', 'postRoomBlock', ['startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'rooms' => [$a['cb_room']['room_id']]]);
+                    if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak blok baru: ' . $r['detail']);
+                    $newId = (string)($r['raw']['roomBlockID'] ?? ($r['data']['roomBlockID'] ?? ''));
+                    // Kode CB- agar sinkron masuk mengenali blok ini sebagai pasangan; bila ID tidak terbaca, ADFCB- agar tidak dikirim ulang
+                    $this->db->query("UPDATE room_blocks SET block_code = ? WHERE id = ?", [$newId !== '' ? substr('CB-' . $newId . '-' . $a['cb_room']['room_id'], 0, 40) : 'ADFCB-' . $a['block_id'], $a['block_id']]);
+                    $done['push_block']++;
                 } elseif ($a['type'] === 'push_create') {
                     $this->pushCreate($a);
                     $done['push_create']++;

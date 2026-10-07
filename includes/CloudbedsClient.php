@@ -278,13 +278,15 @@ class CloudbedsClient
         if ($this->propertyId() !== '' && !isset($params['propertyID'])) {
             $params['propertyID'] = $this->propertyId();
         }
-        $ch = curl_init($this->baseUrl() . '/' . ltrim($endpoint, '/'));
+        // DELETE: parameter di URL; POST/PUT: form body
+        $isDelete = strtoupper($method) === 'DELETE';
+        $ch = curl_init($this->baseUrl() . '/' . ltrim($endpoint, '/') . ($isDelete ? '?' . http_build_query($params) : ''));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 30,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_CUSTOMREQUEST => strtoupper($method),
-            CURLOPT_POSTFIELDS => http_build_query($params),
+            CURLOPT_POSTFIELDS => $isDelete ? '' : http_build_query($params),
             CURLOPT_HTTPHEADER => ['x-api-key: ' . $key, 'Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
         ]);
         $body = curl_exec($ch);
