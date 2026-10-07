@@ -1145,6 +1145,11 @@ if ($action === 'leave_submit') {
 }
 
 if ($action === 'leave_history') {
+    // Reset bulanan: cuti yang berakhir sebelum bulan ini dihapus
+    try {
+        $pdo->exec("DELETE FROM leave_requests WHERE end_date < DATE_FORMAT(CURDATE(), '%Y-%m-01')");
+    } catch (Exception $e) {
+    }
     $rows = $db->fetchAll("SELECT * FROM leave_requests WHERE employee_id = ? ORDER BY created_at DESC LIMIT 50", [$empId]) ?: [];
     // Count stats
     $year = date('Y');

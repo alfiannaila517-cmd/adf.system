@@ -1490,6 +1490,8 @@
         `approved_by` VARCHAR(100), `approved_at` DATETIME, `admin_notes` TEXT, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_emp (employee_id), INDEX idx_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                        // Reset bulanan: cuti yang berakhir sebelum bulan ini dihapus (absensi karyawan tetap tersimpan)
+                        $_pdo->exec("DELETE FROM leave_requests WHERE end_date < DATE_FORMAT(CURDATE(), '%Y-%m-01')");
                         $leaveRequests = $db->fetchAll("SELECT lr.*, pe.full_name, pe.employee_code FROM leave_requests lr LEFT JOIN payroll_employees pe ON pe.id = lr.employee_id ORDER BY FIELD(lr.status,'pending','approved','rejected'), lr.created_at DESC LIMIT 100") ?: [];
                     } catch (Exception $e) {
                     }
