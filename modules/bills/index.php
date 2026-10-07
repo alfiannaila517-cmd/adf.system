@@ -29,7 +29,8 @@ $billPdfMeta = [
 ];
 
 // Gudang Nasita monthly bill tab is only relevant for businesses that receive stock transfers from Gudang Nasita
-$showGudangBillTab = in_array($bizConfig['business_id'] ?? '', ['bens-cafe', 'eaat-meet', 'narayana-hotel'], true);
+// Tab Gudang dihapus dari halaman ini: tagihan gudang dikelola di menu sidebar "Tagihan Bisnis & Gudang".
+$showGudangBillTab = false;
 // Bens Cafe / Eat & Meet have no car rental division, so Driver/Motor/Trip tabs don't apply to them
 $hideDriverTabs = in_array($bizConfig['business_id'] ?? '', ['bens-cafe', 'eaat-meet'], true);
 
@@ -1562,7 +1563,7 @@ include '../../includes/header.php';
             <div class="page-icon">🧾</div>
             <div>
                 <h1>Tagihan</h1>
-                <p>Tagihan mitra (driver, motor, trip), manual, bulanan &amp; gudang</p>
+                <p>Tagihan mitra (driver, motor, trip), manual &amp; bulanan</p>
             </div>
         </div>
     </div>
@@ -1596,7 +1597,7 @@ include '../../includes/header.php';
                     <button class="category-btn" data-cat="motor" onclick="switchCategory('motor')"><span class="ico">🏍️</span> Motor</button>
                     <button class="category-btn" data-cat="trip" onclick="switchCategory('trip')"><span class="ico">🧭</span> Trip</button>
                 <?php endif; ?>
-                <button class="category-btn" data-cat="manual" onclick="switchCategory('manual')"><span class="ico">🧾</span> Manual</button>
+                <button class="category-btn<?php echo $hideDriverTabs ? ' active' : ''; ?>" data-cat="manual" onclick="switchCategory('manual')"><span class="ico">🧾</span> Manual</button>
                 <button class="category-btn" data-cat="bulanan" onclick="switchCategory('bulanan')"><span class="ico">🔁</span> Bulanan</button>
                 <?php if ($showGudangBillTab): ?>
                     <button class="category-btn <?php echo $hideDriverTabs ? 'active' : ''; ?>" data-cat="gudang" onclick="switchCategory('gudang')"><span class="ico">📦</span> Gudang</button>
@@ -1928,7 +1929,7 @@ include '../../includes/header.php';
     });
 
     let currentTab = 'all';
-    let currentCategory = <?php echo json_encode($hideDriverTabs ? 'gudang' : 'driver'); ?>;
+    let currentCategory = <?php echo json_encode($hideDriverTabs ? 'manual' : 'driver'); ?>;
 
     // Reload whichever category is currently active when the month filter changes
     function onMonthChange() {
@@ -4257,8 +4258,8 @@ include '../../includes/header.php';
     window.addEventListener('load', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const reqCat = urlParams.get('cat');
-        const allowed = ['driver', 'trip', 'manual', 'bulanan', 'motor', 'gudang'];
-        const defaultCat = <?php echo json_encode($hideDriverTabs ? 'gudang' : 'driver'); ?>;
+        const allowed = ['driver', 'trip', 'manual', 'bulanan', 'motor'];
+        const defaultCat = <?php echo json_encode($hideDriverTabs ? 'manual' : 'driver'); ?>;
         switchCategory(allowed.includes(reqCat) ? reqCat : defaultCat);
     });
 </script>
