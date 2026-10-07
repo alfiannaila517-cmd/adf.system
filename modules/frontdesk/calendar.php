@@ -1611,9 +1611,24 @@ include '../../includes/header.php';
     }
 
     /* Selama drag: balok tidak menghalangi sel di bawahnya, sel tidak dianimasi */
-    body.bar-dragging .booking-bar-container { pointer-events: none !important; }
+    body.bar-dragging .booking-bar-container,
+    body.bar-dragging .booking-bar-container *,
+    .dnd-float, .dnd-float * { pointer-events: none !important; }
     body.bar-dragging .grid-date-cell { transition: none !important; }
 
+    /* Balok melayang mengikuti mouse saat digeser */
+    .booking-bar-container.dnd-float {
+        position: fixed !important;
+        z-index: 100000 !important;
+        pointer-events: none !important;
+        will-change: transform;
+        opacity: .92;
+        filter: drop-shadow(0 10px 18px rgba(15, 23, 42, .35));
+        transition: none !important;
+        cursor: grabbing;
+    }
+    .booking-bar-container.dnd-float .booking-bar { cursor: grabbing; transform: rotate(-1deg); }
+    body.bar-dragging, body.bar-dragging * { cursor: grabbing !important; user-select: none !important; }
     /* Bayangan tujuan: posisi & panjang sama seperti balok (mulai tengah sel check-in) */
     .dnd-ghost {
         position: absolute;
@@ -9922,13 +9937,21 @@ include '../../includes/header.php';
 </div>
 <script>
     // ===== DRAG & DROP BOOKING BARS =====
-    // Bayangan balok "menempel" ke grid: mulai dari TENGAH sel check-in tujuan, panjang = jumlah malam
-    // (sama seperti balok asli). DOM hanya diperbarui saat posisi tujuan berubah agar geser tetap ringan.
+    // Drag berbasis pointer (bukan HTML5 drag): balok melayang mengikuti mouse tiap frame lewat transform
+    // (tanpa layout ulang), sedangkan bayangan tujuan menempel ke grid — mulai tengah sel check-in, panjang
+    // = jumlah malam — dan hanya diperbarui saat sel tujuan berganti. Klik biasa tetap membuka detail booking.
     (function() {
+        const DRAG_THRESHOLD = 5;
+        let pending = null; // pointerdown, belum bergerak cukup jauh
         let drag = null;
         let ghost = null;
-        const emptyImg = new Image();
-        emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        let raf = 0;
+        let lastX = 0, lastY = 0;
+
+        // Matikan drag bawaan browser pada balok
+        document.addEventListener('dragstart', e => {
+            if (e.target.closest && e.target.closest('.booking-bar-container')) e.preventDefault();
+        }, true);
 
         function ensureGhost() {
             if (!ghost) {
@@ -9938,127 +9961,135 @@ include '../../includes/header.php';
             }
             return ghost;
         }
-
-        function hideGhost() {
-            if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
-        }
-
-        // Bentrok dengan balok lain di kamar tujuan (data diambil sekali saat mulai drag)
-        function hasClash(roomId, ci, co) {
-            return drag.bars.some(x => x.roomId === roomId && x.ci < co && x.co > ci);
-        }
-
-        function fmtShort(ymd) {
+        const hideGhost = () => { if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost); };
+        const hasClash = (roomId, ci, co) => drag.bars.some(x => x.roomId === roomId && x.ci < co && x.co > ci);
+        const fmtShort = ymd => {
             const p = ymd.split('-').map(Number);
             return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-        }
+        };
+        const cellAt = (x, y) => {
+            const el = document.elementFromPoint(x, y);
+            const c = el && el.closest ? el.closest('.grid-date-cell') : null;
+            return c && c.dataset.date && c.dataset.roomId ? c : null;
+        };
 
-        // Tujuan dari sel di bawah kursor → {roomId, ci, co}
         function targetOf(cell) {
-            const roomId = String(cell.dataset.roomId || '');
+            const roomId = String(cell.dataset.roomId);
             if (drag.inHouse) return { roomId, ci: drag.checkIn, co: drag.checkOut };
             const ci = mvAddDays(cell.dataset.date, -drag.grabOffset);
             return { roomId, ci, co: mvAddDays(ci, drag.nights) };
         }
 
-        function placeGhost(cell, t) {
+        function placeGhost(cell) {
+            const t = targetOf(cell);
+            drag.target = t;
             const g = ensureGhost();
-            const w = cell.offsetWidth || 110;
-            // Sel check-in tujuan di baris yang sama; bila di luar layar, hitung dari sel yang disorot
+            const w = drag.cellW;
             const ciCell = document.querySelector('.grid-date-cell[data-room-id="' + t.roomId + '"][data-date="' + t.ci + '"]');
             const host = ciCell || cell;
             const shift = ciCell ? 0 : mvDaysBetween(cell.dataset.date, t.ci);
+            const same = t.roomId === drag.roomId && t.ci === drag.checkIn;
+            const past = !drag.inHouse && t.ci < MV_TODAY;
+            const bad = !same && (past || hasClash(t.roomId, t.ci, t.co));
             g.style.left = 'calc(50% + ' + (shift * w) + 'px)';
             g.style.width = (drag.nights * w - 6) + 'px';
-            const same = t.roomId === drag.roomId && t.ci === drag.checkIn;
-            const bad = !same && (hasClash(t.roomId, t.ci, t.co) || (!drag.inHouse && t.ci < MV_TODAY));
-            g.classList.toggle('bad', bad);
-            g.classList.toggle('same', same);
-            g.querySelector('.dnd-ghost-t').textContent = drag.guest;
-            g.querySelector('.dnd-ghost-d').textContent = bad ? (t.ci < MV_TODAY && !drag.inHouse ? 'Tanggal lewat' : 'Bentrok') : fmtShort(t.ci) + ' – ' + fmtShort(t.co);
+            g.className = 'dnd-ghost' + (bad ? ' bad' : '') + (same ? ' same' : '');
+            g.firstChild.textContent = drag.guest;
+            g.lastChild.textContent = bad ? (past ? 'Tanggal lewat' : 'Bentrok') : fmtShort(t.ci) + ' – ' + fmtShort(t.co);
             if (g.parentNode !== host) host.appendChild(g);
             drag.bad = bad;
+            drag.same = same;
         }
 
-        document.addEventListener('dragstart', function(e) {
-            const container = e.target.closest('.booking-bar-container[draggable="true"]');
-            if (!container) return;
-            const nights = parseInt(container.dataset.nights, 10) || 1;
-            let grabOffset = 0;
-            const under = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList && el.classList.contains('grid-date-cell') && el.dataset.date);
-            if (under) grabOffset = Math.min(nights - 1, Math.max(0, mvDaysBetween(container.dataset.checkIn, under.dataset.date)));
+        function frame() {
+            raf = 0;
+            if (!drag) return;
+            drag.float.style.transform = 'translate3d(' + (lastX - drag.dx) + 'px,' + (lastY - drag.dy) + 'px,0)';
+            // Geser otomatis di tepi area kalender
+            const r = drag.scRect;
+            let scrolled = false;
+            if (drag.sc && r) {
+                if (lastX > r.right - 50) { drag.sc.scrollLeft += 14; scrolled = true; }
+                else if (lastX < r.left + 130 && drag.sc.scrollLeft > 0) { drag.sc.scrollLeft -= 14; scrolled = true; }
+            }
+            const cell = cellAt(lastX, lastY);
+            if (cell) {
+                const key = cell.dataset.roomId + '|' + cell.dataset.date;
+                if (key !== drag.key) {
+                    drag.key = key;
+                    placeGhost(cell);
+                }
+            }
+            if (scrolled) raf = requestAnimationFrame(frame); // terus bergulir selama kursor di tepi
+        }
+
+        function begin(p) {
+            const c = p.container;
+            const r = c.getBoundingClientRect();
+            const nights = parseInt(c.dataset.nights, 10) || 1;
+            const float = c.cloneNode(true);
+            float.removeAttribute('draggable');
+            float.removeAttribute('data-booking-id');
+            float.removeAttribute('id');
+            float.classList.add('dnd-float');
+            float.style.width = r.width + 'px';
+            float.style.left = '0px';
+            float.style.top = '0px';
+            document.body.appendChild(float);
+            const sc = document.getElementById('drag-container');
+            const anyCell = document.querySelector('.grid-date-cell');
             drag = {
-                el: container,
-                bookingId: container.dataset.bookingId,
-                roomId: String(container.dataset.roomId),
-                checkIn: container.dataset.checkIn,
-                checkOut: container.dataset.checkOut,
-                status: container.dataset.status,
-                inHouse: container.dataset.status === 'checked_in',
-                nights: nights,
-                guest: container.dataset.guest,
-                grabOffset: grabOffset,
+                el: c,
+                float,
+                dx: p.x - r.left,
+                dy: p.y - r.top,
+                bookingId: c.dataset.bookingId,
+                roomId: String(c.dataset.roomId),
+                checkIn: c.dataset.checkIn,
+                checkOut: c.dataset.checkOut,
+                status: c.dataset.status,
+                inHouse: c.dataset.status === 'checked_in',
+                nights,
+                guest: c.dataset.guest,
+                grabOffset: Math.min(nights - 1, Math.max(0, p.grabOffset)),
+                cellW: anyCell ? anyCell.offsetWidth : 110,
+                sc,
+                scRect: sc ? sc.getBoundingClientRect() : null,
                 key: '',
                 bad: false,
+                same: true,
+                target: null,
                 bars: Array.from(document.querySelectorAll('.booking-bar-container[data-booking-id]'))
-                    .filter(x => x !== container && x.dataset.status !== 'cancelled' && x.dataset.status !== 'checked_out')
+                    .filter(x => x !== c && x.dataset.status !== 'cancelled' && x.dataset.status !== 'checked_out')
                     .map(x => ({ roomId: String(x.dataset.roomId), ci: x.dataset.checkIn, co: x.dataset.checkOut }))
             };
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', drag.bookingId);
-            e.dataTransfer.setDragImage(emptyImg, 0, 0); // hanya bayangan yang menempel grid yang terlihat
+            c.classList.add('dragging');
             document.body.classList.add('bar-dragging');
-            setTimeout(() => drag && drag.el.classList.add('dragging'), 0);
-        });
+        }
 
-        document.addEventListener('dragend', function() {
-            if (drag) drag.el.classList.remove('dragging');
+        function end(commit) {
+            const d = drag;
+            drag = null;
+            pending = null;
+            if (raf) cancelAnimationFrame(raf), raf = 0;
             document.body.classList.remove('bar-dragging');
             hideGhost();
-            drag = null;
-        });
-
-        document.addEventListener('dragover', function(e) {
-            if (!drag) return;
-            const cell = e.target.closest && e.target.closest('.grid-date-cell');
-            if (!cell || !cell.dataset.date || !cell.dataset.roomId) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            // Geser otomatis saat kursor di tepi area kalender
-            const sc = document.getElementById('drag-container');
-            if (sc) {
-                const r = sc.getBoundingClientRect();
-                if (e.clientX > r.right - 60) sc.scrollLeft += 18;
-                else if (e.clientX < r.left + 140) sc.scrollLeft -= 18;
-            }
-            const key = cell.dataset.roomId + '|' + cell.dataset.date;
-            if (key === drag.key) return; // posisi sama → tidak ada kerja DOM
-            drag.key = key;
-            placeGhost(cell, targetOf(cell));
-        });
-
-        document.addEventListener('drop', function(e) {
-            if (!drag) return;
-            const cell = e.target.closest && e.target.closest('.grid-date-cell');
-            if (!cell || !cell.dataset.date || !cell.dataset.roomId) return;
-            e.preventDefault();
-            const d = drag;
-            const t = targetOf(cell);
-            hideGhost();
-            if (t.roomId === d.roomId && t.ci === d.checkIn) {
-                if (d.inHouse && cell.dataset.date !== d.checkIn) {
+            if (!d) return;
+            d.el.classList.remove('dragging');
+            d.float.remove();
+            // Klik yang muncul setelah drag jangan membuka detail booking
+            const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
+            window.addEventListener('click', swallow, true);
+            setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+            if (!commit || !d.target || d.same) {
+                if (commit && d.inHouse && d.target && d.target.roomId === d.roomId && d.key && d.key.split('|')[1] !== d.checkIn) {
                     mvNotice('Tamu sudah check-in: tanggal tidak bisa digeser. Seret ke baris kamar lain untuk pindah kamar, atau pakai Extend untuk menambah malam.', 'warn');
                 }
                 return;
             }
-            if (!d.inHouse && t.ci < MV_TODAY) {
-                mvNotice('Reservasi tidak bisa dipindah ke tanggal yang sudah lewat.', 'warn');
-                return;
-            }
-            if (hasClash(t.roomId, t.ci, t.co)) {
-                mvNotice('Kamar tujuan sudah terisi pada tanggal tersebut.', 'warn');
-                return;
-            }
+            const t = d.target;
+            if (!d.inHouse && t.ci < MV_TODAY) return mvNotice('Reservasi tidak bisa dipindah ke tanggal yang sudah lewat.', 'warn');
+            if (hasClashFor(d, t)) return mvNotice('Kamar tujuan sudah terisi pada tanggal tersebut.', 'warn');
             openMoveModal({
                 bookingId: d.bookingId,
                 guest: d.guest,
@@ -10070,7 +10101,38 @@ include '../../includes/header.php';
                 newCheckIn: t.ci,
                 newCheckOut: t.co
             });
+        }
+        const hasClashFor = (d, t) => d.bars.some(x => x.roomId === t.roomId && x.ci < t.co && x.co > t.ci);
+
+        document.addEventListener('pointerdown', function(e) {
+            if (e.button !== 0 || e.pointerType === 'touch') return; // sentuh: tetap geser kalender
+            const c = e.target.closest('.booking-bar-container[draggable="true"]');
+            if (!c || e.target.closest('button')) return;
+            let grabOffset = 0;
+            const under = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList && el.classList.contains('grid-date-cell') && el.dataset.date);
+            if (under) grabOffset = mvDaysBetween(c.dataset.checkIn, under.dataset.date);
+            pending = { container: c, x: e.clientX, y: e.clientY, grabOffset };
         });
+
+        window.addEventListener('pointermove', function(e) {
+            if (pending && !drag) {
+                if (Math.abs(e.clientX - pending.x) + Math.abs(e.clientY - pending.y) < DRAG_THRESHOLD) return;
+                begin(pending);
+            }
+            if (!drag) return;
+            e.preventDefault();
+            lastX = e.clientX;
+            lastY = e.clientY;
+            if (!raf) raf = requestAnimationFrame(frame);
+        }, { passive: false });
+
+        window.addEventListener('pointerup', function() {
+            if (drag) end(true);
+            pending = null;
+        });
+        window.addEventListener('pointercancel', () => end(false));
+        window.addEventListener('keydown', e => { if (e.key === 'Escape' && drag) end(false); });
+        window.addEventListener('blur', () => { if (drag) end(false); });
     })();
     // ===== PINDAH KAMAR / UPGRADE / DOWNGRADE =====
     const MV_TODAY = '<?php echo date('Y-m-d'); ?>';
