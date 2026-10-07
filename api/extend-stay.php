@@ -56,12 +56,13 @@ try {
     }
 
     // Get current booking
-    $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ? AND status = 'checked_in'");
+    // In-house maupun reservasi yang belum datang bisa diperpanjang
+    $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ? AND status IN ('checked_in', 'confirmed', 'pending')");
     $stmt->execute([$bookingId]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$booking) {
-        throw new Exception('Booking not found or not checked-in');
+        throw new Exception('Booking tidak ditemukan atau sudah check-out/dibatalkan');
     }
 
     // Calculate new checkout
@@ -83,7 +84,18 @@ try {
     $conflict = $stmt->fetchColumn();
 
     if ($conflict > 0) {
-        throw new Exception('Room is not available for the extended dates. Another booking exists.');
+        throw new Exception('Kamar sudah dipesan tamu lain pada tanggal perpanjangan.');
+    }
+
+    // Kamar yang diblok (maintenance dll) pada tanggal perpanjangan tidak boleh dipakai
+    try {
+        $blk = $conn->prepare("SELECT COUNT(*) FROM room_blocks WHERE room_id = ? AND status = 'active' AND block_start_date < ? AND block_end_date > ?");
+        $blk->execute([$booking['room_id'], $newCheckoutStr, $currentCheckout->format('Y-m-d')]);
+        if ((int)$blk->fetchColumn() > 0) {
+            throw new Exception('Kamar sedang diblok pada tanggal perpanjangan.');
+        }
+    } catch (PDOException $e) {
+        // tabel room_blocks belum ada
     }
 
     // Use room_price from booking
@@ -93,7 +105,17 @@ try {
     $additionalPrice = $roomPrice * $extraNights;
     $newTotalPrice = floatval($booking['total_price']) + $additionalPrice;
     $discount = floatval($booking['discount'] ?? 0);
-    $finalPrice = $newTotalPrice - $discount;
+
+    // Extras (extra bed, breakfast, dll) tetap bagian dari tagihan
+    $extrasTotal = 0.0;
+    try {
+        $ex = $conn->prepare("SELECT COALESCE(SUM(total_price), 0) FROM booking_extras WHERE booking_id = ?");
+        $ex->execute([$bookingId]);
+        $extrasTotal = (float)$ex->fetchColumn();
+    } catch (PDOException $e) {
+        // tabel booking_extras belum ada
+    }
+    $finalPrice = max(0, $newTotalPrice - $discount) + $extrasTotal;
 
     // Update booking
     $stmt = $conn->prepare("
@@ -117,7 +139,7 @@ try {
 
     echo json_encode([
         'success' => true,
-        'message' => "Stay extended by {$extraNights} night(s). New checkout: " . $newCheckout->format('d M Y'),
+        'message' => "Menginap diperpanjang {$extraNights} malam. Check-out baru: " . $newCheckout->format('d M Y'),
         'data' => [
             'booking_id' => $bookingId,
             'new_checkout' => $newCheckoutStr,

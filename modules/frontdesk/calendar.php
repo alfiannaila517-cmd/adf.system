@@ -3754,11 +3754,13 @@ include '../../includes/header.php';
         }
         if (booking.status === 'confirmed' || booking.status === 'pending') {
             actions += spBtn('primary', 'in', 'Check-in', 'quickViewCheckIn()');
+            actions += spBtn('', 'move', 'Pindah', 'quickViewMoveRoom()');
             actions += spBtn('', 'edit', 'Edit', editCall);
             actions += spBtn('danger', 'del', 'Delete', 'quickViewDeleteBooking()');
         } else if (booking.status === 'checked_in') {
             actions += spBtn('danger', 'out', 'Check-out', 'quickViewCheckOut()');
-            actions += spBtn('', 'move', 'Move', 'quickViewMoveRoom()');
+            actions += spBtn('', 'move', 'Pindah', 'quickViewMoveRoom()');
+            actions += spBtn('', 'in', 'Extend', 'closeBookingQuickView(); openExtendModal(' + booking.id + ', ' + JSON.stringify(booking.guest_name || '').replace(/"/g, '&quot;') + ", '" + String(booking.check_out_date).slice(0, 10) + "', 0)");
             actions += spBtn('', 'edit', 'Edit', editCall);
         } else if (booking.status === 'checked_out') {
             actions += spBtn('', 'edit', 'Edit', editCall);
@@ -4270,9 +4272,9 @@ include '../../includes/header.php';
             return;
         }
 
-        const booking = currentPaymentBooking;
-        alert('Move room feature untuk booking ' + booking.booking_code + ' segera hadir!');
-        // TODO: Implement move room modal
+        const b = currentPaymentBooking;
+        closeBookingQuickView();
+        openMoveModal({ bookingId: b.id, guest: b.guest_name, code: b.booking_code, status: b.status, roomId: b.room_id, checkIn: String(b.check_in_date).slice(0, 10), checkOut: String(b.check_out_date).slice(0, 10) });
     }
 
     window.openBookingPaymentModal = function openBookingPaymentModal() {
@@ -9612,6 +9614,119 @@ include '../../includes/header.php';
     }
 </style>
 
+<!-- PINDAH KAMAR / UPGRADE / DOWNGRADE -->
+<div id="moveRoomModal" class="mv-overlay" onclick="if(event.target===this)closeMoveModal()">
+    <div class="mv-modal">
+        <div class="mv-head">
+            <div class="mv-head-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+            <div class="mv-head-t"><strong>Pindah Kamar</strong><span id="mvSub">-</span></div>
+            <button type="button" class="mv-x" onclick="closeMoveModal()" aria-label="Tutup">&times;</button>
+        </div>
+        <div class="mv-body">
+            <div class="mv-rooms">
+                <div class="mv-from"><label>Dari</label><div id="mvFrom"></div></div>
+                <div class="mv-arrow">&rarr;</div>
+                <div class="mv-to"><label>Ke kamar</label><select id="mvRoom" onchange="mvChanged('room')"></select></div>
+            </div>
+            <div class="mv-grid">
+                <div><label>Check-in</label><input type="date" id="mvCheckIn" onchange="mvChanged('checkin')"></div>
+                <div><label>Check-out</label><input type="date" id="mvCheckOut" onchange="mvChanged('dates')"></div>
+            </div>
+            <div class="mv-eff" id="mvEffWrap">
+                <label>Pindah mulai tanggal</label>
+                <input type="date" id="mvEff" onchange="mvChanged('eff')">
+                <small>Malam sebelum tanggal ini tetap dihitung harga kamar lama.</small>
+            </div>
+            <div class="mv-price">
+                <div class="mv-price-top"><label>Harga per malam</label><span class="mv-kind same" id="mvKind">-</span></div>
+                <div class="mv-price-in"><span>Rp</span><input type="number" id="mvPrice" min="0" step="1000" oninput="mvChanged('price')"></div>
+                <small id="mvPriceHint"></small>
+                <button type="button" class="mv-link" id="mvPriceReset" onclick="mvResetPrice()" style="display:none;">Pakai harga otomatis</button>
+            </div>
+            <div class="mv-err" id="mvErr" style="display:none;"></div>
+            <div class="mv-sum" id="mvSummary" style="display:none;"></div>
+        </div>
+        <div class="mv-foot">
+            <button type="button" class="mv-btn" onclick="closeMoveModal()">Batal</button>
+            <button type="button" class="mv-btn mv-btn-primary" id="mvSave" onclick="mvSubmit()" disabled>Simpan</button>
+        </div>
+    </div>
+</div>
+<style>
+    .mv-overlay { position: fixed; inset: 0; z-index: 100000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .55); backdrop-filter: blur(3px); }
+    .mv-overlay.active { display: flex; }
+    .mv-modal { width: min(480px, 100%); max-height: calc(100vh - 32px); overflow: auto; border-radius: 18px; background: #fff; box-shadow: 0 30px 70px rgba(0, 0, 0, .35); animation: mvIn .18s ease-out; }
+    @keyframes mvIn { from { transform: translateY(8px) scale(.98); opacity: 0; } }
+    .mv-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; }
+    .mv-head-ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .3); }
+    .mv-head-ic svg { width: 18px; height: 18px; }
+    .mv-head-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .mv-head-t strong { font-size: 1rem; color: #fff; }
+    .mv-head-t span { font-size: .74rem; color: rgba(255, 255, 255, .85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mv-x { width: 30px; height: 30px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .14); color: #fff; font-size: 1.2rem; cursor: pointer; }
+    .mv-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .mv-body label { display: block; font-size: .64rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+    .mv-body input, .mv-body select { width: 100%; height: 38px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; font-size: .86rem; font-weight: 600; color: #0f172a; box-sizing: border-box; }
+    .mv-body input:focus, .mv-body select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); background: #fff; }
+    .mv-body input:disabled { opacity: .6; }
+    .mv-rooms { display: grid; grid-template-columns: 1fr auto 1.4fr; gap: 8px; align-items: end; }
+    #mvFrom { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 10px; background: #eff6ff; border: 1px solid #bfdbfe; }
+    #mvFrom b { font-size: .95rem; color: #1e3a8a; }
+    #mvFrom span { font-size: .72rem; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mv-arrow { height: 38px; display: grid; place-items: center; color: #94a3b8; font-size: 1.1rem; }
+    .mv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mv-eff { padding: 10px 12px; border-radius: 12px; background: #fffbeb; border: 1px solid #fde68a; }
+    .mv-eff small, .mv-price small { display: block; margin-top: 4px; font-size: .7rem; color: #64748b; }
+    .mv-price { padding: 10px 12px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; }
+    .mv-price-top { display: flex; align-items: center; justify-content: space-between; }
+    .mv-price-in { display: flex; align-items: center; gap: 6px; }
+    .mv-price-in span { font-weight: 800; color: #64748b; font-size: .86rem; }
+    .mv-price-in input { font-size: 1.05rem; font-weight: 800; background: #fff; }
+    .mv-kind { padding: 3px 10px; border-radius: 999px; font-size: .64rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .mv-kind.up { background: #dcfce7; color: #166534; }
+    .mv-kind.down { background: #fef3c7; color: #92400e; }
+    .mv-kind.same { background: #dbeafe; color: #1e40af; }
+    .mv-link { margin-top: 4px; padding: 0; border: 0; background: none; color: #2563eb; font-size: .72rem; font-weight: 700; cursor: pointer; }
+    .mv-err { padding: 9px 12px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: .78rem; font-weight: 600; }
+    .mv-sum { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+    .mv-sum > div { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; font-size: .8rem; border-bottom: 1px solid #f1f5f9; }
+    .mv-sum > div:last-child { border-bottom: 0; }
+    .mv-sum span { color: #64748b; }
+    .mv-sum b { color: #0f172a; text-align: right; }
+    .mv-sum .tot { background: #eff6ff; }
+    .mv-sum .tot b { color: #1e3a8a; font-size: .92rem; }
+    .mv-sum em { font-style: normal; font-size: .72rem; padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+    .mv-sum em.plus { background: #fee2e2; color: #b91c1c; }
+    .mv-sum em.minus { background: #dcfce7; color: #166534; }
+    .mv-sum .neg { color: #059669; }
+    .mv-sum .due { color: #dc2626; }
+    .mv-sum .paid { color: #059669; }
+    .mv-foot { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #f1f5f9; }
+    .mv-btn { flex: 1; height: 40px; border-radius: 10px; border: 1px solid #e2e8f0; background: #f1f5f9; color: #334155; font-weight: 700; font-size: .86rem; cursor: pointer; }
+    .mv-btn-primary { border: 0; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; }
+    .mv-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .mv-notice { position: fixed; inset: 0; z-index: 100001; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+    .mv-notice.open { display: flex; }
+    .mv-notice-box { width: min(340px, 100%); padding: 22px 20px 16px; border-radius: 16px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); animation: mvIn .18s ease-out; }
+    .mv-notice-ic { width: 54px; height: 54px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; }
+    .mv-notice-ic svg { width: 28px; height: 28px; }
+    .mv-notice-ic.ok { background: #dcfce7; color: #16a34a; }
+    .mv-notice-ic.warn { background: #fef3c7; color: #b45309; }
+    .mv-notice-ic.err { background: #fee2e2; color: #dc2626; }
+    .mv-notice-msg { font-size: .86rem; font-weight: 600; color: #0f172a; line-height: 1.5; margin-bottom: 14px; }
+    .mv-notice-box .mv-btn { width: 100%; }
+    [data-theme="dark"] .mv-modal, [data-theme="dark"] .mv-notice-box { background: #111a2e; }
+    [data-theme="dark"] .mv-body input, [data-theme="dark"] .mv-body select { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .12); color: #e2e8f0; }
+    [data-theme="dark"] .mv-price, [data-theme="dark"] .mv-sum { background: rgba(255, 255, 255, .03); border-color: rgba(255, 255, 255, .1); }
+    [data-theme="dark"] .mv-sum > div { border-color: rgba(255, 255, 255, .06); }
+    [data-theme="dark"] .mv-sum b, [data-theme="dark"] .mv-notice-msg { color: #e2e8f0; }
+    [data-theme="dark"] .mv-sum .tot { background: rgba(37, 99, 235, .12); }
+    [data-theme="dark"] #mvFrom { background: rgba(37, 99, 235, .12); border-color: rgba(37, 99, 235, .35); }
+    [data-theme="dark"] #mvFrom b { color: #93c5fd; }
+    [data-theme="dark"] .mv-eff { background: rgba(245, 158, 11, .08); border-color: rgba(245, 158, 11, .3); }
+    [data-theme="dark"] .mv-btn:not(.mv-btn-primary) { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); color: #cbd5e1; }
+    @media (max-width: 480px) { .mv-rooms { grid-template-columns: 1fr; } .mv-arrow { display: none; } }
+</style>
 <!-- EXTEND STAY MODAL -->
 <div id="extendModal" class="extend-modal-overlay" onclick="if(event.target===this)closeExtendModal()">
     <div class="extend-modal">
@@ -9777,39 +9892,34 @@ include '../../includes/header.php';
     // ===== DRAG & DROP BOOKING BARS =====
     (function() {
         let dragData = null;
+        const clearDrag = () => document.querySelectorAll('.grid-date-cell.drag-over').forEach(c => c.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid'));
 
-        // Setup drag events on booking bars
         document.addEventListener('dragstart', function(e) {
             const container = e.target.closest('.booking-bar-container[draggable="true"]');
             if (!container) return;
-
+            // Hari ke-berapa dari balok yang dipegang, agar tanggal jatuh sesuai posisi pegangan
+            let grabOffset = 0;
+            const under = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList && el.classList.contains('grid-date-cell') && el.dataset.date);
+            if (under) grabOffset = Math.max(0, mvDaysBetween(container.dataset.checkIn, under.dataset.date));
             dragData = {
                 bookingId: container.dataset.bookingId,
                 roomId: container.dataset.roomId,
                 checkIn: container.dataset.checkIn,
                 checkOut: container.dataset.checkOut,
-                nights: parseInt(container.dataset.nights),
-                guest: container.dataset.guest
+                status: container.dataset.status,
+                nights: parseInt(container.dataset.nights, 10) || 1,
+                guest: container.dataset.guest,
+                grabOffset: Math.min(grabOffset, (parseInt(container.dataset.nights, 10) || 1) - 1)
             };
-
             container.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', dragData.bookingId);
-
-            // Show drop zones
-            document.querySelectorAll('.grid-date-cell').forEach(cell => {
-                cell.style.transition = 'background 0.15s ease';
-            });
         });
 
         document.addEventListener('dragend', function(e) {
             const container = e.target.closest('.booking-bar-container');
             if (container) container.classList.remove('dragging');
-
-            // Clean up all drag styling
-            document.querySelectorAll('.grid-date-cell').forEach(cell => {
-                cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
-            });
+            clearDrag();
             dragData = null;
         });
 
@@ -9818,99 +9928,241 @@ include '../../includes/header.php';
             if (!cell || !dragData) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-
-            // Highlight drop target
-            document.querySelectorAll('.grid-date-cell.drag-over').forEach(c => {
-                c.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
-            });
+            clearDrag();
             cell.classList.add('drag-over');
         });
 
         document.addEventListener('dragleave', function(e) {
             const cell = e.target.closest('.grid-date-cell');
-            if (cell) {
-                cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
-            }
+            if (cell) cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
         });
 
         document.addEventListener('drop', function(e) {
             const cell = e.target.closest('.grid-date-cell');
             if (!cell || !dragData) return;
             e.preventDefault();
-
-            const newDate = cell.dataset.date;
+            clearDrag();
+            const d = dragData;
+            const dropDate = cell.dataset.date;
             const newRoomId = cell.dataset.roomId;
+            if (!dropDate || !newRoomId) return;
 
-            if (!newDate || !newRoomId) return;
-
-            // Calculate new check-in and check-out
-            const newCheckIn = newDate;
-            const ciDate = new Date(newCheckIn);
-            ciDate.setDate(ciDate.getDate() + dragData.nights);
-            const newCheckOut = ciDate.toISOString().split('T')[0];
-
-            // Confirm move
-            const confirmMsg = `Pindahkan booking ${dragData.guest}?\n\nDari: ${dragData.checkIn} → ${dragData.checkOut}\nKe: ${newCheckIn} → ${newCheckOut}\nRoom: ${cell.dataset.roomNumber || 'Room ' + newRoomId}`;
-
-            if (!confirm(confirmMsg)) {
-                cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
+            let ci = mvAddDays(dropDate, -d.grabOffset);
+            let co = mvAddDays(ci, d.nights);
+            if (d.status === 'checked_in') {
+                // Tamu in-house: tanggal tetap, hanya kamar yang berpindah
+                ci = d.checkIn;
+                co = d.checkOut;
+                if (String(newRoomId) === String(d.roomId)) {
+                    mvNotice('Tamu sudah check-in: tanggal tidak bisa digeser. Seret ke baris kamar lain untuk pindah kamar, atau pakai Extend untuk menambah malam.', 'warn');
+                    return;
+                }
+            } else if (ci === d.checkIn && String(newRoomId) === String(d.roomId)) {
+                return; // tidak ada perubahan
+            } else if (ci < MV_TODAY) {
+                mvNotice('Reservasi tidak bisa dipindah ke tanggal yang sudah lewat.', 'warn');
                 return;
             }
-
-            // API call to move booking
-            const formData = new FormData();
-            formData.append('booking_id', dragData.bookingId);
-            formData.append('new_check_in', newCheckIn);
-            formData.append('new_check_out', newCheckOut);
-            formData.append('new_room_id', newRoomId);
-
-            fetch('../../api/move-booking.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(r => {
-                    if (!r.ok) {
-                        return r.text().then(text => {
-                            throw {
-                                status: r.status,
-                                statusText: r.statusText,
-                                body: text
-                            };
-                        });
-                    }
-                    return r.json().catch(err => {
-                        throw {
-                            parseError: true,
-                            message: 'Response bukan JSON',
-                            body: String(err)
-                        };
-                    });
-                })
-                .then(data => {
-                    if (data.success) {
-                        alert('✅ ' + data.message + '\n\nHarga baru: Rp ' + new Intl.NumberFormat('id-ID').format(data.data.final_price));
-                        saveScrollAndReload();
-                    } else {
-                        alert('❌ ' + data.message);
-                    }
-                })
-                .catch(err => {
-                    if (err.status) {
-                        console.error('API Error:', err);
-                        alert('❌ Error ' + err.status + ':\n' + err.body.substring(0, 300));
-                    } else if (err.parseError) {
-                        console.error('Parse Error:', err);
-                        alert('❌ Respons server tidak valid:\n' + err.body.substring(0, 300));
-                    } else {
-                        alert('❌ Error: ' + err.message);
-                    }
-                });
-
-            // Clean up
-            cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
+            openMoveModal({
+                bookingId: d.bookingId,
+                guest: d.guest,
+                status: d.status,
+                roomId: d.roomId,
+                checkIn: d.checkIn,
+                checkOut: d.checkOut,
+                newRoomId: newRoomId,
+                newCheckIn: ci,
+                newCheckOut: co
+            });
         });
     })();
 
+    // ===== PINDAH KAMAR / UPGRADE / DOWNGRADE =====
+    const MV_TODAY = '<?php echo date('Y-m-d'); ?>';
+    const MV_ROOMS = <?php echo json_encode(array_map(fn($r) => ['id' => (int)$r['id'], 'no' => (string)$r['room_number'], 'type' => (string)($r['type_name'] ?? ''), 'price' => (float)($r['base_price'] ?? 0)], $rooms ?? [])); ?>;
+    let mvCtx = null;
+    let mvTimer = null;
+
+    function mvAddDays(ymd, n) {
+        const p = String(ymd).split('-').map(Number);
+        const dt = new Date(Date.UTC(p[0], p[1] - 1, p[2] + n));
+        return dt.toISOString().slice(0, 10);
+    }
+
+    function mvDaysBetween(a, b) {
+        const pa = String(a).split('-').map(Number), pb = String(b).split('-').map(Number);
+        return Math.round((Date.UTC(pb[0], pb[1] - 1, pb[2]) - Date.UTC(pa[0], pa[1] - 1, pa[2])) / 86400000);
+    }
+    const mvRp = n => 'Rp ' + Math.round(parseFloat(n) || 0).toLocaleString('id-ID');
+    const mvDate = ymd => {
+        const p = String(ymd).split('-').map(Number);
+        return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
+    // Popup info kecil (pengganti alert browser)
+    window.mvNotice = function(msg, type, onClose) {
+        let el = document.getElementById('mvNotice');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'mvNotice';
+            el.className = 'mv-notice';
+            el.innerHTML = '<div class="mv-notice-box"><div class="mv-notice-ic"></div><div class="mv-notice-msg"></div><button type="button" class="mv-btn mv-btn-primary">OK</button></div>';
+            document.body.appendChild(el);
+        }
+        const ok = type === 'ok';
+        el.querySelector('.mv-notice-ic').className = 'mv-notice-ic ' + (ok ? 'ok' : (type === 'err' ? 'err' : 'warn'));
+        el.querySelector('.mv-notice-ic').innerHTML = ok ?
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>' :
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg>';
+        el.querySelector('.mv-notice-msg').textContent = msg;
+        const btn = el.querySelector('button');
+        btn.style.display = ok ? 'none' : '';
+        const close = () => { el.classList.remove('open'); if (onClose) onClose(); };
+        btn.onclick = close;
+        el.onclick = ev => { if (ev.target === el) close(); };
+        el.classList.add('open');
+        if (ok) setTimeout(close, 1500);
+    };
+
+    window.openMoveModal = function(o) {
+        mvCtx = Object.assign({ priceEdited: false }, o);
+        const inHouse = o.status === 'checked_in';
+        const cur = MV_ROOMS.find(r => String(r.id) === String(o.roomId));
+        document.getElementById('mvSub').textContent = (o.guest || '-') + (o.code ? ' · ' + o.code : '');
+        document.getElementById('mvFrom').innerHTML = '<b>' + (cur ? cur.no : '-') + '</b><span>' + (cur ? cur.type : '') + '</span>';
+        // Pilihan kamar dikelompokkan per tipe beserta harga asli
+        const sel = document.getElementById('mvRoom');
+        const groups = {};
+        MV_ROOMS.forEach(r => { (groups[r.type] = groups[r.type] || []).push(r); });
+        sel.innerHTML = Object.keys(groups).map(t => '<optgroup label="' + t + ' · ' + mvRp(groups[t][0].price) + '">' +
+            groups[t].map(r => '<option value="' + r.id + '">' + r.no + (String(r.id) === String(o.roomId) ? ' (kamar sekarang)' : '') + '</option>').join('') + '</optgroup>').join('');
+        sel.value = String(o.newRoomId || o.roomId);
+        document.getElementById('mvCheckIn').value = o.newCheckIn || o.checkIn;
+        document.getElementById('mvCheckOut').value = o.newCheckOut || o.checkOut;
+        document.getElementById('mvCheckIn').disabled = inHouse;
+        document.getElementById('mvCheckIn').min = inHouse ? '' : MV_TODAY;
+        const effWrap = document.getElementById('mvEffWrap');
+        effWrap.style.display = inHouse ? '' : 'none';
+        const eff = document.getElementById('mvEff');
+        eff.min = o.checkIn;
+        eff.max = mvAddDays(o.checkOut, -1);
+        eff.value = MV_TODAY < o.checkIn ? o.checkIn : (MV_TODAY >= o.checkOut ? mvAddDays(o.checkOut, -1) : MV_TODAY);
+        document.getElementById('mvPrice').value = '';
+        document.getElementById('mvErr').style.display = 'none';
+        document.getElementById('mvSave').disabled = true;
+        document.getElementById('moveRoomModal').classList.add('active');
+        mvPreview();
+    };
+
+    window.closeMoveModal = function() {
+        document.getElementById('moveRoomModal').classList.remove('active');
+        mvCtx = null;
+    };
+
+    function mvPayload(preview) {
+        const fd = new FormData();
+        fd.append('booking_id', mvCtx.bookingId);
+        fd.append('new_room_id', document.getElementById('mvRoom').value);
+        fd.append('new_check_in', document.getElementById('mvCheckIn').value);
+        fd.append('new_check_out', document.getElementById('mvCheckOut').value);
+        if (mvCtx.status === 'checked_in') fd.append('effective_date', document.getElementById('mvEff').value);
+        if (mvCtx.priceEdited) fd.append('room_price', document.getElementById('mvPrice').value || '0');
+        if (preview) fd.append('preview', '1');
+        return fd;
+    }
+
+    window.mvChanged = function(field) {
+        if (!mvCtx) return;
+        if (field === 'price') mvCtx.priceEdited = true;
+        if (field === 'room') mvCtx.priceEdited = false; // ganti kamar → harga otomatis lagi
+        if (field === 'checkin' && mvCtx.status !== 'checked_in') {
+            // Geser check-out ikut menjaga jumlah malam
+            const nights = mvDaysBetween(mvCtx.checkIn, mvCtx.checkOut);
+            document.getElementById('mvCheckOut').value = mvAddDays(document.getElementById('mvCheckIn').value, nights);
+        }
+        clearTimeout(mvTimer);
+        mvTimer = setTimeout(mvPreview, 250);
+    };
+
+    window.mvResetPrice = function() {
+        if (!mvCtx) return;
+        mvCtx.priceEdited = false;
+        mvPreview();
+    };
+
+    function mvPreview() {
+        if (!mvCtx) return;
+        const ctx = mvCtx;
+        document.getElementById('mvSave').disabled = true;
+        fetch('../../api/move-booking.php', { method: 'POST', body: mvPayload(true) })
+            .then(r => r.json())
+            .then(res => {
+                if (mvCtx !== ctx) return;
+                const err = document.getElementById('mvErr');
+                if (!res.success) {
+                    err.textContent = res.message || 'Tidak bisa dipindah';
+                    err.style.display = '';
+                    document.getElementById('mvSummary').style.display = 'none';
+                    return;
+                }
+                err.style.display = 'none';
+                const d = res.data;
+                const kind = { upgrade: ['Upgrade', 'up'], downgrade: ['Downgrade', 'down'], same: ['Pindah kamar · tipe sama', 'same'], none: ['Ubah tanggal', 'same'] }[d.change_kind] || ['Pindah', 'same'];
+                const badge = document.getElementById('mvKind');
+                badge.textContent = kind[0];
+                badge.className = 'mv-kind ' + kind[1];
+                if (!ctx.priceEdited) document.getElementById('mvPrice').value = Math.round(d.new_price);
+                document.getElementById('mvPriceHint').innerHTML = (d.change_kind === 'upgrade' || d.change_kind === 'downgrade') ?
+                    'Harga asli ' + d.new_room.type + ' ' + mvRp(d.new_room.base_price) + ' · sebelumnya ' + mvRp(d.old_price) :
+                    'Harga booking tetap ' + mvRp(d.old_price);
+                document.getElementById('mvPriceReset').style.display = ctx.priceEdited && Math.round(d.new_price) !== Math.round(d.auto_price) ? '' : 'none';
+                const nightsRow = d.nights_before > 0 ?
+                    d.nights_before + ' mlm sebelumnya ' + mvRp(d.before_total) + ' + ' + d.nights_after + ' mlm × ' + mvRp(d.new_price) :
+                    d.nights + ' mlm × ' + mvRp(d.new_price);
+                const diff = d.final_price - d.old_final;
+                document.getElementById('mvSummary').innerHTML =
+                    '<div><span>Malam</span><b>' + nightsRow + '</b></div>' +
+                    '<div><span>Subtotal kamar</span><b>' + mvRp(d.total_price) + '</b></div>' +
+                    (d.discount > 0 ? '<div><span>Diskon (tetap)</span><b class="neg">− ' + mvRp(d.discount) + '</b></div>' : '') +
+                    (d.extras > 0 ? '<div><span>Extras</span><b>' + mvRp(d.extras) + '</b></div>' : '') +
+                    '<div class="tot"><span>Total baru</span><b>' + mvRp(d.final_price) + (Math.round(diff) !== 0 ? ' <em class="' + (diff > 0 ? 'plus' : 'minus') + '">' + (diff > 0 ? '+' : '−') + mvRp(Math.abs(diff)) + '</em>' : '') + '</b></div>' +
+                    '<div><span>Sudah dibayar</span><b>' + mvRp(d.paid) + '</b></div>' +
+                    '<div><span>Sisa tagihan</span><b class="' + (d.balance > 0 ? 'due' : 'paid') + '">' + (d.balance > 0 ? mvRp(d.balance) : 'Lunas') + '</b></div>';
+                document.getElementById('mvSummary').style.display = '';
+                document.getElementById('mvSave').disabled = false;
+            })
+            .catch(() => {
+                const err = document.getElementById('mvErr');
+                err.textContent = 'Gagal menghubungi server';
+                err.style.display = '';
+            });
+    }
+
+    window.mvSubmit = function() {
+        if (!mvCtx) return;
+        const btn = document.getElementById('mvSave');
+        btn.disabled = true;
+        btn.textContent = 'Menyimpan…';
+        fetch('../../api/move-booking.php', { method: 'POST', body: mvPayload(false) })
+            .then(r => r.json())
+            .then(res => {
+                btn.textContent = 'Simpan';
+                if (res.success) {
+                    closeMoveModal();
+                    mvNotice(res.message, 'ok', () => saveScrollAndReload());
+                } else {
+                    btn.disabled = false;
+                    const err = document.getElementById('mvErr');
+                    err.textContent = res.message || 'Gagal menyimpan';
+                    err.style.display = '';
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.textContent = 'Simpan';
+                mvNotice('Gagal menghubungi server', 'err');
+            });
+    };
     // ===== EXTEND STAY FUNCTIONS =====
     let extendCurrentCO = '';
 
@@ -9989,11 +10241,10 @@ include '../../includes/header.php';
             })
             .then(data => {
                 if (data.success) {
-                    alert('✅ ' + data.message + '\n\nTambahan: Rp ' + new Intl.NumberFormat('id-ID').format(data.data.additional_price));
                     closeExtendModal();
-                    saveScrollAndReload();
+                    mvNotice(data.message + ' · tambahan ' + mvRp(data.data.additional_price), 'ok', () => saveScrollAndReload());
                 } else {
-                    alert('❌ ' + data.message);
+                    mvNotice(data.message, 'err');
                 }
             })
             .catch(err => {

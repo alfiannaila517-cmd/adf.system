@@ -255,6 +255,10 @@ try {
         }
 
         $totalPrice = $roomPrice * $nights;
+        // Total hasil pindah kamar di tengah menginap (harga campuran) dipertahankan selama harga/kamar/malam tidak diubah
+        if (abs($roomPrice - (float)$booking['room_price']) < 0.01 && (int)$roomId === (int)$booking['room_id'] && (int)$nights === (int)$booking['total_nights'] && (float)$booking['total_price'] > 0) {
+            $totalPrice = (float)$booking['total_price'];
+        }
 
         // Discount handling
         $discountType = $_POST['discount_type'] ?? 'rp';
@@ -313,6 +317,28 @@ try {
     $stmt = $conn->prepare($sql);
     $stmt->execute($params);
     $mainRows = $stmt->rowCount();
+
+    // Tamu in-house pindah kamar lewat form Edit: status kamar ikut diperbarui + catatan riwayat
+    if (!$isGroupMode && $booking['status'] === 'checked_in' && (int)$roomId !== (int)$booking['room_id']) {
+        $conn->prepare("UPDATE rooms SET status = 'cleaning', current_guest_id = NULL, updated_at = NOW() WHERE id = ?")
+            ->execute([(int)$booking['room_id']]);
+        $conn->prepare("UPDATE rooms SET status = 'occupied', current_guest_id = ?, updated_at = NOW() WHERE id = ?")
+            ->execute([$booking['guest_id'], (int)$roomId]);
+        try {
+            $rn = $conn->prepare("SELECT r.room_number, rt.type_name FROM rooms r LEFT JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = ?");
+            $rn->execute([(int)$booking['room_id']]);
+            $oldR = $rn->fetch(PDO::FETCH_ASSOC) ?: [];
+            $rn->execute([(int)$roomId]);
+            $newR = $rn->fetch(PDO::FETCH_ASSOC) ?: [];
+            $note = '[' . date('d/m/Y H:i') . '] Pindah kamar (edit): ' . ($oldR['room_number'] ?? '?') . ' (' . ($oldR['type_name'] ?? '') . ') -> '
+                . ($newR['room_number'] ?? '?') . ' (' . ($newR['type_name'] ?? '') . '), harga/malam Rp ' . number_format((float)$booking['room_price'], 0, ',', '.')
+                . ' -> Rp ' . number_format((float)($roomPrice ?? $booking['room_price']), 0, ',', '.');
+            $conn->prepare("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes, ''), CASE WHEN COALESCE(notes, '') = '' THEN '' ELSE '\n' END, ?)) WHERE id = ?")
+                ->execute([$note, $bookingId]);
+        } catch (Exception $e) {
+            error_log('update-reservation room note: ' . $e->getMessage());
+        }
+    }
     error_log("Rows affected: " . $mainRows);
 
     // Sumber booking disimpan apa adanya (source_key: walk_in, agoda, tiket, ...) ke booking ini dan

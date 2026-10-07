@@ -1219,6 +1219,15 @@ include '../../includes/header.php';
         recalculate();
     }
 
+    // Harga saat ganti kamar: tipe sama → harga booking semula; tipe lain (upgrade/downgrade) → harga asli tipe baru.
+    // Diskon tidak berubah; harga tetap bisa diubah manual setelahnya.
+    const ORIG_ROOM_TYPE = (function() {
+        const sel = document.getElementById('roomSelect');
+        const opt = sel && sel.options[sel.selectedIndex];
+        return opt && opt.parentElement ? opt.parentElement.label : '';
+    })();
+    const ORIG_ROOM_PRICE = (document.getElementById('roomPrice') || {}).value || '';
+
     function onRoomChange(selectEl) {
         const opt = selectEl.options[selectEl.selectedIndex];
         if (!opt || !opt.dataset.price) return;
@@ -1227,7 +1236,8 @@ include '../../includes/header.php';
             if (card) card.querySelector('.grp-room-price').value = opt.dataset.price;
             updateGroupRoomOptions();
         } else {
-            document.getElementById('roomPrice').value = opt.dataset.price;
+            const sameType = opt.parentElement && opt.parentElement.label === ORIG_ROOM_TYPE;
+            document.getElementById('roomPrice').value = sameType && ORIG_ROOM_PRICE !== '' ? ORIG_ROOM_PRICE : opt.dataset.price;
         }
     }
 
