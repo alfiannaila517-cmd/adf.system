@@ -336,6 +336,14 @@ class CloudbedsSync
     private function createBooking(array $a, int $userId): void
     {
         $conn = $this->db->getConnection();
+        // created_by merujuk users di database bisnis; user dari database pusat (mis. Developer) tidak ada di sana
+        if ($userId > 0) {
+            $chk = $conn->prepare("SELECT id FROM users WHERE id = ? LIMIT 1");
+            $chk->execute([$userId]);
+            if (!$chk->fetchColumn()) {
+                $userId = 0;
+            }
+        }
         $conn->beginTransaction();
         try {
             // Cek ulang ketersediaan di dalam transaksi
