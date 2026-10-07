@@ -1606,9 +1606,41 @@ include '../../includes/header.php';
     }
 
     .booking-bar-container.dragging {
-        opacity: 0.4;
-        z-index: 50;
+        opacity: 0.35;
+        z-index: 1;
     }
+
+    /* Selama drag: balok tidak menghalangi sel di bawahnya, sel tidak dianimasi */
+    body.bar-dragging .booking-bar-container { pointer-events: none !important; }
+    body.bar-dragging .grid-date-cell { transition: none !important; }
+
+    /* Bayangan tujuan: posisi & panjang sama seperti balok (mulai tengah sel check-in) */
+    .dnd-ghost {
+        position: absolute;
+        top: 2px;
+        height: 24px;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 10px;
+        box-sizing: border-box;
+        border-radius: 7px;
+        border: 2px dashed #2563eb;
+        background: rgba(37, 99, 235, .14);
+        pointer-events: none;
+        white-space: nowrap;
+        overflow: hidden;
+        box-shadow: 0 6px 16px -6px rgba(37, 99, 235, .55);
+    }
+    .dnd-ghost-t { font-size: .72rem; font-weight: 800; color: #1e3a8a; overflow: hidden; text-overflow: ellipsis; }
+    .dnd-ghost-d { margin-left: auto; font-size: .66rem; font-weight: 700; color: #1d4ed8; background: rgba(255, 255, 255, .85); padding: 1px 6px; border-radius: 5px; flex-shrink: 0; }
+    .dnd-ghost.bad { border-color: #dc2626; background: rgba(220, 38, 38, .12); box-shadow: 0 6px 16px -6px rgba(220, 38, 38, .5); }
+    .dnd-ghost.bad .dnd-ghost-t { color: #991b1b; }
+    .dnd-ghost.bad .dnd-ghost-d { color: #dc2626; }
+    .dnd-ghost.same { border-color: #94a3b8; background: rgba(148, 163, 184, .12); box-shadow: none; }
+    [data-theme="dark"] .dnd-ghost-t { color: #bfdbfe; }
+    [data-theme="dark"] .dnd-ghost-d { background: rgba(15, 23, 42, .8); color: #93c5fd; }
 
     /* Pilihan tanggal (klik 1 = check-in): pill putus-putus mulai TENGAH sel, seperti bar booking;
        memanjang mengikuti kursor sampai tengah sel check-out. */
@@ -9890,77 +9922,141 @@ include '../../includes/header.php';
 </div>
 <script>
     // ===== DRAG & DROP BOOKING BARS =====
+    // Bayangan balok "menempel" ke grid: mulai dari TENGAH sel check-in tujuan, panjang = jumlah malam
+    // (sama seperti balok asli). DOM hanya diperbarui saat posisi tujuan berubah agar geser tetap ringan.
     (function() {
-        let dragData = null;
-        const clearDrag = () => document.querySelectorAll('.grid-date-cell.drag-over').forEach(c => c.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid'));
+        let drag = null;
+        let ghost = null;
+        const emptyImg = new Image();
+        emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+        function ensureGhost() {
+            if (!ghost) {
+                ghost = document.createElement('div');
+                ghost.className = 'dnd-ghost';
+                ghost.innerHTML = '<span class="dnd-ghost-t"></span><span class="dnd-ghost-d"></span>';
+            }
+            return ghost;
+        }
+
+        function hideGhost() {
+            if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+        }
+
+        // Bentrok dengan balok lain di kamar tujuan (data diambil sekali saat mulai drag)
+        function hasClash(roomId, ci, co) {
+            return drag.bars.some(x => x.roomId === roomId && x.ci < co && x.co > ci);
+        }
+
+        function fmtShort(ymd) {
+            const p = ymd.split('-').map(Number);
+            return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+        }
+
+        // Tujuan dari sel di bawah kursor → {roomId, ci, co}
+        function targetOf(cell) {
+            const roomId = String(cell.dataset.roomId || '');
+            if (drag.inHouse) return { roomId, ci: drag.checkIn, co: drag.checkOut };
+            const ci = mvAddDays(cell.dataset.date, -drag.grabOffset);
+            return { roomId, ci, co: mvAddDays(ci, drag.nights) };
+        }
+
+        function placeGhost(cell, t) {
+            const g = ensureGhost();
+            const w = cell.offsetWidth || 110;
+            // Sel check-in tujuan di baris yang sama; bila di luar layar, hitung dari sel yang disorot
+            const ciCell = document.querySelector('.grid-date-cell[data-room-id="' + t.roomId + '"][data-date="' + t.ci + '"]');
+            const host = ciCell || cell;
+            const shift = ciCell ? 0 : mvDaysBetween(cell.dataset.date, t.ci);
+            g.style.left = 'calc(50% + ' + (shift * w) + 'px)';
+            g.style.width = (drag.nights * w - 6) + 'px';
+            const same = t.roomId === drag.roomId && t.ci === drag.checkIn;
+            const bad = !same && (hasClash(t.roomId, t.ci, t.co) || (!drag.inHouse && t.ci < MV_TODAY));
+            g.classList.toggle('bad', bad);
+            g.classList.toggle('same', same);
+            g.querySelector('.dnd-ghost-t').textContent = drag.guest;
+            g.querySelector('.dnd-ghost-d').textContent = bad ? (t.ci < MV_TODAY && !drag.inHouse ? 'Tanggal lewat' : 'Bentrok') : fmtShort(t.ci) + ' – ' + fmtShort(t.co);
+            if (g.parentNode !== host) host.appendChild(g);
+            drag.bad = bad;
+        }
 
         document.addEventListener('dragstart', function(e) {
             const container = e.target.closest('.booking-bar-container[draggable="true"]');
             if (!container) return;
-            // Hari ke-berapa dari balok yang dipegang, agar tanggal jatuh sesuai posisi pegangan
+            const nights = parseInt(container.dataset.nights, 10) || 1;
             let grabOffset = 0;
             const under = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList && el.classList.contains('grid-date-cell') && el.dataset.date);
-            if (under) grabOffset = Math.max(0, mvDaysBetween(container.dataset.checkIn, under.dataset.date));
-            dragData = {
+            if (under) grabOffset = Math.min(nights - 1, Math.max(0, mvDaysBetween(container.dataset.checkIn, under.dataset.date)));
+            drag = {
+                el: container,
                 bookingId: container.dataset.bookingId,
-                roomId: container.dataset.roomId,
+                roomId: String(container.dataset.roomId),
                 checkIn: container.dataset.checkIn,
                 checkOut: container.dataset.checkOut,
                 status: container.dataset.status,
-                nights: parseInt(container.dataset.nights, 10) || 1,
+                inHouse: container.dataset.status === 'checked_in',
+                nights: nights,
                 guest: container.dataset.guest,
-                grabOffset: Math.min(grabOffset, (parseInt(container.dataset.nights, 10) || 1) - 1)
+                grabOffset: grabOffset,
+                key: '',
+                bad: false,
+                bars: Array.from(document.querySelectorAll('.booking-bar-container[data-booking-id]'))
+                    .filter(x => x !== container && x.dataset.status !== 'cancelled' && x.dataset.status !== 'checked_out')
+                    .map(x => ({ roomId: String(x.dataset.roomId), ci: x.dataset.checkIn, co: x.dataset.checkOut }))
             };
-            container.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', dragData.bookingId);
+            e.dataTransfer.setData('text/plain', drag.bookingId);
+            e.dataTransfer.setDragImage(emptyImg, 0, 0); // hanya bayangan yang menempel grid yang terlihat
+            document.body.classList.add('bar-dragging');
+            setTimeout(() => drag && drag.el.classList.add('dragging'), 0);
         });
 
-        document.addEventListener('dragend', function(e) {
-            const container = e.target.closest('.booking-bar-container');
-            if (container) container.classList.remove('dragging');
-            clearDrag();
-            dragData = null;
+        document.addEventListener('dragend', function() {
+            if (drag) drag.el.classList.remove('dragging');
+            document.body.classList.remove('bar-dragging');
+            hideGhost();
+            drag = null;
         });
 
         document.addEventListener('dragover', function(e) {
-            const cell = e.target.closest('.grid-date-cell');
-            if (!cell || !dragData) return;
+            if (!drag) return;
+            const cell = e.target.closest && e.target.closest('.grid-date-cell');
+            if (!cell || !cell.dataset.date || !cell.dataset.roomId) return;
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            clearDrag();
-            cell.classList.add('drag-over');
-        });
-
-        document.addEventListener('dragleave', function(e) {
-            const cell = e.target.closest('.grid-date-cell');
-            if (cell) cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
+            // Geser otomatis saat kursor di tepi area kalender
+            const sc = document.getElementById('drag-container');
+            if (sc) {
+                const r = sc.getBoundingClientRect();
+                if (e.clientX > r.right - 60) sc.scrollLeft += 18;
+                else if (e.clientX < r.left + 140) sc.scrollLeft -= 18;
+            }
+            const key = cell.dataset.roomId + '|' + cell.dataset.date;
+            if (key === drag.key) return; // posisi sama → tidak ada kerja DOM
+            drag.key = key;
+            placeGhost(cell, targetOf(cell));
         });
 
         document.addEventListener('drop', function(e) {
-            const cell = e.target.closest('.grid-date-cell');
-            if (!cell || !dragData) return;
+            if (!drag) return;
+            const cell = e.target.closest && e.target.closest('.grid-date-cell');
+            if (!cell || !cell.dataset.date || !cell.dataset.roomId) return;
             e.preventDefault();
-            clearDrag();
-            const d = dragData;
-            const dropDate = cell.dataset.date;
-            const newRoomId = cell.dataset.roomId;
-            if (!dropDate || !newRoomId) return;
-
-            let ci = mvAddDays(dropDate, -d.grabOffset);
-            let co = mvAddDays(ci, d.nights);
-            if (d.status === 'checked_in') {
-                // Tamu in-house: tanggal tetap, hanya kamar yang berpindah
-                ci = d.checkIn;
-                co = d.checkOut;
-                if (String(newRoomId) === String(d.roomId)) {
+            const d = drag;
+            const t = targetOf(cell);
+            hideGhost();
+            if (t.roomId === d.roomId && t.ci === d.checkIn) {
+                if (d.inHouse && cell.dataset.date !== d.checkIn) {
                     mvNotice('Tamu sudah check-in: tanggal tidak bisa digeser. Seret ke baris kamar lain untuk pindah kamar, atau pakai Extend untuk menambah malam.', 'warn');
-                    return;
                 }
-            } else if (ci === d.checkIn && String(newRoomId) === String(d.roomId)) {
-                return; // tidak ada perubahan
-            } else if (ci < MV_TODAY) {
+                return;
+            }
+            if (!d.inHouse && t.ci < MV_TODAY) {
                 mvNotice('Reservasi tidak bisa dipindah ke tanggal yang sudah lewat.', 'warn');
+                return;
+            }
+            if (hasClash(t.roomId, t.ci, t.co)) {
+                mvNotice('Kamar tujuan sudah terisi pada tanggal tersebut.', 'warn');
                 return;
             }
             openMoveModal({
@@ -9970,13 +10066,12 @@ include '../../includes/header.php';
                 roomId: d.roomId,
                 checkIn: d.checkIn,
                 checkOut: d.checkOut,
-                newRoomId: newRoomId,
-                newCheckIn: ci,
-                newCheckOut: co
+                newRoomId: t.roomId,
+                newCheckIn: t.ci,
+                newCheckOut: t.co
             });
         });
     })();
-
     // ===== PINDAH KAMAR / UPGRADE / DOWNGRADE =====
     const MV_TODAY = '<?php echo date('Y-m-d'); ?>';
     const MV_ROOMS = <?php echo json_encode(array_map(fn($r) => ['id' => (int)$r['id'], 'no' => (string)$r['room_number'], 'type' => (string)($r['type_name'] ?? ''), 'price' => (float)($r['base_price'] ?? 0)], $rooms ?? [])); ?>;
