@@ -329,6 +329,8 @@ class CloudbedsSync
         if ($local === 'checked_out' && $active) return ['checked_in', 'checked_out'];
         if ($local === 'checked_out' && $cb === 'checked_in') return ['checked_out'];
         if ($local === 'cancelled' && $how === 'push' && ($active)) return ['canceled'];
+        // Reservasi kiriman sistem yang masih "Not Confirmed" di Cloudbeds → dikonfirmasi
+        if (in_array($local, ['confirmed', 'pending'], true) && $how === 'push' && $cb === 'not_confirmed') return ['confirmed'];
         return [];
     }
 
@@ -438,6 +440,8 @@ class CloudbedsSync
         $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", [
             "\n[Dikirim ke Cloudbeds #" . $resId . ($as['ok'] ? '' : ' — kamar belum ditempatkan: ' . mb_substr($as['detail'], 0, 120)) . ']', $a['booking_id'],
         ]);
+        // Reservasi lewat API masuk "Not Confirmed" → langsung dikonfirmasi (booking di sistem sudah pasti)
+        $this->cb->send('PUT', 'putReservation', ['reservationID' => $resId, 'status' => 'confirmed']);
         if ($b['status'] === 'checked_in') {
             $this->cb->send('PUT', 'putReservation', ['reservationID' => $resId, 'status' => 'checked_in']);
         }
