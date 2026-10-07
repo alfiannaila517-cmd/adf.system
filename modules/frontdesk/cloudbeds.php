@@ -65,6 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         header('Location: cloudbeds.php?plan=1&sf=' . urlencode($sf) . '&st=' . urlencode($st));
         exit;
+    } elseif ($act === 'toggle_auto') {
+        $on = !empty($_POST['auto_on']);
+        $cb->saveSetting('cloudbeds_auto_sync', $on ? '1' : '0');
+        setFlash('success', $on ? 'Sinkron otomatis diaktifkan (berjalan sesuai jadwal cron).' : 'Sinkron otomatis dimatikan.');
+        header('Location: cloudbeds.php');
+        exit;
     } elseif ($act === 'save_source_map') {
         $cb->saveSourceMap((array)($_POST['source_map'] ?? []));
         setFlash('success', 'Pemetaan sumber booking tersimpan.');
@@ -467,6 +473,39 @@ include '../../includes/header.php';
         <div class="cbx-card">
             <h3>Sinkron Cloudbeds → Sistem</h3>
             <p class="cbx-sub">Booking OTA dari Cloudbeds masuk ke Reservasi &amp; Kalender. Selalu tampilkan pratinjau dulu; tidak ada yang berubah sebelum <b>Jalankan sinkron</b>.</p>
+            <?php
+            $autoRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_auto_sync'");
+            $autoOn = ($autoRow['setting_value'] ?? '0') === '1';
+            $lastRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_last_auto_sync'");
+            $lastAuto = json_decode((string)($lastRow['setting_value'] ?? ''), true);
+            $lastAge = !empty($lastAuto['at']) ? (time() - strtotime($lastAuto['at'])) : null;
+            ?>
+            <div class="cbx-status" style="margin-bottom:.75rem;flex-wrap:wrap">
+                <span class="cbx-dot <?php echo $autoOn ? ($lastAge !== null && $lastAge < 1800 ? ($lastAuto['ok'] ? 'on' : 'off') : '') : ''; ?>"></span>
+                <div style="flex:1;min-width:220px">
+                    <b>Sinkron otomatis: <?php echo $autoOn ? 'AKTIF' : 'mati'; ?></b>
+                    <small>
+                        <?php if (!empty($lastAuto['at'])): ?>
+                            Terakhir <?php echo htmlspecialchars(date('d M H:i', strtotime($lastAuto['at']))); ?> — <?php echo htmlspecialchars($lastAuto['summary'] ?? ''); ?>
+                            <?php if ($autoOn && $lastAge !== null && $lastAge > 1800): ?><br><span style="color:#b45309">Lebih dari 30 menit tidak berjalan — cek Cron Job di cPanel.</span><?php endif; ?>
+                        <?php else: ?>
+                            Belum pernah berjalan otomatis<?php echo $autoOn ? ' — pastikan Cron Job di cPanel sudah dibuat.' : '.'; ?>
+                        <?php endif; ?>
+                    </small>
+                </div>
+                <form method="post" style="margin:0">
+                    <input type="hidden" name="act" value="toggle_auto">
+                    <?php if (!$autoOn): ?><input type="hidden" name="auto_on" value="1"><?php endif; ?>
+                    <button type="submit" class="cbx-btn <?php echo $autoOn ? 'ghost' : ''; ?>"><?php echo $autoOn ? 'Matikan' : 'Aktifkan'; ?></button>
+                </form>
+            </div>
+            <details style="margin:-.25rem 0 .75rem"><summary class="cbx-hint" style="cursor:pointer">Cara memasang Cron Job (sekali saja)</summary>
+                <div class="cbx-note" style="margin-top:.4rem">
+                    cPanel → <b>Cron Jobs</b> → Add New Cron Job → Common Settings: <b>Once Per Ten Minutes</b> (*/10 * * * *) → Command:<br>
+                    <code style="display:block;margin-top:.35rem;padding:.4rem .5rem;border-radius:6px;background:rgba(15,23,42,.06);word-break:break-all;user-select:all">/usr/local/bin/php <?php echo htmlspecialchars(dirname(dirname(__DIR__))); ?>/cron/cloudbeds-sync.php >> <?php echo htmlspecialchars(dirname(dirname(dirname(__DIR__)))); ?>/cloudbeds_sync_log.txt 2>&amp;1</code>
+                    Aturannya sama dengan tombol <b>Jalankan sinkron</b> (check-in 3 hari lalu s/d 120 hari ke depan); yang "Perlu dicek" tidak dijalankan dan tetap terlihat di pratinjau.
+                </div>
+            </details>
             <form method="get" class="cbx-row" style="margin-top:0">
                 <input type="hidden" name="plan" value="1">
                 <label class="cbx-label" style="margin:0">Check-in dari</label>
