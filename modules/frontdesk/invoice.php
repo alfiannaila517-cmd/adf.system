@@ -150,7 +150,7 @@ $methodLabel = function ($m) {
     $m = strtolower(trim((string)$m));
     $map = ['cash' => 'Cash', 'transfer' => 'Bank Transfer', 'bank_transfer' => 'Bank Transfer',
         'card' => 'Debit / Card', 'debit' => 'Debit / Card', 'credit_card' => 'Debit / Card',
-        'qris' => 'QRIS', 'ota' => 'OTA'];
+        'qris' => 'QRIS', 'qr' => 'QRIS', 'ota' => 'OTA'];
     if (!isset($map[$m]) && strpos($m, 'ota ') === 0) {
         return 'OTA (' . ucwords(substr($m, 4)) . ')';
     }
@@ -161,6 +161,25 @@ foreach ($payments as $payment) {
     $lbl = $methodLabel($payment['payment_method'] ?? '');
     if ($lbl !== '' && (float)$payment['amount'] > 0) {
         $paymentMethods[$lbl] = true;
+    }
+}
+// Booking tanpa catatan booking_payments: ambil metode dari kas (cash_book) yang memuat kode booking
+if (empty($paymentMethods)) {
+    try {
+        foreach ($allBookings as $bk) {
+            $cbRows = $db->fetchAll(
+                "SELECT DISTINCT payment_method FROM cash_book WHERE transaction_type = 'income' AND description LIKE ?",
+                ['%' . $bk['booking_code'] . '%']
+            ) ?: [];
+            foreach ($cbRows as $cbRow) {
+                $lbl = $methodLabel($cbRow['payment_method'] ?? '');
+                if ($lbl !== '') {
+                    $paymentMethods[$lbl] = true;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // tabel / kolom cash_book tidak tersedia
     }
 }
 $paymentMethodsText = implode(' + ', array_keys($paymentMethods));
