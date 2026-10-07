@@ -47,8 +47,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($act === 'remove_key') {
         $cb->saveSetting('cloudbeds_api_key', '');
         setFlash('success', 'API key Cloudbeds dihapus dari sistem.');
+    } elseif ($act === 'save_type_map') {
+        $cb->saveRoomTypeMap((array)($_POST['type_map'] ?? []));
+        setFlash('success', 'Pemetaan tipe kamar tersimpan.');
     }
-    header('Location: cloudbeds.php' . ($act === 'save_key' ? '?test=1' : ''));
+    header('Location: cloudbeds.php' . (in_array($act, ['save_key', 'save_type_map'], true) ? '?test=1' : ''));
     exit;
 }
 
@@ -186,12 +189,19 @@ include '../../includes/header.php';
 
     <?php if ($test && $test['ok']): ?>
         <?php
-        // Tipe kamar: cocokkan nama (abaikan spasi/huruf besar)
-        $cbTypeNorm = [];
+        // Pemetaan tipe kamar: tersimpan, atau saran otomatis (nama sama / nama sistem terkandung + unit sama)
+        $savedMap = $cb->roomTypeMap();
+        $suggested = CloudbedsClient::suggestRoomTypeMap($test['room_types'], $localTypes);
+        $typeMap = [];
         foreach ($test['room_types'] as $t) {
-            $cbTypeNorm[$norm($t['name'])] = $t;
+            $typeMap[$t['id']] = $savedMap[$t['id']] ?? ($suggested[$t['id']] ?? '');
         }
-        // Kamar: cocokkan nomor kamar
+        $hasUnsaved = false;
+        foreach ($test['room_types'] as $t) {
+            if (($savedMap[$t['id']] ?? '') !== $typeMap[$t['id']]) $hasUnsaved = true;
+        }
+        $mappedLocal = array_count_values(array_filter($typeMap));
+        // Kamar: cocokkan nomor kamar; tipe dibandingkan lewat pemetaan
         $cbRoomByNo = [];
         foreach ($test['rooms'] as $r) {
             $cbRoomByNo[$roomNo($r['name'])] = $r;
@@ -199,38 +209,57 @@ include '../../includes/header.php';
         $localRoomNos = array_column($localRooms, 'room_number');
         $roomsOk = 0;
         foreach ($localRooms as $lr) {
-            if (isset($cbRoomByNo[(string)$lr['room_number']])) $roomsOk++;
+            $c = $cbRoomByNo[(string)$lr['room_number']] ?? null;
+            if ($c && ($typeMap[$c['type_id']] ?? '') === $lr['type_name']) $roomsOk++;
         }
         ?>
         <div class="cbx-card">
             <h3>Pemetaan tipe kamar</h3>
-            <p class="cbx-sub">Tipe kamar Cloudbeds dibandingkan dengan tipe kamar di sistem (berdasarkan nama).</p>
-            <table class="cbx-tbl">
-                <thead><tr><th>Cloudbeds</th><th>Unit</th><th>Di sistem</th><th>Status</th></tr></thead>
-                <tbody>
-                    <?php foreach ($test['room_types'] as $t):
-                        $match = null;
-                        foreach ($localTypes as $ln => $cnt) {
-                            if ($norm($ln) === $norm($t['name'])) $match = [$ln, $cnt];
-                        } ?>
-                        <tr>
-                            <td><b><?php echo htmlspecialchars($t['name']); ?></b><?php echo $t['short'] ? ' <small>(' . htmlspecialchars($t['short']) . ')</small>' : ''; ?></td>
-                            <td><?php echo (int)$t['units']; ?></td>
-                            <td><?php echo $match ? htmlspecialchars($match[0]) . ' · ' . (int)$match[1] . ' kamar' : '—'; ?></td>
-                            <td><?php if (!$match): ?><span class="cbx-pill bad">Tidak ditemukan</span><?php elseif ((int)$match[1] !== (int)$t['units']): ?><span class="cbx-pill warn">Jumlah beda</span><?php else: ?><span class="cbx-pill ok">Cocok</span><?php endif; ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    <?php foreach ($localTypes as $ln => $cnt): if (!isset($cbTypeNorm[$norm($ln)])): ?>
-                        <tr><td>—</td><td></td><td><?php echo htmlspecialchars($ln ?: '(tanpa tipe)'); ?> · <?php echo (int)$cnt; ?> kamar</td><td><span class="cbx-pill warn">Hanya di sistem</span></td></tr>
-                    <?php endif; endforeach; ?>
-                </tbody>
-            </table>
+            <p class="cbx-sub">Pasangkan setiap tipe kamar Cloudbeds dengan tipe kamar di sistem. Nama tidak harus sama — pasangan ini dipakai saat booking OTA masuk.</p>
+            <form method="post">
+                <input type="hidden" name="act" value="save_type_map">
+                <table class="cbx-tbl">
+                    <thead><tr><th>Cloudbeds</th><th>Unit</th><th>Tipe di sistem</th><th>Status</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($test['room_types'] as $t):
+                            $sel = $typeMap[$t['id']];
+                            $cnt = $sel !== '' ? (int)($localTypes[$sel] ?? 0) : 0; ?>
+                            <tr>
+                                <td><b><?php echo htmlspecialchars($t['name']); ?></b><?php echo $t['short'] ? ' <small>(' . htmlspecialchars($t['short']) . ')</small>' : ''; ?></td>
+                                <td><?php echo (int)$t['units']; ?></td>
+                                <td>
+                                    <select class="cbx-input" name="type_map[<?php echo htmlspecialchars($t['id']); ?>]" style="max-width:240px">
+                                        <option value="">— belum dipasangkan —</option>
+                                        <?php foreach ($localTypes as $ln => $lc): ?>
+                                            <option value="<?php echo htmlspecialchars($ln); ?>" <?php echo $ln === $sel ? 'selected' : ''; ?>><?php echo htmlspecialchars($ln ?: '(tanpa tipe)'); ?> · <?php echo (int)$lc; ?> kamar</option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                                <td>
+                                    <?php if ($sel === ''): ?><span class="cbx-pill bad">Belum dipasangkan</span>
+                                    <?php elseif (($mappedLocal[$sel] ?? 0) > 1): ?><span class="cbx-pill warn">Dipakai 2×</span>
+                                    <?php elseif ($cnt !== (int)$t['units']): ?><span class="cbx-pill warn">Jumlah beda (<?php echo $cnt; ?>)</span>
+                                    <?php else: ?><span class="cbx-pill ok">Cocok</span><?php endif; ?>
+                                    <?php if (!isset($savedMap[$t['id']]) && $sel !== ''): ?><span class="cbx-pill" style="background:rgba(37,99,235,.1);color:#1d4ed8">saran</span><?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php foreach ($localTypes as $ln => $lc): if (!isset($mappedLocal[$ln])): ?>
+                            <tr><td>—</td><td></td><td><?php echo htmlspecialchars($ln ?: '(tanpa tipe)'); ?> · <?php echo (int)$lc; ?> kamar</td><td><span class="cbx-pill warn">Tidak ada di Cloudbeds</span></td></tr>
+                        <?php endif; endforeach; ?>
+                    </tbody>
+                </table>
+                <div class="cbx-row">
+                    <button type="submit" class="cbx-btn">Simpan pemetaan</button>
+                    <?php if ($hasUnsaved): ?><span class="cbx-hint" style="margin:0">Ada saran yang belum disimpan — periksa lalu klik <b>Simpan pemetaan</b>.</span><?php endif; ?>
+                </div>
+            </form>
         </div>
 
         <div class="cbx-grid">
             <div class="cbx-card">
                 <h3>Pemetaan nomor kamar</h3>
-                <p class="cbx-sub"><?php echo $roomsOk; ?> dari <?php echo count($localRooms); ?> kamar sistem ditemukan di Cloudbeds (berdasarkan nomor).</p>
+                <p class="cbx-sub"><?php echo $roomsOk; ?> dari <?php echo count($localRooms); ?> kamar sistem cocok dengan Cloudbeds (nomor kamar + tipe sesuai pemetaan).</p>
                 <table class="cbx-tbl">
                     <thead><tr><th>Kamar sistem</th><th>Cloudbeds</th><th>Status</th></tr></thead>
                     <tbody>
@@ -238,7 +267,7 @@ include '../../includes/header.php';
                             <tr>
                                 <td><b><?php echo htmlspecialchars($lr['room_number']); ?></b> <small><?php echo htmlspecialchars($lr['type_name']); ?></small></td>
                                 <td><?php echo $c ? htmlspecialchars($c['name']) . ' <small>' . htmlspecialchars($c['type']) . '</small>' : '—'; ?></td>
-                                <td><?php if (!$c): ?><span class="cbx-pill bad">Tidak ada</span><?php elseif ($norm($c['type']) !== $norm($lr['type_name'])): ?><span class="cbx-pill warn">Tipe beda</span><?php else: ?><span class="cbx-pill ok">Cocok</span><?php endif; ?></td>
+                                <td><?php if (!$c): ?><span class="cbx-pill bad">Tidak ada</span><?php elseif (($typeMap[$c['type_id']] ?? '') !== $lr['type_name']): ?><span class="cbx-pill warn">Tipe beda</span><?php else: ?><span class="cbx-pill ok">Cocok</span><?php endif; ?></td>
                             </tr>
                         <?php endforeach; ?>
                         <?php foreach ($test['rooms'] as $r): if (!in_array($roomNo($r['name']), $localRoomNos, true)): ?>

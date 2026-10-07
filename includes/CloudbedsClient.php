@@ -61,6 +61,73 @@ class CloudbedsClient
         return trim($this->settings()['cloudbeds_property_id']);
     }
 
+    /**
+     * Pemetaan tipe kamar Cloudbeds → nama tipe kamar di sistem (setting cloudbeds_roomtype_map, JSON).
+     * @return array<string,string> roomTypeID => type_name
+     */
+    public function roomTypeMap(): array
+    {
+        try {
+            $row = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_roomtype_map'");
+            $map = json_decode((string)($row['setting_value'] ?? ''), true);
+            return is_array($map) ? array_map('strval', $map) : [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function saveRoomTypeMap(array $map): void
+    {
+        $clean = [];
+        foreach ($map as $id => $name) {
+            $id = trim((string)$id);
+            $name = trim((string)$name);
+            if ($id !== '' && $name !== '') {
+                $clean[$id] = $name;
+            }
+        }
+        $this->saveSetting('cloudbeds_roomtype_map', json_encode($clean, JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Saran pasangan tipe kamar: nama sama persis, lalu nama sistem yang terkandung di nama Cloudbeds
+     * (Standard Queen → Queen), utamakan jumlah unit sama & nama terpanjang; tiap tipe sistem dipakai sekali.
+     * @param array $cbTypes  [ ['id'=>, 'name'=>, 'units'=>], ... ]
+     * @param array $localTypes  type_name => jumlah kamar
+     */
+    public static function suggestRoomTypeMap(array $cbTypes, array $localTypes): array
+    {
+        $norm = fn($s) => preg_replace('/[^a-z0-9]/', '', strtolower((string)$s));
+        $used = [];
+        $out = [];
+        foreach ($cbTypes as $t) {
+            foreach ($localTypes as $ln => $cnt) {
+                if ($norm($ln) !== '' && $norm($ln) === $norm($t['name'])) {
+                    $out[$t['id']] = $ln;
+                    $used[$ln] = true;
+                }
+            }
+        }
+        foreach ($cbTypes as $t) {
+            if (isset($out[$t['id']])) continue;
+            $best = null;
+            $bestScore = -1;
+            foreach ($localTypes as $ln => $cnt) {
+                if (isset($used[$ln]) || $norm($ln) === '' || strpos($norm($t['name']), $norm($ln)) === false) continue;
+                $score = strlen($norm($ln)) + ((int)$cnt === (int)$t['units'] ? 100 : 0);
+                if ($score > $bestScore) {
+                    $best = $ln;
+                    $bestScore = $score;
+                }
+            }
+            if ($best !== null) {
+                $out[$t['id']] = $best;
+                $used[$best] = true;
+            }
+        }
+        return $out;
+    }
+
     public function baseUrl(): string
     {
         $b = trim($this->settings()['cloudbeds_api_base']);
@@ -193,6 +260,7 @@ class CloudbedsClient
                     'id' => (string)($r['roomID'] ?? ''),
                     'name' => (string)($r['roomName'] ?? ''),
                     'type' => (string)($r['roomTypeName'] ?? ''),
+                    'type_id' => (string)($r['roomTypeID'] ?? ''),
                 ];
             }
         }
