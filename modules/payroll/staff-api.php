@@ -1809,6 +1809,11 @@ if ($action === 'overtime_submit') {
 }
 
 if ($action === 'overtime_history') {
+    // Reset bulanan: lembur sebelum bulan lalu dihapus (bulan lalu tetap ada untuk proses gaji)
+    try {
+        $pdo->exec("DELETE FROM overtime_requests WHERE overtime_date < DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01')");
+    } catch (Exception $e) {
+    }
     $month = trim($_GET['month'] ?? ''); // format YYYY-MM, kosong = semua
     if ($month !== '' && preg_match('/^\d{4}-\d{2}$/', $month)) {
         $rows = $db->fetchAll(

@@ -57,7 +57,7 @@
                             $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
             `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `day_of_week` TINYINT NOT NULL DEFAULT 0,
             `start_time` TIME NOT NULL DEFAULT '09:00:00', `end_time` TIME NOT NULL DEFAULT '17:00:00',
-            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
+            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0, `uniform` VARCHAR(100) DEFAULT NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             $stmt = $_pdo->prepare("SELECT day_of_week, start_time, end_time, break_minutes, is_off, uniform FROM payroll_work_schedules WHERE employee_id = ?");
@@ -79,7 +79,7 @@
                             $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_schedule_overrides` (
             `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `override_date` DATE NOT NULL,
             `is_off` TINYINT(1) NOT NULL DEFAULT 1, `start_time` TIME DEFAULT NULL, `end_time` TIME DEFAULT NULL,
-            `break_minutes` INT DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `break_minutes` INT DEFAULT NULL, `uniform` VARCHAR(100) DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uk_emp_date (employee_id, override_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             $stmt = $_pdo->prepare("SELECT override_date, is_off, start_time, end_time, break_minutes, uniform FROM payroll_schedule_overrides WHERE employee_id = ?");
@@ -101,15 +101,22 @@
                             $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
             `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `day_of_week` TINYINT NOT NULL DEFAULT 0,
             `start_time` TIME NOT NULL DEFAULT '09:00:00', `end_time` TIME NOT NULL DEFAULT '17:00:00',
-            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
+            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0, `uniform` VARCHAR(100) DEFAULT NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_schedule_overrides` (
             `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `override_date` DATE NOT NULL,
             `is_off` TINYINT(1) NOT NULL DEFAULT 1, `start_time` TIME DEFAULT NULL, `end_time` TIME DEFAULT NULL,
-            `break_minutes` INT DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `break_minutes` INT DEFAULT NULL, `uniform` VARCHAR(100) DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uk_emp_date (employee_id, override_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                            foreach (['payroll_work_schedules', 'payroll_schedule_overrides'] as $__t) {
+                                try {
+                                    $_pdo->query("SELECT uniform FROM `$__t` LIMIT 0");
+                                } catch (Throwable $e) {
+                                    $_pdo->exec("ALTER TABLE `$__t` ADD COLUMN `uniform` VARCHAR(100) DEFAULT NULL");
+                                }
+                            }
                             $allEmps = $_pdo->query("SELECT id, employee_code, full_name FROM payroll_employees WHERE is_active = 1 ORDER BY full_name")->fetchAll(PDO::FETCH_ASSOC);
                             $allWeekly = $_pdo->query("SELECT employee_id, day_of_week, start_time, end_time, break_minutes, is_off, uniform FROM payroll_work_schedules")->fetchAll(PDO::FETCH_ASSOC);
                             $allOverrides = $_pdo->query("SELECT employee_id, override_date, is_off, start_time, end_time, break_minutes, uniform FROM payroll_schedule_overrides")->fetchAll(PDO::FETCH_ASSOC);
@@ -127,7 +134,7 @@
                             $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_schedule_overrides` (
             `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `override_date` DATE NOT NULL,
             `is_off` TINYINT(1) NOT NULL DEFAULT 1, `start_time` TIME DEFAULT NULL, `end_time` TIME DEFAULT NULL,
-            `break_minutes` INT DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `break_minutes` INT DEFAULT NULL, `uniform` VARCHAR(100) DEFAULT NULL, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uk_emp_date (employee_id, override_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             $oEmpId = (int)($_POST['employee_id'] ?? 0);
@@ -179,7 +186,7 @@
                             $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
             `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `day_of_week` TINYINT NOT NULL DEFAULT 0,
             `start_time` TIME NOT NULL DEFAULT '09:00:00', `end_time` TIME NOT NULL DEFAULT '17:00:00',
-            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
+            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0, `uniform` VARCHAR(100) DEFAULT NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             $rows = json_decode($_POST['rows'] ?? '[]', true);
@@ -1095,7 +1102,7 @@
             `start_time` TIME NOT NULL DEFAULT '09:00:00',
             `end_time` TIME NOT NULL DEFAULT '17:00:00',
             `break_minutes` INT DEFAULT 60,
-            `is_off` TINYINT(1) DEFAULT 0,
+            `is_off` TINYINT(1) DEFAULT 0, `uniform` VARCHAR(100) DEFAULT NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uk_emp_day (employee_id, day_of_week)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -1508,6 +1515,8 @@
         INDEX idx_emp (employee_id), INDEX idx_status (status), INDEX idx_date (overtime_date),
         UNIQUE KEY uk_emp_date (employee_id, overtime_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                        // Reset bulanan: lembur sebelum bulan lalu dihapus (bulan lalu tetap ada untuk proses gaji)
+                        $_pdo->exec("DELETE FROM overtime_requests WHERE overtime_date < DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01')");
                         $overtimeRequests = $db->fetchAll("SELECT ot.*, pe.full_name, pe.employee_code FROM overtime_requests ot LEFT JOIN payroll_employees pe ON pe.id = ot.employee_id ORDER BY FIELD(ot.status,'pending','approved','rejected'), ot.overtime_date DESC LIMIT 100") ?: [];
                     } catch (Exception $e) {
                     }
@@ -2421,6 +2430,75 @@
                         body[data-theme] .main-content .att-wrap .tbl .btn-del.btn-ic { background: linear-gradient(135deg, #b91c1c, #ef4444) !important; --ic-sh: rgba(220,38,38,.5); }
                         body[data-theme] .main-content .att-wrap .tbl .btn-green.btn-ic { background: linear-gradient(135deg, #047857, #10b981) !important; --ic-sh: rgba(5,150,105,.5); }
                         body[data-theme] .main-content .att-wrap .tbl td form { margin: 0; }
+                        /* ── Tab Cuti / Lembur / Jadwal / Seragam / Reset ── */
+                        body[data-theme] .main-content .att-wrap .reset-card {
+                            padding: 14px 16px !important; margin-bottom: 10px !important; border-radius: 14px !important;
+                            border: 1px solid var(--a-line) !important; box-shadow: none !important;
+                        }
+                        body[data-theme] .main-content .att-wrap .reset-card.danger { border-color: #fecaca !important; background: linear-gradient(180deg, #fff5f5, var(--a-card)) !important; }
+                        body[data-theme="dark"] .main-content .att-wrap .reset-card.danger { background: rgba(239,68,68,.06) !important; border-color: rgba(239,68,68,.35) !important; }
+                        body[data-theme] .main-content .att-wrap .reset-icon { width: 36px !important; height: 36px !important; border-radius: 10px !important; display: grid !important; place-items: center; flex-shrink: 0; font-size: 0 !important; }
+                        body[data-theme] .main-content .att-wrap .reset-icon svg { width: 17px; height: 17px; }
+                        body[data-theme] .main-content .att-wrap .reset-card h3 { font-size: .86rem !important; color: var(--a-ink) !important; margin: 0 0 2px !important; }
+                        body[data-theme] .main-content .att-wrap .reset-card.danger h3 { color: #b91c1c !important; }
+                        body[data-theme] .main-content .att-wrap .reset-card p { font-size: .7rem !important; color: var(--a-muted) !important; line-height: 1.5; margin: 0 0 10px !important; }
+                        body[data-theme] .main-content .att-wrap #panel-reset .reset-card .btn { background: linear-gradient(135deg, #b91c1c, #ef4444) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; border: 0 !important; height: 34px; padding: 0 14px !important; }
+                        body[data-theme] .main-content .att-wrap .btn-danger { background: linear-gradient(135deg, #b91c1c, #ef4444) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; border: 0 !important; }
+                        /* statistik di tab Reset (tanpa ikon) */
+                        body[data-theme] .main-content .att-wrap #panel-reset .st-card { display: flex !important; flex-direction: column; gap: 2px; border-top: 0 !important; }
+                        body[data-theme] .main-content .att-wrap #panel-reset .st-card .vl { font-size: 1.2rem !important; }
+                        body[data-theme] .main-content .att-wrap #panel-reset > div:first-child { gap: 8px !important; margin-bottom: 10px !important; }
+                        /* tombol pill (Edit cuti) */
+                        body[data-theme] .main-content .att-wrap .btn-pill { height: 28px; padding: 0 12px !important; border-radius: 8px !important; font-size: .7rem !important; }
+                        body[data-theme] .main-content .att-wrap .tbl td .btn-ic + .btn-ic, body[data-theme] .main-content .att-wrap .tbl td .btn + .btn { margin-left: 4px; }
+                        /* Jadwal kerja: chip hari, navigasi kalender */
+                        body[data-theme] .main-content .att-wrap #schedQuickEdit { border: 1px solid var(--a-line) !important; border-radius: 12px !important; background: var(--a-soft) !important; padding: 12px !important; }
+                        body[data-theme] .main-content .att-wrap #schedQuickEdit > div:first-child { font-size: .72rem !important; color: var(--a-ink) !important; text-transform: uppercase; letter-spacing: .05em; }
+                        body[data-theme] .main-content .att-wrap #schedQuickEdit label:has(.sched-quick-day) { background: var(--a-card) !important; border: 1px solid var(--a-line) !important; border-radius: 999px !important; padding: 4px 12px !important; font-size: .72rem !important; color: var(--a-ink) !important; }
+                        body[data-theme] .main-content .att-wrap #schedQuickEdit label:has(.sched-quick-day:checked) { background: #1e3a8a !important; border-color: #1e3a8a !important; color: #fff !important; }
+                        .att-wrap .sched-quick-day { accent-color: #fff; }
+                        body[data-theme] .main-content .att-wrap .sc-cal-nav { border: 1px solid var(--a-line) !important; border-radius: 12px !important; background: var(--a-soft) !important; padding: 6px !important; }
+                        body[data-theme] .main-content .att-wrap .sc-cal-nav-btn {
+                            height: 30px; padding: 0 12px !important; border-radius: 8px !important; border: 1px solid var(--a-line) !important;
+                            background: var(--a-card) !important; color: var(--a-ink) !important; font-size: .72rem !important; font-weight: 700 !important; box-shadow: none !important;
+                        }
+                        body[data-theme] .main-content .att-wrap .sc-cal-nav-btn:hover { border-color: #2563eb !important; color: #1d4ed8 !important; }
+                        body[data-theme] .main-content .att-wrap .sc-cal-title { font-size: .9rem !important; color: var(--a-ink) !important; }
+                        body[data-theme] .main-content .att-wrap .sc-cal-legend { font-size: .68rem !important; color: var(--a-muted) !important; }
+                        /* Jadwal seragam */
+                        body[data-theme] .main-content .att-wrap #uniQuickRow + .btn, body[data-theme] .main-content .att-wrap #panel-uniform .btn { height: 34px; }
+                        body[data-theme] .main-content .att-wrap #panel-uniform .reset-card > div > div > div[style*="background:var(--bg)"] { border-radius: 12px !important; background: var(--a-soft) !important; border-color: var(--a-line) !important; }
+                        body[data-theme] .main-content .att-wrap #uniQuickRow label { font-size: .62rem !important; text-transform: uppercase; letter-spacing: .05em; color: var(--a-muted) !important; }
+                        body[data-theme] .main-content .att-wrap #uniAllTableWrap { border: 1px solid var(--a-line) !important; border-radius: 12px !important; }
+                        .att-wrap .uni-tbl { width: 100%; border-collapse: collapse; white-space: nowrap; }
+                        body[data-theme] .main-content .att-wrap .uni-tbl th { position: sticky; top: 0; background: #1e3a8a !important; color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: .66rem !important; text-transform: uppercase; letter-spacing: .05em; padding: 9px 10px !important; text-align: left; border: 0 !important; }
+                        body[data-theme] .main-content .att-wrap .uni-tbl th:first-child { left: 0; z-index: 2; }
+                        body[data-theme] .main-content .att-wrap .uni-tbl td { padding: 6px 8px !important; border-bottom: 1px solid var(--a-line) !important; background: var(--a-card) !important; font-size: .74rem !important; color: var(--a-ink) !important; }
+                        body[data-theme] .main-content .att-wrap .uni-tbl td:first-child { font-weight: 700; }
+                        body[data-theme] .main-content .att-wrap .uni-tbl .fi { height: 30px; font-size: .72rem !important; }
+                        body[data-theme] .main-content .att-wrap .uni-off { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #fee2e2; color: #b91c1c !important; font-size: .64rem !important; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+                        /* Modal */
+                        body[data-theme] .main-content .att-wrap ~ .modal-overlay .modal-box, body[data-theme] .modal-overlay .modal-box { border-radius: 16px !important; }
+                        /* Popup konfirmasi */
+                        .att-pop { position: fixed; inset: 0; z-index: 100000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .5); backdrop-filter: blur(3px); }
+                        .att-pop.open { display: flex; }
+                        .att-pop-box { width: min(360px, 100%); padding: 22px 20px 16px; border-radius: 16px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); animation: attPopIn .18s ease-out; }
+                        @keyframes attPopIn { from { transform: scale(.94); opacity: 0; } }
+                        .att-pop-ic { width: 52px; height: 52px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; }
+                        .att-pop-ic svg { width: 26px; height: 26px; }
+                        .att-pop-ic.ask { background: #dbeafe; color: #1d4ed8; }
+                        .att-pop-ic.warn { background: #fef3c7; color: #b45309; }
+                        .att-pop-ic.danger, .att-pop-ic.err { background: #fee2e2; color: #dc2626; }
+                        .att-pop-ic.ok { background: #dcfce7; color: #16a34a; }
+                        body[data-theme] .att-pop-msg { font-size: .84rem !important; font-weight: 600; color: #0f172a !important; line-height: 1.5; margin-bottom: 16px; }
+                        .att-pop-act { display: flex; gap: 8px; }
+                        .att-pop-act .btn { flex: 1; height: 38px; justify-content: center; border-radius: 10px !important; font-weight: 700; }
+                        body[data-theme] .att-pop-act .btn-primary { background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; color: #fff !important; border: 0 !important; }
+                        body[data-theme] .att-pop-act .btn-danger { background: linear-gradient(135deg, #b91c1c, #ef4444) !important; color: #fff !important; border: 0 !important; }
+                        body[data-theme] .att-pop-cancel { background: #f1f5f9 !important; color: #334155 !important; border: 1px solid #e2e8f0 !important; }
+                        body[data-theme="dark"] .att-pop-box { background: #111a2e; }
+                        body[data-theme="dark"] .att-pop-msg { color: #e2e8f0 !important; }
+                        body[data-theme="dark"] .att-pop-cancel { background: rgba(255,255,255,.06) !important; color: #cbd5e1 !important; border-color: rgba(255,255,255,.12) !important; }
                         /* Permukaan & teks (terang/gelap) */
                         body[data-theme] .main-content .att-wrap { --a-card: #fff; }
                         body[data-theme="dark"] .main-content .att-wrap { --a-card: #111a2e; }
@@ -2587,7 +2665,7 @@
                                                 <td style="white-space:nowrap;">
                                                     <?php if ($a): ?>
                                                         <button class="btn btn-edit btn-sm btn-ic" title="Edit absen" onclick='openEditModal(<?php echo json_encode($a); ?>)'><i data-feather="edit-2"></i></button>
-                                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus absen <?php echo htmlspecialchars($emp['full_name']); ?>?')">
+                                                        <form method="POST" style="display:inline;" onsubmit="return attConfirmForm(this, 'Hapus absen <?php echo htmlspecialchars(addslashes($emp['full_name'])); ?>?')">
                                                             <input type="hidden" name="action" value="delete_att">
                                                             <input type="hidden" name="att_id" value="<?php echo $a['id']; ?>">
                                                             <button type="submit" class="btn btn-del btn-sm btn-ic" title="Hapus"><i data-feather="trash-2"></i></button>
@@ -2687,7 +2765,7 @@
                                                         </div>
                                                         <div style="display:flex; gap:3px;">
                                                             <button class="btn btn-edit btn-sm" onclick='openLocModal(<?php echo json_encode($loc); ?>)'>✏️</button>
-                                                            <form method="POST" action="?tab=gps" style="display:inline;" onsubmit="return confirm('Hapus lokasi?')">
+                                                            <form method="POST" action="?tab=gps" style="display:inline;" onsubmit="return attConfirmForm(this, 'Hapus lokasi?')">
                                                                 <input type="hidden" name="action" value="delete_location">
                                                                 <input type="hidden" name="loc_id" value="<?php echo $loc['id']; ?>">
                                                                 <button type="submit" class="btn btn-del btn-sm btn-ic" title="Hapus"><i data-feather="trash-2"></i></button>
@@ -2904,14 +2982,14 @@
                         <div class="tab-panel" id="panel-cuti" style="display:none;">
                             <?php if ($pendingLeaves > 0): ?>
                                 <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:12px; color:#92400e; display:flex; align-items:center; gap:8px;">
-                                    <span style="font-size:20px;">⏳</span>
+                                    <i data-feather="clock" style="width:18px;height:18px;color:#b45309;flex-shrink:0;"></i>
                                     <div><strong><?php echo $pendingLeaves; ?> pengajuan</strong> menunggu persetujuan</div>
                                 </div>
                             <?php endif; ?>
 
                             <?php if (empty($leaveRequests)): ?>
                                 <div style="text-align:center; padding:40px; color:var(--muted);">
-                                    <div style="font-size:40px; margin-bottom:8px;">🏖️</div>
+                                    <div style="margin-bottom:8px;"><i data-feather="inbox" style="width:34px;height:34px;opacity:.5;"></i></div>
                                     <div style="font-size:14px; font-weight:600;">Belum ada pengajuan cuti</div>
                                     <div style="font-size:11px; margin-top:4px;">Staff mengajukan cuti via Staff Portal</div>
                                 </div>
@@ -2950,7 +3028,7 @@
                                                     <td style="font-size:11px; max-width:200px;">
                                                         <?php echo htmlspecialchars($lr['reason'] ?? '-'); ?>
                                                         <?php if ($lr['admin_notes']): ?>
-                                                            <div style="font-size:10px; color:var(--blue); margin-top:2px;">💬 <?php echo htmlspecialchars($lr['admin_notes']); ?></div>
+                                                            <div style="font-size:10px; color:var(--blue); margin-top:2px;"><?php echo htmlspecialchars($lr['admin_notes']); ?></div>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td><span class="badge <?php echo $statusCls[$lr['status']] ?? ''; ?>"><?php echo $statusLbl[$lr['status']] ?? $lr['status']; ?></span>
@@ -2962,12 +3040,12 @@
                                                         <?php $lrName = htmlspecialchars(addslashes($lr['full_name'] ?? '')); ?>
                                                         <?php $lrNotes = htmlspecialchars(addslashes($lr['admin_notes'] ?? '')); ?>
                                                         <?php if ($lr['status'] === 'pending'): ?>
-                                                            <button class="btn btn-green btn-sm" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'approve', '<?php echo $lrName; ?>', '<?php echo $lrNotes; ?>')">✅</button>
-                                                            <button class="btn btn-del btn-sm" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'reject', '<?php echo $lrName; ?>', '<?php echo $lrNotes; ?>')">❌</button>
+                                                            <button class="btn btn-green btn-sm btn-ic" title="Setujui" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'approve', '<?php echo $lrName; ?>', '<?php echo $lrNotes; ?>')"><i data-feather="check"></i></button>
+                                                            <button class="btn btn-del btn-sm btn-ic" title="Tolak" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'reject', '<?php echo $lrName; ?>', '<?php echo $lrNotes; ?>')"><i data-feather="x"></i></button>
                                                         <?php else: ?>
-                                                            <button class="btn btn-gold btn-sm" onclick="openLeaveEdit(<?php echo $lr['id']; ?>, '<?php echo $lrName; ?>', '<?php echo $lr['status']; ?>', '<?php echo $lrNotes; ?>')">✏️ Edit</button>
+                                                            <button class="btn btn-gold btn-sm btn-pill" onclick="openLeaveEdit(<?php echo $lr['id']; ?>, '<?php echo $lrName; ?>', '<?php echo $lr['status']; ?>', '<?php echo $lrNotes; ?>')">Edit</button>
                                                         <?php endif; ?>
-                                                        <button class="btn btn-del btn-sm" onclick="deleteLeaveRequest(<?php echo $lr['id']; ?>, '<?php echo $lrName; ?>')" title="Hapus pengajuan">🗑️</button>
+                                                        <button class="btn btn-del btn-sm btn-ic" onclick="deleteLeaveRequest(<?php echo $lr['id']; ?>, '<?php echo $lrName; ?>')" title="Hapus pengajuan"><i data-feather="trash-2"></i></button>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -2990,8 +3068,8 @@
                                     </div>
                                     <div class="modal-actions">
                                         <button type="button" class="btn btn-primary" onclick="document.getElementById('leaveModal').classList.remove('open')">Batal</button>
-                                        <button type="button" class="btn btn-danger" onclick="submitLeaveDecision('reject_leave')">❌ Tolak</button>
-                                        <button type="button" class="btn btn-green" onclick="submitLeaveDecision('approve_leave')">✅ Setujui</button>
+                                        <button type="button" class="btn btn-danger" onclick="submitLeaveDecision('reject_leave')">Tolak</button>
+                                        <button type="button" class="btn btn-green" onclick="submitLeaveDecision('approve_leave')">Setujui</button>
                                     </div>
                                 </form>
                             </div>
@@ -3000,14 +3078,14 @@
                         <!-- Leave Delete Confirm Modal -->
                         <div class="modal-overlay" id="leaveDeleteModal">
                             <div class="modal-box">
-                                <div class="modal-title">🗑️ Hapus Pengajuan Cuti</div>
+                                <div class="modal-title">Hapus Pengajuan Cuti</div>
                                 <p style="font-size:13px; color:var(--muted); margin:0 0 16px;">Yakin ingin menghapus pengajuan cuti <strong id="leaveDeleteName"></strong>? Tindakan ini tidak bisa dibatalkan.</p>
                                 <form method="POST" action="?tab=cuti">
                                     <input type="hidden" name="action" value="delete_leave">
                                     <input type="hidden" name="leave_id" id="leaveDeleteId">
                                     <div class="modal-actions">
                                         <button type="button" class="btn btn-primary" onclick="document.getElementById('leaveDeleteModal').classList.remove('open')">Batal</button>
-                                        <button type="submit" class="btn btn-danger">🗑️ Hapus</button>
+                                        <button type="submit" class="btn btn-danger">Hapus</button>
                                     </div>
                                 </form>
                             </div>
@@ -3019,7 +3097,7 @@
                         <div class="tab-panel" id="panel-lembur" style="display:none;">
                             <?php if ($pendingOT > 0): ?>
                                 <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:12px; color:#92400e; display:flex; align-items:center; gap:8px;">
-                                    <span style="font-size:20px;">⏳</span>
+                                    <i data-feather="clock" style="width:18px;height:18px;color:#b45309;flex-shrink:0;"></i>
                                     <div><strong><?php echo $pendingOT; ?> pengajuan lembur</strong> menunggu persetujuan</div>
                                 </div>
                             <?php endif; ?>
@@ -3063,7 +3141,7 @@
                                                     <td style="font-size:11px; max-width:250px;">
                                                         <?php echo htmlspecialchars($ot['reason'] ?? '-'); ?>
                                                         <?php if (!empty($ot['admin_notes'])): ?>
-                                                            <div style="font-size:10px; color:var(--blue); margin-top:2px;">💬 <?php echo htmlspecialchars($ot['admin_notes']); ?></div>
+                                                            <div style="font-size:10px; color:var(--blue); margin-top:2px;"><?php echo htmlspecialchars($ot['admin_notes']); ?></div>
                                                         <?php endif; ?>
                                                     </td>
                                                     <td><span class="badge <?php echo $statusCls[$ot['status']] ?? ''; ?>"><?php echo $statusLbl[$ot['status']] ?? $ot['status']; ?></span>
@@ -3073,8 +3151,8 @@
                                                     </td>
                                                     <td style="white-space:nowrap;">
                                                         <?php if ($ot['status'] === 'pending'): ?>
-                                                            <button class="btn btn-green btn-sm" onclick="openOTAction(<?php echo $ot['id']; ?>, 'approve', '<?php echo htmlspecialchars(addslashes($ot['full_name'] ?? '')); ?>')">✅</button>
-                                                            <button class="btn btn-del btn-sm" onclick="openOTAction(<?php echo $ot['id']; ?>, 'reject', '<?php echo htmlspecialchars(addslashes($ot['full_name'] ?? '')); ?>')">❌</button>
+                                                            <button class="btn btn-green btn-sm btn-ic" title="Setujui" onclick="openOTAction(<?php echo $ot['id']; ?>, 'approve', '<?php echo htmlspecialchars(addslashes($ot['full_name'] ?? '')); ?>')"><i data-feather="check"></i></button>
+                                                            <button class="btn btn-del btn-sm btn-ic" title="Tolak" onclick="openOTAction(<?php echo $ot['id']; ?>, 'reject', '<?php echo htmlspecialchars(addslashes($ot['full_name'] ?? '')); ?>')"><i data-feather="x"></i></button>
                                                         <?php else: ?>
                                                             <span class="dash">—</span>
                                                         <?php endif; ?>
@@ -3100,7 +3178,7 @@
                                     </div>
                                     <div class="modal-actions">
                                         <button type="button" class="btn btn-primary" onclick="document.getElementById('otModal').classList.remove('open')">Batal</button>
-                                        <button type="submit" class="btn btn-gold" id="otSubmitBtn">✅ Setujui</button>
+                                        <button type="submit" class="btn btn-gold" id="otSubmitBtn">Setujui</button>
                                     </div>
                                 </form>
                             </div>
@@ -3111,8 +3189,8 @@
                         <!-- ═══════════════════════════════════════ -->
                         <div class="tab-panel" id="panel-manual" style="display:none;">
                             <div style="background:#e0f2fe; border:1px solid #38bdf8; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:11px; color:#0c4a6e;">
-                                👁️ Karyawan absen via <strong>scan wajah</strong> dari HP. Jika wajah bermasalah, reset di sini.<br>
-                                ✋ Untuk input manual, klik tombol <strong>➕ Input Manual</strong> di header.
+                                Karyawan absen via <strong>scan wajah</strong> dari HP. Jika wajah bermasalah, reset di sini.<br>
+                                Untuk input manual, klik tombol <strong>Input Manual</strong> di header.
                             </div>
 
                             <div class="tbl-wrap">
@@ -3132,10 +3210,10 @@
                                                 <td><code style="font-size:10px; background:rgba(240,180,41,.15); padding:2px 5px; border-radius:3px;"><?php echo htmlspecialchars($emp['employee_code']); ?></code></td>
                                                 <td><strong><?php echo htmlspecialchars($emp['full_name']); ?></strong></td>
                                                 <td style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($emp['position']); ?></td>
-                                                <td><?php echo !empty($emp['face_descriptor']) ? '<span style="color:var(--green); font-size:11px; font-weight:600;">✅ Terdaftar</span>' : '<span style="color:var(--orange); font-size:11px; font-weight:600;">⚠️ Belum (selfie saat absen pertama)</span>'; ?></td>
+                                                <td><?php echo !empty($emp['face_descriptor']) ? '<span style="color:var(--green); font-size:11px; font-weight:600;">Terdaftar</span>' : '<span style="color:var(--orange); font-size:11px; font-weight:600;">Belum (selfie saat absen pertama)</span>'; ?></td>
                                                 <td>
                                                     <?php if (!empty($emp['face_descriptor'])): ?>
-                                                        <button class="btn btn-del btn-sm" onclick="openFaceResetModal(<?php echo $emp['id']; ?>, '<?php echo addslashes($emp['full_name']); ?>')">🔄 Reset Wajah</button>
+                                                        <button class="btn btn-del btn-sm" onclick="openFaceResetModal(<?php echo $emp['id']; ?>, '<?php echo addslashes($emp['full_name']); ?>')">Reset Wajah</button>
                                                     <?php else: ?><span class="dash">—</span><?php endif; ?>
                                                 </td>
                                             </tr>
@@ -3153,7 +3231,7 @@
                             <!-- Individual Schedule per Employee (Calendar view) -->
                             <div class="reset-card">
                                 <div style="display:flex;gap:12px;align-items:flex-start;">
-                                    <div class="reset-icon" style="background:#fef3c7;color:var(--orange);">📅</div>
+                                    <div class="reset-icon" style="background:#fef3c7;color:var(--orange);"><i data-feather="calendar"></i></div>
                                     <div style="flex:1;">
                                         <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Jadwal Kerja per Karyawan</h3>
                                         <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Pilih karyawan, lalu klik tanggal di kalender untuk atur jam masuk/pulang & hari libur. Jadwal berlaku berulang tiap minggu sesuai hari yang diatur.</p>
@@ -3162,7 +3240,7 @@
                                             <label class="fl">Pilih Karyawan</label>
                                             <select id="schedEmpSelect" class="fi" onchange="loadEmpSchedule(this.value)">
                                                 <option value="">— Pilih Karyawan —</option>
-                                                <option value="all">👥 Semua Staff (Kalender Gabungan)</option>
+                                                <option value="all">Semua Staff (Kalender Gabungan)</option>
                                                 <?php foreach ($employees as $emp): ?>
                                                     <option value="<?php echo $emp['id']; ?>"><?php echo htmlspecialchars($emp['employee_code'] . ' — ' . $emp['full_name']); ?></option>
                                                 <?php endforeach; ?>
@@ -3183,7 +3261,7 @@
 
                                             <!-- Quick Edit: check multiple weekdays, set one time range/off, apply to all at once -->
                                             <div id="schedQuickEdit" style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px;background:var(--bg);">
-                                                <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px;">⚡ Edit Cepat (banyak hari sekaligus)</div>
+                                                <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px;">Edit Cepat (banyak hari sekaligus)</div>
                                                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
                                                     <?php $qDayLabels = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']; ?>
                                                     <?php foreach ($qDayLabels as $qi => $ql): ?>
@@ -3201,7 +3279,7 @@
                                                     <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;cursor:pointer;">
                                                         <input type="checkbox" id="quickOff" onchange="toggleQuickOffUI(this.checked)"> Tandai sebagai Libur (bukan jam kerja)
                                                     </label>
-                                                    <button type="button" class="btn btn-primary btn-sm" onclick="applyQuickEdit()">⚡ Terapkan ke Hari Terpilih</button>
+                                                    <button type="button" class="btn btn-primary btn-sm" onclick="applyQuickEdit()">Terapkan ke Hari Terpilih</button>
                                                 </div>
                                             </div>
 
@@ -3215,11 +3293,11 @@
 
                                             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;">
                                                 <div class="sc-cal-legend">
-                                                    <span><span class="sc-cal-badge sc-cal-badge-in">🟢 Jam kerja</span></span>
-                                                    <span><span class="sc-cal-badge sc-cal-badge-off">🔴 Libur</span></span>
-                                                    <span>📌 Tanggal khusus &nbsp;—&nbsp; klik tanggal untuk mengubah</span>
+                                                    <span><span class="sc-cal-badge sc-cal-badge-in">Jam kerja</span></span>
+                                                    <span><span class="sc-cal-badge sc-cal-badge-off">Libur</span></span>
+                                                    <span>Tanggal khusus &nbsp;—&nbsp; klik tanggal untuk mengubah</span>
                                                 </div>
-                                                <button type="submit" class="btn btn-primary">💾 Simpan Jadwal</button>
+                                                <button type="submit" class="btn btn-primary">Simpan Jadwal</button>
                                             </div>
                                         </form>
 
@@ -3232,8 +3310,8 @@
                                             </div>
                                             <div id="schedAllCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
                                             <div class="sc-cal-legend">
-                                                <span><span class="sc-cal-badge sc-cal-badge-in">🟢 Jumlah staf masuk kerja</span></span>
-                                                <span><span class="sc-cal-badge sc-cal-badge-off">🔴 Jumlah staf libur</span></span>
+                                                <span><span class="sc-cal-badge sc-cal-badge-in">Jumlah staf masuk kerja</span></span>
+                                                <span><span class="sc-cal-badge sc-cal-badge-off">Jumlah staf libur</span></span>
                                                 <span>hover untuk lihat nama &nbsp;—&nbsp; klik tanggal untuk detail</span>
                                             </div>
                                         </div>
@@ -3259,8 +3337,8 @@
                                     <div id="schedDayDateLabel" style="font-size:11px;color:var(--muted);margin:-8px 0 12px;"></div>
 
                                     <div style="display:flex;gap:6px;margin-bottom:6px;">
-                                        <button type="button" class="btn btn-sm" id="schedModeWeeklyBtn" style="flex:1;" onclick="setSchedDayMode('weekly')">🔁 Pola Mingguan</button>
-                                        <button type="button" class="btn btn-sm" id="schedModeCustomBtn" style="flex:1;" onclick="setSchedDayMode('custom')">📌 Tanggal Ini Saja</button>
+                                        <button type="button" class="btn btn-sm" id="schedModeWeeklyBtn" style="flex:1;" onclick="setSchedDayMode('weekly')">Pola Mingguan</button>
+                                        <button type="button" class="btn btn-sm" id="schedModeCustomBtn" style="flex:1;" onclick="setSchedDayMode('custom')">Tanggal Ini Saja</button>
                                     </div>
                                     <div id="schedModeHint" style="font-size:10px;color:var(--muted);margin:0 0 12px;"></div>
 
@@ -3275,26 +3353,26 @@
                                         <div class="fg"><label class="fl">Istirahat (menit)</label><input type="number" class="fi" id="schedDayBreak" value="60" min="0" max="120"></div>
                                     </div>
                                     <div class="fg">
-                                        <label class="fl">👔 Seragam</label>
+                                        <label class="fl">Seragam</label>
                                         <input type="text" class="fi" id="schedDayUniform" placeholder="Contoh: Batik, Kemeja Putih, Bebas Rapi" maxlength="100">
                                     </div>
                                     <div class="modal-actions">
-                                        <button type="button" class="btn btn-del btn-sm" id="schedDayRemoveOverrideBtn" style="display:none;" onclick="removeSchedDateOverride()">🗑️ Hapus Override</button>
+                                        <button type="button" class="btn btn-del btn-sm" id="schedDayRemoveOverrideBtn" style="display:none;" onclick="removeSchedDateOverride()">Hapus Override</button>
                                         <button type="button" class="btn btn-primary" onclick="document.getElementById('schedDayModal').classList.remove('open')">Batal</button>
-                                        <button type="button" class="btn btn-gold" onclick="applySchedDayEditor()">✅ Terapkan</button>
+                                        <button type="button" class="btn btn-gold" onclick="applySchedDayEditor()">Terapkan</button>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Current Schedules Overview -->
                             <div class="reset-card" style="margin-top:16px;">
-                                <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 10px;">📋 Ringkasan Jadwal Terkini</h3>
+                                <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 10px;">Ringkasan Jadwal Terkini</h3>
                                 <?php
                                 // Load existing schedules
                                 $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
                 `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `day_of_week` TINYINT NOT NULL DEFAULT 0,
                 `start_time` TIME NOT NULL DEFAULT '09:00:00', `end_time` TIME NOT NULL DEFAULT '17:00:00',
-                `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
+                `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0, `uniform` VARCHAR(100) DEFAULT NULL,
                 `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
@@ -3351,9 +3429,9 @@
                                                         </td>
                                                         <td>
                                                             <?php if ($ss['sched_count'] > 0): ?>
-                                                                <span class="badge b-hadir">✅ Sudah diatur</span>
+                                                                <span class="badge b-hadir">Sudah diatur</span>
                                                             <?php else: ?>
-                                                                <span class="badge b-absent">⚠️ Belum</span>
+                                                                <span class="badge b-absent">Belum</span>
                                                             <?php endif; ?>
                                                         </td>
                                                     </tr>
@@ -3372,19 +3450,19 @@
                         <div class="tab-panel" id="panel-uniform" style="display:none;">
                             <div class="reset-card">
                                 <div style="display:flex;gap:12px;align-items:flex-start;">
-                                    <div class="reset-icon" style="background:#d1fae5;color:#059669;">👔</div>
+                                    <div class="reset-icon" style="background:#d1fae5;color:#059669;"><i data-feather="shopping-bag"></i></div>
                                     <div style="flex:1;min-width:0;">
                                         <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Setup Jadwal Seragam Semua Staff</h3>
                                         <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Atur seragam untuk 1 minggu SEKALI SAJA di bawah ini, lalu klik "Terapkan ke Semua Staff" — otomatis dipakai untuk semua karyawan aktif (tidak perlu isi satu-satu). Hari yang dikosongkan tidak akan mengubah data yang sudah ada. Untuk pengecualian per orang/tanggal, edit langsung di tabel bawah atau lewat kalender di tab Jadwal Kerja.</p>
 
                                         <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:14px;">
-                                            <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px;">⚡ Setup Cepat 1 Minggu (Semua Staff)</div>
+                                            <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px;">Setup Cepat 1 Minggu (Semua Staff)</div>
                                             <div id="uniQuickRow" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
-                                            <button type="button" class="btn btn-primary" onclick="applyQuickToAll()">🚀 Terapkan ke Semua Staff Aktif</button>
+                                            <button type="button" class="btn btn-primary" onclick="applyQuickToAll()">Terapkan ke Semua Staff Aktif</button>
                                         </div>
 
                                         <div style="margin-bottom:10px;">
-                                            <button type="button" class="btn btn-primary" onclick="saveUniformAll()">💾 Simpan Semua Jadwal Seragam</button>
+                                            <button type="button" class="btn btn-primary" onclick="saveUniformAll()">Simpan Semua Jadwal Seragam</button>
                                             <span id="uniSaveMsg" style="margin-left:10px;font-size:11px;"></span>
                                         </div>
 
@@ -3424,11 +3502,11 @@
                             <!-- 1) Reset by Date Range -->
                             <div class="reset-card">
                                 <div style="display:flex; gap:12px; align-items:flex-start;">
-                                    <div class="reset-icon" style="background:#eff6ff; color:var(--blue);">📅</div>
+                                    <div class="reset-icon" style="background:#eff6ff; color:var(--blue);"><i data-feather="calendar"></i></div>
                                     <div style="flex:1;">
                                         <h3 style="font-size:13px; font-weight:700; color:var(--navy); margin:0 0 4px;">Reset Absen per Periode</h3>
                                         <p style="font-size:10px; color:var(--muted); margin:0 0 10px;">Hapus data absensi pada rentang tanggal tertentu. Bisa pilih per karyawan atau semua.</p>
-                                        <form method="POST" action="?tab=reset" onsubmit="return confirm('Yakin hapus data absen periode ini?')">
+                                        <form method="POST" action="?tab=reset" onsubmit="return attConfirmForm(this, 'Yakin hapus data absen periode ini?')">
                                             <input type="hidden" name="action" value="reset_attendance_range">
                                             <div class="fgrid" style="margin-bottom:8px;">
                                                 <div class="fg"><label class="fl">Dari Tanggal</label><input type="date" name="reset_from" class="fi" required></div>
@@ -3443,7 +3521,7 @@
                                                     <?php endforeach; ?>
                                                 </select>
                                             </div>
-                                            <button type="submit" class="btn btn-primary">🗑 Hapus Data Periode</button>
+                                            <button type="submit" class="btn btn-primary">Hapus Data Periode</button>
                                         </form>
                                     </div>
                                 </div>
@@ -3452,11 +3530,11 @@
                             <!-- 2) Reset per Employee -->
                             <div class="reset-card">
                                 <div style="display:flex; gap:12px; align-items:flex-start;">
-                                    <div class="reset-icon" style="background:#fefce8; color:var(--orange);">👤</div>
+                                    <div class="reset-icon" style="background:#fefce8; color:var(--orange);"><i data-feather="user-x"></i></div>
                                     <div style="flex:1;">
                                         <h3 style="font-size:13px; font-weight:700; color:var(--navy); margin:0 0 4px;">Reset Data Staff</h3>
                                         <p style="font-size:10px; color:var(--muted); margin:0 0 10px;">Pilih karyawan dan jenis data yang ingin direset.</p>
-                                        <form method="POST" action="?tab=reset" onsubmit="return confirm('Yakin reset data ini?')">
+                                        <form method="POST" action="?tab=reset" onsubmit="return attConfirmForm(this, 'Yakin reset data ini?')">
                                             <input type="hidden" name="action" value="reset_employee_data">
                                             <div class="fgrid" style="margin-bottom:8px;">
                                                 <div class="fg">
@@ -3471,14 +3549,14 @@
                                                 <div class="fg">
                                                     <label class="fl">Jenis Reset</label>
                                                     <select name="reset_type" class="fi" required>
-                                                        <option value="face">🔄 Reset Wajah Saja</option>
-                                                        <option value="finger">🔄 Reset Finger ID Saja</option>
-                                                        <option value="attendance">🗑 Hapus Semua Absen</option>
-                                                        <option value="all">⚠️ Reset Semua (Wajah + Finger + Absen)</option>
+                                                        <option value="face">Reset Wajah Saja</option>
+                                                        <option value="finger">Reset Finger ID Saja</option>
+                                                        <option value="attendance">Hapus Semua Absen</option>
+                                                        <option value="all">Reset Semua (Wajah + Finger + Absen)</option>
                                                     </select>
                                                 </div>
                                             </div>
-                                            <button type="submit" class="btn btn-primary">🔄 Reset Data Staff</button>
+                                            <button type="submit" class="btn btn-primary">Reset Data Staff</button>
                                         </form>
                                     </div>
                                 </div>
@@ -3487,13 +3565,13 @@
                             <!-- 3) Reset All Faces -->
                             <div class="reset-card">
                                 <div style="display:flex; gap:12px; align-items:flex-start;">
-                                    <div class="reset-icon" style="background:#fef2f2; color:var(--red);">👁️</div>
+                                    <div class="reset-icon" style="background:#fef2f2; color:var(--red);"><i data-feather="eye-off"></i></div>
                                     <div style="flex:1;">
                                         <h3 style="font-size:13px; font-weight:700; color:var(--navy); margin:0 0 4px;">Reset Semua Data Wajah</h3>
                                         <p style="font-size:10px; color:var(--muted); margin:0 0 10px;">Reset data wajah seluruh karyawan. Mereka perlu selfie ulang saat absen berikutnya.</p>
-                                        <form method="POST" action="?tab=reset" onsubmit="return confirm('Reset SEMUA data wajah karyawan?')">
+                                        <form method="POST" action="?tab=reset" onsubmit="return attConfirmForm(this, 'Reset SEMUA data wajah karyawan?')">
                                             <input type="hidden" name="action" value="reset_all_faces">
-                                            <button type="submit" class="btn" style="background:#fef2f2; color:var(--red); border:1px solid #fca5a5;">👁️ Reset Semua Wajah (<?php echo $resetStats['face_registered']; ?> terdaftar)</button>
+                                            <button type="submit" class="btn" style="background:#fef2f2; color:var(--red); border:1px solid #fca5a5;">Reset Semua Wajah (<?php echo $resetStats['face_registered']; ?> terdaftar)</button>
                                         </form>
                                     </div>
                                 </div>
@@ -3502,13 +3580,13 @@
                             <!-- 4) Reset Fingerprint Log -->
                             <div class="reset-card">
                                 <div style="display:flex; gap:12px; align-items:flex-start;">
-                                    <div class="reset-icon" style="background:#ede9fe; color:var(--purple);">📜</div>
+                                    <div class="reset-icon" style="background:#ede9fe; color:var(--purple);"><i data-feather="file-minus"></i></div>
                                     <div style="flex:1;">
                                         <h3 style="font-size:13px; font-weight:700; color:var(--navy); margin:0 0 4px;">Hapus Log Fingerprint</h3>
                                         <p style="font-size:10px; color:var(--muted); margin:0 0 10px;">Bersihkan tabel log webhook fingerprint. Data absen tetap aman.</p>
-                                        <form method="POST" action="?tab=reset" onsubmit="return confirm('Hapus semua log fingerprint?')">
+                                        <form method="POST" action="?tab=reset" onsubmit="return attConfirmForm(this, 'Hapus semua log fingerprint?')">
                                             <input type="hidden" name="action" value="reset_fingerprint_log">
-                                            <button type="submit" class="btn btn-purple">📜 Hapus Log (<?php echo number_format($resetStats['log_count']); ?> records)</button>
+                                            <button type="submit" class="btn btn-purple">Hapus Log (<?php echo number_format($resetStats['log_count']); ?> records)</button>
                                         </form>
                                     </div>
                                 </div>
@@ -3517,17 +3595,17 @@
                             <!-- 5) DANGER: Reset ALL Attendance -->
                             <div class="reset-card danger">
                                 <div style="display:flex; gap:12px; align-items:flex-start;">
-                                    <div class="reset-icon" style="background:var(--red); color:#fff;">⚠️</div>
+                                    <div class="reset-icon" style="background:var(--red); color:#fff;"><i data-feather="alert-triangle"></i></div>
                                     <div style="flex:1;">
-                                        <h3 style="font-size:13px; font-weight:700; color:var(--red); margin:0 0 4px;">⚠️ Reset Semua Data Absensi</h3>
+                                        <h3 style="font-size:13px; font-weight:700; color:var(--red); margin:0 0 4px;">Reset Semua Data Absensi</h3>
                                         <p style="font-size:10px; color:var(--muted); margin:0 0 10px;">Hapus SELURUH data absensi. Tindakan ini <strong>tidak bisa dibatalkan</strong>. Ketik <code>HAPUS-SEMUA</code> untuk mengkonfirmasi.</p>
-                                        <form method="POST" action="?tab=reset" onsubmit="return this.confirm_code.value==='HAPUS-SEMUA' || (alert('Ketik HAPUS-SEMUA untuk konfirmasi'), false)">
+                                        <form method="POST" action="?tab=reset" onsubmit="if (this.confirm_code.value !== 'HAPUS-SEMUA') { attAlert('Ketik HAPUS-SEMUA untuk konfirmasi.', 'warn'); return false; } return attConfirmForm(this, 'Hapus SELURUH data absensi? Tindakan ini tidak bisa dibatalkan.')">
                                             <input type="hidden" name="action" value="reset_all_attendance">
                                             <div class="fg">
                                                 <label class="fl">Kode Konfirmasi</label>
                                                 <input type="text" name="confirm_code" class="fi" placeholder="Ketik: HAPUS-SEMUA" autocomplete="off" style="border-color:#fca5a5;">
                                             </div>
-                                            <button type="submit" class="btn btn-danger">🗑 Hapus Semua Absensi (<?php echo number_format($resetStats['total_records']); ?> records)</button>
+                                            <button type="submit" class="btn btn-danger">Hapus Semua Absensi (<?php echo number_format($resetStats['total_records']); ?> records)</button>
                                         </form>
                                     </div>
                                 </div>
@@ -3537,22 +3615,82 @@
 
                     </div><!-- /att-wrap -->
 
+                    <!-- Popup konfirmasi / info (pengganti popup browser) -->
+                    <div class="att-pop" id="attPop">
+                        <div class="att-pop-box">
+                            <div class="att-pop-ic" id="attPopIc"></div>
+                            <div class="att-pop-msg" id="attPopMsg"></div>
+                            <div class="att-pop-act">
+                                <button type="button" class="btn att-pop-cancel" id="attPopCancel">Batal</button>
+                                <button type="button" class="btn btn-primary" id="attPopOk">OK</button>
+                            </div>
+                        </div>
+                    </div>
+                    <script>
+                        (function() {
+                            const ICONS = {
+                                warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+                                danger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>',
+                                ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>',
+                                err: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+                                ask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>'
+                            };
+                            // Tampilkan popup; resolve true bila OK diklik
+                            function show(msg, type, okText, withCancel) {
+                                return new Promise(resolve => {
+                                    const pop = document.getElementById('attPop');
+                                    const ic = document.getElementById('attPopIc');
+                                    ic.className = 'att-pop-ic ' + type;
+                                    ic.innerHTML = ICONS[type] || ICONS.ask;
+                                    document.getElementById('attPopMsg').textContent = msg;
+                                    const ok = document.getElementById('attPopOk');
+                                    const cancel = document.getElementById('attPopCancel');
+                                    ok.textContent = okText || 'OK';
+                                    ok.className = 'btn ' + (type === 'danger' ? 'btn-danger' : 'btn-primary');
+                                    cancel.style.display = withCancel ? '' : 'none';
+                                    const done = v => {
+                                        pop.classList.remove('open');
+                                        ok.onclick = cancel.onclick = pop.onclick = null;
+                                        resolve(v);
+                                    };
+                                    ok.onclick = () => done(true);
+                                    cancel.onclick = () => done(false);
+                                    pop.onclick = e => { if (e.target === pop) done(false); };
+                                    pop.classList.add('open');
+                                    ok.focus();
+                                });
+                            }
+                            window.attAlert = (msg, type) => show(String(msg), type || (/gagal|error/i.test(msg) ? 'err' : 'warn'), 'OK', false);
+                            window.attConfirm = (msg, okText, type) => show(msg, type || 'ask', okText || 'Ya, lanjutkan', true);
+                            // Konfirmasi sebelum submit form (dipakai di onsubmit)
+                            window.attConfirmForm = function(form, msg) {
+                                if (form.dataset.confirmed === '1') return true;
+                                const danger = /hapus|reset/i.test(msg);
+                                attConfirm(msg, danger ? 'Ya, hapus' : 'Ya, lanjutkan', danger ? 'danger' : 'ask').then(ok => {
+                                    if (!ok) return;
+                                    form.dataset.confirmed = '1';
+                                    form.submit();
+                                });
+                                return false;
+                            };
+                        })();
+                    </script>
                     <!-- ═══ MODALS ═══ -->
 
                     <!-- Edit Attendance -->
                     <div class="modal-overlay" id="editModal">
                         <div class="modal-box">
-                            <div class="modal-title">✏️ Edit Data Absen</div>
+                            <div class="modal-title">Edit Data Absen</div>
                             <form method="POST">
                                 <input type="hidden" name="action" value="edit_att">
                                 <input type="hidden" name="att_id" id="editAttId">
                                 <div style="font-size:12px; font-weight:600; color:var(--navy); margin-bottom:10px;" id="editEmpName"></div>
-                                <div style="font-size:10px; color:var(--muted); margin-bottom:6px; padding:5px 8px; background:#f0f9ff; border-radius:5px; border-left:3px solid var(--blue);">🔄 Shift 1</div>
+                                <div style="font-size:10px; color:var(--muted); margin-bottom:6px; padding:5px 8px; background:#f0f9ff; border-radius:5px; border-left:3px solid var(--blue);">Shift 1</div>
                                 <div class="fgrid">
                                     <div class="fg"><label class="fl">Scan 1 (Masuk)</label><input type="time" name="scan_1" id="editScan1" class="fi"></div>
                                     <div class="fg"><label class="fl">Scan 2 (Pulang)</label><input type="time" name="scan_2" id="editScan2" class="fi"></div>
                                 </div>
-                                <div style="font-size:10px; color:var(--muted); margin-bottom:6px; padding:5px 8px; background:#fefce8; border-radius:5px; border-left:3px solid var(--orange);">🌙 Shift 2</div>
+                                <div style="font-size:10px; color:var(--muted); margin-bottom:6px; padding:5px 8px; background:#fefce8; border-radius:5px; border-left:3px solid var(--orange);">Shift 2</div>
                                 <div class="fgrid">
                                     <div class="fg"><label class="fl">Scan 3 (Masuk)</label><input type="time" name="scan_3" id="editScan3" class="fi"></div>
                                     <div class="fg"><label class="fl">Scan 4 (Pulang)</label><input type="time" name="scan_4" id="editScan4" class="fi"></div>
@@ -3573,7 +3711,7 @@
                                 <div class="fg"><label class="fl">Catatan</label><input type="text" name="notes" id="editNotes" class="fi" placeholder="Opsional"></div>
                                 <div class="modal-actions">
                                     <button type="button" class="btn" style="background:#f1f5f9; color:var(--muted); border:1px solid var(--border);" onclick="closeModal('editModal')">Batal</button>
-                                    <button type="submit" class="btn btn-primary">💾 Simpan</button>
+                                    <button type="submit" class="btn btn-primary">Simpan</button>
                                 </div>
                             </form>
                         </div>
@@ -3582,7 +3720,7 @@
                     <!-- Manual Attendance -->
                     <div class="modal-overlay" id="manualModal">
                         <div class="modal-box">
-                            <div class="modal-title">➕ Input Absen Manual</div>
+                            <div class="modal-title">Input Absen Manual</div>
                             <form method="POST">
                                 <input type="hidden" name="action" value="manual_att">
                                 <div class="fg"><label class="fl">Karyawan</label>
@@ -3594,12 +3732,12 @@
                                     </select>
                                 </div>
                                 <div class="fg"><label class="fl">Tanggal</label><input type="date" name="attendance_date" id="manualDate" class="fi" value="<?php echo $viewDate; ?>" required></div>
-                                <div style="font-size:10px; color:var(--muted); margin-bottom:6px; padding:5px 8px; background:#f0f9ff; border-radius:5px; border-left:3px solid var(--blue);">🔄 Shift 1</div>
+                                <div style="font-size:10px; color:var(--muted); margin-bottom:6px; padding:5px 8px; background:#f0f9ff; border-radius:5px; border-left:3px solid var(--blue);">Shift 1</div>
                                 <div class="fgrid">
                                     <div class="fg"><label class="fl">Scan 1 (Masuk)</label><input type="time" name="scan_1" class="fi" value="07:00"></div>
                                     <div class="fg"><label class="fl">Scan 2 (Pulang)</label><input type="time" name="scan_2" class="fi" value="11:00"></div>
                                 </div>
-                                <div style="font-size:10px; color:var(--muted); margin-bottom:6px; padding:5px 8px; background:#fefce8; border-radius:5px; border-left:3px solid var(--orange);">🌙 Shift 2</div>
+                                <div style="font-size:10px; color:var(--muted); margin-bottom:6px; padding:5px 8px; background:#fefce8; border-radius:5px; border-left:3px solid var(--orange);">Shift 2</div>
                                 <div class="fgrid">
                                     <div class="fg"><label class="fl">Scan 3 (Masuk)</label><input type="time" name="scan_3" class="fi"></div>
                                     <div class="fg"><label class="fl">Scan 4 (Pulang)</label><input type="time" name="scan_4" class="fi"></div>
@@ -3616,7 +3754,7 @@
                                 <div class="fg"><label class="fl">Catatan</label><input type="text" name="notes" class="fi" placeholder="Opsional"></div>
                                 <div class="modal-actions">
                                     <button type="button" class="btn" style="background:#f1f5f9; color:var(--muted); border:1px solid var(--border);" onclick="closeModal('manualModal')">Batal</button>
-                                    <button type="submit" class="btn btn-primary">💾 Simpan</button>
+                                    <button type="submit" class="btn btn-primary">Simpan</button>
                                 </div>
                             </form>
                         </div>
@@ -3625,17 +3763,17 @@
                     <!-- Reset Face Modal -->
                     <div class="modal-overlay" id="faceModal">
                         <div class="modal-box">
-                            <div class="modal-title">🔄 Reset Data Wajah</div>
+                            <div class="modal-title">Reset Data Wajah</div>
                             <form method="POST">
                                 <input type="hidden" name="action" value="reset_face">
                                 <input type="hidden" name="employee_id" id="faceEmpId">
                                 <div style="font-size:12px; color:var(--muted); margin-bottom:10px;" id="faceEmpName"></div>
                                 <div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:10px; font-size:11px; color:#991b1b; margin-bottom:10px;">
-                                    ⚠️ Karyawan harus <strong>selfie ulang</strong> saat absen berikutnya.
+                                    Karyawan harus <strong>selfie ulang</strong> saat absen berikutnya.
                                 </div>
                                 <div class="modal-actions">
                                     <button type="button" class="btn" style="background:#f1f5f9; color:var(--muted); border:1px solid var(--border);" onclick="closeModal('faceModal')">Batal</button>
-                                    <button type="submit" class="btn btn-danger">🔄 Reset</button>
+                                    <button type="submit" class="btn btn-danger">Reset</button>
                                 </div>
                             </form>
                         </div>
@@ -3644,7 +3782,7 @@
                     <!-- Location Modal -->
                     <div class="modal-overlay" id="locModal">
                         <div class="modal-box" style="max-width:520px;">
-                            <div class="modal-title" id="locModalTitle">📍 Tambah Lokasi</div>
+                            <div class="modal-title" id="locModalTitle">Tambah Lokasi</div>
                             <form method="POST" action="?tab=gps" id="locForm" onsubmit="return validateLocForm()">
                                 <input type="hidden" name="action" id="locFormAction" value="add_location">
                                 <input type="hidden" name="loc_id" id="locFormId" value="">
@@ -3655,11 +3793,11 @@
                                     <div class="fg"><label class="fl">Longitude</label><input type="text" name="loc_lng" id="locLng" class="fi" placeholder="106.8" required readonly style="background:#f8fafc;"></div>
                                 </div>
                                 <div style="font-size:10px; color:var(--blue); background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:6px 8px; margin-bottom:8px;">
-                                    📌 Klik peta untuk menentukan titik lokasi.
+                                    Klik peta untuk menentukan titik lokasi.
                                 </div>
                                 <div id="locPickerMap" style="height:180px; border-radius:6px; border:1px solid var(--border); margin-bottom:8px;"></div>
                                 <div style="display:flex; gap:6px; margin-bottom:8px;">
-                                    <button type="button" onclick="useMyGPS()" class="btn btn-edit btn-sm">📍 Lokasi Saya</button>
+                                    <button type="button" onclick="useMyGPS()" class="btn btn-edit btn-sm">Lokasi Saya</button>
                                     <span id="locGpsStatus" style="font-size:10px; color:var(--muted); line-height:2.2;"></span>
                                 </div>
                                 <div class="fg"><label class="fl">Radius (meter)</label><input type="number" name="loc_radius" id="locRadius" class="fi" value="200" min="10" max="10000"></div>
@@ -3670,7 +3808,7 @@
                                 </div>
                                 <div class="modal-actions">
                                     <button type="button" class="btn" style="background:#f1f5f9; color:var(--muted); border:1px solid var(--border);" onclick="closeModal('locModal')">Batal</button>
-                                    <button type="submit" class="btn btn-primary">💾 Simpan</button>
+                                    <button type="submit" class="btn btn-primary">Simpan</button>
                                 </div>
                             </form>
                         </div>
@@ -4158,10 +4296,10 @@
                                             document.getElementById('schedDayModal').classList.remove('open');
                                             renderScheduleCalendar();
                                         } else {
-                                            alert('Gagal menyimpan tanggal khusus: ' + (res && res.message ? res.message : 'unknown error'));
+                                            attAlert('Gagal menyimpan tanggal khusus: ' + (res && res.message ? res.message : 'unknown error'));
                                         }
                                     })
-                                    .catch(err => alert('Gagal menyimpan tanggal khusus: ' + err.message));
+                                    .catch(err => attAlert('Gagal menyimpan tanggal khusus: ' + err.message));
                                 return;
                             }
 
@@ -4200,10 +4338,10 @@
                                         document.getElementById('schedDayModal').classList.remove('open');
                                         renderScheduleCalendar();
                                     } else {
-                                        alert('Gagal menghapus override: ' + (res && res.message ? res.message : 'unknown error'));
+                                        attAlert('Gagal menghapus override: ' + (res && res.message ? res.message : 'unknown error'));
                                     }
                                 })
-                                .catch(err => alert('Gagal menghapus override: ' + err.message));
+                                .catch(err => attAlert('Gagal menghapus override: ' + err.message));
                         }
 
                         function toggleQuickOffUI(checked) {
@@ -4214,12 +4352,12 @@
 
                         function applyQuickEdit() {
                             if (!schedCurrentEmpId) {
-                                alert('Pilih karyawan terlebih dahulu.');
+                                attAlert('Pilih karyawan terlebih dahulu.');
                                 return;
                             }
                             const checkedDays = Array.from(document.querySelectorAll('.sched-quick-day:checked')).map(el => parseInt(el.value));
                             if (!checkedDays.length) {
-                                alert('Pilih minimal satu hari.');
+                                attAlert('Pilih minimal satu hari.');
                                 return;
                             }
                             const isOff = document.getElementById('quickOff').checked;
@@ -4323,7 +4461,7 @@
 
                         function applyQuickToAll() {
                             if (!uniAllCache.employees.length) {
-                                alert('Data karyawan belum siap dimuat, tunggu sebentar lalu coba lagi.');
+                                attAlert('Data karyawan belum siap dimuat, tunggu sebentar lalu coba lagi.');
                                 return;
                             }
                             const quickVals = {};
@@ -4334,12 +4472,15 @@
                                 quickVals[inp.dataset.day] = v;
                             });
                             if (!anyFilled) {
-                                alert('Isi minimal 1 hari di Setup Cepat sebelum menerapkan.');
+                                attAlert('Isi minimal 1 hari di Setup Cepat sebelum menerapkan.');
                                 return;
                             }
-                            if (!confirm('Terapkan seragam ini ke SEMUA staff aktif untuk hari yang diisi? Nilai lama pada hari tsb akan tertimpa.')) {
-                                return;
-                            }
+                            attConfirm('Terapkan seragam ini ke SEMUA staff aktif untuk hari yang diisi? Nilai lama pada hari tersebut akan tertimpa.', 'Terapkan').then(ok => {
+                                if (ok) applyQuickToAllNow(quickVals);
+                            });
+                        }
+
+                        function applyQuickToAllNow(quickVals) {
                             uniAllCache.employees.forEach(emp => {
                                 for (let d = 0; d <= 6; d++) {
                                     const qv = quickVals[d];
@@ -4373,7 +4514,7 @@
                                         wrap.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:11px;">Belum ada karyawan aktif.</div>';
                                         return;
                                     }
-                                    let html = '<table style="width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap;">';
+                                    let html = '<table class="uni-tbl">';
                                     html += '<thead><tr style="background:var(--bg);">' +
                                         '<th style="position:sticky;left:0;background:var(--bg);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);z-index:1;">Karyawan</th>';
                                     for (let d = 0; d <= 6; d++) {
@@ -4389,7 +4530,7 @@
                                             const isOff = row && parseInt(row.is_off) === 1;
                                             html += '<td style="padding:6px 10px;border-bottom:1px solid var(--border);">';
                                             if (isOff) {
-                                                html += '<span style="color:var(--red);font-weight:600;">🔴 Libur</span>';
+                                                html += '<span class="uni-off">Libur</span>';
                                             } else {
                                                 const uniformVal = (row && row.uniform) ? row.uniform : '';
                                                 html += '<input type="text" class="fi uni-cell" data-emp="' + emp.id + '" data-day="' + d + '" value="' + esc(uniformVal) + '" placeholder="Batik / Kemeja Putih / Bebas Rapi" maxlength="100" style="width:100%;min-width:150px;">';
