@@ -546,6 +546,18 @@ include '../../includes/header.php';
                 </form>
             </div>
             <?php
+            $pErrRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_last_push_error'");
+            $pOkRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_last_push_ok'");
+            $pErr = json_decode((string)($pErrRow['setting_value'] ?? ''), true);
+            $pOkAt = (string)($pOkRow['setting_value'] ?? '');
+            if (!empty($pErr['at']) && ($pOkAt === '' || $pErr['at'] > $pOkAt)): ?>
+                <div class="cbx-note" style="margin-bottom:.75rem;border-color:#fecaca;background:rgba(220,38,38,.06);color:#991b1b">
+                    <b>Kiriman ke Cloudbeds gagal</b> (<?php echo htmlspecialchars(date('d M H:i', strtotime($pErr['at']))); ?>):<br>
+                    <?php foreach ((array)($pErr['errors'] ?? []) as $pe): ?>• <?php echo htmlspecialchars($pe); ?><br><?php endforeach; ?>
+                    <small>Akan dicoba lagi otomatis. Kirim pesan ini ke admin sistem bila terus muncul.</small>
+                </div>
+            <?php endif; ?>
+            <?php
             $payRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_enabled'");
             $payOn = ($payRow['setting_value'] ?? '0') === '1';
             $paySince = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_since'");

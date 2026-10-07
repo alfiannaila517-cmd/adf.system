@@ -328,6 +328,30 @@ class CloudbedsSync
         return ($r['setting_value'] ?? '0') === '1';
     }
 
+    /** Catat hasil kiriman ke Cloudbeds agar terlihat di halaman (galat terakhir / berhasil terakhir). */
+    private function rememberPushError(array $errors): void
+    {
+        $this->db->query(
+            "INSERT INTO settings (setting_key, setting_value) VALUES ('cloudbeds_last_push_error', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
+            [json_encode(['at' => date('Y-m-d H:i:s'), 'errors' => array_slice($errors, 0, 5)], JSON_UNESCAPED_UNICODE)]
+        );
+    }
+
+    private function rememberPushResult(array $done): void
+    {
+        if (!empty($done['errors'])) {
+            $pushErrors = array_values(array_filter($done['errors'], fn($e) => stripos($e, 'Cloudbeds menolak') !== false || stripos($e, 'Cloudbeds') !== false));
+            if ($pushErrors) $this->rememberPushError($pushErrors);
+        }
+        $sent = ($done['push_status'] ?? 0) + ($done['push_create'] ?? 0) + ($done['push_block'] ?? 0) + ($done['push_pay'] ?? 0);
+        if ($sent > 0) {
+            $this->db->query(
+                "INSERT INTO settings (setting_key, setting_value) VALUES ('cloudbeds_last_push_ok', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
+                [date('Y-m-d H:i:s')]
+            );
+        }
+    }
+
     public function payEnabled(): bool
     {
         $r = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_enabled'");
@@ -763,11 +787,11 @@ class CloudbedsSync
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak hapus blok: ' . $r['detail'] . (in_array($r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete" di API key)' : ''));
                     $done['push_block']++;
                 } elseif ($a['type'] === 'push_putblock') {
-                    $r = $this->cb->send('PUT', 'putRoomBlock', ['roomBlockID' => $a['cb'], 'startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'rooms' => $a['rooms']]);
+                    $r = $this->cb->send('PUT', 'putRoomBlock', ['roomBlockID' => $a['cb'], 'startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'roomBlockType' => 'blocked', 'rooms' => array_map(fn($x) => ['roomID' => $x], $a['rooms'])]);
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak ubah blok: ' . $r['detail']);
                     $done['push_block']++;
                 } elseif ($a['type'] === 'push_newblock') {
-                    $r = $this->cb->send('POST', 'postRoomBlock', ['startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'rooms' => [$a['cb_room']['room_id']]]);
+                    $r = $this->cb->send('POST', 'postRoomBlock', ['startDate' => $a['start'], 'endDate' => $a['end'], 'roomBlockReason' => $a['reason'], 'roomBlockType' => 'blocked', 'rooms' => [['roomID' => $a['cb_room']['room_id']]]]);
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak blok baru: ' . $r['detail']);
                     $newId = (string)($r['raw']['roomBlockID'] ?? ($r['data']['roomBlockID'] ?? ''));
                     // Kode CB- agar sinkron masuk mengenali blok ini sebagai pasangan; bila ID tidak terbaca, ADFCB- agar tidak dikirim ulang
@@ -859,6 +883,7 @@ class CloudbedsSync
         if ($done['errors']) {
             error_log('Cloudbeds pushFor: ' . implode(' | ', $done['errors']));
         }
+        $this->rememberPushResult($done);
         return ['ok' => !$done['errors'], 'done' => $done];
     }
     /** Hitung ulang rencana lalu jalankan link / create / cancel / block / unblock. Peringatan tidak dieksekusi. */
@@ -869,6 +894,7 @@ class CloudbedsSync
             return $plan + ['done' => []];
         }
         $done = $this->executeActions($plan['actions'], $userId);
+        $this->rememberPushResult($done);
         try {
             $this->db->query(
                 "INSERT INTO cloudbeds_sync_log (range_from, range_to, linked, created, cancelled, warnings, detail, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
