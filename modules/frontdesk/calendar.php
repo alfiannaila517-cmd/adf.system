@@ -1547,22 +1547,22 @@ include '../../includes/header.php';
     /* Cloudbeds-style payment/request status dots on booking bars */
     .booking-status-dots {
         position: absolute;
-        top: -4px;
-        right: -3px;
+        top: -7px;
+        right: -5px;
         transform: skewX(20deg);
         display: flex;
-        gap: 2px;
+        gap: 3px;
         z-index: 16;
         pointer-events: none;
     }
 
     .status-dot {
         display: inline-block;
-        width: 7px;
-        height: 7px;
+        width: 12px;
+        height: 12px;
         border-radius: 50%;
-        border: 1.5px solid #ffffff;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+        border: 2px solid #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
     }
 
     .status-dot.dot-red {
