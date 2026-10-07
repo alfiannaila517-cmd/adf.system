@@ -577,7 +577,7 @@ include '../../includes/header.php';
             </div>
             <details style="margin:-.25rem 0 .75rem"><summary class="cbx-hint" style="cursor:pointer">Cara memasang Cron Job (sekali saja)</summary>
                 <div class="cbx-note" style="margin-top:.4rem">
-                    cPanel → <b>Cron Jobs</b> → Add New Cron Job → Common Settings: <b>Once Per Ten Minutes</b> (*/10 * * * *) → Command:<br>
+                    cPanel → <b>Cron Jobs</b> → Add New Cron Job → Common Settings: <b>Once Per Five Minutes</b> (*/5 * * * *) → Command:<br>
                     <code style="display:block;margin-top:.35rem;padding:.4rem .5rem;border-radius:6px;background:rgba(15,23,42,.06);word-break:break-all;user-select:all">/usr/local/bin/php <?php echo htmlspecialchars(dirname(dirname(__DIR__))); ?>/cron/cloudbeds-sync.php >> <?php echo htmlspecialchars(dirname(dirname(dirname(__DIR__)))); ?>/cloudbeds_sync_log.txt 2>&amp;1</code>
                     Aturannya sama dengan tombol <b>Jalankan sinkron</b> (check-in 14 hari lalu s/d 120 hari ke depan); yang "Perlu dicek" tidak dijalankan dan tetap terlihat di pratinjau.
                 </div>

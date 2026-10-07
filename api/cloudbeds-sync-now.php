@@ -3,7 +3,7 @@
 /**
  * Sinkron Cloudbeds → sistem saat halaman Front Desk dibuka (dipanggil di latar belakang lewat fetch).
  * Aturan sama dengan cron/cloudbeds-sync.php; hanya bila sinkron otomatis aktif, maksimal sekali per
- * 2 menit per bisnis, dan tidak pernah bersamaan dengan cron (lock yang sama).
+ * menit per bisnis, dan tidak pernah bersamaan dengan cron (lock yang sama).
  */
 
 define('APP_ACCESS', true);
@@ -42,7 +42,7 @@ try {
         exit;
     }
     $last = json_decode((string)($db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_last_auto_sync'")['setting_value'] ?? ''), true);
-    if (!empty($last['at']) && time() - strtotime($last['at']) < 120) {
+    if (!empty($last['at']) && time() - strtotime($last['at']) < 55) {
         echo json_encode(['ok' => true, 'skipped' => 'recent', 'last' => $last['at']]);
         exit;
     }

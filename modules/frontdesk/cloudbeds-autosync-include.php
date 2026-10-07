@@ -28,7 +28,7 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
 </div>
 <script>
     (function() {
-        // Sinkron Cloudbeds di latar belakang setelah halaman tampil (server membatasi maks. sekali per 2 menit)
+        // Sinkron Cloudbeds di latar belakang setelah halaman tampil (server membatasi maks. sekali per menit)
         function run() {
             fetch(<?php echo json_encode(BASE_URL . '/api/cloudbeds-sync-now.php'); ?>, { method: 'POST', credentials: 'include' })
                 .then(function(r) { return r.json(); })
@@ -47,6 +47,9 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
         }
         if (document.readyState === 'complete') setTimeout(run, 300);
         else window.addEventListener('load', function() { setTimeout(run, 300); });
+        // Selama halaman terbuka: cek Cloudbeds tiap menit (server tetap membatasi); berhenti saat tab disembunyikan
+        setInterval(function() { if (!document.hidden) run(); }, 60000);
+        document.addEventListener('visibilitychange', function() { if (!document.hidden) run(); });
     })();
 </script>
 <?php endif; ?>

@@ -3,8 +3,8 @@
 // Sinkron otomatis Cloudbeds → sistem (booking OTA baru, pembatalan, blok kamar) untuk semua bisnis
 // yang punya API key Cloudbeds DAN "Sinkron otomatis" diaktifkan di Front Desk → Pengaturan → Cloudbeds.
 //
-// cPanel → Cron Jobs, tiap 10 menit:
-//   */10 * * * *   /usr/local/bin/php /home/adfb2574/public_html/cron/cloudbeds-sync.php >> /home/adfb2574/cloudbeds_sync_log.txt 2>&1
+// cPanel → Cron Jobs, tiap 5 menit:
+//   */5 * * * *   /usr/local/bin/php /home/adfb2574/public_html/cron/cloudbeds-sync.php >> /home/adfb2574/cloudbeds_sync_log.txt 2>&1
 //
 // Rentang: check-in 14 hari lalu s/d 120 hari ke depan. Aturannya sama dengan tombol "Jalankan sinkron"
 // (tautkan / buat booking / batalkan / blok kamar); yang "Perlu dicek" tidak dijalankan.
