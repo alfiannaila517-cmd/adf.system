@@ -191,7 +191,10 @@ class CloudbedsSync
                 continue;
             }
 
-            // Belum ada → booking baru
+            // Belum ada → booking baru. Tamu yang sudah check-out (riwayat) tidak dibuat & tidak diperingatkan.
+            if (strtolower($it['status']) === 'checked_out') {
+                continue;
+            }
             if (!in_array(strtolower($it['status']), ['confirmed', 'not_confirmed', 'checked_in'], true)) {
                 $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Status Cloudbeds "' . $it['status'] . '" — tidak dibuat otomatis.'];
                 continue;
