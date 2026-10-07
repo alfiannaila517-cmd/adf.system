@@ -3551,6 +3551,31 @@ header('Expires: 0');
         .btn-riwayat.open-r { border-radius: 14px 14px 0 0; }
         .riwayat-panel { border-radius: 0 0 14px 14px; padding: 12px 14px; }
         .riwayat-badge { background: #eef2ff; color: #3730a3; }
+        /* Form di HP: kolom tidak boleh melebar keluar kartu (input date iOS/Android punya lebar bawaan) */
+        #page-home .compact-form, #page-home .compact-form > div, #page-home .compact-form label { min-width: 0; }
+        #page-home .compact-form > div[style*="grid"] > div { min-width: 0; }
+        #page-home .compact-form .fi { display: block; max-width: 100%; box-sizing: border-box; }
+        #page-home .compact-form input[type="date"].fi { -webkit-appearance: none; appearance: none; min-width: 0; line-height: 40px; text-align: left; background: #fff; }
+        #page-home .compact-form input[type="date"].fi::-webkit-date-and-time-value { text-align: left; margin: 0; }
+        #page-home .compact-form input[type="date"].fi::-webkit-calendar-picker-indicator { margin-left: 2px; opacity: .55; }
+        #page-home .compact-form textarea.fi { min-height: 72px; line-height: 1.45; }
+        .rq-stats { display: grid; gap: 6px; margin-bottom: 4px; }
+        .rq-stat { border: 1px solid var(--border); border-radius: 12px; padding: 8px 4px; text-align: center; background: #fbfcfe; min-width: 0; }
+        .rq-stat b { display: block; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.1; font-variant-numeric: tabular-nums; }
+        .rq-stat span { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 3px; font-size: 9px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+        .rq-item { padding: 11px 0; border-bottom: 1px solid #f1f5f9; }
+        .rq-item:last-child { border-bottom: none; padding-bottom: 2px; }
+        .rq-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .rq-top b { font-size: 13px; font-weight: 800; color: #0f172a; }
+        .rq-chip { font-size: 9.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; }
+        .rq-when { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+        .rq-reason { font-size: 12px; color: var(--text); margin-top: 5px; line-height: 1.45; word-break: break-word; }
+        .rq-note { font-size: 11px; color: #3730a3; background: #eef2ff; border-radius: 9px; padding: 6px 9px; margin-top: 6px; word-break: break-word; }
+        @media (max-width: 360px) {
+            .cuti-type .ct-label { font-size: 9.5px; }
+            .rq-stat span { font-size: 8.5px; }
+        }
+
         .mon-nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; margin-bottom: 10px; }
         .mon-nav button { height: 34px; border: 1px solid var(--border); background: #fff; color: #0f172a; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; }
         .mon-nav button.mid { padding: 0 14px; background: #f1f5f9; }
@@ -6681,6 +6706,28 @@ header('Expires: 0');
             return false;
         }
 
+        // Ringkasan & baris riwayat pengajuan (Lembur / Cuti) — satu gaya untuk keduanya
+        function reqStatsHtml(stats, withCuti) {
+            const cell = (v, l, c) => `<div class="rq-stat"><b>${parseInt(v) || 0}</b><span><i class="rm-dot" style="background:${c}"></i>${l}</span></div>`;
+            return `<div class="rq-stats" style="grid-template-columns:repeat(${withCuti ? 4 : 3},1fr)">` +
+                cell(stats.pending, 'Menunggu', '#d97706') + cell(stats.approved, 'Disetujui', '#0f8a65') + cell(stats.rejected, 'Ditolak', '#dc2626') +
+                (withCuti ? cell(stats.cuti_used, 'Cuti thn ini', '#3d5a99') : '') + '</div>';
+        }
+
+        function reqItemHtml(title, when, r) {
+            const st = {
+                pending: ['Menunggu', '#fef3c7', '#b45309'],
+                approved: ['Disetujui', '#dcfce7', '#0b6b4e'],
+                rejected: ['Ditolak', '#fee2e2', '#b91c1c']
+            } [r.status] || [r.status || '-', '#f1f5f9', '#475569'];
+            return `<div class="rq-item">
+                <div class="rq-top"><b>${rmEsc(title)}</b><span class="rq-chip" style="background:${st[1]};color:${st[2]}">${rmEsc(st[0])}</span></div>
+                <div class="rq-when">${rmEsc(when)}</div>
+                ${r.reason ? `<div class="rq-reason">${rmEsc(r.reason)}</div>` : ''}
+                ${r.admin_notes ? `<div class="rq-note">Catatan admin: ${rmEsc(r.admin_notes)}</div>` : ''}
+            </div>`;
+        }
+
         async function loadCuti() {
             try {
                 const res = await fetch(API + '&action=leave_history');
@@ -6688,13 +6735,7 @@ header('Expires: 0');
                 const stats = data.stats || {};
                 const rows = data.data || [];
 
-                document.getElementById('cutiStats').innerHTML = `
-            <div class="stat-row">
-                <div class="stat-card"><div class="sl">⏳ Pending</div><div class="sv" style="color:var(--orange);">${stats.pending||0}</div></div>
-                <div class="stat-card"><div class="sl">✅ Disetujui</div><div class="sv" style="color:var(--green);">${stats.approved||0}</div></div>
-                <div class="stat-card"><div class="sl">❌ Ditolak</div><div class="sv" style="color:var(--red);">${stats.rejected||0}</div></div>
-                <div class="stat-card"><div class="sl">🏖️ Cuti Tahun Ini</div><div class="sv" style="color:var(--blue);">${stats.cuti_used||0}</div></div>
-            </div>`;
+                document.getElementById('cutiStats').innerHTML = reqStatsHtml(stats, true);
 
                 // Update badge on toggle button
                 const totalCuti = rows.length;
@@ -6744,15 +6785,12 @@ header('Expires: 0');
                         year: 'numeric'
                     });
                     const days = Math.ceil((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1;
-                    html += `<div style="padding:12px 0;border-bottom:1px solid #f1f5f9;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <span style="font-weight:700;font-size:12px;">${typeLabel[r.leave_type]||r.leave_type}</span>
-                    <span class="leave-status ${statusCls[r.status]||''}">${statusLabel[r.status]||r.status}</span>
-                </div>
-                <div style="font-size:11px;color:var(--muted);">📅 ${s} — ${e} (${days} hari)</div>
-                <div style="font-size:11px;color:var(--text);margin-top:3px;">${r.reason||''}</div>
-                ${r.admin_notes ? `<div style="font-size:10px;color:var(--blue);margin-top:3px;background:#eff6ff;padding:4px 8px;border-radius:4px;">💬 ${r.admin_notes}</div>` : ''}
-            </div>`;
+                    html += reqItemHtml(({
+                        cuti: 'Cuti',
+                        sakit: 'Sakit',
+                        izin: 'Izin',
+                        cuti_khusus: 'Cuti khusus'
+                    })[r.leave_type] || r.leave_type, (s === e ? s : s + ' – ' + e) + ' · ' + days + ' hari', r);
                 });
                 document.getElementById('cutiHistory').innerHTML = html;
             } catch (e) {
@@ -6768,11 +6806,11 @@ header('Expires: 0');
             const isOpen = panel.classList.toggle('open');
             arrow.classList.toggle('open', isOpen);
             if (isOpen) {
-                btn.style.borderRadius = '12px 12px 0 0';
+                btn.style.borderRadius = '14px 14px 0 0';
                 if (type === 'lembur') loadLembur();
                 if (type === 'cuti') loadCuti();
             } else {
-                btn.style.borderRadius = '12px';
+                btn.style.borderRadius = '14px';
             }
         }
 
@@ -6833,12 +6871,7 @@ header('Expires: 0');
                 const stats = data.stats || {};
                 const rows = data.data || [];
 
-                document.getElementById('lemburStats').innerHTML = `
-            <div class="stat-row">
-                <div class="stat-card"><div class="sl">⏳ Pending</div><div class="sv" style="color:var(--orange);">${stats.pending||0}</div></div>
-                <div class="stat-card"><div class="sl">✅ Disetujui</div><div class="sv" style="color:var(--green);">${stats.approved||0}</div></div>
-                <div class="stat-card"><div class="sl">❌ Ditolak</div><div class="sv" style="color:var(--red);">${stats.rejected||0}</div></div>
-            </div>`;
+                document.getElementById('lemburStats').innerHTML = reqStatsHtml(stats, false);
 
                 // Update badge on toggle button
                 const totalLembur = rows.length;
@@ -6877,15 +6910,7 @@ header('Expires: 0');
                         month: 'short',
                         year: 'numeric'
                     });
-                    html += `<div style="padding:12px 0;border-bottom:1px solid #f1f5f9;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <span style="font-weight:700;font-size:12px;">⏰ Lembur</span>
-                    <span class="leave-status ${statusCls[r.status]||''}">${statusLabel[r.status]||r.status}</span>
-                </div>
-                <div style="font-size:11px;color:var(--muted);">📅 ${d}</div>
-                <div style="font-size:11px;color:var(--text);margin-top:3px;">${r.reason||''}</div>
-                ${r.admin_notes ? `<div style="font-size:10px;color:var(--blue);margin-top:3px;background:#eff6ff;padding:4px 8px;border-radius:4px;">💬 ${r.admin_notes}</div>` : ''}
-            </div>`;
+                    html += reqItemHtml('Lembur', d, r);
                 });
                 document.getElementById('lemburHistory').innerHTML = html;
             } catch (e) {
