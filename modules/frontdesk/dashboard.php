@@ -85,6 +85,35 @@ try {
     ", [$today]);
     $stats['arrival_today'] = $arrivalTodayResult['count'] ?? 0;
 
+    // 3b. Daftar tamu yang check-in hari ini (untuk kartu Arrival Today + cetak registration card)
+    try {
+        $stats['arrival_guests'] = $db->fetchAll("
+        SELECT b.id, b.booking_code, b.status, b.booking_source, b.total_nights, b.adults, b.children,
+               g.guest_name, g.phone, r.room_number, rt.type_name AS room_type,
+               bs.source_name, bs.source_type
+        FROM bookings b
+        LEFT JOIN guests g ON g.id = b.guest_id
+        LEFT JOIN rooms r ON r.id = b.room_id
+        LEFT JOIN room_types rt ON rt.id = r.room_type_id
+        LEFT JOIN booking_sources bs ON bs.source_key = b.booking_source
+        WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'pending', 'checked_in')
+        ORDER BY (b.status = 'checked_in'), r.room_number + 0, r.room_number
+        ", [$today]) ?: [];
+    } catch (\Throwable $e) {
+        // tabel booking_sources belum ada: tanpa nama sumber
+        $stats['arrival_guests'] = $db->fetchAll("
+        SELECT b.id, b.booking_code, b.status, b.booking_source, b.total_nights, b.adults, b.children,
+               g.guest_name, g.phone, r.room_number, rt.type_name AS room_type,
+               NULL AS source_name, NULL AS source_type
+        FROM bookings b
+        LEFT JOIN guests g ON g.id = b.guest_id
+        LEFT JOIN rooms r ON r.id = b.room_id
+        LEFT JOIN room_types rt ON rt.id = r.room_type_id
+        WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'pending', 'checked_in')
+        ORDER BY (b.status = 'checked_in'), r.room_number + 0, r.room_number
+        ", [$today]) ?: [];
+    }
+
     // 4. Predicted Arrivals Tomorrow
     $arrivalTomorrowResult = $db->fetchOne("
         SELECT COUNT(*) as count 
@@ -361,6 +390,7 @@ try {
         'in_house' => 0,
         'checkout_today' => 0,
         'arrival_today' => 0,
+        'arrival_guests' => [],
         'predicted_tomorrow' => 0,
         'total_rooms' => 0,
         'occupied_rooms' => 0,
@@ -1921,6 +1951,100 @@ include '../../includes/header.php';
             </div>
         </div>
     </div>
+
+    <!-- Arrival Today: daftar tamu check-in hari ini + cetak semua registration card -->
+    <?php if (!empty($stats['arrival_guests'])):
+        $arrWaiting = count(array_filter($stats['arrival_guests'], fn($a) => $a['status'] !== 'checked_in'));
+    ?>
+        <div class="arr-card">
+            <div class="arr-head">
+                <div class="arr-ttl">
+                    <span class="arr-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg></span>
+                    <div>
+                        <b>Arrival Today</b>
+                        <small><?php echo count($stats['arrival_guests']); ?> guests · <?php echo $arrWaiting; ?> waiting for check-in</small>
+                    </div>
+                </div>
+                <a class="arr-print-all" href="registration-card.php?arrivals=<?php echo $today; ?>&amp;autoprint=1" target="_blank" title="Print all registration cards">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                    <span>Print All Registration Cards</span>
+                </a>
+            </div>
+            <div class="arr-table-wrap">
+                <table class="arr-table">
+                    <thead>
+                        <tr>
+                            <th>Guest</th>
+                            <th>Room</th>
+                            <th>Type</th>
+                            <th>Nights</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($stats['arrival_guests'] as $ag):
+                            $agSrc = $ag['source_name'] ?: ucwords(str_replace('_', ' ', (string)($ag['booking_source'] ?: 'Direct')));
+                            $agOta = $ag['source_type'] ? $ag['source_type'] !== 'direct' : (bool)preg_match('/agoda|booking|tiket|traveloka|airbnb|expedia|ota/', (string)$ag['booking_source']);
+                            $agIn = $ag['status'] === 'checked_in';
+                        ?>
+                            <tr>
+                                <td>
+                                    <div class="arr-name"><?php echo htmlspecialchars($ag['guest_name'] ?: '-'); ?></div>
+                                    <div class="arr-sub"><?php echo htmlspecialchars($ag['booking_code']); ?><?php echo $ag['phone'] ? ' · ' . htmlspecialchars($ag['phone']) : ''; ?></div>
+                                </td>
+                                <td><span class="arr-room"><?php echo htmlspecialchars($ag['room_number'] ?: '-'); ?></span></td>
+                                <td class="arr-muted"><?php echo htmlspecialchars($ag['room_type'] ?: '-'); ?></td>
+                                <td class="arr-muted"><?php echo (int)$ag['total_nights']; ?></td>
+                                <td><span class="arr-src <?php echo $agOta ? 'ota' : 'dir'; ?>"><?php echo htmlspecialchars($agSrc); ?></span></td>
+                                <td><span class="arr-st <?php echo $agIn ? 'in' : 'wait'; ?>"><?php echo $agIn ? 'Checked in' : 'Expected'; ?></span></td>
+                                <td class="arr-act">
+                                    <a href="registration-card.php?booking_id=<?php echo (int)$ag['id']; ?>&amp;autoprint=1" target="_blank" title="Print registration card">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <style>
+            .arr-card { margin-bottom: 0.85rem; border-radius: 14px; border: 1px solid #bfdbfe; background: var(--bg-secondary, #fff); overflow: hidden; }
+            .arr-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; background: linear-gradient(135deg, #1e3a8a, #2563eb); }
+            .arr-ttl { display: flex; align-items: center; gap: 10px; }
+            .arr-ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); }
+            body .arr-ic svg { width: 17px; height: 17px; color: #fff !important; stroke: #fff !important; }
+            body .arr-ttl b { display: block; font-size: .9rem !important; font-weight: 800 !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+            body .arr-ttl small { font-size: .7rem !important; color: rgba(255,255,255,.85) !important; -webkit-text-fill-color: rgba(255,255,255,.85) !important; }
+            body .arr-print-all { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: 10px; background: #fff; color: #1e3a8a !important; -webkit-text-fill-color: #1e3a8a !important; font-size: .74rem !important; font-weight: 800 !important; text-decoration: none; box-shadow: 0 6px 14px -8px rgba(0,0,0,.4); }
+            .arr-print-all:hover { background: #eff6ff; }
+            .arr-print-all svg { width: 16px; height: 16px; }
+            .arr-table-wrap { overflow-x: auto; }
+            .arr-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+            body .arr-table th { padding: 8px 12px; text-align: left; font-size: .62rem !important; font-weight: 800 !important; letter-spacing: .06em; text-transform: uppercase; color: #1e3a8a !important; background: #eff6ff; border-bottom: 1px solid #dbeafe; white-space: nowrap; }
+            .arr-table td { padding: 8px 12px; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+            .arr-table tbody tr:last-child td { border-bottom: 0; }
+            .arr-table tbody tr:hover td { background: rgba(37, 99, 235, .04); }
+            body .arr-name { font-weight: 700 !important; color: var(--text-primary, #0f172a) !important; }
+            body .arr-sub, body .arr-muted { font-size: .72rem !important; color: var(--text-secondary, #64748b) !important; -webkit-text-fill-color: var(--text-secondary, #64748b) !important; }
+            body .arr-room { display: inline-block; padding: 3px 9px; border-radius: 7px; background: #1e3a8a; color: #fff !important; -webkit-text-fill-color: #fff !important; font-weight: 800 !important; font-size: .74rem !important; }
+            .arr-src, .arr-st { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .66rem; font-weight: 800; white-space: nowrap; }
+            body .arr-src.ota { background: #f5f3ff; color: #6d28d9 !important; -webkit-text-fill-color: #6d28d9 !important; border: 1px solid #ddd6fe; }
+            body .arr-src.dir { background: #f1f5f9; color: #334155 !important; -webkit-text-fill-color: #334155 !important; border: 1px solid #e2e8f0; }
+            body .arr-st.wait { background: #fef3c7; color: #92400e !important; -webkit-text-fill-color: #92400e !important; }
+            body .arr-st.in { background: #dcfce7; color: #166534 !important; -webkit-text-fill-color: #166534 !important; }
+            .arr-act { text-align: right; width: 44px; }
+            .arr-act a { width: 30px; height: 30px; display: inline-grid; place-items: center; border-radius: 8px; border: 1px solid #dbeafe; background: #eff6ff; color: #1d4ed8; }
+            .arr-act a:hover { background: #1e3a8a; color: #fff; }
+            .arr-act svg { width: 15px; height: 15px; }
+            [data-theme="dark"] .arr-card { border-color: rgba(37,99,235,.35); }
+            body[data-theme="dark"] .arr-table th { background: rgba(37,99,235,.12); color: #bfdbfe !important; border-color: rgba(255,255,255,.08); }
+            [data-theme="dark"] .arr-table td { border-color: rgba(255,255,255,.06); }
+            [data-theme="dark"] .arr-act a { background: rgba(37,99,235,.15); border-color: rgba(37,99,235,.35); color: #93c5fd; }
+        </style>
+    <?php endif; ?>
 
     <!-- Checkout Guests Today - Detail Section -->
     <?php if (!empty($stats['checkout_guests'])): ?>

@@ -21,11 +21,9 @@ if (!$auth->hasPermission('frontdesk')) {
 
 $db = Database::getInstance();
 $bookingId = (int)($_GET['booking_id'] ?? 0);
-if ($bookingId <= 0) {
-    die('Invalid Booking ID');
-}
+$arrivalDate = (string)($_GET['arrivals'] ?? '');
 
-$booking = $db->fetchOne("
+$select = "
     SELECT b.id, b.booking_code, b.check_in_date, b.check_out_date, b.total_nights, b.adults, b.children,
            b.booking_source, b.special_request,
            g.guest_name, g.phone, g.email, g.address, g.nationality, g.id_card_type, g.id_card_number,
@@ -33,12 +31,37 @@ $booking = $db->fetchOne("
     FROM bookings b
     LEFT JOIN guests g ON g.id = b.guest_id
     LEFT JOIN rooms r ON r.id = b.room_id
-    LEFT JOIN room_types rt ON rt.id = r.room_type_id
-    WHERE b.id = ?
-", [$bookingId]);
-if (!$booking) {
-    die('Booking not found');
+    LEFT JOIN room_types rt ON rt.id = r.room_type_id";
+
+if ($bookingId > 0) {
+    $bookings = $db->fetchAll($select . " WHERE b.id = ?", [$bookingId]) ?: [];
+} elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $arrivalDate)) {
+    // Semua tamu yang check-in pada tanggal tsb (belum datang maupun sudah check-in), urut nomor kamar
+    $bookings = $db->fetchAll($select . " WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'pending', 'checked_in')
+        ORDER BY r.room_number + 0, r.room_number", [$arrivalDate]) ?: [];
+} else {
+    die('Invalid Booking ID');
 }
+if (!$bookings) {
+    die($bookingId > 0 ? 'Booking not found' : 'No arrivals on ' . htmlspecialchars($arrivalDate));
+}
+
+// Nama sumber booking (OTA / direct) dari booking_sources
+$sources = [];
+try {
+    foreach ($db->fetchAll("SELECT source_key, source_name, source_type FROM booking_sources") ?: [] as $src) {
+        $sources[strtolower($src['source_key'])] = $src;
+    }
+} catch (Exception $e) {
+}
+$sourceLabel = function (?string $key) use ($sources): string {
+    $key = strtolower(trim((string)$key));
+    if ($key === '') return 'Direct';
+    $row = $sources[$key] ?? null;
+    $name = $row['source_name'] ?? ucwords(str_replace(['_', '-'], ' ', $key));
+    $isOta = $row ? (($row['source_type'] ?? '') !== 'direct') : (bool)preg_match('/agoda|booking|tiket|traveloka|airbnb|expedia|pegipegi|trip|ota/', $key);
+    return $name . ($isOta ? ' (OTA)' : ' (Direct)');
+};
 
 // Identitas hotel (sama dengan invoice)
 $logoRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", ['invoice_logo_' . ACTIVE_BUSINESS_ID]);
@@ -60,20 +83,23 @@ $coWebsite = $company['website'] ?? 'www.narayanakarimunjawa.com';
 
 $e = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
 $fmtDate = fn($d) => $d ? date('l, d F Y', strtotime($d)) : '-';
-$nights = (int)($booking['total_nights'] ?: max(1, (int)((strtotime($booking['check_out_date']) - strtotime($booking['check_in_date'])) / 86400)));
-$adults = (int)($booking['adults'] ?? 1);
-$children = (int)($booking['children'] ?? 0);
-$guestsText = $adults . ' Adult' . ($adults === 1 ? '' : 's') . ($children > 0 ? ', ' . $children . ' Child' . ($children === 1 ? '' : 'ren') : '');
-
-// Baris data tamu; Address/City & Nationality hanya tampil bila diisi
-$guestRows = [
-    ['Full Name', $booking['guest_name'] ?: '-'],
-    ['Phone Number', $booking['phone'] ?: '-'],
-    ['Email', $booking['email'] ?: '-'],
-];
-if (trim((string)$booking['address']) !== '') $guestRows[] = ['City / Address', $booking['address']];
-if (trim((string)$booking['nationality']) !== '') $guestRows[] = ['Nationality', $booking['nationality']];
-if (trim((string)$booking['id_card_number']) !== '') $guestRows[] = [strtoupper((string)($booking['id_card_type'] ?: 'ID')) . ' Number', $booking['id_card_number']];
+/** Data turunan untuk satu kartu registrasi. */
+$cardData = function (array $booking): array {
+    $nights = (int)($booking['total_nights'] ?: max(1, (int)((strtotime($booking['check_out_date']) - strtotime($booking['check_in_date'])) / 86400)));
+    $adults = (int)($booking['adults'] ?? 1);
+    $children = (int)($booking['children'] ?? 0);
+    $guestsText = $adults . ' Adult' . ($adults === 1 ? '' : 's') . ($children > 0 ? ', ' . $children . ' Child' . ($children === 1 ? '' : 'ren') : '');
+    // Address/City, Nationality & ID hanya tampil bila diisi
+    $guestRows = [
+        ['Full Name', $booking['guest_name'] ?: '-'],
+        ['Phone Number', $booking['phone'] ?: '-'],
+        ['Email', $booking['email'] ?: '-'],
+    ];
+    if (trim((string)$booking['address']) !== '') $guestRows[] = ['City / Address', $booking['address']];
+    if (trim((string)$booking['nationality']) !== '') $guestRows[] = ['Nationality', $booking['nationality']];
+    if (trim((string)$booking['id_card_number']) !== '') $guestRows[] = [strtoupper((string)($booking['id_card_type'] ?: 'ID')) . ' Number', $booking['id_card_number']];
+    return [$nights, $guestsText, $guestRows];
+};
 
 $houseRules = [
     ['Security Deposit', 'A security deposit of <b>IDR 500,000</b> or a valid <b>ID card</b> is required upon check-in and will be returned at check-out after the room inspection.'],
@@ -89,7 +115,7 @@ $houseRules = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registration Card - <?php echo $e($booking['booking_code']); ?></title>
+    <title><?php echo count($bookings) > 1 ? 'Registration Cards - Arrivals ' . $e(date('d M Y', strtotime($arrivalDate))) : 'Registration Card - ' . $e($bookings[0]['booking_code']); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -162,21 +188,26 @@ $houseRules = [
         .sign .role { font-size: 9.5px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
         .foot { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); }
 
+        .grid.g3 { grid-template-columns: 1.15fr 1.15fr 1fr; }
+        .grid.g3 .f { border-bottom: 0 !important; border-right: 1px solid var(--line) !important; }
+        .grid.g3 .f:last-child { border-right: 0 !important; }
         @page { size: A4; margin: 0; }
         @media print {
             body { background: #fff; }
             .toolbar { display: none; }
-            .page { margin: 0; box-shadow: none; width: 210mm; height: 297mm; }
+            .page { margin: 0; box-shadow: none; width: 210mm; height: 297mm; page-break-after: always; break-after: page; }
+            .page:last-of-type { page-break-after: auto; break-after: auto; }
         }
     </style>
 </head>
 
 <body>
     <div class="toolbar">
-        <button class="print" onclick="window.print()">Print Registration Card</button>
+        <button class="print" onclick="window.print()">Print <?php echo count($bookings) > 1 ? count($bookings) . ' Registration Cards' : 'Registration Card'; ?></button>
         <button class="close" onclick="window.close()">Close</button>
     </div>
 
+    <?php foreach ($bookings as $booking): [$nights, $guestsText, $guestRows] = $cardData($booking); ?>
     <div class="page">
         <div class="head">
             <?php if ($logoUrl): ?><img src="<?php echo $e($logoUrl); ?>" alt="<?php echo $e($coName); ?>"><?php endif; ?>
@@ -216,9 +247,10 @@ $houseRules = [
                 <div class="f"><label>Nights</label><div><?php echo $nights; ?> Night<?php echo $nights === 1 ? '' : 's'; ?></div></div>
                 <div class="f"><label>Guests</label><div><?php echo $e($guestsText); ?></div></div>
             </div>
-            <div class="grid" style="border-top:1px solid var(--line);">
+            <div class="grid g3" style="border-top:1px solid var(--line);">
                 <div class="f"><label>Check-in Date</label><div><?php echo $e($fmtDate($booking['check_in_date'])); ?></div><small style="display:block;margin-top:2px;font-size:9.5px;font-weight:600;color:var(--gold);">From 14:00</small></div>
                 <div class="f"><label>Check-out Date</label><div><?php echo $e($fmtDate($booking['check_out_date'])); ?></div><small style="display:block;margin-top:2px;font-size:9.5px;font-weight:600;color:var(--gold);">Before 10:30</small></div>
+                <div class="f"><label>Booking Source</label><div><?php echo $e($sourceLabel($booking['booking_source'] ?? '')); ?></div></div>
             </div>
         </div>
 
@@ -266,6 +298,7 @@ $houseRules = [
             <span><?php echo $e($booking['booking_code']); ?></span>
         </div>
     </div>
+    <?php endforeach; ?>
 
     <script>
         // Langsung buka dialog cetak (ditunda sedikit agar font & logo termuat)
