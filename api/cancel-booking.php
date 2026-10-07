@@ -103,6 +103,7 @@ try {
     }
     
     $pdo->commit();
+    $cbPushBookings = [(int)$bookingId];
     
     echo json_encode([
         'success' => true, 
@@ -120,4 +121,9 @@ try {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'System error: ' . $e->getMessage()]);
 }
-?>
+
+// ═══ CLOUDBEDS: kirim segera (setelah respons dikirim ke browser) ═══
+if (!empty($cbPushBookings) || !empty($cbPushBlocks)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, $cbPushBookings ?? [], $cbPushBlocks ?? []);
+}

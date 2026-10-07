@@ -467,6 +467,7 @@ try {
     }
 
     $waCheckinBooking = $booking;
+    $cbPushBookings = [(int)$bookingId];
 
     echo json_encode([
         'success' => true,
@@ -516,4 +517,10 @@ if (!empty($waCheckinBooking)) {
     // Notifikasi Staff Portal + push ke staf Housekeeping.
     require_once dirname(__DIR__) . '/includes/HkNotifyHelper.php';
     hkNotifyGuestMovement($db, 'checkin', $waCheckinBooking);
+}
+
+// ═══ CLOUDBEDS: kirim segera (setelah respons dikirim ke browser) ═══
+if (!empty($cbPushBookings) || !empty($cbPushBlocks)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, $cbPushBookings ?? [], $cbPushBlocks ?? []);
 }

@@ -619,13 +619,9 @@ class CloudbedsSync
         }
     }
 
-    /** Hitung ulang rencana lalu jalankan link / create / cancel / block / unblock. Peringatan tidak dieksekusi. */
-    public function apply(string $from, string $to, int $userId): array
+    /** Jalankan aksi rencana (link/create/cancel/blok/kirim). Peringatan dilewati. */
+    private function executeActions(array $actions, int $userId): array
     {
-        $plan = $this->plan($from, $to);
-        if (!$plan['ok']) {
-            return $plan + ['done' => []];
-        }
         $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'errors' => []];
         // Kolom direct_amount (Hotel Collect) dibuat sebelum transaksi: ALTER di dalam transaksi = implicit commit
         try {
@@ -635,7 +631,7 @@ class CloudbedsSync
             }
         } catch (\Throwable $e) {
         }
-        foreach ($plan['actions'] as $a) {
+        foreach ($actions as $a) {
             try {
                 if ($a['type'] === 'link') {
                     foreach ($a['booking_ids'] as $bid) {
@@ -689,6 +685,79 @@ class CloudbedsSync
                 $done['errors'][] = $a['label'] . ': ' . $e->getMessage();
             }
         }
+        return $done;
+    }
+
+    /**
+     * Kirim SEGERA ke Cloudbeds hanya untuk booking/blok tertentu (dipanggil setelah reservasi dibuat,
+     * check-in/out, atau blok kamar dibuat/dibatalkan). Hanya aksi "kirim" milik id tersebut yang dijalankan;
+     * sisanya tetap diurus sinkron berkala.
+     */
+    public function pushFor(array $bookingIds, array $blockIds = [], int $userId = 0): array
+    {
+        if (!$this->pushEnabled()) {
+            return ['ok' => true, 'skipped' => 'push_off'];
+        }
+        $this->ensureTables();
+        $bookingIds = array_values(array_filter(array_map('intval', $bookingIds)));
+        $blockIds = array_values(array_filter(array_map('intval', $blockIds)));
+        $dates = [];
+        $cbIds = [];
+        if ($bookingIds) {
+            $in = implode(',', $bookingIds);
+            foreach ($this->db->fetchAll("SELECT DATE(check_in_date) ci, DATE(check_out_date) co FROM bookings WHERE id IN ($in)") ?: [] as $r) {
+                $dates[] = $r['ci'];
+                $dates[] = $r['co'];
+            }
+            foreach ($this->db->fetchAll("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id IN ($in)") ?: [] as $r) {
+                $cbIds[(string)$r['cb_reservation_id']] = true;
+            }
+        }
+        $cbBlockIds = [];
+        if ($blockIds) {
+            $in = implode(',', $blockIds);
+            foreach ($this->db->fetchAll("SELECT block_code, block_start_date s, block_end_date e FROM room_blocks WHERE id IN ($in)") ?: [] as $r) {
+                $dates[] = $r['s'];
+                $dates[] = $r['e'];
+                if (preg_match('/^CB-([^-]+)-/', (string)$r['block_code'], $m)) $cbBlockIds[$m[1]] = true;
+            }
+        }
+        if (!$dates) {
+            return ['ok' => true, 'skipped' => 'nothing'];
+        }
+        $from = min($dates);
+        $to = max($dates);
+        $plan = $this->plan($from, $to);
+        if (!$plan['ok']) {
+            return ['ok' => false, 'detail' => $plan['detail']];
+        }
+        $mine = array_values(array_filter($plan['actions'], function ($a) use ($bookingIds, $blockIds, $cbIds, $cbBlockIds) {
+            switch ($a['type']) {
+                case 'push_create': return in_array((int)$a['booking_id'], $bookingIds, true);
+                case 'push_status': return isset($cbIds[(string)$a['cb']]);
+                case 'push_newblock': return in_array((int)$a['block_id'], $blockIds, true);
+                case 'push_delblock':
+                case 'push_putblock': return isset($cbBlockIds[(string)$a['cb']]);
+            }
+            return false;
+        }));
+        if (!$mine) {
+            return ['ok' => true, 'skipped' => 'no_push_action'];
+        }
+        $done = $this->executeActions($mine, $userId);
+        if ($done['errors']) {
+            error_log('Cloudbeds pushFor: ' . implode(' | ', $done['errors']));
+        }
+        return ['ok' => !$done['errors'], 'done' => $done];
+    }
+    /** Hitung ulang rencana lalu jalankan link / create / cancel / block / unblock. Peringatan tidak dieksekusi. */
+    public function apply(string $from, string $to, int $userId): array
+    {
+        $plan = $this->plan($from, $to);
+        if (!$plan['ok']) {
+            return $plan + ['done' => []];
+        }
+        $done = $this->executeActions($plan['actions'], $userId);
         try {
             $this->db->query(
                 "INSERT INTO cloudbeds_sync_log (range_from, range_to, linked, created, cancelled, warnings, detail, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",

@@ -136,6 +136,7 @@ try {
         ]
     );
 
+    $cbPushBlocks = [(int)$db->getConnection()->lastInsertId()];
     echo json_encode([
         'success' => true,
         'message' => 'Room ' . ($room['room_number'] ?? $roomId) . ' berhasil diblok',
@@ -145,4 +146,10 @@ try {
     ]);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+}
+
+// ═══ CLOUDBEDS: kirim segera (setelah respons dikirim ke browser) ═══
+if (!empty($cbPushBookings) || !empty($cbPushBlocks)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, $cbPushBookings ?? [], $cbPushBlocks ?? []);
 }

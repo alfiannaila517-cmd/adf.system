@@ -53,7 +53,14 @@ try {
 
     $db->query("UPDATE room_blocks SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [$blockId]);
 
+    $cbPushBlocks = [$blockId];
     echo json_encode(['success' => true, 'message' => 'Block room berhasil dibatalkan']);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+}
+
+// ═══ CLOUDBEDS: kirim segera (setelah respons dikirim ke browser) ═══
+if (!empty($cbPushBookings) || !empty($cbPushBlocks)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, $cbPushBookings ?? [], $cbPushBlocks ?? []);
 }
