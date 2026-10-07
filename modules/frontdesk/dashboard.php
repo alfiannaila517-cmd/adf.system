@@ -2319,4 +2319,5 @@ include '../../includes/header.php';
     }
 </script>
 
+<?php include __DIR__ . '/cloudbeds-autosync-include.php'; ?>
 <?php include '../../includes/footer.php'; ?>
