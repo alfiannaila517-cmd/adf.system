@@ -3446,8 +3446,45 @@ header('Expires: 0');
         .rm-pop-row:last-child { border-bottom: none; }
         .rm-pop-row span { color: var(--muted); }
         .rm-pop-row b { color: var(--text); text-align: right; }
+        /* ═══ TUGAS HK ═══ */
+        .hk-filter { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; }
+        .hk-filter label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .hk-filter label > span { font-size: 9.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+        .hk-filter select, .hk-filter input { width: 100%; box-sizing: border-box; height: 38px; border: 1px solid var(--border); border-radius: 10px; padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--text); background: #fff; font-family: inherit; }
+        .hk-prog-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+        .hk-prog-top b { font-size: 26px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .hk-prog-top b small { font-size: 13px; color: var(--muted); font-weight: 700; }
+        .hk-prog-top span { font-size: 11px; color: var(--muted); text-align: right; }
+        .hk-codes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .hk-code { border: 1px solid var(--border); border-radius: 12px; padding: 8px 4px; text-align: center; background: #fbfcfe; }
+        .hk-code b { display: block; font-size: 18px; font-weight: 800; color: #0f172a; line-height: 1.1; font-variant-numeric: tabular-nums; }
+        .hk-code span { display: inline-block; margin-top: 3px; font-size: 9px; font-weight: 800; padding: 1px 7px; border-radius: 999px; letter-spacing: .04em; }
+        .hk-code small { display: block; font-size: 8.5px; color: var(--muted); margin-top: 3px; line-height: 1.2; }
+        .hk-msg { margin-top: 10px; font-size: 11px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; padding: 8px 10px; border-radius: 10px; }
+        .hk-task { display: flex; gap: 10px; align-items: stretch; border: 1px solid var(--border); border-left: 4px solid #cbd5e1; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #fff; }
+        .hk-task.done { opacity: .6; background: #f8fafc; }
+        .hk-task-no { width: 22px; height: 22px; border-radius: 50%; background: #f1f5f9; color: var(--muted); font-size: 10.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+        .hk-task-body { flex: 1; min-width: 0; }
+        .hk-task-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        .hk-task-room { font-size: 16px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .hk-task-room small { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+        .hk-chip { font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; letter-spacing: .03em; }
+        .hk-task-what { font-size: 11.5px; font-weight: 600; color: var(--text); margin-top: 3px; }
+        .hk-task-guest { font-size: 10.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+        .hk-task-guest b { color: var(--text); font-weight: 600; }
+        .hk-task-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 7px; }
+        .hk-state { font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+        .hk-clean { border: none; border-radius: 9px; padding: 6px 12px; font-size: 11px; font-weight: 800; background: #0f8a65; color: #fff; cursor: pointer; }
+        .hk-clean:active { transform: scale(.97); }
+        .hk-team { display: flex; flex-wrap: wrap; gap: 6px; }
+        .hk-team span { font-size: 11px; font-weight: 600; color: var(--text); background: #f8fafc; border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; }
+        .hk-team span.me { background: #eef2ff; border-color: #c7d2fe; color: #3730a3; }
+        .hk-team span b { margin-left: 3px; font-variant-numeric: tabular-nums; }
+        .hk-empty { text-align: center; padding: 22px 10px; color: var(--muted); font-size: 12px; }
+
         @media (max-width: 380px) {
             .rm-kpis { grid-template-columns: repeat(2, 1fr); }
+            .hk-codes { grid-template-columns: repeat(2, 1fr); }
             .rmc { --col: 52px; --lbl: 54px; }
         }
     </style>
@@ -3967,26 +4004,38 @@ header('Expires: 0');
             </div>
 
             <div class="page" id="page-hk">
-                <div class="card">
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                        <div class="card-title" style="margin:0;">🧹 Tugas HK Saya</div>
-                        <button onclick="loadHkTasks()" style="background:none;border:none;font-size:14px;cursor:pointer;" title="Refresh">🔄</button>
+                <div class="rm-card">
+                    <div class="rm-head">
+                        <div>
+                            <div class="rm-title">Tugas Housekeeping</div>
+                            <div class="rm-sub" id="hkSelectedLabel">Memuat...</div>
+                        </div>
+                        <div class="rm-nav">
+                            <button onclick="loadHkTasks()" aria-label="Muat ulang" title="Muat ulang">↻</button>
+                        </div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                        <select id="hkStaffSelect" class="fi" style="padding:6px 8px;font-size:11px;border-radius:8px;max-width:180px;"></select>
-                        <input type="date" id="hkDate" class="fi" style="padding:6px 8px;font-size:11px;border-radius:8px;max-width:150px;">
-                        <button onclick="loadHkTasks()" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">Muat</button>
+                    <div class="hk-filter">
+                        <label><span>Nama HK</span><select id="hkStaffSelect"></select></label>
+                        <label><span>Tanggal</span><input type="date" id="hkDate" onchange="loadHkTasks()"></label>
                     </div>
-                    <div id="hkSelectedLabel" style="margin-top:6px;font-size:11px;color:var(--muted);"></div>
-                    <div id="hkStats" style="margin-top:10px;">
+                    <div id="hkStats" style="margin-top:12px;">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="card-title">📋 Detail Kamar</div>
-                    <div id="hkTaskList" style="margin-top:8px;">
+                <div class="rm-card">
+                    <div class="rm-head">
+                        <div>
+                            <div class="rm-title">Daftar Kamar</div>
+                            <div class="rm-sub">Kerjakan berurutan dari atas</div>
+                        </div>
+                    </div>
+                    <div id="hkTaskList">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
+                </div>
+                <div class="rm-card" id="hkTeamCard" style="display:none;">
+                    <div class="rm-title" style="margin-bottom:8px;">Pembagian Tim</div>
+                    <div id="hkTeam" class="hk-team"></div>
                 </div>
             </div>
 
@@ -6145,112 +6194,158 @@ header('Expires: 0');
         }
 
         // ═══ HK TASKS PAGE ═══
+        // Warna kode HK mengikuti Room Monitor: B2B merah (prioritas), OD hijau (tamu menginap),
+        // VD kuning (kamar kotor), VC navy (kamar siap untuk tamu datang).
+        const HK_CODES = {
+            B2B: { color: '#dc2626', bg: '#fee2e2', fg: '#b91c1c', name: 'Out + In', what: 'Tamu keluar & tamu baru masuk hari ini — prioritas utama' },
+            OD: { color: '#0f8a65', bg: '#dcfce7', fg: '#0b6b4e', name: 'Menginap', what: 'Tamu masih menginap — rapikan kamar (stayover)' },
+            VD: { color: '#d97706', bg: '#fef3c7', fg: '#b45309', name: 'Kosong kotor', what: 'Tamu sudah/akan keluar — bersihkan total' },
+            VC: { color: '#3d5a99', bg: '#e0e7ff', fg: '#3730a3', name: 'Siap cek', what: 'Kamar bersih — cek & siapkan untuk tamu datang' }
+        };
+
+        function hkTodayYmd() {
+            return rmYmd(new Date());
+        }
+
+        async function hkMarkClean(roomId, roomNumber) {
+            await markRoomClean(roomId, roomNumber);
+            loadHkTasks();
+        }
+
         async function loadHkTasks() {
+            const dateEl = document.getElementById('hkDate');
+            const hkSelectEl = document.getElementById('hkStaffSelect');
             try {
-                const dateEl = document.getElementById('hkDate');
-                const hkSelectEl = document.getElementById('hkStaffSelect');
-                if (dateEl && !dateEl.value) {
-                    dateEl.value = new Date().toISOString().split('T')[0];
-                }
-                const selDate = dateEl && dateEl.value ? dateEl.value : new Date().toISOString().split('T')[0];
+                if (dateEl && !dateEl.value) dateEl.value = hkTodayYmd();
+                const selDate = dateEl && dateEl.value ? dateEl.value : hkTodayYmd();
                 const selectedHk = hkSelectEl && hkSelectEl.value ? hkSelectEl.value : '';
 
                 const res = await fetch(API + '&action=hk_tasks&date=' + encodeURIComponent(selDate) + '&hk_name=' + encodeURIComponent(selectedHk));
                 const data = await res.json();
-
-                if (!data.success) {
-                    throw new Error(data.message || 'Gagal memuat tugas HK');
-                }
+                if (!data.success) throw new Error(data.message || 'Gagal memuat tugas HK');
 
                 const d = data.data || {};
                 const s = d.summary || {};
                 const tasks = d.tasks || [];
                 const team = d.team_load || [];
-                const isFallbackAll = !!d.fallback_all;
                 const availableHk = d.available_hk_staff || [];
 
-                // Populate HK selector once data is known
+                // Pilihan nama HK (diingat di perangkat ini)
                 if (hkSelectEl) {
-                    const preferred = localStorage.getItem('hkPreferredName') || '';
-                    const prevVal = hkSelectEl.value || '';
-                    let chosen = selectedHk || prevVal || preferred || '';
-
-                    hkSelectEl.innerHTML = '<option value="">Pilih Nama HK</option>' +
-                        availableHk.map(n => `<option value="${String(n).replace(/"/g, '&quot;')}">${n}</option>`).join('');
-
-                    if (chosen && availableHk.includes(chosen)) {
-                        hkSelectEl.value = chosen;
-                    } else if (d.target_hk_name && availableHk.includes(d.target_hk_name)) {
-                        hkSelectEl.value = d.target_hk_name;
-                    } else {
-                        hkSelectEl.value = '';
-                    }
-
+                    let preferred = '';
+                    try {
+                        preferred = localStorage.getItem('hkPreferredName') || '';
+                    } catch (e) {}
+                    const chosen = selectedHk || hkSelectEl.value || preferred || '';
+                    hkSelectEl.innerHTML = '<option value="">Pilih nama…</option>' +
+                        availableHk.map(n => `<option value="${rmEsc(n)}">${rmEsc(n)}</option>`).join('');
+                    if (chosen && availableHk.includes(chosen)) hkSelectEl.value = chosen;
+                    else if (d.target_hk_name && availableHk.includes(d.target_hk_name)) hkSelectEl.value = d.target_hk_name;
+                    else hkSelectEl.value = '';
                     if (hkSelectEl.value) {
-                        localStorage.setItem('hkPreferredName', hkSelectEl.value);
+                        try {
+                            localStorage.setItem('hkPreferredName', hkSelectEl.value);
+                        } catch (e) {}
                     }
-
-                    // Jika awalnya belum kirim hk_name tapi selector berhasil memilih nama,
-                    // reload sekali agar data langsung personal sesuai HK terpilih.
-                    if (!selectedHk && hkSelectEl.value) {
-                        return loadHkTasks();
-                    }
+                    // Belum kirim hk_name tapi nama berhasil dipilih → muat ulang sekali agar personal
+                    if (!selectedHk && hkSelectEl.value) return loadHkTasks();
                 }
 
-                const labelEl = document.getElementById('hkSelectedLabel');
-                if (labelEl) {
-                    const activeName = hkSelectEl && hkSelectEl.value ? hkSelectEl.value : '';
-                    labelEl.textContent = activeName ? ('Tugas HK: ' + activeName) : 'Pilih nama HK untuk melihat tugas personal';
-                }
+                const activeName = hkSelectEl && hkSelectEl.value ? hkSelectEl.value : '';
+                const isToday = selDate === hkTodayYmd();
+                document.getElementById('hkSelectedLabel').textContent =
+                    (isToday ? 'Hari ini, ' : '') + rmFmt(selDate) + (activeName ? ' · ' + activeName : '');
 
+                // Status tiap kamar: selesai / perlu dibersihkan / menunggu tamu keluar
+                const items = tasks.map(t => {
+                    const code = t.task_code;
+                    const st = t.room_status || '';
+                    let state = 'todo',
+                        stateText = 'Belum dikerjakan';
+                    if (code === 'B2B' || code === 'VD') {
+                        if (st === 'cleaning') {
+                            state = 'dirty';
+                            stateText = 'Kotor — perlu dibersihkan';
+                        } else if (t.guest_out && st === 'available') {
+                            state = 'done';
+                            stateText = 'Sudah bersih';
+                        } else if (t.guest_out) {
+                            state = 'wait';
+                            stateText = 'Menunggu tamu check-out';
+                        } else if (st === 'available') {
+                            state = 'done';
+                            stateText = 'Sudah bersih';
+                        }
+                    } else if (code === 'OD') {
+                        stateText = 'Layanan kamar tamu menginap';
+                    } else if (code === 'VC') {
+                        stateText = st === 'cleaning' ? 'Kotor — perlu dibersihkan' : 'Cek kebersihan & amenities';
+                        if (st === 'cleaning') state = 'dirty';
+                    }
+                    return { ...t, state, stateText };
+                });
+                const cleanJobs = items.filter(t => t.task_code === 'B2B' || t.task_code === 'VD');
+                const doneJobs = cleanJobs.filter(t => t.state === 'done').length;
+                const pct = cleanJobs.length ? Math.round(doneJobs / cleanJobs.length * 100) : 0;
+
+                const codeTile = c => `<div class="hk-code"><b>${s[c] || 0}</b><span style="background:${HK_CODES[c].bg};color:${HK_CODES[c].fg}">${c}</span><small>${HK_CODES[c].name}</small></div>`;
                 document.getElementById('hkStats').innerHTML = `
-            <div class="stat-row" style="margin-bottom:8px;">
-                <div class="stat-card"><div class="sl">B2B</div><div class="sv" style="color:#16a34a;">${s.B2B||0}</div></div>
-                <div class="stat-card"><div class="sl">OD</div><div class="sv" style="color:#2563eb;">${s.OD||0}</div></div>
-                <div class="stat-card"><div class="sl">VD</div><div class="sv" style="color:#d97706;">${s.VD||0}</div></div>
-                <div class="stat-card"><div class="sl">VC</div><div class="sv" style="color:#64748b;">${s.VC||0}</div></div>
+            ${tasks.length ? `
+            <div class="hk-prog-top">
+                <b>${tasks.length}<small> kamar</small></b>
+                <span>${cleanJobs.length ? `<b style="font-size:12px;color:#0f172a">${doneJobs}/${cleanJobs.length}</b> kamar kotor selesai` : 'Tidak ada kamar kotor'}</span>
             </div>
-            <div style="font-size:11px;color:var(--muted);">Tanggal kerja: <b>${d.date||selDate}</b></div>
-            ${d.message ? `<div style="margin-top:6px;font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;padding:6px 8px;border-radius:8px;">${d.message}</div>` : ''}
-            ${team.length ? `<div style="margin-top:8px;font-size:11px;color:var(--muted);">Team Load: ${team.map(t => `${t.assigned_staff} (${t.total})`).join(' • ')}</div>` : ''}`;
+            <div class="rm-bar" style="margin:8px 0 12px;"><span style="width:${pct}%;background:linear-gradient(90deg,#0f8a65,#14a37a);"></span></div>` : ''}
+            <div class="hk-codes">${['B2B', 'OD', 'VD', 'VC'].map(codeTile).join('')}</div>
+            ${d.message ? `<div class="hk-msg">${rmEsc(d.message)}</div>` : ''}`;
 
-                if (!tasks.length) {
-                    const msg = d.message || 'Belum ada tugas HK untuk nama akun ini.';
-                    document.getElementById('hkTaskList').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">' + msg + '</div>';
+                // Pembagian tim
+                const teamCard = document.getElementById('hkTeamCard');
+                if (team.length) {
+                    teamCard.style.display = '';
+                    document.getElementById('hkTeam').innerHTML = team.map(t =>
+                        `<span class="${t.assigned_staff === activeName ? 'me' : ''}">${rmEsc(t.assigned_staff || 'Tim')}<b>${parseInt(t.total) || 0}</b></span>`).join('');
+                } else {
+                    teamCard.style.display = 'none';
+                }
+
+                if (!items.length) {
+                    document.getElementById('hkTaskList').innerHTML = `<div class="hk-empty">${rmEsc(d.message || (activeName ? 'Tidak ada tugas untuk ' + activeName + ' pada tanggal ini.' : 'Pilih nama HK untuk melihat tugas.'))}</div>`;
                     return;
                 }
 
-                const prColor = {
-                    B2B: '#16a34a',
-                    OD: '#2563eb',
-                    VD: '#d97706',
-                    VC: '#64748b'
+                const stateDot = {
+                    dirty: '#d97706',
+                    done: '#0f8a65',
+                    wait: '#94a3b8',
+                    todo: '#3d5a99'
                 };
-
-                let html = '';
-                tasks.forEach((t, i) => {
-                    const c = prColor[t.task_code] || '#64748b';
-                    const sourceTag = parseInt(t.is_manual || 0, 10) === 1 ?
-                        '<span style="background:#fee2e2;color:#b91c1c;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:700;">Manual</span>' :
-                        '<span style="background:#e0e7ff;color:#3730a3;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:700;">Auto</span>';
-
-                    html += `
-                <div style="border:1px solid var(--border);border-left:4px solid ${c};border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fff;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                        <div style="font-size:14px;font-weight:800;color:var(--navy);">Room ${t.room_number}</div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <span style="background:${c}15;color:${c};padding:2px 8px;border-radius:999px;font-size:10px;font-weight:800;">${t.task_code}</span>
-                            ${sourceTag}
+                document.getElementById('hkTaskList').innerHTML = items.map((t, i) => {
+                    const c = HK_CODES[t.task_code] || HK_CODES.VC;
+                    const guest = [];
+                    if (t.guest_out) guest.push(`Keluar: <b>${rmEsc(t.guest_out)}</b>`);
+                    if (t.guest_in) guest.push(`Masuk: <b>${rmEsc(t.guest_in)}</b>`);
+                    if (t.guest_stay) guest.push(`Menginap: <b>${rmEsc(t.guest_stay)}</b>${t.stay_until ? ' s/d ' + rmFmt(t.stay_until).replace(/ \d{4}$/, '') : ''}`);
+                    const manual = parseInt(t.is_manual || 0, 10) === 1 ? '<span class="hk-chip" style="background:#f1f5f9;color:#475569">Manual</span>' : '';
+                    return `<div class="hk-task${t.state === 'done' ? ' done' : ''}" style="border-left-color:${c.color}">
+                    <div class="hk-task-no">${i + 1}</div>
+                    <div class="hk-task-body">
+                        <div class="hk-task-top">
+                            <div class="hk-task-room">${rmEsc(t.room_number)}<small>${rmEsc(t.room_type || '')}</small></div>
+                            <div style="display:flex;gap:4px;">${manual}<span class="hk-chip" style="background:${c.bg};color:${c.fg}">${rmEsc(t.task_code)}</span></div>
+                        </div>
+                        <div class="hk-task-what">${c.what}</div>
+                        ${guest.length ? `<div class="hk-task-guest">${guest.join(' · ')}</div>` : ''}
+                        <div class="hk-task-foot">
+                            <span class="hk-state"><i class="rm-dot" style="background:${stateDot[t.state]}"></i>${t.state === 'done' ? '✓ ' : ''}${t.stateText}</span>
+                            ${t.state === 'dirty' && isToday ? `<button class="hk-clean" onclick="hkMarkClean(${parseInt(t.room_id)}, '${rmEsc(String(t.room_number || '').replace(/'/g, ''))}')">✓ Bersih</button>` : ''}
                         </div>
                     </div>
-                    <div style="margin-top:4px;font-size:11px;color:var(--muted);">Prioritas #${t.priority_order} • Tugas ke-${i + 1}${isFallbackAll ? ' • Mode Tim' : ''}</div>
                 </div>`;
-                });
-
-                document.getElementById('hkTaskList').innerHTML = html;
+                }).join('');
             } catch (e) {
                 document.getElementById('hkStats').innerHTML = '<div style="font-size:11px;color:var(--red);">Gagal memuat statistik HK</div>';
-                document.getElementById('hkTaskList').innerHTML = '<div style="font-size:11px;color:var(--red);padding:10px;">' + (e.message || 'Gagal memuat tugas HK') + '</div>';
+                document.getElementById('hkTaskList').innerHTML = '<div class="hk-empty" style="color:var(--red)">' + rmEsc(e.message || 'Gagal memuat tugas HK') + '</div>';
             }
         }
 

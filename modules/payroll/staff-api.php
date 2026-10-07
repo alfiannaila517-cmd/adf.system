@@ -855,6 +855,39 @@ if ($action === 'hk_tasks') {
             }
         }
 
+        // Info kamar untuk kartu tugas: tipe, status kebersihan, tamu menginap / keluar / datang
+        if (!empty($tasks)) {
+            try {
+                $roomIds = array_values(array_unique(array_map(fn($t) => (int)$t['room_id'], $tasks)));
+                $ph = implode(',', array_fill(0, count($roomIds), '?'));
+                $roomInfo = [];
+                foreach ($db->fetchAll("SELECT r.id, r.status, COALESCE(rt.type_name, '') AS room_type
+                    FROM rooms r LEFT JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id IN ($ph)", $roomIds) ?: [] as $ri) {
+                    $roomInfo[(int)$ri['id']] = ['room_type' => $ri['room_type'], 'room_status' => $ri['status']];
+                }
+                foreach ($db->fetchAll("SELECT b.room_id, b.status, DATE(b.check_in_date) AS ci, DATE(b.check_out_date) AS co, g.guest_name
+                    FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id
+                    WHERE b.room_id IN ($ph) AND b.status IN ('pending','confirmed','checked_in','checked_out')
+                      AND DATE(b.check_in_date) <= ? AND DATE(b.check_out_date) >= ?", array_merge($roomIds, [$date, $date])) ?: [] as $bk) {
+                    $rid = (int)$bk['room_id'];
+                    if ($bk['co'] === $date) {
+                        $roomInfo[$rid]['guest_out'] = $bk['guest_name'];
+                    } elseif ($bk['ci'] === $date) {
+                        $roomInfo[$rid]['guest_in'] = $bk['guest_name'];
+                    } elseif ($bk['status'] === 'checked_in') {
+                        $roomInfo[$rid]['guest_stay'] = $bk['guest_name'];
+                        $roomInfo[$rid]['stay_until'] = $bk['co'];
+                    }
+                }
+                foreach ($tasks as &$tk) {
+                    $tk = array_merge($tk, $roomInfo[(int)$tk['room_id']] ?? []);
+                }
+                unset($tk);
+            } catch (Exception $e) {
+                // info tambahan opsional
+            }
+        }
+
         $teamLoad = $db->fetchAll(
             "SELECT assigned_staff, COUNT(*) as total
              FROM frontdesk_hk_assignments
