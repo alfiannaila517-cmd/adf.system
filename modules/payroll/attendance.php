@@ -1540,17 +1540,24 @@
                         return $data;
                     }
 
-                    // Cek status cloud_id jika diaktifkan
-                    if ($fpEnabled && $fpCloudId) {
-                        $fpCloudStatus = checkFingerspotCloudStatus($fpCloudId);
-                    }
                     $webhookUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . str_replace('/modules/payroll/attendance.php', '', $_SERVER['SCRIPT_NAME']) . '/api/fingerprint-webhook.php?b=' . urlencode($bizSlug);
                     $webhookUrlMulti = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . str_replace('/modules/payroll/attendance.php', '', $_SERVER['SCRIPT_NAME']) . '/api/fingerprint-webhook.php';
 
-                    // Webhook logs
-                    $fpLogs = [];
+                    // Bersihkan riwayat log fingerprint agar tabel tidak menumpuk:
+                    // log yang sudah diproses > 30 hari & semua log > 60 hari (data absensi tetap aman di payroll_attendance).
+                    $fpPurgeKey = 'fp_log_purge_' . date('Ymd');
+                    if (empty($_SESSION[$fpPurgeKey])) {
+                        try {
+                            $_pdo->exec("DELETE FROM fingerprint_log WHERE (processed = 1 AND created_at < NOW() - INTERVAL 30 DAY) OR created_at < NOW() - INTERVAL 60 DAY");
+                        } catch (Exception $e) {
+                        }
+                        $_SESSION[$fpPurgeKey] = 1;
+                    }
+
+                    // Data terakhir yang diterima dari mesin (webhook / sync)
+                    $fpLastLog = null;
                     try {
-                        $fpLogs = $db->fetchAll("SELECT fl.*, pe.full_name as emp_name FROM fingerprint_log fl LEFT JOIN payroll_employees pe ON fl.employee_id = pe.id ORDER BY fl.created_at DESC LIMIT 20") ?: [];
+                        $fpLastLog = $_pdo->query("SELECT MAX(created_at) FROM fingerprint_log")->fetchColumn() ?: null;
                     } catch (Exception $e) {
                     }
 
@@ -2704,356 +2711,189 @@
                         <!-- TAB: FINGERPRINT                       -->
                         <!-- ═══════════════════════════════════════ -->
                         <div class="tab-panel" id="panel-fingerprint" style="display:none;">
-
-                            <!-- Fingerspot Settings -->
-                            <div class="card">
-                                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-                                    <div class="reset-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff;">🔐</div>
-                                    <div style="flex:1;">
-                                        <div class="card-title" style="margin:0;">Fingerspot.io Integration</div>
-                                        <div style="font-size:10px; color:var(--muted);">Revo N830 via Fingerspot.io cloud</div>
-                                        <?php if ($fpEnabled && $fpCloudId && $fpCloudStatus): ?>
-                                            <div style="margin-top:4px; font-size:11px;">
-                                                <strong>Status Cloud:</strong>
-                                                <?php if ($fpCloudStatus['success']): ?>
-                                                    <span style="color:#059669; font-weight:700;">✅ <?php echo htmlspecialchars($fpCloudStatus['message'] ?? 'Aktif'); ?></span>
-                                                <?php else: ?>
-                                                    <span style="color:#dc2626; font-weight:700;">⚠️ <?php echo htmlspecialchars($fpCloudStatus['message'] ?? 'Tidak aktif'); ?></span>
-                                                <?php endif; ?>
-                                            </div>
+                            <?php $fpHasToken = $fpEnabled && $fpCloudId && $fpToken; ?>
+                            <div class="fpx-grid">
+                                <!-- Koneksi mesin -->
+                                <div class="card fpx-card">
+                                    <div class="fpx-head">
+                                        <div class="fpx-ic"><i data-feather="cpu"></i></div>
+                                        <div class="fpx-ttl">
+                                            <strong>Koneksi Mesin</strong>
+                                            <span>Revo N830 · Fingerspot.io</span>
+                                        </div>
+                                        <?php if ($fpHasToken): ?>
+                                            <span class="fpx-chip ok">Terhubung</span>
+                                        <?php elseif ($fpEnabled): ?>
+                                            <span class="fpx-chip warn">Belum lengkap</span>
+                                        <?php else: ?>
+                                            <span class="fpx-chip off">Non-aktif</span>
                                         <?php endif; ?>
                                     </div>
-                                    <?php if ($fpEnabled): ?>
-                                        <span style="background:#d1fae5; color:#065f46; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700;">✅ Aktif</span>
-                                    <?php else: ?>
-                                        <span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700;">⏸ Non-aktif</span>
-                                    <?php endif; ?>
-                                </div>
-                                <form method="POST" action="?tab=fingerprint">
-                                    <input type="hidden" name="action" value="save_fingerspot">
-                                    <div class="fg">
-                                        <label class="fl">Cloud ID Mesin</label>
-                                        <input type="text" name="fingerspot_cloud_id" class="fi" value="<?php echo htmlspecialchars($fpCloudId); ?>" placeholder="Cloud ID dari Fingerspot.io">
-                                        <div style="font-size:9px; color:var(--muted); margin-top:2px;">Lihat di dashboard Fingerspot.io → Device → Cloud ID</div>
+                                    <div class="fpx-last">
+                                        <i data-feather="activity"></i>
+                                        <?php if ($fpLastLog): ?>
+                                            Data terakhir diterima: <strong><?php echo date('d M Y, H:i', strtotime($fpLastLog)); ?></strong>
+                                        <?php else: ?>
+                                            Belum ada data diterima dari mesin.
+                                        <?php endif; ?>
                                     </div>
-                                    <div class="fg">
-                                        <label class="fl">API Token</label>
-                                        <input type="password" name="fingerspot_token" class="fi" value="<?php echo htmlspecialchars($fpToken); ?>" placeholder="API Token dari Fingerspot.io">
-                                        <div style="font-size:9px; color:var(--muted); margin-top:2px;">Diperlukan untuk sync data. Lihat di Settings → API</div>
-                                    </div>
-                                    <div class="fg" style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">
-                                        <input type="checkbox" name="fingerspot_enabled" id="fpOn" <?php echo $fpEnabled ? 'checked' : ''; ?>>
-                                        <label for="fpOn" style="font-size:11px; font-weight:600;">Aktifkan integrasi Fingerspot</label>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary" style="width:100%;">💾 Simpan Fingerspot</button>
-                                </form>
-
-                                <!-- Sync Data Section -->
-                                <?php if ($fpEnabled && $fpCloudId && $fpToken): ?>
-                                    <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
-                                        <div style="font-size:11px; font-weight:700; color:#7c3aed; margin-bottom:8px;">📥 Tarik Data Absensi dari Fingerspot API</div>
-                                        <form method="POST" action="?tab=fingerprint" id="fpSyncForm" onsubmit="return startFpSync(this)">
-                                            <input type="hidden" name="action" value="sync_fingerspot">
-                                            <div style="display:flex; gap:8px; margin-bottom:8px;">
-                                                <div style="flex:1;">
-                                                    <label style="font-size:9px; font-weight:600; color:var(--muted);">Dari Tanggal</label>
-                                                    <input type="date" name="sync_from" id="syncFrom" class="fi" value="<?php echo date('Y-m-01'); ?>" style="font-size:11px;">
-                                                </div>
-                                                <div style="flex:1;">
-                                                    <label style="font-size:9px; font-weight:600; color:var(--muted);">Sampai Tanggal</label>
-                                                    <input type="date" name="sync_to" id="syncTo" class="fi" value="<?php echo date('Y-m-d'); ?>" style="font-size:11px;">
-                                                </div>
+                                    <form method="POST" action="?tab=fingerprint">
+                                        <input type="hidden" name="action" value="save_fingerspot">
+                                        <div class="fgrid">
+                                            <div class="fg">
+                                                <label class="fl">Cloud ID mesin</label>
+                                                <input type="text" name="fingerspot_cloud_id" class="fi" value="<?php echo htmlspecialchars($fpCloudId); ?>" placeholder="Cloud ID dari Fingerspot.io">
                                             </div>
-                                            <button type="submit" id="fpSyncBtn" class="btn" style="width:100%; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
-                                                🔄 Tarik & Proses Data Fingerspot
-                                            </button>
-                                            <div style="font-size:9px; color:var(--muted); margin-top:4px; text-align:center;">
-                                                Tarik data dari Fingerspot API → langsung masuk ke absensi & jam kerja
+                                            <div class="fg">
+                                                <label class="fl">API token</label>
+                                                <input type="password" name="fingerspot_token" class="fi" value="<?php echo htmlspecialchars($fpToken); ?>" placeholder="Settings → API di Fingerspot.io" autocomplete="new-password">
                                             </div>
-                                        </form>
-                                        <!-- Loading Overlay Sync -->
-                                        <div id="fpSyncOverlay" style="display:none; position:fixed; inset:0; background:rgba(13,31,60,.75); z-index:99999; align-items:center; justify-content:center;">
-                                            <div style="background:#fff; border-radius:18px; padding:32px 36px; max-width:400px; width:92%; box-shadow:0 24px 80px rgba(0,0,0,.35); text-align:center; border-top:5px solid #7c3aed;">
-                                                <div style="margin:0 auto 18px; width:56px; height:56px; border-radius:50%; border:5px solid #f1f5f9; border-top-color:#7c3aed; animation:fpSpin 0.9s linear infinite;"></div>
-                                                <div style="font-size:16px; font-weight:800; color:#0d1f3c; margin-bottom:4px;">Menarik Data dari Fingerspot</div>
-                                                <div id="fpSyncPeriod" style="font-size:11px; color:#64748b; margin-bottom:20px;"></div>
-                                                <div style="text-align:left; background:#f8fafc; border-radius:10px; padding:14px 16px; border:1px solid #e2e8f0;">
-                                                    <div id="syncStep1" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Menghubungi server Fingerspot API</span></div>
-                                                    <div id="syncStep2" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Mengambil data scan per periode (2 hari/chunk)</span></div>
-                                                    <div id="syncStep3" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Mencocokkan PIN ke data karyawan</span></div>
-                                                    <div id="syncStep4" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Menulis scan masuk/pulang ke absensi</span></div>
-                                                    <div id="syncStep5" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Menghitung jam kerja & total lembur</span></div>
-                                                </div>
-                                                <div style="font-size:10px; color:#94a3b8; margin-top:14px;">Harap tunggu — proses ini bisa memakan waktu 10–30 detik</div>
-                                            </div>
-                                        </div>
-                                        <script>
-                                            function startFpSync(form) {
-                                                var from = document.getElementById('syncFrom').value;
-                                                var to = document.getElementById('syncTo').value;
-                                                if (!from || !to) return true;
-                                                document.getElementById('fpSyncOverlay').style.display = 'flex';
-                                                document.getElementById('fpSyncPeriod').textContent = 'Periode: ' + from + ' s/d ' + to;
-                                                document.getElementById('fpSyncBtn').disabled = true;
-                                                document.getElementById('fpSyncBtn').textContent = '⏳ Menarik data...';
-                                                var steps = ['syncStep1', 'syncStep2', 'syncStep3', 'syncStep4', 'syncStep5'];
-                                                var delays = [0, 1200, 2400, 4000, 6000];
-                                                steps.forEach(function(id, i) {
-                                                    setTimeout(function() {
-                                                        if (i > 0) {
-                                                            var prev = document.getElementById(steps[i - 1]);
-                                                            prev.className = 'fp-step fp-step-done';
-                                                            prev.querySelector('.fp-step-icon').textContent = '✅';
-                                                        }
-                                                        var cur = document.getElementById(id);
-                                                        cur.className = 'fp-step fp-step-active';
-                                                        cur.querySelector('.fp-step-icon').textContent = '🔄';
-                                                    }, delays[i]);
-                                                });
-                                                setTimeout(function() {
-                                                    form.submit();
-                                                }, 200);
-                                                return false;
-                                            }
-                                        </script>
-                                    </div>
-                                <?php elseif ($fpEnabled && $fpCloudId): ?>
-                                    <div style="margin-top:14px; padding:12px; background:#fef3c7; border:1px solid #fde68a; border-radius:8px; font-size:11px; color:#92400e;">
-                                        <strong>⚠️ API Token belum diisi</strong><br>
-                                        <span style="font-size:10px;">Isi kolom <strong>API Token</strong> di atas untuk mengaktifkan Tarik Data dari Fingerspot. Token bisa ditemukan di dashboard Fingerspot.io → Settings → API.</span>
-                                    </div>
-                                <?php elseif ($fpEnabled): ?>
-                                    <div style="margin-top:14px; padding:12px; background:#fee2e2; border:1px solid #fca5a5; border-radius:8px; font-size:11px; color:#991b1b;">
-                                        <strong>⚠️ Cloud ID & API Token belum diisi</strong><br>
-                                        <span style="font-size:10px;">Isi Cloud ID dan API Token di atas untuk menghubungkan ke mesin fingerprint.</span>
-                                    </div>
-                                <?php else: ?>
-                                    <div style="margin-top:14px; padding:12px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; color:#475569;">
-                                        ⓘ Aktifkan integrasi Fingerspot terlebih dahulu untuk menggunakan fitur tarik data.
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-
-                            <!-- Webhook Log -->
-                            <div class="card">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                    <div class="card-title" style="margin:0;">📜 Webhook Log</div>
-                                    <span style="font-size:10px; color:var(--muted);">20 terbaru</span>
-                                </div>
-                                <?php if (empty($fpLogs)): ?>
-                                    <div style="text-align:center; padding:24px; color:var(--muted); font-size:12px;">📭 Belum ada log. Log muncul setelah mesin mengirim data.</div>
-                                <?php else: ?>
-                                    <div style="overflow-x:auto;">
-                                        <table class="tbl" style="font-size:10px;">
-                                            <thead>
-                                                <tr>
-                                                    <th>Waktu</th>
-                                                    <th>Cloud ID</th>
-                                                    <th>PIN</th>
-                                                    <th>Karyawan</th>
-                                                    <th>Scan</th>
-                                                    <th>Status</th>
-                                                    <th>Hasil</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php foreach ($fpLogs as $log): ?>
-                                                    <tr>
-                                                        <td style="white-space:nowrap;"><?php echo date('d/m H:i:s', strtotime($log['created_at'])); ?></td>
-                                                        <td><code style="font-size:9px;"><?php echo htmlspecialchars($log['cloud_id'] ?? '-'); ?></code></td>
-                                                        <td><code><?php echo htmlspecialchars($log['pin'] ?? '-'); ?></code></td>
-                                                        <td><?php echo htmlspecialchars($log['emp_name'] ?? '-'); ?></td>
-                                                        <td style="white-space:nowrap;"><?php echo $log['scan_time'] ? date('d/m H:i', strtotime($log['scan_time'])) : '-'; ?></td>
-                                                        <td><?php echo $log['processed'] ? '<span style="color:var(--green); font-weight:700;">✅</span>' : '<span style="color:var(--red); font-weight:700;">❌</span>'; ?></td>
-                                                        <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo htmlspecialchars($log['process_result'] ?? ''); ?>">
-                                                            <?php echo htmlspecialchars($log['process_result'] ?? '-'); ?>
-                                                            <?php if (!empty($log['raw_data'])): ?>
-                                                                <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'" style="background:none;border:none;cursor:pointer;font-size:9px;padding:0 2px;">📋</button>
-                                                                <pre style="display:none; font-size:8px; background:#f1f5f9; padding:4px; border-radius:3px; margin-top:3px; white-space:pre-wrap; word-break:break-all; max-width:250px;"><?php echo htmlspecialchars(substr($log['raw_data'], 0, 500)); ?></pre>
-                                                            <?php endif; ?>
-                                                        </td>
-                                                    </tr>
-                                                <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-
-                            <!-- ═══ PROSES LOG → ABSENSI & GAJI ═══ -->
-                            <div class="card" style="border-left:4px solid var(--gold);">
-                                <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
-                                    <div class="reset-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; width:44px; height:44px; font-size:22px;">⚡</div>
-                                    <div>
-                                        <div class="card-title" style="margin:0; font-size:14px;">Proses Log → Absensi & Total Jam Kerja</div>
-                                        <div style="font-size:10px; color:var(--muted);">Konversi log fingerprint ke data absensi, lalu lanjut hitung gaji otomatis</div>
-                                    </div>
-                                </div>
-
-                                <!-- Status unprocessed -->
-                                <?php if ($fpUnprocessed > 0): ?>
-                                    <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-                                        <span style="font-size:18px;">⚠️</span>
-                                        <div>
-                                            <div style="font-size:12px; font-weight:700; color:#92400e;"><?= $fpUnprocessed ?> log belum diproses ke absensi</div>
-                                            <div style="font-size:10px; color:#a16207;">Total log bulan ini: <?= $fpThisMonth ?> scan</div>
-                                        </div>
-                                    </div>
-                                <?php else: ?>
-                                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-                                        <span style="font-size:18px;">✅</span>
-                                        <div style="font-size:12px; font-weight:700; color:#166534;">Semua log sudah diproses ke absensi · <?= $fpThisMonth ?> scan bulan ini</div>
-                                    </div>
-                                <?php endif; ?>
-
-                                <!-- Form proses batch -->
-                                <form method="POST" action="?tab=fingerprint" id="fpBatchForm" onsubmit="return startFpProcess(this)">
-                                    <input type="hidden" name="action" value="process_finger_batch">
-                                    <div class="fgrid" style="margin-bottom:10px;">
-                                        <div class="fg">
-                                            <label class="fl">Dari Tanggal</label>
-                                            <input type="date" name="fp_from" id="fpFrom" class="fi" value="<?= date('Y-m-01') ?>" required>
                                         </div>
                                         <div class="fg">
-                                            <label class="fl">Sampai Tanggal</label>
-                                            <input type="date" name="fp_to" id="fpTo" class="fi" value="<?= date('Y-m-d') ?>" required>
-                                        </div>
-                                    </div>
-                                    <button type="submit" id="fpBatchBtn" class="btn btn-gold" style="width:100%; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
-                                        ⚡ Proses Log Fingerprint ke Absensi
-                                    </button>
-                                    <div style="font-size:10px; color:var(--muted); margin-top:5px; text-align:center;">Scan 1=Masuk · Scan 2=Pulang · Scan 3=Masuk Shift2 · Scan 4=Pulang Shift2 · Duplikat &lt;5 menit diabaikan</div>
-                                </form>
-
-                                <!-- Loading Overlay -->
-                                <div id="fpLoadingOverlay" style="display:none; position:fixed; inset:0; background:rgba(13,31,60,.75); z-index:99999; align-items:center; justify-content:center;">
-                                    <div style="background:#fff; border-radius:18px; padding:32px 36px; max-width:400px; width:92%; box-shadow:0 24px 80px rgba(0,0,0,.35); text-align:center; border-top:5px solid #f0b429;">
-                                        <!-- Spinner -->
-                                        <div style="margin:0 auto 18px; width:56px; height:56px; border-radius:50%; border:5px solid #f1f5f9; border-top-color:#f0b429; animation:fpSpin 0.9s linear infinite;"></div>
-                                        <div style="font-size:16px; font-weight:800; color:#0d1f3c; margin-bottom:4px;">Memproses Data Fingerprint</div>
-                                        <div id="fpLoadingPeriod" style="font-size:11px; color:#64748b; margin-bottom:20px;"></div>
-
-                                        <!-- Step tracker -->
-                                        <div style="text-align:left; background:#f8fafc; border-radius:10px; padding:14px 16px; border:1px solid #e2e8f0;">
-                                            <div id="fpStep1" class="fp-step fp-step-wait">
-                                                <span class="fp-step-icon">⏳</span>
-                                                <span>Membaca log fingerprint dari database</span>
-                                            </div>
-                                            <div id="fpStep2" class="fp-step fp-step-wait">
-                                                <span class="fp-step-icon">⏳</span>
-                                                <span>Mencocokkan PIN karyawan</span>
-                                            </div>
-                                            <div id="fpStep3" class="fp-step fp-step-wait">
-                                                <span class="fp-step-icon">⏳</span>
-                                                <span>Menulis data ke tabel absensi</span>
-                                            </div>
-                                            <div id="fpStep4" class="fp-step fp-step-wait">
-                                                <span class="fp-step-icon">⏳</span>
-                                                <span>Menghitung total jam kerja & lembur</span>
-                                            </div>
-                                            <div id="fpStep5" class="fp-step fp-step-wait">
-                                                <span class="fp-step-icon">⏳</span>
-                                                <span>Menyimpan hasil ke payroll...</span>
+                                            <label class="fl">Webhook URL (isi di Fingerspot.io agar scan masuk otomatis)</label>
+                                            <div class="fpx-copy">
+                                                <input type="text" class="fi" id="fpWebhookUrl" value="<?php echo htmlspecialchars($webhookUrl); ?>" readonly>
+                                                <button type="button" class="btn btn-primary" onclick="copyUrl('fpWebhookUrl')">Salin</button>
                                             </div>
                                         </div>
-                                        <div style="font-size:10px; color:#94a3b8; margin-top:14px;">Harap tunggu, jangan tutup halaman ini</div>
-                                    </div>
+                                        <div class="fpx-actions">
+                                            <label class="fpx-switch">
+                                                <input type="checkbox" name="fingerspot_enabled" <?php echo $fpEnabled ? 'checked' : ''; ?>>
+                                                <span class="fpx-slider"></span>
+                                                <span>Aktifkan integrasi</span>
+                                            </label>
+                                            <button type="submit" class="btn btn-primary"><i data-feather="save"></i> Simpan</button>
+                                        </div>
+                                    </form>
                                 </div>
 
-                                <style>
-                                    @keyframes fpSpin {
-                                        to {
-                                            transform: rotate(360deg);
-                                        }
-                                    }
-
-                                    .fp-step {
-                                        display: flex;
-                                        align-items: center;
-                                        gap: 8px;
-                                        padding: 5px 0;
-                                        font-size: 11px;
-                                        font-weight: 600;
-                                        color: #94a3b8;
-                                        transition: all .3s;
-                                    }
-
-                                    .fp-step-active {
-                                        color: #0d1f3c;
-                                    }
-
-                                    .fp-step-done {
-                                        color: #059669;
-                                    }
-
-                                    .fp-step-icon {
-                                        font-size: 14px;
-                                        width: 20px;
-                                        text-align: center;
-                                    }
-                                </style>
-
-                                <script>
-                                    function startFpProcess(form) {
-                                        var from = document.getElementById('fpFrom').value;
-                                        var to = document.getElementById('fpTo').value;
-                                        if (!from || !to) return true;
-                                        if (!confirm('Proses semua log fingerprint periode ' + from + ' s/d ' + to + ' ke data absensi?\n\nLog yang belum diproses akan dikonversi ke scan masuk/pulang karyawan.')) return false;
-
-                                        // Show overlay
-                                        var overlay = document.getElementById('fpLoadingOverlay');
-                                        overlay.style.display = 'flex';
-                                        document.getElementById('fpLoadingPeriod').textContent = 'Periode: ' + from + ' s/d ' + to;
-
-                                        // Disable button
-                                        var btn = document.getElementById('fpBatchBtn');
-                                        btn.disabled = true;
-                                        btn.textContent = '⏳ Sedang memproses...';
-
-                                        // Animate steps sequentially
-                                        var steps = ['fpStep1', 'fpStep2', 'fpStep3', 'fpStep4', 'fpStep5'];
-                                        var delays = [0, 800, 1600, 2500, 3400];
-                                        steps.forEach(function(id, i) {
-                                            setTimeout(function() {
-                                                // Mark previous as done
-                                                if (i > 0) {
-                                                    var prev = document.getElementById(steps[i - 1]);
-                                                    prev.className = 'fp-step fp-step-done';
-                                                    prev.querySelector('.fp-step-icon').textContent = '✅';
-                                                }
-                                                // Mark current as active
-                                                var cur = document.getElementById(id);
-                                                cur.className = 'fp-step fp-step-active';
-                                                cur.querySelector('.fp-step-icon').textContent = '🔄';
-                                            }, delays[i]);
-                                        });
-
-                                        // Submit form after brief delay so overlay renders
-                                        setTimeout(function() {
-                                            form.submit();
-                                        }, 200);
-                                        return false;
-                                    }
-                                </script>
-
-                                <!-- Link ke proses gaji -->
-                                <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:14px;">
-                                    <div style="font-size:11px; font-weight:700; color:var(--navy); margin-bottom:8px;">Setelah absensi diproses, lanjut hitung gaji:</div>
-                                    <div style="background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:11px; color:var(--muted);">
-                                        💡 <strong>Total jam kerja</strong> dihitung otomatis dari scan masuk–pulang fingerprint.<br>
-                                        Gaji proporsional: <em>jam_kerja ÷ 208 × gaji_pokok</em> · Lembur dihitung per 45 menit
+                                <!-- Sinkronisasi -->
+                                <div class="card fpx-card">
+                                    <div class="fpx-head">
+                                        <div class="fpx-ic sync"><i data-feather="refresh-cw"></i></div>
+                                        <div class="fpx-ttl">
+                                            <strong>Sinkronisasi Absensi</strong>
+                                            <span>Scan mesin → absensi & jam kerja</span>
+                                        </div>
                                     </div>
-                                    <div style="display:flex; gap:8px;">
-                                        <a href="process.php?month=<?= date('n') ?>&year=<?= date('Y') ?>" class="btn btn-primary" style="flex:1; justify-content:center; font-size:12px; padding:10px;">
-                                            💰 Proses Gaji <?= date('F Y') ?>
-                                        </a>
-                                        <a href="process.php" class="btn" style="background:#ede9fe; color:var(--purple); font-size:12px; padding:10px;">
-                                            📋 Pilih Bulan Lain
-                                        </a>
+                                    <div class="fpx-stats">
+                                        <div><span>Scan bulan ini</span><strong><?php echo (int)$fpThisMonth; ?></strong></div>
+                                        <div class="<?php echo $fpUnprocessed > 0 ? 'warn' : 'ok'; ?>"><span>Belum diproses</span><strong><?php echo (int)$fpUnprocessed; ?></strong></div>
                                     </div>
+                                    <form method="POST" action="?tab=fingerprint" id="fpSyncForm" onsubmit="return false;">
+                                        <input type="hidden" name="action" id="fpAction" value="">
+                                        <input type="hidden" name="fp_from" id="fpFromHidden">
+                                        <input type="hidden" name="fp_to" id="fpToHidden">
+                                        <div class="fgrid">
+                                            <div class="fg">
+                                                <label class="fl">Dari tanggal</label>
+                                                <input type="date" name="sync_from" id="syncFrom" class="fi" value="<?php echo date('Y-m-01'); ?>" required>
+                                            </div>
+                                            <div class="fg">
+                                                <label class="fl">Sampai tanggal</label>
+                                                <input type="date" name="sync_to" id="syncTo" class="fi" value="<?php echo date('Y-m-d'); ?>" required>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-primary fpx-main" onclick="fpRun('sync_fingerspot')" <?php echo $fpHasToken ? '' : 'disabled'; ?>>
+                                            <i data-feather="download-cloud"></i> Tarik & Proses dari Fingerspot
+                                        </button>
+                                        <?php if (!$fpHasToken): ?>
+                                            <div class="fpx-note warn">Lengkapi Cloud ID & API token lalu aktifkan integrasi untuk menarik data.</div>
+                                        <?php endif; ?>
+                                        <button type="button" class="btn fpx-sec" onclick="fpRun('process_finger_batch')" <?php echo $fpUnprocessed > 0 ? '' : 'disabled'; ?>>
+                                            <i data-feather="layers"></i> Proses log tertunda<?php echo $fpUnprocessed > 0 ? ' (' . (int)$fpUnprocessed . ')' : ''; ?>
+                                        </button>
+                                    </form>
+                                    <div class="fpx-note">Scan 1 Masuk · 2 Pulang · 3 Masuk shift 2 · 4 Pulang shift 2 · scan ganda &lt;5 menit diabaikan. Riwayat log mesin dihapus otomatis setelah 30 hari.</div>
+                                    <a href="process.php?month=<?php echo date('n'); ?>&year=<?php echo date('Y'); ?>" class="fpx-link"><i data-feather="dollar-sign"></i> Lanjut proses gaji <?php echo date('F Y'); ?> <i data-feather="arrow-right"></i></a>
                                 </div>
                             </div>
 
+                            <!-- Overlay proses -->
+                            <div id="fpOverlay" class="fpx-overlay">
+                                <div class="fpx-ovbox">
+                                    <div class="fpx-spin"></div>
+                                    <strong id="fpOvTitle">Memproses…</strong>
+                                    <span id="fpOvPeriod"></span>
+                                    <small>Harap tunggu 10–30 detik, jangan tutup halaman.</small>
+                                </div>
+                            </div>
+                            <script>
+                                function fpRun(act) {
+                                    var from = document.getElementById('syncFrom').value;
+                                    var to = document.getElementById('syncTo').value;
+                                    if (!from || !to) return;
+                                    if (from > to) {
+                                        var t = from; from = to; to = t;
+                                        document.getElementById('syncFrom').value = from;
+                                        document.getElementById('syncTo').value = to;
+                                    }
+                                    document.getElementById('fpAction').value = act;
+                                    document.getElementById('fpFromHidden').value = from;
+                                    document.getElementById('fpToHidden').value = to;
+                                    document.getElementById('fpOvTitle').textContent = act === 'sync_fingerspot' ? 'Menarik data dari Fingerspot' : 'Memproses log ke absensi';
+                                    document.getElementById('fpOvPeriod').textContent = 'Periode ' + from + ' s/d ' + to;
+                                    document.getElementById('fpOverlay').style.display = 'flex';
+                                    document.querySelectorAll('#fpSyncForm button').forEach(function(b) { b.disabled = true; });
+                                    setTimeout(function() { document.getElementById('fpSyncForm').submit(); }, 150);
+                                }
+                            </script>
+                            <style>
+                                .fpx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; align-items: start; }
+                                body[data-theme] .main-content .att-wrap .fpx-card { margin: 0 !important; }
+                                .fpx-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+                                .fpx-ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: #eff6ff; color: #1d4ed8; flex-shrink: 0; }
+                                .fpx-ic.sync { background: #ecfdf5; color: #047857; }
+                                .fpx-ic svg { width: 17px; height: 17px; }
+                                .fpx-ttl { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+                                body[data-theme] .main-content .att-wrap .fpx-ttl strong { font-size: .86rem !important; color: var(--a-ink) !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-ttl span { font-size: .68rem !important; color: var(--a-muted) !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-chip { padding: 3px 10px; border-radius: 999px; font-size: .62rem !important; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+                                .fpx-chip.ok { background: #dcfce7; color: #166534 !important; }
+                                .fpx-chip.warn { background: #fef3c7; color: #92400e !important; }
+                                .fpx-chip.off { background: #f1f5f9; color: #475569 !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-last { display: flex; align-items: center; gap: 6px; padding: 7px 10px; margin-bottom: 10px; border-radius: 9px; background: var(--a-soft); border: 1px solid var(--a-line); font-size: .7rem !important; color: var(--a-muted) !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-last strong { color: var(--a-ink) !important; }
+                                .fpx-last svg { width: 13px; height: 13px; flex-shrink: 0; }
+                                .fpx-copy { display: flex; gap: 6px; }
+                                .fpx-copy .fi { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .68rem !important; }
+                                .fpx-copy .btn { height: 34px; padding: 0 12px !important; }
+                                .fpx-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+                                .fpx-actions .btn { height: 34px; padding: 0 16px !important; display: inline-flex; align-items: center; gap: 6px; }
+                                .fpx-actions .btn svg, .fpx-main svg, .fpx-sec svg, .fpx-link svg { width: 14px; height: 14px; }
+                                .fpx-switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+                                .fpx-switch input { display: none; }
+                                .fpx-slider { width: 34px; height: 19px; border-radius: 999px; background: #cbd5e1; position: relative; transition: background .2s; flex-shrink: 0; }
+                                .fpx-slider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+                                .fpx-switch input:checked + .fpx-slider { background: #2563eb; }
+                                .fpx-switch input:checked + .fpx-slider::after { transform: translateX(15px); }
+                                body[data-theme] .main-content .att-wrap .fpx-switch span:last-child { font-size: .74rem !important; font-weight: 700; color: var(--a-ink) !important; }
+                                .fpx-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+                                body[data-theme] .main-content .att-wrap .fpx-stats > div { padding: 8px 12px; border-radius: 10px; background: var(--a-soft); border: 1px solid var(--a-line); display: flex; flex-direction: column; }
+                                body[data-theme] .main-content .att-wrap .fpx-stats span { font-size: .6rem !important; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--a-muted) !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-stats strong { font-size: 1.1rem !important; color: var(--a-ink) !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-stats .warn strong { color: #d97706 !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-stats .ok strong { color: #059669 !important; }
+                                .fpx-main, .fpx-sec { width: 100%; height: 38px; justify-content: center; display: inline-flex !important; align-items: center; gap: 7px; }
+                                body[data-theme] .main-content .att-wrap .fpx-sec { margin-top: 6px; background: transparent !important; border: 1px solid var(--a-line) !important; color: var(--a-ink) !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-sec:not(:disabled):hover { border-color: #2563eb !important; color: #1d4ed8 !important; }
+                                .fpx-main:disabled, .fpx-sec:disabled { opacity: .45; cursor: not-allowed; }
+                                body[data-theme] .main-content .att-wrap .fpx-note { margin-top: 8px; font-size: .66rem !important; color: var(--a-muted) !important; line-height: 1.5; }
+                                body[data-theme] .main-content .att-wrap .fpx-note.warn { color: #b45309 !important; }
+                                body[data-theme] .main-content .att-wrap .fpx-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-size: .74rem !important; font-weight: 700; color: #1d4ed8 !important; text-decoration: none; }
+                                .fpx-link:hover { text-decoration: underline; }
+                                .fpx-overlay { display: none; position: fixed; inset: 0; z-index: 99999; align-items: center; justify-content: center; background: rgba(15, 23, 42, .55); backdrop-filter: blur(3px); }
+                                .fpx-ovbox { width: min(340px, 90vw); padding: 26px 24px; border-radius: 16px; background: #fff; text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; box-shadow: 0 24px 60px rgba(0,0,0,.3); }
+                                .fpx-ovbox strong { font-size: .95rem; color: #0f172a; }
+                                .fpx-ovbox span { font-size: .74rem; color: #475569; }
+                                .fpx-ovbox small { font-size: .66rem; color: #94a3b8; }
+                                .fpx-spin { width: 42px; height: 42px; margin-bottom: 6px; border-radius: 50%; border: 4px solid #e2e8f0; border-top-color: #2563eb; animation: fpxSpin .8s linear infinite; }
+                                @keyframes fpxSpin { to { transform: rotate(360deg); } }
+                                body[data-theme="dark"] .fpx-ovbox { background: #111a2e; }
+                                body[data-theme="dark"] .fpx-ovbox strong { color: #e2e8f0; }
+                                body[data-theme="dark"] .fpx-ic { background: rgba(255,255,255,.07); }
+                                @media (max-width: 520px) { .fpx-grid { grid-template-columns: 1fr; } }
+                            </style>
                         </div>
 
                         <!-- ═══════════════════════════════════════ -->
