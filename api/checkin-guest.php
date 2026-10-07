@@ -222,12 +222,12 @@ try {
         $remaining = max(0, (float)$booking['final_price'] - $totalPaid);
         $newPayStatus = $remaining <= 0 ? 'paid' : ($totalPaid > 0 ? 'partial' : 'unpaid');
         $db->query("UPDATE bookings SET paid_amount = ?, payment_status = ?, updated_at = NOW() WHERE id = ?", [$totalPaid, $newPayStatus, $bookingId]);
-    } elseif (!$isOTA && !$payNow) {
-        // Direct booking bayar nanti: buat invoice untuk sisa tagihan
-        if ($remaining > 0) {
-            $createInvoice = true;
-        }
     }
+
+    // Sisa tagihan direct booking TIDAK lagi dibuatkan sales invoice otomatis: pelunasan dicatat di
+    // booking itu sendiri (Reservasi / Kalender / In-House). Invoice kedua untuk utang yang sama
+    // membuat uang tercatat dua kali di buku kas (dibayar di Sales + dilunasi lagi di Front Desk).
+    $createInvoice = false;
 
     // Create invoice for remaining balance if required
     $invoiceNumber = null;

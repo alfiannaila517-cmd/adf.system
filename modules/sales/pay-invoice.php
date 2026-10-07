@@ -39,6 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($invoice['payment_status'] === 'paid') {
             throw new Exception('Invoice sudah dibayar');
         }
+
+        // Invoice otomatis dari check-in tamu hotel = sisa tagihan booking. Pelunasannya dicatat di
+        // Front Desk (booking itu sendiri); membayarnya di sini juga membuat uang masuk buku kas dua kali.
+        if (strpos((string)($invoice['notes'] ?? ''), 'Auto invoice from check-in') === 0) {
+            throw new Exception('Invoice ini berasal dari check-in tamu hotel. Lunasi di Front Desk (Reservasi / Kalender / In-House) agar tidak tercatat dua kali di buku kas.');
+        }
         
         // Validate payment method
         $valid_payment_methods = ['cash', 'debit', 'transfer', 'qr', 'other'];

@@ -577,6 +577,31 @@ try {
         }
     }
 
+    // Harga bisa berubah (kamar, malam, diskon) → status bayar dihitung ulang dari jumlah yang sudah
+    // dibayar. Dulu tetap status lama: booking yang sebenarnya sudah lunas masih "belum lunas"
+    // (dot merah) sehingga tamu ditagih / dicatat bayar lagi.
+    try {
+        $psIds = [(int)$bookingId];
+        foreach (($groupUpdated ?? []) as $gu) {
+            if (!empty($gu['booking_id']) && ($gu['status'] ?? '') === 'updated') {
+                $psIds[] = (int)$gu['booking_id'];
+            }
+        }
+        $psIds = array_values(array_unique($psIds));
+        $psPh = implode(',', array_fill(0, count($psIds), '?'));
+        $conn->prepare("
+            UPDATE bookings b
+            LEFT JOIN (SELECT booking_id, SUM(amount) AS paid FROM booking_payments GROUP BY booking_id) bp ON bp.booking_id = b.id
+            SET b.payment_status = CASE
+                WHEN GREATEST(COALESCE(b.paid_amount, 0), COALESCE(bp.paid, 0)) + 0.01 >= b.final_price AND b.final_price > 0 THEN 'paid'
+                WHEN GREATEST(COALESCE(b.paid_amount, 0), COALESCE(bp.paid, 0)) > 0 THEN 'partial'
+                ELSE 'unpaid' END
+            WHERE b.id IN ({$psPh})
+        ")->execute($psIds);
+    } catch (\Throwable $e) {
+        error_log('update-reservation: recompute payment_status failed - ' . $e->getMessage());
+    }
+
     // Calculate combined totals for response
     $respTotalPrice = $isGroupMode ? 0 : ($totalPrice ?? 0);
     $respFinalPrice = $isGroupMode ? 0 : ($finalPrice ?? 0);

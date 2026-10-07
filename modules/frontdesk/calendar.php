@@ -152,6 +152,7 @@ try {
             b.final_price,
             b.paid_amount,
             (SELECT COUNT(*) FROM booking_extras be WHERE be.booking_id = b.id) as extras_count,
+            (SELECT COALESCE(SUM(bpx.amount), 0) FROM booking_payments bpx WHERE bpx.booking_id = b.id) as bp_paid,
             g.guest_name, 
             g.phone
         FROM bookings b
@@ -180,10 +181,11 @@ try {
     if (!empty($groupIds)) {
         $placeholders = implode(',', array_fill(0, count($groupIds), '?'));
         $groupTotals = $db->fetchAll(
-            "SELECT group_id, SUM(final_price) AS total_final, SUM(paid_amount) AS total_paid
-             FROM bookings
-             WHERE group_id IN ({$placeholders})
-             GROUP BY group_id",
+            "SELECT b.group_id, SUM(b.final_price) AS total_final,
+                    SUM(GREATEST(COALESCE(b.paid_amount, 0), COALESCE((SELECT SUM(bpx.amount) FROM booking_payments bpx WHERE bpx.booking_id = b.id), 0))) AS total_paid
+             FROM bookings b
+             WHERE b.group_id IN ({$placeholders}) AND b.status <> 'cancelled'
+             GROUP BY b.group_id",
             $groupIds
         );
         foreach ($groupTotals as $gt) {
@@ -3160,7 +3162,7 @@ include '../../includes/header.php';
                                             $bookingGroupId = $booking['group_id'] ?? null;
                                             $isPaidFull = $bookingGroupId && isset($groupPaymentStatus[$bookingGroupId])
                                                 ? $groupPaymentStatus[$bookingGroupId]
-                                                : (($booking['payment_status'] ?? '') === 'paid');
+                                                : (max((float)($booking['paid_amount'] ?? 0), (float)($booking['bp_paid'] ?? 0)) + 0.01 >= (float)($booking['final_price'] ?? 0));
                                             $hasGuestRequest = trim((string)($booking['special_request'] ?? '')) !== '' || (int)($booking['extras_count'] ?? 0) > 0;
                                         ?>
                                             <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px;"

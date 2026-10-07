@@ -228,6 +228,35 @@ try {
     $paymentStatus = $primaryResult['status'];
     $combinedRemaining = max(0, $combinedFinalPrice - $combinedTotalPaid);
 
+    // Invoice otomatis lama dari check-in ("Auto invoice from check-in. Booking #KODE") ikut
+    // diselesaikan sesuai pelunasan di sini, supaya tidak dibayar lagi di modul Sales (dobel kas).
+    try {
+        foreach ($targets as $target) {
+            $bk = $db->fetchOne("SELECT booking_code, final_price, paid_amount FROM bookings WHERE id = ?", [(int)$target['id']]);
+            if (!$bk || empty($bk['booking_code'])) {
+                continue;
+            }
+            $bkRemaining = max(0, (float)$bk['final_price'] - (float)$bk['paid_amount']);
+            $autoNote = 'Auto invoice from check-in. Booking #' . $bk['booking_code'];
+            $ok = $db->query(
+                "UPDATE sales_invoices_header
+                 SET paid_amount = GREATEST(0, total_amount - ?),
+                     payment_status = CASE WHEN ? <= 0 THEN 'paid' WHEN total_amount - ? > 0 THEN 'partial' ELSE 'unpaid' END
+                 WHERE notes = ? AND payment_status <> 'paid'",
+                [$bkRemaining, $bkRemaining, $bkRemaining, $autoNote]
+            );
+            if ($ok === false && $bkRemaining <= 0) {
+                // Skema lama tanpa kolom paid_amount / payment_status
+                $ok = $db->query("UPDATE sales_invoices_header SET payment_status = 'paid' WHERE notes = ? AND payment_status <> 'paid'", [$autoNote]);
+                if ($ok === false) {
+                    $db->query("UPDATE sales_invoices_header SET status = 'paid' WHERE notes = ? AND status <> 'paid'", [$autoNote]);
+                }
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('add-booking-payment: close auto invoice failed - ' . $e->getMessage());
+    }
+
     // ==========================================
     // AUTO-INSERT TO CASHBOOK SYSTEM (via Helper)
     // ONLY for DIRECT BOOKING - OTA akan tercatat saat check-in
