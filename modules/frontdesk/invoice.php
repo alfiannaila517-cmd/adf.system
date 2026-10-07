@@ -145,6 +145,26 @@ foreach ($payments as $payment) {
     $totalPaid += $payment['amount'];
 }
 
+// Payment method labels (shown in totals & payment history)
+$methodLabel = function ($m) {
+    $m = strtolower(trim((string)$m));
+    $map = ['cash' => 'Cash', 'transfer' => 'Bank Transfer', 'bank_transfer' => 'Bank Transfer',
+        'card' => 'Debit / Card', 'debit' => 'Debit / Card', 'credit_card' => 'Debit / Card',
+        'qris' => 'QRIS', 'ota' => 'OTA'];
+    if (!isset($map[$m]) && strpos($m, 'ota ') === 0) {
+        return 'OTA (' . ucwords(substr($m, 4)) . ')';
+    }
+    return $map[$m] ?? ($m !== '' ?ucwords(str_replace('_', ' ', $m)) : '');
+};
+$paymentMethods = [];
+foreach ($payments as $payment) {
+    $lbl = $methodLabel($payment['payment_method'] ?? '');
+    if ($lbl !== '' && (float)$payment['amount'] > 0) {
+        $paymentMethods[$lbl] = true;
+    }
+}
+$paymentMethodsText = implode(' + ', array_keys($paymentMethods));
+
 // Fallback: sum paid_amount from all bookings if no payment records
 if ($totalPaid == 0) {
     foreach ($allBookings as $bk) {
@@ -698,6 +718,9 @@ if (!function_exists('invAmountWords')) {
                     <?php endif; ?>
                     <div class="row grand"><span>TOTAL</span><span><?php echo $rp($combinedFinalPrice); ?></span></div>
                     <div class="row paid"><span>Amount paid</span><span><?php echo $rp($totalPaid); ?></span></div>
+                    <?php if ($paymentMethodsText !== ''): ?>
+                        <div class="row"><span>Payment method</span><span><?php echo htmlspecialchars($paymentMethodsText); ?></span></div>
+                    <?php endif; ?>
                     <?php if ($remaining > 0): ?>
                         <div class="row due"><span>Balance Due</span><span><?php echo $rp($remaining); ?></span></div>
                     <?php else: ?>
@@ -724,7 +747,7 @@ if (!function_exists('invAmountWords')) {
                             <tr>
                                 <td><?php echo date('d M Y, H:i', strtotime($p['payment_date'])); ?></td>
                                 <?php if ($isMultiRoom): ?><td><?php echo htmlspecialchars($p['room_number'] ?? '-'); ?></td><?php endif; ?>
-                                <td><?php echo htmlspecialchars(strtoupper(str_replace('_', ' ', (string)$p['payment_method']))); ?></td>
+                                <td><?php echo htmlspecialchars($methodLabel($p['payment_method'] ?? '')); ?></td>
                                 <td><?php echo htmlspecialchars($p['notes'] ?: '-'); ?></td>
                                 <td class="r"><b><?php echo $rp($p['amount']); ?></b></td>
                             </tr>
