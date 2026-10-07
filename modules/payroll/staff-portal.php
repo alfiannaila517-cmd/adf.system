@@ -3482,6 +3482,65 @@ header('Expires: 0');
         .hk-team span b { margin-left: 3px; font-variant-numeric: tabular-nums; }
         .hk-empty { text-align: center; padding: 22px 10px; color: var(--muted); font-size: 12px; }
 
+        /* ═══ HOME: ABSENSI ═══ */
+        .ab-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+        .ab-clock { font-size: 30px; font-weight: 800; color: #0f172a; line-height: 1.05; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+        .ab-badge { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+        .ab-slots { display: grid; gap: 6px; }
+        .ab-slot { position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 8px 4px 9px; text-align: center; background: #fbfcfe; overflow: hidden; }
+        .ab-slot span { display: block; font-size: 9px; font-weight: 800; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+        .ab-slot b { display: block; font-size: 15px; font-weight: 800; color: #cbd5e1; margin-top: 2px; font-variant-numeric: tabular-nums; }
+        .ab-slot.on b { color: #0f172a; }
+        .ab-slot i { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; }
+        .ab-extra { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+        .ab-extra b { color: inherit; }
+        .ab-empty { text-align: center; padding: 12px 8px; font-size: 12px; color: var(--muted); background: #f8fafc; border-radius: 12px; }
+        .ab-btns { display: grid; grid-template-columns: 1.25fr 1fr; gap: 8px; margin-top: 14px; }
+        .ab-btn { display: flex; align-items: center; gap: 10px; border-radius: 14px; padding: 12px; cursor: pointer; font-family: inherit; text-align: left; transition: transform .12s, box-shadow .15s; min-height: 60px; }
+        .ab-btn:active { transform: scale(.97); }
+        .ab-ic { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .ab-ic svg { width: 21px; height: 21px; }
+        .ab-txt { display: flex; flex-direction: column; min-width: 0; }
+        .ab-txt b { font-size: 13px; font-weight: 800; line-height: 1.2; }
+        .ab-txt small { font-size: 10px; font-weight: 500; margin-top: 2px; line-height: 1.25; }
+        .ab-face { border: none; background: linear-gradient(135deg, var(--navy), var(--navy2)); color: #fff; box-shadow: 0 8px 20px rgba(15, 23, 42, .22); }
+        .ab-face .ab-ic { background: rgba(255, 255, 255, .14); }
+        .ab-face small { color: rgba(255, 255, 255, .72); }
+        .ab-manual { border: 1px solid var(--border); background: #fff; color: #0f172a; }
+        .ab-manual .ab-ic { background: #f1f5f9; color: #3d5a99; }
+        .ab-manual small { color: var(--muted); }
+
+        /* ═══ HOME: MENU & HALAMAN TURUNAN (Lembur, Cuti, Jadwal, Seragam, Detail Absensi) ═══ */
+        #page-home .card { border-radius: 16px; padding: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+        #page-home .card-title { font-size: 13px !important; font-weight: 800; color: #0f172a !important; margin-bottom: 12px; }
+        .qm-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .qm-item { border: 1px solid var(--border); background: #fbfcfe; border-radius: 14px; padding: 12px 4px 10px; }
+        .qm-icon { width: 40px; height: 40px; border-radius: 12px; margin-bottom: 7px; }
+        .qm-label { font-size: 10.5px; font-weight: 700; color: #0f172a; }
+        .sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .sec-head .section-back-btn { width: 36px; height: 36px; padding: 0; justify-content: center; font-size: 20px; line-height: 1; box-shadow: none; flex-shrink: 0; }
+        .sec-head-t { font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.2; }
+        .sec-head-s { font-size: 11px; color: var(--muted); margin-top: 1px; }
+        #page-home .compact-form .fl { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; margin-bottom: 4px; }
+        #page-home .compact-form .fi { height: 40px; padding: 0 11px; font-size: 13px; border-radius: 10px; border-width: 1px; font-family: inherit; }
+        #page-home .compact-form textarea.fi { height: auto; padding: 9px 11px; }
+        #page-home .compact-form .btn-auth, #page-home .btn-auth { height: 44px; padding: 0; font-size: 13px; font-weight: 800; border-radius: 12px; background: linear-gradient(135deg, var(--navy), var(--navy2)) !important; box-shadow: 0 6px 16px rgba(15, 23, 42, .16); }
+        .cuti-type-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .cuti-type { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 9px 4px; }
+        .cuti-type:hover { border-color: #c7d2fe; }
+        .cuti-type.selected { border-color: var(--navy); background: #eef2ff; box-shadow: inset 0 0 0 1px var(--navy); }
+        .cuti-type .ct-icon { font-size: 17px; }
+        .cuti-type .ct-label { font-size: 10.5px; font-weight: 700; color: #0f172a; margin-top: 2px; }
+        .btn-riwayat { border-radius: 14px; padding: 13px 14px; font-size: 12.5px; font-weight: 700; color: #0f172a; }
+        .btn-riwayat.open-r { border-radius: 14px 14px 0 0; }
+        .riwayat-panel { border-radius: 0 0 14px 14px; padding: 12px 14px; }
+        .riwayat-badge { background: #eef2ff; color: #3730a3; }
+        .mon-nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; margin-bottom: 10px; }
+        .mon-nav button { height: 34px; border: 1px solid var(--border); background: #fff; color: #0f172a; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .mon-nav button.mid { padding: 0 14px; background: #f1f5f9; }
+        .mon-sub { font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin: 14px 0 8px; padding-top: 12px; border-top: 1px dashed var(--border); }
+        .btn-soft { width: 100%; height: 42px; margin-top: 12px; border: 1px solid var(--border); background: #fff; color: #0f172a; border-radius: 12px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
+
         /* ═══ BREAKFAST ═══ */
         .bfx-recap { display: flex; flex-direction: column; }
         .bfx-recap-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #e2e8f0; font-size: 12.5px; font-weight: 600; color: var(--text); }
@@ -3704,56 +3763,58 @@ header('Expires: 0');
                     </div>
                 </div>
 
-                <!-- Target Jam - Donut Chart (berisi juga Status Absen Hari Ini, diringkas jadi satu container) -->
-                <div class="card target-jam-card">
-                    <div class="card-title">📊 Target Jam Bulan Ini</div>
-                    <div id="monthlySummary">
-                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                <!-- Absensi hari ini: jam, status, jam scan + tombol Face Scan (utama) & Absen Manual (cadangan) -->
+                <div class="rm-card ab-card">
+                    <div class="ab-top">
+                        <div>
+                            <div class="rm-occ-label">Absensi hari ini</div>
+                            <div class="ab-clock" id="liveClockTime">--:--:--</div>
+                            <div class="rm-sub" id="liveClockDate"></div>
+                        </div>
+                        <div id="todayBadge"></div>
                     </div>
-                    <div class="tj-divider"></div>
-                    <div class="card-title tj-substatus-title">📋 Status Absen Hari Ini</div>
                     <div id="todayStatus">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
+                    <div class="ab-btns">
+                        <button type="button" class="ab-btn ab-face" onclick="openFaceScan()">
+                            <span class="ab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7" />
+                                    <path d="M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7" />
+                                    <path d="M4 17v1.5A1.5 1.5 0 0 0 5.5 20H7" />
+                                    <path d="M17 20h1.5a1.5 1.5 0 0 0 1.5-1.5V17" />
+                                    <circle cx="9" cy="10" r="1" fill="currentColor" />
+                                    <circle cx="15" cy="10" r="1" fill="currentColor" />
+                                    <path d="M9 15c.9.8 2 1.2 3 1.2s2.1-.4 3-1.2" />
+                                </svg></span>
+                            <span class="ab-txt"><b>Face Scan</b><small>Absen dengan wajah</small></span>
+                        </button>
+                        <button type="button" class="ab-btn ab-manual" onclick="openManualAttendance()">
+                            <span class="ab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z" />
+                                    <circle cx="12" cy="9.5" r="2.5" />
+                                </svg></span>
+                            <span class="ab-txt"><b>Absen Manual</b><small>Pakai lokasi GPS</small></span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Absen: Face Scan (primary) & Absen Manual (secondary fallback) -->
-                <div class="absen-section-label">⏱️ Absensi Hari Ini</div>
-                <div class="absen-btns-row">
-                    <!-- Scan Wajah -->
-                    <div class="absen-link" onclick="openFaceScan()">
-                        <div class="al-icon"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M4 17v1.5A1.5 1.5 0 0 0 5.5 20H7" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M17 20h1.5a1.5 1.5 0 0 0 1.5-1.5V17" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                <circle cx="9" cy="10" r="1.1" fill="white" />
-                                <circle cx="15" cy="10" r="1.1" fill="white" />
-                                <path d="M9 15c.9.8 2 1.2 3 1.2s2.1-.4 3-1.2" stroke="white" stroke-width="1.6" stroke-linecap="round" />
-                            </svg></div>
-                        <div class="al-title">Face Scan</div>
-                        <div class="al-sub">Absen otomatis</div>
-                    </div>
-
-                    <!-- Absen Manual (fallback jika Face ID lambat/gagal) -->
-                    <button type="button" class="absen-link absen-link-manual" onclick="openManualAttendance()">
-                        <div class="al-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
-                                <circle cx="12" cy="12" r="3"></circle>
-                                <path d="M12 2v3"></path>
-                                <path d="M12 19v3"></path>
-                                <path d="M2 12h3"></path>
-                                <path d="M19 12h3"></path>
-                                <circle cx="12" cy="12" r="8"></circle>
-                            </svg>
+                <!-- Target jam bulan ini -->
+                <div class="rm-card">
+                    <div class="rm-head" style="margin-bottom:8px;">
+                        <div>
+                            <div class="rm-title">Target Jam Bulan Ini</div>
+                            <div class="rm-sub">Akumulasi jam kerja terhadap target</div>
                         </div>
-                        <div class="al-title">Absen Manual</div>
-                        <div class="al-sub">Fallback / GPS</div>
-                    </button>
+                    </div>
+                    <div id="monthlySummary">
+                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                    </div>
                 </div>
 
                 <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam / Stock -->
-                <div class="card" style="padding:14px 8px;">
+                <div class="rm-card">
+                    <div class="rm-title" style="margin-bottom:10px;">Menu</div>
                     <div class="qm-grid">
                         <div class="qm-item" onclick="openStaffSection('lemburSection')">
                             <div class="qm-icon qm-icon-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -3817,11 +3878,14 @@ header('Expires: 0');
 
             <!-- Ajukan Lembur (toggled via Menu Cepat) -->
             <div id="lemburSection" style="display:none;">
-                <div style="margin-bottom:8px;">
-                    <button type="button" class="section-back-btn" onclick="closeStaffSection('lemburSection')">‹ Kembali</button>
+                <div class="sec-head">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('lemburSection')" aria-label="Kembali">‹</button>
+                    <div>
+                        <div class="sec-head-t">Ajukan Lembur</div>
+                        <div class="sec-head-s">Ajukan jam lembur untuk disetujui admin</div>
+                    </div>
                 </div>
                 <div class="card" style="padding:12px;">
-                    <div class="card-title" style="font-size:13px;">⏰ Ajukan Lembur</div>
                     <form id="lemburForm" class="compact-form" onsubmit="return submitLembur(event)">
                         <div style="margin-bottom:8px;">
                             <label class="fl">Tanggal Lembur</label>
@@ -3831,7 +3895,7 @@ header('Expires: 0');
                             <label class="fl">Keterangan (Alasan Lembur)</label>
                             <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan dan pekerjaan lembur..." required style="resize:vertical;" id="lemburReason"></textarea>
                         </div>
-                        <button type="submit" class="btn-auth" id="lemburBtn" style="border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);">⏰ Ajukan Lembur</button>
+                        <button type="submit" class="btn-auth" id="lemburBtn">Ajukan Lembur</button>
                     </form>
                 </div>
 
@@ -3849,11 +3913,14 @@ header('Expires: 0');
 
             <!-- Ajukan Cuti (toggled via Menu Cepat) -->
             <div id="cutiSection" style="display:none;">
-                <div style="margin-bottom:8px;">
-                    <button type="button" class="section-back-btn" onclick="closeStaffSection('cutiSection')">‹ Kembali</button>
+                <div class="sec-head">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('cutiSection')" aria-label="Kembali">‹</button>
+                    <div>
+                        <div class="sec-head-t">Ajukan Cuti / Izin</div>
+                        <div class="sec-head-s">Pilih jenis, tanggal, lalu kirim pengajuan</div>
+                    </div>
                 </div>
                 <div class="card" style="padding:12px;">
-                    <div class="card-title" style="font-size:13px;">🏖️ Ajukan Cuti / Izin</div>
                     <form id="cutiForm" class="compact-form" onsubmit="return submitCuti(event)">
                         <div style="margin-bottom:8px;">
                             <div class="cuti-type-grid">
@@ -3889,7 +3956,7 @@ header('Expires: 0');
                             <label class="fl">Alasan</label>
                             <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan cuti/izin..." required style="resize:vertical;"></textarea>
                         </div>
-                        <button type="submit" class="btn-auth" id="cutiBtn" style="border-radius:10px;">📨 Kirim Pengajuan</button>
+                        <button type="submit" class="btn-auth" id="cutiBtn">📨 Kirim Pengajuan</button>
                     </form>
                 </div>
 
@@ -3907,11 +3974,15 @@ header('Expires: 0');
 
             <!-- Jadwal Kerja Tim (Semua Staff) - Kalender Gabungan (toggled via Menu Cepat) -->
             <div id="teamSchedSection" style="display:none;">
-                <div style="margin-bottom:8px;">
-                    <button type="button" class="section-back-btn" onclick="closeStaffSection('teamSchedSection')">‹ Kembali</button>
+                <div class="sec-head">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('teamSchedSection')" aria-label="Kembali">‹</button>
+                    <div>
+                        <div class="sec-head-t">Jadwal Kerja</div>
+                        <div class="sec-head-s">Jadwal masuk & libur per hari</div>
+                    </div>
                 </div>
                 <div class="card">
-                    <div class="card-title" id="teamSchedCardTitle">📅 Jadwal Kerja Saya</div>
+                    <div class="card-title" id="teamSchedCardTitle">Jadwal Kerja Saya</div>
                     <div style="display:flex;gap:6px;margin-bottom:10px;">
                         <button type="button" id="teamSchedModeMineBtn" onclick="setTeamSchedViewMode('mine')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;">👤 Jadwal Saya</button>
                         <button type="button" id="teamSchedModeAllBtn" onclick="setTeamSchedViewMode('all')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:#e2e8f0;color:var(--navy);">👥 Semua Staff</button>
@@ -3940,11 +4011,14 @@ header('Expires: 0');
 
             <!-- Jadwal Seragam Saya (toggled via Menu Cepat) — diatur admin dari Jadwal Kalender Kerja -->
             <div id="uniformSection" style="display:none;">
-                <div style="margin-bottom:8px;">
-                    <button type="button" class="section-back-btn" onclick="closeStaffSection('uniformSection')">‹ Kembali</button>
+                <div class="sec-head">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('uniformSection')" aria-label="Kembali">‹</button>
+                    <div>
+                        <div class="sec-head-t">Jadwal Seragam</div>
+                        <div class="sec-head-s">Seragam yang dipakai setiap hari</div>
+                    </div>
                 </div>
                 <div class="card">
-                    <div class="card-title">👔 Jadwal Seragam Saya</div>
                     <div id="uniformTableWrap"></div>
                     <div style="margin-top:10px;font-size:10px;color:var(--muted);">Berlaku berulang tiap minggu sesuai hari. Diatur admin dari Jadwal Kalender Kerja.</div>
                 </div>
@@ -3952,34 +4026,35 @@ header('Expires: 0');
 
             <!-- Detail Absensi & Lembur (Monitoring, toggled via Menu Cepat) -->
             <div id="monitorSection" style="display:none;">
-                <div style="margin-bottom:8px;">
-                    <button type="button" class="section-back-btn" onclick="closeStaffSection('monitorSection')">‹ Kembali</button>
-                </div>
-                <div class="card" style="border-color:#1e3a5c;padding:12px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
-                        <div style="display:flex;align-items:center;gap:7px;">
-                            <div style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#0c2d48,#145374);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;box-shadow:0 3px 8px rgba(12,45,72,.35);">📅</div>
-                            <div class="card-title" style="margin:0;font-size:13px;color:#0c2d48;">Detail Absensi &amp; Lembur</div>
-                        </div>
-                        <input type="month" id="monitorMonth" class="fi" style="width:126px;padding:5px 8px;font-size:10.5px;border-radius:8px;border-color:#9fb8cc;" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()">
+                <div class="sec-head">
+                    <button type="button" class="section-back-btn" onclick="closeStaffSection('monitorSection')" aria-label="Kembali">‹</button>
+                    <div>
+                        <div class="sec-head-t">Detail Absensi</div>
+                        <div class="sec-head-s">Riwayat absen & lembur per bulan</div>
                     </div>
-                    <div style="display:flex; gap:5px; margin-bottom:10px; flex-wrap:wrap;">
-                        <button type="button" onclick="shiftMonitorMonth(-1)" style="flex:1;min-width:82px;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:7px 8px;border-radius:8px;font-size:10.5px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(12,45,72,.25);">← Bulan Lalu</button>
-                        <button type="button" onclick="shiftMonitorMonth(0)" style="background:#eef4f9;color:#0c2d48;border:1.5px solid #9fb8cc;padding:7px 12px;border-radius:8px;font-size:10.5px;font-weight:700;cursor:pointer;">Bulan Ini</button>
-                        <button type="button" onclick="shiftMonitorMonth(1)" style="flex:1;min-width:82px;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:7px 8px;border-radius:8px;font-size:10.5px;font-weight:600;cursor:pointer;box-shadow:0 3px 8px rgba(12,45,72,.25);">Bulan Depan →</button>
+                </div>
+                <div class="card">
+                    <div class="rm-head" style="margin-bottom:10px;">
+                        <div class="rm-title">Absensi &amp; Lembur</div>
+                        <input type="month" id="monitorMonth" class="fi" style="width:138px;height:36px;padding:0 10px;font-size:12px;border-radius:10px;border-width:1px;" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()">
+                    </div>
+                    <div class="mon-nav">
+                        <button type="button" onclick="shiftMonitorMonth(-1)">‹ Bulan lalu</button>
+                        <button type="button" class="mid" onclick="shiftMonitorMonth(0)">Bulan ini</button>
+                        <button type="button" onclick="shiftMonitorMonth(1)">Bulan depan ›</button>
                     </div>
                     <div id="monitorStats"></div>
                     <div id="monitorTable">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
-                    <div style="margin-top:8px; padding-top:8px; border-top:1px dashed #9fb8cc;">
-                        <div style="font-size:10.5px; color:#0c2d48; font-weight:700; margin-bottom:5px; display:flex; align-items:center; gap:4px;">📋 Pengajuan Lembur Bulan Ini</div>
+                    <div>
+                        <div class="mon-sub">Pengajuan lembur bulan ini</div>
                         <div id="monitorLemburStats" style="margin-bottom:8px;"></div>
                         <div id="monitorLemburHistory">
                             <div class="loading"><span class="spin"></span> Memuat...</div>
                         </div>
                     </div>
-                    <button type="button" onclick="openSlipForMonitorMonth()" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#0c2d48,#145374);color:#fff;border:none;padding:9px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">💰 Lihat Slip Gaji Bulan Ini</button>
+                    <button type="button" class="btn-soft" onclick="openSlipForMonitorMonth()">Lihat Slip Gaji Bulan Ini</button>
                 </div>
             </div>
 
@@ -5492,7 +5567,8 @@ header('Expires: 0');
 
         // ═══ ABSEN PAGE ═══
         async function loadAbsen() {
-            // Today status
+            // Status & jam scan hari ini
+            const fmtH = h => (Math.round(h * 10) / 10).toString().replace('.', ',');
             try {
                 const res = await fetch(API + '&action=attendance_today');
                 const data = await res.json();
@@ -5501,161 +5577,73 @@ header('Expires: 0');
                     return;
                 }
                 const a = data.data;
+                const badgeEl = document.getElementById('todayBadge');
                 if (a) {
-                    const s1 = a.check_in_time ? a.check_in_time.substring(0, 5) : '—';
-                    const s2 = a.check_out_time ? a.check_out_time.substring(0, 5) : '—';
+                    const tm = v => v ? String(v).substring(0, 5) : '';
                     const wh = parseFloat(a.work_hours) || 0;
                     const ot = parseFloat(a.overtime_hours) || 0;
                     const statusKey = a.status_display || (a.is_split_shift ? 'split_shift' : a.status);
                     const statusMap = {
-                        present: '✅ Hadir',
-                        late: '⏰ Terlambat',
-                        split_shift: '🌗 Split Shift',
-                        absent: '❌ Absen',
-                        leave: '📝 Izin'
+                        present: ['Hadir', '#dcfce7', '#0b6b4e'],
+                        late: ['Terlambat', '#fef3c7', '#b45309'],
+                        split_shift: ['Split shift', '#e0e7ff', '#3730a3'],
+                        absent: ['Absen', '#fee2e2', '#b91c1c'],
+                        leave: ['Izin', '#f1f5f9', '#475569']
                     };
+                    const st = statusMap[statusKey] || [statusKey || '-', '#f1f5f9', '#475569'];
+                    if (badgeEl) badgeEl.innerHTML = `<span class="ab-badge" style="background:${st[1]};color:${st[2]}">${rmEsc(st[0])}</span>`;
 
-                    let scanGrid;
+                    const slot = (label, v, kind) => `<div class="ab-slot${v ? ' on' : ''}"><span>${label}</span><b>${v || '--:--'}</b><i style="background:${v ? (kind === 'in' ? '#0f8a65' : '#3d5a99') : '#e2e8f0'}"></i></div>`;
+                    let slots;
+                    let extra = '';
                     if (IS_CAFE) {
-                        // Cafe: 2 scan (Masuk / Pulang) with schedule info
-                        const scheduleInfo = a.schedule_start && a.schedule_end ?
-                            `<div style="text-align:center;font-size:10px;color:var(--muted);margin-bottom:8px;">Jadwal: ${a.schedule_start?.substring(0,5) || '—'} — ${a.schedule_end?.substring(0,5) || '—'}</div>` : '';
-                        const lateInfo = a.late_minutes && a.late_minutes > 0 ?
-                            `<div style="text-align:center;font-size:10px;color:var(--red);margin-top:4px;">Terlambat ${a.late_minutes} menit</div>` : '';
-                        const earlyInfo = a.early_leave_minutes && a.early_leave_minutes > 0 ?
-                            `<div style="text-align:center;font-size:10px;color:var(--orange);margin-top:4px;">Pulang awal ${a.early_leave_minutes} menit</div>` : '';
-                        scanGrid = `
-                    ${scheduleInfo}
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">
-                        <div style="background:var(--bg);border-radius:9px;padding:9px;">
-                            <div style="font-size:15px;margin-bottom:2px;">🟢</div>
-                            <div style="font-size:9px;color:var(--muted);font-weight:600;">MASUK</div>
-                            <div style="font-size:16px;font-weight:800;color:var(--green);margin-top:1px;">${s1}</div>
-                        </div>
-                        <div style="background:var(--bg);border-radius:9px;padding:9px;">
-                            <div style="font-size:15px;margin-bottom:2px;">🔴</div>
-                            <div style="font-size:9px;color:var(--muted);font-weight:600;">PULANG</div>
-                            <div style="font-size:16px;font-weight:800;color:var(--navy);margin-top:1px;">${s2}</div>
-                        </div>
-                    </div>
-                    ${lateInfo}${earlyInfo}`;
+                        slots = slot('Masuk', tm(a.check_in_time), 'in') + slot('Pulang', tm(a.check_out_time), 'out');
+                        if (a.schedule_start && a.schedule_end) extra += `<span>Jadwal ${tm(a.schedule_start)}–${tm(a.schedule_end)}</span>`;
+                        if (a.late_minutes > 0) extra += `<span style="color:#b45309">Terlambat ${parseInt(a.late_minutes)} mnt</span>`;
+                        if (a.early_leave_minutes > 0) extra += `<span style="color:#c2410c">Pulang awal ${parseInt(a.early_leave_minutes)} mnt</span>`;
                     } else {
-                        // Hotel: 4 scan split-shift
-                        const s3 = a.scan_3 ? a.scan_3.substring(0, 5) : '—';
-                        const s4 = a.scan_4 ? a.scan_4.substring(0, 5) : '—';
-                        scanGrid = `
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;">
-                    <div style="background:var(--bg);border-radius:8px;padding:8px;">
-                        <div style="font-size:9px;color:var(--muted);">Scan 1</div>
-                        <div style="font-size:14px;font-weight:700;color:var(--green);">${s1}</div>
-                    </div>
-                    <div style="background:var(--bg);border-radius:8px;padding:8px;">
-                        <div style="font-size:9px;color:var(--muted);">Scan 2</div>
-                        <div style="font-size:14px;font-weight:700;color:var(--navy);">${s2}</div>
-                    </div>
-                    <div style="background:var(--bg);border-radius:8px;padding:8px;">
-                        <div style="font-size:9px;color:var(--muted);">Scan 3</div>
-                        <div style="font-size:14px;font-weight:700;color:var(--green);">${s3}</div>
-                    </div>
-                    <div style="background:var(--bg);border-radius:8px;padding:8px;">
-                        <div style="font-size:9px;color:var(--muted);">Scan 4</div>
-                        <div style="font-size:14px;font-weight:700;color:var(--navy);">${s4}</div>
-                    </div>
-                </div>`;
+                        slots = slot('Scan 1', tm(a.check_in_time), 'in') + slot('Scan 2', tm(a.check_out_time), 'out') +
+                            slot('Scan 3', tm(a.scan_3), 'in') + slot('Scan 4', tm(a.scan_4), 'out');
                     }
-
-                    // Jam kerja harian:
-                    // - Jika < 8 jam: tampilkan aktual
-                    // - Jika > 8 jam tanpa lembur approved: tetap 8 jam
-                    // - Jika ada lembur: jam lembur ditampilkan terpisah
-                    const regularHours = wh > 0 ? Math.min(wh, 8) : 0;
-                    const baseHourTxt = regularHours > 0 ? `${regularHours.toFixed(1).replace(/\.0$/, '')} jam` : '';
-                    const otTxt = ot > 0 ? `<span style="color:var(--orange);font-weight:700;">· OT ${ot.toFixed(1).replace(/\.0$/, '')} jam</span>` : (baseHourTxt ? '<span style="color:var(--muted);">· tanpa OT</span>' : '');
-                    document.getElementById('todayStatus').innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-                    <span class="badge ${statusKey==='present' || statusKey==='split_shift' ? 'b-hadir' : statusKey==='late' ? 'b-late' : 'b-absent'}">${statusMap[statusKey]||statusKey}</span>
-                    <span style="font-size:11px;color:var(--muted);display:inline-flex;gap:6px;align-items:center;">${baseHourTxt}${otTxt}</span>
-                </div>
-                ${scanGrid}`;
+                    // Jam kerja harian: maks 8 jam reguler, lembur ditampilkan terpisah
+                    const regular = wh > 0 ? Math.min(wh, 8) : 0;
+                    if (regular > 0) extra += `<span>Jam kerja <b>${fmtH(regular)} jam</b></span>`;
+                    if (ot > 0) extra += `<span style="color:#c2410c">Lembur <b>${fmtH(ot)} jam</b></span>`;
+                    document.getElementById('todayStatus').innerHTML =
+                        `<div class="ab-slots" style="grid-template-columns:repeat(${IS_CAFE ? 2 : 4},1fr)">${slots}</div>` +
+                        (extra ? `<div class="ab-extra">${extra}</div>` : '');
                 } else {
-                    document.getElementById('todayStatus').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">⏳ Belum absen hari ini. Tap "Scan Wajah" di atas untuk absen.</div>';
+                    if (badgeEl) badgeEl.innerHTML = '<span class="ab-badge" style="background:#f1f5f9;color:#475569">Belum absen</span>';
+                    document.getElementById('todayStatus').innerHTML = '<div class="ab-empty">Belum ada absen hari ini. Tekan <b>Face Scan</b> untuk mulai.</div>';
                 }
             } catch (e) {
-                document.getElementById('todayStatus').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat data</div>';
+                document.getElementById('todayStatus').innerHTML = '<div class="ab-empty" style="color:var(--red)">Gagal memuat data absen</div>';
             }
 
-            // Monthly donut chart
+            // Target jam bulan ini
             try {
-                const m = new Date().toISOString().substring(0, 7);
+                const m = rmYmd(new Date()).substring(0, 7);
                 const res = await fetch(API + '&action=attendance_history&month=' + m);
                 const data = await res.json();
                 const s = data.summary || {};
-                const totalHours = s.total_hours || 0;
-                const target = s.target || 208;
+                const totalHours = parseFloat(s.total_hours) || 0;
+                const target = parseFloat(s.target) || 208;
                 const pct = target > 0 ? Math.min(Math.round(totalHours / target * 100), 100) : 0;
-                const daysPresent = s.days_present || 0;
-                const daysLate = s.days_late || 0;
-
-                // Donut chart using SVG conic gradient simulation
-                const radius = 48,
-                    cx = 58,
-                    cy = 58,
-                    stroke = 9;
-                const circumference = 2 * Math.PI * radius;
-                const dashOffset = circumference - (pct / 100) * circumference;
-                const gradColor1 = pct >= 90 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444';
-                const gradColor2 = pct >= 90 ? '#059669' : pct >= 60 ? '#d97706' : '#dc2626';
-                const gradId = 'donutGrad';
-
+                const barColor = pct >= 90 ? '#0f8a65,#14a37a' : pct >= 60 ? '#d97706,#f59e0b' : '#3d5a99,#5b82d1';
                 document.getElementById('monthlySummary').innerHTML = `
-            <div style="display:flex;align-items:center;gap:14px;justify-content:center;">
-                <div style="position:relative;width:116px;height:116px;flex-shrink:0;">
-                    <svg width="116" height="116" viewBox="0 0 116 116" style="transform:rotate(-90deg);">
-                        <defs>
-                            <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="${gradColor1}"/>
-                                <stop offset="100%" stop-color="${gradColor2}"/>
-                            </linearGradient>
-                            <filter id="donutShadow"><feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="${gradColor1}" flood-opacity="0.3"/></filter>
-                        </defs>
-                        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#eef2f7" stroke-width="${stroke}" />
-                        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="url(#${gradId})" stroke-width="${stroke}" 
-                            stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}" filter="url(#donutShadow)">
-                            <animate attributeName="stroke-dashoffset" from="${circumference}" to="${dashOffset}" dur="1.2s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" keyTimes="0;1"/>
-                        </circle>
-                    </svg>
-                    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                        <div style="display:flex;align-items:baseline;gap:1px;">
-                            <div style="font-size:24px;font-weight:800;color:${gradColor1};line-height:1;letter-spacing:-.5px;" id="donutPctNum">0</div>
-                            <div style="font-size:11px;font-weight:700;color:${gradColor1};">%</div>
-                        </div>
-                        <div style="font-size:8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-top:1px;">dari target</div>
-                    </div>
-                </div>
-                <div style="flex:1;min-width:0;display:grid;gap:6px;">
-                    <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:9px;padding:7px 9px;display:flex;align-items:center;gap:8px;">
-                        <div style="width:24px;height:24px;background:#10b981;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;flex-shrink:0;">📅</div>
-                        <div style="min-width:0;"><div style="font-size:8px;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Hadir</div><div style="font-size:14px;font-weight:800;color:#065f46;line-height:1.2;">${daysPresent} <span style="font-size:9px;font-weight:400;">hari</span></div></div>
-                    </div>
-                    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:9px;padding:7px 9px;display:flex;align-items:center;gap:8px;">
-                        <div style="width:24px;height:24px;background:#2563eb;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;flex-shrink:0;">🕐</div>
-                        <div style="min-width:0;"><div style="font-size:8px;color:#1d4ed8;font-weight:700;text-transform:uppercase;letter-spacing:.03em;">Sekarang</div><div style="font-size:12.5px;font-weight:800;color:#1e3a8a;line-height:1.2;" id="liveClockTime">--:--:--</div><div style="font-size:8px;color:var(--muted);" id="liveClockDate"></div></div>
-                    </div>
-                </div>
+            <div class="hk-prog-top">
+                <b>${fmtH(totalHours)}<small> / ${fmtH(target)} jam</small></b>
+                <span><b style="font-size:13px;color:#0f172a">${pct}%</b> dari target</span>
+            </div>
+            <div class="rm-bar" style="margin:8px 0 12px;"><span style="width:${pct}%;background:linear-gradient(90deg,${barColor});"></span></div>
+            <div class="rm-kpis" style="grid-template-columns:repeat(3,1fr)">
+                <div class="rm-kpi"><div class="rm-kpi-val">${parseInt(s.days_present) || 0}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#0f8a65"></i>Hari hadir</div></div>
+                <div class="rm-kpi"><div class="rm-kpi-val">${parseInt(s.days_late) || 0}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#d97706"></i>Terlambat</div></div>
+                <div class="rm-kpi"><div class="rm-kpi-val">${fmtH(Math.max(0, target - totalHours))}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#94a3b8"></i>Sisa jam</div></div>
             </div>`;
-                // Animate percentage number
-                let cur = 0;
-                const tgt = pct;
-                const animPct = () => {
-                    if (cur < tgt) {
-                        cur += Math.max(1, Math.round((tgt - cur) / 10));
-                        if (cur > tgt) cur = tgt;
-                        document.getElementById('donutPctNum').textContent = cur;
-                        requestAnimationFrame(animPct);
-                    }
-                };
-                requestAnimationFrame(animPct);
-            } catch (e) {}
+            } catch (e) {
+                document.getElementById('monthlySummary').innerHTML = '<div class="ab-empty" style="color:var(--red)">Gagal memuat target jam</div>';
+            }
         }
 
         // ═══ MONITORING PAGE ═══
