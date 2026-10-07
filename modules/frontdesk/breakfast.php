@@ -1209,6 +1209,21 @@ include '../../includes/header.php';
         display: none;
     }
 
+    body[data-theme] .main-content .bf-wrap .bf-guest-item .guest-info { flex: 1 1 0; }
+    body[data-theme] .main-content .bf-wrap .bfg-sent-wrap { flex: 0 1 auto; display: flex; justify-content: center; padding: 0 6px; }
+    body[data-theme] .main-content .bf-wrap .bfg-sent-wrap .bfg-sent { gap: 6px; margin: 0; padding: 4px 11px 4px 5px; font-size: 0.66rem !important; border: 1px solid #a7f3d0; box-shadow: 0 2px 8px -4px rgba(4, 120, 87, 0.35); }
+    body[data-theme] .main-content .bf-wrap .bfg-sent i { font-style: normal; width: 17px; height: 17px; border-radius: 50%; background: #047857; color: #fff !important; -webkit-text-fill-color: #fff !important; display: inline-flex; align-items: center; justify-content: center; font-size: 0.6rem; }
+    body[data-theme] .main-content .bf-wrap .bfg-sent b { font-weight: 800; padding-left: 6px; border-left: 1px solid #a7f3d0; }
+    body[data-theme] .main-content .bf-wrap .bfg-sent b:empty { display: none; }
+    @media (max-width: 640px) { body[data-theme] .main-content .bf-wrap .bfg-sent-wrap .bfg-sent { font-size: 0 !important; padding: 3px; } body[data-theme] .main-content .bf-wrap .bfg-sent b { display: none; } }
+    .bfg-resend-ic { width: 52px; height: 52px; margin: 2px auto 10px; border-radius: 50%; background: #dcfce7; color: #047857; display: flex; align-items: center; justify-content: center; }
+    .bfg-resend-ic svg { width: 26px; height: 26px; fill: #25d366; }
+    .bfg-resend-t { text-align: center; font-size: 0.95rem; font-weight: 800; margin: 0 0 4px; }
+    .bfg-resend-s { text-align: center; font-size: 0.74rem; line-height: 1.5; color: var(--text-muted, #64748b) !important; margin: 0; }
+    .bfg-resend-s b { color: inherit; }
+    #waResendModal .bfg-modal-actions { justify-content: center; }
+    #waResendModal .bfg-btn { min-width: 110px; height: 38px; }
+
     /* WA sudah terkirim: tombol jadi outline + centang agar tidak terkirim dua kali */
     body[data-theme] .main-content .bf-wrap .bf-wa-send.is-sent {
         position: relative;
@@ -1691,6 +1706,7 @@ include '../../includes/header.php';
                                                 data-booking-ids="<?php echo htmlspecialchars(json_encode($bIds)); ?>"
                                                 data-phone="<?php echo htmlspecialchars($g['guest_phone'] ?? ''); ?>"
                                                 data-wa-sent="<?php echo $g['wa_sent'] ? htmlspecialchars($g['wa_sent']['time']) : ''; ?>"
+                                                data-wa-target="<?php echo $g['wa_sent'] ? htmlspecialchars($g['wa_sent']['target']) : ''; ?>"
                                                 data-pax="<?php echo $pax; ?>"
                                                 data-kids="<?php echo (int)$g['kids']; ?>"
                                                 data-adults="<?php echo $pax; ?>"
@@ -1711,12 +1727,14 @@ include '../../includes/header.php';
                                                     Room <?php echo htmlspecialchars(str_replace(',', ', ', $g['rooms'])); ?>
                                                     · <b class="bfg-pax"><?php echo $pax; ?> pax<?php echo $g['kids'] ? ' + ' . (int)$g['kids'] . ' kids' : ''; ?></b>
                                                     <span class="bfg-src"><?php echo $g['pax_set'] ? 'disetel' : 'dari reservasi'; ?></span>
-                                                    <span class="bfg-sent"<?php echo $g['wa_sent'] ? '' : ' hidden'; ?>>✓ WA terkirim<?php echo $g['wa_sent'] ? ' ' . htmlspecialchars($g['wa_sent']['time']) : ''; ?></span>
                                                 </div>
+                                            </div>
+                                            <div class="bfg-sent-wrap">
+                                                <span class="bfg-sent"<?php echo $g['wa_sent'] ? '' : ' hidden'; ?>><i>✓</i>Link terkirim<b><?php echo $g['wa_sent'] ? htmlspecialchars($g['wa_sent']['time']) : ''; ?></b></span>
                                             </div>
                                             <div class="bf-guest-tools">
                                                 <button type="button" class="bf-setup-guest-btn" onclick="openGuestSetup(event,this)">Setup</button>
-                                                <button type="button" class="bf-wa-send<?php echo $g['wa_sent'] ? ' is-sent' : ''; ?>" title="<?php echo $g['wa_sent'] ? 'Sudah terkirim ' . htmlspecialchars($g['wa_sent']['time']) . ' — klik untuk kirim ulang' : 'Kirim link sarapan via WhatsApp'; ?>" aria-label="Kirim link via WhatsApp" onclick="sendGuestSelectionLink(event,this)">
+                                                <button type="button" class="bf-wa-send<?php echo $g['wa_sent'] ? ' is-sent' : ''; ?>" aria-label="Kirim link via WhatsApp" onclick="sendGuestSelectionLink(event,this)">
                                                     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z" /></svg>
                                                 </button>
                                             </div>
@@ -2001,6 +2019,18 @@ include '../../includes/header.php';
         <div class="bfg-modal-actions">
             <button type="button" class="bfg-btn ghost" onclick="waFailCopy()">Salin link</button>
             <button type="button" class="bfg-btn green" onclick="waFailOpen()">Buka WhatsApp</button>
+        </div>
+    </div>
+</div>
+
+<div class="bf-modal-backdrop" id="waResendModal" onclick="if(event.target===this)waResendDone(false)">
+    <div class="bf-modal bfg-modal" style="text-align:center">
+        <div class="bfg-resend-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89A11.82 11.82 0 0 0 12.05 0z"/></svg></div>
+        <p class="bfg-resend-t">Link sarapan sudah dikirim</p>
+        <p class="bfg-resend-s" id="waResendText"></p>
+        <div class="bfg-modal-actions">
+            <button type="button" class="bfg-btn ghost" onclick="waResendDone(false)">Batal</button>
+            <button type="button" class="bfg-btn green" onclick="waResendDone(true)">Kirim lagi</button>
         </div>
     </div>
 </div>
@@ -2765,12 +2795,15 @@ include '../../includes/header.php';
     async function bfgSend(cbs, btn) {
         var c = bfgCombine(cbs);
         // Sudah pernah terkirim hari ini? Minta konfirmasi agar tamu tidak menerima link dua kali.
-        var sentInfo = cbs.filter(function(cb) { return cb.dataset.waSent; }).map(function(cb) {
-            return (cb.dataset.rooms || '').replace(/,/g, ', ') + ' (' + cb.dataset.waSent + ')';
-        });
-        if (sentInfo.length && !confirm('Link sarapan SUDAH terkirim via WhatsApp untuk Room ' + sentInfo.join(', ') + '.
-
-Kirim ulang?')) return;
+        var sentCbs = cbs.filter(function(cb) { return cb.dataset.waSent; });
+        if (sentCbs.length) {
+            var info = sentCbs.map(function(cb) {
+                return 'Room <b>' + bfgEsc((cb.dataset.rooms || '').replace(/,/g, ', ')) + '</b> jam <b>' + bfgEsc(cb.dataset.waSent) + '</b>' +
+                    (cb.dataset.waTarget ? ' ke <b>' + bfgEsc(cb.dataset.waTarget) + '</b>' : '');
+            });
+            var again = await waResendAsk(info.join('<br>') + '<br>Kirim lagi ke tamu?');
+            if (!again) return;
+        }
         if (btn) btn.disabled = true;
         try {
             var link = await bfgCreateLink(c);
@@ -2801,10 +2834,11 @@ Kirim ulang?')) return;
                 cbs.forEach(function(cb) {
                     var row = bfgRowOf(cb);
                     var s = row.querySelector('.bfg-sent');
-                    if (s) { s.hidden = false; s.textContent = '✓ WA terkirim ' + hhmm; }
+                    if (s) { s.hidden = false; var sb = s.querySelector('b'); if (sb) sb.textContent = hhmm; }
                     var wb = row.querySelector('.bf-wa-send');
-                    if (wb) { wb.classList.add('is-sent'); wb.title = 'Sudah terkirim ' + hhmm + ' — klik untuk kirim ulang'; }
+                    if (wb) wb.classList.add('is-sent');
                     cb.dataset.waSent = hhmm;
+                    cb.dataset.waTarget = r.target || phone;
                     if (typed) cb.dataset.phone = phone;
                 });
             } else {
@@ -2824,6 +2858,23 @@ Kirim ulang?')) return;
     }
 
     var waFail = null;
+    var waResendResolve = null;
+
+    function bfgEsc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function(ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]; });
+    }
+
+    // Popup konfirmasi kirim ulang (pengganti confirm() bawaan browser)
+    function waResendAsk(html) {
+        document.getElementById('waResendText').innerHTML = html;
+        document.getElementById('waResendModal').classList.add('show');
+        return new Promise(function(resolve) { waResendResolve = resolve; });
+    }
+
+    function waResendDone(ok) {
+        document.getElementById('waResendModal').classList.remove('show');
+        if (waResendResolve) { waResendResolve(!!ok); waResendResolve = null; }
+    }
 
     function waFailClose() {
         document.getElementById('waFailModal').classList.remove('show');

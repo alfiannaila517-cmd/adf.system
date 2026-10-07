@@ -156,9 +156,10 @@ class WhatsAppHelper
             return $res;
         }
         // normalizeTarget sudah menghasilkan format internasional (0812… → 62812…, +31 6… → 316…).
-        // countryCode '0' mematikan filter kode negara Fonnte; dengan '62' nomor luar negeri
-        // (mis. Belanda +31) ikut dianggap nomor Indonesia sehingga gagal terkirim.
-        $fields = ['target' => $target, 'message' => $message, 'countryCode' => '0'];
+        // Nomor Indonesia tetap pakai countryCode '62' (perilaku lama yang terbukti jalan); nomor luar
+        // negeri pakai '0' agar filter kode negara Fonnte tidak memperlakukannya sebagai nomor Indonesia.
+        $isIndo = strpos($target, '62') === 0 || stripos($target, '@g.us') !== false;
+        $fields = ['target' => $target, 'message' => $message, 'countryCode' => $isIndo ? '62' : '0'];
         if ($fileUrl !== null) {
             // Lampiran lewat link publik: Fonnte mengunduh file sendiri (didukung lebih banyak paket
             // daripada unggah langsung, yang pada sebagian paket diabaikan diam-diam).
