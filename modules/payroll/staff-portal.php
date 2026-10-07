@@ -6467,7 +6467,7 @@ header('Expires: 0');
                 }];
                 const itemRows = items.map(m => `<div class="bfx-item"><div>${rmEsc(m.menu_name || 'Menu')}${m.note ? `<div class="bfx-note">↳ ${rmEsc(m.note)}</div>` : ''}</div><b>×${parseInt(m.quantity || 1, 10) || 1}</b></div>`).join('');
                 const price = parseFloat(o.total_price || 0);
-                const priceStr = price > 0 ? 'Rp ' + price.toLocaleString('id-ID') : 'Termasuk kamar';
+                const priceStr = price > 0 ? 'Rp ' + price.toLocaleString('id-ID') : 'Free';
                 const canComplete = orderId > 0 && status !== 'completed';
                 return `<div class="bfx-order st-${rmEsc(status)}">
                 <div class="bfx-time"><b>${rmEsc(o.breakfast_time ? o.breakfast_time.substring(0, 5) : '--:--')}</b><span>JAM</span></div>
