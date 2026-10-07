@@ -302,15 +302,24 @@ class CloudbedsSync
      */
     private function planRoomBlocks(string $from, string $to, array $roomByNo, array &$actions): void
     {
-        $q = ['startDate' => $from, 'endDate' => $to];
-        if ($this->cb->propertyId() !== '') {
-            $q['propertyID'] = $this->cb->propertyId();
+        // Cloudbeds membatasi rentang getRoomBlocks maks. 35 hari → ambil per potongan 30 hari
+        $chunks = [];
+        for ($cs = $from; $cs <= $to; $cs = date('Y-m-d', strtotime($cs . ' +30 days'))) {
+            $ce = min($to, date('Y-m-d', strtotime($cs . ' +29 days')));
+            $q = ['startDate' => $cs, 'endDate' => $ce];
+            if ($this->cb->propertyId() !== '') {
+                $q['propertyID'] = $this->cb->propertyId();
+            }
+            $res = $this->cb->get('getRoomBlocks', $q);
+            if (!$res['ok']) {
+                $denied = in_array((int)($res['http'] ?? 0), [401, 403], true) || stripos($res['detail'], 'scope') !== false || stripos($res['detail'], 'permission') !== false;
+                $actions[] = ['type' => 'warn', 'cb' => '-', 'label' => 'Blok kamar Cloudbeds', 'msg' => 'Tidak bisa dibaca: ' . $res['detail']
+                    . ($denied ? ' (aktifkan scope "Roomblock: Read" di API key Cloudbeds).' : '')];
+                return;
+            }
+            $chunks[] = $res['data'];
         }
-        $res = $this->cb->get('getRoomBlocks', $q);
-        if (!$res['ok']) {
-            $actions[] = ['type' => 'warn', 'cb' => '-', 'label' => 'Blok kamar Cloudbeds', 'msg' => 'Tidak bisa dibaca: ' . $res['detail'] . ' (aktifkan scope "Roomblock: Read" di API key Cloudbeds).'];
-            return;
-        }
+        $res = ['data' => $chunks];
         // roomID Cloudbeds → nama kamar (dari getRooms)
         $cbRoomName = [];
         $rm = $this->cb->get('getRooms', $this->cb->propertyId() !== '' ? ['propertyID' => $this->cb->propertyId()] : []);
@@ -336,8 +345,12 @@ class CloudbedsSync
         $walkBlocks($res['data']);
 
         $seen = [];
+        $seenBlockIds = [];
         foreach ($blocks as $b) {
             $bid = (string)$b['roomBlockID'];
+            // Blok yang melintasi dua potongan tanggal muncul dua kali
+            if (isset($seenBlockIds[$bid])) continue;
+            $seenBlockIds[$bid] = true;
             $start = substr((string)($b['startDate'] ?? ''), 0, 10);
             $end = substr((string)($b['endDate'] ?? ''), 0, 10);
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) continue;
