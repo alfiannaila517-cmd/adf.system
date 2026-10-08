@@ -252,221 +252,168 @@ $todayId = $hariId[(int)date('w')] . ', ' . date('j') . ' ' . $bulanId[(int)date
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Akhir Shift - <?php echo $esc($business['business_name']); ?> - <?php echo date('d M Y'); ?></title>
     <style>
-        @page { size: A4; margin: 12mm 12mm 14mm; }
+        @page { size: A4; margin: 10mm 11mm 12mm; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root { --navy: #0f2747; --blue: #1e3a8a; --accent: #2563eb; --ink: #0f172a; --mute: #64748b; --faint: #94a3b8; --line: #e2e8f0; --soft: #f8fafc; --ok: #047857; --bad: #b91c1c; }
-        body { font-family: 'Inter', 'Segoe UI', Tahoma, Arial, sans-serif; color: var(--ink); background: #e9edf3; font-size: 11px; line-height: 1.45; padding: 18px 12px 60px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .sheet { max-width: 794px; margin: 0 auto; background: #fff; padding: 28px 32px 24px; box-shadow: 0 2px 6px rgba(15, 23, 42, .06), 0 24px 60px -24px rgba(15, 23, 42, .25); position: relative; }
-        .top-rule { height: 6px; background: var(--navy); margin: -28px -32px 22px; border-bottom: 2px solid #b08d57; }
+        :root { --navy: #0f2747; --ink: #111827; --mute: #6b7280; --line: #d9dee7; --soft: #f5f7fa; --ok: #047857; --bad: #b91c1c; }
+        body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; color: var(--ink); background: #e9edf3; font-size: 10.5px; line-height: 1.4; padding: 14px 10px 50px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .sheet { max-width: 760px; margin: 0 auto; background: #fff; padding: 20px 24px 18px; box-shadow: 0 2px 10px rgba(15, 23, 42, .12); }
+        table { width: 100%; border-collapse: collapse; }
+        .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
         /* Kop */
-        .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
-        .brand { display: flex; align-items: center; gap: 12px; }
-        .brand img { width: 52px; height: 52px; object-fit: cover; border-radius: 50%; box-shadow: 0 0 0 1px var(--line); }
-        .brand .mono { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: var(--navy); color: #fff; font-weight: 800; font-size: 18px; }
-        .brand h1 { font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: var(--navy); }
-        .brand p { font-size: 10px; color: var(--mute); margin-top: 1px; }
-        .doc { text-align: right; }
-        .doc .t { font-size: 15px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--blue); }
-        .doc .s { font-size: 10px; color: var(--mute); margin-top: 1px; }
-        .doc .no { margin-top: 5px; font-size: 10px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+        .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; padding-bottom: 8px; border-bottom: 2px solid var(--navy); }
+        .brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+        .brand img { width: 30px; height: 30px; object-fit: cover; border-radius: 50%; flex-shrink: 0; }
+        .brand .mono { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; background: var(--navy); color: #fff; font-weight: 800; font-size: 14px; flex-shrink: 0; }
+        .brand b { display: block; font-size: 14px; font-weight: 800; color: var(--navy); line-height: 1.15; }
+        .brand small { display: block; font-size: 9px; color: var(--mute); }
+        .doc { text-align: right; flex-shrink: 0; }
+        .doc b { display: block; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--navy); }
+        .doc small { display: block; font-size: 9px; color: var(--mute); }
 
-        .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 16px 0 14px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-        .meta > div { padding: 8px 12px; border-left: 1px solid var(--line); background: var(--soft); }
-        .meta > div:first-child { border-left: 0; }
-        .meta small { display: block; font-size: 8px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
-        .meta b { display: block; margin-top: 2px; font-size: 11px; font-weight: 700; color: var(--ink); }
+        /* Info */
+        .info td { padding: 4px 8px; font-size: 10px; border: 1px solid var(--line); }
+        .info td.k { width: 14%; background: var(--soft); color: var(--mute); font-weight: 600; }
+        .info td.v { width: 36%; font-weight: 600; }
+        .info { margin: 10px 0 0; }
 
-        /* Posisi kas */
-        .sec-title { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; font-size: 9.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--blue); }
-        .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-        .pos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .pos .box { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); }
-        .pos .box small { display: block; font-size: 8.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); }
-        .pos .box b { display: block; margin-top: 4px; font-size: 19px; font-weight: 800; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-        .pos .box.avail { background: #ecfdf5; border-color: #a7f3d0; }
-        .pos .box.avail small { color: var(--ok); } .pos .box.avail b { color: var(--ok); }
-        .pos .box.avail.neg { background: #fef2f2; border-color: #fecaca; } .pos .box.avail.neg small, .pos .box.avail.neg b { color: var(--bad); }
+        h3 { margin: 12px 0 4px; font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--navy); }
 
-        .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
-        .kpi { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); border-top: 3px solid var(--c); }
-        .kpi small { display: block; font-size: 8px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--mute); }
-        .kpi b { display: block; margin-top: 3px; font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
-        .kpi span { display: block; margin-top: 1px; font-size: 8.5px; color: var(--faint); }
+        /* Tabel ringkas */
+        .tbl th { padding: 5px 8px; background: var(--navy); color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; text-align: left; }
+        .tbl th.num { text-align: right; }
+        .tbl td { padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: 10.5px; vertical-align: top; }
+        .tbl tr:last-child td { border-bottom: 0; }
+        .tbl { border: 1px solid var(--line); }
+        .tbl tr.sum td { background: var(--soft); font-weight: 800; border-top: 1px solid var(--navy); }
+        .tbl tr.sub td { font-size: 9.5px; color: var(--mute); padding: 3px 8px 3px 20px; }
+        .in { color: var(--ok); } .out { color: var(--bad); }
+        .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-        /* Rekap hari ini */
-        .today { display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; align-items: start; }
-        .today table, .tx { width: 100%; border-collapse: collapse; }
-        .today th { padding: 6px 8px; font-size: 8px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; text-align: left; color: var(--mute); border-bottom: 1px solid var(--line); background: var(--soft); }
-        .today td { padding: 6px 8px; font-size: 10.5px; border-bottom: 1px solid #f1f5f9; }
-        .today td.r, .today th.r { text-align: right; font-variant-numeric: tabular-nums; }
-        .today tr.net td { border-top: 2px solid var(--navy); border-bottom: 0; font-weight: 800; font-size: 11.5px; background: var(--soft); }
-
-        /* Tabel transaksi */
-        .tx thead th { background: var(--navy); color: #fff; padding: 8px 8px; font-size: 8.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: left; }
-        .tx thead th.r { text-align: right; }
+        /* Rincian transaksi */
         .tx thead { display: table-header-group; }
         .tx tbody tr { page-break-inside: avoid; }
-        .tx td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 10.5px; }
-        .tx tbody tr:nth-child(even) td { background: #fbfcfe; }
-        .tx td.no { color: var(--faint); width: 22px; font-variant-numeric: tabular-nums; }
-        .tx td.time { white-space: nowrap; color: var(--mute); font-variant-numeric: tabular-nums; }
-        .tx td.desc { line-height: 1.4; }
-        .tx td.r { text-align: right; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .tx td.in { color: var(--ok); } .tx td.out { color: var(--bad); }
-        .tx td.dash { color: #cbd5e1; font-weight: 400; }
-        .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 8.5px; font-weight: 800; letter-spacing: .04em; }
-        .pill.in { background: #dcfce7; color: var(--ok); } .pill.out { background: #fee2e2; color: var(--bad); }
-        .chip { display: inline-block; padding: 1px 7px; border-radius: 6px; background: #eef2f7; color: #334155; font-size: 9.5px; font-weight: 600; white-space: nowrap; }
-        .tx tfoot td { padding: 9px 8px; border-top: 2px solid var(--navy); font-weight: 800; font-size: 11px; background: var(--soft); }
-        .tx tfoot td.r { font-size: 11.5px; }
-        .empty { padding: 26px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; color: var(--faint); font-style: italic; }
+        .tx td { padding: 4px 8px; line-height: 1.35; }
+        .tx td.c { color: var(--mute); white-space: nowrap; }
+        .tx tfoot td { padding: 5px 8px; background: var(--soft); font-weight: 800; border-top: 1px solid var(--navy); }
+        .dash { color: #c4cad4; }
 
         /* Pengesahan */
-        .sign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 26px; page-break-inside: avoid; }
-        .sign .box { text-align: center; }
-        .sign .role { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
-        .sign .space { height: 54px; border-bottom: 1px solid var(--ink); margin: 6px 12px 5px; }
-        .sign .who { font-size: 10.5px; font-weight: 700; }
-        .sign .sub { font-size: 8.5px; color: var(--faint); }
-        .note { margin-top: 16px; padding: 9px 12px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line); font-size: 8.5px; color: var(--mute); line-height: 1.5; }
-        .foot { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; font-size: 8.5px; color: var(--faint); }
+        .sign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; page-break-inside: avoid; }
+        .sign div { text-align: center; font-size: 9.5px; color: var(--mute); }
+        .sign i { display: block; height: 38px; border-bottom: 1px solid var(--ink); margin: 4px 14px 3px; }
+        .sign b { display: block; color: var(--ink); font-size: 10px; min-height: 13px; }
+        .foot { margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; font-size: 8.5px; color: var(--mute); }
 
-        .print-button { position: fixed; top: 16px; right: 16px; z-index: 50; padding: 10px 20px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; font: 700 13px 'Segoe UI', Arial, sans-serif; cursor: pointer; box-shadow: 0 10px 22px -10px rgba(37, 99, 235, .8); }
-
+        .print-button { position: fixed; top: 14px; right: 14px; z-index: 50; padding: 8px 16px; border: 0; border-radius: 8px; background: var(--navy); color: #fff; font: 600 12px 'Segoe UI', Arial, sans-serif; cursor: pointer; }
         @media print {
             body { background: #fff; padding: 0; }
             .sheet { max-width: none; box-shadow: none; padding: 0; }
-            .top-rule { margin: 0 0 16px; }
             .no-print { display: none !important; }
         }
-        @media (max-width: 640px) {
-            .meta { grid-template-columns: 1fr 1fr; } .kpis, .today, .sign { grid-template-columns: 1fr; }
-            .sheet { padding: 20px 16px; } .top-rule { margin: -20px -16px 16px; }
-        }
+        @media (max-width: 640px) { .two { grid-template-columns: 1fr; } .sheet { padding: 14px 12px; } .info td.k { width: 22%; } }
     </style>
 </head>
 <body>
     <button onclick="window.print()" class="print-button no-print">🖨️ Cetak PDF</button>
 
     <div class="sheet">
-        <div class="top-rule"></div>
-
-        <!-- Kop laporan -->
         <div class="head">
             <div class="brand">
-                <?php if ($logoUrl !== ''): ?><img src="<?php echo $esc($logoUrl); ?>" alt="" onerror="this.outerHTML='<div class=&quot;mono&quot;><?php echo $esc(strtoupper(substr($business['business_name'], 0, 1))); ?></div>'"><?php else: ?><div class="mono"><?php echo $esc(strtoupper(substr($business['business_name'], 0, 1))); ?></div><?php endif; ?>
-                <div>
-                    <h1><?php echo $esc($business['business_name']); ?></h1>
-                    <p>Laporan keuangan harian · <?php echo $esc(APP_NAME); ?></p>
-                </div>
+                <?php $ini = $esc(strtoupper(substr($business['business_name'], 0, 1))); ?>
+                <?php if ($logoUrl !== ''): ?><img src="<?php echo $esc($logoUrl); ?>" alt="" onerror="this.outerHTML='<div class=&quot;mono&quot;><?php echo $ini; ?></div>'"><?php else: ?><div class="mono"><?php echo $ini; ?></div><?php endif; ?>
+                <div><b><?php echo $esc($business['business_name']); ?></b><small>Laporan keuangan harian</small></div>
             </div>
-            <div class="doc">
-                <div class="t">Laporan Akhir Shift</div>
-                <div class="s">End of Shift · Daily Cash Report</div>
-                <div class="no">No. <?php echo $esc($reportNo); ?></div>
-            </div>
+            <div class="doc"><b>Laporan Akhir Shift</b><small>No. <?php echo $esc($reportNo); ?></small></div>
         </div>
 
-        <div class="meta">
-            <div><small>Tanggal</small><b><?php echo $esc($todayId); ?></b></div>
-            <div><small>Periode kas</small><b><?php echo $esc($bulanId[(int)date('n')] . ' ' . date('Y')); ?></b></div>
-            <div><small>Operator</small><b><?php echo $esc($operatorName); ?></b></div>
-            <div><small>Waktu cetak</small><b><?php echo date('H:i:s'); ?> WIB</b></div>
-        </div>
+        <table class="info">
+            <tr><td class="k">Tanggal</td><td class="v"><?php echo $esc($todayId); ?></td><td class="k">Operator</td><td class="v"><?php echo $esc($operatorName); ?></td></tr>
+            <tr><td class="k">Periode kas</td><td class="v"><?php echo $esc($bulanId[(int)date('n')] . ' ' . date('Y')); ?></td><td class="k">Waktu cetak</td><td class="v"><?php echo date('H:i:s'); ?> WIB</td></tr>
+        </table>
 
-        <!-- Posisi kas -->
-        <div class="sec-title">Posisi Kas Bulan Ini</div>
-        <div class="pos">
-            <div class="box"><small>Start Cash (awal <?php echo $esc($bulanId[(int)date('n')]); ?>)</small><b><?php echo formatRupiah($startKasHariIni); ?></b></div>
-            <div class="box avail<?php echo $cashAvailable < 0 ? ' neg' : ''; ?>"><small>Cash Available (saat ini)</small><b><?php echo formatRupiah($cashAvailable); ?></b></div>
-        </div>
-        <div class="kpis">
-            <div class="kpi" style="--c:#f59e0b"><small>Owner Transfer</small><b><?php echo formatRupiah($ownerTransferThisMonth); ?></b><span>Setoran ke kas operasional bulan ini</span></div>
-            <div class="kpi" style="--c:#10b981"><small>Owner + Guest</small><b><?php echo formatRupiah($totalOperationalIncome + $guestCashIncome); ?></b><span>Total pemasukan kas bulan ini</span></div>
-            <div class="kpi" style="--c:#ef4444"><small>Expense</small><b><?php echo formatRupiah($totalOperationalExpense); ?></b><span>Total pengeluaran bulan ini</span></div>
-        </div>
+        <h3>Posisi Kas Bulan Ini</h3>
+        <table class="tbl">
+            <thead><tr><th>Keterangan</th><th class="num" style="width:150px">Jumlah</th></tr></thead>
+            <tbody>
+                <tr><td>Start Cash (saldo awal <?php echo $esc($bulanId[(int)date('n')]); ?>)</td><td class="num"><?php echo formatRupiah($startKasHariIni); ?></td></tr>
+                <tr><td>Owner Transfer <span style="color:var(--mute)">(setoran ke kas operasional)</span></td><td class="num"><?php echo formatRupiah($ownerTransferThisMonth); ?></td></tr>
+                <tr><td>Pemasukan bulan ini <span style="color:var(--mute)">(Owner + Guest)</span></td><td class="num in"><?php echo formatRupiah($totalOperationalIncome + $guestCashIncome); ?></td></tr>
+                <tr><td>Pengeluaran bulan ini <span style="color:var(--mute)">(Expense)</span></td><td class="num out"><?php echo formatRupiah($totalOperationalExpense); ?></td></tr>
+                <tr class="sum"><td>Cash Available</td><td class="num <?php echo $cashAvailable >= 0 ? 'in' : 'out'; ?>"><?php echo formatRupiah($cashAvailable); ?></td></tr>
+            </tbody>
+        </table>
 
-        <!-- Ringkasan hari ini -->
-        <div class="sec-title">Ringkasan Hari Ini</div>
-        <div class="today">
-            <table>
-                <thead><tr><th>Pergerakan kas</th><th class="r">Jumlah</th></tr></thead>
+        <h3>Ringkasan Hari Ini</h3>
+        <div class="two">
+            <table class="tbl">
+                <thead><tr><th>Pergerakan kas</th><th class="num">Jumlah</th></tr></thead>
                 <tbody>
-                    <tr><td>Total pemasukan (<?php echo count($incomeTransactions); ?> transaksi)</td><td class="r" style="color:var(--ok);font-weight:700"><?php echo formatRupiah($totalIncome); ?></td></tr>
-                    <tr><td>Total pengeluaran (<?php echo count($expenseTransactions); ?> transaksi)</td><td class="r" style="color:var(--bad);font-weight:700"><?php echo formatRupiah($totalExpense); ?></td></tr>
-                    <tr class="net"><td>Selisih bersih hari ini</td><td class="r" style="color:<?php echo $netToday >= 0 ? 'var(--ok)' : 'var(--bad)'; ?>"><?php echo ($netToday < 0 ? '- ' : '') . formatRupiah(abs($netToday)); ?></td></tr>
+                    <tr><td>Pemasukan (<?php echo count($incomeTransactions); ?> transaksi)</td><td class="num in"><?php echo formatRupiah($totalIncome); ?></td></tr>
+                    <tr><td>Pengeluaran (<?php echo count($expenseTransactions); ?> transaksi)</td><td class="num out"><?php echo formatRupiah($totalExpense); ?></td></tr>
+                    <tr class="sum"><td>Selisih bersih</td><td class="num <?php echo $netToday >= 0 ? 'in' : 'out'; ?>"><?php echo ($netToday < 0 ? '- ' : '') . formatRupiah(abs($netToday)); ?></td></tr>
                 </tbody>
             </table>
-            <table>
-                <thead><tr><th>Pemasukan per metode</th><th class="r">Jumlah</th></tr></thead>
+            <table class="tbl">
+                <thead><tr><th>Pemasukan per metode</th><th class="num">Jumlah</th></tr></thead>
                 <tbody>
                     <?php if ($byMethod): foreach ($byMethod as $m => $v): ?>
-                        <tr><td><?php echo $esc($methodLabel($m)); ?></td><td class="r"><?php echo formatRupiah($v); ?></td></tr>
+                        <tr><td><?php echo $esc($methodLabel($m)); ?></td><td class="num"><?php echo formatRupiah($v); ?></td></tr>
                     <?php endforeach; else: ?>
-                        <tr><td colspan="2" style="color:var(--faint);font-style:italic">Belum ada pemasukan</td></tr>
+                        <tr><td colspan="2" style="color:var(--mute)">Belum ada pemasukan</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
         </div>
 
-        <!-- Rincian transaksi -->
-        <div class="sec-title">Rincian Transaksi (<?php echo count($transactions); ?>)</div>
+        <h3>Rincian Transaksi (<?php echo count($transactions); ?>)</h3>
         <?php if (count($transactions) > 0): ?>
-            <table class="tx">
+            <table class="tbl tx">
                 <thead>
                     <tr>
-                        <th style="width:22px">#</th>
-                        <th style="width:48px">Waktu</th>
+                        <th style="width:20px">#</th>
+                        <th style="width:40px">Jam</th>
                         <th>Keterangan</th>
-                        <th style="width:86px">Kategori</th>
-                        <th style="width:72px">Metode</th>
-                        <th class="r" style="width:84px">Masuk</th>
-                        <th class="r" style="width:84px">Keluar</th>
+                        <th style="width:70px">Metode</th>
+                        <th class="num" style="width:82px">Masuk</th>
+                        <th class="num" style="width:82px">Keluar</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($transactions as $i => $trans): $in = $trans['transaction_type'] === 'income'; ?>
+                    <?php foreach ($transactions as $i => $trans): $isIn = $trans['transaction_type'] === 'income'; ?>
                         <tr>
-                            <td class="no"><?php echo $i + 1; ?></td>
-                            <td class="time"><?php echo $esc(substr((string)($trans['transaction_time'] ?? ''), 0, 5)); ?></td>
-                            <td class="desc"><?php echo $esc($trans['description']); ?></td>
-                            <td><?php echo $esc($trans['category']); ?></td>
-                            <td><span class="chip"><?php echo $esc($methodLabel($trans['payment_method'])); ?></span></td>
-                            <?php if ($in): ?>
-                                <td class="r in"><?php echo formatRupiah($trans['amount']); ?></td><td class="r dash">—</td>
+                            <td class="c"><?php echo $i + 1; ?></td>
+                            <td class="c"><?php echo $esc(substr((string)($trans['transaction_time'] ?? ''), 0, 5)); ?></td>
+                            <td><?php echo $esc($trans['description']); ?></td>
+                            <td class="c"><?php echo $esc($methodLabel($trans['payment_method'])); ?></td>
+                            <?php if ($isIn): ?>
+                                <td class="num in"><?php echo formatRupiah($trans['amount']); ?></td><td class="num dash">–</td>
                             <?php else: ?>
-                                <td class="r dash">—</td><td class="r out"><?php echo formatRupiah($trans['amount']); ?></td>
+                                <td class="num dash">–</td><td class="num out"><?php echo formatRupiah($trans['amount']); ?></td>
                             <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="5" style="text-align:right;letter-spacing:.06em;text-transform:uppercase;font-size:9px;color:var(--mute)">Total hari ini</td>
-                        <td class="r" style="color:var(--ok)"><?php echo formatRupiah($totalIncome); ?></td>
-                        <td class="r" style="color:var(--bad)"><?php echo formatRupiah($totalExpense); ?></td>
+                        <td colspan="4" class="num">Total</td>
+                        <td class="num in"><?php echo formatRupiah($totalIncome); ?></td>
+                        <td class="num out"><?php echo formatRupiah($totalExpense); ?></td>
                     </tr>
                 </tfoot>
             </table>
         <?php else: ?>
-            <div class="empty">Tidak ada transaksi pada hari ini</div>
+            <table class="tbl"><tr><td style="text-align:center;color:var(--mute);padding:14px">Tidak ada transaksi pada hari ini</td></tr></table>
         <?php endif; ?>
 
-        <!-- Pengesahan -->
         <div class="sign">
-            <div class="box"><div class="role">Dibuat oleh</div><div class="space"></div><div class="who"><?php echo $esc($operatorName); ?></div><div class="sub">Operator shift</div></div>
-            <div class="box"><div class="role">Diperiksa oleh</div><div class="space"></div><div class="who">&nbsp;</div><div class="sub">Supervisor / Manajer</div></div>
-            <div class="box"><div class="role">Disetujui oleh</div><div class="space"></div><div class="who">&nbsp;</div><div class="sub">Owner / Pemilik</div></div>
-        </div>
-
-        <div class="note">
-            Dokumen ini adalah laporan akhir shift yang dihasilkan otomatis dari buku kas <?php echo $esc(APP_NAME); ?> pada saat dicetak, dan mencerminkan data sistem
-            sampai dengan <?php echo date('d/m/Y H:i:s'); ?> WIB. Selisih antara kas fisik dan Cash Available wajib dicatat dan dilaporkan kepada atasan sebelum shift ditutup.
+            <div>Dibuat oleh<i></i><b><?php echo $esc($operatorName); ?></b>Operator shift</div>
+            <div>Diperiksa oleh<i></i><b>&nbsp;</b>Supervisor / Manajer</div>
+            <div>Disetujui oleh<i></i><b>&nbsp;</b>Owner</div>
         </div>
         <div class="foot">
-            <span><?php echo $esc($reportNo); ?> · <?php echo $esc($business['business_name']); ?></span>
-            <span>Dicetak <?php echo date('d F Y, H:i:s'); ?> oleh <?php echo $esc($_SESSION['username'] ?? $operatorName); ?></span>
+            <span>Dokumen dihasilkan otomatis dari buku kas <?php echo $esc(APP_NAME); ?> · <?php echo $esc($reportNo); ?></span>
+            <span>Dicetak <?php echo date('d/m/Y H:i:s'); ?> oleh <?php echo $esc($_SESSION['username'] ?? $operatorName); ?></span>
         </div>
     </div>
 
