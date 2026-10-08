@@ -73,6 +73,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : 'Gagal mengambil harga: ' . htmlspecialchars($res['detail']));
         header('Location: cloudbeds.php?rates=1#rates');
         exit;
+    } elseif ($act === 'resend_pay') {
+        // Kirim ulang pembayaran satu booking (dari alat Cek pembayaran)
+        $code = trim((string)($_POST['code'] ?? ''));
+        $diag = (new CloudbedsSync($db, $cb))->diagnosePayment($code);
+        if (empty($diag['ok'])) {
+            setFlash('error', htmlspecialchars($diag['msg'] ?? 'Booking tidak ditemukan.'));
+        } else {
+            $r = (new CloudbedsSync($db, $cb))->pushFor($diag['ids'], [], (int)($_SESSION['user_id'] ?? 0));
+            $errs = $r['done']['errors'] ?? [];
+            if (!empty($r['detail'])) $errs[] = $r['detail'];
+            $sentN = (int)($r['done']['push_pay'] ?? 0);
+            setFlash($errs ? 'error' : 'success', $errs ? 'Cloudbeds menolak: ' . htmlspecialchars(implode(' | ', $errs)) : ($sentN ? $sentN . ' pembayaran terkirim ke Cloudbeds.' : 'Tidak ada pembayaran yang perlu dikirim (lihat keterangan di bawah).'));
+        }
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
     } elseif ($act === 'toggle_pay') {
         $on = !empty($_POST['pay_on']);
         $cb->saveSetting('cloudbeds_pay_enabled', $on ? '1' : '0');
@@ -498,6 +513,53 @@ include '../../includes/header.php';
         $syncLog = $syncer->recentLog(8);
         $typeLabel = ['create' => ['Buat booking', 'ok'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'push_status' => ['Kirim status', 'ok'], 'push_create' => ['Kirim booking', 'ok'], 'push_delblock' => ['Hapus blok', 'ok'], 'push_putblock' => ['Ubah blok', 'ok'], 'push_newblock' => ['Kirim blok', 'ok'], 'push_payment' => ['Kirim bayar', 'ok'], 'adopt_block' => ['Pasangkan blok', ''], 'warn' => ['Perlu dicek', 'warn']];
     ?>
+<?php
+        $cekCode = trim((string)($_GET['cek'] ?? ''));
+        $diag = $cekCode !== '' ? (new CloudbedsSync($db, $cb))->diagnosePayment($cekCode) : null;
+        $rpx = fn($v) => $v === null ? '—' : 'Rp ' . number_format((float)$v, 0, ',', '.');
+        $stateLbl = ['sent' => ['Terkirim', 'ok'], 'skip_paid' => ['Cloudbeds sudah lunas', 'ok'], 'before' => ['Sebelum kirim aktif', 'warn'], 'pending' => ['Belum terkirim', 'bad']];
+        ?>
+        <div class="cbx-card" id="cekbayar">
+            <h3>Cek pembayaran booking</h3>
+            <p class="cbx-sub">Sudah bayar di sistem tetapi di Cloudbeds masih merah? Ketik kode booking untuk melihat penyebabnya dan mengirim ulang.</p>
+            <form method="get" action="cloudbeds.php#cekbayar" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
+                <input class="cbx-input" name="cek" value="<?php echo htmlspecialchars($cekCode); ?>" placeholder="Kode booking, mis. BK-20261008-1234" style="max-width:280px">
+                <button type="submit" class="cbx-btn">Cek</button>
+            </form>
+            <?php if ($diag && empty($diag['ok'])): ?>
+                <p class="cbx-hint" style="color:#b91c1c!important"><?php echo htmlspecialchars($diag['msg']); ?></p>
+            <?php elseif ($diag): $bk = $diag['booking']; ?>
+                <div style="margin-top:.7rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.5rem">
+                    <div class="cbx-hint" style="margin:0"><b><?php echo htmlspecialchars($bk['guest_name'] ?: '-'); ?></b> · <?php echo htmlspecialchars($bk['booking_code']); ?><?php echo count($diag['rooms']) > 1 ? ' · ' . count($diag['rooms']) . ' kamar' : ''; ?><br>Sumber: <?php echo htmlspecialchars($bk['booking_source'] ?: '-'); ?> · status <?php echo htmlspecialchars($bk['status']); ?></div>
+                    <div class="cbx-hint" style="margin:0"><b>Sistem</b><br>Total <?php echo $rpx($diag['local_total']); ?> · dibayar <?php echo $rpx($diag['local_paid']); ?></div>
+                    <div class="cbx-hint" style="margin:0"><b>Cloudbeds<?php echo $diag['cb'] ? ' #' . htmlspecialchars($diag['cb']['id']) : ''; ?></b><br><?php if ($diag['cb']): ?>Total <?php echo $rpx($diag['cb']['total']); ?> · sisa <b><?php echo $rpx($diag['cb']['balance']); ?></b><?php echo $diag['cb']['tax'] ? ' · pajak/biaya ' . $rpx($diag['cb']['tax']) : ''; ?><?php else: ?>belum tertaut / tidak terbaca<?php endif; ?></div>
+                </div>
+                <ul style="margin:.6rem 0 .2rem;padding-left:1.1rem">
+                    <?php foreach ($diag['issues'] as [$lvl, $msg]): ?>
+                        <li class="cbx-hint" style="margin:.15rem 0;color:<?php echo $lvl === 'bad' ? '#b91c1c' : ($lvl === 'warn' ? '#b45309' : '#047857'); ?>!important"><?php echo htmlspecialchars($msg); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php if ($diag['payments']): ?>
+                    <table class="cbx-tbl" style="margin-top:.4rem">
+                        <thead><tr><th>Dicatat</th><th>Metode</th><th style="text-align:right">Jumlah</th><th>Ke Cloudbeds</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($diag['payments'] as $p): [$sl, $sc] = $stateLbl[$p['state']]; ?>
+                                <tr><td><?php echo htmlspecialchars(date('d M H:i', strtotime((string)$p['at']))); ?></td><td><?php echo htmlspecialchars($p['payment_method']); ?></td><td style="text-align:right"><?php echo $rpx($p['amount']); ?></td><td><span class="cbx-pill <?php echo $sc; ?>"><?php echo $sl; ?></span></td></tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+                <?php if ($diag['link']): ?>
+                    <form method="post" style="margin-top:.6rem">
+                        <input type="hidden" name="act" value="resend_pay">
+                        <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                        <button type="submit" class="cbx-btn">Kirim ulang sekarang</button>
+                        <span class="cbx-hint" style="display:inline;margin-left:.4rem">Mengirim pembayaran yang belum terkirim; yang sudah terkirim tidak dikirim dua kali.</span>
+                    </form>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+
         <div class="cbx-card">
             <h3>Sinkron Cloudbeds → Sistem</h3>
             <p class="cbx-sub">Booking OTA dari Cloudbeds masuk ke Reservasi &amp; Kalender. Selalu tampilkan pratinjau dulu; tidak ada yang berubah sebelum <b>Jalankan sinkron</b>.</p>

@@ -1316,6 +1316,72 @@ class CloudbedsSync
         $this->rememberPushResult($done);
         return ['ok' => !$done['errors'], 'done' => $done];
     }
+    /**
+     * Cek kenapa pembayaran sebuah booking belum sama di Cloudbeds (hanya membaca, tidak mengirim apa pun).
+     * @return array{ok:bool, msg?:string, booking?:array, rooms?:array, link?:?array, payments?:array, cb?:?array, issues?:array, pay_enabled?:bool, pay_since?:string}
+     */
+    public function diagnosePayment(string $code): array
+    {
+        $this->ensureTables();
+        $bk = $this->db->fetchOne("SELECT b.id, b.booking_code, b.group_id, b.status, b.booking_source, b.final_price, b.paid_amount, b.payment_status, g.guest_name
+            FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id WHERE b.booking_code = ? LIMIT 1", [$code]);
+        if (!$bk) return ['ok' => false, 'msg' => 'Kode booking "' . $code . '" tidak ditemukan.'];
+        $rooms = $bk['group_id']
+            ? ($this->db->fetchAll("SELECT b.id, b.booking_code, b.final_price, b.status, r.room_number FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id WHERE b.group_id = ? AND b.status <> 'cancelled'", [$bk['group_id']]) ?: [])
+            : ($this->db->fetchAll("SELECT b.id, b.booking_code, b.final_price, b.status, r.room_number FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id WHERE b.id = ?", [$bk['id']]) ?: []);
+        $ids = array_map(fn($r) => (int)$r['id'], $rooms) ?: [(int)$bk['id']];
+        $in = implode(',', $ids);
+        $link = $this->db->fetchOne("SELECT cb_reservation_id, how FROM cloudbeds_booking_links WHERE booking_id IN ($in) LIMIT 1");
+        $sinceRow = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_pay_since'");
+        $since = (string)($sinceRow['setting_value'] ?? '');
+        $payEnabled = $this->payEnabled();
+        $payments = $this->db->fetchAll("SELECT bp.id, bp.booking_id, bp.amount, bp.payment_method, COALESCE(bp.created_at, bp.payment_date) at, pl.cb_payment_id, pl.cb_reservation_id pl_cb
+            FROM booking_payments bp LEFT JOIN cloudbeds_payment_links pl ON pl.payment_id = bp.id
+            WHERE bp.booking_id IN ($in) ORDER BY bp.id") ?: [];
+        foreach ($payments as &$p) {
+            if ($p['pl_cb'] !== null) {
+                $p['state'] = $p['cb_payment_id'] === 'sudah-lunas' ? 'skip_paid' : 'sent';
+            } elseif ($since === '' || (string)$p['at'] < $since) {
+                $p['state'] = 'before';
+            } else {
+                $p['state'] = 'pending';
+            }
+        }
+        unset($p);
+        $localTotal = array_sum(array_map(fn($r) => (float)$r['final_price'], $rooms));
+        $localPaid = array_sum(array_map(fn($p) => (float)$p['amount'], $payments));
+
+        $cbInfo = null;
+        $issues = [];
+        if (!$payEnabled) $issues[] = ['bad', 'Saklar "Kirim pembayaran" MATI — pembayaran tidak dikirim ke Cloudbeds. Nyalakan di bagian Sinkron.'];
+        if (!$link) {
+            $issues[] = ['bad', 'Booking ini belum tertaut ke reservasi Cloudbeds, jadi pembayarannya tidak punya tujuan. Jalankan sinkron (untuk OTA) atau pastikan "Kirim ke Cloudbeds" aktif (untuk booking sistem).'];
+        } else {
+            $det = $this->cb->reservationDetail((string)$link['cb_reservation_id']);
+            if ($det['ok']) {
+                $raw = is_array($det['raw']) ? $det['raw'] : [];
+                $bd = is_array($raw['balanceDetailed'] ?? null) ? $raw['balanceDetailed'] : [];
+                $cbInfo = ['id' => (string)$link['cb_reservation_id'], 'status' => (string)($raw['status'] ?? ''), 'total' => $det['total'], 'balance' => $det['balance'],
+                    'paid' => isset($bd['paid']) && is_numeric($bd['paid']) ? (float)$bd['paid'] : null,
+                    'tax' => isset($bd['taxesFees']) && is_numeric($bd['taxesFees']) ? (float)$bd['taxesFees'] : null];
+                if ($det['total'] !== null && abs((float)$det['total'] - $localTotal) >= 1) {
+                    $issues[] = ['warn', 'Total di Cloudbeds (Rp ' . number_format((float)$det['total'], 0, ',', '.') . ') berbeda dengan total di sistem (Rp ' . number_format($localTotal, 0, ',', '.') . ')' .
+                        ($cbInfo['tax'] ? ', termasuk pajak/biaya Rp ' . number_format($cbInfo['tax'], 0, ',', '.') : '') . '. Walau semua pembayaran sistem terkirim, Cloudbeds tetap menunjukkan sisa saldo (dot merah) sebesar selisih ini.'];
+                }
+            } else {
+                $issues[] = ['bad', 'Reservasi Cloudbeds #' . $link['cb_reservation_id'] . ' tidak terbaca: ' . $det['detail']];
+            }
+        }
+        $pending = array_filter($payments, fn($p) => $p['state'] === 'pending');
+        $before = array_filter($payments, fn($p) => $p['state'] === 'before');
+        if ($pending) $issues[] = ['bad', count($pending) . ' pembayaran belum terkirim. Klik "Kirim ulang sekarang"; bila gagal, pesan penolakan Cloudbeds tampil di bawah.'];
+        if ($before) $issues[] = ['warn', count($before) . ' pembayaran dicatat sebelum "Kirim pembayaran" dinyalakan (' . ($since ?: 'belum pernah') . '), jadi tidak dikirim otomatis. Catat pembayaran itu manual di Cloudbeds.'];
+        if (!$payments) $issues[] = ['warn', 'Belum ada pembayaran tercatat di sistem untuk booking ini.'];
+        if (!$issues) $issues[] = ['ok', 'Semua pembayaran sudah terkirim dan total sama. Bila Cloudbeds masih merah, muat ulang halaman Cloudbeds.'];
+        return ['ok' => true, 'booking' => $bk, 'rooms' => $rooms, 'link' => $link ?: null, 'payments' => $payments, 'cb' => $cbInfo,
+            'issues' => $issues, 'pay_enabled' => $payEnabled, 'pay_since' => $since, 'local_total' => $localTotal, 'local_paid' => $localPaid, 'ids' => $ids];
+    }
+
     /** Peringatan ("perlu dicek") & error dari hasil apply(), ringkas untuk disimpan bersama status sinkron. */
     public static function issueList(array $res, int $max = 8): array
     {
