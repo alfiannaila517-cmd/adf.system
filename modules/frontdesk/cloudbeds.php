@@ -533,7 +533,7 @@ include '../../includes/header.php';
         $syncer = new CloudbedsSync($db, $cb);
         $plan = isset($_GET['plan']) ? $syncer->plan($sf, $st) : null;
         $syncLog = $syncer->recentLog(8);
-        $typeLabel = ['create' => ['Buat booking', 'ok'], 'price' => ['Samakan harga', 'warn'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'push_status' => ['Kirim status', 'ok'], 'push_create' => ['Kirim booking', 'ok'], 'push_delblock' => ['Hapus blok', 'ok'], 'push_putblock' => ['Ubah blok', 'ok'], 'push_newblock' => ['Kirim blok', 'ok'], 'push_payment' => ['Kirim bayar', 'ok'], 'adopt_block' => ['Pasangkan blok', ''], 'warn' => ['Perlu dicek', 'warn']];
+        $typeLabel = ['create' => ['Buat booking', 'ok'], 'price' => ['Samakan harga', 'warn'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'push_status' => ['Kirim status', 'ok'], 'push_create' => ['Kirim booking', 'ok'], 'push_convert_block' => ['Blok → reservasi', 'ok'], 'push_delblock' => ['Hapus blok', 'ok'], 'push_putblock' => ['Ubah blok', 'ok'], 'push_newblock' => ['Kirim blok', 'ok'], 'push_payment' => ['Kirim bayar', 'ok'], 'adopt_block' => ['Pasangkan blok', ''], 'warn' => ['Perlu dicek', 'warn']];
     ?>
 <?php
         $cekCode = trim((string)($_GET['cek'] ?? ''));

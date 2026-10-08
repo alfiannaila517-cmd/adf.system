@@ -367,7 +367,7 @@ class CloudbedsSync
 
         $counts = ['link' => 0, 'create' => 0, 'price' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'warn' => 0];
         foreach ($actions as $a) {
-            $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : ($a['type'] === 'push_payment' ? 'push_pay' : ($a['type'] === 'adopt_block' ? 'link' : $a['type']));
+            $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : ($a['type'] === 'push_payment' ? 'push_pay' : ($a['type'] === 'adopt_block' ? 'link' : ($a['type'] === 'push_convert_block' ? 'push_create' : $a['type'])));
             $counts[$t]++;
         }
         return ['ok' => true, 'detail' => 'OK', 'actions' => $actions, 'counts' => $counts];
@@ -716,6 +716,37 @@ class CloudbedsSync
         $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($cbTotal, 2)]);
     }
 
+    /**
+     * Blok Cloudbeds yang dulu dibuat untuk menahan kamar seorang tamu (sebelum integrasi) → diganti reservasi
+     * Cloudbeds untuk booking sistem tamu itu. Kamar dikeluarkan dari blok dulu (agar bisa ditempati reservasi);
+     * bila reservasi gagal dibuat, blok dipasang lagi supaya kamar tidak sempat terbuka untuk OTA.
+     */
+    private function convertBlockToReservation(array $a): void
+    {
+        $blk = $a['block'];
+        $others = array_values(array_diff($blk['rooms'], [$a['rid']]));
+        $base = ['startDate' => $blk['start'], 'endDate' => $blk['end'], 'roomBlockReason' => $blk['reason']];
+        if ($others) {
+            $r = $this->sendBlock('PUT', 'putRoomBlock', ['roomBlockID' => $a['cb']] + $base + ['rooms' => array_map(fn($x) => ['roomID' => $x], $others)], $blk['type']);
+        } else {
+            $r = $this->cb->send('DELETE', 'deleteRoomBlock', ['roomBlockID' => $a['cb']]);
+        }
+        if (!$r['ok']) {
+            throw new \RuntimeException('blok Cloudbeds tidak bisa dilepas: ' . $r['detail'] . (in_array((int)$r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete")' : ''));
+        }
+        try {
+            $this->pushCreate($a);
+        } catch (\Throwable $e) {
+            // Kembalikan blok seperti semula
+            if ($others) {
+                $this->sendBlock('PUT', 'putRoomBlock', ['roomBlockID' => $a['cb']] + $base + ['rooms' => array_map(fn($x) => ['roomID' => $x], $blk['rooms'])], $blk['type']);
+            } else {
+                $this->sendBlock('POST', 'postRoomBlock', $base + ['rooms' => [['roomID' => $a['rid']]]], $blk['type']);
+            }
+            throw new \RuntimeException($e->getMessage() . ' — blok dipasang kembali');
+        }
+    }
+
     /** Kirim blok ke Cloudbeds dengan roomBlockType yang sah: jenis blok itu sendiri / yang tersimpan / yang
      * dipakai blok lain di properti, lalu tanpa jenis, lalu jenis umum. Jenis yang berhasil disimpan.
      */
@@ -1002,6 +1033,11 @@ class CloudbedsSync
             'children' => [['roomTypeID' => $cr['type_id'], 'quantity' => $children]],
         ];
         $r = $this->cb->send('POST', 'postReservation', $params);
+        // Tamu yang sudah menginap sejak kemarin: Cloudbeds bisa menolak tanggal mulai di masa lalu → mulai hari ini
+        $today = date('Y-m-d');
+        if (!$r['ok'] && $b['ci'] < $today && $b['co'] > $today) {
+            $r = $this->cb->send('POST', 'postReservation', ['startDate' => $today] + $params);
+        }
         if (!$r['ok']) {
             throw new \RuntimeException('Cloudbeds menolak reservasi: ' . $r['detail']);
         }
@@ -1135,13 +1171,25 @@ class CloudbedsSync
                     continue;
                 }
                 $conf = $this->db->fetchOne(
-                    "SELECT b.booking_code, g.guest_name FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id
+                    "SELECT b.id, b.booking_code, b.status, b.booking_source, DATE(b.check_in_date) ci, DATE(b.check_out_date) co, b.adults, b.children, b.notes,
+                            g.guest_name, g.phone, g.email, g.nationality, r.room_number
+                     FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id LEFT JOIN rooms r ON r.id = b.room_id
                      WHERE b.room_id = ? AND b.status IN ('pending','confirmed','checked_in')
                      AND b.check_in_date < ? AND b.check_out_date > ? LIMIT 1",
                     [(int)$lr['id'], $end, $start]
                 );
-                // Blok Cloudbeds yang menahan kamar untuk tamu yang sudah ada di sistem (nama blok = nama tamu) → sudah terwakili
+                // Blok Cloudbeds yang menahan kamar untuk tamu yang sudah ada di sistem (nama blok = nama tamu):
+                // bila booking itu belum punya reservasi Cloudbeds → blok diganti reservasi (kirim aktif); lainnya sudah terwakili
                 if ($conf && $reason !== '' && array_intersect(self::nameKey($reason), self::nameKey((string)$conf['guest_name']))) {
+                    $linkedConf = $this->db->fetchOne("SELECT booking_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [(int)$conf['id']]);
+                    if ($push && !$linkedConf && $conf['co'] >= date('Y-m-d')) {
+                        $crConv = $this->cbRoomsByNo()[$no] ?? null;
+                        if ($crConv && $crConv['type_id'] !== '') {
+                            $actions[] = ['type' => 'push_convert_block', 'cb' => $bid, 'label' => $label, 'booking_id' => (int)$conf['id'], 'booking' => $conf, 'cb_room' => $crConv, 'rid' => $rid,
+                                'block' => ['start' => $start, 'end' => $end, 'reason' => $reason, 'rooms' => $roomIds, 'type' => (string)($b['roomBlockType'] ?? '')],
+                                'msg' => 'Ganti blok Cloudbeds Room ' . $lr['room_number'] . ' dengan reservasi ' . $conf['booking_code'] . ($conf['status'] === 'checked_in' ? ' (lalu check-in)' : '')];
+                        }
+                    }
                     continue;
                 }
                 if ($conf) {
@@ -1282,6 +1330,9 @@ class CloudbedsSync
                     // Kode CB- agar sinkron masuk mengenali blok ini sebagai pasangan; bila ID tidak terbaca, ADFCB- agar tidak dikirim ulang
                     $this->db->query("UPDATE room_blocks SET block_code = ? WHERE id = ?", [$newId !== '' ? substr('CB-' . $newId . '-' . $a['cb_room']['room_id'], 0, 40) : 'ADFCB-' . $a['block_id'], $a['block_id']]);
                     $done['push_block']++;
+                } elseif ($a['type'] === 'push_convert_block') {
+                    $this->convertBlockToReservation($a);
+                    $done['push_create']++;
                 } elseif ($a['type'] === 'push_create') {
                     $this->pushCreate($a);
                     $done['push_create']++;
@@ -1354,6 +1405,7 @@ class CloudbedsSync
         }
         $mine = array_values(array_filter($plan['actions'], function ($a) use ($bookingIds, $blockIds, $cbIds, $cbBlockIds) {
             switch ($a['type']) {
+                case 'push_convert_block':
                 case 'push_create':
                 case 'push_payment': return in_array((int)$a['booking_id'], $bookingIds, true);
                 case 'push_status': return isset($cbIds[(string)$a['cb']]);
