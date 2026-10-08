@@ -107,16 +107,23 @@ try {
         throw new Exception('Booking not found');
     }
 
+    // processed_by merujuk users di database bisnis; akun pusat (mis. Developer) tidak ada di sana → NULL,
+    // kalau tidak baris pembayaran ditolak database (FK) padahal booking tetap tertulis lunas.
+    $processedBy = (int)($currentUser['id'] ?? 0);
+    if ($processedBy > 0 && !$db->fetchOne("SELECT id FROM users WHERE id = ? LIMIT 1", [$processedBy])) {
+        $processedBy = null;
+    }
+
     // Tolak pembayaran kembar (klik ganda / kirim ulang): user, metode dan booking/grup yang sama
     // dalam 15 detik terakhir.
     $recentDup = $db->fetchOne(
         "SELECT bp.id FROM booking_payments bp
          JOIN bookings b ON b.id = bp.booking_id
          WHERE (b.id = ? OR (? <> '' AND b.group_id = ?))
-           AND bp.processed_by = ? AND bp.payment_method = ?
+           AND bp.processed_by <=> ? AND bp.payment_method = ?
            AND bp.payment_date >= (NOW() - INTERVAL 15 SECOND)
          LIMIT 1",
-        [$bookingId, (string)($booking['group_id'] ?? ''), (string)($booking['group_id'] ?? ''), $currentUser['id'], $paymentMethod]
+        [$bookingId, (string)($booking['group_id'] ?? ''), (string)($booking['group_id'] ?? ''), $processedBy, $paymentMethod]
     );
     if ($recentDup) {
         throw new Exception('Pembayaran yang sama baru saja tercatat. Tunggu beberapa detik lalu cek ulang sebelum membayar lagi.');
@@ -127,21 +134,22 @@ try {
 
     // Insert a booking_payments row for one specific booking id and refresh its own
     // paid_amount/payment_status. Returns the room's own post-payment figures.
-    $applyPayment = function ($targetId, $finalPrice, $oldPaidAmount, $portion) use ($db, $paymentMethod, $currentUser, &$insertedPaymentIds) {
+    $applyPayment = function ($targetId, $finalPrice, $oldPaidAmount, $portion) use ($db, $paymentMethod, $processedBy, &$insertedPaymentIds) {
         $ok = $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
-            $targetId, $portion, $paymentMethod, $currentUser['id']
+            $targetId, $portion, $paymentMethod, $processedBy
         ]);
         if ($ok === false) {
             // Fallback: kolom created_at mungkin tidak ada
             $ok = $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date) VALUES (?, ?, ?, ?, NOW())", [
-                $targetId, $portion, $paymentMethod, $currentUser['id']
+                $targetId, $portion, $paymentMethod, $processedBy
             ]);
         }
         if ($ok !== false) {
             $insertedPaymentIds[] = (int)$db->getConnection()->lastInsertId();
         } else {
-            // booking_payments tidak ada - lanjutkan, update langsung di bookings saja
+            // Jangan tandai lunas tanpa catatan pembayaran (tidak masuk buku kas / Cloudbeds) — batalkan semuanya
             error_log("booking_payments insert failed for booking #{$targetId}");
+            throw new Exception('Pembayaran gagal disimpan ke database. Tidak ada yang berubah — coba lagi atau hubungi admin.');
         }
 
         $paidRow = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$targetId]);

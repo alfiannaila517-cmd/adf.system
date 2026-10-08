@@ -1327,8 +1327,8 @@ class CloudbedsSync
             FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id WHERE b.booking_code = ? LIMIT 1", [$code]);
         if (!$bk) return ['ok' => false, 'msg' => 'Kode booking "' . $code . '" tidak ditemukan.'];
         $rooms = $bk['group_id']
-            ? ($this->db->fetchAll("SELECT b.id, b.booking_code, b.final_price, b.status, r.room_number FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id WHERE b.group_id = ? AND b.status <> 'cancelled'", [$bk['group_id']]) ?: [])
-            : ($this->db->fetchAll("SELECT b.id, b.booking_code, b.final_price, b.status, r.room_number FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id WHERE b.id = ?", [$bk['id']]) ?: []);
+            ? ($this->db->fetchAll("SELECT b.id, b.booking_code, b.final_price, b.paid_amount, b.status, r.room_number FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id WHERE b.group_id = ? AND b.status <> 'cancelled'", [$bk['group_id']]) ?: [])
+            : ($this->db->fetchAll("SELECT b.id, b.booking_code, b.final_price, b.paid_amount, b.status, r.room_number FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id WHERE b.id = ?", [$bk['id']]) ?: []);
         $ids = array_map(fn($r) => (int)$r['id'], $rooms) ?: [(int)$bk['id']];
         $in = implode(',', $ids);
         $link = $this->db->fetchOne("SELECT cb_reservation_id, how FROM cloudbeds_booking_links WHERE booking_id IN ($in) LIMIT 1");
@@ -1372,6 +1372,10 @@ class CloudbedsSync
                 $issues[] = ['bad', 'Reservasi Cloudbeds #' . $link['cb_reservation_id'] . ' tidak terbaca: ' . $det['detail']];
             }
         }
+        // Booking tertulis lunas/DP tanpa catatan pembayaran (dulu: akun pusat ditolak FK saat bayar)
+        $markedPaid = array_sum(array_map(fn($r) => (float)$r['paid_amount'], $rooms));
+        $ghostPaid = $markedPaid - $localPaid >= 1;
+        if ($ghostPaid) $issues[] = ['bad', 'Booking tertulis sudah dibayar Rp ' . number_format($markedPaid, 0, ',', '.') . ', tetapi catatan pembayarannya hanya Rp ' . number_format($localPaid, 0, ',', '.') . ' — pembayaran dulu gagal tersimpan, jadi tidak masuk buku kas maupun Cloudbeds. Klik "Perbaiki status bayar", lalu lakukan Payment ulang.'];
         $pending = array_filter($payments, fn($p) => $p['state'] === 'pending');
         $before = array_filter($payments, fn($p) => $p['state'] === 'before');
         if ($pending) $issues[] = ['bad', count($pending) . ' pembayaran belum terkirim. Klik "Kirim ulang sekarang"; bila gagal, pesan penolakan Cloudbeds tampil di bawah.'];
@@ -1379,7 +1383,7 @@ class CloudbedsSync
         if (!$payments) $issues[] = ['warn', 'Belum ada pembayaran tercatat di sistem untuk booking ini.'];
         if (!$issues) $issues[] = ['ok', 'Semua pembayaran sudah terkirim dan total sama. Bila Cloudbeds masih merah, muat ulang halaman Cloudbeds.'];
         return ['ok' => true, 'booking' => $bk, 'rooms' => $rooms, 'link' => $link ?: null, 'payments' => $payments, 'cb' => $cbInfo,
-            'issues' => $issues, 'pay_enabled' => $payEnabled, 'pay_since' => $since, 'local_total' => $localTotal, 'local_paid' => $localPaid, 'ids' => $ids];
+            'issues' => $issues, 'ghost_paid' => $ghostPaid, 'marked_paid' => $markedPaid, 'pay_enabled' => $payEnabled, 'pay_since' => $since, 'local_total' => $localTotal, 'local_paid' => $localPaid, 'ids' => $ids];
     }
 
     /**
@@ -1406,6 +1410,21 @@ class CloudbedsSync
             }
         }
         return $out;
+    }
+
+    /** Samakan paid_amount / payment_status booking dengan catatan pembayaran (booking_payments) yang benar-benar ada. */
+    public function resetPaidFromPayments(array $bookingIds): int
+    {
+        $n = 0;
+        foreach (array_filter(array_map('intval', $bookingIds)) as $id) {
+            $b = $this->db->fetchOne("SELECT final_price FROM bookings WHERE id = ?", [$id]);
+            if (!$b) continue;
+            $paid = (float)($this->db->fetchOne("SELECT COALESCE(SUM(amount), 0) s FROM booking_payments WHERE booking_id = ?", [$id])['s'] ?? 0);
+            $st = $paid <= 0 ? 'unpaid' : ($paid + 0.01 >= (float)$b['final_price'] ? 'paid' : 'partial');
+            $this->db->query("UPDATE bookings SET paid_amount = ?, payment_status = ?, updated_at = NOW() WHERE id = ?", [$paid, $st, $id]);
+            $n++;
+        }
+        return $n;
     }
 
     /** Peringatan ("perlu dicek") & error dari hasil apply(), ringkas untuk disimpan bersama status sinkron. */

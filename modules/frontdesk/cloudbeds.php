@@ -73,6 +73,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : 'Gagal mengambil harga: ' . htmlspecialchars($res['detail']));
         header('Location: cloudbeds.php?rates=1#rates');
         exit;
+    } elseif ($act === 'fix_paid') {
+        $code = trim((string)($_POST['code'] ?? ''));
+        $diag = (new CloudbedsSync($db, $cb))->diagnosePayment($code);
+        if (!empty($diag['ok'])) {
+            (new CloudbedsSync($db, $cb))->resetPaidFromPayments($diag['ids']);
+            setFlash('success', 'Status bayar ' . htmlspecialchars($code) . ' disamakan dengan catatan pembayaran. Lakukan Payment ulang dari Kalender/Reservasi.');
+        }
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
     } elseif ($act === 'resend_pay') {
         // Kirim ulang pembayaran satu booking (dari alat Cek pembayaran)
         $code = trim((string)($_POST['code'] ?? ''));
@@ -555,6 +564,13 @@ include '../../includes/header.php';
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                <?php endif; ?>
+                <?php if (!empty($diag['ghost_paid'])): ?>
+                    <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Samakan status bayar booking ini dengan catatan pembayaran yang ada? Setelah itu lakukan Payment ulang.')">
+                        <input type="hidden" name="act" value="fix_paid">
+                        <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                        <button type="submit" class="cbx-btn danger">Perbaiki status bayar</button>
+                    </form>
                 <?php endif; ?>
                 <?php if ($diag['link']): ?>
                     <form method="post" style="margin-top:.6rem">
