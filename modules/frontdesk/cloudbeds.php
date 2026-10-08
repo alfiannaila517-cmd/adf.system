@@ -596,13 +596,20 @@ include '../../includes/header.php';
             // Pembayaran yang ditarik dari Cloudbeds ("dibayar di Cloudbeds") — bisa dibatalkan bila dobel dengan kas yang sudah tercatat
             $pulled = [];
             try {
-                $pulled = $db->fetchAll("SELECT bp.id, bp.amount, bp.created_at, bp.cashbook_id, b.id bid, b.booking_code, b.status, b.booking_source, g.guest_name,
-                        (SELECT COALESCE(SUM(c.amount), 0) FROM cash_book c WHERE c.transaction_type = 'income' AND c.description LIKE CONCAT('%', b.booking_code, '%')
-                            AND (bp.cashbook_id IS NULL OR c.id <> bp.cashbook_id) AND c.id NOT IN (SELECT COALESCE(p2.cashbook_id, 0) FROM booking_payments p2 JOIN cloudbeds_payment_links l2 ON l2.payment_id = p2.id AND l2.cb_payment_id = 'dari-cloudbeds')) other_cash
-                    FROM booking_payments bp LEFT JOIN cloudbeds_payment_links l ON l.payment_id = bp.id
+                $pulled = $db->fetchAll("SELECT bp.id, bp.amount, bp.created_at, bp.cashbook_id, b.id bid, b.booking_code, b.status, b.booking_source, g.guest_name
+                    FROM booking_payments bp
                     JOIN bookings b ON b.id = bp.booking_id LEFT JOIN guests g ON g.id = b.guest_id
-                    WHERE l.cb_payment_id = 'dari-cloudbeds' OR bp.notes LIKE 'Dibayar di Cloudbeds%'
-                    ORDER BY bp.id DESC LIMIT 60") ?: [];
+                    WHERE bp.notes LIKE 'Dibayar di Cloudbeds%' OR bp.id IN (SELECT payment_id FROM cloudbeds_payment_links WHERE cb_payment_id = 'dari-cloudbeds')
+                    ORDER BY bp.id DESC LIMIT 60");
+                if ($pulled === false) throw new \RuntimeException('query gagal: ' . implode(' ', (array)($db->getConnection()->errorInfo())));
+                // Uang yang sudah tercatat di buku kas untuk booking yang sama (bukan dari tarikan ini) → kemungkinan dobel
+                $pulledCash = [];
+                foreach ($pulled as &$pp) {
+                    $pp['other_cash'] = 0;
+                    $oc = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) s FROM cash_book WHERE transaction_type = 'income' AND description LIKE ?" . ($pp['cashbook_id'] ? ' AND id <> ' . (int)$pp['cashbook_id'] : ''), ['%' . $pp['booking_code'] . '%']);
+                    $pp['other_cash'] = (float)($oc['s'] ?? 0);
+                }
+                unset($pp);
             } catch (\Throwable $e) {
                 echo '<p class="cbx-hint" style="color:#b91c1c!important">Daftar pembayaran tarikan Cloudbeds gagal dibaca: ' . htmlspecialchars($e->getMessage()) . '</p>';
             }
