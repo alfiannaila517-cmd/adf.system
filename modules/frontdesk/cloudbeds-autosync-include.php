@@ -62,6 +62,15 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
     #cbsPill .cbs-pop-item.bad { background: #fef2f2; color: #b91c1c !important; }
     #cbsPill .cbs-pop-item.bad b { color: #b91c1c !important; }
     #cbsPill .cbs-pop-none { display: block; padding: 8px 10px; border-radius: 8px; background: #f8fafc; font-size: 0.68rem; color: #64748b !important; text-align: center; }
+    #cbsPill .cbs-pop-item.warn { background: #fffbeb; color: #b45309 !important; }
+    #cbsPill .cbs-pop-item.warn b { color: #b45309 !important; }
+    #cbsPill .cbs-pop-sec { display: block; margin: 10px 0 6px; font-size: 0.6rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8 !important; }
+    #cbsPill .cbs-pop-issue { display: block; padding: 7px 9px; margin-bottom: 5px; border-radius: 8px; background: #fffbeb; border-left: 3px solid #f59e0b; font-size: 0.64rem; line-height: 1.4; color: #78350f !important; }
+    #cbsPill .cbs-pop-issue b { display: block; font-size: 0.64rem; font-weight: 700; color: #0f172a !important; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #cbsPill .cbs-pop-issue.err { background: #fef2f2; border-left-color: #ef4444; color: #991b1b !important; }
+    #cbsPill .cbs-pop-more { display: block; font-size: 0.62rem; color: #64748b !important; margin: 2px 0 2px; }
+    body[data-theme="dark"] #cbsPill .cbs-pop-issue { background: rgba(245, 158, 11, .1); color: #fcd34d !important; }
+    body[data-theme="dark"] #cbsPill .cbs-pop-issue b { color: #f1f5f9 !important; }
     #cbsPill .cbs-pop-msg { display: block; padding: 8px 10px; border-radius: 8px; background: #fef2f2; font-size: 0.66rem; line-height: 1.45; color: #b91c1c !important; word-break: break-word; }
     #cbsPill .cbs-pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 14px 11px; font-size: 0.62rem; color: #94a3b8 !important; }
     #cbsPill .cbs-pop-foot span { color: #94a3b8 !important; font-size: inherit; }
@@ -155,7 +164,7 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
             var m = Math.round((Date.now() + serverSkew - t) / 60000);
             return m <= 0 ? 'baru saja' : (m < 60 ? m + ' menit lalu' : Math.floor(m / 60) + ' jam lalu');
         }
-        function fillPop(state, at, summary) {
+        function fillPop(state, at, summary, issues) {
             var st = document.getElementById('cbsPopSt');
             st.className = 'cbs-pop-st' + (state === 'err' ? ' err' : (state === 'busy' ? ' busy' : ''));
             st.textContent = state === 'err' ? 'Gagal' : (state === 'busy' ? 'Berjalan' : 'Lancar');
@@ -171,26 +180,37 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
                 var m = /^\s*([a-z ]+?)\s+(\d+)\s*$/i.exec(p);
                 if (m && +m[2] > 0) {
                     var k = m[1].toLowerCase();
-                    items.push('<span class="cbs-pop-item' + (k === 'gagal' ? ' bad' : '') + '">' + esc(LABELS[k] || m[1]) + '<b>' + m[2] + '</b></span>');
+                    items.push('<span class="cbs-pop-item' + (k === 'gagal' ? ' bad' : (k === 'dicek' ? ' warn' : '')) + '">' + esc(LABELS[k] || m[1]) + '<b>' + m[2] + '</b></span>');
                 }
             });
-            body.innerHTML = items.length ? '<span class="cbs-pop-grid">' + items.join('') + '</span>' : '<span class="cbs-pop-none">' + (s ? 'Tidak ada perubahan — sistem &amp; Cloudbeds sudah sama' : 'Menunggu sinkron pertama') + '</span>';
+            var html = items.length ? '<span class="cbs-pop-grid">' + items.join('') + '</span>' : '<span class="cbs-pop-none">' + (s ? 'Tidak ada perubahan — sistem &amp; Cloudbeds sudah sama' : 'Menunggu sinkron pertama') + '</span>';
+            // Isi peringatan / error agar jelas apa yang perlu dicek
+            var errs = (issues && issues.errors) || [], warns = (issues && issues.warns) || [];
+            if (errs.length || warns.length) {
+                html += '<span class="cbs-pop-sec">' + (errs.length ? 'Gagal &amp; perlu dicek' : 'Perlu dicek') + '</span>';
+                errs.slice(0, 2).forEach(function(e) { html += '<span class="cbs-pop-issue err">' + esc(e) + '</span>'; });
+                warns.slice(0, 3).forEach(function(w) { html += '<span class="cbs-pop-issue"><b>' + esc(w.label) + '</b>' + esc(w.msg) + '</span>'; });
+                var more = Math.max(0, warns.length - 3);
+                if (more) html += '<span class="cbs-pop-more">+' + more + ' lainnya — lihat di Pengaturan Cloudbeds</span>';
+            }
+            body.innerHTML = html;
         }
 
         var lastAt = '', lastSummary = '';
-        function setPill(state, at, summary) {
-            if (state !== 'busy') { if (at) lastAt = at; else at = lastAt; if (summary) lastSummary = summary; else summary = lastSummary; }
+        var lastIssues = null;
+        function setPill(state, at, summary, issues) {
+            if (state !== 'busy') { if (at) lastAt = at; else at = lastAt; if (summary) lastSummary = summary; else summary = lastSummary; if (issues) lastIssues = issues; }
             pill.classList.toggle('is-busy', state === 'busy');
             pill.classList.toggle('is-err', state === 'err');
             if (state === 'busy') pillTime.textContent = 'menyinkron…';
             else if (state === 'err') pillTime.textContent = 'sinkron gagal' + (at ? ' · ' + hhmm(at) : '');
             else pillTime.textContent = at ? 'tersinkron ' + hhmm(at) : 'menunggu sinkron…';
-            fillPop(state, state === 'busy' ? lastAt : at, state === 'busy' ? lastSummary : summary);
+            fillPop(state, state === 'busy' ? lastAt : at, state === 'busy' ? lastSummary : summary, lastIssues);
         }
         // Tempatkan di samping judul halaman bila halaman menyediakan slot
         var slot = document.querySelector('[data-cbs-slot]');
         if (slot) { slot.appendChild(pill); pill.classList.add('inline'); }
-        setPill(<?php echo json_encode(empty($cbLast['at']) ? 'ok' : (!empty($cbLast['ok']) ? 'ok' : 'err')); ?>, <?php echo json_encode($cbLast['at'] ?? ''); ?>, <?php echo json_encode($cbLast['summary'] ?? ''); ?>);
+        setPill(<?php echo json_encode(empty($cbLast['at']) ? 'ok' : (!empty($cbLast['ok']) ? 'ok' : 'err')); ?>, <?php echo json_encode($cbLast['at'] ?? ''); ?>, <?php echo json_encode($cbLast['summary'] ?? ''); ?>, <?php echo json_encode(['warns' => $cbLast['warns'] ?? [], 'errors' => $cbLast['errors'] ?? []], JSON_UNESCAPED_UNICODE); ?>);
 
         // Sinkron Cloudbeds di latar belakang setelah halaman tampil (server membatasi maks. sekali per menit)
         var running = false;
@@ -204,7 +224,7 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
                     running = false;
                     if (!d) return;
                     if (!d.ok) { setPill('err', '', d.error || ''); return; }
-                    setPill(d.last_ok === false ? 'err' : 'ok', d.last || '', d.summary || '');
+                    setPill(d.last_ok === false ? 'err' : 'ok', d.last || '', d.summary || '', d.warns || d.errors ? { warns: d.warns || [], errors: d.errors || [] } : null);
                     if (d.skipped) return;
                     var items = [];
                     if (d.created) items.push(['g', d.created, 'booking baru masuk']);

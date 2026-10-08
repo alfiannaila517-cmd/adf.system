@@ -78,7 +78,7 @@ foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
             'at' => date('Y-m-d H:i:s'),
             'ok' => (bool)$res['ok'] && empty($d['errors']),
             'summary' => $summary,
-        ], JSON_UNESCAPED_UNICODE));
+        ] + CloudbedsSync::issueList($res), JSON_UNESCAPED_UNICODE));
         echo date('Y-m-d H:i:s') . " [{$slug}] {$summary}\n";
 
         // Harga & ketersediaan (90 hari ke depan) diperbarui maks. sekali per jam

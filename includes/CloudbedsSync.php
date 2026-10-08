@@ -1302,6 +1302,19 @@ class CloudbedsSync
         $this->rememberPushResult($done);
         return ['ok' => !$done['errors'], 'done' => $done];
     }
+    /** Peringatan ("perlu dicek") & error dari hasil apply(), ringkas untuk disimpan bersama status sinkron. */
+    public static function issueList(array $res, int $max = 8): array
+    {
+        $warns = [];
+        foreach ((array)($res['actions'] ?? []) as $a) {
+            if (($a['type'] ?? '') === 'warn' && count($warns) < $max) {
+                $warns[] = ['label' => mb_substr((string)$a['label'], 0, 120), 'msg' => mb_substr((string)$a['msg'], 0, 200)];
+            }
+        }
+        $errors = array_map(fn($e) => mb_substr((string)$e, 0, 200), array_slice((array)($res['done']['errors'] ?? []), 0, 3));
+        return ['warns' => $warns, 'errors' => $errors];
+    }
+
     /** Hitung ulang rencana lalu jalankan link / create / cancel / block / unblock. Peringatan tidak dieksekusi. */
     public function apply(string $from, string $to, int $userId): array
     {

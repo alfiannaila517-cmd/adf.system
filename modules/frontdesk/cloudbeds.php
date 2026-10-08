@@ -53,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cb->saveRoomTypeMap((array)($_POST['type_map'] ?? []));
         setFlash('success', 'Pemetaan tipe kamar tersimpan.');
     } elseif ($act === 'run_sync') {
-        $sf = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['sf'] ?? '') ? $_POST['sf'] : date('Y-m-d', strtotime('-3 days'));
-        $st = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['st'] ?? '') ? $_POST['st'] : date('Y-m-d', strtotime('+60 days'));
+        $sf = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['sf'] ?? '') ? $_POST['sf'] : date('Y-m-d', strtotime('-14 days'));
+        $st = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['st'] ?? '') ? $_POST['st'] : date('Y-m-d', strtotime('+120 days'));
         $res = (new CloudbedsSync($db, $cb))->apply($sf, $st, (int)($_SESSION['user_id'] ?? 0));
         if (!$res['ok']) {
             setFlash('error', 'Sinkron gagal: ' . htmlspecialchars($res['detail']));
@@ -491,8 +491,8 @@ include '../../includes/header.php';
     <?php endif; ?>
     <?php if ($cb->isConfigured()):
         // ---- Sinkron Cloudbeds → sistem (pratinjau lalu jalankan) ----
-        $sf = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['sf'] ?? '') ? $_GET['sf'] : date('Y-m-d', strtotime('-3 days'));
-        $st = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['st'] ?? '') ? $_GET['st'] : date('Y-m-d', strtotime('+60 days'));
+        $sf = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['sf'] ?? '') ? $_GET['sf'] : date('Y-m-d', strtotime('-14 days'));
+        $st = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['st'] ?? '') ? $_GET['st'] : date('Y-m-d', strtotime('+120 days'));
         $syncer = new CloudbedsSync($db, $cb);
         $plan = isset($_GET['plan']) ? $syncer->plan($sf, $st) : null;
         $syncLog = $syncer->recentLog(8);
