@@ -1858,7 +1858,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                                 }
                             </style>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? 'open' : ''; ?>">
-                                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php" data-href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>">
+                                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php" data-href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php" data-no-loader class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>">
                                     <i data-feather="home" data-icon="concierge-bell" class="nav-icon"></i>
                                     <span><?php echo __('menu.frontdesk'); ?></span>
                                     <?php if (!empty($unpaidGuestsCount)): ?>

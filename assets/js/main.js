@@ -112,12 +112,19 @@ function handleDropdownClick(e) {
 function toggleDropdown(toggle, e) {
     const navItem = toggle.closest('.nav-item.has-submenu');
 
-    // Menu dengan halaman utama (data-href, mis. Front Desk → Dashboard): klik nama → pindah halaman;
-    // klik panah (±40px kanan) → buka/tutup submenu seperti menu lain
+    // Menu dengan halaman utama (data-href, mis. Front Desk → Dashboard):
+    // - submenu tertutup → buka submenu + pindah ke halaman utamanya (kecuali sudah di halaman itu)
+    // - submenu terbuka → klik berikutnya hanya menutup submenu (tidak memuat ulang halaman)
+    // - klik panah (±40px kanan) → selalu buka/tutup saja
     var onArrow = e && typeof e.clientX === 'number' && e.clientX >= toggle.getBoundingClientRect().right - 40;
-    if (toggle.dataset.href && !onArrow) {
-        if (navItem) navItem.classList.add('open');
-        window.location.href = toggle.dataset.href;
+    if (toggle.dataset.href && !onArrow && navItem && !navItem.classList.contains('open')) {
+        navItem.parentElement.querySelectorAll('.nav-item.has-submenu.open').forEach(function (s) { if (s !== navItem) s.classList.remove('open'); });
+        navItem.classList.add('open');
+        var target = new URL(toggle.dataset.href, window.location.href);
+        if (target.pathname !== window.location.pathname) {
+            if (window.ADFLoader && typeof window.ADFLoader.show === 'function') window.ADFLoader.show();
+            window.location.href = target.href;
+        }
         return;
     }
 
