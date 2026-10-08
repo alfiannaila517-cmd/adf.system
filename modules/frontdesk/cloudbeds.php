@@ -569,7 +569,7 @@ include '../../includes/header.php';
             // Booking yang pernah kena "samakan saldo" versi lama (adjustment minus tercatat sebagai tagihan + di Cloudbeds)
             $hit = [];
             try {
-                $hit = $db->fetchAll("SELECT booking_code, (LENGTH(notes) - LENGTH(REPLACE(notes, 'saldo disamakan', ''))) / LENGTH('saldo disamakan') n FROM bookings WHERE notes LIKE '%saldo disamakan%' ORDER BY updated_at DESC LIMIT 30") ?: [];
+                $hit = $db->fetchAll("SELECT booking_code, (LENGTH(notes) - LENGTH(REPLACE(notes, 'saldo disamakan', ''))) / LENGTH('saldo disamakan') n FROM bookings WHERE notes LIKE '%saldo disamakan%' AND notes NOT LIKE '%[Cloudbeds: dibersihkan%' ORDER BY updated_at DESC LIMIT 30") ?: [];
             } catch (\Throwable $e) {
             }
             if ($hit): ?>
