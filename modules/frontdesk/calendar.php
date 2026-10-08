@@ -3607,14 +3607,11 @@ include '../../includes/header.php';
         document.getElementById('sp-sub').textContent = [booking.booking_code, booking.room_number ? 'Room ' + booking.room_number : '', booking.room_type || ''].filter(Boolean).join(' · ');
 
         // WhatsApp link
-        const waPhone = booking.guest_phone ? booking.guest_phone.replace(/^0/, '62').replace(/[^0-9]/g, '') : '';
+        // Ikon WhatsApp selalu tampil: menu kirim invoice (nomor bisa diisi saat mengirim bila belum ada)
         const waEl = document.getElementById('sp-wa-link');
-        if (waPhone) {
-            waEl.href = 'https://wa.me/' + waPhone;
-            waEl.style.display = 'flex';
-        } else {
-            waEl.style.display = 'none';
-        }
+        if (waEl) waEl.style.display = 'flex';
+        const waWrap = document.getElementById('spWa');
+        if (waWrap) waWrap.classList.remove('open');
 
         // Status badge
         const statusEl = document.getElementById('sp-status');
@@ -3901,6 +3898,75 @@ include '../../includes/header.php';
         const el = document.getElementById('spPrint');
         if (el && !el.contains(ev.target)) el.classList.remove('open');
     });
+    // ===== WhatsApp: kirim invoice + PDF dengan template =====
+    window.toggleSpWa = function(ev) {
+        ev.stopPropagation();
+        document.getElementById('spWa').classList.toggle('open');
+    };
+    document.addEventListener('click', function(ev) {
+        const el = document.getElementById('spWa');
+        if (el && !el.contains(ev.target)) el.classList.remove('open');
+    });
+
+    function spToast(msg, ok) {
+        let t = document.getElementById('spToast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'spToast';
+            t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:100003;max-width:90vw;padding:11px 18px;border-radius:12px;font:700 13px/1.4 Inter,Arial,sans-serif;box-shadow:0 14px 34px -10px rgba(15,23,42,.5);color:#fff;transition:opacity .25s';
+            document.body.appendChild(t);
+        }
+        t.style.background = ok === false ? '#b91c1c' : '#065f46';
+        t.textContent = msg;
+        t.style.opacity = '1';
+        t.style.display = 'block';
+        clearTimeout(t._h);
+        t._h = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => { t.style.display = 'none'; }, 260); }, 4200);
+    }
+
+    function spWaSend(phoneOverride) {
+        const b = currentPaymentBooking;
+        if (!b || !b.id) return;
+        const fd = new FormData();
+        fd.append('booking_id', b.id);
+        fd.append('mode', 'send');
+        if (phoneOverride) fd.append('phone', phoneOverride);
+        spToast('Membuat invoice & mengirim…', true);
+        fetch('../../api/wa-send-invoice.php', { method: 'POST', body: fd, credentials: 'include' })
+            .then(r => r.json())
+            .then(res => {
+                if (res.need_phone) {
+                    const p = window.prompt('Nomor WhatsApp tamu belum ada.\nMasukkan nomor (contoh 0812xxxx atau +62812xxxx):', '');
+                    if (p && p.trim()) spWaSend(p.trim());
+                    return;
+                }
+                if (res.fallback && res.wa_url) {
+                    spToast(res.message, true);
+                    window.open(res.wa_url, '_blank');
+                    return;
+                }
+                spToast(res.message || (res.ok ? 'Invoice terkirim' : 'Gagal mengirim'), !!res.ok);
+            })
+            .catch(() => spToast('Gagal menghubungi server', false));
+    }
+    window.spWaInvoice = function() {
+        document.getElementById('spWa').classList.remove('open');
+        spWaSend('');
+    };
+    window.spWaChat = function() {
+        document.getElementById('spWa').classList.remove('open');
+        const b = currentPaymentBooking;
+        if (!b) return;
+        let phone = (b.guest_phone || '').replace(/[^0-9+]/g, '');
+        if (!phone) {
+            const p = window.prompt('Nomor WhatsApp tamu belum ada.\nMasukkan nomor:', '');
+            if (!p) return;
+            phone = p.replace(/[^0-9+]/g, '');
+        }
+        phone = phone.replace(/^\+/, '').replace(/^0/, '62');
+        window.open('https://wa.me/' + phone, '_blank');
+    };
+
     window.spPrint = function(type) {
         document.getElementById('spPrint').classList.remove('open');
         if (!currentPaymentBooking || !currentPaymentBooking.id) return;
@@ -8356,12 +8422,18 @@ include '../../includes/header.php';
                         <button type="button" onclick="spPrint('deposit')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span><b>Tanda Terima Deposit</b><small>Catat jaminan uang / kartu identitas · cetak bila perlu</small></span></button>
                     </div>
                 </div>
-                <a id="sp-wa-link" href="#" target="_blank" class="sp-icon-btn" title="WhatsApp" style="display:none;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366">
+                <div class="sp-print" id="spWa">
+                    <button type="button" id="sp-wa-link" class="sp-icon-btn" title="WhatsApp" onclick="toggleSpWa(event)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366">
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                         <path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.468l4.584-1.454A11.935 11.935 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-2.115 0-4.09-.654-5.712-1.77l-.41-.262-2.717.862.724-2.632-.287-.446A9.714 9.714 0 012.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75z" />
                     </svg>
-                </a>
+                    </button>
+                    <div class="sp-print-menu">
+                        <button type="button" onclick="spWaInvoice()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg><span><b>Kirim Invoice + PDF</b><small>Template DP 50% · tunggu 24 jam</small></span></button>
+                        <button type="button" onclick="spWaChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span><b>Chat WhatsApp biasa</b><small>Buka percakapan dengan tamu</small></span></button>
+                    </div>
+                </div>
                 <button class="sp-icon-btn" onclick="closeBookingQuickView()" title="Close">×</button>
             </div>
         </div>
