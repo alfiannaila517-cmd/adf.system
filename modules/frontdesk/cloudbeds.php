@@ -73,6 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : 'Gagal mengambil harga: ' . htmlspecialchars($res['detail']));
         header('Location: cloudbeds.php?rates=1#rates');
         exit;
+    } elseif ($act === 'merge_group') {
+        $code = trim((string)($_POST['code'] ?? ''));
+        $res = (new CloudbedsSync($db, $cb))->mergeGroupReservations($code);
+        setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
     } elseif ($act === 'align_paid') {
         $code = trim((string)($_POST['code'] ?? ''));
         $res = (new CloudbedsSync($db, $cb))->alignPaidToCloudbeds($code);
@@ -570,6 +576,16 @@ include '../../includes/header.php';
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                <?php endif; ?>
+                <?php if (!empty($diag['bk']) || !empty($diag['booking']['group_id'])): ?>
+                    <p class="cbx-hint" style="margin:.5rem 0 0"><b>Grup:</b> <?php echo htmlspecialchars($diag['merge_info']['msg'] ?? ''); ?></p>
+                <?php endif; ?>
+                <?php if (!empty($diag['can_merge'])): ?>
+                    <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Gabungkan semua kamar grup ini menjadi SATU reservasi Cloudbeds? Reservasi Cloudbeds yang terpisah akan dibatalkan lalu dibuat ulang sebagai satu reservasi.')">
+                        <input type="hidden" name="act" value="merge_group">
+                        <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                        <button type="submit" class="cbx-btn">Gabungkan jadi 1 reservasi Cloudbeds</button>
+                    </form>
                 <?php endif; ?>
                 <?php if (!empty($diag['can_align'])): ?>
                     <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Samakan harga, pembayaran dan baris buku kas booking ini dengan total Cloudbeds?')">

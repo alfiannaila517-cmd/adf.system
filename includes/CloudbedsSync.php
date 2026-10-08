@@ -1674,7 +1674,7 @@ class CloudbedsSync
         if (!$payments) $issues[] = ['warn', 'Belum ada pembayaran tercatat di sistem untuk booking ini.'];
         if (!$issues) $issues[] = ['ok', 'Semua pembayaran sudah terkirim dan total sama. Bila Cloudbeds masih merah, muat ulang halaman Cloudbeds.'];
         return ['ok' => true, 'booking' => $bk, 'rooms' => $rooms, 'link' => $link ?: null, 'payments' => $payments, 'cb' => $cbInfo,
-            'issues' => $issues, 'ghost_paid' => $ghostPaid, 'can_align' => $canAlign, 'marked_paid' => $markedPaid, 'pay_enabled' => $payEnabled, 'pay_since' => $since, 'local_total' => $localTotal, 'local_paid' => $localPaid, 'ids' => $ids];
+            'issues' => $issues, 'ghost_paid' => $ghostPaid, 'can_align' => $canAlign, 'can_merge' => $this->groupMergeInfo($bk)['ok'], 'merge_info' => $this->groupMergeInfo($bk), 'marked_paid' => $markedPaid, 'pay_enabled' => $payEnabled, 'pay_since' => $since, 'local_total' => $localTotal, 'local_paid' => $localPaid, 'ids' => $ids];
     }
 
     /**
@@ -1781,6 +1781,84 @@ class CloudbedsSync
             return ['ok' => false, 'msg' => 'Gagal: ' . $e->getMessage()];
         }
         return ['ok' => true, 'msg' => 'Harga & pembayaran disamakan dengan Cloudbeds: Rp ' . number_format($cbTotal, 0, ',', '.') . ($cashUpdated ? ' (buku kas ikut diperbarui)' : ' — baris buku kas tidak tertaut, ubah manual di Buku Kas')];
+    }
+
+    /**
+     * Booking grup buatan sistem yang di Cloudbeds terpecah menjadi beberapa reservasi (dulu dikirim per kamar).
+     * @return array{ok:bool, msg:string, members?:array, cb_ids?:array}
+     */
+    public function groupMergeInfo(array $bk): array
+    {
+        if (empty($bk['group_id'])) return ['ok' => false, 'msg' => 'Bukan booking grup'];
+        $members = $this->db->fetchAll("SELECT b.id, b.booking_code, b.group_id, b.status, b.booking_source, DATE(b.check_in_date) ci, DATE(b.check_out_date) co,
+                b.adults, b.children, b.notes, r.room_number, g.guest_name, g.phone, g.email, g.nationality
+            FROM bookings b JOIN rooms r ON r.id = b.room_id LEFT JOIN guests g ON g.id = b.guest_id
+            WHERE b.group_id = ? AND b.status IN ('confirmed','pending','checked_in') ORDER BY b.id", [$bk['group_id']]) ?: [];
+        if (count($members) < 2) return ['ok' => false, 'msg' => 'Grup kurang dari 2 kamar aktif'];
+        if (count(array_unique(array_map(fn($m) => $m['ci'] . '|' . $m['co'], $members))) > 1) return ['ok' => false, 'msg' => 'Tanggal kamar dalam grup berbeda'];
+        $in = implode(',', array_map(fn($m) => (int)$m['id'], $members));
+        $links = $this->db->fetchAll("SELECT booking_id, cb_reservation_id, how FROM cloudbeds_booking_links WHERE booking_id IN ($in)") ?: [];
+        $cbIds = array_values(array_unique(array_column($links, 'cb_reservation_id')));
+        if (count($cbIds) < 2) return ['ok' => false, 'msg' => 'Sudah satu reservasi Cloudbeds'];
+        if (array_filter($links, fn($l) => $l['how'] !== 'push')) return ['ok' => false, 'msg' => 'Ada reservasi dari OTA/Cloudbeds — tidak bisa digabung dari sistem'];
+        if (count($links) < count($members)) return ['ok' => false, 'msg' => 'Ada kamar grup yang belum terkirim — tunggu sinkron berikutnya'];
+        $ph = implode(',', array_fill(0, count($cbIds), '?'));
+        if ($this->db->fetchOne("SELECT payment_id FROM cloudbeds_payment_links WHERE cb_reservation_id IN ($ph) AND COALESCE(cb_payment_id,'') <> 'sudah-lunas' LIMIT 1", $cbIds)) {
+            return ['ok' => false, 'msg' => 'Sudah ada pembayaran terkirim ke reservasi Cloudbeds-nya — gabungkan manual agar folio tidak hilang'];
+        }
+        return ['ok' => true, 'msg' => count($members) . ' kamar terpecah di ' . count($cbIds) . ' reservasi Cloudbeds (' . implode(', ', $cbIds) . ')', 'members' => $members, 'cb_ids' => $cbIds];
+    }
+
+    /**
+     * Gabungkan reservasi Cloudbeds yang terpecah untuk satu booking grup: reservasi lama dibatalkan di Cloudbeds,
+     * lalu satu reservasi baru berisi semua kamar dibuat & ditautkan. Bila pembuatan gagal, reservasi lama
+     * dikonfirmasi kembali.
+     * @return array{ok:bool, msg:string}
+     */
+    public function mergeGroupReservations(string $code): array
+    {
+        $this->ensureTables();
+        $bk = $this->db->fetchOne("SELECT id, booking_code, group_id FROM bookings WHERE booking_code = ? LIMIT 1", [$code]);
+        if (!$bk) return ['ok' => false, 'msg' => 'Booking tidak ditemukan'];
+        $info = $this->groupMergeInfo($bk);
+        if (!$info['ok']) return $info;
+        $cbRooms = $this->cbRoomsByNo();
+        $items = [];
+        foreach ($info['members'] as $m) {
+            $no = preg_match('/\d{2,4}/', (string)$m['room_number'], $mm) ? $mm[0] : (string)$m['room_number'];
+            $cr = $cbRooms[$no] ?? null;
+            if (!$cr || $cr['type_id'] === '') return ['ok' => false, 'msg' => 'Room ' . $m['room_number'] . ' tidak ditemukan di Cloudbeds'];
+            $items[] = ['booking' => $m, 'cb_room' => $cr];
+        }
+        // 1) Batalkan reservasi lama (kamar dilepas agar bisa ditempati reservasi gabungan)
+        $cancelled = [];
+        foreach ($info['cb_ids'] as $cid) {
+            $r = $this->cb->send('PUT', 'putReservation', ['reservationID' => $cid, 'status' => 'canceled']);
+            if (!$r['ok']) {
+                foreach ($cancelled as $c) $this->cb->send('PUT', 'putReservation', ['reservationID' => $c, 'status' => 'confirmed']);
+                return ['ok' => false, 'msg' => 'Cloudbeds menolak membatalkan reservasi #' . $cid . ': ' . $r['detail']];
+            }
+            $cancelled[] = $cid;
+        }
+        // 2) Buat satu reservasi berisi semua kamar
+        $in = implode(',', array_map(fn($x) => (int)$x['booking']['id'], $items));
+        $this->db->query("DELETE FROM cloudbeds_booking_links WHERE booking_id IN ($in)");
+        try {
+            $this->pushCreate(['booking_id' => (int)$items[0]['booking']['id'], 'booking' => $items[0]['booking'], 'cb_room' => $items[0]['cb_room'], 'items' => $items]);
+        } catch (\Throwable $e) {
+            // Kembalikan seperti semula
+            foreach ($cancelled as $c) $this->cb->send('PUT', 'putReservation', ['reservationID' => $c, 'status' => 'confirmed']);
+            foreach ($info['members'] as $m) {
+                // tautan lama dipulihkan dari catatan booking terakhir "[Dikirim ke Cloudbeds #ID"
+                if (preg_match_all('/Dikirim ke Cloudbeds #([A-Za-z0-9]+)/', (string)$m['notes'], $mm) && !empty($mm[1])) {
+                    $this->db->query("INSERT IGNORE INTO cloudbeds_booking_links (cb_reservation_id, booking_id, how) VALUES (?, ?, 'push')", [end($mm[1]), (int)$m['id']]);
+                }
+            }
+            return ['ok' => false, 'msg' => 'Reservasi gabungan gagal dibuat (' . $e->getMessage() . ') — reservasi lama dikembalikan'];
+        }
+        $this->db->query("DELETE FROM cloudbeds_price_sync WHERE cb_reservation_id IN ('" . implode("','", array_map(fn($c) => preg_replace('/[^A-Za-z0-9]/', '', $c), $cancelled)) . "')");
+        $newId = (string)($this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [(int)$items[0]['booking']['id']])['cb_reservation_id'] ?? '');
+        return ['ok' => true, 'msg' => count($items) . ' kamar digabung menjadi satu reservasi Cloudbeds #' . $newId . ' (reservasi lama ' . implode(', ', $cancelled) . ' dibatalkan)'];
     }
 
     /** Samakan paid_amount / payment_status booking dengan catatan pembayaran (booking_payments) yang benar-benar ada. */
