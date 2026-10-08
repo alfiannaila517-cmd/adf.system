@@ -565,6 +565,19 @@ include '../../includes/header.php';
         <div class="cbx-card" id="cekbayar">
             <h3>Cek pembayaran booking</h3>
             <p class="cbx-sub">Sudah bayar di sistem tetapi di Cloudbeds masih merah? Ketik kode booking untuk melihat penyebabnya dan mengirim ulang.</p>
+            <?php
+            // Booking yang pernah kena "samakan saldo" versi lama (adjustment minus tercatat sebagai tagihan + di Cloudbeds)
+            $hit = [];
+            try {
+                $hit = $db->fetchAll("SELECT booking_code, (LENGTH(notes) - LENGTH(REPLACE(notes, 'saldo disamakan', ''))) / LENGTH('saldo disamakan') n FROM bookings WHERE notes LIKE '%saldo disamakan%' ORDER BY updated_at DESC LIMIT 30") ?: [];
+            } catch (\Throwable $e) {
+            }
+            if ($hit): ?>
+                <div class="cbx-hint" style="margin:.2rem 0 .6rem;padding:.55rem .7rem;border-radius:9px;background:rgba(220,38,38,.08);color:#b91c1c!important">
+                    <b>Perlu dibersihkan di Cloudbeds</b> — booking ini pernah terkena bug "samakan saldo" (tagihan "ADF: samakan dengan pembayaran sistem" berlipat di folio Cloudbeds):
+                    <?php foreach ($hit as $h): ?><a href="cloudbeds.php?cek=<?php echo urlencode($h['booking_code']); ?>#cekbayar" style="margin-left:.4rem;font-weight:700"><?php echo htmlspecialchars($h['booking_code']); ?></a> (<?php echo (int)$h['n']; ?>×)<?php endforeach; ?>
+                </div>
+            <?php endif; ?>
             <form method="get" action="cloudbeds.php#cekbayar" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
                 <input class="cbx-input" name="cek" value="<?php echo htmlspecialchars($cekCode); ?>" placeholder="Kode booking, mis. BK-20261008-1234" style="max-width:280px">
                 <button type="submit" class="cbx-btn">Cek</button>
