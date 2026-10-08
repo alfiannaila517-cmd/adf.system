@@ -753,7 +753,6 @@ class CloudbedsSync
              LEFT JOIN cloudbeds_payment_links pl ON pl.payment_id = bp.id
              WHERE pl.payment_id IS NULL AND bp.amount > 0
                AND COALESCE(bp.created_at, bp.payment_date) >= ?
-               AND LOWER(COALESCE(bp.payment_method, '')) NOT LIKE 'ota%'
              ORDER BY bp.id",
             [$since]
         ) ?: [];
@@ -785,10 +784,11 @@ class CloudbedsSync
             $walk($r['data'] ?? []);
         }
         $l = strtolower($local);
-        $want = in_array($l, ['cash'], true) ? ['cash']
+        $want = strpos($l, 'ota') === 0 ? ['channel', 'ota', 'prepaid', 'virtual', 'collect', 'transfer', 'bank', 'other']
+            : (in_array($l, ['cash'], true) ? ['cash']
             : (in_array($l, ['transfer', 'bank_transfer'], true) ? ['transfer', 'bank', 'ebanking', 'wire']
             : (in_array($l, ['card', 'debit', 'edc', 'credit_card'], true) ? ['debit', 'card', 'credit', 'edc']
-            : (in_array($l, ['qris', 'qr'], true) ? ['qris', 'qr', 'transfer', 'bank'] : ['other', 'cash'])));
+            : (in_array($l, ['qris', 'qr'], true) ? ['qris', 'qr', 'transfer', 'bank'] : ['other', 'cash']))));
         foreach ($want as $w) {
             foreach ($methods as $m) {
                 if (strpos(strtolower($m['code']), $w) !== false || strpos($m['name'], $w) !== false) return $m['code'];
@@ -804,10 +804,24 @@ class CloudbedsSync
         $cbId = (string)($link['cb_reservation_id'] ?? '');
         if ($cbId === '') return false;
         if ($this->db->fetchOne("SELECT payment_id FROM cloudbeds_payment_links WHERE payment_id = ?", [$a['payment_id']])) return false;
+        $amount = round($a['amount'], 2);
+        // Pembayaran OTA (dibayar platform): kirim paling banyak sisa saldo Cloudbeds — bila Cloudbeds sudah lunas
+        // (pembayaran OTA sudah tercatat di sana), cukup ditandai tanpa mengirim agar tidak dobel.
+        if (strpos(strtolower($a['method']), 'ota') === 0) {
+            $det = $this->cb->reservationDetail($cbId);
+            if (!$det['ok']) throw new \RuntimeException('saldo Cloudbeds tidak terbaca: ' . $det['detail']);
+            if ($det['balance'] !== null) {
+                if ((float)$det['balance'] < 1) {
+                    $this->db->query("INSERT IGNORE INTO cloudbeds_payment_links (payment_id, cb_reservation_id, cb_payment_id) VALUES (?, ?, 'sudah-lunas')", [$a['payment_id'], $cbId]);
+                    return false;
+                }
+                $amount = min($amount, round((float)$det['balance'], 2));
+            }
+        }
         $r = $this->cb->send('POST', 'postPayment', [
             'reservationID' => $cbId,
             'type' => $this->cbPaymentType($a['method']),
-            'amount' => round($a['amount'], 2),
+            'amount' => $amount,
             'description' => mb_substr('ADF ' . $a['code'] . ' · ' . $a['method'] . ' #' . $a['payment_id'], 0, 100),
         ]);
         if (!$r['ok']) {
