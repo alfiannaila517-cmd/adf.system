@@ -125,6 +125,20 @@ try {
         }
     }
 
+    // Harga mengikuti Cloudbeds: sebelum pembayaran OTA otomatis saat check-in, ambil total Cloudbeds terbaru
+    // (hanya booking tertaut yang belum ada pembayaran) agar nominal di sistem, buku kas & Cloudbeds sama.
+    try {
+        require_once __DIR__ . '/../includes/CloudbedsClient.php';
+        require_once __DIR__ . '/../includes/CloudbedsSync.php';
+        $cbClientCi = new CloudbedsClient($db);
+        if ($cbClientCi->isConfigured() && (new CloudbedsSync($db, $cbClientCi))->refreshPriceFromCloudbeds((int)$bookingId)) {
+            $fresh = $db->fetchOne("SELECT final_price, total_price, room_price FROM bookings WHERE id = ?", [$bookingId]);
+            if ($fresh) $booking = array_merge($booking, $fresh);
+        }
+    } catch (\Throwable $e) {
+        error_log('checkin-guest: harga Cloudbeds tidak terbaca: ' . $e->getMessage());
+    }
+
     // Calculate remaining payment
     $payment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
     $totalPaid = max((float)$payment['paid'], (float)$booking['paid_amount']);
