@@ -1000,7 +1000,12 @@ if (BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')) {
         error_log('Dashboard Front Desk widget: ' . $e->getMessage());
     }
     if ($fdtData) {
-        fdt_render($fdtData, ['title' => 'Dashboard Front Desk', 'link' => BASE_URL . '/modules/frontdesk/dashboard.php']);
+        fdt_render($fdtData, [
+            'title' => 'Dashboard Front Desk',
+            'link' => BASE_URL . '/modules/frontdesk/dashboard.php',
+            'limit' => 5,
+            'all_link' => BASE_URL . '/modules/frontdesk/dashboard.php',
+        ]);
     }
 }
 ?>

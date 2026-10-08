@@ -88,7 +88,8 @@ function fdt_data($db): array
 }
 
 /**
- * Tampilkan widget. $opt: title (judul bagian di atas widget, opsional), link (URL "Buka Front Desk").
+ * Tampilkan widget. $opt: title (judul bagian di atas widget, opsional), link (URL "Buka Front Desk"),
+ * limit (maks. reservasi yang ditampilkan), all_link (URL "Lihat semua" bila daftar dipotong).
  * Chart.js boleh dimuat sebelum atau sesudah widget.
  */
 function fdt_render(array $d, array $opt = []): void
@@ -131,8 +132,14 @@ function fdt_render(array $d, array $opt = []): void
     #fdt .t-sec small { display: block; font-size: 0.68rem !important; color: var(--mute) !important; margin-top: 1px; }
     #fdt .t-open { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); font-size: 0.72rem !important; font-weight: 700; color: var(--accent) !important; }
     #fdt .t-open:hover { border-color: var(--accent); }
-    #fdt .t-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr); gap: 12px; align-items: start; }
+    #fdt .t-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(290px, 1fr); gap: 12px; align-items: stretch; }
     #fdt .t-side { display: flex; flex-direction: column; gap: 12px; }
+    #fdt .t-side > .t-card { flex: 1; display: flex; flex-direction: column; }
+    #fdt .t-main-card { display: flex; flex-direction: column; }
+    #fdt .t-foot { margin-top: auto; display: flex; justify-content: center; padding: 8px 12px 10px; border-top: 1px solid var(--line); }
+    #fdt .t-foot a { font-size: 0.72rem !important; font-weight: 700; color: var(--accent) !important; padding: 4px 10px; border-radius: 8px; }
+    #fdt .t-foot a:hover { background: var(--soft); }
+    #fdt .t-list.limited { max-height: none; overflow: visible; }
     #fdt .t-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
     #fdt .t-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px 8px; flex-wrap: wrap; }
     #fdt .t-title { display: flex; align-items: center; gap: 9px; }
@@ -146,7 +153,7 @@ function fdt_render(array $d, array $opt = []): void
     body[data-theme="dark"] #fdt .ic-blue { background: rgba(59,130,246,.16); color: #93c5fd !important; }
 
     #fdt .t-list { list-style: none; margin: 0; padding: 0 6px 6px; max-height: 420px; overflow-y: auto; }
-    #fdt .t-row { display: grid; grid-template-columns: 38px 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 8px; border-top: 1px solid var(--line); }
+    #fdt .t-row { display: grid; grid-template-columns: 36px 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 8px; border-top: 1px solid var(--line); }
     #fdt .t-row:first-child { border-top: 0; }
     #fdt .t-row:hover { background: var(--soft); border-radius: 10px; }
     #fdt .t-time { font-size: 0.66rem !important; font-weight: 700; color: var(--faint) !important; font-variant-numeric: tabular-nums; }
@@ -175,9 +182,9 @@ function fdt_render(array $d, array $opt = []): void
     #fdt .t-empty { padding: 26px 12px 30px; text-align: center; color: var(--mute) !important; font-size: 0.74rem !important; }
     #fdt .t-empty svg { width: 28px; height: 28px; color: var(--faint) !important; margin-bottom: 6px; }
 
-    #fdt .t-occ { display: grid; grid-template-columns: 116px 1fr; gap: 16px; align-items: center; padding: 2px 14px 14px; }
-    #fdt .t-ring { position: relative; width: 116px; height: 116px; }
-    #fdt .t-ring canvas { width: 116px !important; height: 116px !important; }
+    #fdt .t-occ { flex: 1; display: grid; grid-template-columns: 108px 1fr; gap: 18px; align-items: center; padding: 2px 16px 14px; }
+    #fdt .t-ring { position: relative; width: 108px; height: 108px; }
+    #fdt .t-ring canvas { width: 108px !important; height: 108px !important; }
     #fdt .t-ring-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
     #fdt .t-ring-c b { font-size: 1.2rem !important; font-weight: 800 !important; color: var(--ink) !important; line-height: 1; }
     #fdt .t-ring-c small { font-size: 0.62rem !important; color: var(--mute) !important; margin-top: 2px; }
@@ -186,10 +193,10 @@ function fdt_render(array $d, array $opt = []): void
     #fdt .t-legend i { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
     #fdt .t-legend b { margin-left: auto; color: var(--ink) !important; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-    #fdt .t-fc { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 2px 14px 14px; }
+    #fdt .t-fc { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; padding: 2px 16px 14px; }
     #fdt .t-fc-col { display: flex; flex-direction: column; align-items: center; gap: 5px; }
     #fdt .t-fc-pct { font-size: 0.64rem !important; font-weight: 800; color: var(--ink) !important; font-variant-numeric: tabular-nums; }
-    #fdt .t-fc-track { width: 100%; max-width: 26px; height: 78px; border-radius: 7px; background: var(--soft); border: 1px solid var(--line); display: flex; align-items: flex-end; overflow: hidden; }
+    #fdt .t-fc-track { width: 100%; max-width: 30px; height: 66px; border-radius: 8px; background: var(--soft); border: 1px solid var(--line); display: flex; align-items: flex-end; overflow: hidden; }
     #fdt .t-fc-fill { width: 100%; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #60a5fa, #2563eb); min-height: 3px; }
     #fdt .t-fc-fill.hi { background: linear-gradient(180deg, #4ade80, #16a34a); }
     #fdt .t-fc-fill.lo { background: linear-gradient(180deg, #fcd34d, #f59e0b); }
@@ -224,7 +231,7 @@ function fdt_render(array $d, array $opt = []): void
     <?php endif; ?>
     <div class="t-grid">
         <!-- Reservasi masuk hari ini -->
-        <div class="t-card">
+        <div class="t-card t-main-card">
             <div class="t-head">
                 <div class="t-title">
                     <span class="t-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
@@ -239,8 +246,13 @@ function fdt_render(array $d, array $opt = []): void
                 </div>
             </div>
             <?php if (!empty($d['new_today'])): ?>
-                <ul class="t-list">
-                    <?php foreach ($d['new_today'] as $nr):
+                <?php
+                $limit = (int)($opt['limit'] ?? 0);
+                $items = $limit > 0 ? array_slice($d['new_today'], 0, $limit) : $d['new_today'];
+                $more = count($d['new_today']) - count($items);
+                ?>
+                <ul class="t-list<?php echo $limit > 0 ? ' limited' : ''; ?>">
+                    <?php foreach ($items as $nr):
                         $ota = $isOta($nr['source_type'], $nr['booking_source']);
                         $cancel = $nr['all_cancelled'];
                         $rooms = array_slice(array_unique($nr['rooms']), 0, 4);
@@ -277,6 +289,9 @@ function fdt_render(array $d, array $opt = []): void
                         </li>
                     <?php endforeach; ?>
                 </ul>
+                <?php if ($more > 0 && !empty($opt['all_link'])): ?>
+                    <div class="t-foot"><a href="<?php echo $h($opt['all_link']); ?>">Lihat semua <?php echo count($d['new_today']); ?> reservasi hari ini →</a></div>
+                <?php endif; ?>
             <?php else: ?>
                 <div class="t-empty">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -299,7 +314,7 @@ function fdt_render(array $d, array $opt = []): void
                 </div>
                 <div class="t-occ">
                     <div class="t-ring">
-                        <canvas id="fdtOccChart" width="116" height="116"></canvas>
+                        <canvas id="fdtOccChart" width="108" height="108"></canvas>
                         <div class="t-ring-c"><b><?php echo $d['occupancy_rate']; ?>%</b><small>terisi</small></div>
                     </div>
                     <div class="t-legend">
