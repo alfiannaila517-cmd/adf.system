@@ -522,8 +522,10 @@ class CloudbedsSync
         if ($row) {
             $base = (float)$row['synced_total'];
         } else {
+            // Dasar = TOTAL Cloudbeds (termasuk pajak/biaya), sama dengan yang dipakai di seluruh sinkron harga.
+            // Dulu subTotal (tanpa pajak) → selisih pajak ikut terkirim sebagai adjustment (mis. +Rp4.400).
             $bd = is_array($raw['balanceDetailed'] ?? null) ? $raw['balanceDetailed'] : [];
-            $base = isset($bd['subTotal']) && is_numeric($bd['subTotal']) ? (float)$bd['subTotal'] : (float)($det['total'] ?? $localTotal);
+            $base = $det['total'] !== null ? (float)$det['total'] : (isset($bd['grandTotal']) && is_numeric($bd['grandTotal']) ? (float)$bd['grandTotal'] : $localTotal);
         }
 
         // 2) Check-out
@@ -1930,7 +1932,10 @@ class CloudbedsSync
         $det = $this->cb->reservationDetail($cbId);
         if (!$det['ok'] || $det['balance'] === null) return $sent;
         $bal = round((float)$det['balance'], 2);
-        if ($bal < 1) return $sent;
+        if ($bal < 1) {
+            $this->alignOverpaid($cbId, $ids, $total, $paid, $det['total']);
+            return $sent;
+        }
         $r = $this->cb->send('POST', 'postAdjustment', [
             'reservationID' => $cbId,
             'type' => 'rate',
@@ -1942,11 +1947,33 @@ class CloudbedsSync
         }
         // Dasar penyamaan harga sistem → Cloudbeds ikut total yang kini sama
         $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($total, 2)]);
+        $this->alignOverpaid($cbId, $ids, $total, $paid, ($det['total'] ?? 0) - $bal);
         foreach ($ids as $bid) {
             $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", ["\n[Cloudbeds: saldo disamakan, adjustment -Rp " . number_format($bal, 0, ',', '.') . ' ' . date('d/m H:i') . ']', (int)$bid]);
             break; // cukup dicatat di satu booking grup
         }
         return true;
+    }
+
+    /**
+     * Dibayar di sistem LEBIH dari total booking, dan total Cloudbeds (kini lunas) sama dengan yang dibayar → total
+     * sistem disamakan dengan yang dibayar (Cloudbeds = sumber harga), dibagi ke kamar grup sesuai porsi lama.
+     */
+    private function alignOverpaid(string $cbId, array $ids, float $total, float $paid, ?float $cbTotal): void
+    {
+        if ($paid <= $total + 1 || $cbTotal === null || abs($cbTotal - $paid) >= 1) return;
+        $in = implode(',', array_map('intval', $ids));
+        $rows = $this->db->fetchAll("SELECT id, final_price, COALESCE(discount, 0) discount, total_nights FROM bookings WHERE id IN ($in)") ?: [];
+        if (!$rows) return;
+        $left = round($paid, 2);
+        foreach (array_values($rows) as $i => $r) {
+            $share = $i === count($rows) - 1 ? $left : round($paid * ($total > 0 ? (float)$r['final_price'] / $total : 1 / count($rows)), 2);
+            $left -= $share;
+            $gross = $share + (float)$r['discount'];
+            $this->db->query("UPDATE bookings SET final_price = ?, total_price = ?, room_price = ?, updated_at = NOW() WHERE id = ?", [$share, $gross, round($gross / max(1, (int)$r['total_nights']), 2), (int)$r['id']]);
+        }
+        $this->resetPaidFromPayments($ids);
+        $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($paid, 2)]);
     }
 
     /** Samakan paid_amount / payment_status booking dengan catatan pembayaran (booking_payments) yang benar-benar ada. */
