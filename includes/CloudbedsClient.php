@@ -278,14 +278,17 @@ class CloudbedsClient
         if ($this->propertyId() !== '' && !isset($params['propertyID'])) {
             $params['propertyID'] = $this->propertyId();
         }
-        // DELETE: parameter di URL; POST/PUT: form body
-        $isDelete = strtoupper($method) === 'DELETE';
+        // DELETE: parameter di URL; "DELETE:body": DELETE dengan parameter di form body; POST/PUT: form body
+        $verb = strtoupper($method);
+        $deleteInBody = $verb === 'DELETE:BODY';
+        if ($deleteInBody) $verb = 'DELETE';
+        $isDelete = $verb === 'DELETE' && !$deleteInBody;
         $ch = curl_init($this->baseUrl() . '/' . ltrim($endpoint, '/') . ($isDelete ? '?' . http_build_query($params) : ''));
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 30,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_CUSTOMREQUEST => strtoupper($method),
+            CURLOPT_CUSTOMREQUEST => $verb,
             CURLOPT_POSTFIELDS => $isDelete ? '' : http_build_query($params),
             CURLOPT_HTTPHEADER => ['x-api-key: ' . $key, 'Accept: application/json', 'Content-Type: application/x-www-form-urlencoded'],
         ]);
@@ -298,7 +301,7 @@ class CloudbedsClient
         }
         $json = json_decode($body, true);
         $ok = $http >= 200 && $http < 300 && is_array($json) && ($json['success'] ?? true) !== false;
-        $detail = $ok ? 'OK' : (is_array($json) ? (string)($json['message'] ?? ('HTTP ' . $http)) : ('HTTP ' . $http . ' ' . substr((string)$body, 0, 200)));
+        $detail = $ok ? 'OK' : (is_array($json) ? (string)($json['message'] ?? ('HTTP ' . $http . ' ' . substr((string)$body, 0, 160))) : ('HTTP ' . $http . ' ' . substr((string)$body, 0, 200)));
         return ['ok' => $ok, 'http' => $http, 'data' => is_array($json) ? ($json['data'] ?? $json) : null, 'detail' => $detail, 'raw' => $json];
     }
 

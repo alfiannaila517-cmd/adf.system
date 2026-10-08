@@ -633,8 +633,8 @@ class CloudbedsSync
             $bid = $this->findBlockId((string)$row['cb_room_id'], (string)$row['block_start'], (string)$row['block_end']);
         }
         if ($bid === '') return;
-        $r = $this->cb->send('DELETE', 'deleteRoomBlock', ['roomBlockID' => $bid]);
-        if (!$r['ok'] && (int)$r['http'] !== 404 && stripos($r['detail'], 'not found') === false) {
+        $r = $this->deleteCbBlock($bid, $row['block_start'] ?? null, $row['block_end'] ?? null);
+        if (!$r['ok']) {
             throw new \RuntimeException('hapus blok perpanjangan ditolak: ' . $r['detail'] . (in_array((int)$r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete" di API key)' : ''));
         }
     }
@@ -729,7 +729,7 @@ class CloudbedsSync
         if ($others) {
             $r = $this->sendBlock('PUT', 'putRoomBlock', ['roomBlockID' => $a['cb']] + $base + ['rooms' => array_map(fn($x) => ['roomID' => $x], $others)], $blk['type']);
         } else {
-            $r = $this->cb->send('DELETE', 'deleteRoomBlock', ['roomBlockID' => $a['cb']]);
+            $r = $this->deleteCbBlock($a['cb'], $blk['start'], $blk['end']);
         }
         if (!$r['ok']) {
             throw new \RuntimeException('blok Cloudbeds tidak bisa dilepas: ' . $r['detail'] . (in_array((int)$r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete")' : ''));
@@ -745,6 +745,53 @@ class CloudbedsSync
             }
             throw new \RuntimeException($e->getMessage() . ' — blok dipasang kembali');
         }
+    }
+
+    /**
+     * Hapus blok di Cloudbeds. Format permintaan dicoba bergantian (DELETE parameter di URL / di body / POST) dan yang
+     * berhasil diingat. Bila semua ditolak tetapi blok memang sudah tidak ada di Cloudbeds → dianggap berhasil.
+     */
+    private function deleteCbBlock(string $bid, ?string $start = null, ?string $end = null): array
+    {
+        $savedRow = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_delblock_mode'");
+        $modes = array_values(array_unique(array_filter([(string)($savedRow['setting_value'] ?? ''), 'DELETE', 'DELETE:body', 'POST'])));
+        $last = ['ok' => false, 'http' => 0, 'detail' => 'tidak dicoba', 'data' => null, 'raw' => null];
+        $tried = [];
+        foreach ($modes as $mode) {
+            $r = $this->cb->send($mode, 'deleteRoomBlock', ['roomBlockID' => $bid]);
+            if ($r['ok']) {
+                $this->db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('cloudbeds_delblock_mode', ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)", [$mode]);
+                return $r;
+            }
+            $last = $r;
+            $tried[] = $mode . ' → ' . $r['detail'];
+            if (in_array((int)$r['http'], [401, 403], true)) return $r; // scope kurang: format lain tidak membantu
+        }
+        if ($start && $end && !$this->cbBlockExists($bid, $start, $end)) {
+            return ['ok' => true, 'http' => 200, 'detail' => 'sudah tidak ada', 'data' => null, 'raw' => null];
+        }
+        $last['detail'] = implode(' | ', $tried);
+        return $last;
+    }
+
+    /** Apakah blok Cloudbeds ini masih ada (dibaca dari getRoomBlocks pada tanggalnya). Gagal baca → dianggap ada. */
+    private function cbBlockExists(string $bid, string $start, string $end): bool
+    {
+        $q = ['startDate' => $start, 'endDate' => min($end, date('Y-m-d', strtotime($start . ' +29 days')))];
+        if ($this->cb->propertyId() !== '') $q['propertyID'] = $this->cb->propertyId();
+        $res = $this->cb->get('getRoomBlocks', $q);
+        if (!$res['ok']) return true;
+        $found = false;
+        $walk = function ($d) use (&$walk, &$found, $bid) {
+            if (!is_array($d) || $found) return;
+            if (isset($d['roomBlockID']) && !is_array($d['roomBlockID'])) {
+                if ((string)$d['roomBlockID'] === $bid) $found = true;
+                return;
+            }
+            foreach ($d as $v) $walk($v);
+        };
+        $walk($res['data']);
+        return $found;
     }
 
     /** Kirim blok ke Cloudbeds dengan roomBlockType yang sah: jenis blok itu sendiri / yang tersimpan / yang
@@ -1203,7 +1250,7 @@ class CloudbedsSync
                 $blkLabel = 'Blok ' . ($reason !== '' ? '"' . $reason . '" ' : '') . '· ' . $start . ' → ' . $end;
                 $roomsTxt = implode(', ', array_map(fn($x) => $cbRoomName[$x] ?? $x, $removedHere));
                 if (count($removedHere) >= count($roomIds)) {
-                    $actions[] = ['type' => 'push_delblock', 'cb' => $bid, 'label' => $blkLabel, 'msg' => 'Hapus blok di Cloudbeds (dibatalkan di sistem: ' . $roomsTxt . ')'];
+                    $actions[] = ['type' => 'push_delblock', 'cb' => $bid, 'label' => $blkLabel, 'start' => $start, 'end' => $end, 'msg' => 'Hapus blok di Cloudbeds (dibatalkan di sistem: ' . $roomsTxt . ')'];
                 } else {
                     $actions[] = ['type' => 'push_putblock', 'cb' => $bid, 'label' => $blkLabel, 'start' => $start, 'end' => $end, 'reason' => $reason, 'block_type' => (string)($b['roomBlockType'] ?? ''),
                         'rooms' => array_values(array_diff($roomIds, $removedHere)), 'msg' => 'Keluarkan ' . $roomsTxt . ' dari blok di Cloudbeds'];
@@ -1316,7 +1363,7 @@ class CloudbedsSync
                 } elseif ($a['type'] === 'push_payment') {
                     if ($this->pushPayment($a)) $done['push_pay']++;
                 } elseif ($a['type'] === 'push_delblock') {
-                    $r = $this->cb->send('DELETE', 'deleteRoomBlock', ['roomBlockID' => $a['cb']]);
+                    $r = $this->deleteCbBlock($a['cb'], $a['start'] ?? null, $a['end'] ?? null);
                     if (!$r['ok']) throw new \RuntimeException('Cloudbeds menolak hapus blok: ' . $r['detail'] . (in_array($r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete" di API key)' : ''));
                     $done['push_block']++;
                 } elseif ($a['type'] === 'push_putblock') {
