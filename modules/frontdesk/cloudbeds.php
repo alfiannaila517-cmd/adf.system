@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sync = new CloudbedsSync($db, $cb);
         $ok = 0; $sum = 0.0; $fails = [];
         foreach ($ids as $pid) {
-            $isPulled = $db->fetchOne("SELECT bp.amount FROM booking_payments bp JOIN cloudbeds_payment_links l ON l.payment_id = bp.id AND l.cb_payment_id = 'dari-cloudbeds' WHERE bp.id = ?", [$pid]);
+            $isPulled = $db->fetchOne("SELECT bp.amount FROM booking_payments bp LEFT JOIN cloudbeds_payment_links l ON l.payment_id = bp.id WHERE bp.id = ? AND (l.cb_payment_id = 'dari-cloudbeds' OR bp.notes LIKE 'Dibayar di Cloudbeds%')", [$pid]);
             if (!$isPulled) continue;
             $res = $sync->deleteWrongPayment($pid);
             if ($res['ok']) { $ok++; $sum += (float)$isPulled['amount']; } else { $fails[] = $res['msg']; }
@@ -597,12 +597,14 @@ include '../../includes/header.php';
             $pulled = [];
             try {
                 $pulled = $db->fetchAll("SELECT bp.id, bp.amount, bp.created_at, bp.cashbook_id, b.id bid, b.booking_code, b.status, b.booking_source, g.guest_name,
-                        (SELECT COALESCE(SUM(c.amount), 0) FROM cash_book c WHERE c.transaction_type = 'income' AND (c.booking_id = b.id OR c.description LIKE CONCAT('%', b.booking_code, '%'))
+                        (SELECT COALESCE(SUM(c.amount), 0) FROM cash_book c WHERE c.transaction_type = 'income' AND c.description LIKE CONCAT('%', b.booking_code, '%')
                             AND (bp.cashbook_id IS NULL OR c.id <> bp.cashbook_id) AND c.id NOT IN (SELECT COALESCE(p2.cashbook_id, 0) FROM booking_payments p2 JOIN cloudbeds_payment_links l2 ON l2.payment_id = p2.id AND l2.cb_payment_id = 'dari-cloudbeds')) other_cash
-                    FROM booking_payments bp JOIN cloudbeds_payment_links l ON l.payment_id = bp.id AND l.cb_payment_id = 'dari-cloudbeds'
+                    FROM booking_payments bp LEFT JOIN cloudbeds_payment_links l ON l.payment_id = bp.id
                     JOIN bookings b ON b.id = bp.booking_id LEFT JOIN guests g ON g.id = b.guest_id
+                    WHERE l.cb_payment_id = 'dari-cloudbeds' OR bp.notes LIKE 'Dibayar di Cloudbeds%'
                     ORDER BY bp.id DESC LIMIT 60") ?: [];
             } catch (\Throwable $e) {
+                echo '<p class="cbx-hint" style="color:#b91c1c!important">Daftar pembayaran tarikan Cloudbeds gagal dibaca: ' . htmlspecialchars($e->getMessage()) . '</p>';
             }
             if ($pulled): ?>
                 <div id="tarikan" style="margin:.2rem 0 .8rem;padding:.6rem .7rem;border-radius:9px;background:rgba(217,119,6,.08)">
@@ -757,7 +759,7 @@ include '../../includes/header.php';
                 <div style="flex:1;min-width:220px">
                     <b>Kirim ke Cloudbeds: <?php echo $pushOn ? 'AKTIF' : 'mati'; ?></b>
                     <small>Check-in / check-out dari sistem, booking direct baru (walk-in, telepon, website) dibuat & ditempatkan di kamar yang sama, dan pembatalannya.
-                        <?php if ($pushOn && !empty($pushSince['setting_value'])): ?>Booking direct dibuat sejak <?php echo htmlspecialchars(date('d M Y H:i', strtotime($pushSince['setting_value']))); ?>.<?php endif; ?></small>
+                        <?php if ($pushOn && !empty($pushSince['setting_value'])): ?>Booking direct dibuat sejak <?php echo htmlspecialchars(date('d M Y H:i', strtotime(preg_replace('/^db:/', '', $pushSince['setting_value'])))); ?>.<?php endif; ?></small>
                 </div>
                 <form method="post" style="margin:0" <?php echo $pushOn ? '' : 'onsubmit="return confirm(\'Aktifkan kirim ke Cloudbeds? Mulai sekarang booking direct baru tidak perlu diketik lagi di Cloudbeds.\')"'; ?>>
                     <input type="hidden" name="act" value="toggle_push">
@@ -787,7 +789,7 @@ include '../../includes/header.php';
                 <div style="flex:1;min-width:220px">
                     <b>Kirim pembayaran ke Cloudbeds: <?php echo $payOn ? 'AKTIF' : 'mati'; ?></b>
                     <small>DP, pelunasan & bayar saat check-in yang dicatat di sistem ikut masuk folio reservasi Cloudbeds (titik merah sisa tagihan hilang). Pembayaran OTA otomatis tidak dikirim.
-                        <?php if ($payOn && !empty($paySince['setting_value'])): ?>Pembayaran dicatat sejak <?php echo htmlspecialchars(date('d M Y H:i', strtotime($paySince['setting_value']))); ?>.<?php endif; ?></small>
+                        <?php if ($payOn && !empty($paySince['setting_value'])): ?>Pembayaran dicatat sejak <?php echo htmlspecialchars(date('d M Y H:i', strtotime(preg_replace('/^db:/', '', $paySince['setting_value'])))); ?>.<?php endif; ?></small>
                 </div>
                 <form method="post" style="margin:0">
                     <input type="hidden" name="act" value="toggle_pay">

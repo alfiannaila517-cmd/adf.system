@@ -2140,8 +2140,8 @@ class CloudbedsSync
         $amount = (float)$p['amount'];
         $cashId = (int)($p['cashbook_id'] ?? 0);
         if (!$cashId) {
-            $cands = $this->db->fetchAll("SELECT id FROM cash_book WHERE transaction_type = 'income' AND ABS(amount - ?) < 1 AND (booking_id = ? OR description LIKE ?)",
-                [$amount, (int)$p['booking_id'], '%' . $p['booking_code'] . '%']) ?: [];
+            $cands = $this->db->fetchAll("SELECT id FROM cash_book WHERE transaction_type = 'income' AND ABS(amount - ?) < 1 AND description LIKE ?",
+                [$amount, '%' . $p['booking_code'] . '%']) ?: [];
             if (count($cands) === 1) $cashId = (int)$cands[0]['id'];
         }
         $cashMsg = 'baris buku kas tidak ditemukan — periksa Buku Kas';
