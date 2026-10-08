@@ -1069,6 +1069,71 @@ header('Expires: 0');
         .notif-popup .np-item {
             padding: 12px 16px;
             border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+        }
+
+        .notif-popup .np-more {
+            padding: 8px 16px;
+            font-size: 11px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        #notifDetail {
+            position: fixed;
+            inset: 0;
+            z-index: 400;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, .55);
+        }
+
+        #notifDetail.open {
+            display: flex;
+        }
+
+        #notifDetail .nd-card {
+            width: 100%;
+            max-width: 360px;
+            background: #fff;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, .3);
+        }
+
+        #notifDetail .nd-title {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--navy);
+            margin-bottom: 4px;
+        }
+
+        #notifDetail .nd-time {
+            font-size: 10px;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        #notifDetail .nd-msg {
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--text);
+            white-space: pre-wrap;
+        }
+
+        #notifDetail .nd-close {
+            width: 100%;
+            margin-top: 14px;
+            padding: 10px;
+            border: 0;
+            border-radius: 10px;
+            background: var(--navy);
+            color: #fff;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
         }
 
         .notif-popup .np-empty {
@@ -1246,7 +1311,8 @@ header('Expires: 0');
         .chat-popup .cp-body {
             padding: 12px;
             overflow-y: auto;
-            flex: 1;
+            flex: 0 1 auto;
+            max-height: 205px; /* ± 2 pengumuman, sisanya digulir */
         }
 
         .chat-popup .cp-msg {
@@ -6952,28 +7018,32 @@ header('Expires: 0');
                 }
                 let html = '';
                 if (source === 'notifications') {
-                    // New format from notifications table
+                    // Format dari tabel notifications: ketuk untuk membaca isinya, lalu notifikasi hilang
+                    window._notifCache = {};
                     notifs.forEach(n => {
+                        window._notifCache[n.id] = n;
                         const d = n.data || {};
                         const status = d.status || '';
                         const icon = status === 'approved' ? '✅' : (status === 'rejected' ? '❌' : '🔔');
                         const color = status === 'approved' ? 'var(--green)' : (status === 'rejected' ? 'var(--red)' : 'var(--navy)');
-                        const time = n.created_at ? new Date(n.created_at).toLocaleDateString('id-ID', {
+                        const time = n.created_at ? new Date(n.created_at.replace(' ', 'T')).toLocaleDateString('id-ID', {
                             day: 'numeric',
                             month: 'short',
                             hour: '2-digit',
                             minute: '2-digit'
                         }) : '';
-                        const unreadStyle = n.is_read == 0 ? 'background:#f0f7ff;' : '';
-                        html += `<div class="np-item" style="${unreadStyle}">
+                        const short = String(n.message || '').replace(/</g, '&lt;');
+                        html += `<div class="np-item" style="background:#f0f7ff;" onclick="openNotifDetail(${n.id})">
                     <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
                         <span style="font-size:14px;">${icon}</span>
-                        <span style="font-weight:700;font-size:12px;color:${color};">${n.title||''}</span>
+                        <span style="font-weight:700;font-size:12px;color:${color};">${String(n.title||'').replace(/</g, '&lt;')}</span>
                         <span style="font-size:10px;color:var(--muted);margin-left:auto;">${time}</span>
                     </div>
-                    <div style="font-size:11px;color:#555;">${n.message||''}</div>
+                    <div style="font-size:11px;color:#555;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${short}</div>
                 </div>`;
                     });
+                    const more = (data.unread_count || 0) - notifs.length;
+                    if (more > 0) html += `<div class="np-more">+${more} notifikasi lain — buka satu per satu</div>`;
                 } else {
                     // Legacy format from leave_requests table
                     const typeLabel = {
@@ -6982,7 +7052,7 @@ header('Expires: 0');
                         izin: '📋 Izin',
                         cuti_khusus: '⭐ Khusus'
                     };
-                    notifs.forEach(n => {
+                    notifs.slice(0, 3).forEach(n => {
                         const icon = n.status === 'approved' ? '✅' : '❌';
                         const label = n.status === 'approved' ? 'DISETUJUI' : 'DITOLAK';
                         const color = n.status === 'approved' ? 'var(--green)' : 'var(--red)';
@@ -7012,17 +7082,40 @@ header('Expires: 0');
                     });
                 }
                 document.getElementById('notifList').innerHTML = html;
-                // Mark as read when opened — clear badge immediately instead of waiting for next poll
-                if (source === 'notifications') {
-                    await fetch(API + '&action=notif_mark_read');
-                    window._notifUnread = 0;
-                    document.getElementById('notifDot').classList.remove('show');
-                    document.getElementById('notifDot').textContent = '';
-                    syncAppIconBadge();
-                }
+                // Tidak ditandai dibaca otomatis: notifikasi hilang setelah dibuka (openNotifDetail)
             } catch (e) {
                 document.getElementById('notifList').innerHTML = '<div class="np-empty">Gagal memuat</div>';
             }
+        }
+
+        // Ketuk notifikasi → tampil isinya → notifikasi hilang dari lonceng
+        function openNotifDetail(id) {
+            const n = (window._notifCache || {})[id];
+            if (!n) return;
+            let box = document.getElementById('notifDetail');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'notifDetail';
+                box.innerHTML = '<div class="nd-card"><div class="nd-title"></div><div class="nd-time"></div><div class="nd-msg"></div><button type="button" class="nd-close">Tutup</button></div>';
+                box.addEventListener('click', function(e) {
+                    if (e.target === box || e.target.classList.contains('nd-close')) box.classList.remove('open');
+                });
+                document.body.appendChild(box);
+            }
+            box.querySelector('.nd-title').textContent = n.title || 'Notifikasi';
+            box.querySelector('.nd-time').textContent = n.created_at ? new Date(n.created_at.replace(' ', 'T')).toLocaleString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : '';
+            box.querySelector('.nd-msg').textContent = n.message || '';
+            box.classList.add('open');
+            // tandai dibaca di server, lalu muat ulang daftar (yang sudah dibuka hilang, berikutnya naik)
+            fetch(API + '&action=notif_dismiss&id=' + encodeURIComponent(id)).then(() => {
+                loadNotifs();
+                checkNotifs();
+            }).catch(() => {});
         }
 
         async function checkNotifs() {
@@ -8542,7 +8635,8 @@ header('Expires: 0');
                         body: JSON.stringify({
                             action: 'subscribe',
                             subscription: sub.toJSON(),
-                            employee_id: parseInt(empId)
+                            employee_id: parseInt(empId),
+                            business: '<?php echo htmlspecialchars($bizSlug, ENT_QUOTES); ?>'
                         })
                     });
                     console.log('[StaffPush] Subscribed OK');

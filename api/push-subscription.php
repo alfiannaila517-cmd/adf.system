@@ -46,6 +46,12 @@ if (!$input) {
 }
 
 $db = Database::getInstance();
+// Staff Portal mengirim slug bisnisnya: simpan langganan di database bisnis itu (bukan bisnis bawaan)
+$bizSlug = preg_replace('/[^a-z0-9\-_]/', '', strtolower(trim((string)($input['business'] ?? ''))));
+if ($bizSlug !== '' && is_file(dirname(dirname(__FILE__)) . '/config/businesses/' . $bizSlug . '.php')) {
+    $bizCfg = require dirname(dirname(__FILE__)) . '/config/businesses/' . $bizSlug . '.php';
+    if (!empty($bizCfg['database'])) $db = Database::switchDatabase($bizCfg['database']);
+}
 $push = new PushNotificationHelper($db);
 
 $action = $input['action'] ?? $action;

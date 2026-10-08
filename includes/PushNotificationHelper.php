@@ -53,6 +53,22 @@ class PushNotificationHelper
             INDEX idx_user (user_id),
             INDEX idx_employee (employee_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Staf terikat ke database bisnisnya: ID karyawan antar bisnis bisa sama, jangan sampai notifikasi
+        // satu bisnis (mis. check-in tamu hotel) masuk ke HP staf bisnis lain.
+        // (Database::query mengembalikan false saat gagal, tidak melempar exception)
+        if ($this->db->query("SELECT business_db FROM push_subscriptions LIMIT 0") === false) {
+            $this->db->query("ALTER TABLE push_subscriptions ADD COLUMN business_db VARCHAR(100) NULL AFTER employee_id");
+        }
+    }
+
+    /** Nama database bisnis yang sedang aktif */
+    private function currentDb(): string
+    {
+        try {
+            return (string)($this->db->fetchOne("SELECT DATABASE() d")['d'] ?? '');
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     /**
@@ -98,9 +114,12 @@ class PushNotificationHelper
         $this->db->query("DELETE FROM push_subscriptions WHERE endpoint = ?", [$endpoint]);
 
         // Insert new
+        // Langganan dari Staff Portal bukan langganan admin: jangan ikut menerima notifikasi admin/owner
+        if ($employeeId) $userId = null;
         $this->db->insert('push_subscriptions', [
             'user_id'     => $userId,
             'employee_id' => $employeeId,
+            'business_db' => $employeeId ? $this->currentDb() : null,
             'endpoint'    => $endpoint,
             'public_key'  => $publicKey,
             'auth_token'  => $authToken,
@@ -129,7 +148,7 @@ class PushNotificationHelper
 
         $placeholders = implode(',', array_fill(0, count($userIds), '?'));
         $subs = $this->db->fetchAll(
-            "SELECT * FROM push_subscriptions WHERE user_id IN ($placeholders)",
+            "SELECT * FROM push_subscriptions WHERE user_id IN ($placeholders) AND employee_id IS NULL",
             $userIds
         ) ?: [];
 
@@ -145,8 +164,8 @@ class PushNotificationHelper
 
         $placeholders = implode(',', array_fill(0, count($employeeIds), '?'));
         $subs = $this->db->fetchAll(
-            "SELECT * FROM push_subscriptions WHERE employee_id IN ($placeholders)",
-            $employeeIds
+            "SELECT * FROM push_subscriptions WHERE employee_id IN ($placeholders) AND business_db = ?",
+            array_merge($employeeIds, [$this->currentDb()])
         ) ?: [];
 
         return $this->sendToSubscriptions($subs, $title, $body, $data);

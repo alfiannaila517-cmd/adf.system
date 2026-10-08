@@ -1198,12 +1198,15 @@ if ($action === 'leave_history') {
 
 if ($action === 'notifications') {
     // Get notifications from notifications table (both leave + overtime responses)
-    $notifs = $db->fetchAll("SELECT id, type, title, message, data, is_read, created_at 
-        FROM notifications 
-        WHERE user_id = ? AND created_at >= CURDATE()
-        ORDER BY created_at DESC LIMIT 30", [$empId]) ?: []; // reset harian: hanya notifikasi hari ini
-    // Also get legacy leave notifications if notifications table is empty
-    if (empty($notifs)) {
+    // Lonceng: hanya yang belum dibaca, 3 terbaru, hari ini saja. Yang sudah dibuka (dismiss) hilang.
+    $notifs = $db->fetchAll("SELECT id, type, title, message, data, is_read, created_at
+        FROM notifications
+        WHERE user_id = ? AND created_at >= CURDATE() AND is_read = 0
+        ORDER BY created_at DESC LIMIT 3", [$empId]) ?: [];
+    $unreadTotal = (int)($db->fetchOne("SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND created_at >= CURDATE() AND is_read = 0", [$empId])['c'] ?? 0);
+    $anyToday = (int)($db->fetchOne("SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND created_at >= CURDATE()", [$empId])['c'] ?? 0);
+    // Also get legacy leave notifications if notifications table has nothing today
+    if (empty($notifs) && $anyToday === 0) {
         $legacy = $db->fetchAll("SELECT id, leave_type, start_date, end_date, status, admin_notes, approved_at 
             FROM leave_requests 
             WHERE employee_id = ? AND status IN ('approved','rejected') AND approved_at IS NOT NULL AND approved_at >= CURDATE()
@@ -1211,12 +1214,18 @@ if ($action === 'notifications') {
         echo json_encode(['success' => true, 'data' => $legacy, 'source' => 'legacy']);
         exit;
     }
-    $unread = 0;
     foreach ($notifs as &$n) {
         $n['data'] = json_decode($n['data'], true);
-        if (!$n['is_read']) $unread++;
     }
-    echo json_encode(['success' => true, 'data' => $notifs, 'unread_count' => $unread, 'source' => 'notifications']);
+    echo json_encode(['success' => true, 'data' => $notifs, 'unread_count' => $unreadTotal, 'source' => 'notifications']);
+    exit;
+}
+
+if ($action === 'notif_dismiss') {
+    // Notifikasi sudah dibuka: tandai dibaca sehingga hilang dari lonceng
+    $nid = (int)($_GET['id'] ?? 0);
+    $db->query("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?", [$nid, $empId]);
+    echo json_encode(['success' => true]);
     exit;
 }
 
