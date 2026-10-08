@@ -531,6 +531,7 @@ class CloudbedsClient
                     'room_name' => (string)($rm['roomName'] ?? ''),
                     'type_id' => (string)($rm['roomTypeID'] ?? ''),
                     'type_name' => (string)($rm['roomTypeName'] ?? ''),
+                    'sub_id' => (string)($rm['subReservationID'] ?? ''),
                     'start' => substr((string)($rm['startDate'] ?? $rm['roomCheckIn'] ?? ''), 0, 10),
                     'end' => substr((string)($rm['endDate'] ?? $rm['roomCheckOut'] ?? ''), 0, 10),
                     'total' => isset($rm['roomTotal']) && is_numeric($rm['roomTotal']) ? (float)$rm['roomTotal'] : null,

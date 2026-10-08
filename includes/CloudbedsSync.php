@@ -593,10 +593,10 @@ class CloudbedsSync
         }
         $toAssign = array_values(array_diff_key($want, $have));
         $toFree = array_values(array_diff_key($have, $want));
+        $unassignedSlots = array_values(array_filter((array)($det['rooms'] ?? []), fn($x) => empty($x['assigned'])));
+        $multiRes = count((array)($det['rooms'] ?? [])) > 1;
         foreach ($toAssign as $i => $new) {
-            $p = ['reservationID' => $cbId, 'newRoomID' => $new['room_id'], 'roomTypeID' => $new['type_id']];
-            if (isset($toFree[$i])) $p['oldRoomID'] = $toFree[$i]['room_id'];
-            $r = $this->cb->send('POST', 'postRoomAssign', $p);
+            $r = $this->assignCbRoom($cbId, $new, $unassignedSlots, $multiRes, $toFree[$i] ?? null);
             if (!$r['ok']) throw new \RuntimeException('pindah kamar ditolak: ' . $r['detail']);
             $sent = $reshaped = true;
         }
@@ -1200,6 +1200,40 @@ class CloudbedsSync
         }
     }
 
+    /**
+     * Tempatkan satu kamar fisik pada reservasi Cloudbeds. Reservasi satu kamar cukup dengan reservationID + kamar baru;
+     * reservasi multi-kamar perlu menunjuk "slot" kamar mana yang diganti (subReservationID / oldRoomID), kalau tidak
+     * Cloudbeds menolak "Invalid Room ID". Slot diambil dari kamar yang belum bernomor (tipe sama).
+     * @param array $unassigned slot kamar belum bernomor dari reservationDetail (dikurangi satu tiap dipakai)
+     */
+    private function assignCbRoom(string $cbId, array $new, array &$unassigned, bool $multi, ?array $free = null): array
+    {
+        $base = ['reservationID' => $cbId, 'newRoomID' => $new['room_id'], 'roomTypeID' => $new['type_id']];
+        $slot = $free;
+        if (!$slot) {
+            foreach ($unassigned as $k => $u) {
+                if ((string)$u['type_id'] === (string)$new['type_id']) {
+                    $slot = $u;
+                    unset($unassigned[$k]);
+                    break;
+                }
+            }
+        }
+        $variants = [];
+        $withSub = $slot && !empty($slot['sub_id']) ? $base + ['subReservationID' => $slot['sub_id']] : null;
+        $withOld = $slot && !empty($slot['room_id']) ? $base + ['oldRoomID' => $slot['room_id']] : null;
+        $order = $multi ? [$withSub, $withOld, $base] : [$base, $withSub, $withOld];
+        foreach ($order as $v) {
+            if ($v !== null && !in_array($v, $variants, true)) $variants[] = $v;
+        }
+        $r = ['ok' => false, 'detail' => 'tidak ada percobaan'];
+        foreach ($variants as $v) {
+            $r = $this->cb->send('POST', 'postRoomAssign', $v);
+            if ($r['ok']) break;
+        }
+        return $r;
+    }
+
     /** Buat reservasi di Cloudbeds untuk booking direct, tempatkan di kamar yang sama, lalu tautkan. */
     private function pushCreate(array $a): void
     {
@@ -1277,8 +1311,11 @@ class CloudbedsSync
             // Cloudbeds memakai harga rate plan-nya; harga sistem disamakan lewat antrean edit (adjustment)
             $this->db->query("INSERT IGNORE INTO cloudbeds_pending_edits (booking_id) VALUES (?)", [$bid]);
         }
+        // Reservasi multi-kamar: ambil slot kamar yang belum bernomor agar tiap kamar ditempatkan ke slot yang tepat
+        $slotsDet = count($items) > 1 ? $this->cb->reservationDetail($resId) : ['rooms' => []];
+        $unassignedSlots = array_values(array_filter((array)($slotsDet['rooms'] ?? []), fn($x) => empty($x['assigned'])));
         foreach ($items as $it) {
-            $as = $this->cb->send('POST', 'postRoomAssign', ['reservationID' => $resId, 'newRoomID' => $it['cb_room']['room_id'], 'roomTypeID' => $it['cb_room']['type_id']]);
+            $as = $this->assignCbRoom($resId, $it['cb_room'], $unassignedSlots, count($items) > 1);
             $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", [
                 "\n[Dikirim ke Cloudbeds #" . $resId . $capNote . ($as['ok'] ? '' : ' — kamar belum ditempatkan: ' . mb_substr($as['detail'], 0, 120)) . ']', (int)$it['booking']['id'],
             ]);
