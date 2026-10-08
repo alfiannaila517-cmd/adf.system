@@ -420,22 +420,78 @@ try {
                 $syncMethod = $isOTA ? ('OTA ' . ($booking['booking_source'] ?? 'OTA')) : 'transfer';
             }
 
+            // Booking grup OTA: SATU baris kas untuk seluruh kamar (nama tamu - tipe kamar × jumlah kamar (kode booking)),
+            // dicatat saat kamar pertama check-in; kamar lain yang check-in menyusul tidak mencatat lagi.
+            $grpIds = [$bookingId];
+            $grpLabel = '';
+            $grpCode = $booking['booking_code'];
+            $grpFinal = (float)$booking['final_price'];
+            $grpPaidTotal = (float)$totalPaid;
+            $grpOtaGross = null;
+            if ($isOTA && !$payNow && !empty($booking['group_id'])) {
+                $sibs = $db->fetchAll("SELECT b.id, b.booking_code, b.final_price, COALESCE(b.direct_amount, 0) AS direct_amount, rt.type_name AS room_type
+                    FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id LEFT JOIN room_types rt ON rt.id = r.room_type_id
+                    WHERE b.group_id = ? AND b.status <> 'cancelled' ORDER BY b.id", [$booking['group_id']]) ?: [];
+                if (count($sibs) > 1) {
+                    $grpUnsynced = 0.0;
+                    $grpFinal = 0.0;
+                    $grpPaidTotal = 0.0;
+                    $grpOtaGross = 0.0;
+                    $grpIds = [];
+                    foreach ($sibs as $sb) {
+                        $sid = (int)$sb['id'];
+                        $grpIds[] = $sid;
+                        $sbPaid = (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) s FROM booking_payments WHERE booking_id = ?", [$sid])['s'] ?? 0);
+                        $hasPay = $db->fetchOne("SELECT id FROM booking_payments WHERE booking_id = ? LIMIT 1", [$sid]);
+                        $sbRemaining = max(0, (float)$sb['final_price'] - $sbPaid);
+                        // Kamar lain yang belum punya pembayaran: buat pembayaran OTA otomatis seperti kamar ini
+                        if ($sid !== (int)$bookingId && !$hasPay && $sbRemaining > 0) {
+                            $db->insert('booking_payments', [
+                                'booking_id'     => $sid,
+                                'amount'         => $sbRemaining,
+                                'payment_date'   => date('Y-m-d H:i:s'),
+                                'payment_method' => 'ota_' . strtolower(trim($booking['booking_source'] ?? 'ota')),
+                                'notes'          => 'Auto-payment at check-in (OTA: ' . $booking['booking_source'] . ')',
+                                'processed_by'   => $validUserId
+                            ]);
+                            $sbPaid += $sbRemaining;
+                            $db->query("UPDATE bookings SET paid_amount = ?, payment_status = 'paid', updated_at = NOW() WHERE id = ?", [$sbPaid, $sid]);
+                        }
+                        $grpUnsynced += (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) s FROM booking_payments WHERE booking_id = ? AND (synced_to_cashbook IS NULL OR synced_to_cashbook = 0)", [$sid])['s'] ?? 0);
+                        $grpFinal += (float)$sb['final_price'];
+                        $grpPaidTotal += $sbPaid;
+                        $grpOtaGross += max(0, (float)$sb['final_price'] - (float)$sb['direct_amount']);
+                    }
+                    if ($grpUnsynced > 0) {
+                        $syncAmount = $grpUnsynced;
+                        $grpLabel = CashbookHelper::groupRoomLabel($sibs);
+                        $grpCode = $sibs[0]['booking_code'];
+                    } else {
+                        $grpIds = [$bookingId];
+                        $grpFinal = (float)$booking['final_price'];
+                        $grpPaidTotal = (float)$totalPaid;
+                        $grpOtaGross = null;
+                    }
+                }
+            }
+
             $syncResult = $cashbookHelper->syncPaymentToCashbook([
                 'payment_id'     => null,
                 'booking_id'     => $bookingId,
                 'amount'         => $syncAmount,
                 'payment_method' => $syncMethod,
                 'guest_name'     => $booking['guest_name'],
-                'booking_code'   => $booking['booking_code'],
+                'booking_code'   => $grpCode,
                 'room_number'    => $booking['room_number'],
+                'room_label'     => $grpLabel,
                 'booking_source' => ($hotelCollect || ($isOTA && $cbLinkedCheckin)) ? 'direct' : $booking['booking_source'],
                 'booking_notes'  => $booking['notes'] ?? $booking['special_request'] ?? '',
-                'final_price'    => $booking['final_price'],
-                'total_paid'     => $totalPaid,
+                'final_price'    => $grpFinal,
+                'total_paid'     => $grpPaidTotal,
                 'is_new_reservation' => false,
                 'is_ota_checkin' => $isOTA && !$payNow && !$otaPartSynced,
                 // Bagian yang dibayar langsung ke hotel (upgrade/extend) tidak ikut dipotong fee OTA
-                'ota_gross'      => max(0, (float)$booking['final_price'] - (float)($db->fetchOne("SELECT COALESCE(direct_amount, 0) AS d FROM bookings WHERE id = ?", [$bookingId])['d'] ?? 0))
+                'ota_gross'      => $grpOtaGross !== null ? $grpOtaGross : max(0, (float)$booking['final_price'] - (float)($db->fetchOne("SELECT COALESCE(direct_amount, 0) AS d FROM bookings WHERE id = ?", [$bookingId])['d'] ?? 0))
             ]);
 
             $cashbookSynced = $syncResult['success'];
@@ -449,7 +505,7 @@ try {
                 } else {
                     // Direct: sisa yang belum tercatat; OTA: seluruh pembayaran (dicatat sekaligus).
                     // Baris yang sudah punya cashbook_id tidak ditimpa.
-                    $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id = ? AND (synced_to_cashbook IS NULL OR synced_to_cashbook = 0)", [$syncResult['transaction_id'], $bookingId]);
+                    $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id IN (" . implode(',', array_map('intval', $grpIds)) . ") AND (synced_to_cashbook IS NULL OR synced_to_cashbook = 0)", [$syncResult['transaction_id']]);
                 }
             }
         } catch (\Throwable $e) {
