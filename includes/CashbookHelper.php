@@ -489,6 +489,22 @@ class CashbookHelper
     }
 
     /**
+     * Label kamar untuk booking grup di keterangan buku kas: "King × 3 rooms" atau "King × 2, Twin × 1 (3 rooms)".
+     * @param array<int,array{room_type?:?string}> $rooms satu elemen per kamar
+     */
+    public static function groupRoomLabel(array $rooms): string
+    {
+        $n = count($rooms);
+        if ($n < 2) return '';
+        $by = [];
+        foreach ($rooms as $r) {
+            $t = trim((string)($r['room_type'] ?? '')) ?: 'Room';
+            $by[$t] = ($by[$t] ?? 0) + 1;
+        }
+        if (count($by) === 1) return array_key_first($by) . ' × ' . $n . ' rooms';
+        return implode(', ', array_map(fn($t, $c) => $t . ' × ' . $c, array_keys($by), $by)) . ' (' . $n . ' rooms)';
+    }
+    /**
      * Main method: Sync booking payment to cashbook
      * 
      * @param array $paymentData Payment data with keys:
@@ -594,7 +610,11 @@ class CashbookHelper
             $bookingNotes = trim($paymentData['booking_notes'] ?? '');
 
             $description = "{$guestName}";
-            if ($roomNumber) {
+            $roomLabel = trim((string)($paymentData['room_label'] ?? ''));
+            if ($roomLabel !== '') {
+                // Booking grup: satu baris untuk semua kamar, mis. "King × 3 rooms"
+                $description .= " - {$roomLabel}";
+            } elseif ($roomNumber) {
                 $description .= " - Room {$roomNumber}";
             }
             if ($bookingCode) {

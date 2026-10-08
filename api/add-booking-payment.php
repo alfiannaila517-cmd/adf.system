@@ -343,14 +343,23 @@ try {
             $businessId = $_SESSION['business_id'] ?? $db->fetchOne("SELECT business_id FROM users WHERE id = ?", [$currentUser['id']])['business_id'] ?? 1;
             $cashbookHelper = new CashbookHelper($db, $businessId, $currentUser['id'] ?? 1);
             
+            // Booking grup: satu baris kas untuk semua kamar (tipe kamar × jumlah kamar, kode booking utama)
+            $grpLabel = '';
+            $grpCode = $bookingDetails['booking_code'] ?? '';
+            if ($isGroupPayment && !empty($booking['group_id'])) {
+                $grpRooms = $db->fetchAll("SELECT b.booking_code, rt.type_name AS room_type FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id LEFT JOIN room_types rt ON rt.id = r.room_type_id WHERE b.group_id = ? AND b.status <> 'cancelled' ORDER BY b.id", [$booking['group_id']]) ?: [];
+                $grpLabel = CashbookHelper::groupRoomLabel($grpRooms);
+                if ($grpRooms) $grpCode = $grpRooms[0]['booking_code'];
+            }
             $syncResult = $cashbookHelper->syncPaymentToCashbook([
                 'payment_id'     => null,
                 'booking_id'     => $bookingId,
                 'amount'         => $amount,
                 'payment_method' => $otaSyncNow ? ('OTA ' . $bookingSource) : $paymentMethod,
                 'guest_name'     => $bookingDetails['guest_name'] ?? 'Guest',
-                'booking_code'   => $bookingDetails['booking_code'] ?? '',
+                'booking_code'   => $grpCode,
                 'room_number'    => $bookingDetails['room_number'] ?? '',
+                'room_label'     => $grpLabel,
                 'booking_source' => ($directOnOta || ($isOTA && $cbLinked)) ? 'direct' : ($bookingDetails['booking_source'] ?? 'direct'),
                 'final_price'    => $isGroupPayment ? $combinedFinalPrice : ($bookingDetails['final_price'] ?? 0),
                 'total_paid'     => $isGroupPayment ? $combinedTotalPaid : $totalPaid,

@@ -2319,9 +2319,9 @@ class CloudbedsSync
         if ($amount < 1 || !$ids) return false;
         $in = implode(',', array_map('intval', $ids));
         // Cek ulang saat eksekusi (data bisa berubah sejak rencana dibuat)
-        $rows = $this->db->fetchAll("SELECT b.id, b.booking_code, b.booking_source, b.final_price, b.room_id, g.guest_name, r.room_number,
+        $rows = $this->db->fetchAll("SELECT b.id, b.booking_code, b.booking_source, b.final_price, b.room_id, g.guest_name, r.room_number, rt.type_name AS room_type,
                 (SELECT COALESCE(SUM(amount), 0) FROM booking_payments WHERE booking_id = b.id) paid
-            FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id LEFT JOIN rooms r ON r.id = b.room_id WHERE b.id IN ($in) ORDER BY b.id") ?: [];
+            FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id LEFT JOIN rooms r ON r.id = b.room_id LEFT JOIN room_types rt ON rt.id = r.room_type_id WHERE b.id IN ($in) ORDER BY b.id") ?: [];
         $rest = array_sum(array_map(fn($r) => max(0, (float)$r['final_price'] - (float)$r['paid']), $rows));
         $amount = round(min($amount, $rest), 2);
         if ($amount < 1) return false;
@@ -2351,16 +2351,23 @@ class CloudbedsSync
         try {
             require_once __DIR__ . '/CashbookHelper.php';
             $helper = new \CashbookHelper($this->db, $_SESSION['business_id'] ?? 1, $proc ?? 1);
-            foreach ($made as $m) {
+            if ($made) {
+                // Satu baris buku kas per tarikan: booking grup digabung (nama tamu - tipe kamar × jumlah kamar (kode booking))
+                $first = $made[0]['row'];
+                $sumAmt = array_sum(array_column($made, 'amount'));
                 $res = $helper->syncPaymentToCashbook([
-                    'payment_id' => null, 'booking_id' => (int)$m['row']['id'], 'amount' => $m['amount'],
-                    'payment_method' => $isOta ? ('OTA ' . $m['row']['booking_source']) : 'transfer',
-                    'guest_name' => $m['row']['guest_name'] ?? 'Guest', 'booking_code' => $m['row']['booking_code'], 'room_number' => $m['row']['room_number'] ?? '',
-                    'booking_source' => 'direct', 'final_price' => (float)$m['row']['final_price'], 'total_paid' => (float)$m['row']['paid'] + $m['amount'],
+                    'payment_id' => null, 'booking_id' => (int)$first['id'], 'amount' => $sumAmt,
+                    'payment_method' => $isOta ? ('OTA ' . $first['booking_source']) : 'transfer',
+                    'guest_name' => $first['guest_name'] ?? 'Guest', 'booking_code' => $first['booking_code'], 'room_number' => $first['room_number'] ?? '',
+                    'room_label' => count($rows) > 1 ? \CashbookHelper::groupRoomLabel($rows) : '',
+                    'booking_source' => 'direct',
+                    'final_price' => array_sum(array_map(fn($r) => (float)$r['final_price'], $rows)),
+                    'total_paid' => array_sum(array_map(fn($r) => (float)$r['paid'], $rows)) + $sumAmt,
                     'is_new_reservation' => false, 'is_ota_checkin' => false,
                 ]);
                 if (!empty($res['success']) && !empty($res['transaction_id'])) {
-                    $this->db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$res['transaction_id'], $m['pid']]);
+                    $pids = array_map(fn($m) => (int)$m['pid'], $made);
+                    $this->db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id IN (" . implode(',', $pids) . ")", [$res['transaction_id']]);
                 }
             }
         } catch (\Throwable $e) {
