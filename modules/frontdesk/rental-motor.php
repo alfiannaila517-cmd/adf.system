@@ -566,555 +566,187 @@ try {
 include '../../includes/header.php';
 ?>
 <style>
-    .rm-page {
-        padding: 1.25rem;
+    /* Rental Motor — Kelola Armada. Gaya seragam dengan Dashboard Front Desk & Dashboard Rental Motor.
+       #rmm / body[data-theme] + !important: style.css tema terang memaksa warna teks span/div/td. */
+    #rmm, .rm-modal-overlay {
+        --ink: #0f172a; --mute: #64748b; --faint: #94a3b8; --line: #e8edf3; --soft: #f8fafc; --card: #ffffff;
+        --brand: #1e3a8a; --accent: #2563eb; --ok: #16a34a; --ok-bg: #dcfce7; --warn: #b45309; --warn-bg: #fef3c7;
+        --bad: #dc2626; --bad-bg: #fee2e2; --info: #4338ca; --info-bg: #e0e7ff; --gray-bg: #f1f5f9;
+        --shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 18px -12px rgba(15,23,42,.16);
     }
+    body[data-theme="dark"] #rmm, body[data-theme="dark"] .rm-modal-overlay {
+        --ink: #f1f5f9; --mute: #94a3b8; --faint: #64748b; --line: rgba(148,163,184,.16); --soft: rgba(255,255,255,.03); --card: rgba(30,41,59,.72);
+        --brand: #93c5fd; --accent: #60a5fa; --ok: #4ade80; --ok-bg: rgba(34,197,94,.14); --warn: #fbbf24; --warn-bg: rgba(245,158,11,.14);
+        --bad: #f87171; --bad-bg: rgba(239,68,68,.14); --info: #a5b4fc; --info-bg: rgba(99,102,241,.16); --gray-bg: rgba(148,163,184,.12);
+        --shadow: 0 12px 28px -16px rgba(0,0,0,.7);
+    }
+    #rmm { max-width: 1600px; margin: 0 auto; padding: 1rem 1rem 1.5rem; color: var(--ink); font-size: 0.8rem; }
+    #rmm :is(span, div, td, th, p, li, b, small, strong, em, label, h2, h3) { color: inherit !important; -webkit-text-fill-color: currentColor; }
+    #rmm *, .rm-modal-overlay * { box-sizing: border-box; }
 
-    .rm-topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.25rem;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-    }
+    /* Header */
+    .rm-topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    #rmm .rm-eyebrow { font-size: 0.64rem !important; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--accent) !important; }
+    #rmm .rm-topbar h2 { margin: 1px 0; font-size: 1.05rem !important; font-weight: 800 !important; color: var(--ink) !important; }
+    #rmm .rm-sub { font-size: 0.7rem !important; color: var(--mute) !important; }
+    .rm-top-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
-    .rm-topbar h2 {
-        font-size: 1.2rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin: 0;
-    }
+    /* Tombol */
+    .btn-rm { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 13px; border-radius: 9px; font-size: 0.72rem; font-weight: 700; border: 1px solid var(--line); background: var(--card); cursor: pointer; text-decoration: none !important; font-family: inherit; white-space: nowrap; transition: border-color .15s, transform .15s, filter .15s; }
+    body[data-theme] .btn-rm { color: var(--ink) !important; }
+    .btn-rm:hover { border-color: var(--accent); transform: translateY(-1px); }
+    body[data-theme] .btn-rm-primary { background: var(--brand); border-color: var(--brand); color: #fff !important; }
+    body[data-theme="dark"] .btn-rm-primary { background: #2563eb; border-color: #2563eb; }
+    body[data-theme] .btn-rm-success { background: #16a34a; border-color: #16a34a; color: #fff !important; }
+    body[data-theme] .btn-rm-danger { background: #dc2626; border-color: #dc2626; color: #fff !important; }
+    .btn-rm-primary:hover, .btn-rm-success:hover, .btn-rm-danger:hover { filter: brightness(1.08); }
+    .btn-rm svg { width: 14px; height: 14px; }
 
-    .rm-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 1.25rem;
-    }
+    /* Statistik */
+    .rm-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .rm-stat { position: relative; display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 6px; padding: 11px 13px 12px 15px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; min-width: 0; }
+    .rm-stat::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c, #2563eb); }
+    #rmm .rm-stat .lbl { font-size: 0.6rem !important; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--mute) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #rmm .rm-stat .val { font-size: 1.1rem !important; font-weight: 800; line-height: 1.1; color: var(--ink) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .rm-stat {
-        background: white;
-        border-radius: 10px;
-        padding: 0.85rem 1rem;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
-        border-top: 3px solid var(--c);
-    }
+    /* Tab */
+    .rm-tabs { display: flex; gap: 3px; padding: 4px; margin-bottom: 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 11px; overflow-x: auto; scrollbar-width: none; }
+    .rm-tab { flex: 1 0 auto; border: 0; background: transparent; padding: 7px 14px; border-radius: 8px; font-size: 0.74rem; font-weight: 700; cursor: pointer; white-space: nowrap; font-family: inherit; }
+    body[data-theme] .rm-tab { color: var(--mute) !important; }
+    body[data-theme] .rm-tab.active { background: var(--card); color: var(--ink) !important; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+    body[data-theme="dark"] .rm-tab.active { background: rgba(255,255,255,.08); }
+    .rm-tab-pane { display: none; }
+    .rm-tab-pane.active { display: block; }
 
-    .rm-stat .val {
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: var(--c);
-    }
+    #rmm .rm-sec-title { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; font-size: 0.8rem !important; font-weight: 800 !important; color: var(--ink) !important; }
+    #rmm .rm-sec-title small { font-size: 0.66rem !important; font-weight: 600; color: var(--mute) !important; }
+    .rm-section-gap { margin-bottom: 18px; }
 
-    .rm-stat .lbl {
-        font-size: 0.72rem;
-        color: var(--text-secondary);
-        margin-top: 0.15rem;
-    }
+    /* Kartu motor */
+    .rm-fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+    .rm-motor-card { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 13px 14px 12px 17px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; transition: transform .15s, box-shadow .15s; }
+    .rm-motor-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--mc, #22c55e); }
+    .rm-motor-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -16px rgba(15,23,42,.35); }
+    #rmm .rm-motor-card .mc-status { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 0.62rem !important; font-weight: 800; color: #fff !important; background: var(--mc, #22c55e); margin-bottom: 4px; }
+    #rmm .rm-motor-card .mc-plate { font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace; font-size: 0.9rem !important; font-weight: 800; letter-spacing: .02em; color: var(--ink) !important; }
+    #rmm .rm-motor-card .mc-name { font-size: 0.72rem !important; color: var(--mute) !important; }
+    #rmm .rm-motor-card .mc-name span { color: var(--faint) !important; }
+    #rmm .rm-motor-card .mc-rate { font-size: 0.7rem !important; font-weight: 600; color: var(--mute) !important; margin-top: 2px; }
+    #rmm .rm-motor-card .mc-note { font-size: 0.68rem !important; color: var(--faint) !important; }
+    #rmm .rm-motor-card .mc-timer { margin-top: 6px; padding: 7px 10px; border-radius: 9px; font-size: 0.74rem !important; font-weight: 800; background: var(--warn-bg); color: var(--warn) !important; }
+    #rmm .rm-motor-card.is-late .mc-timer { background: var(--bad-bg); color: var(--bad) !important; }
+    .rm-motor-card .mc-actions { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+    .mc-btn, .rm-action-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid transparent; font-size: 0.68rem; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap; transition: filter .15s, transform .15s; }
+    .mc-btn { flex: 1; }
+    .mc-btn:hover, .rm-action-btn:hover { filter: brightness(.96); transform: translateY(-1px); }
+    body[data-theme] .mc-btn, body[data-theme] .rm-action-btn { background: var(--gray-bg); color: var(--ink) !important; }
+    body[data-theme] .mc-btn.ok, body[data-theme] .rm-action-btn.ok { background: var(--ok-bg); color: var(--ok) !important; }
+    body[data-theme] .mc-btn.info, body[data-theme] .rm-action-btn.info { background: var(--info-bg); color: var(--info) !important; }
+    body[data-theme] .mc-btn.bad, body[data-theme] .rm-action-btn.bad { background: var(--bad-bg); color: var(--bad) !important; }
+    .mc-btn.bad { flex: 0 0 34px; }
 
-    /* Fleet grid */
-    .rm-fleet {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 1.25rem;
-    }
+    /* Tabel */
+    .rm-table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+    .rm-table { width: 100%; border-collapse: collapse; }
+    body[data-theme] .rm-table th { padding: 9px 12px; text-align: left; font-size: 0.6rem !important; font-weight: 800 !important; letter-spacing: .07em; text-transform: uppercase; color: var(--faint) !important; border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--soft) !important; }
+    body[data-theme] .rm-table td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; font-size: 0.76rem !important; color: var(--ink) !important; }
+    .rm-table tr:last-child td { border-bottom: 0; }
+    .rm-table tr:hover td { background: var(--soft); }
+    body[data-theme] .rm-table tr.is-partner td { background: rgba(34,197,94,.05); }
+    #rmm .rm-table a { color: var(--accent) !important; font-weight: 700; text-decoration: none; }
+    #rmm .rm-badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 0.64rem !important; font-weight: 800; color: #fff !important; white-space: nowrap; }
+    .rm-overdue-pulse { animation: overduePulse 1.8s ease-in-out infinite; }
+    @keyframes overduePulse { 50% { opacity: .65; } }
+    #rmm .rm-note { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--ok-bg); border-left: 3px solid #22c55e; font-size: 0.72rem !important; color: var(--ok) !important; }
 
-    .rm-motor-card {
-        background: white;
-        border-radius: 10px;
-        padding: 0.9rem;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
-        border-left: 4px solid var(--mc);
-        position: relative;
-        transition: transform 0.15s;
-    }
+    /* Filter riwayat */
+    .rm-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .rm-filters input, .rm-filters select { height: 32px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); font-size: 0.74rem; font-family: inherit; min-width: 180px; }
+    body[data-theme] .rm-filters input, body[data-theme] .rm-filters select { color: var(--ink) !important; }
+    .rm-filters input:focus, .rm-filters select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
 
-    .rm-motor-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-
-    .rm-motor-card .mc-plate {
-        font-size: 0.9rem;
-        font-weight: 800;
-        color: #1e293b;
-    }
-
-    .rm-motor-card .mc-name {
-        font-size: 0.78rem;
-        color: var(--text-secondary);
-        margin-top: 0.15rem;
-    }
-
-    .rm-motor-card .mc-rate {
-        font-size: 0.75rem;
-        color: #6366f1;
-        font-weight: 600;
-        margin-top: 0.3rem;
-    }
-
-    .rm-motor-card .mc-status {
-        position: absolute;
-        top: 0.65rem;
-        right: 0.75rem;
-        display: inline-block;
-        padding: 0.15rem 0.5rem;
-        border-radius: 20px;
-        font-size: 0.68rem;
-        font-weight: 600;
-        color: white;
-    }
-
-    .rm-motor-card .mc-actions {
-        display: flex;
-        gap: 0.35rem;
-        margin-top: 0.6rem;
-    }
-
-    .mc-btn {
-        padding: 0.2rem 0.5rem;
-        border: none;
-        border-radius: 5px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: opacity 0.2s;
-    }
-
-    .mc-btn:hover {
-        opacity: 0.8;
-    }
-
-    /* Filters */
-    .rm-filters {
-        background: white;
-        border-radius: 10px;
-        padding: 0.85rem 1rem;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
-        margin-bottom: 1rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.6rem;
-        align-items: center;
-    }
-
-    .rm-filters input,
-    .rm-filters select {
-        padding: 0.4rem 0.6rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        font-size: 0.8rem;
-        background: white;
-        color: var(--text-primary);
-    }
-
-    /* Table */
-    .rm-table-wrap {
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
-        overflow: hidden;
-        margin-bottom: 1.25rem;
-    }
-
-    .rm-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.8rem;
-    }
-
-    .rm-table th {
-        background: #f8fafc;
-        padding: 0.65rem 0.85rem;
-        text-align: left;
-        font-weight: 600;
-        color: var(--text-secondary);
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    .rm-table td {
-        padding: 0.65rem 0.85rem;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
-
-    .rm-table tr:last-child td {
-        border-bottom: none;
-    }
-
-    .rm-table tr:hover td {
-        background: #fafbff;
-    }
-
-    .rm-badge {
-        display: inline-block;
-        padding: 0.2rem 0.55rem;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: white;
-    }
-
-    .rm-action-btn {
-        padding: 0.25rem 0.55rem;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 0.72rem;
-        font-weight: 600;
-        transition: opacity 0.2s;
-    }
-
-    .rm-action-btn:hover {
-        opacity: 0.8;
-    }
+    #rmm .rm-empty { padding: 34px 16px; text-align: center; background: var(--card); border: 1px dashed var(--line); border-radius: 12px; color: var(--mute) !important; }
+    #rmm .rm-empty .em-icon { font-size: 1.6rem; margin-bottom: 6px; opacity: .7; }
+    #rmm .rm-empty p { margin: 0; font-size: 0.78rem !important; }
 
     /* Modal */
-    .rm-modal-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.55);
-        z-index: 99999;
-        align-items: center;
-        justify-content: center;
-        padding: 1rem;
-    }
+    .rm-modal-overlay { display: none; position: fixed; inset: 0; z-index: 1050; background: rgba(15,23,42,.45); backdrop-filter: blur(3px); align-items: center; justify-content: center; padding: 16px; }
+    .rm-modal-overlay.open { display: flex; }
+    .rm-modal { width: 100%; max-width: 520px; max-height: calc(100vh - 32px); overflow-y: auto; background: #fff; border-radius: 18px; padding: 18px 20px 16px; box-shadow: 0 30px 60px -20px rgba(15,23,42,.45); animation: rmIn .22s cubic-bezier(.2,.8,.2,1); color: #0f172a; }
+    body[data-theme="dark"] .rm-modal { background: #1e293b; color: #f1f5f9; }
+    @keyframes rmIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+    body[data-theme] .rm-modal h3 { margin: 0 0 14px; font-size: 0.95rem !important; font-weight: 800 !important; color: var(--ink) !important; }
+    body[data-theme] .rm-modal p, body[data-theme] .rm-modal span, body[data-theme] .rm-modal div { color: inherit; }
+    body[data-theme] .rm-modal .rm-hint { font-size: 0.74rem !important; color: var(--mute) !important; margin: -6px 0 12px; }
+    .rm-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .rm-form-row.full { grid-template-columns: 1fr; }
+    .rm-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    body[data-theme] .rm-field label { font-size: 0.68rem !important; font-weight: 700 !important; color: var(--mute) !important; }
+    .rm-field input, .rm-field select, .rm-field textarea { width: 100%; height: 36px; padding: 0 11px; border: 1px solid #dbe2ea; border-radius: 9px; background: #fff; font-size: 0.8rem; font-family: inherit; transition: border-color .15s, box-shadow .15s; }
+    body[data-theme] .rm-field input, body[data-theme] .rm-field select, body[data-theme] .rm-field textarea { color: var(--ink) !important; }
+    body[data-theme="dark"] .rm-field input, body[data-theme="dark"] .rm-field select, body[data-theme="dark"] .rm-field textarea { background: rgba(15,23,42,.6); border-color: rgba(148,163,184,.25); }
+    .rm-field textarea { height: auto; min-height: 64px; padding: 8px 11px; resize: vertical; }
+    .rm-field input:focus, .rm-field select:focus, .rm-field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+    .rm-field input[type="checkbox"] { width: 16px; height: 16px; }
+    .rm-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .rm-modal-footer .btn-rm { height: 36px; padding: 0 16px; font-size: 0.78rem; }
+    body[data-theme] .rm-info { display: block; margin-bottom: 14px; padding: 10px 12px; border-radius: 10px; background: #eff6ff; border-left: 3px solid #3b82f6; font-size: 0.74rem !important; line-height: 1.5; color: #1e3a8a !important; }
+    body[data-theme="dark"] .rm-info { background: rgba(59,130,246,.12); color: #bfdbfe !important; }
+    body[data-theme] .rm-modal .rm-mini-title { display: block; margin: 12px 0 6px; font-size: 0.66rem !important; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--faint) !important; }
+    body[data-theme] .rm-modal .rm-mini-title span { text-transform: none; letter-spacing: 0; font-weight: 500; }
 
-    .rm-modal-overlay.open {
-        display: flex;
-    }
+    .guest-toggle { display: flex; gap: 3px; padding: 4px; margin-bottom: 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; }
+    .guest-toggle button { flex: 1; border: 0; background: transparent; padding: 7px 10px; border-radius: 7px; font-size: 0.74rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+    body[data-theme] .guest-toggle button { color: var(--mute) !important; }
+    body[data-theme] .guest-toggle button.active { background: #fff; color: var(--ink) !important; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+    body[data-theme="dark"] .guest-toggle button.active { background: rgba(255,255,255,.08); }
 
-    .rm-modal {
-        background: white;
-        border-radius: 14px;
-        padding: 1.5rem;
-        width: 100%;
-        max-width: 560px;
-        max-height: 92vh;
-        overflow-y: auto;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
+    .motor-items-tbl { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+    body[data-theme] .motor-items-tbl th { padding: 0 4px; text-align: left; font-size: 0.62rem !important; font-weight: 800 !important; letter-spacing: .06em; text-transform: uppercase; color: var(--faint) !important; background: transparent !important; border: 0 !important; }
+    body[data-theme] .motor-items-tbl td { padding: 0 4px; border: 0 !important; background: transparent !important; }
+    .motor-items-tbl td select, .motor-items-tbl td input { width: 100%; height: 34px; padding: 0 10px; border: 1px solid #dbe2ea; border-radius: 9px; background: #fff; font-size: 0.78rem; font-family: inherit; }
+    body[data-theme] .motor-items-tbl td select, body[data-theme] .motor-items-tbl td input { color: var(--ink) !important; }
+    body[data-theme="dark"] .motor-items-tbl td select, body[data-theme="dark"] .motor-items-tbl td input { background: rgba(15,23,42,.6); border-color: rgba(148,163,184,.25); }
+    .motor-items-tbl td select:focus, .motor-items-tbl td input:focus { outline: none; border-color: var(--accent); }
+    .btn-add-motor { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; height: 30px; padding: 0 12px; border-radius: 8px; border: 1px dashed #93c5fd; background: #eff6ff; font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+    body[data-theme] .btn-add-motor { color: #1d4ed8 !important; }
+    .btn-add-motor:hover { background: #dbeafe; }
+    .btn-del-mrow { width: 30px; height: 30px; border-radius: 8px; border: 0; background: var(--bad-bg); cursor: pointer; font-size: 0.8rem; }
+    body[data-theme] .btn-del-mrow { color: var(--bad) !important; }
+    body[data-theme] .rm-total-preview { margin: 12px 0; padding: 11px 14px; border-radius: 11px; background: linear-gradient(135deg, #eff6ff, #eef2ff); border: 1px solid #c7d2fe; font-size: 0.84rem !important; font-weight: 800; color: #1e3a8a !important; }
+    body[data-theme="dark"] .rm-total-preview { background: rgba(59,130,246,.12); border-color: rgba(99,102,241,.3); color: #bfdbfe !important; }
+    body[data-theme] .rm-total-preview * { color: inherit !important; }
+    .rm-check { display: flex; align-items: center; gap: 8px; height: 36px; cursor: pointer; }
+    body[data-theme] .rm-check span { font-size: 0.78rem !important; font-weight: 700; color: var(--ink) !important; }
 
-    .rm-modal h3 {
-        margin: 0 0 1rem;
-        font-size: 1.05rem;
-        font-weight: 700;
-    }
-
-    .rm-form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .rm-form-row.full {
-        grid-template-columns: 1fr;
-    }
-
-    .rm-field label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        margin-bottom: 0.3rem;
-    }
-
-    .rm-field input,
-    .rm-field select,
-    .rm-field textarea {
-        width: 100%;
-        padding: 0.5rem 0.65rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 7px;
-        font-size: 0.85rem;
-        color: var(--text-primary);
-        background: white;
-        box-sizing: border-box;
-    }
-
-    .rm-field textarea {
-        resize: vertical;
-        min-height: 55px;
-    }
-
-    .rm-field input:focus,
-    .rm-field select:focus,
-    .rm-field textarea:focus {
-        outline: none;
-        border-color: #6366f1;
-        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
-    }
-
-    .rm-modal-footer {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.6rem;
-        margin-top: 1rem;
-    }
-
-    .btn-rm {
-        padding: 0.5rem 1.25rem;
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        font-size: 0.85rem;
-    }
-
-    .btn-rm-primary {
-        background: var(--primary, #6366f1);
-        color: white;
-    }
-
-    .btn-rm-secondary {
-        background: #f3f4f6;
-        color: #374151;
-        border: 1px solid #e5e7eb;
-    }
-
-    .btn-rm-success {
-        background: #10b981;
-        color: white;
-    }
-
-    .btn-rm-danger {
-        background: #ef4444;
-        color: white;
-    }
-
-    .rm-empty {
-        text-align: center;
-        padding: 3rem 1rem;
-        color: var(--text-secondary);
-    }
-
-    .rm-empty .em-icon {
-        font-size: 2.5rem;
-        margin-bottom: 0.5rem;
-    }
-
-    /* Guest toggle */
-    .guest-toggle {
-        display: flex;
-        gap: 0.4rem;
-        margin-bottom: 0.6rem;
-    }
-
-    .guest-toggle button {
-        flex: 1;
-        padding: 0.4rem 0.6rem;
-        border: 2px solid #e2e8f0;
-        border-radius: 7px;
-        background: white;
-        font-size: 0.78rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.15s;
-        color: #374151;
-    }
-
-    .guest-toggle button.active {
-        border-color: #6366f1;
-        background: #ede9fe;
-        color: #4c1d95;
-    }
-
-    /* Section labels */
-    .rm-section {
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        margin: 1.25rem 0 0.6rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    /* Overdue pulse */
-    .rm-overdue-pulse {
-        animation: overduePulse 2s ease-in-out infinite;
-    }
-
-    @keyframes overduePulse {
-
-        0%,
-        100% {
-            opacity: 1;
-        }
-
-        50% {
-            opacity: 0.6;
-        }
-    }
-
-    /* Tabs */
-    .rm-tabs {
-        display: flex;
-        border-bottom: 2px solid #e2e8f0;
-        margin-bottom: 1rem;
-    }
-
-    .rm-tab {
-        padding: 0.5rem 1rem;
-        font-size: 0.82rem;
-        font-weight: 600;
-        cursor: pointer;
-        color: #64748b;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px;
-        background: none;
-        border-top: none;
-        border-left: none;
-        border-right: none;
-    }
-
-    .rm-tab.active {
-        color: #4338ca;
-        border-bottom-color: #6366f1;
-    }
-
-    .rm-tab-pane {
-        display: none;
-    }
-
-    .rm-tab-pane.active {
-        display: block;
-    }
-
-    .rm-total-preview {
-        background: linear-gradient(135deg, #f0f4ff, #e8edff);
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        text-align: center;
-        margin: 0.75rem 0;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #4338ca;
-    }
-
-    /* Motor items table */
-    .motor-items-tbl {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 0.5rem;
-        font-size: 0.8rem;
-    }
-
-    .motor-items-tbl th {
-        background: #f8fafc;
-        padding: 0.45rem 0.5rem;
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        border-bottom: 1px solid #e2e8f0;
-        white-space: nowrap;
-    }
-
-    .motor-items-tbl td {
-        padding: 0.35rem 0.3rem;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
-
-    .motor-items-tbl td select,
-    .motor-items-tbl td input {
-        padding: 0.35rem 0.4rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 5px;
-        font-size: 0.78rem;
-        background: white;
-        box-sizing: border-box;
-        width: 100%;
-    }
-
-    .motor-items-tbl td select:focus,
-    .motor-items-tbl td input:focus {
-        outline: none;
-        border-color: #6366f1;
-    }
-
-    .btn-add-motor {
-        background: #f0f4ff;
-        color: #4338ca;
-        border: 1px dashed #6366f1;
-        border-radius: 7px;
-        padding: 0.4rem 0.8rem;
-        font-size: 0.78rem;
-        font-weight: 600;
-        cursor: pointer;
-        width: 100%;
-        margin-bottom: 0.75rem;
-    }
-
-    .btn-add-motor:hover {
-        background: #ede9fe;
-    }
-
-    .btn-del-mrow {
-        background: #fee2e2;
-        color: #b91c1c;
-        border: none;
-        border-radius: 4px;
-        padding: 0.25rem 0.45rem;
-        cursor: pointer;
-        font-size: 0.78rem;
-        font-weight: 700;
-    }
-
-    @media(max-width:580px) {
-        .rm-form-row {
-            grid-template-columns: 1fr;
-        }
-
-        .rm-stats {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .rm-fleet {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .rm-table {
-            font-size: 0.72rem;
-        }
-
-        .rm-table th,
-        .rm-table td {
-            padding: 0.5rem 0.5rem;
-        }
+    @media (max-width: 1200px) { .rm-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 580px) {
+        #rmm { padding: .75rem .65rem 1.25rem; }
+        .rm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .rm-form-row { grid-template-columns: 1fr; }
+        .rm-fleet { grid-template-columns: 1fr; }
+        .rm-modal { padding: 16px; }
     }
 </style>
 
-<div class="rm-page">
+<div class="rm-page" id="rmm">
 
-    <!-- Top Bar -->
+    <!-- Header -->
     <div class="rm-topbar">
         <div>
-            <h2>🏍️ Monitoring Rental Motor</h2>
-            <div style="font-size:0.75rem;color:var(--text-secondary)">
-                Kelola armada motor & pantau penyewaan aktif
-            </div>
+            <div class="rm-eyebrow">Hotel Services · Rental Motor</div>
+            <h2>Kelola Armada &amp; Sewa</h2>
+            <div class="rm-sub">Tambah motor, proses sewa, pengembalian, dan invoice</div>
         </div>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-            <a href="rental-motor-dashboard.php" class="btn-rm btn-rm-secondary" style="text-decoration:none;font-size:0.8rem;padding:0.4rem 0.8rem">
-                📊 Dashboard
-            </a>
-            <a href="hotel-services.php" class="btn-rm btn-rm-secondary" style="text-decoration:none;font-size:0.8rem;padding:0.4rem 0.8rem">
-                ← Hotel Services
-            </a>
-            <button class="btn-rm btn-rm-secondary" onclick="openMotorModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem">+ Tambah Motor</button>
-            <button class="btn-rm btn-rm-secondary" onclick="openBulkMotorModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem;background:#e0f2fe;color:#0277bd;border-color:#0277bd">🏍️ Tambah Massal</button>
-            <button class="btn-rm btn-rm-primary" onclick="openRentalModal()" style="font-size:0.8rem;padding:0.4rem 0.8rem">+ Sewa Baru</button>
+        <div class="rm-top-actions">
+            <a href="rental-motor-dashboard.php" class="btn-rm">Dashboard</a>
+            <a href="hotel-services.php" class="btn-rm">Hotel Services</a>
+            <button type="button" class="btn-rm" onclick="openMotorModal()">+ Tambah Motor</button>
+            <button type="button" class="btn-rm" onclick="openBulkMotorModal()">+ Tambah Massal</button>
+            <button type="button" class="btn-rm btn-rm-primary" onclick="openRentalModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                Sewa Baru
+            </button>
         </div>
     </div>
 
@@ -1148,10 +780,10 @@ include '../../includes/header.php';
 
     <!-- Tabs -->
     <div class="rm-tabs">
-        <button class="rm-tab active" id="tab-monitoring" onclick="switchTab('monitoring')">📊 Monitoring</button>
-        <button class="rm-tab" id="tab-fleet" onclick="switchTab('fleet')">🏍️ Armada Motor</button>
-        <button class="rm-tab" id="tab-prices" onclick="switchTab('prices')">💰 Data Harga Motor</button>
-        <button class="rm-tab" id="tab-history" onclick="switchTab('history')">📋 Riwayat</button>
+        <button class="rm-tab active" id="tab-monitoring" onclick="switchTab('monitoring')">Sedang Disewa</button>
+        <button class="rm-tab" id="tab-fleet" onclick="switchTab('fleet')">Armada Motor</button>
+        <button class="rm-tab" id="tab-prices" onclick="switchTab('prices')">Daftar Harga</button>
+        <button class="rm-tab" id="tab-history" onclick="switchTab('history')">Riwayat</button>
     </div>
 
     <!-- TAB: Monitoring (Active Rentals) -->
@@ -1181,8 +813,8 @@ include '../../includes/header.php';
             // Card view for "On Rent / Masih Desewa"
             if (!empty($onRentList)):
             ?>
-                <div style="margin-bottom: 1.5rem">
-                    <h3 style="margin: 0 0 0.75rem 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 700;">🏍️ On Rent / Masih Desewa (24-Hour Tracking)</h3>
+                <div class="rm-section-gap">
+                    <h3 class="rm-sec-title">Masih Disewa <small>invoice lunas · pantauan 24 jam</small></h3>
                     <div class="rm-fleet">
                         <?php foreach ($onRentList as $r):
                             $paymentDate = $r['payment_date'] ? strtotime($r['payment_date']) : time();
@@ -1194,27 +826,27 @@ include '../../includes/header.php';
                             $hours = (int)floor($hoursRemaining % 24);
                             $mins = (int)floor((($hoursRemaining * 60) % 60));
                         ?>
-                            <div class="rm-motor-card" style="--mc:<?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>; border: 2px solid <?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>">
+                            <div class="rm-motor-card<?php echo $isOverdue24h ? ' is-late' : ''; ?>" style="--mc:<?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>">
                                 <span class="mc-status" style="background:<?php echo $isOverdue24h ? '#ef4444' : '#f59e0b'; ?>">
-                                    <?php echo $isOverdue24h ? '⚠️ >24h Overdue!' : '🕐 On Rent'; ?>
+                                    <?php echo $isOverdue24h ? 'Lewat 24 jam' : 'Disewa'; ?>
                                 </span>
                                 <div class="mc-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
                                 <div class="mc-name">
                                     <?php echo htmlspecialchars($r['motor_name']); ?> — <?php echo htmlspecialchars($r['guest_name']); ?>
                                 </div>
-                                <div style="margin-top: 0.5rem; padding: 0.5rem; background: <?php echo $isOverdue24h ? '#fef2f2' : '#fffbeb'; ?>; border-radius: 4px; font-weight: 700; color: <?php echo $isOverdue24h ? '#b91c1c' : '#d97706'; ?>">
+                                <div class="mc-timer">
                                     <?php if ($isOverdue24h): ?>
-                                        ⏰ OVERDUE: <?php echo ceil($hoursElapsed - 24); ?> jam!
+                                        Terlambat <?php echo ceil($hoursElapsed - 24); ?> jam
                                     <?php else: ?>
-                                        ⏳ Sisa: <?php echo sprintf('%02d:%02d:%02d', $hours, $mins, (int)(($hoursRemaining * 3600) % 60)); ?>
+                                        Sisa waktu <?php echo sprintf('%02d:%02d:%02d', $hours, $mins, (int)(($hoursRemaining * 3600) % 60)); ?>
                                     <?php endif; ?>
                                 </div>
-                                <div class="mc-rate">Invoice: <?php echo htmlspecialchars($r['invoice_number']); ?> | Paid: <?php echo date('d M H:i', $paymentDate); ?></div>
+                                <div class="mc-rate">Invoice <?php echo htmlspecialchars($r['invoice_number']); ?> · lunas <?php echo date('d M H:i', $paymentDate); ?></div>
                                 <div class="mc-actions">
-                                    <button class="mc-btn" style="background:#dcfce7;color:#15803d" onclick="confirmMotorReturn(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
-                                        ✓ Sudah Kembali
+                                    <button class="mc-btn ok" onclick="confirmMotorReturn(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                        ✓ Sudah kembali
                                     </button>
-                                    <button class="mc-btn" style="background:#e0e7ff;color:#4338ca" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                    <button class="mc-btn info" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
                                         ↩ Kembali
                                     </button>
                                 </div>
@@ -1227,8 +859,8 @@ include '../../includes/header.php';
             // Table view for unpaid/partial rentals (if any)
             if (!empty($unpaidRentals)):
             ?>
-                <div style="margin-bottom: 1.5rem">
-                    <h3 style="margin: 0 0 0.75rem 0; color: var(--text-primary); font-size: 0.95rem; font-weight: 700;">📋 Rental Lainnya (Belum Bayar / Invoice Pending)</h3>
+                <div class="rm-section-gap">
+                    <h3 class="rm-sec-title">Belum Lunas <small>belum bayar / invoice pending</small></h3>
                     <div class="rm-table-wrap">
                         <table class="rm-table">
                             <thead>
@@ -1283,7 +915,7 @@ include '../../includes/header.php';
                                                 $endDt = new DateTime($r['end_datetime']);
                                                 $estDays = max(1, (int)ceil($startDt->diff($endDt)->days));
                                                 $estPrice = max(100000, round($estDays * (float)$r['daily_rate'], 2));
-                                                echo '💰 ~Rp ' . number_format($estPrice, 0, ',', '.') . '<br><span style="font-size:0.7rem;color:var(--text-secondary)">Hitung saat kembali</span>';
+                                                echo '~Rp ' . number_format($estPrice, 0, ',', '.') . '<br><span style="font-size:0.7rem;color:var(--text-secondary)">Hitung saat kembali</span>';
                                             } else {
                                                 echo 'Rp ' . number_format($r['total_price'], 0, ',', '.');
                                             }
@@ -1297,7 +929,7 @@ include '../../includes/header.php';
                                                 </a>
                                                 <?php if ($r['inv_pay_status']): ?>
                                                     <span class="rm-badge" style="background:<?php echo ['unpaid' => '#ef4444', 'partial' => '#f59e0b', 'paid' => '#10b981'][$r['inv_pay_status']] ?? '#6b7280'; ?>;font-size:0.62rem">
-                                                        <?php echo $r['inv_pay_status']; ?>
+                                                        <?php echo ['unpaid' => 'Belum bayar', 'partial' => 'DP', 'paid' => 'Lunas'][$r['inv_pay_status']] ?? $r['inv_pay_status']; ?>
                                                     </span>
                                                 <?php endif; ?>
                                             <?php else: ?>
@@ -1307,19 +939,19 @@ include '../../includes/header.php';
                                         <td>
                                             <span class="rm-badge <?php echo $isOverdue ? 'rm-overdue-pulse' : ''; ?>"
                                                 style="background:<?php echo $isOverdue ? '#ef4444' : '#10b981'; ?>">
-                                                <?php echo $isOverdue ? '⚠ Overdue' : '✓ Aktif'; ?>
+                                                <?php echo $isOverdue ? 'Terlambat' : 'Aktif'; ?>
                                             </span>
                                         </td>
                                         <td style="white-space:nowrap">
-                                            <button class="rm-action-btn" style="background:#dcfce7;color:#15803d" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
+                                            <button class="rm-action-btn ok" onclick="returnMotor(<?php echo $r['id']; ?>,'<?php echo htmlspecialchars(addslashes($r['motor_name'])); ?>')">
                                                 ↩ Kembali
                                             </button>
                                             <?php if (!$r['invoice_id']): ?>
-                                                <button class="rm-action-btn" style="background:#e0e7ff;color:#4338ca" onclick="openAddToInvoice(<?php echo $r['id']; ?>)">
-                                                    📄 Invoice
+                                                <button class="rm-action-btn info" onclick="openAddToInvoice(<?php echo $r['id']; ?>)">
+                                                    Invoice
                                                 </button>
                                             <?php endif; ?>
-                                            <button class="rm-action-btn" style="background:#fee2e2;color:#b91c1c" onclick="cancelRental(<?php echo $r['id']; ?>)">✕</button>
+                                            <button class="rm-action-btn bad" onclick="cancelRental(<?php echo $r['id']; ?>)">✕</button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -1342,8 +974,8 @@ include '../../includes/header.php';
         <?php else: ?>
             <div class="rm-fleet">
                 <?php
-                $statusColors = ['available' => '#10b981', 'rented' => '#f59e0b', 'maintenance' => '#6b7280'];
-                $statusLabels = ['available' => 'Tersedia', 'rented' => 'Disewa', 'maintenance' => 'Maint.'];
+                $statusColors = ['available' => '#16a34a', 'rented' => '#f59e0b', 'maintenance' => '#94a3b8'];
+                $statusLabels = ['available' => 'Tersedia', 'rented' => 'Disewa', 'maintenance' => 'Perbaikan'];
                 foreach ($motorList as $m):
                     $mc = $statusColors[$m['status']] ?? '#6b7280';
                 ?>
@@ -1357,15 +989,15 @@ include '../../includes/header.php';
                         </div>
                         <div class="mc-rate">Rp <?php echo number_format($m['daily_rate'], 0, ',', '.'); ?> / hari</div>
                         <?php if ($m['notes']): ?>
-                            <div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem"><?php echo htmlspecialchars(substr($m['notes'], 0, 60)); ?></div>
+                            <div class="mc-note"><?php echo htmlspecialchars(mb_substr($m['notes'], 0, 60)); ?></div>
                         <?php endif; ?>
                         <div class="mc-actions">
-                            <button class="mc-btn" style="background:#e0e7ff;color:#4338ca" onclick="editMotor(<?php echo htmlspecialchars(json_encode($m)); ?>)">✏️ Edit</button>
+                            <button class="mc-btn info" onclick="editMotor(<?php echo htmlspecialchars(json_encode($m)); ?>)">Edit</button>
                             <?php if ($m['status'] === 'available'): ?>
-                                <button class="mc-btn" style="background:#dcfce7;color:#15803d" onclick="openRentalModal(<?php echo $m['id']; ?>)">🔑 Sewakan</button>
+                                <button class="mc-btn ok" onclick="openRentalModal(<?php echo $m['id']; ?>)">Sewakan</button>
                             <?php endif; ?>
                             <?php if ($m['status'] !== 'rented'): ?>
-                                <button class="mc-btn" style="background:#fee2e2;color:#b91c1c" onclick="deleteMotor(<?php echo $m['id']; ?>,'<?php echo htmlspecialchars(addslashes($m['plate_number'])); ?>')">🗑️</button>
+                                <button class="mc-btn bad" onclick="deleteMotor(<?php echo $m['id']; ?>,'<?php echo htmlspecialchars(addslashes($m['plate_number'])); ?>')" title="Hapus motor">✕</button>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -1399,11 +1031,11 @@ include '../../includes/header.php';
                     </thead>
                     <tbody>
                         <?php
-                        $statusLabels = ['available' => '✓ Tersedia', 'rented' => '🚗 Disewa', 'maintenance' => '🔧 Pemeliharaan'];
+                        $statusLabels = ['available' => 'Tersedia', 'rented' => 'Disewa', 'maintenance' => 'Perbaikan'];
                         foreach ($motorList as $m):
                             $isPartnerMotor = !empty($m['partner_owner']);
                         ?>
-                            <tr style="<?php echo $isPartnerMotor ? 'background-color:#f0fdf4;' : ''; ?>">
+                            <tr class="<?php echo $isPartnerMotor ? 'is-partner' : ''; ?>">
                                 <td>
                                     <strong><?php echo htmlspecialchars($m['plate_number']); ?></strong>
                                 </td>
@@ -1434,8 +1066,8 @@ include '../../includes/header.php';
                                     <?php echo $isPartnerMotor ? 'Rp ' . number_format($m['driver_daily_rate'], 0, ',', '.') : '<span style="color:var(--text-secondary)">—</span>'; ?>
                                 </td>
                                 <td style="white-space:nowrap">
-                                    <button class="rm-action-btn" style="background:#e0e7ff;color:#4338ca;padding:0.35rem 0.65rem;font-size:0.75rem" onclick="editMotor(<?php echo htmlspecialchars(json_encode($m)); ?>)">
-                                        ✏️ Edit
+                                    <button class="rm-action-btn info" onclick="editMotor(<?php echo htmlspecialchars(json_encode($m)); ?>)">
+                                        Edit
                                     </button>
                                 </td>
                             </tr>
@@ -1443,8 +1075,8 @@ include '../../includes/header.php';
                     </tbody>
                 </table>
             </div>
-            <div style="margin-top:1rem;padding:0.75rem;background:#f0fdf4;border-radius:6px;border-left:4px solid #10b981;font-size:0.85rem;color:#15803d">
-                <strong>💡 Catatan:</strong> Baris hijau menunjukkan motor dari mitra eksternal (Motor Luar) dengan informasi komisi dan tarif mitra.
+            <div class="rm-note">
+                <strong>Catatan:</strong> Baris hijau menunjukkan motor dari mitra eksternal (Motor Luar) dengan informasi komisi dan tarif mitra.
             </div>
         <?php endif; ?>
     </div>
@@ -1452,16 +1084,18 @@ include '../../includes/header.php';
     <!-- TAB: History -->
     <div class="rm-tab-pane" id="pane-history">
         <form method="GET" class="rm-filters">
-            <input type="text" name="q" placeholder="🔍 Cari tamu / plat..." value="<?php echo htmlspecialchars($filterSearch); ?>">
+            <input type="hidden" name="view" value="manage">
+            <input type="hidden" name="tab" value="history">
+            <input type="text" name="q" placeholder="Cari tamu / plat nomor…" value="<?php echo htmlspecialchars($filterSearch); ?>">
             <select name="rs">
                 <option value="">Semua Status</option>
                 <?php foreach (['active' => 'Aktif', 'overdue' => 'Overdue', 'returned' => 'Dikembalikan', 'cancelled' => 'Dibatalkan'] as $sk => $sl): ?>
                     <option value="<?php echo $sk; ?>" <?php echo $filterRentalStatus === $sk ? 'selected' : ''; ?>><?php echo $sl; ?></option>
                 <?php endforeach; ?>
             </select>
-            <button type="submit" class="btn-rm btn-rm-primary" style="padding:0.4rem 0.9rem;font-size:0.8rem">Filter</button>
+            <button type="submit" class="btn-rm btn-rm-primary">Filter</button>
             <?php if ($filterRentalStatus || $filterSearch): ?>
-                <a href="rental-motor.php?view=manage" class="btn-rm btn-rm-secondary" style="padding:0.4rem 0.9rem;font-size:0.8rem;text-decoration:none">Clear</a>
+                <a href="rental-motor.php?view=manage&amp;tab=history" class="btn-rm">Reset</a>
             <?php endif; ?>
         </form>
 
@@ -1577,13 +1211,13 @@ include '../../includes/header.php';
         </div>
         <div class="rm-form-row full">
             <div class="rm-field">
-                <label>🤝 Nama Mitra Pemilik (Motor Luar)</label>
+                <label>Nama Mitra Pemilik (motor luar)</label>
                 <input type="text" id="fm_partner_owner" placeholder="Nama mitra / pemilik motor">
             </div>
         </div>
         <div class="rm-form-row">
             <div class="rm-field">
-                <label>📞 No. Telepon Mitra</label>
+                <label>No. Telepon Mitra</label>
                 <input type="text" id="fm_owner_phone" placeholder="08xxxxxxxxxx">
             </div>
             <div class="rm-field">
@@ -1593,7 +1227,7 @@ include '../../includes/header.php';
         </div>
         <div class="rm-form-row">
             <div class="rm-field">
-                <label>💰 Tarif Harian Mitra (Rp)</label>
+                <label>Tarif Harian Mitra (Rp)</label>
                 <input type="number" id="fm_driver_daily_rate" placeholder="0" min="0">
             </div>
         </div>
@@ -1605,7 +1239,7 @@ include '../../includes/header.php';
         </div>
         <div class="rm-modal-footer">
             <button class="btn-rm btn-rm-secondary" onclick="closeMotorModal()">Batal</button>
-            <button class="btn-rm btn-rm-primary" onclick="saveMotor()">💾 Simpan</button>
+            <button class="btn-rm btn-rm-primary" onclick="saveMotor()">Simpan</button>
         </div>
     </div>
 </div>
@@ -1615,18 +1249,18 @@ include '../../includes/header.php';
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="rm-modal-overlay" id="rentalModal" onclick="if(event.target===this)closeRentalModal()">
     <div class="rm-modal" style="max-width:620px">
-        <h3>🔑 Sewa Motor Baru</h3>
+        <h3>Sewa Motor Baru</h3>
 
         <!-- Pricing Info Box -->
-        <div style="background:linear-gradient(135deg,#f0f4ff,#e8edff);border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.82rem;border-left:4px solid #6366f1">
-            <strong>💡 Sistem Harga Dinamis:</strong><br />
+        <div class="rm-info">
+            <strong>Harga dinamis:</strong>
             Harga dihitung saat motor dikembalikan berdasarkan lama pinjam sesungguhnya (24-jam increment). Minimum Rp 100.000 per unit.
         </div>
 
         <!-- Guest Toggle -->
         <div class="guest-toggle">
-            <button class="active" onclick="toggleGuestMode('inhouse',this)">🏨 Tamu In-House</button>
-            <button onclick="toggleGuestMode('manual',this)">✏️ Input Manual</button>
+            <button class="active" onclick="toggleGuestMode('inhouse',this)">Tamu In-House</button>
+            <button onclick="toggleGuestMode('manual',this)">Input Manual</button>
         </div>
 
         <!-- In-house guest picker -->
@@ -1672,7 +1306,7 @@ include '../../includes/header.php';
 
         <!-- Multi-motor selection table -->
         <div style="margin-bottom:0.5rem">
-            <label style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:0.4rem">🏍️ Motor yang Disewa</label>
+            <span class="rm-mini-title">Motor yang disewa</span>
             <table class="motor-items-tbl">
                 <thead>
                     <tr>
@@ -1704,9 +1338,9 @@ include '../../includes/header.php';
                 <input type="number" id="fr_deposit" placeholder="0" min="0" value="0">
             </div>
             <div class="rm-field" style="display:flex;align-items:flex-end;padding-bottom:0.15rem">
-                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+                <label class="rm-check">
                     <input type="checkbox" id="fr_create_invoice" checked>
-                    <span style="font-size:0.82rem;font-weight:600">Buat Invoice Otomatis</span>
+                    <span>Buat invoice otomatis</span>
                 </label>
             </div>
         </div>
@@ -1724,7 +1358,7 @@ include '../../includes/header.php';
 
         <div class="rm-modal-footer">
             <button class="btn-rm btn-rm-secondary" onclick="closeRentalModal()">Batal</button>
-            <button class="btn-rm btn-rm-success" onclick="createRental()">🔑 Proses Sewa</button>
+            <button class="btn-rm btn-rm-success" onclick="createRental()">Proses Sewa</button>
         </div>
     </div>
 </div>
@@ -1734,8 +1368,8 @@ include '../../includes/header.php';
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="rm-modal-overlay" id="bulkMotorModal" onclick="if(event.target===this)closeBulkMotorModal()">
     <div class="rm-modal" style="max-width:560px">
-        <h3>🏍️ Tambah Beberapa Motor Sekaligus</h3>
-        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 1rem 0">Isi informasi motor, lalu masukkan plat nomor masing-masing unit (atau kosongkan untuk generate otomatis).</p>
+        <h3>Tambah Beberapa Motor Sekaligus</h3>
+        <p class="rm-hint">Isi informasi motor, lalu masukkan plat nomor masing-masing unit (atau kosongkan untuk generate otomatis).</p>
 
         <div class="rm-form-row">
             <div class="rm-field">
@@ -1764,7 +1398,7 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <div style="margin:0.75rem 0 0.25rem 0;font-size:0.78rem;font-weight:700;color:var(--text-secondary)">🤝 Mitra (kosongkan jika motor hotel)</div>
+        <span class="rm-mini-title">Mitra <span>(kosongkan jika motor hotel)</span></span>
         <div class="rm-form-row">
             <div class="rm-field">
                 <label>Nama Mitra Pemilik</label>
@@ -1786,13 +1420,13 @@ include '../../includes/header.php';
             </div>
         </div>
 
-        <div style="margin:0.75rem 0 0.4rem 0;font-size:0.78rem;font-weight:700;color:var(--text-secondary)">🔢 Plat Nomor per Unit <span style="font-weight:400;color:#94a0b8">(kosongkan = generate otomatis, satu per baris atau pisah koma)</span></div>
-        <textarea id="bm_plates" rows="4" placeholder="K 1234 BWC&#10;K 1235 BWC&#10;K 1236 BWC" style="width:100%;padding:0.5rem 0.6rem;border:1px solid #c9d0dc;border-radius:6px;font-size:0.82rem;font-family:monospace;resize:vertical;box-sizing:border-box" oninput="syncBulkUnitCount()"></textarea>
-        <div style="font-size:0.73rem;color:#94a0b8;margin-top:0.2rem" id="bm_plates_hint">0 plat dimasukkan</div>
+        <span class="rm-mini-title">Plat nomor per unit <span>(kosongkan = dibuat otomatis; satu per baris atau pisah koma)</span></span>
+        <div class="rm-field"><textarea id="bm_plates" rows="4" placeholder="K 1234 BWC&#10;K 1235 BWC&#10;K 1236 BWC" style="font-family:ui-monospace,Consolas,monospace" oninput="syncBulkUnitCount()"></textarea></div>
+        <div class="rm-hint" style="margin:6px 0 0" id="bm_plates_hint">0 plat dimasukkan</div>
 
-        <div class="rm-modal-footer" style="margin-top:1.2rem">
+        <div class="rm-modal-footer">
             <button class="btn-rm btn-rm-secondary" onclick="closeBulkMotorModal()">Batal</button>
-            <button class="btn-rm btn-rm-primary" onclick="submitBulkMotors()">➕ Tambah Semua Unit</button>
+            <button class="btn-rm btn-rm-primary" onclick="submitBulkMotors()">Tambah Semua Unit</button>
         </div>
     </div>
 </div>
@@ -1802,8 +1436,8 @@ include '../../includes/header.php';
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <div class="rm-modal-overlay" id="addToInvModal" onclick="if(event.target===this)closeAddToInvModal()">
     <div class="rm-modal" style="max-width:480px">
-        <h3>📄 Tambahkan ke Invoice</h3>
-        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:1rem">
+        <h3>Tambahkan ke Invoice</h3>
+        <p class="rm-hint">
             Gabungkan rental ini dengan invoice Hotel Service yang sudah ada
         </p>
         <input type="hidden" id="ati_rental_id" value="0">
@@ -1822,7 +1456,7 @@ include '../../includes/header.php';
         </div>
         <div class="rm-modal-footer">
             <button class="btn-rm btn-rm-secondary" onclick="closeAddToInvModal()">Batal</button>
-            <button class="btn-rm btn-rm-primary" onclick="addToInvoice()">📄 Gabungkan</button>
+            <button class="btn-rm btn-rm-primary" onclick="addToInvoice()">Gabungkan</button>
         </div>
     </div>
 </div>
@@ -1830,11 +1464,21 @@ include '../../includes/header.php';
 <script>
     // ── Tab switching ───────────────────────────────────────────────────────────
     function switchTab(name) {
+        if (!document.getElementById('pane-' + name)) return;
         document.querySelectorAll('.rm-tab-pane').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.rm-tab').forEach(t => t.classList.remove('active'));
         document.getElementById('pane-' + name).classList.add('active');
         document.getElementById('tab-' + name).classList.add('active');
+        try { sessionStorage.setItem('rmTab', name); } catch (e) {}
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var qs = new URLSearchParams(location.search);
+        var tab = qs.get('tab');
+        if (!tab) { try { tab = sessionStorage.getItem('rmTab'); } catch (e) {} }
+        if (tab) switchTab(tab);
+        if (qs.get('new') === '1') openRentalModal(qs.get('motor') || undefined);
+    });
 
     // ── Motor Modal ─────────────────────────────────────────────────────────────
     function openMotorModal() {
@@ -2252,7 +1896,7 @@ include '../../includes/header.php';
         fd.append('rental_id', rentalId);
         fd.append('is_returned', isReturned ? '1' : '0');
 
-        fetch('../modules/frontdesk/motor-return-tracking.php', {
+        fetch('motor-return-tracking.php', {
                 method: 'POST',
                 body: fd
             })
