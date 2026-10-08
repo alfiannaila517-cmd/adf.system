@@ -3924,34 +3924,30 @@ include '../../includes/header.php';
         t._h = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => { t.style.display = 'none'; }, 260); }, 4200);
     }
 
-    function spWaSend(phoneOverride) {
+    // Siapkan pesan (template Inggris + link invoice) lalu buka WhatsApp Web; staf tinggal menekan kirim
+    function spWaSend() {
         const b = currentPaymentBooking;
         if (!b || !b.id) return;
+        const win = window.open('', '_blank'); // dibuka saat klik agar tidak diblokir popup blocker
         const fd = new FormData();
         fd.append('booking_id', b.id);
-        fd.append('mode', 'send');
-        if (phoneOverride) fd.append('phone', phoneOverride);
-        spToast('Membuat invoice & mengirim…', true);
+        spToast('Menyiapkan pesan invoice…', true);
         fetch('../../api/wa-send-invoice.php', { method: 'POST', body: fd, credentials: 'include' })
             .then(r => r.json())
             .then(res => {
-                if (res.need_phone) {
-                    const p = window.prompt('Nomor WhatsApp tamu belum ada.\nMasukkan nomor (contoh 0812xxxx atau +62812xxxx):', '');
-                    if (p && p.trim()) spWaSend(p.trim());
+                if (!res.ok || !res.wa_url) {
+                    if (win) win.close();
+                    spToast(res.message || 'Gagal menyiapkan pesan', false);
                     return;
                 }
-                if (res.fallback && res.wa_url) {
-                    spToast(res.message, true);
-                    window.open(res.wa_url, '_blank');
-                    return;
-                }
-                spToast(res.message || (res.ok ? 'Invoice terkirim' : 'Gagal mengirim'), !!res.ok);
+                if (win) win.location.href = res.wa_url; else window.open(res.wa_url, '_blank');
+                spToast(res.has_phone ? 'WhatsApp Web dibuka — tekan kirim' : 'WhatsApp Web dibuka — pilih kontak tamu lalu kirim', true);
             })
-            .catch(() => spToast('Gagal menghubungi server', false));
+            .catch(() => { if (win) win.close(); spToast('Gagal menghubungi server', false); });
     }
     window.spWaInvoice = function() {
         document.getElementById('spWa').classList.remove('open');
-        spWaSend('');
+        spWaSend();
     };
     window.spWaChat = function() {
         document.getElementById('spWa').classList.remove('open');
@@ -8430,7 +8426,7 @@ include '../../includes/header.php';
                     </svg>
                     </button>
                     <div class="sp-print-menu">
-                        <button type="button" onclick="spWaInvoice()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg><span><b>Kirim Invoice + PDF</b><small>Template DP 50% · tunggu 24 jam</small></span></button>
+                        <button type="button" onclick="spWaInvoice()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg><span><b>Kirim Invoice + PDF</b><small>Pesan template English + link invoice · WhatsApp Web</small></span></button>
                         <button type="button" onclick="spWaChat()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span><b>Chat WhatsApp biasa</b><small>Buka percakapan dengan tamu</small></span></button>
                     </div>
                 </div>

@@ -6,23 +6,38 @@
  */
 
 define('APP_ACCESS', true);
+// Tautan publik untuk tamu (dikirim lewat WhatsApp): booking_id + t (token) + b (bisnis), tanpa login.
+$__pubToken = (string)($_GET['t'] ?? '');
+$__pubBiz = preg_replace('/[^a-z0-9\-_]/', '', strtolower((string)($_GET['b'] ?? '')));
+if ($__pubToken !== '' && $__pubBiz !== '' && is_file(__DIR__ . '/../../config/businesses/' . $__pubBiz . '.php')) {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    if (empty($_SESSION['user_id'])) $_SESSION['active_business_id'] = $__pubBiz;
+}
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
-
-$auth = new Auth();
-$auth->requireLogin();
-
-// Get current logged-in user
-$currentUser = $auth->getCurrentUser();
-
-if (!$auth->hasPermission('frontdesk')) {
-    header('Location: ' . BASE_URL . '/index.php');
-    exit;
-}
+require_once '../../includes/InvoiceShare.php';
 
 $db = Database::getInstance();
 $bookingId = (int)($_GET['booking_id'] ?? 0);
+$publicView = $__pubToken !== '' && invoiceShareValid($db, $bookingId, $__pubToken);
+
+if ($publicView) {
+    $currentUser = [];
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: no-store');
+} else {
+    $auth = new Auth();
+    $auth->requireLogin();
+
+    // Get current logged-in user
+    $currentUser = $auth->getCurrentUser();
+
+    if (!$auth->hasPermission('frontdesk')) {
+        header('Location: ' . BASE_URL . '/index.php');
+        exit;
+    }
+}
 
 if ($bookingId === 0) {
     die('Invalid Booking ID');
@@ -215,7 +230,7 @@ if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) {
 }
 
 // Get business info
-$businessId = $_SESSION['business_id'] ?? 1;
+$businessId = $_SESSION['business_id'] ?? ((function_exists('getNumericBusinessId') ? getNumericBusinessId(ACTIVE_BUSINESS_ID) : 0) ?: 1);
 $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]);
 
 // Get invoice logo from PDF settings (Settings > Pengaturan Laporan PDF)
