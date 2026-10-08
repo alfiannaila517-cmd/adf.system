@@ -798,7 +798,7 @@ class CloudbedsSync
     }
 
     /** Catat satu pembayaran ke folio reservasi Cloudbeds; false bila reservasi belum tertaut (dicoba lagi nanti). */
-    private function pushPayment(array $a): bool
+    private function pushPayment(array $a, bool $capAll = false): bool
     {
         $link = $this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [$a['booking_id']]);
         $cbId = (string)($link['cb_reservation_id'] ?? '');
@@ -807,7 +807,7 @@ class CloudbedsSync
         $amount = round($a['amount'], 2);
         // Pembayaran OTA (dibayar platform): kirim paling banyak sisa saldo Cloudbeds — bila Cloudbeds sudah lunas
         // (pembayaran OTA sudah tercatat di sana), cukup ditandai tanpa mengirim agar tidak dobel.
-        if (strpos(strtolower($a['method']), 'ota') === 0) {
+        if ($capAll || strpos(strtolower($a['method']), 'ota') === 0) {
             $det = $this->cb->reservationDetail($cbId);
             if (!$det['ok']) throw new \RuntimeException('saldo Cloudbeds tidak terbaca: ' . $det['detail']);
             if ($det['balance'] !== null) {
@@ -1375,11 +1375,37 @@ class CloudbedsSync
         $pending = array_filter($payments, fn($p) => $p['state'] === 'pending');
         $before = array_filter($payments, fn($p) => $p['state'] === 'before');
         if ($pending) $issues[] = ['bad', count($pending) . ' pembayaran belum terkirim. Klik "Kirim ulang sekarang"; bila gagal, pesan penolakan Cloudbeds tampil di bawah.'];
-        if ($before) $issues[] = ['warn', count($before) . ' pembayaran dicatat sebelum "Kirim pembayaran" dinyalakan (' . ($since ?: 'belum pernah') . '), jadi tidak dikirim otomatis. Catat pembayaran itu manual di Cloudbeds.'];
+        if ($before) $issues[] = ['warn', count($before) . ' pembayaran dicatat sebelum "Kirim pembayaran" dinyalakan (' . ($since ?: 'belum pernah') . '), jadi tidak dikirim otomatis. Klik "Kirim juga pembayaran lama booking ini" (dibatasi sisa saldo Cloudbeds, tidak dobel).'];
         if (!$payments) $issues[] = ['warn', 'Belum ada pembayaran tercatat di sistem untuk booking ini.'];
         if (!$issues) $issues[] = ['ok', 'Semua pembayaran sudah terkirim dan total sama. Bila Cloudbeds masih merah, muat ulang halaman Cloudbeds.'];
         return ['ok' => true, 'booking' => $bk, 'rooms' => $rooms, 'link' => $link ?: null, 'payments' => $payments, 'cb' => $cbInfo,
             'issues' => $issues, 'pay_enabled' => $payEnabled, 'pay_since' => $since, 'local_total' => $localTotal, 'local_paid' => $localPaid, 'ids' => $ids];
+    }
+
+    /**
+     * Kirim pembayaran LAMA (dicatat sebelum "Kirim pembayaran" aktif) untuk booking tertentu — dipicu manual dari
+     * alat Cek pembayaran. Setiap pembayaran dibatasi sisa saldo Cloudbeds; bila Cloudbeds sudah lunas (mis. sudah
+     * diketik manual di sana) hanya ditandai, tidak dikirim, jadi tidak dobel.
+     * @return array{sent:int, skipped:int, errors:array}
+     */
+    public function pushOldPayments(array $bookingIds): array
+    {
+        $this->ensureTables();
+        $ids = array_values(array_filter(array_map('intval', $bookingIds)));
+        $out = ['sent' => 0, 'skipped' => 0, 'errors' => []];
+        if (!$ids) return $out;
+        $in = implode(',', $ids);
+        $rows = $this->db->fetchAll("SELECT bp.id, bp.booking_id, bp.amount, bp.payment_method, b.booking_code FROM booking_payments bp JOIN bookings b ON b.id = bp.booking_id
+            LEFT JOIN cloudbeds_payment_links pl ON pl.payment_id = bp.id WHERE pl.payment_id IS NULL AND bp.amount > 0 AND bp.booking_id IN ($in) ORDER BY bp.id") ?: [];
+        foreach ($rows as $p) {
+            try {
+                $ok = $this->pushPayment(['booking_id' => (int)$p['booking_id'], 'payment_id' => (int)$p['id'], 'amount' => (float)$p['amount'], 'method' => (string)$p['payment_method'], 'code' => (string)$p['booking_code']], true);
+                $ok ? $out['sent']++ : $out['skipped']++;
+            } catch (\Throwable $e) {
+                $out['errors'][] = $p['booking_code'] . ': ' . $e->getMessage();
+            }
+        }
+        return $out;
     }
 
     /** Peringatan ("perlu dicek") & error dari hasil apply(), ringkas untuk disimpan bersama status sinkron. */

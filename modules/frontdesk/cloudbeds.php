@@ -80,6 +80,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($diag['ok'])) {
             setFlash('error', htmlspecialchars($diag['msg'] ?? 'Booking tidak ditemukan.'));
         } else {
+            if (!empty($_POST['old'])) {
+                // Termasuk pembayaran lama (sebelum kirim aktif): dibatasi sisa saldo Cloudbeds agar tidak dobel
+                $o = (new CloudbedsSync($db, $cb))->pushOldPayments($diag['ids']);
+                setFlash($o['errors'] ? 'error' : 'success', $o['errors'] ? 'Cloudbeds menolak: ' . htmlspecialchars(implode(' | ', $o['errors'])) : $o['sent'] . ' pembayaran terkirim' . ($o['skipped'] ? ', ' . $o['skipped'] . ' dilewati karena Cloudbeds sudah lunas' : '') . '.');
+                header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+                exit;
+            }
             $r = (new CloudbedsSync($db, $cb))->pushFor($diag['ids'], [], (int)($_SESSION['user_id'] ?? 0));
             $errs = $r['done']['errors'] ?? [];
             if (!empty($r['detail'])) $errs[] = $r['detail'];
@@ -556,6 +563,15 @@ include '../../includes/header.php';
                         <button type="submit" class="cbx-btn">Kirim ulang sekarang</button>
                         <span class="cbx-hint" style="display:inline;margin-left:.4rem">Mengirim pembayaran yang belum terkirim; yang sudah terkirim tidak dikirim dua kali.</span>
                     </form>
+                    <?php if (array_filter($diag['payments'], fn($p) => $p['state'] === 'before')): ?>
+                        <form method="post" style="margin-top:.45rem" onsubmit="return confirm('Kirim juga pembayaran lama booking ini ke Cloudbeds? Jumlahnya dibatasi sisa saldo Cloudbeds, jadi bila sudah diketik manual di Cloudbeds tidak akan dobel.')">
+                            <input type="hidden" name="act" value="resend_pay">
+                            <input type="hidden" name="old" value="1">
+                            <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                            <button type="submit" class="cbx-btn ghost">Kirim juga pembayaran lama booking ini</button>
+                            <span class="cbx-hint" style="display:inline;margin-left:.4rem">Untuk pembayaran yang dicatat sebelum "Kirim pembayaran" aktif. Maks. sebesar sisa saldo Cloudbeds.</span>
+                        </form>
+                    <?php endif; ?>
                 <?php endif; ?>
             <?php endif; ?>
         </div>
