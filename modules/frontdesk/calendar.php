@@ -88,6 +88,35 @@ if (empty($otaSourceKeys)) {
     $otaSourceKeys = ['agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi', 'ota'];
 }
 
+// Lencana kecil OTA di bar booking kalender (inisial + warna khas platform); booking langsung tanpa lencana
+$calSourceNames = [];
+foreach ($bookingSources as $bsRow) {
+    $calSourceNames[strtolower((string)($bsRow['source_key'] ?? ''))] = [(string)($bsRow['source_name'] ?? ''), (string)($bsRow['source_type'] ?? '')];
+}
+function calendar_ota_badge(?string $source, array $names): string
+{
+    $key = strtolower(trim((string)$source));
+    [$name, $type] = $names[$key] ?? ['', ''];
+    if ($type === 'direct') return ''; // mis. "Direct Booking" jangan dikira Booking.com
+    $hay = strtolower($key . ' ' . $name);
+    $map = [
+        'traveloka' => ['TV', '#1ba0e2', 'Traveloka'], 'tiket' => ['TK', '#0064d2', 'tiket.com'], 'agoda' => ['AG', '#d6213b', 'Agoda'],
+        'booking' => ['B.', '#003580', 'Booking.com'], 'expedia' => ['EX', '#1e243a', 'Expedia'], 'airbnb' => ['AB', '#ff5a5f', 'Airbnb'],
+        'pegipegi' => ['PG', '#f37021', 'Pegipegi'], 'trip' => ['TR', '#287dfa', 'Trip.com'], 'hotels' => ['HC', '#d32f2f', 'Hotels.com'],
+    ];
+    foreach ($map as $needle => [$abbr, $color, $label]) {
+        if (strpos($hay, $needle) !== false) {
+            return '<span class="ota-badge" style="--oc:' . $color . '" title="' . htmlspecialchars($name ?: $label) . '">' . $abbr . '</span>';
+        }
+    }
+    // OTA lain yang belum dikenal: inisial dari namanya
+    if ($type !== '' && $type !== 'direct') {
+        $abbr = strtoupper(substr(preg_replace('/[^a-z]/i', '', $name ?: $key), 0, 2)) ?: 'OT';
+        return '<span class="ota-badge" style="--oc:#6d28d9" title="' . htmlspecialchars($name ?: $key) . '">' . htmlspecialchars($abbr) . '</span>';
+    }
+    return '';
+}
+
 // ============================================
 // GET CALENDAR DATE RANGE (Include Past Dates for History)
 // ============================================
@@ -948,6 +977,26 @@ include '../../includes/header.php';
     body[data-theme] .calendar-grid .grid-header-room, body[data-theme] .calendar-grid .grid-footer-room { padding: 0 0.2rem !important; font-size: 0.72rem !important; letter-spacing: 0.08em; }
     /* Teks reservasi di balok: lebih besar, tidak pernah keluar dari balok */
     body[data-theme] .calendar-grid .booking-bar { min-width: 0; }
+    /* Lencana OTA: lingkaran kecil berinisial, muat di tinggi bar (22px) tanpa mengubah ukuran kalender */
+    body[data-theme] .calendar-grid .booking-bar .ota-badge {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 15px;
+        height: 15px;
+        margin-right: 4px;
+        border-radius: 50%;
+        background: var(--oc, #6d28d9);
+        box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .9);
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 6.5px !important;
+        font-weight: 800 !important;
+        letter-spacing: -.02em;
+        line-height: 1;
+        overflow: hidden;
+    }
     body[data-theme] .calendar-grid .booking-bar > span {
         flex: 0 1 auto;
         min-width: 0;
@@ -3185,7 +3234,7 @@ include '../../includes/header.php';
                                                             <?php endif; ?>
                                                         </span>
                                                     <?php endif; ?>
-                                                    <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
+                                                    <?php echo calendar_ota_badge($booking['booking_source'] ?? '', $calSourceNames); ?><span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
                                                     <?php if ($isCheckedIn && !$isPastBooking): ?>
                                                         <button class="bar-action-btn bar-extend-btn" onclick="event.stopPropagation(); openExtendModal(<?php echo (int)$booking['id']; ?>, <?php echo $guestNameJs; ?>, '<?php echo htmlspecialchars($booking['check_out_date']); ?>', <?php echo (int)$totalNights; ?>)" title="Extend Stay">+</button>
                                                     <?php elseif (!$isCheckedIn): ?>
