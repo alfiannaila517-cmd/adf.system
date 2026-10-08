@@ -323,9 +323,9 @@ try {
         // OTA booking belum check-in: masuk buku kas saat check-in (uang dari platform belum cair).
         // OTA booking yang sudah check-in/check-out: dicatat sekarang, NET setelah fee OTA,
         // karena tahap check-in sudah lewat dan tidak akan mencatatnya lagi.
-        // OTA: dicatat di buku kas SAAT DIBAYAR (dulu menunggu check-in). Check-in tidak mencatat ulang
-        // pembayaran yang sudah masuk buku kas (lihat checkin-guest.php).
-        $otaSyncNow = $isOTA;
+        // Aturan kas (pemilik): OTA masuk buku kas SAAT CHECK-IN; direct saat DP/pembayaran.
+        // OTA yang sudah check-in/check-out dicatat sekarang (tahap check-in sudah lewat).
+        $otaSyncNow = $isOTA && in_array($bookingStatus, ['checked_in', 'checked_out'], true);
         // Booking yang tertaut ke Cloudbeds: harga = nominal Cloudbeds (yang diterima hotel), jadi dicatat apa
         // adanya tanpa potongan fee OTA lagi.
         $cbLinked = false;
@@ -335,7 +335,9 @@ try {
         } catch (\Throwable $e) {
             // tabel tautan Cloudbeds belum ada
         }
-        {
+        if ($isOTA && !$otaSyncNow) {
+            $cashbookMessage = "Booking OTA - akan tercatat di buku kas saat check-in";
+        } else {
             // DIRECT: langsung sync ke buku kas karena uang sudah diterima
             require_once '../includes/CashbookHelper.php';
             $businessId = $_SESSION['business_id'] ?? $db->fetchOne("SELECT business_id FROM users WHERE id = ?", [$currentUser['id']])['business_id'] ?? 1;

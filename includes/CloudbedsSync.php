@@ -282,7 +282,10 @@ class CloudbedsSync
                 // Pembayaran yang dicatat LANGSUNG di Cloudbeds (mis. dilunasi di Cloudbeds) → ikut tercatat di sistem.
                 // Dibatasi sisa tagihan sistem, jadi angka lebih di Cloudbeds (mis. sisa bug lama) tidak ikut tertarik.
                 if (!$isHit && !$this->pushOnlyPlan && $payOn && !self::isCancelled($it['status'])) {
-                    $pLive = array_values(array_filter($bks, fn($b) => in_array($b['status'], ['confirmed', 'pending', 'checked_in', 'checked_out'], true)));
+                    // Hanya booking yang masih berjalan; booking yang sudah check-out tidak disentuh (kasnya sudah tercatat
+                    // saat check-in / pembayaran — menarik ulang = uang tercatat dua kali)
+                    $pLive = array_values(array_filter($bks, fn($b) => in_array($b['status'], ['confirmed', 'pending', 'checked_in'], true)));
+                    if (count($pLive) !== count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))) $pLive = [];
                     if ($pLive) {
                         $pIn = implode(',', array_map(fn($b) => (int)$b['id'], $pLive));
                         $sysTotal = (float)($this->db->fetchOne("SELECT COALESCE(SUM(final_price), 0) s FROM bookings WHERE id IN ($pIn)")['s'] ?? 0);
@@ -2214,7 +2217,10 @@ class CloudbedsSync
             if ($left < 1) break;
         }
         $this->resetPaidFromPayments(array_map(fn($r) => (int)$r['id'], $rows));
-        // Buku kas: seperti Payment biasa (OTA tertaut Cloudbeds dicatat apa adanya, tanpa potongan fee lagi)
+        // Buku kas mengikuti aturan kas: direct → sekarang; OTA → saat check-in (bila belum check-in, check-in nanti
+        // mencatat pembayaran yang belum masuk buku kas). OTA tertaut Cloudbeds dicatat apa adanya (tanpa potongan fee).
+        $inHouse = (bool)$this->db->fetchOne("SELECT id FROM bookings WHERE id IN ($in) AND status = 'checked_in' LIMIT 1");
+        if ($isOta && !$inHouse) return (bool)$made;
         try {
             require_once __DIR__ . '/CashbookHelper.php';
             $helper = new \CashbookHelper($this->db, $_SESSION['business_id'] ?? 1, $proc ?? 1);
