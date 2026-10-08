@@ -111,7 +111,14 @@ function handleDropdownClick(e) {
 
 function toggleDropdown(toggle) {
     const navItem = toggle.closest('.nav-item.has-submenu');
-    
+
+    // Menu dengan halaman utama (data-href, mis. Front Desk → Dashboard): buka submenu lalu pindah halaman
+    if (toggle.dataset.href) {
+        if (navItem) navItem.classList.add('open');
+        window.location.href = toggle.dataset.href;
+        return;
+    }
+
     if (navItem) {
         // Close other open dropdowns at same level
         const siblings = navItem.parentElement.querySelectorAll('.nav-item.has-submenu.open');
