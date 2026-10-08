@@ -124,7 +124,7 @@ function calendar_ota_badge(?string $source, array $names): string
         $svg = $txt('#6d28d9', htmlspecialchars($abbr), '#fff', 7);
         $label = $name ?: $key;
     }
-    return '<i class="ota-badge" title="' . htmlspecialchars($name ?: $label) . '"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' . $svg . '</svg></i>';
+    return '<i class="cal-ota-logo" title="' . htmlspecialchars($name ?: $label) . '"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' . $svg . '</svg></i>';
 }
 
 // ============================================
@@ -989,7 +989,7 @@ include '../../includes/header.php';
     body[data-theme] .calendar-grid .booking-bar { min-width: 0; }
     /* Lencana OTA: logo mini di awal bar (seperti Cloudbeds), jauh dari dot status di kanan atas; ukuran bar tetap */
     body[data-theme] .calendar-grid .booking-bar.has-ota { padding-left: 24px !important; }
-    body[data-theme] .calendar-grid .booking-bar > i.ota-badge {
+    body[data-theme] .calendar-grid .booking-bar > i.cal-ota-logo {
         position: absolute !important;
         left: 4px !important;
         top: 50% !important;
@@ -1000,6 +1000,9 @@ include '../../includes/header.php';
         margin-left: 0 !important;
         margin-right: 0 !important;
         margin-bottom: 0 !important;
+        padding: 0 !important;
+        background: none !important;
+        border: 0 !important;
         display: block !important;
         line-height: 0;
         font-style: normal;
@@ -1008,7 +1011,7 @@ include '../../includes/header.php';
         box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .95), 0 1px 3px rgba(15, 23, 42, .25);
         pointer-events: auto;
     }
-    body[data-theme] .calendar-grid .booking-bar > i.ota-badge svg { display: block; width: 16px !important; height: 16px !important; }
+    body[data-theme] .calendar-grid .booking-bar > i.cal-ota-logo svg { display: block; width: 16px !important; height: 16px !important; }
     body[data-theme] .calendar-grid .booking-bar > span {
         flex: 0 1 auto;
         min-width: 0;
