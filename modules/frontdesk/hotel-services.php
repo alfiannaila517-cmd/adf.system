@@ -4086,17 +4086,93 @@ include '../../includes/header.php';
 
 </style>
 
-<div class="hs-page">
+<style id="hsxStyle">
+    /* Redesain halaman Hotel Services — seragam dengan tema sistem (biru navy), selektor ber-ID agar menang atas gaya lama */
+    #hsx {
+        --ink: #0f172a; --mute: #64748b; --faint: #94a3b8; --line: #e8edf3; --soft: #f8fafc; --card: #ffffff;
+        --brand: #1e3a8a; --accent: #2563eb; --ok: #16a34a; --bad: #dc2626;
+        --shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 22px -14px rgba(15,23,42,.18);
+        max-width: 1600px; margin: 0 auto; padding: 1rem 1rem 1.5rem;
+    }
+    body[data-theme="dark"] #hsx {
+        --ink: #f1f5f9; --mute: #94a3b8; --faint: #64748b; --line: rgba(148,163,184,.16); --soft: rgba(255,255,255,.03); --card: rgba(30,41,59,.72);
+        --brand: #93c5fd; --accent: #60a5fa; --shadow: 0 12px 28px -16px rgba(0,0,0,.7);
+    }
+    /* Kartu kepala */
+    #hsx .hs-header-card { background: var(--card) !important; border: 1px solid var(--line) !important; border-radius: 18px !important; box-shadow: var(--shadow) !important; padding: 1rem 1.1rem !important; margin-bottom: .8rem !important; }
+    #hsx .hs-topbar { display: flex !important; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: .95rem !important; padding: 0 !important; background: none !important; border: 0 !important; }
+    #hsx .hs-topbar h2 { margin: 0 !important; font-size: 1.15rem !important; font-weight: 800 !important; letter-spacing: -.01em; color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important; display: flex; align-items: center; gap: .55rem; }
+    #hsx .hsx-logo { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #1e3a8a, #2563eb); box-shadow: 0 8px 16px -8px rgba(37,99,235,.7); flex-shrink: 0; }
+    #hsx .hsx-logo svg { width: 18px; height: 18px; stroke: #fff !important; fill: none; }
+    #hsx .hs-topmeta { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .5rem !important; font-size: 0 !important; }
+    #hsx .hs-topmeta .hsx-chip { display: inline-flex; align-items: center; padding: .15rem .6rem; border-radius: 999px; font-size: .68rem !important; font-weight: 600; background: var(--soft); border: 1px solid var(--line); color: var(--mute) !important; -webkit-text-fill-color: var(--mute) !important; }
+    #hsx .hs-top-actions { display: flex; gap: .5rem; align-items: center; }
+    #hsx .btn-hs { height: 38px; padding: 0 1rem !important; border-radius: 11px !important; font-size: .8rem !important; font-weight: 700 !important; display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; }
+    #hsx .btn-hs-primary, body .btn-hs-primary { background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; border: 0 !important; box-shadow: 0 8px 18px -10px rgba(37,99,235,.8) !important; }
+    #hsx .btn-hs-primary:hover { filter: brightness(1.08); }
+    #hsx .btn-hs-secondary { background: var(--card) !important; color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important; border: 1px solid var(--line) !important; box-shadow: none !important; }
+    #hsx .btn-hs-secondary:hover { border-color: var(--accent) !important; }
+    /* Statistik */
+    #hsx .hs-stats { display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .6rem; margin: 0 !important; padding: 0 !important; background: none !important; }
+    #hsx .hs-stats .hs-stat { display: flex !important; flex-direction: column-reverse; justify-content: flex-end; gap: .15rem; padding: .7rem .85rem !important; border-radius: 13px !important; background: var(--soft) !important; border: 1px solid var(--line) !important; border-top: 3px solid var(--c, #2563eb) !important; box-shadow: none !important; text-align: left !important; }
+    #hsx .hs-stats .hs-stat .val { font-size: 1.1rem !important; font-weight: 800 !important; letter-spacing: -.01em; color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important; }
+    #hsx .hs-stats .hs-stat .lbl { font-size: .62rem !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: .06em; color: var(--mute) !important; -webkit-text-fill-color: var(--mute) !important; }
+    /* Pendapatan per layanan */
+    #hsx .hsx-rev { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: .8rem 1rem; margin-bottom: .8rem; }
+    #hsx .hsx-rev-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--mute) !important; }
+    #hsx .hsx-rev-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .55rem; }
+    #hsx .hsx-rev-i { padding: .55rem .75rem; border-radius: 12px; background: var(--soft); border: 1px solid var(--line); border-left: 4px solid var(--c); }
+    #hsx .hsx-rev-i .n { font-size: .7rem; font-weight: 700; color: var(--mute) !important; }
+    #hsx .hsx-rev-i .v { margin-top: .1rem; font-size: .95rem; font-weight: 800; color: var(--ink) !important; }
+    #hsx .hsx-rev-i .c { font-size: .62rem; color: var(--faint) !important; }
+    /* Filter */
+    #hsx .hs-filters { display: flex !important; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .65rem .8rem !important; margin-bottom: .8rem !important; border-radius: 14px !important; background: var(--card) !important; border: 1px solid var(--line) !important; box-shadow: var(--shadow) !important; }
+    #hsx .hs-filters input, #hsx .hs-filters select { height: 36px; padding: 0 .75rem !important; border-radius: 10px !important; border: 1px solid var(--line) !important; background: var(--soft) !important; color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important; font-size: .8rem !important; font-family: inherit; }
+    #hsx .hs-filters input[type="text"] { flex: 1 1 220px; min-width: 180px; }
+    #hsx .hs-filters input:focus, #hsx .hs-filters select:focus { outline: none; border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+    #hsx .hs-filters .btn-hs { height: 36px; }
+    /* Tabel */
+    #hsx .hs-table-wrap { background: var(--card) !important; border: 1px solid var(--line) !important; border-radius: 16px !important; box-shadow: var(--shadow) !important; overflow-x: auto; padding: 0 !important; }
+    #hsx table.hs-v2 { border-radius: 16px; }
+    #hsx table.hs-v2 thead th { font-size: .62rem !important; letter-spacing: .08em !important; padding: 12px 12px !important; }
+    #hsx table.hs-v2 tbody td { padding: 12px 12px !important; border-top: 1px solid var(--line) !important; font-size: .8rem !important; vertical-align: middle !important; background: transparent !important; }
+    #hsx table.hs-v2 tbody tr:nth-child(even) td { background: transparent !important; }
+    #hsx table.hs-v2 tbody tr:hover td { background: rgba(37,99,235,.05) !important; }
+    #hsx table.hs-v2 .hs-room-badge { background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; border-radius: 8px !important; box-shadow: none !important; }
+    #hsx table.hs-v2 .hs-svc-one { background: var(--soft) !important; border: 1px solid var(--line) !important; border-radius: 999px !important; }
+    #hsx table.hs-v2 td.hs-date { color: var(--mute) !important; font-size: .74rem !important; white-space: nowrap; }
+    #hsx table.hs-v2 .hs-guest-name { color: var(--ink) !important; font-weight: 700 !important; }
+    #hsx table.hs-v2 .hs-lunas { background: rgba(22,163,74,.12) !important; color: #15803d !important; border-radius: 999px; padding: 2px 10px; font-weight: 700; font-size: .7rem; }
+    /* Badge status: pipih, tanpa bayangan */
+    #hsx .hs-badge { min-width: 78px !important; padding: .22rem .55rem !important; font-size: .56rem !important; box-shadow: none !important; border: 0 !important; }
+    #hsx .hs-badge::before { display: none !important; }
+    #hsx .hs-badge-text { text-shadow: none !important; }
+    /* Tombol Aksi */
+    #hsx .hs-action-dropdown-btn { height: 30px; padding: 0 .75rem !important; border-radius: 9px !important; background: var(--card) !important; border: 1px solid var(--line) !important; color: var(--brand) !important; -webkit-text-fill-color: var(--brand) !important; font-weight: 700 !important; font-size: .74rem !important; box-shadow: none !important; }
+    #hsx .hs-action-dropdown-btn:hover { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+    #hsx table.hs-v2 col:last-child { width: 96px !important; }
+    #hsx table.hs-v2 { min-width: 1060px !important; }
+    #hsx .hs-empty { padding: 3rem 1rem !important; text-align: center; color: var(--mute) !important; }
+    @media (max-width: 1100px) { #hsx .hs-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 640px) {
+        #hsx { padding: .65rem .5rem 1rem; }
+        #hsx .hs-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        #hsx .hs-top-actions { width: 100%; }
+        #hsx .hs-top-actions .btn-hs { flex: 1; justify-content: center; }
+    }
+</style>
+
+<div class="hs-page" id="hsx">
 
     <div class="hs-header-card">
         <div class="hs-topbar">
             <div class="hs-head-main">
-                <h2>🛎️ Hotel Services</h2>
-                <div class="hs-topmeta">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
+                <h2><span class="hsx-logo"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M5 18a7 7 0 0 1 14 0"/><path d="M12 7V5"/><path d="M10 5h4"/></svg></span>Hotel Services</h2>
+                <div class="hs-topmeta"><?php foreach (['Motor Rental', 'Laundry', 'Service', 'Airport Drop', 'Harbor Drop', 'Narayana Trip', 'Lain-lain'] as $hsxC): ?><span class="hsx-chip"><?php echo $hsxC; ?></span><?php endforeach; ?></div>
             </div>
             <div class="hs-top-actions">
                 <button class="btn-hs btn-hs-secondary" onclick="openSettingsModal()">⚙️ Pengaturan</button>
-                <button class="btn-hs btn-hs-primary" id="btnNewInvoice">+ New Invoice</button>
+                <button class="btn-hs btn-hs-primary" id="btnNewInvoice">+ Invoice Baru</button>
             </div>
         </div>
         <script>
@@ -4127,34 +4203,32 @@ include '../../includes/header.php';
         <div class="hs-stats">
             <div class="hs-stat" style="--c:#6366f1">
                 <div class="val"><?php echo $today['total']; ?></div>
-                <div class="lbl">Invoices Today</div>
+                <div class="lbl">Invoice Hari Ini</div>
             </div>
             <div class="hs-stat" style="--c:#10b981">
                 <div class="val">Rp <?php echo number_format($today['revenue'], 0, ',', '.'); ?></div>
-                <div class="lbl">Revenue Today</div>
+                <div class="lbl">Pendapatan Hari Ini</div>
             </div>
             <div class="hs-stat" style="--c:#3b82f6">
                 <div class="val">Rp <?php echo number_format($today['collected'], 0, ',', '.'); ?></div>
-                <div class="lbl">Collected</div>
+                <div class="lbl">Terkumpul</div>
             </div>
             <div class="hs-stat" style="--c:#ef4444">
                 <div class="val"><?php echo $today['unpaid']; ?></div>
-                <div class="lbl">Unpaid</div>
+                <div class="lbl">Belum Lunas</div>
             </div>
             <div class="hs-stat" style="--c:#8b5cf6">
                 <div class="val"><?php echo $today['completed']; ?></div>
-                <div class="lbl">Completed</div>
+                <div class="lbl">Selesai</div>
             </div>
         </div>
     </div>
 
     <!-- Revenue per Service Type (this month) -->
     <?php if (!empty($svcRevStats)): ?>
-        <div style="background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.06);padding:0.5rem 0.65rem;margin-bottom:0.5rem;">
-            <div style="font-size:0.62rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">
-                📊 Revenue per Service — This Month
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <div class="hsx-rev">
+            <div class="hsx-rev-h"><span>Pendapatan per layanan · bulan ini</span></div>
+            <div class="hsx-rev-grid">
                 <?php
                 $svcColors = ['motor_rental' => '#f59e0b', 'car_rental' => '#0f766e', 'laundry' => '#3b82f6', 'service' => '#10b981', 'airport_drop' => '#8b5cf6', 'harbor_drop' => '#06b6d4', 'narayana_trip' => '#ec4899', 'lain_lain' => '#78716c'];
                 foreach ($svcRevStats as $sr):
@@ -4162,10 +4236,10 @@ include '../../includes/header.php';
                     $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹'];
                     $color   = $svcColors[$svcKey] ?? '#6366f1';
                 ?>
-                    <div style="flex:1;min-width:105px;border-left:3px solid <?php echo $color; ?>;padding:0.35rem 0.55rem;background:#fafbff;border-radius:0 6px 6px 0;">
-                        <div style="font-size:0.66rem;font-weight:700;color:<?php echo $color; ?>"><?php echo $svcInfo['icon']; ?> <?php echo htmlspecialchars($svcInfo['label']); ?></div>
-                        <div style="font-size:0.78rem;font-weight:800;color:#1e293b;margin-top:0.1rem">Rp <?php echo number_format($sr['total_revenue'], 0, ',', '.'); ?></div>
-                        <div style="font-size:0.58rem;color:var(--text-secondary)"><?php echo $sr['invoice_count']; ?> invoice<?php echo $sr['invoice_count'] != 1 ? 's' : ''; ?></div>
+                    <div class="hsx-rev-i" style="--c:<?php echo $color; ?>">
+                        <div class="n"><?php echo $svcInfo['icon']; ?> <?php echo htmlspecialchars($svcInfo['label']); ?></div>
+                        <div class="v">Rp <?php echo number_format($sr['total_revenue'], 0, ',', '.'); ?></div>
+                        <div class="c"><?php echo $sr['invoice_count']; ?> invoice</div>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -4174,17 +4248,17 @@ include '../../includes/header.php';
 
     <!-- Filters -->
     <form method="GET" class="hs-filters">
-        <input type="text" name="q" placeholder="🔍 Guest / Invoice..." value="<?php echo htmlspecialchars($search); ?>">
+        <input type="text" name="q" placeholder="🔍 Cari tamu / nomor invoice..." value="<?php echo htmlspecialchars($search); ?>">
         <select name="status">
-            <option value="">All Status</option>
+            <option value="">Semua status</option>
             <?php foreach (['pending', 'confirmed', 'completed', 'cancelled'] as $s): ?>
                 <option value="<?php echo $s; ?>" <?php echo $filterStatus === $s ? 'selected' : ''; ?>><?php echo ucfirst($s); ?></option>
             <?php endforeach; ?>
         </select>
         <input type="date" name="date" value="<?php echo htmlspecialchars($filterDate); ?>">
-        <button type="submit" class="btn-hs btn-hs-primary" style="padding:0.4rem 0.9rem;font-size:0.8rem">Filter</button>
+        <button type="submit" class="btn-hs btn-hs-primary">Filter</button>
         <?php if ($filterStatus || $filterDate || $search): ?>
-            <a href="hotel-services.php" class="btn-hs btn-hs-secondary" style="padding:0.4rem 0.9rem;font-size:0.8rem;text-decoration:none">Clear</a>
+            <a href="hotel-services.php" class="btn-hs btn-hs-secondary" style="text-decoration:none">Hapus filter</a>
         <?php endif; ?>
     </form>
 
@@ -4193,8 +4267,8 @@ include '../../includes/header.php';
         <?php if (empty($invoices)): ?>
             <div class="hs-empty">
                 <div class="em-icon">🛎️</div>
-                <div style="font-weight:600;margin-bottom:0.25rem">No service invoices yet</div>
-                <div style="font-size:0.8rem">Click "+ New Invoice" to create your first one</div>
+                <div style="font-weight:700;margin-bottom:0.25rem">Belum ada invoice layanan</div>
+                <div style="font-size:0.8rem">Klik "+ Invoice Baru" untuk membuat yang pertama</div>
             </div>
         <?php else: ?>
             <table class="hs-table hs-v2">
@@ -4212,14 +4286,14 @@ include '../../includes/header.php';
                 </colgroup>
                 <thead>
                     <tr>
-                        <th class="l">Date</th>
-                        <th class="l">Guest</th>
-                        <th class="l">Phone</th>
-                        <th>Room</th>
-                        <th class="l">Service</th>
+                        <th class="l">Tanggal</th>
+                        <th class="l">Tamu</th>
+                        <th class="l">Telepon</th>
+                        <th>Kamar</th>
+                        <th class="l">Layanan</th>
                         <th class="r">Total</th>
-                        <th class="r">Paid</th>
-                        <th class="r">Balance</th>
+                        <th class="r">Dibayar</th>
+                        <th class="r">Sisa</th>
                         <th>Status</th>
                         <th></th>
                     </tr>
