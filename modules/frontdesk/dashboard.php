@@ -10,6 +10,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/frontdesk_today.php';
 
 // ============================================
 // SECURITY & AUTHENTICATION
@@ -399,77 +400,10 @@ try {
         WHERE DATE(b.check_out_date) = ? AND b.status = 'checked_out'
         ORDER BY b.actual_checkout_time DESC LIMIT 30", [$today]) ?: [];
 
-    // 15. Reservasi masuk hari ini (dibuat hari ini, semua sumber — termasuk dari Cloudbeds), grup digabung
-    $newSql = function (bool $withSources, bool $withCb) {
-        return "SELECT b.id, b.booking_code, b.group_id, b.status, b.booking_source, b.payment_status, b.created_at,
-                   DATE(b.check_in_date) ci, DATE(b.check_out_date) co, b.total_nights, b.final_price, b.paid_amount, b.adults, b.children,
-                   g.guest_name, r.room_number, rt.type_name AS room_type"
-            . ($withSources ? ", bs.source_name, bs.source_type" : ", NULL AS source_name, NULL AS source_type")
-            . ($withCb ? ", (SELECT l.how FROM cloudbeds_booking_links l WHERE l.booking_id = b.id LIMIT 1) AS cb_how" : ", NULL AS cb_how") . "
-            FROM bookings b
-            LEFT JOIN guests g ON g.id = b.guest_id
-            LEFT JOIN rooms r ON r.id = b.room_id
-            LEFT JOIN room_types rt ON rt.id = r.room_type_id"
-            . ($withSources ? " LEFT JOIN booking_sources bs ON bs.source_key = b.booking_source" : "") . "
-            WHERE DATE(b.created_at) = ?
-            ORDER BY b.created_at DESC, b.id DESC LIMIT 60";
-    };
-    $newRows = null;
-    foreach ([[true, true], [true, false], [false, false]] as [$ws, $wc]) {
-        try {
-            $newRows = $db->fetchAll($newSql($ws, $wc), [$today]) ?: [];
-            break;
-        } catch (\Throwable $e) {
-            // tabel booking_sources / cloudbeds_booking_links belum ada → coba versi lebih sederhana
-        }
-    }
-    $newRes = [];
-    foreach ($newRows ?: [] as $nr) {
-        $key = $nr['group_id'] ? 'g:' . $nr['group_id'] : 'b:' . $nr['id'];
-        if (!isset($newRes[$key])) {
-            $newRes[$key] = $nr + ['rooms' => [], 'total' => 0.0, 'paid' => 0.0, 'n_rooms' => 0, 'all_cancelled' => true];
-        }
-        $newRes[$key]['rooms'][] = $nr['room_number'] ?: '-';
-        $newRes[$key]['n_rooms']++;
-        if ($nr['status'] !== 'cancelled') {
-            $newRes[$key]['total'] += (float)$nr['final_price'];
-            $newRes[$key]['paid'] += (float)$nr['paid_amount'];
-            $newRes[$key]['all_cancelled'] = false;
-        }
-    }
-    $stats['new_today'] = array_values($newRes);
-    $stats['new_today_count'] = count(array_filter($stats['new_today'], fn($x) => !$x['all_cancelled']));
-    $stats['new_today_value'] = array_sum(array_map(fn($x) => $x['total'], $stats['new_today']));
-    $stats['new_today_nights'] = array_sum(array_map(fn($x) => $x['all_cancelled'] ? 0 : (int)$x['total_nights'] * $x['n_rooms'], $stats['new_today']));
-    $cancelRow = $db->fetchOne("SELECT COUNT(*) c FROM bookings WHERE status = 'cancelled' AND DATE(updated_at) = ?", [$today]);
-    $stats['cancelled_today'] = (int)($cancelRow['c'] ?? 0);
-
-    // 16. Kamar diblok hari ini
-    try {
-        $blkRow = $db->fetchOne("SELECT COUNT(DISTINCT room_id) c FROM room_blocks WHERE status = 'active' AND block_start_date <= ? AND block_end_date > ?", [$today, $today]);
-        $stats['blocked_rooms'] = (int)($blkRow['c'] ?? 0);
-    } catch (\Throwable $e) {
-        $stats['blocked_rooms'] = 0;
-    }
-    $stats['vacant_rooms'] = max(0, $stats['total_rooms'] - $stats['occupied_rooms'] - $stats['blocked_rooms']);
-
-    // 17. Prakiraan okupansi 7 hari (kamar terpesan per malam)
-    $fcRows = $db->fetchAll("SELECT room_id, DATE(check_in_date) ci, DATE(check_out_date) co, status FROM bookings
-        WHERE status IN ('pending','confirmed','checked_in') AND DATE(check_in_date) < ? AND (DATE(check_out_date) > ? OR status = 'checked_in')",
-        [date('Y-m-d', strtotime('+7 days')), $today]) ?: [];
-    $stats['forecast'] = [];
-    for ($i = 0; $i < 7; $i++) {
-        $d = date('Y-m-d', strtotime("+$i days"));
-        $rooms = [];
-        $arr = 0;
-        foreach ($fcRows as $f) {
-            // Tamu in-house yang lewat tanggal check-out tetap menempati kamar hari ini
-            $co = ($f['status'] === 'checked_in' && $f['co'] <= $today) ? date('Y-m-d', strtotime($today . ' +1 day')) : $f['co'];
-            if ($f['ci'] <= $d && $co > $d) $rooms[(int)$f['room_id']] = true;
-            if ($f['ci'] === $d) $arr++;
-        }
-        $n = count($rooms);
-        $stats['forecast'][] = ['date' => $d, 'rooms' => $n, 'arrivals' => $arr, 'pct' => (int)round($n / $stats['total_rooms'] * 100)];
+    // 15–17. Reservasi masuk hari ini, kamar diblok, okupansi 7 hari: komponen bersama (juga di dashboard utama)
+    $fdt = fdt_data($db);
+    foreach (['new_today', 'new_today_count', 'new_today_value', 'new_today_nights', 'cancelled_today', 'blocked_rooms', 'vacant_rooms', 'forecast'] as $k) {
+        $stats[$k] = $fdt[$k];
     }
 } catch (\Throwable $e) {
     error_log("Dashboard Stats Error: " . $e->getMessage());
@@ -552,7 +486,7 @@ include '../../includes/header.php';
         --ok: #16a34a; --ok-bg: #dcfce7; --warn: #b45309; --warn-bg: #fef3c7; --bad: #dc2626; --bad-bg: #fee2e2;
         --ota: #6d28d9; --ota-bg: #f5f3ff; --shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 18px -12px rgba(15,23,42,.16);
         max-width: 1600px; margin: 0 auto; padding: 1rem 1rem 1.5rem; color: var(--ink);
-        font-size: 0.72rem;
+        font-size: 0.792rem;
     }
     body[data-theme="dark"] #fd2 {
         --ink: #f1f5f9; --mute: #94a3b8; --faint: #64748b; --line: rgba(148,163,184,.16); --soft: rgba(255,255,255,.03);
@@ -566,11 +500,11 @@ include '../../includes/header.php';
 
     /* Header */
     #fd2 .fd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-    #fd2 .fd-eyebrow { font-size: 0.58rem !important; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--accent) !important; }
-    #fd2 h1.fd-title { margin: 1px 0 1px; font-size: 0.95rem !important; line-height: 1.25; font-weight: 800 !important; color: var(--ink) !important; }
-    #fd2 .fd-date { font-size: 0.64rem !important; color: var(--mute) !important; }
+    #fd2 .fd-eyebrow { font-size: 0.638rem !important; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--accent) !important; }
+    #fd2 h1.fd-title { margin: 1px 0 1px; font-size: 1.045rem !important; line-height: 1.25; font-weight: 800 !important; color: var(--ink) !important; }
+    #fd2 .fd-date { font-size: 0.704rem !important; color: var(--mute) !important; }
     #fd2 .fd-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-    #fd2 .fd-btn { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 11px; border-radius: 8px; font-size: 0.66rem !important; font-weight: 700; border: 1px solid var(--line); background: var(--card); color: var(--ink) !important; transition: border-color .15s, transform .15s; }
+    #fd2 .fd-btn { display: inline-flex; align-items: center; gap: 5px; height: 31px; padding: 0 12px; border-radius: 9px; font-size: 0.726rem !important; font-weight: 700; border: 1px solid var(--line); background: var(--card); color: var(--ink) !important; transition: border-color .15s, transform .15s; }
     #fd2 .fd-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
     #fd2 .fd-btn.primary { background: var(--brand); border-color: var(--brand); color: #fff !important; }
     body[data-theme="dark"] #fd2 .fd-btn.primary { background: #2563eb; border-color: #2563eb; }
@@ -580,10 +514,10 @@ include '../../includes/header.php';
     #fd2 .fd-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
     #fd2 .fd-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px 8px; flex-wrap: wrap; }
     #fd2 .fd-card-title { display: flex; align-items: center; gap: 8px; }
-    #fd2 .fd-card-title b { display: block; font-size: 0.76rem !important; font-weight: 800 !important; color: var(--ink) !important; }
-    #fd2 .fd-card-title small { display: block; font-size: 0.6rem !important; color: var(--mute) !important; margin-top: 1px; }
-    #fd2 .fd-ic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; }
-    #fd2 .fd-ic svg { width: 13px; height: 13px; }
+    #fd2 .fd-card-title b { display: block; font-size: 0.836rem !important; font-weight: 800 !important; color: var(--ink) !important; }
+    #fd2 .fd-card-title small { display: block; font-size: 0.66rem !important; color: var(--mute) !important; margin-top: 1px; }
+    #fd2 .fd-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; }
+    #fd2 .fd-ic svg { width: 15px; height: 15px; }
     #fd2 .ic-blue { background: #dbeafe; color: #1d4ed8 !important; }
     #fd2 .ic-green { background: var(--ok-bg); color: var(--ok) !important; }
     #fd2 .ic-amber { background: var(--warn-bg); color: var(--warn) !important; }
@@ -592,12 +526,12 @@ include '../../includes/header.php';
 
     /* KPI aktivitas hari ini */
     #fd2 .fd-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
-    #fd2 .fd-kpi { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    #fd2 .fd-kpi { padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
     #fd2 .fd-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    #fd2 .fd-kpi-label { font-size: 0.58rem !important; font-weight: 800; color: var(--mute) !important; text-transform: uppercase; letter-spacing: .07em; }
-    #fd2 .fd-kpi-val { font-size: 1.15rem !important; font-weight: 800 !important; line-height: 1; color: var(--ink) !important; }
-    #fd2 .fd-kpi-val small { font-size: 0.64rem !important; font-weight: 700; color: var(--faint) !important; }
-    #fd2 .fd-kpi-sub { font-size: 0.62rem !important; color: var(--mute) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #fd2 .fd-kpi-label { font-size: 0.638rem !important; font-weight: 800; color: var(--mute) !important; text-transform: uppercase; letter-spacing: .07em; }
+    #fd2 .fd-kpi-val { font-size: 1.265rem !important; font-weight: 800 !important; line-height: 1; color: var(--ink) !important; }
+    #fd2 .fd-kpi-val small { font-size: 0.704rem !important; font-weight: 700; color: var(--faint) !important; }
+    #fd2 .fd-kpi-sub { font-size: 0.682rem !important; color: var(--mute) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #fd2 .fd-kpi-sub b { color: var(--ink) !important; font-weight: 700; }
     #fd2 .fd-bar { height: 4px; border-radius: 99px; background: var(--line); overflow: hidden; }
     #fd2 .fd-bar i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
@@ -605,29 +539,9 @@ include '../../includes/header.php';
     #fd2 .fd-bar.amber i { background: #f59e0b; }
     #fd2 .fd-bar.violet i { background: #8b5cf6; }
 
-    /* Grid utama */
-    #fd2 .fd-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr); gap: 10px; margin-bottom: 10px; align-items: start; }
-    #fd2 .fd-side { display: flex; flex-direction: column; gap: 10px; }
-
-    /* Reservasi masuk hari ini */
-    #fd2 .fd-new-list { list-style: none; margin: 0; padding: 0 6px 6px; max-height: 360px; overflow-y: auto; }
-    #fd2 .fd-new { display: grid; grid-template-columns: 34px 28px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 7px 6px; border-top: 1px solid var(--line); }
-    #fd2 .fd-new:first-child { border-top: 0; }
-    #fd2 .fd-new:hover { background: var(--soft); border-radius: 9px; }
-    #fd2 .fd-time { font-size: 0.6rem !important; font-weight: 700; color: var(--faint) !important; font-variant-numeric: tabular-nums; }
-    #fd2 .fd-av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 0.58rem !important; font-weight: 800; background: #e0e7ff; color: #3730a3 !important; }
-    #fd2 .fd-av.ota { background: var(--ota-bg); color: var(--ota) !important; }
-    body[data-theme="dark"] #fd2 .fd-av { background: rgba(99,102,241,.18); color: #c7d2fe !important; }
-    #fd2 .fd-new-main { min-width: 0; }
-    #fd2 .fd-new-name { font-size: 0.72rem !important; font-weight: 700; color: var(--ink) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #fd2 .fd-new-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 3px; font-size: 0.62rem !important; color: var(--mute) !important; }
-    #fd2 .fd-new-meta span { font-size: 0.62rem !important; }
-    #fd2 .fd-new-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
-    #fd2 .fd-amt { font-size: 0.72rem !important; font-weight: 800; color: var(--ink) !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    #fd2 .fd-new.is-cancel .fd-new-name, #fd2 .fd-new.is-cancel .fd-amt { text-decoration: line-through; color: var(--faint) !important; }
-    #fd2 .fd-room { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 5px; background: var(--brand); color: #fff !important; font-size: 0.6rem !important; font-weight: 800; }
+    #fd2 .fd-room { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 5px; background: var(--brand); color: #fff !important; font-size: 0.66rem !important; font-weight: 800; }
     body[data-theme="dark"] #fd2 .fd-room { background: #1d4ed8; }
-    #fd2 .fd-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; font-size: 0.58rem !important; font-weight: 700; white-space: nowrap; border: 1px solid transparent; }
+    #fd2 .fd-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; font-size: 0.638rem !important; font-weight: 700; white-space: nowrap; border: 1px solid transparent; }
     #fd2 .fd-chip.ota { background: var(--ota-bg); color: var(--ota) !important; border-color: rgba(139,92,246,.25); }
     #fd2 .fd-chip.dir { background: var(--soft); color: var(--mute) !important; border-color: var(--line); }
     #fd2 .fd-chip.ok { background: var(--ok-bg); color: var(--ok) !important; }
@@ -636,47 +550,21 @@ include '../../includes/header.php';
     #fd2 .fd-chip.cb { background: #ecfeff; color: #0e7490 !important; border-color: #a5f3fc; }
     body[data-theme="dark"] #fd2 .fd-chip.cb { background: rgba(6,182,212,.12); color: #67e8f9 !important; border-color: rgba(6,182,212,.3); }
     #fd2 .fd-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); display: inline-block; }
-    #fd2 .fd-empty { padding: 22px 12px 26px; text-align: center; color: var(--mute) !important; font-size: 0.68rem !important; }
-    #fd2 .fd-empty div { font-size: 0.68rem !important; }
+    #fd2 .fd-empty { padding: 22px 12px 26px; text-align: center; color: var(--mute) !important; font-size: 0.748rem !important; }
+    #fd2 .fd-empty div { font-size: 0.748rem !important; }
     #fd2 .fd-empty svg { width: 26px; height: 26px; color: var(--faint) !important; margin-bottom: 6px; }
-    #fd2 .fd-sum { display: flex; gap: 5px; flex-wrap: wrap; }
-
-    /* Okupansi */
-    #fd2 .fd-occ { display: grid; grid-template-columns: 104px 1fr; gap: 14px; align-items: center; padding: 2px 12px 12px; }
-    #fd2 .fd-ring { position: relative; width: 104px; height: 104px; }
-    #fd2 .fd-ring canvas { width: 104px !important; height: 104px !important; }
-    #fd2 .fd-ring-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-    #fd2 .fd-ring-c b { font-size: 1.05rem !important; font-weight: 800 !important; color: var(--ink) !important; line-height: 1; }
-    #fd2 .fd-ring-c small { font-size: 0.56rem !important; color: var(--mute) !important; margin-top: 2px; }
-    #fd2 .fd-legend { display: flex; flex-direction: column; gap: 7px; }
-    #fd2 .fd-legend div { display: flex; align-items: center; gap: 7px; font-size: 0.66rem !important; color: var(--mute) !important; }
-    #fd2 .fd-legend i { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-    #fd2 .fd-legend b { margin-left: auto; color: var(--ink) !important; font-weight: 800; font-variant-numeric: tabular-nums; }
-
-    /* Prakiraan 7 hari */
-    #fd2 .fd-fc { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 2px 12px 12px; }
-    #fd2 .fd-fc-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    #fd2 .fd-fc-pct { font-size: 0.56rem !important; font-weight: 800; color: var(--ink) !important; font-variant-numeric: tabular-nums; }
-    #fd2 .fd-fc-track { width: 100%; max-width: 24px; height: 70px; border-radius: 6px; background: var(--soft); border: 1px solid var(--line); display: flex; align-items: flex-end; overflow: hidden; }
-    #fd2 .fd-fc-fill { width: 100%; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, #60a5fa, #2563eb); min-height: 3px; }
-    #fd2 .fd-fc-fill.hi { background: linear-gradient(180deg, #4ade80, #16a34a); }
-    #fd2 .fd-fc-fill.lo { background: linear-gradient(180deg, #fcd34d, #f59e0b); }
-    #fd2 .fd-fc-day { font-size: 0.56rem !important; font-weight: 700; color: var(--mute) !important; line-height: 1.15; text-align: center; }
-    #fd2 .fd-fc-day small { display: block; font-weight: 600; color: var(--faint) !important; font-size: 0.52rem !important; }
-    #fd2 .fd-fc-col.today .fd-fc-day { color: var(--accent) !important; }
-
     /* Pendapatan */
     #fd2 .fd-rev { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 10px; }
     #fd2 .fd-rev > div { padding: 10px 14px; min-width: 0; }
     #fd2 .fd-rev > div + div { border-left: 1px solid var(--line); }
-    #fd2 .fd-rev-label { font-size: 0.58rem !important; font-weight: 800; color: var(--mute) !important; text-transform: uppercase; letter-spacing: .07em; }
-    #fd2 .fd-rev-val { font-size: 0.92rem !important; font-weight: 800 !important; color: var(--ink) !important; margin: 4px 0 1px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #fd2 .fd-rev-sub { font-size: 0.6rem !important; color: var(--faint) !important; }
+    #fd2 .fd-rev-label { font-size: 0.638rem !important; font-weight: 800; color: var(--mute) !important; text-transform: uppercase; letter-spacing: .07em; }
+    #fd2 .fd-rev-val { font-size: 1.012rem !important; font-weight: 800 !important; color: var(--ink) !important; margin: 4px 0 1px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #fd2 .fd-rev-sub { font-size: 0.66rem !important; color: var(--faint) !important; }
 
     /* Tab aktivitas */
     #fd2 .fd-tabs { display: flex; gap: 3px; padding: 4px; margin: 0 10px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; scrollbar-width: none; }
-    #fd2 .fd-tab { flex: 1 0 auto; border: 0; background: transparent; padding: 5px 10px; border-radius: 7px; font-size: 0.66rem !important; font-weight: 700; color: var(--mute) !important; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; font-family: inherit; }
-    #fd2 .fd-tab .n { min-width: 18px; height: 16px; padding: 0 5px; border-radius: 99px; background: var(--line); font-size: 0.56rem !important; display: inline-grid; place-items: center; color: var(--mute) !important; }
+    #fd2 .fd-tab { flex: 1 0 auto; border: 0; background: transparent; padding: 5px 10px; border-radius: 7px; font-size: 0.726rem !important; font-weight: 700; color: var(--mute) !important; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; font-family: inherit; }
+    #fd2 .fd-tab .n { min-width: 18px; height: 16px; padding: 0 5px; border-radius: 99px; background: var(--line); font-size: 0.616rem !important; display: inline-grid; place-items: center; color: var(--mute) !important; }
     #fd2 .fd-tab.on { background: var(--card); color: var(--ink) !important; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
     #fd2 .fd-tab.on .n { background: var(--brand); color: #fff !important; }
     body[data-theme="dark"] #fd2 .fd-tab.on { background: rgba(255,255,255,.08); }
@@ -686,39 +574,29 @@ include '../../includes/header.php';
     #fd2 .fd-pane-bar { display: flex; justify-content: flex-end; padding: 2px 10px 2px; }
     #fd2 .fd-tbl-wrap { overflow-x: auto; }
     #fd2 table.fd-tbl { width: 100%; border-collapse: collapse; }
-    #fd2 .fd-tbl th { padding: 7px 10px; text-align: left; font-size: 0.56rem !important; font-weight: 800 !important; letter-spacing: .07em; text-transform: uppercase; color: var(--faint) !important; border-bottom: 1px solid var(--line); white-space: nowrap; background: transparent !important; }
-    #fd2 .fd-tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--ink) !important; font-size: 0.7rem !important; }
+    #fd2 .fd-tbl th { padding: 7px 10px; text-align: left; font-size: 0.616rem !important; font-weight: 800 !important; letter-spacing: .07em; text-transform: uppercase; color: var(--faint) !important; border-bottom: 1px solid var(--line); white-space: nowrap; background: transparent !important; }
+    #fd2 .fd-tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--ink) !important; font-size: 0.77rem !important; }
     #fd2 .fd-tbl td div { font-size: inherit; }
     #fd2 .fd-tbl tbody tr:last-child td { border-bottom: 0; }
     #fd2 .fd-tbl tbody tr:hover td { background: var(--soft); }
     #fd2 .fd-tbl .r { text-align: right; }
     #fd2 .fd-tbl .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    #fd2 .fd-g-name { font-weight: 700; font-size: 0.7rem !important; }
-    #fd2 .fd-g-sub { font-size: 0.6rem !important; color: var(--mute) !important; margin-top: 1px; }
+    #fd2 .fd-g-name { font-weight: 700; font-size: 0.77rem !important; }
+    #fd2 .fd-g-sub { font-size: 0.66rem !important; color: var(--mute) !important; margin-top: 1px; }
     #fd2 .fd-muted { color: var(--mute) !important; }
-    #fd2 .fd-ico-btn { width: 26px; height: 26px; display: inline-grid; place-items: center; border-radius: 7px; border: 1px solid var(--line); background: var(--card); color: var(--accent) !important; }
+    #fd2 .fd-ico-btn { width: 29px; height: 29px; display: inline-grid; place-items: center; border-radius: 7px; border: 1px solid var(--line); background: var(--card); color: var(--accent) !important; }
     #fd2 .fd-ico-btn:hover { border-color: var(--accent); }
     #fd2 .fd-ico-btn.wa { color: #16a34a !important; }
     #fd2 .fd-ico-btn svg { width: 12px; height: 12px; }
     #fd2 .fd-acts { display: inline-flex; gap: 5px; }
 
-    @media (max-width: 1180px) {
-        #fd2 .fd-grid { grid-template-columns: minmax(0, 1fr); }
-        #fd2 .fd-side { display: grid; grid-template-columns: 1fr 1fr; }
-    }
     @media (max-width: 860px) {
         #fd2 .fd-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        #fd2 .fd-side { grid-template-columns: minmax(0, 1fr); }
         #fd2 .fd-rev { grid-template-columns: minmax(0, 1fr); }
         #fd2 .fd-rev > div + div { border-left: 0; border-top: 1px solid var(--line); }
     }
     @media (max-width: 560px) {
         #fd2 { padding: .75rem .65rem 1.25rem; }
-        #fd2 .fd-new { grid-template-columns: 28px minmax(0, 1fr); }
-        #fd2 .fd-new .fd-time { display: none; }
-        #fd2 .fd-new-right { grid-column: 2; flex-direction: row; align-items: center; gap: 6px; }
-        #fd2 .fd-occ { grid-template-columns: 1fr; justify-items: center; }
-        #fd2 .fd-legend { width: 100%; }
     }
 </style>
 
@@ -781,121 +659,7 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <div class="fd-grid">
-        <!-- Reservasi masuk hari ini -->
-        <div class="fd-card">
-            <div class="fd-card-head">
-                <div class="fd-card-title">
-                    <span class="fd-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
-                    <div>
-                        <b>Reservasi Masuk Hari Ini</b>
-                        <small>Semua booking yang dibuat hari ini, dari sistem maupun Cloudbeds/OTA</small>
-                    </div>
-                </div>
-                <div class="fd-sum">
-                    <span class="fd-chip ok"><?php echo (int)$stats['new_today_count']; ?> masuk</span>
-                    <?php if ($stats['cancelled_today']): ?><span class="fd-chip bad"><?php echo (int)$stats['cancelled_today']; ?> batal</span><?php endif; ?>
-                </div>
-            </div>
-            <?php if (!empty($stats['new_today'])): ?>
-                <ul class="fd-new-list">
-                    <?php foreach ($stats['new_today'] as $nr):
-                        $isOta = $fdOta($nr['source_type'], $nr['booking_source']);
-                        $cancel = $nr['all_cancelled'];
-                        $roomsShown = array_slice(array_unique($nr['rooms']), 0, 4);
-                        $balance = max(0, $nr['total'] - $nr['paid']);
-                    ?>
-                        <li class="fd-new<?php echo $cancel ? ' is-cancel' : ''; ?>">
-                            <span class="fd-time"><?php echo date('H:i', strtotime($nr['created_at'])); ?></span>
-                            <span class="fd-av<?php echo $isOta ? ' ota' : ''; ?>"><?php echo htmlspecialchars($fdInitials($nr['guest_name'])); ?></span>
-                            <div class="fd-new-main">
-                                <div class="fd-new-name"><?php echo htmlspecialchars($nr['guest_name'] ?: 'Tamu'); ?></div>
-                                <div class="fd-new-meta">
-                                    <?php foreach ($roomsShown as $rm): ?><span class="fd-room"><?php echo htmlspecialchars($rm); ?></span><?php endforeach; ?>
-                                    <?php if ($nr['n_rooms'] > count($roomsShown)): ?><span>+<?php echo $nr['n_rooms'] - count($roomsShown); ?></span><?php endif; ?>
-                                    <span><?php echo $fdDate($nr['ci']) . ' → ' . $fdDate($nr['co']); ?></span>
-                                    <span class="fd-dot"></span>
-                                    <span><?php echo (int)$nr['total_nights']; ?> malam</span>
-                                    <span class="fd-chip <?php echo $isOta ? 'ota' : 'dir'; ?>"><?php echo htmlspecialchars($fdSrc($nr['source_name'], $nr['booking_source'])); ?></span>
-                                    <?php if ($nr['cb_how'] === 'push'): ?><span class="fd-chip cb" title="Sudah dikirim ke Cloudbeds">✓ Cloudbeds</span>
-                                    <?php elseif ($nr['cb_how']): ?><span class="fd-chip cb" title="Masuk dari Cloudbeds">via Cloudbeds</span><?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="fd-new-right">
-                                <div class="fd-amt"><?php echo $fdRp($cancel ? $nr['final_price'] : $nr['total']); ?></div>
-                                <?php if ($cancel): ?>
-                                    <span class="fd-chip bad">Dibatalkan</span>
-                                <?php elseif ($balance <= 0 && $nr['total'] > 0): ?>
-                                    <span class="fd-chip ok">Lunas</span>
-                                <?php elseif ($nr['paid'] > 0): ?>
-                                    <span class="fd-chip warn">DP · sisa <?php echo $fdRp($balance); ?></span>
-                                <?php else: ?>
-                                    <span class="fd-chip <?php echo $isOta ? 'dir' : 'warn'; ?>"><?php echo $isOta ? 'Bayar via OTA/hotel' : 'Belum bayar'; ?></span>
-                                <?php endif; ?>
-                            </div>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php else: ?>
-                <div class="fd-empty">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                    <div>Belum ada reservasi masuk hari ini.</div>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <div class="fd-side">
-            <!-- Okupansi hari ini -->
-            <div class="fd-card">
-                <div class="fd-card-head">
-                    <div class="fd-card-title">
-                        <span class="fd-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>
-                        <div>
-                            <b>Okupansi Hari Ini</b>
-                            <small><?php echo (int)$stats['total_rooms']; ?> kamar</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="fd-occ">
-                    <div class="fd-ring">
-                        <canvas id="occupancyChart" width="104" height="104"></canvas>
-                        <div class="fd-ring-c"><b><?php echo $stats['occupancy_rate']; ?>%</b><small>terisi</small></div>
-                    </div>
-                    <div class="fd-legend">
-                        <div><i style="background:#2563eb"></i>Terisi <b><?php echo (int)$stats['occupied_rooms']; ?></b></div>
-                        <div><i style="background:#cbd5e1"></i>Kosong <b><?php echo (int)$stats['vacant_rooms']; ?></b></div>
-                        <div><i style="background:#f59e0b"></i>Diblok <b><?php echo (int)$stats['blocked_rooms']; ?></b></div>
-                        <div><i style="background:#8b5cf6"></i>Datang besok <b><?php echo (int)$stats['predicted_tomorrow']; ?></b></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Prakiraan 7 hari -->
-            <div class="fd-card">
-                <div class="fd-card-head">
-                    <div class="fd-card-title">
-                        <span class="fd-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-4M12 16V8M17 16v-7"/></svg></span>
-                        <div>
-                            <b>Okupansi 7 Hari</b>
-                            <small>Kamar terpesan per malam</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="fd-fc">
-                    <?php foreach ($stats['forecast'] as $i => $fc):
-                        $lvl = $fc['pct'] >= 80 ? 'hi' : ($fc['pct'] < 40 ? 'lo' : '');
-                        $t = strtotime($fc['date']);
-                    ?>
-                        <div class="fd-fc-col<?php echo $i === 0 ? ' today' : ''; ?>" title="<?php echo $fc['rooms'] . ' kamar terpesan · ' . $fc['arrivals'] . ' kedatangan'; ?>">
-                            <span class="fd-fc-pct"><?php echo $fc['pct']; ?>%</span>
-                            <div class="fd-fc-track"><div class="fd-fc-fill <?php echo $lvl; ?>" style="height:<?php echo max(3, min(100, $fc['pct'])); ?>%"></div></div>
-                            <span class="fd-fc-day"><?php echo $i === 0 ? 'Hari ini' : mb_substr($fdHari[(int)date('w', $t)], 0, 3); ?><small><?php echo date('j', $t) . ' ' . $fdBulan[(int)date('n', $t)]; ?></small></span>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php if (isset($fdt)) fdt_render($fdt); ?>
 
     <!-- Pendapatan -->
     <div class="fd-card fd-rev">
@@ -1105,38 +869,6 @@ include '../../includes/header.php';
         try { start = sessionStorage.getItem('fdTab') || start; } catch (e) {}
         show(start);
 
-        // Cincin okupansi
-        var el = document.getElementById('occupancyChart');
-        if (el && window.Chart) {
-            var dark = document.body.getAttribute('data-theme') === 'dark';
-            new Chart(el, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Terisi', 'Kosong', 'Diblok'],
-                    datasets: [{
-                        data: [<?php echo (int)$stats['occupied_rooms']; ?>, <?php echo (int)$stats['vacant_rooms']; ?>, <?php echo (int)$stats['blocked_rooms']; ?>],
-                        backgroundColor: ['#2563eb', dark ? 'rgba(148,163,184,.25)' : '#e2e8f0', '#f59e0b'],
-                        borderWidth: 0,
-                        borderRadius: 4,
-                        spacing: 2
-                    }]
-                },
-                options: {
-                    responsive: false,
-                    cutout: '76%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(15,23,42,.95)',
-                            padding: 10,
-                            cornerRadius: 8,
-                            callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.parsed + ' kamar'; } }
-                        }
-                    },
-                    animation: { duration: 700, easing: 'easeOutQuart' }
-                }
-            });
-        }
     })();
 </script>
 

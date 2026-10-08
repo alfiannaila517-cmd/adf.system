@@ -989,6 +989,22 @@ if ($trialStatus) {
     </div>
 </div>
 
+<?php
+// Dashboard Front Desk (bisnis hotel): reservasi masuk hari ini + okupansi, di bawah grafik utama
+if (BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')) {
+    $fdtData = null;
+    try {
+        require_once __DIR__ . '/includes/frontdesk_today.php';
+        $fdtData = fdt_data($db);
+    } catch (\Throwable $e) {
+        error_log('Dashboard Front Desk widget: ' . $e->getMessage());
+    }
+    if ($fdtData) {
+        fdt_render($fdtData, ['title' => 'Dashboard Front Desk', 'link' => BASE_URL . '/modules/frontdesk/dashboard.php']);
+    }
+}
+?>
+
 <style>
     @keyframes livePulse {
 
