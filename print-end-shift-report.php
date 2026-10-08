@@ -287,7 +287,7 @@ $todayId = $hariId[(int)date('w')] . ', ' . date('j') . ' ' . $bulanId[(int)date
         .tbl { border: 1px solid var(--line); }
         .tbl tr.sum td { background: var(--soft); font-weight: 800; border-top: 1px solid var(--navy); }
         .tbl tr.sub td { font-size: 9.5px; color: var(--mute); padding: 3px 8px 3px 20px; }
-        .in { color: var(--ok); } .out { color: var(--bad); }
+        .in, .out { color: var(--ink); }
         .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
         /* Rincian transaksi */
@@ -295,6 +295,8 @@ $todayId = $hariId[(int)date('w')] . ', ' . date('j') . ' ' . $bulanId[(int)date
         .tx tbody tr { page-break-inside: avoid; }
         .tx td { padding: 4px 8px; line-height: 1.35; }
         .tx td.c { color: var(--mute); white-space: nowrap; }
+        .tx td { border-bottom: 1px solid var(--line) !important; }
+        .tx tbody tr:last-child td { border-bottom: 1px solid var(--line) !important; }
         .tx tfoot td { padding: 5px 8px; background: var(--soft); font-weight: 800; border-top: 1px solid var(--navy); }
         .dash { color: #c4cad4; }
 
@@ -366,46 +368,40 @@ $todayId = $hariId[(int)date('w')] . ', ' . date('j') . ' ' . $bulanId[(int)date
             </table>
         </div>
 
-        <h3>Rincian Transaksi (<?php echo count($transactions); ?>)</h3>
-        <?php if (count($transactions) > 0): ?>
+        <?php
+        // Rincian dipisah: pemasukan dan pengeluaran, satu kolom jumlah di masing-masing (tanpa warna pembeda)
+        $txSections = [['A', 'Rincian Pemasukan', $incomeTransactions, $totalIncome], ['B', 'Rincian Pengeluaran', $expenseTransactions, $totalExpense]];
+        foreach ($txSections as [$tag, $title, $list, $sum]):
+        ?>
+            <h3><?php echo $tag . '. ' . $esc($title); ?> (<?php echo count($list); ?> transaksi)</h3>
             <table class="tbl tx">
                 <thead>
                     <tr>
-                        <th style="width:20px">#</th>
-                        <th style="width:40px">Jam</th>
+                        <th style="width:26px">No</th>
+                        <th style="width:44px">Jam</th>
                         <th>Keterangan</th>
-                        <th style="width:70px">Metode</th>
-                        <th class="num" style="width:82px">Masuk</th>
-                        <th class="num" style="width:82px">Keluar</th>
+                        <th style="width:84px">Metode</th>
+                        <th class="num" style="width:104px">Jumlah (Rp)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($transactions as $i => $trans): $isIn = $trans['transaction_type'] === 'income'; ?>
+                    <?php if ($list): foreach ($list as $i => $trans): ?>
                         <tr>
                             <td class="c"><?php echo $i + 1; ?></td>
                             <td class="c"><?php echo $esc(substr((string)($trans['transaction_time'] ?? ''), 0, 5)); ?></td>
                             <td><?php echo $esc($trans['description']); ?></td>
-                            <td class="c"><?php echo $esc($methodLabel($trans['payment_method'])); ?></td>
-                            <?php if ($isIn): ?>
-                                <td class="num in"><?php echo formatRupiah($trans['amount']); ?></td><td class="num dash">–</td>
-                            <?php else: ?>
-                                <td class="num dash">–</td><td class="num out"><?php echo formatRupiah($trans['amount']); ?></td>
-                            <?php endif; ?>
+                            <td><?php echo $esc($methodLabel($trans['payment_method'])); ?></td>
+                            <td class="num"><?php echo number_format((float)$trans['amount'], 0, ',', '.'); ?></td>
                         </tr>
-                    <?php endforeach; ?>
+                    <?php endforeach; else: ?>
+                        <tr><td colspan="5" style="text-align:center;color:var(--mute);padding:10px">Tidak ada transaksi</td></tr>
+                    <?php endif; ?>
                 </tbody>
                 <tfoot>
-                    <tr>
-                        <td colspan="4" class="num">Total</td>
-                        <td class="num in"><?php echo formatRupiah($totalIncome); ?></td>
-                        <td class="num out"><?php echo formatRupiah($totalExpense); ?></td>
-                    </tr>
+                    <tr><td colspan="4" class="num">Total <?php echo $tag === 'A' ? 'pemasukan' : 'pengeluaran'; ?></td><td class="num"><?php echo number_format((float)$sum, 0, ',', '.'); ?></td></tr>
                 </tfoot>
             </table>
-        <?php else: ?>
-            <table class="tbl"><tr><td style="text-align:center;color:var(--mute);padding:14px">Tidak ada transaksi pada hari ini</td></tr></table>
-        <?php endif; ?>
-
+        <?php endforeach; ?>
         <div class="sign">
             <div>Dibuat oleh<i></i><b><?php echo $esc($operatorName); ?></b>Operator shift</div>
             <div>Diperiksa oleh<i></i><b>&nbsp;</b>Supervisor / Manajer</div>
