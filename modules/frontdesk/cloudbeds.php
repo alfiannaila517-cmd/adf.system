@@ -73,6 +73,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : 'Gagal mengambil harga: ' . htmlspecialchars($res['detail']));
         header('Location: cloudbeds.php?rates=1#rates');
         exit;
+    } elseif ($act === 'del_payment') {
+        $code = trim((string)($_POST['code'] ?? ''));
+        $res = (new CloudbedsSync($db, $cb))->deleteWrongPayment((int)($_POST['payment_id'] ?? 0));
+        setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
+    } elseif ($act === 'set_price') {
+        $code = trim((string)($_POST['code'] ?? ''));
+        $price = (float)preg_replace('/[^\d]/', '', (string)($_POST['price'] ?? ''));
+        $res = (new CloudbedsSync($db, $cb))->setBookingPrice($code, $price);
+        setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
     } elseif ($act === 'merge_group') {
         $code = trim((string)($_POST['code'] ?? ''));
         $res = (new CloudbedsSync($db, $cb))->mergeGroupReservations($code);
@@ -571,10 +584,10 @@ include '../../includes/header.php';
                 </ul>
                 <?php if ($diag['payments']): ?>
                     <table class="cbx-tbl" style="margin-top:.4rem">
-                        <thead><tr><th>Dicatat</th><th>Metode</th><th style="text-align:right">Jumlah</th><th>Ke Cloudbeds</th></tr></thead>
+                        <thead><tr><th>Dicatat</th><th>Metode</th><th style="text-align:right">Jumlah</th><th>Ke Cloudbeds</th><th></th></tr></thead>
                         <tbody>
                             <?php foreach ($diag['payments'] as $p): [$sl, $sc] = $stateLbl[$p['state']]; ?>
-                                <tr><td><?php echo htmlspecialchars(date('d M H:i', strtotime((string)$p['at']))); ?></td><td><?php echo htmlspecialchars($p['payment_method']); ?></td><td style="text-align:right"><?php echo $rpx($p['amount']); ?></td><td><span class="cbx-pill <?php echo $sc; ?>"><?php echo $sl; ?></span></td></tr>
+                                <tr><td><?php echo htmlspecialchars(date('d M H:i', strtotime((string)$p['at']))); ?></td><td><?php echo htmlspecialchars($p['payment_method']); ?></td><td style="text-align:right"><?php echo $rpx($p['amount']); ?></td><td><span class="cbx-pill <?php echo $sc; ?>"><?php echo $sl; ?></span></td><td style="text-align:right"><form method="post" style="display:inline" onsubmit="return confirm('Hapus pembayaran Rp <?php echo number_format((float)$p['amount'], 0, ',', '.'); ?> ini dari sistem? Baris buku kasnya ikut dihapus/dikurangi dan saldo akun kas dikembalikan. Pembayaran di Cloudbeds tidak diubah (void manual di folio Cloudbeds).')"><input type="hidden" name="act" value="del_payment"><input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>"><input type="hidden" name="payment_id" value="<?php echo (int)$p['id']; ?>"><button type="submit" class="cbx-btn danger" style="height:24px;padding:0 .55rem">Hapus (salah)</button></form></td></tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
@@ -592,6 +605,15 @@ include '../../includes/header.php';
                 <?php endif; ?>
                 <?php if (!empty($diag['bk']) || !empty($diag['booking']['group_id'])): ?>
                     <p class="cbx-hint" style="margin:.5rem 0 0"><b>Grup:</b> <?php echo htmlspecialchars($diag['merge_info']['msg'] ?? ''); ?></p>
+                <?php endif; ?>
+                <?php if (empty($bk['group_id'])): ?>
+                    <form method="post" style="margin-top:.6rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap" onsubmit="return confirm('Atur harga booking ini di sistem? (Cloudbeds tidak diubah)')">
+                        <input type="hidden" name="act" value="set_price">
+                        <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                        <span class="cbx-hint" style="display:inline;margin:0">Harga booking yang benar:</span>
+                        <input class="cbx-input" name="price" inputmode="numeric" placeholder="mis. 1385100" style="max-width:160px">
+                        <button type="submit" class="cbx-btn ghost">Atur harga</button>
+                    </form>
                 <?php endif; ?>
                 <?php if (!empty($diag['can_merge'])): ?>
                     <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Gabungkan semua kamar grup ini menjadi SATU reservasi Cloudbeds? Reservasi Cloudbeds yang terpisah akan dibatalkan lalu dibuat ulang sebagai satu reservasi.')">

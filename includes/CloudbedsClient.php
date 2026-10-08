@@ -293,6 +293,9 @@ class CloudbedsClient
         if (!in_array($endpoint, ['postPayment', 'postAdjustment'], true)) return null;
         $rid = (string)($params['reservationID'] ?? '');
         $amount = (float)($params['amount'] ?? 0);
+        if ($endpoint === 'postAdjustment' && $amount < 0) {
+            return 'pengurangan Rp ' . number_format(abs($amount), 0, ',', '.') . ' tidak bisa dikirim lewat adjustment (Cloudbeds mencatatnya sebagai tagihan tambahan) — kurangi manual di Cloudbeds';
+        }
         if ($rid === '') return null;
         try {
             $links = $this->db->fetchAll("SELECT l.booking_id FROM cloudbeds_booking_links l JOIN bookings b ON b.id = l.booking_id
@@ -317,6 +320,10 @@ class CloudbedsClient
             return null;
         }
         // postAdjustment
+        if ($amount < 0) {
+            // Cloudbeds mengabaikan tanda minus: adjustment -X tercatat sebagai TAGIHAN +X (saldo malah naik)
+            return 'pengurangan ' . $fmt(abs($amount)) . ' tidak bisa dikirim lewat adjustment (Cloudbeds mencatatnya sebagai tagihan tambahan) — kurangi manual di Cloudbeds';
+        }
         $after = $cbTotal + $amount;
         $ceiling = max($sysTotal, $sysPaid);
         if (abs($amount) > max($sysTotal, 1)) {

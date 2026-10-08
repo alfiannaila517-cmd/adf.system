@@ -25,6 +25,8 @@ class CloudbedsSync
     private $pushOnlyPlan = false;
     /** Reservasi Cloudbeds yang totalnya diubah (adjustment) oleh penyamaan saldo di putaran ini */
     private $adjustedThisRun = [];
+    /** Pengurangan harga yang harus dilakukan manual di Cloudbeds (ditampilkan sebagai peringatan) */
+    private $manualNotes = [];
     /** Maks. panggilan detail untuk cek harga per sinkron; tiap reservasi dicek ulang paling cepat tiap 3 jam */
     private const MAX_PRICE_DETAIL = 6;
     private const MAX_DETAIL = 30;
@@ -255,7 +257,7 @@ class CloudbedsSync
                 $isOtaRes = (bool)array_filter($linkHow[$cbId] ?? [], fn($h) => $h !== 'push');
                 // Selisih pajak dari bug lama: total Cloudbeds = total sistem + pajak/biaya PERSIS, pada reservasi yang dulu
                 // disesuaikan sistem → kembalikan (sekali per reservasi)
-                if (!$this->pushOnlyPlan && isset($legacyAdjusted[$cbId]) && !isset($taxfixChecked[$cbId]) && !self::isCancelled($it['status'])
+                if (false && !$this->pushOnlyPlan && isset($legacyAdjusted[$cbId]) && !isset($taxfixChecked[$cbId]) && !self::isCancelled($it['status'])
                     && $nPriceDetail < self::MAX_PRICE_DETAIL) {
                     $tLive = array_values(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'));
                     if ($tLive && !array_filter($tLive, fn($b) => isset($pendingEditIds[(int)$b['id']]))) {
@@ -511,6 +513,10 @@ class CloudbedsSync
                 $this->db->query("UPDATE cloudbeds_pending_edits SET last_error = ? WHERE booking_id IN ($in)", [mb_substr($msg, 0, 255)]);
             }
         }
+        if ($this->manualNotes) {
+            $errors = array_merge($errors, $this->manualNotes);
+            $this->manualNotes = [];
+        }
         return ['done' => $done, 'errors' => $errors];
     }
 
@@ -593,6 +599,12 @@ class CloudbedsSync
             }
         }
         $delta = round($localTotal - $base, 2);
+        if ($delta <= -1) {
+            // Pengurangan harga tidak bisa lewat adjustment (Cloudbeds mencatatnya sebagai tagihan +) → manual di Cloudbeds
+            $this->manualNotes[] = 'Cloudbeds #' . $cbId . ': harga sistem turun Rp ' . number_format(abs($delta), 0, ',', '.') . ' (kini Rp ' . number_format($localTotal, 0, ',', '.') . ') — kurangi manual di folio Cloudbeds';
+            $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, $localTotal]);
+            return $sent;
+        }
         if (abs($delta) >= 1) {
             $r = $this->cb->send('POST', 'postAdjustment', [
                 'reservationID' => $cbId,
@@ -1004,7 +1016,9 @@ class CloudbedsSync
             $walk($r['data'] ?? []);
         }
         $l = strtolower($local);
-        $want = strpos($l, 'ota') === 0 ? ['channel', 'ota', 'prepaid', 'virtual', 'collect', 'transfer', 'bank', 'other']
+        $otaName = trim(preg_replace('/^ota[ _]?/', '', $l));
+        $otaName = preg_replace('/_?com$/', '', str_replace(['.', ' '], '', $otaName));
+        $want = strpos($l, 'ota') === 0 ? array_values(array_filter([$otaName !== '' ? $otaName : null, 'channel collect', 'bank transfer', 'transfer', 'other']))
             : (in_array($l, ['cash'], true) ? ['cash']
             : (in_array($l, ['transfer', 'bank_transfer'], true) ? ['transfer', 'bank', 'ebanking', 'wire']
             : (in_array($l, ['card', 'debit', 'edc', 'credit_card'], true) ? ['debit', 'card', 'credit', 'edc']
@@ -1711,7 +1725,7 @@ class CloudbedsSync
         $link = $this->db->fetchOne("SELECT cb_reservation_id, how FROM cloudbeds_booking_links WHERE booking_id IN ($in) LIMIT 1");
         $since = $this->sinceSetting('cloudbeds_pay_since');
         $payEnabled = $this->payEnabled();
-        $payments = $this->db->fetchAll("SELECT bp.id, bp.booking_id, bp.amount, bp.payment_method, COALESCE(bp.created_at, bp.payment_date) at, pl.cb_payment_id, pl.cb_reservation_id pl_cb
+        $payments = $this->db->fetchAll("SELECT bp.id, bp.booking_id, bp.amount, bp.payment_method, bp.cashbook_id, COALESCE(bp.created_at, bp.payment_date) at, pl.cb_payment_id, pl.cb_reservation_id pl_cb
             FROM booking_payments bp LEFT JOIN cloudbeds_payment_links pl ON pl.payment_id = bp.id
             WHERE bp.booking_id IN ($in) ORDER BY bp.id") ?: [];
         foreach ($payments as &$p) {
@@ -1855,13 +1869,13 @@ class CloudbedsSync
             $cbk = $this->db->fetchOne("SELECT cashbook_id FROM booking_payments WHERE id = ?", [(int)$p['id']]);
             $cashUpdated = false;
             if (!empty($cbk['cashbook_id'])) {
-                $cashUpdated = (bool)$this->db->query("UPDATE cash_book SET amount = ? WHERE id = ?", [$cbTotal, (int)$cbk['cashbook_id']]);
+                $cashUpdated = $this->cashbookChangeAmount((int)$cbk['cashbook_id'], $cbTotal);
             } else {
                 // Tanpa tautan: baris pemasukan buku kas booking ini sebesar total lama (satu-satunya)
                 $cands = $this->db->fetchAll("SELECT id FROM cash_book WHERE transaction_type = 'income' AND ABS(amount - ?) < 1 AND (booking_id = ? OR description LIKE ?)",
                     [(float)$p['amount'], (int)$p['booking_id'], '%' . $d['booking']['booking_code'] . '%']) ?: [];
                 if (count($cands) === 1) {
-                    $cashUpdated = (bool)$this->db->query("UPDATE cash_book SET amount = ? WHERE id = ?", [$cbTotal, (int)$cands[0]['id']]);
+                    $cashUpdated = $this->cashbookChangeAmount((int)$cands[0]['id'], $cbTotal);
                     $this->db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [(int)$cands[0]['id'], (int)$p['id']]);
                 }
             }
@@ -1985,31 +1999,10 @@ class CloudbedsSync
         $bal = round((float)$det['balance'], 2);
         if ($bal < 1) {
             $this->alignOverpaid($cbId, $ids, $total, $paid, $det['total']);
-            return $sent;
         }
-        if ($isOta) {
-            // OTA: total Cloudbeds patokan — tidak pernah diturunkan dari sini (selisih pajak dari bug lama dikoreksi
-            // terpisah oleh aksi "taxfix" dengan pola yang persis). Sisa saldo = kurang bayar menurut Cloudbeds.
-            return $sent;
-        }
-        $r = $this->cb->send('POST', 'postAdjustment', [
-            'reservationID' => $cbId,
-            'type' => 'rate',
-            'amount' => -$bal,
-            'notes' => mb_substr('ADF: samakan dengan pembayaran sistem (lunas Rp ' . number_format($paid, 0, ',', '.') . ', selisih Rp ' . number_format($bal, 0, ',', '.') . ')', 0, 250),
-        ]);
-        if (!$r['ok']) {
-            throw new \RuntimeException('adjustment saldo ditolak: ' . $r['detail'] . (in_array((int)$r['http'], [401, 403], true) ? ' (perlu scope "Adjustment: Write")' : ''));
-        }
-        $this->adjustedThisRun[$cbId] = true;
-        // Dasar penyamaan harga sistem → Cloudbeds ikut total yang kini sama
-        $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($total, 2)]);
-        $this->alignOverpaid($cbId, $ids, $total, $paid, ($det['total'] ?? 0) - $bal);
-        foreach ($ids as $bid) {
-            $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", ["\n[Cloudbeds: saldo disamakan, adjustment -Rp " . number_format($bal, 0, ',', '.') . ' ' . date('d/m H:i') . ']', (int)$bid]);
-            break; // cukup dicatat di satu booking grup
-        }
-        return true;
+        // Sisa selisih TIDAK ditutup dengan adjustment: Cloudbeds mencatat adjustment minus sebagai tagihan tambahan
+        // (saldo malah berlipat). Sisa saldo dibiarkan & terlihat di alat Cek pembayaran.
+        return $sent;
     }
 
     /**
@@ -2031,6 +2024,118 @@ class CloudbedsSync
         }
         $this->resetPaidFromPayments($ids);
         $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($paid, 2)]);
+    }
+
+    /** Koneksi database pusat (saldo akun kas: cash_accounts / cash_account_transactions), seperti modul Buku Kas. */
+    private function masterPdo(): ?\PDO
+    {
+        if (!defined('DB_HOST') || !defined('DB_NAME')) return null;
+        try {
+            $pdo = new \PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME, DB_USER, DB_PASS);
+            $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+            return $pdo;
+        } catch (\Throwable $e) {
+            error_log('Cloudbeds masterPdo: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /** Ubah nominal satu baris buku kas + sesuaikan saldo akun kas & riwayat transaksinya (sama dengan Buku Kas). */
+    private function cashbookChangeAmount(int $id, float $new): bool
+    {
+        $row = $this->db->fetchOne("SELECT id, amount, transaction_type, cash_account_id FROM cash_book WHERE id = ?", [$id]);
+        if (!$row) return false;
+        $old = (float)$row['amount'];
+        $delta = round($new - $old, 2);
+        if (abs($delta) < 0.01) return true;
+        if (!$this->db->query("UPDATE cash_book SET amount = ? WHERE id = ?", [$new, $id])) return false;
+        if (!empty($row['cash_account_id']) && ($m = $this->masterPdo())) {
+            try {
+                $sign = $row['transaction_type'] === 'income' ? 1 : -1;
+                $m->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$sign * $delta, (int)$row['cash_account_id']]);
+                $m->prepare("UPDATE cash_account_transactions SET amount = ? WHERE cash_account_id = ? AND ABS(amount - ?) < 1 AND transaction_type = ? ORDER BY id DESC LIMIT 1")
+                    ->execute([$new, (int)$row['cash_account_id'], $old, $row['transaction_type']]);
+            } catch (\Throwable $e) {
+                error_log('Cloudbeds cashbookChangeAmount: ' . $e->getMessage());
+            }
+        }
+        return true;
+    }
+
+    /** Hapus satu baris buku kas + kembalikan saldo akun kas & hapus riwayat transaksinya (sama dengan Buku Kas → Hapus). */
+    private function cashbookDelete(int $id, string $why): bool
+    {
+        $row = $this->db->fetchOne("SELECT * FROM cash_book WHERE id = ?", [$id]);
+        if (!$row) return false;
+        try {
+            $this->db->query("INSERT INTO audit_logs (table_name, record_id, action, old_data, user_id, user_name, ip_address, user_agent) VALUES ('cash_book', ?, 'DELETE', ?, NULL, ?, ?, ?)",
+                [$id, json_encode($row, JSON_UNESCAPED_UNICODE), 'Cloudbeds cleanup: ' . $why, $_SERVER['REMOTE_ADDR'] ?? 'cli', mb_substr($_SERVER['HTTP_USER_AGENT'] ?? 'cli', 0, 250)]);
+        } catch (\Throwable $e) {
+        }
+        $amount = (float)$row['amount'];
+        if (!empty($row['cash_account_id']) && $amount > 0 && ($m = $this->masterPdo())) {
+            try {
+                $sign = $row['transaction_type'] === 'income' ? -1 : 1;
+                $m->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$sign * $amount, (int)$row['cash_account_id']]);
+                $m->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id = ? AND ABS(amount - ?) < 1 AND transaction_type = ? ORDER BY id DESC LIMIT 1")
+                    ->execute([(int)$row['cash_account_id'], $amount, $row['transaction_type']]);
+            } catch (\Throwable $e) {
+                error_log('Cloudbeds cashbookDelete: ' . $e->getMessage());
+            }
+        }
+        return (bool)$this->db->query("DELETE FROM cash_book WHERE id = ?", [$id]);
+    }
+
+    /**
+     * Hapus pembayaran yang salah tercatat di sistem (mis. nominal berlipat akibat bug sinkron): baris pembayaran,
+     * porsinya di buku kas (dihapus, atau dikurangi bila satu baris buku kas mencakup beberapa pembayaran) dan
+     * tautannya ke Cloudbeds. Pembayaran di Cloudbeds TIDAK diubah — void manual di folio Cloudbeds.
+     * @return array{ok:bool,msg:string}
+     */
+    public function deleteWrongPayment(int $paymentId): array
+    {
+        $p = $this->db->fetchOne("SELECT bp.*, b.booking_code FROM booking_payments bp JOIN bookings b ON b.id = bp.booking_id WHERE bp.id = ?", [$paymentId]);
+        if (!$p) return ['ok' => false, 'msg' => 'Pembayaran tidak ditemukan'];
+        $amount = (float)$p['amount'];
+        $cashId = (int)($p['cashbook_id'] ?? 0);
+        if (!$cashId) {
+            $cands = $this->db->fetchAll("SELECT id FROM cash_book WHERE transaction_type = 'income' AND ABS(amount - ?) < 1 AND (booking_id = ? OR description LIKE ?)",
+                [$amount, (int)$p['booking_id'], '%' . $p['booking_code'] . '%']) ?: [];
+            if (count($cands) === 1) $cashId = (int)$cands[0]['id'];
+        }
+        $cashMsg = 'baris buku kas tidak ditemukan — periksa Buku Kas';
+        if ($cashId) {
+            $row = $this->db->fetchOne("SELECT amount FROM cash_book WHERE id = ?", [$cashId]);
+            $others = (int)($this->db->fetchOne("SELECT COUNT(*) c FROM booking_payments WHERE cashbook_id = ? AND id <> ?", [$cashId, $paymentId])['c'] ?? 0);
+            if ($row && ($others > 0 || (float)$row['amount'] - $amount >= 1)) {
+                $this->cashbookChangeAmount($cashId, max(0, (float)$row['amount'] - $amount));
+                $cashMsg = 'baris buku kas dikurangi Rp ' . number_format($amount, 0, ',', '.');
+            } elseif ($row) {
+                $this->cashbookDelete($cashId, 'pembayaran salah ' . $p['booking_code'] . ' #' . $paymentId);
+                $cashMsg = 'baris buku kas dihapus';
+            }
+        }
+        $this->db->query("DELETE FROM cloudbeds_payment_links WHERE payment_id = ?", [$paymentId]);
+        $this->db->query("DELETE FROM booking_payments WHERE id = ?", [$paymentId]);
+        $this->resetPaidFromPayments([(int)$p['booking_id']]);
+        return ['ok' => true, 'msg' => 'Pembayaran Rp ' . number_format($amount, 0, ',', '.') . ' (' . $p['payment_method'] . ') dihapus; ' . $cashMsg . '. Void juga pembayaran yang sama di folio Cloudbeds bila sempat terkirim.'];
+    }
+
+    /** Atur harga booking (satu kamar) ke nominal yang benar — dipakai untuk membereskan harga yang ikut membengkak. */
+    public function setBookingPrice(string $code, float $price): array
+    {
+        $b = $this->db->fetchOne("SELECT id, group_id, COALESCE(discount, 0) discount, total_nights FROM bookings WHERE booking_code = ?", [$code]);
+        if (!$b) return ['ok' => false, 'msg' => 'Booking tidak ditemukan'];
+        if (!empty($b['group_id'])) return ['ok' => false, 'msg' => 'Booking grup: ubah harga per kamar lewat Edit Reservasi'];
+        if ($price <= 0) return ['ok' => false, 'msg' => 'Harga tidak valid'];
+        $gross = $price + (float)$b['discount'];
+        $this->db->query("UPDATE bookings SET final_price = ?, total_price = ?, room_price = ?, updated_at = NOW() WHERE id = ?", [$price, $gross, round($gross / max(1, (int)$b['total_nights']), 2), (int)$b['id']]);
+        $this->resetPaidFromPayments([(int)$b['id']]);
+        // Dasar sinkron harga ikut, agar tidak dianggap edit yang harus dikirim
+        $link = $this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [(int)$b['id']]);
+        if ($link) $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$link['cb_reservation_id'], $price]);
+        $this->db->query("DELETE FROM cloudbeds_pending_edits WHERE booking_id = ?", [(int)$b['id']]);
+        return ['ok' => true, 'msg' => 'Harga ' . $code . ' diatur ke Rp ' . number_format($price, 0, ',', '.')];
     }
 
     /** Samakan paid_amount / payment_status booking dengan catatan pembayaran (booking_payments) yang benar-benar ada. */
