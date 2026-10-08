@@ -608,6 +608,21 @@ $token = trim((string)($_GET['t'] ?? ''));
         .sum-row b { text-align: right; }
 
         .loader { padding: 60px 0; text-align: center; color: var(--muted); }
+
+        /* Sent confirmation */
+        .sent-ov { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 22px; background: rgba(15, 23, 42, .55); backdrop-filter: blur(4px); }
+        .sent-ov.open { display: flex; }
+        .sent-card { box-sizing: border-box; width: 100%; max-width: 380px; padding: 30px 26px 22px; text-align: center; border-radius: 22px; background: #fff; box-shadow: 0 30px 80px rgba(15, 23, 42, .35); animation: sentIn .35s cubic-bezier(.2, .9, .3, 1.2); }
+        @keyframes sentIn { from { opacity: 0; transform: translateY(14px) scale(.96); } }
+        .sent-mark { width: 66px; height: 66px; margin: 0 auto 16px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #059669, #10b981); box-shadow: 0 12px 28px -10px rgba(5, 150, 105, .7); }
+        .sent-mark svg { width: 32px; height: 32px; stroke: #fff; fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 30; stroke-dashoffset: 30; animation: sentDraw .5s .25s ease forwards; }
+        @keyframes sentDraw { to { stroke-dashoffset: 0; } }
+        .sent-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #059669; }
+        .sent-card h2 { margin: 6px 0 10px; font-family: Georgia, "Times New Roman", serif; font-size: 24px; font-weight: 600; color: #0f172a; }
+        .sent-card p { margin: 0 0 8px; font-size: 14px; line-height: 1.6; color: #475569; }
+        .sent-meta { margin: 14px 0 4px; padding: 10px 12px; border-radius: 12px; background: #f1f5f9; font-size: 12.5px; color: #334155; }
+        .sent-meta b { color: #0f172a; }
+        .sent-btn { width: 100%; margin-top: 16px; height: 46px; border: 0; border-radius: 13px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; font-size: 14px; font-weight: 700; letter-spacing: .02em; cursor: pointer; font-family: inherit; }
     </style>
 </head>
 
@@ -621,6 +636,18 @@ $token = trim((string)($_GET['t'] ?? ''));
             </div>
         </div>
     </header>
+
+    <div class="sent-ov" id="sentOv" role="dialog" aria-modal="true" aria-labelledby="sentTitle">
+        <div class="sent-card">
+            <div class="sent-mark"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+            <div class="sent-eyebrow">Breakfast Selection</div>
+            <h2 id="sentTitle">Selection Sent</h2>
+            <p id="sentMsg"></p>
+            <div class="sent-meta" id="sentMeta"></div>
+            <p style="font-size:12.5px;color:#64748b;margin-top:10px">Should you wish to make any changes, our Front Office team will gladly assist you.</p>
+            <button type="button" class="sent-btn" id="sentBtn">Done</button>
+        </div>
+    </div>
 
     <main class="wrap">
         <div class="guest" id="guestCard">
@@ -981,7 +1008,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                 });
                 var svc = { restaurant: 'Restaurant', room_service: 'Room Service', take_away: 'Take Away' }[data.breakfast_service] || '-';
                 notice((spot ? 'You chose to order <b>on the spot</b>. Our restaurant team will take your order in the morning.' :
-                    'Thank you! Your breakfast selection has been received.') + ' To make changes, please contact Front Office.', 'ok');
+                    'Your breakfast selection has been sent. We look forward to serving you.') + ' To make changes, please contact Front Office.', 'ok');
                 $('notice').innerHTML += '<div class="card" style="margin-top:12px">' +
                     (rows.length ? '<div class="sum-row"><span>Menu</span><b>' + rows.join('<br>') + '</b></div>' : '') +
                     '<div class="sum-row"><span>Time</span><b>' + esc((data.breakfast_time || '').slice(0, 5) || '-') + '</b></div>' +
@@ -1079,6 +1106,21 @@ $token = trim((string)($_GET['t'] ?? ''));
                 renderTimes();
             });
 
+            // Elegant confirmation shown once the selection has been saved
+            function showSent(onSpot) {
+                var first = String(data.guest_name || '').trim().split(/\s+/)[0] || 'Guest';
+                var svcMap = { restaurant: 'Restaurant', room_service: 'Room Service', take_away: 'Take Away' };
+                $('sentMsg').innerHTML = onSpot
+                    ? 'Thank you, <b>' + esc(first) + '</b>. We have noted that you will order on the spot &mdash; our team will gladly take your order at the restaurant in the morning.'
+                    : 'Thank you, <b>' + esc(first) + '</b>. Your breakfast selection has been sent to our kitchen team, and we look forward to welcoming you in the morning.';
+                var t = (data.breakfast_time || '').slice(0, 5);
+                $('sentMeta').innerHTML = onSpot ? 'Order on the spot &middot; <b>Main Restaurant</b>'
+                    : (t ? '<b>' + esc(t) + '</b> &middot; ' : '') + esc(svcMap[data.breakfast_service] || 'Restaurant');
+                $('sentOv').classList.add('open');
+            }
+            $('sentBtn').addEventListener('click', function() { $('sentOv').classList.remove('open'); });
+            $('sentOv').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+
             async function submit(onSpot) {
                 var ids = function(g) { return Object.keys(qty[g]).map(Number); };
                 if (!onSpot && !ids('main').length && !ids('drink').length && !ids('child').length) {
@@ -1114,7 +1156,19 @@ $token = trim((string)($_GET['t'] ?? ''));
                     var json = await res.json();
                     if (!json.success) throw new Error(json.message || 'Could not submit your selection.');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
-                    await load();
+                    if (json.demo) {
+                        // Tautan contoh: tampilkan hasil seperti sungguhan tanpa menyimpan
+                        data.is_locked = true;
+                        data.on_the_spot = onSpot ? 1 : 0;
+                        data.selected_main_ids = body.selected_main; data.selected_main_qty = body.selected_main_qty;
+                        data.selected_drink_ids = body.selected_drink; data.selected_drink_qty = body.selected_drink_qty;
+                        data.selected_child_ids = body.selected_child; data.selected_child_qty = body.selected_child_qty;
+                        data.breakfast_time = time; data.breakfast_service = body.service_type; data.breakfast_location = body.breakfast_location;
+                        renderSubmitted();
+                    } else {
+                        await load();
+                    }
+                    showSent(onSpot);
                     var extra = json.data && json.data.extra_total_price;
                     if (extra > 0) {
                         $('notice').insertAdjacentHTML('afterbegin', '<div class="notice">Additional breakfast ' + rp(extra) + ' has been added to your bill. Please settle it at Front Office.</div>');

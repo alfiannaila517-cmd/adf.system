@@ -429,6 +429,7 @@ function detect_guest_preferred_language($db, $link)
     ];
 }
 
+const BF_DEMO_TOKEN = 'demo-preview';
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $body = parse_json_body();
 if (!$action && !empty($body['action'])) {
@@ -803,7 +804,16 @@ if ($action === 'get_link') {
         exit;
     }
 
-    if ($token !== '') {
+    if ($token === BF_DEMO_TOKEN) {
+        // Tautan contoh untuk mencoba tampilan: data tamu rekaan, tidak ada yang tersimpan
+        $link = [
+            'id' => 0, 'booking_id' => null, 'guest_name' => 'Sample Guest', 'room_number' => '["108"]',
+            'guest_composition' => '{"adults":2,"children_young":0,"children_old":0,"total_pax":2}',
+            'breakfast_date' => date('Y-m-d', strtotime('+1 day')), 'max_main' => 2, 'max_drink' => 2, 'max_child' => 0,
+            'link_status' => 'open', 'submitted_at' => null, 'expires_at' => null, 'special_requests' => '',
+            'breakfast_time' => null, 'breakfast_service' => null, 'breakfast_location' => null, 'on_the_spot' => 0, 'short_code' => null,
+        ];
+    } elseif ($token !== '') {
         $link = $db->fetchOne("SELECT * FROM breakfast_guest_links WHERE token = ? LIMIT 1", [$token]);
     } else {
         $link = $db->fetchOne("SELECT * FROM breakfast_guest_links WHERE short_code = ? LIMIT 1", [$shortCode]);
@@ -814,7 +824,7 @@ if ($action === 'get_link') {
     }
 
     try {
-        $autoOnSpot = auto_submit_on_the_spot_after_midnight($db, $pdo, $link);
+        $autoOnSpot = empty($link['id']) ? false : auto_submit_on_the_spot_after_midnight($db, $pdo, $link);
         if ($autoOnSpot) {
             $link = $db->fetchOne("SELECT * FROM breakfast_guest_links WHERE id = ? LIMIT 1", [(int)$link['id']]);
         }
@@ -1024,6 +1034,11 @@ if ($action === 'submit_link') {
     };
     if ($token === '') {
         echo json_encode(['success' => false, 'message' => $msg('Token wajib', 'Token is required')]);
+        exit;
+    }
+    if ($token === BF_DEMO_TOKEN) {
+        // Tautan contoh: pura-pura berhasil, tidak menyimpan apa pun
+        echo json_encode(['success' => true, 'demo' => true, 'data' => ['extra_total_price' => 0]]);
         exit;
     }
 
