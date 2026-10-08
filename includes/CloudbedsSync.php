@@ -56,6 +56,20 @@ class CloudbedsSync
             synced_total DECIMAL(14,2) NOT NULL,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Perpanjangan booking OTA: tanggal check-out Cloudbeds digeser (mode date) atau malam tambahan diblok (mode block)
+        $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_extensions (
+            cb_reservation_id VARCHAR(40) NOT NULL,
+            booking_id INT NOT NULL,
+            orig_end DATE NOT NULL,
+            mode VARCHAR(8) NOT NULL DEFAULT 'date',
+            cb_block_id VARCHAR(40) NULL,
+            cb_room_id VARCHAR(40) NULL,
+            block_start DATE NULL,
+            block_end DATE NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (cb_reservation_id, booking_id),
+            KEY idx_booking (booking_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_sync_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
             range_from DATE NULL,
@@ -150,6 +164,12 @@ class CloudbedsSync
         $push = $this->pushEnabled();
         $linkedBookingIds = [];
         foreach ($links as $ids) foreach ($ids as $id) $linkedBookingIds[$id] = true;
+        // Booking OTA yang diperpanjang di sistem: beda tanggal dengan Cloudbeds memang disengaja
+        $extended = [];
+        try {
+            foreach ($this->db->fetchAll("SELECT booking_id FROM cloudbeds_extensions") ?: [] as $x) $extended[(int)$x['booking_id']] = true;
+        } catch (\Throwable $e) {
+        }
 
         $localBk = $this->db->fetchAll(
             "SELECT b.id, b.booking_code, b.group_id, b.status, b.paid_amount, DATE(b.check_in_date) ci, DATE(b.check_out_date) co, g.guest_name, r.room_number
@@ -181,7 +201,8 @@ class CloudbedsSync
                         }
                     } elseif ($push && ($st = $this->outboundStatus($bk['status'], $it['status'], $linkHow[$cbId][(int)$bk['id']] ?? 'link'))) {
                         $actions[] = ['type' => 'push_status', 'cb' => $cbId, 'label' => $label, 'steps' => $st, 'msg' => 'Kirim ke Cloudbeds: status ' . implode(' → ', $st) . ' (' . $bk['booking_code'] . ')'];
-                    } elseif (in_array($bk['status'], ['confirmed', 'pending'], true) && ($bk['ci'] !== $it['checkin'] || $bk['co'] !== $it['checkout'])) {
+                    } elseif (in_array($bk['status'], ['confirmed', 'pending'], true) && ($bk['ci'] !== $it['checkin'] || $bk['co'] !== $it['checkout'])
+                        && !(isset($extended[(int)$bk['id']]) && $bk['ci'] === $it['checkin'])) {
                         $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Tanggal berubah di Cloudbeds; ' . $bk['booking_code'] . ' masih ' . $bk['ci'] . ' → ' . $bk['co'] . '. Sesuaikan manual.'];
                     }
                 }
@@ -394,15 +415,20 @@ class CloudbedsSync
         $links = $this->db->fetchAll("SELECT booking_id, how FROM cloudbeds_booking_links WHERE cb_reservation_id = ?", [$cbId]) ?: [];
         if (!$links) return false;
         $in = implode(',', array_map(fn($l) => (int)$l['booking_id'], $links));
-        $bks = $this->db->fetchAll("SELECT b.id, b.status, b.final_price, DATE(b.check_in_date) ci, DATE(b.check_out_date) co, r.room_number
-            FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id IN ($in) AND b.status <> 'cancelled'") ?: [];
-        if (!$bks) return false;
+        $bks = $this->db->fetchAll("SELECT b.id, b.status, b.final_price, DATE(b.check_in_date) ci, DATE(b.check_out_date) co, r.room_number, g.guest_name
+            FROM bookings b JOIN rooms r ON r.id = b.room_id LEFT JOIN guests g ON g.id = b.guest_id WHERE b.id IN ($in) AND b.status <> 'cancelled'") ?: [];
+        if (!$bks) {
+            // Semua dibatalkan → blok perpanjangan (bila ada) tidak diperlukan lagi
+            return $this->dropExtensions($cbId);
+        }
         $allPush = !array_filter($links, fn($l) => $l['how'] !== 'push');
 
         $det = $this->cb->reservationDetail($cbId);
         if (!$det['ok']) throw new \RuntimeException('detail tidak terbaca: ' . $det['detail']);
         $raw = is_array($det['raw']) ? $det['raw'] : [];
         $sent = false;
+        $reshaped = false; // kamar/tanggal berubah di Cloudbeds → total Cloudbeds ikut berubah
+        $totalBefore = $det['total'];
 
         // 1) Kamar: kamar sistem yang belum ada di reservasi Cloudbeds menggantikan kamar Cloudbeds yang tidak dipakai lagi
         $cbRooms = $this->cbRoomsByNo();
@@ -422,19 +448,10 @@ class CloudbedsSync
             if (isset($toFree[$i])) $p['oldRoomID'] = $toFree[$i]['room_id'];
             $r = $this->cb->send('POST', 'postRoomAssign', $p);
             if (!$r['ok']) throw new \RuntimeException('pindah kamar ditolak: ' . $r['detail']);
-            $sent = true;
+            $sent = $reshaped = true;
         }
 
-        // 2) Check-out (hanya reservasi buatan sistem; reservasi OTA diubah lewat OTA)
-        $cbEnd = substr((string)($raw['endDate'] ?? ''), 0, 10);
-        $localEnd = max(array_column($bks, 'co'));
-        if ($allPush && $cbEnd !== '' && $localEnd !== $cbEnd) {
-            $r = $this->cb->send('PUT', 'putReservation', ['reservationID' => $cbId, 'checkoutDate' => $localEnd]);
-            if (!$r['ok']) throw new \RuntimeException('ubah check-out ditolak: ' . $r['detail']);
-            $sent = true;
-        }
-
-        // 3) Harga: adjustment sebesar selisih terhadap total yang terakhir disamakan
+        // Dasar harga diambil SEBELUM tanggal diubah (Cloudbeds menambah sendiri harga malam tambahan)
         $localTotal = round(array_sum(array_map(fn($b) => (float)$b['final_price'], $bks)), 2);
         $row = $this->db->fetchOne("SELECT synced_total FROM cloudbeds_price_sync WHERE cb_reservation_id = ?", [$cbId]);
         if ($row) {
@@ -442,6 +459,31 @@ class CloudbedsSync
         } else {
             $bd = is_array($raw['balanceDetailed'] ?? null) ? $raw['balanceDetailed'] : [];
             $base = isset($bd['subTotal']) && is_numeric($bd['subTotal']) ? (float)$bd['subTotal'] : (float)($det['total'] ?? $localTotal);
+        }
+
+        // 2) Check-out
+        $cbEnd = substr((string)($raw['endDate'] ?? ''), 0, 10);
+        $localEnd = max(array_column($bks, 'co'));
+        if ($allPush) {
+            // Reservasi buatan sistem: tanggal Cloudbeds selalu mengikuti sistem
+            if ($cbEnd !== '' && $localEnd !== $cbEnd) {
+                $r = $this->cb->send('PUT', 'putReservation', ['reservationID' => $cbId, 'checkoutDate' => $localEnd]);
+                if (!$r['ok']) throw new \RuntimeException('ubah check-out ditolak: ' . $r['detail']);
+                $sent = $reshaped = true;
+            }
+        } elseif ($cbEnd !== '') {
+            // Reservasi OTA: hanya PERPANJANGAN yang dikirim (tidak pernah dipendekkan dari tanggal OTA)
+            [$s2, $r2] = $this->syncExtensions($cbId, $bks, $cbEnd, $det, $cbRooms);
+            $sent = $sent || $s2;
+            $reshaped = $reshaped || $r2;
+        }
+
+        // 3) Harga: adjustment sebesar selisih terhadap total yang terakhir disamakan
+        if ($reshaped && $totalBefore !== null) {
+            $after = $this->cb->reservationDetail($cbId);
+            if ($after['ok'] && $after['total'] !== null) {
+                $base += (float)$after['total'] - (float)$totalBefore;
+            }
         }
         $delta = round($localTotal - $base, 2);
         if (abs($delta) >= 1) {
@@ -456,6 +498,162 @@ class CloudbedsSync
         }
         $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, $localTotal]);
         return $sent;
+    }
+
+    /**
+     * Reservasi OTA yang diperpanjang di sistem: malam tambahan harus tertutup juga di Cloudbeds agar kamar
+     * tidak terjual lagi lewat OTA. Satu kamar → tanggal check-out Cloudbeds digeser; bila ditolak atau
+     * multi-kamar → kamar diblok untuk malam tambahan saja (alasan "ADF:" agar tidak ditarik balik sebagai blok).
+     * Tanggal OTA tidak pernah dipendekkan. Perpanjangan dikurangi / dibatalkan / tamu check-out → disesuaikan.
+     * @return array{0:bool,1:bool} [ada yang dikirim, tanggal reservasi Cloudbeds berubah]
+     */
+    private function syncExtensions(string $cbId, array $bks, string $cbEnd, array $det, array $cbRooms): array
+    {
+        $rows = [];
+        foreach ($this->db->fetchAll("SELECT * FROM cloudbeds_extensions WHERE cb_reservation_id = ?", [$cbId]) ?: [] as $x) {
+            $rows[(int)$x['booking_id']] = $x;
+        }
+        $roomEnd = [];
+        foreach ((array)($det['rooms'] ?? []) as $r) {
+            if ($r['assigned'] && $r['room_id'] !== '' && preg_match('/^\d{4}-\d{2}-\d{2}/', (string)$r['end'])) $roomEnd[$r['room_id']] = substr((string)$r['end'], 0, 10);
+        }
+        $single = count($bks) === 1;
+        $sent = $reshaped = false;
+        foreach ($bks as $b) {
+            $id = (int)$b['id'];
+            $row = $rows[$id] ?? null;
+            $no = preg_match('/\d{2,4}/', (string)$b['room_number'], $m) ? $m[0] : (string)$b['room_number'];
+            $cr = $cbRooms[$no] ?? null;
+            $orig = $row['orig_end'] ?? (!$single && $cr && isset($roomEnd[$cr['room_id']]) ? $roomEnd[$cr['room_id']] : $cbEnd);
+            $active = in_array($b['status'], ['pending', 'confirmed', 'checked_in'], true);
+
+            // Tidak (lagi) diperpanjang
+            if (!$active || $b['co'] <= $orig) {
+                if ($row) {
+                    if ($row['mode'] === 'block') {
+                        $this->deleteExtensionBlock($row);
+                    } elseif ($active && $single && $cbEnd !== $orig) {
+                        // Perpanjangan dibatalkan: kembalikan tanggal OTA semula (tamu yang sudah check-out tidak diubah)
+                        $r = $this->cb->send('PUT', 'putReservation', ['reservationID' => $cbId, 'checkoutDate' => $orig]);
+                        if (!$r['ok']) throw new \RuntimeException('kembalikan check-out ditolak: ' . $r['detail']);
+                        $reshaped = true;
+                    }
+                    $this->db->query("DELETE FROM cloudbeds_extensions WHERE cb_reservation_id = ? AND booking_id = ?", [$cbId, $id]);
+                    $sent = true;
+                }
+                continue;
+            }
+
+            // Satu kamar: geser tanggal check-out di Cloudbeds
+            if ($single && (!$row || $row['mode'] === 'date')) {
+                if ($cbEnd === $b['co']) {
+                    if (!$row) $this->saveExtension($cbId, $id, $orig, 'date');
+                    continue;
+                }
+                $r = $this->cb->send('PUT', 'putReservation', ['reservationID' => $cbId, 'checkoutDate' => $b['co']]);
+                if ($r['ok']) {
+                    $this->saveExtension($cbId, $id, $orig, 'date');
+                    $sent = $reshaped = true;
+                    continue;
+                }
+                error_log('Cloudbeds perpanjangan #' . $cbId . ': ubah check-out ditolak (' . $r['detail'] . ') → blok malam tambahan');
+            }
+
+            // Blok kamar untuk malam tambahan
+            if (!$cr) throw new \RuntimeException('Room ' . $b['room_number'] . ' tidak ditemukan di Cloudbeds — malam perpanjangan tidak bisa diblok');
+            $start = $single ? max($orig, $cbEnd) : $orig;
+            if ($start >= $b['co']) continue;
+            if ($row && $row['mode'] === 'block' && $row['cb_block_id'] && $row['cb_room_id'] === $cr['room_id'] && $row['block_start'] === $start && $row['block_end'] === $b['co']) {
+                continue;
+            }
+            $params = ['startDate' => $start, 'endDate' => $b['co'], 'roomBlockReason' => mb_substr('ADF: perpanjangan ' . trim((string)($b['guest_name'] ?? '')) . ' (Cloudbeds #' . $cbId . ')', 0, 100), 'rooms' => [['roomID' => $cr['room_id']]]];
+            if ($row && $row['mode'] === 'block' && $row['cb_block_id']) {
+                $r = $this->sendBlock('PUT', 'putRoomBlock', ['roomBlockID' => $row['cb_block_id']] + $params, '');
+                $blockId = (string)$row['cb_block_id'];
+            } else {
+                $r = $this->sendBlock('POST', 'postRoomBlock', $params, '');
+                $blockId = $r['ok'] ? self::findValue($r['raw'], 'roomblockid') : '';
+                if ($r['ok'] && $blockId === '') $blockId = $this->findBlockId($cr['room_id'], $start, $b['co']);
+            }
+            if (!$r['ok']) throw new \RuntimeException('blok malam perpanjangan Room ' . $b['room_number'] . ' ditolak: ' . $r['detail']);
+            $this->saveExtension($cbId, $id, $orig, 'block', $blockId ?: null, $cr['room_id'], $start, $b['co']);
+            $sent = true;
+        }
+        // Kamar grup yang dibatalkan (tidak ada di $bks) → lepas bloknya
+        $present = array_map(fn($b) => (int)$b['id'], $bks);
+        foreach ($rows as $id => $row) {
+            if (in_array($id, $present, true)) continue;
+            if ($row['mode'] === 'block') $this->deleteExtensionBlock($row);
+            $this->db->query("DELETE FROM cloudbeds_extensions WHERE cb_reservation_id = ? AND booking_id = ?", [$cbId, $id]);
+            $sent = true;
+        }
+        return [$sent, $reshaped];
+    }
+
+    private function saveExtension(string $cbId, int $bookingId, string $orig, string $mode, ?string $blockId = null, ?string $roomId = null, ?string $start = null, ?string $end = null): void
+    {
+        $this->db->query(
+            "INSERT INTO cloudbeds_extensions (cb_reservation_id, booking_id, orig_end, mode, cb_block_id, cb_room_id, block_start, block_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE mode = VALUES(mode), cb_block_id = VALUES(cb_block_id), cb_room_id = VALUES(cb_room_id), block_start = VALUES(block_start), block_end = VALUES(block_end)",
+            [$cbId, $bookingId, $orig, $mode, $blockId, $roomId, $start, $end]
+        );
+    }
+
+    /** Hapus blok perpanjangan di Cloudbeds (sudah terhapus di sana = dianggap berhasil). */
+    private function deleteExtensionBlock(array $row): void
+    {
+        $bid = (string)($row['cb_block_id'] ?? '');
+        if ($bid === '' && $row['cb_room_id'] && $row['block_start'] && $row['block_end']) {
+            $bid = $this->findBlockId((string)$row['cb_room_id'], (string)$row['block_start'], (string)$row['block_end']);
+        }
+        if ($bid === '') return;
+        $r = $this->cb->send('DELETE', 'deleteRoomBlock', ['roomBlockID' => $bid]);
+        if (!$r['ok'] && (int)$r['http'] !== 404 && stripos($r['detail'], 'not found') === false) {
+            throw new \RuntimeException('hapus blok perpanjangan ditolak: ' . $r['detail'] . (in_array((int)$r['http'], [401, 403], true) ? ' (centang scope "Roomblock: Delete" di API key)' : ''));
+        }
+    }
+
+    /** Semua booking reservasi ini batal → hapus blok perpanjangannya. */
+    private function dropExtensions(string $cbId): bool
+    {
+        $rows = $this->db->fetchAll("SELECT * FROM cloudbeds_extensions WHERE cb_reservation_id = ?", [$cbId]) ?: [];
+        foreach ($rows as $row) {
+            if ($row['mode'] === 'block') $this->deleteExtensionBlock($row);
+        }
+        if ($rows) $this->db->query("DELETE FROM cloudbeds_extensions WHERE cb_reservation_id = ?", [$cbId]);
+        return (bool)$rows;
+    }
+
+    /** ID blok "ADF: perpanjangan" di Cloudbeds untuk kamar & tanggal tertentu (bila jawaban POST tidak memuat ID). */
+    private function findBlockId(string $roomId, string $start, string $end): string
+    {
+        $q = ['startDate' => $start, 'endDate' => min($end, date('Y-m-d', strtotime($start . ' +30 days')))];
+        if ($this->cb->propertyId() !== '') $q['propertyID'] = $this->cb->propertyId();
+        $res = $this->cb->get('getRoomBlocks', $q);
+        $found = '';
+        $walk = function ($d) use (&$walk, &$found, $roomId, $start, $end) {
+            if (!is_array($d) || $found !== '') return;
+            if (isset($d['roomBlockID']) && !is_array($d['roomBlockID'])) {
+                $rooms = array_map(fn($r) => is_array($r) ? (string)($r['roomID'] ?? '') : (string)$r, (array)($d['rooms'] ?? []));
+                if (substr((string)($d['startDate'] ?? ''), 0, 10) === $start && substr((string)($d['endDate'] ?? ''), 0, 10) === $end
+                    && in_array($roomId, $rooms, true) && stripos((string)($d['roomBlockReason'] ?? ''), 'ADF: perpanjangan') === 0) {
+                    $found = (string)$d['roomBlockID'];
+                }
+                return;
+            }
+            foreach ($d as $v) $walk($v);
+        };
+        if ($res['ok']) $walk($res['data']);
+        return $found;
+    }
+
+    /** Booking dengan perpanjangan di Cloudbeds yang batal / sudah check-out → masuk antrean edit (blok dilepas). */
+    private function queueEndedExtensions(array $onlyBookingIds = []): void
+    {
+        $where = $onlyBookingIds ? ' AND e.booking_id IN (' . implode(',', array_map('intval', $onlyBookingIds)) . ')' : '';
+        $ids = $this->db->fetchAll("SELECT e.booking_id FROM cloudbeds_extensions e LEFT JOIN bookings b ON b.id = e.booking_id
+            WHERE (b.id IS NULL OR b.status NOT IN ('pending','confirmed','checked_in') OR DATE(b.check_out_date) <= e.orig_end)" . $where) ?: [];
+        if ($ids) $this->markEdited(array_column($ids, 'booking_id'));
     }
 
     /** Kirim blok ke Cloudbeds dengan roomBlockType yang sah: jenis blok itu sendiri / yang tersimpan / yang
@@ -1090,6 +1288,7 @@ class CloudbedsSync
         }));
         $done = $mine ? $this->executeActions($mine, $userId) : ['errors' => []];
         if ($this->pushEnabled() && $bookingIds) {
+            $this->queueEndedExtensions($bookingIds);
             $ed = $this->processEdits($bookingIds, 20);
             $done['push_edit'] = $ed['done'];
             $done['errors'] = array_merge($done['errors'], $ed['errors']);
@@ -1112,6 +1311,7 @@ class CloudbedsSync
         }
         $done = $this->executeActions($plan['actions'], $userId);
         if ($this->pushEnabled()) {
+            $this->queueEndedExtensions();
             $ed = $this->processEdits([], 20);
             $done['push_edit'] = $ed['done'];
             $done['errors'] = array_merge($done['errors'], $ed['errors']);
