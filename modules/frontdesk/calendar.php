@@ -124,7 +124,7 @@ function calendar_ota_badge(?string $source, array $names): string
         $svg = $txt('#6d28d9', htmlspecialchars($abbr), '#fff', 7);
         $label = $name ?: $key;
     }
-    return '<span class="ota-badge" title="' . htmlspecialchars($name ?: $label) . '"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' . $svg . '</svg></span>';
+    return '<i class="ota-badge" title="' . htmlspecialchars($name ?: $label) . '"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' . $svg . '</svg></i>';
 }
 
 // ============================================
@@ -987,24 +987,28 @@ include '../../includes/header.php';
     body[data-theme] .calendar-grid .grid-header-room, body[data-theme] .calendar-grid .grid-footer-room { padding: 0 0.2rem !important; font-size: 0.72rem !important; letter-spacing: 0.08em; }
     /* Teks reservasi di balok: lebih besar, tidak pernah keluar dari balok */
     body[data-theme] .calendar-grid .booking-bar { min-width: 0; }
-    /* Lencana OTA: logo mini di ujung kanan bar (seperti Cloudbeds); ukuran bar & kalender tidak berubah */
-    body[data-theme] .calendar-grid .booking-bar.has-ota { padding-right: 23px !important; }
-    body[data-theme] .calendar-grid .booking-bar .ota-badge {
-        position: absolute;
-        right: 4px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 16px;
-        height: 16px;
-        display: block;
+    /* Lencana OTA: logo mini di awal bar (seperti Cloudbeds), jauh dari dot status di kanan atas; ukuran bar tetap */
+    body[data-theme] .calendar-grid .booking-bar.has-ota { padding-left: 24px !important; }
+    body[data-theme] .calendar-grid .booking-bar > i.ota-badge {
+        position: absolute !important;
+        left: 4px !important;
+        top: 50% !important;
+        margin-top: -8px !important;
+        transform: none !important;
+        width: 16px !important;
+        height: 16px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        margin-bottom: 0 !important;
+        display: block !important;
         line-height: 0;
+        font-style: normal;
         border-radius: 4px;
+        overflow: hidden;
         box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .95), 0 1px 3px rgba(15, 23, 42, .25);
-        transition: opacity .15s;
         pointer-events: auto;
     }
-    body[data-theme] .calendar-grid .booking-bar .ota-badge svg { display: block; width: 16px; height: 16px; border-radius: 4px; }
-    body[data-theme] .calendar-grid .booking-bar:has(.bar-action-btn):hover .ota-badge { opacity: 0; }
+    body[data-theme] .calendar-grid .booking-bar > i.ota-badge svg { display: block; width: 16px !important; height: 16px !important; }
     body[data-theme] .calendar-grid .booking-bar > span {
         flex: 0 1 auto;
         min-width: 0;
@@ -3243,7 +3247,7 @@ include '../../includes/header.php';
                                                             <?php endif; ?>
                                                         </span>
                                                     <?php endif; ?>
-                                                    <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span><?php echo $otaBadge; ?>
+                                                    <?php echo $otaBadge; ?><span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
                                                     <?php if ($isCheckedIn && !$isPastBooking): ?>
                                                         <button class="bar-action-btn bar-extend-btn" onclick="event.stopPropagation(); openExtendModal(<?php echo (int)$booking['id']; ?>, <?php echo $guestNameJs; ?>, '<?php echo htmlspecialchars($booking['check_out_date']); ?>', <?php echo (int)$totalNights; ?>)" title="Extend Stay">+</button>
                                                     <?php elseif (!$isCheckedIn): ?>
