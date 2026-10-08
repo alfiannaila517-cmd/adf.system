@@ -99,22 +99,32 @@ function calendar_ota_badge(?string $source, array $names): string
     [$name, $type] = $names[$key] ?? ['', ''];
     if ($type === 'direct') return ''; // mis. "Direct Booking" jangan dikira Booking.com
     $hay = strtolower($key . ' ' . $name);
-    $map = [
-        'traveloka' => ['TV', '#1ba0e2', 'Traveloka'], 'tiket' => ['TK', '#0064d2', 'tiket.com'], 'agoda' => ['AG', '#d6213b', 'Agoda'],
-        'booking' => ['B.', '#003580', 'Booking.com'], 'expedia' => ['EX', '#1e243a', 'Expedia'], 'airbnb' => ['AB', '#ff5a5f', 'Airbnb'],
-        'pegipegi' => ['PG', '#f37021', 'Pegipegi'], 'trip' => ['TR', '#287dfa', 'Trip.com'], 'hotels' => ['HC', '#d32f2f', 'Hotels.com'],
+    // Logo mini (kotak 16×16) bergaya ikon OTA di Cloudbeds
+    $txt = fn($bg, $t, $fg = '#fff', $size = 10) => '<rect width="16" height="16" rx="3.5" fill="' . $bg . '"/><text x="8" y="11.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="' . $size . '" fill="' . $fg . '">' . $t . '</text>';
+    $logos = [
+        'traveloka' => ['Traveloka', '<rect width="16" height="16" rx="3.5" fill="#1ba0e2"/><path d="M3.2 10.4c1.6-3.9 5.6-6.1 9.6-5.3-2.6.5-4.5 2.2-5.4 4.7l-1.6-1.2-2.6 1.8z" fill="#fff"/><circle cx="11.3" cy="10.6" r="1.5" fill="#fff"/>'],
+        'tiket' => ['tiket.com', '<rect width="16" height="16" rx="3.5" fill="#0064d2"/><circle cx="8" cy="5.8" r="2.4" fill="#ffd200"/><rect x="3.4" y="9.7" width="9.2" height="2.3" rx="1.15" fill="#fff"/>'],
+        'agoda' => ['Agoda', '<rect x=".5" y=".5" width="15" height="15" rx="3.2" fill="#fff" stroke="#e2e8f0"/><circle cx="3.6" cy="9.4" r="1.6" fill="#e4002b"/><circle cx="6.1" cy="6.6" r="1.6" fill="#ff9e00"/><circle cx="8.6" cy="9.4" r="1.6" fill="#7dc242"/><circle cx="11.1" cy="6.6" r="1.6" fill="#00a0e9"/><circle cx="13" cy="9.6" r="1.4" fill="#8e44ad"/>'],
+        'booking' => ['Booking.com', '<rect width="16" height="16" rx="3.5" fill="#003580"/><text x="7" y="12" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="11" fill="#fff">B</text><circle cx="12.4" cy="11" r="1.5" fill="#00a2ff"/>'],
+        'expedia' => ['Expedia', '<rect width="16" height="16" rx="3.5" fill="#1e243a"/><path d="M4 11.8 12.2 4l-1.4 7.2-2.1-2.1-2.4 2.4z" fill="#fddb32"/>'],
+        'airbnb' => ['Airbnb', $txt('#ff5a5f', 'a', '#fff', 11)],
+        'pegipegi' => ['Pegipegi', $txt('#f37021', 'P')],
+        'trip' => ['Trip.com', $txt('#287dfa', 'T')],
+        'hotels' => ['Hotels.com', $txt('#d32f2f', 'H')],
     ];
-    foreach ($map as $needle => [$abbr, $color, $label]) {
-        if (strpos($hay, $needle) !== false) {
-            return '<span class="ota-badge" style="--oc:' . $color . '" title="' . htmlspecialchars($name ?: $label) . '">' . $abbr . '</span>';
-        }
+    $svg = null;
+    $label = '';
+    foreach ($logos as $needle => [$lbl, $art]) {
+        if (strpos($hay, $needle) !== false) { $svg = $art; $label = $lbl; break; }
     }
-    // OTA lain yang belum dikenal: inisial dari namanya
-    if ($type !== '' && $type !== 'direct') {
+    // OTA lain yang belum dikenal: kotak ungu berinisial
+    if ($svg === null) {
+        if ($type === '' || $type === 'direct') return '';
         $abbr = strtoupper(substr(preg_replace('/[^a-z]/i', '', $name ?: $key), 0, 2)) ?: 'OT';
-        return '<span class="ota-badge" style="--oc:#6d28d9" title="' . htmlspecialchars($name ?: $key) . '">' . htmlspecialchars($abbr) . '</span>';
+        $svg = $txt('#6d28d9', htmlspecialchars($abbr), '#fff', 7);
+        $label = $name ?: $key;
     }
-    return '';
+    return '<span class="ota-badge" title="' . htmlspecialchars($name ?: $label) . '"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' . $svg . '</svg></span>';
 }
 
 // ============================================
@@ -977,26 +987,24 @@ include '../../includes/header.php';
     body[data-theme] .calendar-grid .grid-header-room, body[data-theme] .calendar-grid .grid-footer-room { padding: 0 0.2rem !important; font-size: 0.72rem !important; letter-spacing: 0.08em; }
     /* Teks reservasi di balok: lebih besar, tidak pernah keluar dari balok */
     body[data-theme] .calendar-grid .booking-bar { min-width: 0; }
-    /* Lencana OTA: lingkaran kecil berinisial, muat di tinggi bar (22px) tanpa mengubah ukuran kalender */
+    /* Lencana OTA: logo mini di ujung kanan bar (seperti Cloudbeds); ukuran bar & kalender tidak berubah */
+    body[data-theme] .calendar-grid .booking-bar.has-ota { padding-right: 23px !important; }
     body[data-theme] .calendar-grid .booking-bar .ota-badge {
-        flex: 0 0 auto;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 15px;
-        height: 15px;
-        margin-right: 4px;
-        border-radius: 50%;
-        background: var(--oc, #6d28d9);
-        box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .9);
-        color: #fff !important;
-        -webkit-text-fill-color: #fff !important;
-        font-size: 6.5px !important;
-        font-weight: 800 !important;
-        letter-spacing: -.02em;
-        line-height: 1;
-        overflow: hidden;
+        position: absolute;
+        right: 4px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 16px;
+        height: 16px;
+        display: block;
+        line-height: 0;
+        border-radius: 4px;
+        box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .95), 0 1px 3px rgba(15, 23, 42, .25);
+        transition: opacity .15s;
+        pointer-events: auto;
     }
+    body[data-theme] .calendar-grid .booking-bar .ota-badge svg { display: block; width: 16px; height: 16px; border-radius: 4px; }
+    body[data-theme] .calendar-grid .booking-bar:has(.bar-action-btn):hover .ota-badge { opacity: 0; }
     body[data-theme] .calendar-grid .booking-bar > span {
         flex: 0 1 auto;
         min-width: 0;
@@ -3223,7 +3231,8 @@ include '../../includes/header.php';
                                                 data-nights="<?php echo $totalNights; ?>"
                                                 data-guest="<?php echo $guestName; ?>"
                                                 <?php if (!$isPastBooking && !$isCheckedOut): ?>draggable="true" <?php endif; ?>>
-                                                <div class="booking-bar <?php echo $statusClass; ?>"
+                                                <?php $otaBadge = calendar_ota_badge($booking['booking_source'] ?? '', $calSourceNames); ?>
+                                                <div class="booking-bar <?php echo $statusClass; ?><?php echo $otaBadge !== '' ? ' has-ota' : ''; ?>"
                                                     onclick="event.stopPropagation(); viewBooking(<?php echo $booking['id']; ?>, event);"
                                                     title="<?php echo $statusIcon . $guestName; ?> (<?php echo $bookingCode; ?>) - <?php echo $statusText; ?><?php echo $isPastBooking ? ' [PAST]' : ''; ?><?php echo $isPaidFull ? ' - LUNAS' : ' - BELUM LUNAS'; ?><?php echo $hasGuestRequest ? ' - Ada Request Tamu' : ''; ?>">
                                                     <?php if (!$isPastBooking): ?>
@@ -3234,7 +3243,7 @@ include '../../includes/header.php';
                                                             <?php endif; ?>
                                                         </span>
                                                     <?php endif; ?>
-                                                    <?php echo calendar_ota_badge($booking['booking_source'] ?? '', $calSourceNames); ?><span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
+                                                    <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span><?php echo $otaBadge; ?>
                                                     <?php if ($isCheckedIn && !$isPastBooking): ?>
                                                         <button class="bar-action-btn bar-extend-btn" onclick="event.stopPropagation(); openExtendModal(<?php echo (int)$booking['id']; ?>, <?php echo $guestNameJs; ?>, '<?php echo htmlspecialchars($booking['check_out_date']); ?>', <?php echo (int)$totalNights; ?>)" title="Extend Stay">+</button>
                                                     <?php elseif (!$isCheckedIn): ?>
