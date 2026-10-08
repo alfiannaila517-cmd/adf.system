@@ -605,7 +605,7 @@ include '../../includes/header.php';
     <div class="fd-head">
         <div>
             <div class="fd-eyebrow">Front Desk</div>
-            <h1 class="fd-title"><?php echo $fdGreet . ($fdUser !== '' ? ', ' . htmlspecialchars($fdUser) : ''); ?></h1>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 class="fd-title"><?php echo $fdGreet . ($fdUser !== '' ? ', ' . htmlspecialchars($fdUser) : ''); ?></h1><span data-cbs-slot></span></div>
             <div class="fd-date"><?php echo $fdHari[(int)date('w')] . ', ' . date('j') . ' ' . $fdBulanPanjang[(int)date('n')] . ' ' . date('Y'); ?></div>
         </div>
         <div class="fd-actions">

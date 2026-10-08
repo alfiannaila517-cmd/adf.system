@@ -894,7 +894,7 @@ include '../../includes/header.php';
     <!-- Header -->
     <div class="reservasi-header">
         <div>
-            <h1>Reservasi Management</h1>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1>Reservasi Management</h1><span data-cbs-slot></span></div>
         </div>
         <div class="header-actions">
             <button class="btn-primary" onclick="openNewBookingModal()">

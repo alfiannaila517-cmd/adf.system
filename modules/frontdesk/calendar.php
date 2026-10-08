@@ -2749,7 +2749,7 @@ include '../../includes/header.php';
     <div class="cal-toolbar">
         <div class="cal-tb-top">
             <div class="cal-tb-title">
-                <h1>Calendar Booking</h1>
+                <div class="cal-tb-h1row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1>Calendar Booking</h1><span data-cbs-slot></span></div>
                 <small><?php echo date('d M', strtotime($startDate)); ?> – <?php echo date('d M Y', strtotime($startDate . ' +29 days')); ?></small>
             </div>
             <div class="cal-tb-links">
