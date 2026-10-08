@@ -3995,7 +3995,7 @@ include '../../includes/header.php';
             document.getElementById('depNotes').value = edit.notes || '';
         }
         document.querySelector('#depositModal .mv-title').textContent = depEditId ? 'Edit Deposit' : 'Tanda Terima Deposit';
-        document.getElementById('depSave').textContent = depEditId ? 'Simpan & Print Ulang' : 'Simpan & Print';
+        document.getElementById('depSave').textContent = depEditId ? 'Simpan Perubahan' : 'Simpan';
         document.getElementById('depositModal').classList.add('active');
         if (depEditId) document.getElementById('depList').style.display = 'none'; else reloadDepList();
     };
@@ -4004,7 +4004,9 @@ include '../../includes/header.php';
         document.getElementById('depositModal').classList.remove('active');
     };
 
-    window.saveDeposit = function() {
+    // Simpan saja (tanpa cetak); print=true → langsung buka tanda terima untuk dicetak
+    window.saveDeposit = function(print) {
+        print = print === true;
         const b = currentPaymentBooking;
         if (!b) return;
         const btn = document.getElementById('depSave');
@@ -4019,12 +4021,14 @@ include '../../includes/header.php';
         fd.append('id_number', document.getElementById('depIdNo').value.trim());
         fd.append('notes', document.getElementById('depNotes').value.trim());
         btn.disabled = true;
+        document.getElementById('depSavePrint').disabled = true;
         // Tab cetak dibuka saat klik (agar tidak diblokir popup blocker), diarahkan setelah tersimpan
-        const win = window.open('', '_blank');
+        const win = print ? window.open('', '_blank') : null;
         fetch('../../api/booking-deposit.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(res => {
                 btn.disabled = false;
+                document.getElementById('depSavePrint').disabled = false;
                 if (!res.success) {
                     if (win) win.close();
                     err.textContent = res.message || 'Gagal menyimpan';
@@ -4032,12 +4036,16 @@ include '../../includes/header.php';
                     return;
                 }
                 closeDepositModal();
-                const url = 'deposit-receipt.php?id=' + encodeURIComponent(res.id) + '&autoprint=1';
-                if (win) win.location.href = url; else printDeposit(res.id);
+                if (print) {
+                    const url = 'deposit-receipt.php?id=' + encodeURIComponent(res.id) + '&autoprint=1';
+                    if (win) win.location.href = url; else printDeposit(res.id);
+                }
                 loadSpDeposits(b.id);
+                if (typeof showToast === 'function') showToast(print ? 'Deposit tersimpan, membuka tanda terima' : 'Deposit tersimpan. Cetak kapan saja lewat tombol Print di bagian Deposit diterima.', 'success');
             })
             .catch(() => {
                 btn.disabled = false;
+                document.getElementById('depSavePrint').disabled = false;
                 if (win) win.close();
                 err.textContent = 'Gagal menghubungi server';
                 err.style.display = '';
@@ -4443,6 +4451,7 @@ include '../../includes/header.php';
                     if (btn) {
                         btn.innerHTML = 'Check-in';
                         btn.disabled = false;
+                document.getElementById('depSavePrint').disabled = false;
                     }
                 }
             })
@@ -4452,6 +4461,7 @@ include '../../includes/header.php';
                 if (btn) {
                     btn.innerHTML = 'Check-in';
                     btn.disabled = false;
+                document.getElementById('depSavePrint').disabled = false;
                 }
             });
     }
@@ -8343,7 +8353,7 @@ include '../../includes/header.php';
                     <div class="sp-print-menu">
                         <button type="button" onclick="spPrint('invoice')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg><span><b>Print Invoice</b><small>Tagihan &amp; pembayaran</small></span></button>
                         <button type="button" onclick="spPrint('regcard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2M15 12h2M7 16h10"/></svg><span><b>Print Registration Card</b><small>Untuk check-in · house rules &amp; tanda tangan</small></span></button>
-                        <button type="button" onclick="spPrint('deposit')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span><b>Print Tanda Terima Deposit</b><small>Uang deposit / kartu identitas</small></span></button>
+                        <button type="button" onclick="spPrint('deposit')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span><b>Tanda Terima Deposit</b><small>Catat jaminan uang / kartu identitas · cetak bila perlu</small></span></button>
                     </div>
                 </div>
                 <a id="sp-wa-link" href="#" target="_blank" class="sp-icon-btn" title="WhatsApp" style="display:none;">
@@ -10027,7 +10037,8 @@ include '../../includes/header.php';
         </div>
         <div class="mv-foot">
             <button type="button" class="mv-btn mv-btn-ghost" onclick="closeDepositModal()">Batal</button>
-            <button type="button" class="mv-btn mv-btn-primary mv-btn-gold" id="depSave" onclick="saveDeposit()">Simpan &amp; Print</button>
+            <button type="button" class="mv-btn mv-btn-ghost" id="depSavePrint" onclick="saveDeposit(true)">Simpan &amp; Cetak</button>
+            <button type="button" class="mv-btn mv-btn-primary mv-btn-gold" id="depSave" onclick="saveDeposit()">Simpan</button>
         </div>
     </div>
 </div>
@@ -10064,7 +10075,7 @@ include '../../includes/header.php';
     body #depositModal .dep-item small { font-size: .7rem !important; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
     body #depositModal .dep-print { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: #1e3a8a; color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: .74rem !important; font-weight: 800 !important; cursor: pointer; }
     body #depositModal .dep-del { width: 30px; height: 30px; border: 1px solid #fecaca; border-radius: 8px; background: #fff; color: #dc2626 !important; -webkit-text-fill-color: #dc2626 !important; font-size: 1.1rem; cursor: pointer; }
-    #depositModal .mv-foot { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #fff; }
+    #depositModal .mv-foot { display: grid; grid-template-columns: 1fr 1.1fr 1.1fr; gap: 10px; padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #fff; }
     body #depositModal .mv-btn { height: 42px; border-radius: 11px; font-size: .9rem !important; font-weight: 800 !important; cursor: pointer; font-family: inherit; }
     body #depositModal .mv-btn-ghost { border: 1px solid #cbd5e1; background: #fff; color: #334155 !important; -webkit-text-fill-color: #334155 !important; }
     body #depositModal .mv-btn-gold { border: 0; background: linear-gradient(135deg, #0f2747, #1e3a8a); color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: 0 8px 18px -8px rgba(15, 39, 71, .7); }
@@ -10770,6 +10781,7 @@ include '../../includes/header.php';
                     mvNotice(res.message, 'ok', () => saveScrollAndReload());
                 } else {
                     btn.disabled = false;
+                document.getElementById('depSavePrint').disabled = false;
                     const err = document.getElementById('mvErr');
                     err.textContent = res.message || 'Gagal menyimpan';
                     err.style.display = '';
@@ -10777,6 +10789,7 @@ include '../../includes/header.php';
             })
             .catch(() => {
                 btn.disabled = false;
+                document.getElementById('depSavePrint').disabled = false;
                 btn.textContent = 'Simpan';
                 mvNotice('Gagal menghubungi server', 'err');
             });
