@@ -79,6 +79,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
         header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
         exit;
+    } elseif ($act === 'undo_pulled') {
+        // Batalkan pembayaran yang ditarik dari Cloudbeds (baris pembayaran + buku kas + saldo akun kas)
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])))));
+        $sync = new CloudbedsSync($db, $cb);
+        $ok = 0; $sum = 0.0; $fails = [];
+        foreach ($ids as $pid) {
+            $isPulled = $db->fetchOne("SELECT bp.amount FROM booking_payments bp JOIN cloudbeds_payment_links l ON l.payment_id = bp.id AND l.cb_payment_id = 'dari-cloudbeds' WHERE bp.id = ?", [$pid]);
+            if (!$isPulled) continue;
+            $res = $sync->deleteWrongPayment($pid);
+            if ($res['ok']) { $ok++; $sum += (float)$isPulled['amount']; } else { $fails[] = $res['msg']; }
+        }
+        setFlash($fails ? 'error' : 'success', $ok . ' pembayaran tarikan Cloudbeds dibatalkan (Rp ' . number_format($sum, 0, ',', '.') . ' dikeluarkan dari buku kas & saldo akun kas).' . ($fails ? ' Gagal: ' . htmlspecialchars(implode(' | ', $fails)) : ''));
+        header('Location: cloudbeds.php#tarikan');
+        exit;
     } elseif ($act === 'set_price') {
         $code = trim((string)($_POST['code'] ?? ''));
         $price = (float)preg_replace('/[^\d]/', '', (string)($_POST['price'] ?? ''));
@@ -576,6 +590,41 @@ include '../../includes/header.php';
                 <div class="cbx-hint" style="margin:.2rem 0 .6rem;padding:.55rem .7rem;border-radius:9px;background:rgba(220,38,38,.08);color:#b91c1c!important">
                     <b>Perlu dibersihkan di Cloudbeds</b> — booking ini pernah terkena bug "samakan saldo" (tagihan "ADF: samakan dengan pembayaran sistem" berlipat di folio Cloudbeds):
                     <?php foreach ($hit as $h): ?><a href="cloudbeds.php?cek=<?php echo urlencode($h['booking_code']); ?>#cekbayar" style="margin-left:.4rem;font-weight:700"><?php echo htmlspecialchars($h['booking_code']); ?></a> (<?php echo (int)$h['n']; ?>×)<?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+            <?php
+            // Pembayaran yang ditarik dari Cloudbeds ("dibayar di Cloudbeds") — bisa dibatalkan bila dobel dengan kas yang sudah tercatat
+            $pulled = [];
+            try {
+                $pulled = $db->fetchAll("SELECT bp.id, bp.amount, bp.created_at, bp.cashbook_id, b.id bid, b.booking_code, b.status, b.booking_source, g.guest_name,
+                        (SELECT COALESCE(SUM(c.amount), 0) FROM cash_book c WHERE c.transaction_type = 'income' AND (c.booking_id = b.id OR c.description LIKE CONCAT('%', b.booking_code, '%'))
+                            AND (bp.cashbook_id IS NULL OR c.id <> bp.cashbook_id) AND c.id NOT IN (SELECT COALESCE(p2.cashbook_id, 0) FROM booking_payments p2 JOIN cloudbeds_payment_links l2 ON l2.payment_id = p2.id AND l2.cb_payment_id = 'dari-cloudbeds')) other_cash
+                    FROM booking_payments bp JOIN cloudbeds_payment_links l ON l.payment_id = bp.id AND l.cb_payment_id = 'dari-cloudbeds'
+                    JOIN bookings b ON b.id = bp.booking_id LEFT JOIN guests g ON g.id = b.guest_id
+                    ORDER BY bp.id DESC LIMIT 60") ?: [];
+            } catch (\Throwable $e) {
+            }
+            if ($pulled): ?>
+                <div id="tarikan" style="margin:.2rem 0 .8rem;padding:.6rem .7rem;border-radius:9px;background:rgba(217,119,6,.08)">
+                    <b style="color:#92400e!important">Pembayaran yang ditarik dari Cloudbeds</b>
+                    <p class="cbx-hint" style="margin:.2rem 0 .45rem">Dicatat otomatis karena di Cloudbeds sudah dibayar. Bila booking-nya sudah check-out / uangnya sudah tercatat sebelumnya (kolom "Kas lain"), centang lalu <b>Batalkan</b>: pembayaran, baris buku kas dan saldo akun kasnya dikembalikan. Cloudbeds tidak diubah.</p>
+                    <form method="post" onsubmit="return confirm('Batalkan pembayaran yang dicentang? Baris buku kas dihapus dan saldo akun kas dikembalikan.')">
+                        <input type="hidden" name="act" value="undo_pulled">
+                        <div style="overflow-x:auto"><table class="cbx-tbl" style="width:100%;font-size:.8rem">
+                            <tr><th><input type="checkbox" onclick="this.closest('table').querySelectorAll('input[name=&quot;ids[]&quot;]').forEach(c=>c.checked=this.checked)"></th><th>Dicatat</th><th>Tamu / booking</th><th>Status</th><th style="text-align:right">Jumlah</th><th style="text-align:right">Kas lain</th></tr>
+                            <?php foreach ($pulled as $p): $dup = (float)$p['other_cash'] >= 1; $out = $p['status'] === 'checked_out'; ?>
+                                <tr>
+                                    <td><input type="checkbox" name="ids[]" value="<?php echo (int)$p['id']; ?>" <?php echo ($dup || $out) ? 'checked' : ''; ?>></td>
+                                    <td><?php echo htmlspecialchars(date('d M H:i', strtotime((string)$p['created_at']))); ?></td>
+                                    <td><b><?php echo htmlspecialchars($p['guest_name'] ?: '-'); ?></b> · <a href="cloudbeds.php?cek=<?php echo urlencode($p['booking_code']); ?>#cekbayar"><?php echo htmlspecialchars($p['booking_code']); ?></a></td>
+                                    <td><span class="cbx-pill <?php echo $out ? 'warn' : 'ok'; ?>"><?php echo htmlspecialchars($p['status']); ?></span></td>
+                                    <td style="text-align:right"><?php echo $rpx($p['amount']); ?></td>
+                                    <td style="text-align:right;<?php echo $dup ? 'color:#b91c1c!important;font-weight:700' : ''; ?>"><?php echo $dup ? $rpx($p['other_cash']) . ' (dobel?)' : '—'; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </table></div>
+                        <button type="submit" class="cbx-btn danger" style="margin-top:.45rem">Batalkan yang dicentang</button>
+                    </form>
                 </div>
             <?php endif; ?>
             <form method="get" action="cloudbeds.php#cekbayar" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
