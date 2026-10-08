@@ -2162,6 +2162,53 @@ class CloudbedsSync
         return ['ok' => true, 'msg' => 'Pembayaran Rp ' . number_format($amount, 0, ',', '.') . ' (' . $p['payment_method'] . ') dihapus; ' . $cashMsg . '. Void juga pembayaran yang sama di folio Cloudbeds bila sempat terkirim.'];
     }
 
+    /**
+     * Booking yang sudah check-out, status bayarnya kurang, tetapi uangnya SUDAH tercatat di buku kas
+     * (mis. baris pembayarannya hilang saat pembersihan). Hanya mengembalikan status — tidak menambah kas.
+     * @return array<int,array<string,mixed>>
+     */
+    public function paidBackfillCandidates(): array
+    {
+        $rows = $this->db->fetchAll("SELECT b.id, b.booking_code, b.booking_source, b.final_price, g.guest_name,
+                (SELECT COALESCE(SUM(amount), 0) FROM booking_payments WHERE booking_id = b.id) paid
+            FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id
+            WHERE b.status = 'checked_out' AND b.final_price > 0 AND b.check_out_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            ORDER BY b.check_out_date DESC LIMIT 300") ?: [];
+        $out = [];
+        foreach ($rows as $r) {
+            if ((float)$r['paid'] + 1 >= (float)$r['final_price']) continue;
+            $cash = $this->db->fetchOne("SELECT COUNT(*) n, COALESCE(SUM(amount), 0) s, MAX(id) mid FROM cash_book WHERE transaction_type = 'income' AND description LIKE ?", ['%' . $r['booking_code'] . '%']);
+            if (!$cash || (float)$cash['s'] < 1) continue;
+            $r['cash'] = (float)$cash['s'];
+            $r['cash_id'] = (int)$cash['mid'];
+            $out[] = $r;
+        }
+        return $out;
+    }
+
+    /** Pulihkan status lunas booking check-out yang uangnya sudah di buku kas (baris pembayaran ditandai sudah masuk kas & sudah beres di Cloudbeds). */
+    public function restorePaidFromCashbook(array $ids): array
+    {
+        $want = array_flip(array_map('intval', $ids));
+        $n = 0; $sum = 0.0;
+        foreach ($this->paidBackfillCandidates() as $r) {
+            if (!isset($want[(int)$r['id']])) continue;
+            $rest = round((float)$r['final_price'] - (float)$r['paid'], 2);
+            if ($rest < 1) continue;
+            $src = strtolower((string)$r['booking_source']);
+            $method = in_array($src, ['', 'walk_in', 'walkin', 'phone', 'website', 'direct', 'other', 'cash'], true) ? 'cash' : 'ota_' . preg_replace('/[^a-z0-9_]/', '', $src);
+            if (!$this->db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, payment_date, notes, synced_to_cashbook, cashbook_id, processed_by, created_at) VALUES (?, ?, ?, NOW(), ?, 1, ?, NULL, NOW())",
+                [(int)$r['id'], $rest, $method, 'Dipulihkan: uang sudah tercatat di buku kas', (int)$r['cash_id']])) continue;
+            $pid = (int)$this->db->getConnection()->lastInsertId();
+            $link = $this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [(int)$r['id']]);
+            // Tandai: jangan dikirim ke Cloudbeds (di sana sudah beres)
+            if ($link) $this->db->query("INSERT IGNORE INTO cloudbeds_payment_links (payment_id, cb_reservation_id, cb_payment_id) VALUES (?, ?, 'sudah-lunas')", [$pid, $link['cb_reservation_id']]);
+            $this->resetPaidFromPayments([(int)$r['id']]);
+            $n++; $sum += $rest;
+        }
+        return ['ok' => true, 'n' => $n, 'sum' => $sum];
+    }
+
     /** Atur harga booking (satu kamar) ke nominal yang benar — dipakai untuk membereskan harga yang ikut membengkak. */
     public function setBookingPrice(string $code, float $price): array
     {

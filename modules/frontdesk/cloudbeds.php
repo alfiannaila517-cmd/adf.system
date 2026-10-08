@@ -79,6 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
         header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
         exit;
+    } elseif ($act === 'restore_paid') {
+        $res = (new CloudbedsSync($db, $cb))->restorePaidFromCashbook((array)($_POST['ids'] ?? []));
+        setFlash('success', $res['n'] . ' booking check-out dikembalikan ke status lunas (Rp ' . number_format($res['sum'], 0, ',', '.') . ' — uangnya sudah ada di buku kas, kas tidak ditambah).');
+        header('Location: cloudbeds.php#pulihlunas');
+        exit;
     } elseif ($act === 'undo_pulled') {
         // Batalkan pembayaran yang ditarik dari Cloudbeds (baris pembayaran + buku kas + saldo akun kas)
         $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])))));
@@ -633,6 +638,35 @@ include '../../includes/header.php';
                             <?php endforeach; ?>
                         </table></div>
                         <button type="submit" class="cbx-btn danger" style="margin-top:.45rem">Batalkan yang dicentang</button>
+                    </form>
+                </div>
+            <?php endif; ?>
+            <?php
+            $backfill = [];
+            try {
+                $backfill = (new CloudbedsSync($db, $cb))->paidBackfillCandidates();
+            } catch (\Throwable $e) {
+                echo '<p class="cbx-hint" style="color:#b91c1c!important">Daftar pemulihan lunas gagal dibaca: ' . htmlspecialchars($e->getMessage()) . '</p>';
+            }
+            if ($backfill): ?>
+                <div id="pulihlunas" style="margin:.2rem 0 .8rem;padding:.6rem .7rem;border-radius:9px;background:rgba(5,150,105,.08)">
+                    <b style="color:#047857!important">Sudah check-out, uang sudah di buku kas, tapi status masih "Belum Bayar"</b>
+                    <p class="cbx-hint" style="margin:.2rem 0 .45rem">Centang lalu <b>Pulihkan lunas</b>: status booking jadi lunas. Buku kas tidak ditambah dan tidak ada yang dikirim ke Cloudbeds. Pastikan kolom "Di buku kas" memang uang booking itu.</p>
+                    <form method="post" onsubmit="return confirm('Pulihkan status lunas untuk booking yang dicentang? Buku kas tidak berubah.')">
+                        <input type="hidden" name="act" value="restore_paid">
+                        <div style="overflow-x:auto"><table class="cbx-tbl" style="width:100%;font-size:.8rem">
+                            <tr><th><input type="checkbox" checked onclick="this.closest('table').querySelectorAll('input[name=&quot;ids[]&quot;]').forEach(c=>c.checked=this.checked)"></th><th>Tamu / booking</th><th style="text-align:right">Harga</th><th style="text-align:right">Dibayar di sistem</th><th style="text-align:right">Di buku kas</th></tr>
+                            <?php foreach ($backfill as $r): ?>
+                                <tr>
+                                    <td><input type="checkbox" name="ids[]" value="<?php echo (int)$r['id']; ?>" checked></td>
+                                    <td><b><?php echo htmlspecialchars($r['guest_name'] ?: '-'); ?></b> · <?php echo htmlspecialchars($r['booking_code']); ?></td>
+                                    <td style="text-align:right"><?php echo $rpx($r['final_price']); ?></td>
+                                    <td style="text-align:right"><?php echo $rpx($r['paid']); ?></td>
+                                    <td style="text-align:right"><?php echo $rpx($r['cash']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </table></div>
+                        <button type="submit" class="cbx-btn" style="margin-top:.45rem">Pulihkan lunas</button>
                     </form>
                 </div>
             <?php endif; ?>
