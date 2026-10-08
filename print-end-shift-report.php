@@ -191,9 +191,14 @@ $transactionsQuery = "
         cb.payment_method,
         cb.reference_no,
         cb.created_at,
-        c.category_name AS category
+        c.category_name AS category,
+        COALESCE(d.division_name, '-') AS division_name,
+        COALESCE(d.division_code, '') AS division_code,
+        COALESCE(u.full_name, 'System') AS created_by_name
     FROM cash_book cb
     LEFT JOIN categories c ON cb.category_id = c.id
+    LEFT JOIN divisions d ON cb.division_id = d.id
+    LEFT JOIN " . DB_NAME . ".users u ON cb.created_by = u.id
     WHERE cb.transaction_date = ?
     ORDER BY cb.transaction_date ASC, cb.transaction_time ASC, cb.id ASC
 ";
@@ -252,11 +257,11 @@ $todayId = $hariId[(int)date('w')] . ', ' . date('j') . ' ' . $bulanId[(int)date
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Akhir Shift - <?php echo $esc($business['business_name']); ?> - <?php echo date('d M Y'); ?></title>
     <style>
-        @page { size: A4; margin: 10mm 11mm 12mm; }
+        @page { size: A4 landscape; margin: 9mm 10mm 10mm; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --navy: #0f2747; --ink: #111827; --mute: #6b7280; --line: #d9dee7; --soft: #f5f7fa; --ok: #047857; --bad: #b91c1c; }
         body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; color: var(--ink); background: #e9edf3; font-size: 10.5px; line-height: 1.4; padding: 14px 10px 50px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .sheet { max-width: 760px; margin: 0 auto; background: #fff; padding: 20px 24px 18px; box-shadow: 0 2px 10px rgba(15, 23, 42, .12); }
+        .sheet { max-width: 1080px; margin: 0 auto; background: #fff; padding: 20px 24px 18px; box-shadow: 0 2px 10px rgba(15, 23, 42, .12); }
         table { width: 100%; border-collapse: collapse; }
         .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
@@ -287,8 +292,22 @@ $todayId = $hariId[(int)date('w')] . ', ' . date('j') . ' ' . $bulanId[(int)date
         .tbl { border: 1px solid var(--line); }
         .tbl tr.sum td { background: var(--soft); font-weight: 800; border-top: 1px solid var(--navy); }
         .tbl tr.sub td { font-size: 9.5px; color: var(--mute); padding: 3px 8px 3px 20px; }
-        .in, .out { color: var(--ink); }
+        .in { color: var(--ok); } .out { color: var(--bad); }
+        /* Tabel rincian gaya Buku Kas */
+        .cb th { background: #1e3a8a; padding: 6px 7px; }
+        .cb td { padding: 5px 7px; font-size: 10px; vertical-align: middle; border-bottom: 1px solid var(--line); }
+        .cb .daterow td { background: var(--soft); font-size: 9.5px; font-weight: 700; color: #334155; padding: 5px 8px; }
+        .cb .daterow span { font-weight: 600; color: var(--mute); margin-left: 12px; }
+        .cb .div b { display: block; font-size: 10.5px; font-weight: 800; }
+        .cb .div small { display: block; font-size: 7.5px; color: var(--mute); text-transform: uppercase; letter-spacing: .04em; }
+        .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 800; letter-spacing: .03em; white-space: nowrap; }
+        .pill.in { background: #dcfce7; color: var(--ok); } .pill.out { background: #fee2e2; color: var(--bad); }
+        .pill.m { background: #eef2f7; color: #475569; text-transform: uppercase; }
+        .pill.u { background: #f1f5f9; color: #475569; border: 1px solid var(--line); font-weight: 700; }
+        .cb td.amt { font-weight: 800; }
+        .cb tfoot td { font-size: 10.5px; }
         .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .three { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 12px; align-items: start; }
 
         /* Rincian transaksi */
         .tx thead { display: table-header-group; }
@@ -334,74 +353,83 @@ $todayId = $hariId[(int)date('w')] . ', ' . date('j') . ' ' . $bulanId[(int)date
             <tr><td class="k">Periode kas</td><td class="v"><?php echo $esc($bulanId[(int)date('n')] . ' ' . date('Y')); ?></td><td class="k">Waktu cetak</td><td class="v"><?php echo date('H:i:s'); ?> WIB</td></tr>
         </table>
 
-        <h3>Posisi Kas Bulan Ini</h3>
-        <table class="tbl">
-            <thead><tr><th>Keterangan</th><th class="num" style="width:150px">Jumlah</th></tr></thead>
-            <tbody>
-                <tr><td>Start Cash (saldo awal <?php echo $esc($bulanId[(int)date('n')]); ?>)</td><td class="num"><?php echo formatRupiah($startKasHariIni); ?></td></tr>
-                <tr><td>Owner Transfer <span style="color:var(--mute)">(setoran ke kas operasional)</span></td><td class="num"><?php echo formatRupiah($ownerTransferThisMonth); ?></td></tr>
-                <tr><td>Pemasukan bulan ini <span style="color:var(--mute)">(Owner + Guest)</span></td><td class="num in"><?php echo formatRupiah($totalOperationalIncome + $guestCashIncome); ?></td></tr>
-                <tr><td>Pengeluaran bulan ini <span style="color:var(--mute)">(Expense)</span></td><td class="num out"><?php echo formatRupiah($totalOperationalExpense); ?></td></tr>
-                <tr class="sum"><td>Cash Available</td><td class="num <?php echo $cashAvailable >= 0 ? 'in' : 'out'; ?>"><?php echo formatRupiah($cashAvailable); ?></td></tr>
-            </tbody>
-        </table>
-
-        <h3>Ringkasan Hari Ini</h3>
-        <div class="two">
-            <table class="tbl">
-                <thead><tr><th>Pergerakan kas</th><th class="num">Jumlah</th></tr></thead>
-                <tbody>
-                    <tr><td>Pemasukan (<?php echo count($incomeTransactions); ?> transaksi)</td><td class="num in"><?php echo formatRupiah($totalIncome); ?></td></tr>
-                    <tr><td>Pengeluaran (<?php echo count($expenseTransactions); ?> transaksi)</td><td class="num out"><?php echo formatRupiah($totalExpense); ?></td></tr>
-                    <tr class="sum"><td>Selisih bersih</td><td class="num <?php echo $netToday >= 0 ? 'in' : 'out'; ?>"><?php echo ($netToday < 0 ? '- ' : '') . formatRupiah(abs($netToday)); ?></td></tr>
-                </tbody>
-            </table>
-            <table class="tbl">
-                <thead><tr><th>Pemasukan per metode</th><th class="num">Jumlah</th></tr></thead>
-                <tbody>
-                    <?php if ($byMethod): foreach ($byMethod as $m => $v): ?>
-                        <tr><td><?php echo $esc($methodLabel($m)); ?></td><td class="num"><?php echo formatRupiah($v); ?></td></tr>
-                    <?php endforeach; else: ?>
-                        <tr><td colspan="2" style="color:var(--mute)">Belum ada pemasukan</td></tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+        <div class="three">
+            <div>
+                <h3>Posisi Kas Bulan Ini</h3>
+                <table class="tbl">
+                    <thead><tr><th>Keterangan</th><th class="num" style="width:120px">Jumlah</th></tr></thead>
+                    <tbody>
+                        <tr><td>Start Cash (awal <?php echo $esc($bulanId[(int)date('n')]); ?>)</td><td class="num"><?php echo formatRupiah($startKasHariIni); ?></td></tr>
+                        <tr><td>Owner Transfer</td><td class="num"><?php echo formatRupiah($ownerTransferThisMonth); ?></td></tr>
+                        <tr><td>Pemasukan bulan ini <span style="color:var(--mute)">(Owner + Guest)</span></td><td class="num in"><?php echo formatRupiah($totalOperationalIncome + $guestCashIncome); ?></td></tr>
+                        <tr><td>Pengeluaran bulan ini</td><td class="num out"><?php echo formatRupiah($totalOperationalExpense); ?></td></tr>
+                        <tr class="sum"><td>Cash Available</td><td class="num <?php echo $cashAvailable >= 0 ? 'in' : 'out'; ?>"><?php echo formatRupiah($cashAvailable); ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <h3>Ringkasan Hari Ini</h3>
+                <table class="tbl">
+                    <thead><tr><th>Pergerakan kas</th><th class="num" style="width:110px">Jumlah</th></tr></thead>
+                    <tbody>
+                        <tr><td>Pemasukan (<?php echo count($incomeTransactions); ?>)</td><td class="num in"><?php echo formatRupiah($totalIncome); ?></td></tr>
+                        <tr><td>Pengeluaran (<?php echo count($expenseTransactions); ?>)</td><td class="num out"><?php echo formatRupiah($totalExpense); ?></td></tr>
+                        <tr class="sum"><td>Selisih bersih</td><td class="num <?php echo $netToday >= 0 ? 'in' : 'out'; ?>"><?php echo ($netToday < 0 ? '- ' : '') . formatRupiah(abs($netToday)); ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <h3>Pemasukan per Metode</h3>
+                <table class="tbl">
+                    <thead><tr><th>Metode</th><th class="num" style="width:110px">Jumlah</th></tr></thead>
+                    <tbody>
+                        <?php if ($byMethod): foreach ($byMethod as $m => $v): ?>
+                            <tr><td><?php echo $esc($methodLabel($m)); ?></td><td class="num"><?php echo formatRupiah($v); ?></td></tr>
+                        <?php endforeach; else: ?>
+                            <tr><td colspan="2" style="color:var(--mute)">Belum ada pemasukan</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
-
-        <?php
-        // Rincian dipisah: pemasukan dan pengeluaran, satu kolom jumlah di masing-masing (tanpa warna pembeda)
-        $txSections = [['A', 'Rincian Pemasukan', $incomeTransactions, $totalIncome], ['B', 'Rincian Pengeluaran', $expenseTransactions, $totalExpense]];
-        foreach ($txSections as [$tag, $title, $list, $sum]):
-        ?>
-            <h3><?php echo $tag . '. ' . $esc($title); ?> (<?php echo count($list); ?> transaksi)</h3>
-            <table class="tbl tx">
-                <thead>
+        <h3>Rincian Transaksi (<?php echo count($transactions); ?>)</h3>
+        <table class="tbl cb tx">
+            <thead>
+                <tr>
+                    <th style="width:62px">Tanggal</th>
+                    <th style="width:40px">Waktu</th>
+                    <th style="width:62px">Divisi</th>
+                    <th style="width:100px">Kategori/Nama</th>
+                    <th style="width:54px">Tipe</th>
+                    <th style="width:70px">Metode</th>
+                    <th class="num" style="width:86px">Jumlah</th>
+                    <th>Keterangan</th>
+                    <th style="width:84px">Input By</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="daterow"><td colspan="9">Transaksi tanggal: <?php echo date('d/m/Y'); ?><span>Shift: <?php echo $esc($operatorName); ?></span><span>Cash: <?php echo formatRupiah($cashAvailable); ?></span></td></tr>
+                <?php if ($transactions): foreach ($transactions as $trans): $isIn = $trans['transaction_type'] === 'income'; ?>
                     <tr>
-                        <th style="width:26px">No</th>
-                        <th style="width:44px">Jam</th>
-                        <th>Keterangan</th>
-                        <th style="width:84px">Metode</th>
-                        <th class="num" style="width:104px">Jumlah (Rp)</th>
+                        <td><?php echo date('d/m/Y', strtotime($trans['transaction_date'])); ?></td>
+                        <td><?php echo $esc(substr((string)($trans['transaction_time'] ?? ''), 0, 5)); ?></td>
+                        <td class="div"><b><?php echo $esc($trans['division_name']); ?></b><?php if ($trans['division_code'] !== ''): ?><small><?php echo $esc($trans['division_code']); ?></small><?php endif; ?></td>
+                        <td><?php echo $esc($trans['category']); ?></td>
+                        <td><span class="pill <?php echo $isIn ? 'in' : 'out'; ?>"><?php echo $isIn ? 'MASUK' : 'KELUAR'; ?></span></td>
+                        <td><span class="pill m"><?php echo $esc($methodLabel($trans['payment_method'])); ?></span></td>
+                        <td class="num amt <?php echo $isIn ? 'in' : 'out'; ?>"><?php echo formatRupiah($trans['amount']); ?></td>
+                        <td><?php echo $esc($trans['description']); ?></td>
+                        <td><span class="pill u"><?php echo $esc($trans['created_by_name']); ?></span></td>
                     </tr>
-                </thead>
-                <tbody>
-                    <?php if ($list): foreach ($list as $i => $trans): ?>
-                        <tr>
-                            <td class="c"><?php echo $i + 1; ?></td>
-                            <td class="c"><?php echo $esc(substr((string)($trans['transaction_time'] ?? ''), 0, 5)); ?></td>
-                            <td><?php echo $esc($trans['description']); ?></td>
-                            <td><?php echo $esc($methodLabel($trans['payment_method'])); ?></td>
-                            <td class="num"><?php echo number_format((float)$trans['amount'], 0, ',', '.'); ?></td>
-                        </tr>
-                    <?php endforeach; else: ?>
-                        <tr><td colspan="5" style="text-align:center;color:var(--mute);padding:10px">Tidak ada transaksi</td></tr>
-                    <?php endif; ?>
-                </tbody>
-                <tfoot>
-                    <tr><td colspan="4" class="num">Total <?php echo $tag === 'A' ? 'pemasukan' : 'pengeluaran'; ?></td><td class="num"><?php echo number_format((float)$sum, 0, ',', '.'); ?></td></tr>
-                </tfoot>
-            </table>
-        <?php endforeach; ?>
+                <?php endforeach; else: ?>
+                    <tr><td colspan="9" style="text-align:center;color:var(--mute);padding:14px">Tidak ada transaksi pada hari ini</td></tr>
+                <?php endif; ?>
+            </tbody>
+            <tfoot>
+                <tr><td colspan="6" class="num">Total pemasukan</td><td class="num in"><?php echo formatRupiah($totalIncome); ?></td><td colspan="2"></td></tr>
+                <tr><td colspan="6" class="num">Total pengeluaran</td><td class="num out"><?php echo formatRupiah($totalExpense); ?></td><td colspan="2"></td></tr>
+            </tfoot>
+        </table>
         <div class="sign">
             <div>Dibuat oleh<i></i><b><?php echo $esc($operatorName); ?></b>Operator shift</div>
             <div>Diperiksa oleh<i></i><b>&nbsp;</b>Supervisor / Manajer</div>
