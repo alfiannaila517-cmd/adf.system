@@ -121,7 +121,7 @@ function getUnpaidHotelServiceInvoices($pdo, $businessId)
 {
     try {
         $stmt = $pdo->prepare("
-            SELECT id, invoice_number, guest_name, room_number, total, paid_amount
+            SELECT id, invoice_number, booking_id, guest_name, room_number, total, paid_amount
             FROM hotel_invoices
             WHERE business_id = ?
             AND payment_status != 'paid'
@@ -133,6 +133,38 @@ function getUnpaidHotelServiceInvoices($pdo, $businessId)
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (\Throwable $e) {
         error_log("Unpaid hotel service invoices query failed: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Dari invoice Hotel Service yang belum lunas, ambil hanya milik tamu yang HARI INI terakhir menginap
+ * (atau sudah lewat tanggal check-out) — dipakai popup tagihan agar tidak mengganggu tamu yang masih lama.
+ * Invoice dengan booking_id dicocokkan lewat booking; tanpa booking_id dicocokkan lewat nomor kamar tamu in-house.
+ */
+function filterHotelServiceInvoicesDueToday($pdo, array $invoices): array
+{
+    if (!$invoices) return [];
+    try {
+        $stmt = $pdo->prepare("SELECT b.id, r.room_number FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id
+            WHERE b.status = 'checked_in' AND b.check_out_date <= ?");
+        $stmt->execute([date('Y-m-d')]);
+        $ids = [];
+        $rooms = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $b) {
+            $ids[(int)$b['id']] = true;
+            if ($b['room_number'] !== null && $b['room_number'] !== '') $rooms[(string)$b['room_number']] = true;
+        }
+        $out = [];
+        foreach ($invoices as $inv) {
+            if (!empty($inv['booking_id'])) {
+                if (isset($ids[(int)$inv['booking_id']])) $out[] = $inv;
+            } elseif (!empty($inv['room_number']) && isset($rooms[(string)$inv['room_number']])) {
+                $out[] = $inv;
+            }
+        }
+        return $out;
+    } catch (\Throwable $e) {
         return [];
     }
 }

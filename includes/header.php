@@ -1068,9 +1068,11 @@ if (isset($forceTheme) && is_string($forceTheme)) {
             }
         }
 
-        if (in_array('hs', $bpShow, true) && $unpaidHotelServices) {
+        // Popup hanya untuk tagihan tamu yang check-out hari ini (atau lewat); sisanya tetap terlihat di menu Hotel Service
+        $bpHsDue = in_array('hs', $bpShow, true) ? filterHotelServiceInvoicesDueToday($db->getConnection(), $unpaidHotelServices ?: []) : [];
+        if (in_array('hs', $bpShow, true) && $bpHsDue) {
             $bpItems = [];
-            foreach ($unpaidHotelServices as $bpInv) {
+            foreach ($bpHsDue as $bpInv) {
                 $bpRest = max(0, (float)$bpInv['total'] - (float)$bpInv['paid_amount']);
                 if ($bpRest <= 0) continue;
                 $bpItems[] = [
