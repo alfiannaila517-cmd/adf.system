@@ -307,37 +307,45 @@ class WhatsAppHelper
                 return;
             }
 
-            $type = '';
-            try {
-                $row = $this->db->fetchOne("SELECT rt.type_name FROM rooms r LEFT JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = ?", [$booking['room_id'] ?? 0]);
-                $type = (string)($row['type_name'] ?? '');
-            } catch (\Throwable $e) {
-            }
-            $hotel = '';
-            try {
-                $row = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_name'");
-                $hotel = (string)($row['setting_value'] ?? '');
-            } catch (\Throwable $e) {
-            }
-            if ($hotel === '' && defined('BUSINESS_NAME')) $hotel = BUSINESS_NAME;
-
-            $in = $booking['check_in_date'] ?? null;
-            $out = $booking['check_out_date'] ?? null;
-            $nights = ($in && $out) ? max(1, (int)round((strtotime($out) - strtotime($in)) / 86400)) : '';
-            $template = trim($s['wa_checkin_template']) !== '' ? $s['wa_checkin_template'] : self::DEFAULT_CHECKIN_TEMPLATE;
-            $message = self::render($template, [
-                '{guest_name}'   => trim((string)($booking['guest_name'] ?? 'Guest')),
-                '{hotel_name}'   => $hotel,
-                '{room}'         => (string)($booking['room_number'] ?? ''),
-                '{room_type}'    => $type ?: '-',
-                '{check_in}'     => $in ? date('d M Y', strtotime($in)) : '',
-                '{check_out}'    => $out ? date('d M Y', strtotime($out)) : '',
-                '{nights}'       => (string)$nights,
-                '{booking_code}' => (string)($booking['booking_code'] ?? ''),
-            ]);
+            $message = $this->checkinMessage($booking);
             $this->send($phone, $message, null, null, 'checkin', $ref);
         } catch (\Throwable $e) {
             error_log('WA check-in message: ' . $e->getMessage());
         }
+    }
+
+    /** Isi pesan welcome check-in (template dari pengaturan WhatsApp) untuk satu booking. */
+    public function checkinMessage(array $booking): string
+    {
+        $s = $this->settings();
+        $type = '';
+        try {
+            $row = $this->db->fetchOne("SELECT rt.type_name FROM rooms r LEFT JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = ?", [$booking['room_id'] ?? 0]);
+            $type = (string)($row['type_name'] ?? '');
+        } catch (\Throwable $e) {
+        }
+        $hotel = '';
+        try {
+            $row = $this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_name'");
+            $hotel = (string)($row['setting_value'] ?? '');
+        } catch (\Throwable $e) {
+        }
+        if ($hotel === '' && defined('BUSINESS_NAME')) $hotel = BUSINESS_NAME;
+
+        $in = $booking['check_in_date'] ?? null;
+        $out = $booking['check_out_date'] ?? null;
+        $nights = ($in && $out) ? max(1, (int)round((strtotime($out) - strtotime($in)) / 86400)) : '';
+        $template = trim($s['wa_checkin_template']) !== '' ? $s['wa_checkin_template'] : self::DEFAULT_CHECKIN_TEMPLATE;
+        $message = self::render($template, [
+            '{guest_name}'   => trim((string)($booking['guest_name'] ?? 'Guest')),
+            '{hotel_name}'   => $hotel,
+            '{room}'         => (string)($booking['room_number'] ?? ''),
+            '{room_type}'    => $type ?: '-',
+            '{check_in}'     => $in ? date('d M Y', strtotime($in)) : '',
+            '{check_out}'    => $out ? date('d M Y', strtotime($out)) : '',
+            '{nights}'       => (string)$nights,
+            '{booking_code}' => (string)($booking['booking_code'] ?? ''),
+        ]);
+        return $message;
     }
 }

@@ -748,7 +748,31 @@ include '../../includes/header.php';
         box-shadow: 0 6px 14px -8px rgba(37, 211, 102, 0.9) !important;
     }
     body[data-theme] .ih-card .ih-btn-wa svg { width: 15px; height: 15px; fill: #ffffff; }
-    body[data-theme] .ih-card a.ih-btn-wa:hover { background: #1ebe5b !important; }
+    body[data-theme] .ih-card a.ih-btn-wa:hover, body[data-theme] .ih-card button.ih-btn-wa:hover { background: #1ebe5b !important; }
+    body[data-theme] .ih-card button.ih-btn-wa { cursor: pointer; }
+
+    /* Menu WhatsApp tamu: kirim welcome / chat biasa */
+    #ihWaMenu { position: fixed; z-index: 1200; width: 272px; padding: 6px; border-radius: 14px; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 22px 44px -16px rgba(15, 23, 42, .35); display: none; }
+    #ihWaMenu.open { display: block; animation: ihWaIn .16s ease-out; }
+    @keyframes ihWaIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+    #ihWaMenu .wm-head { padding: 7px 10px 8px; border-bottom: 1px solid #f1f5f9; margin-bottom: 4px; }
+    body[data-theme] #ihWaMenu .wm-head b { display: block; font-size: .74rem !important; font-weight: 800; color: #0f172a !important; }
+    body[data-theme] #ihWaMenu .wm-head small { display: block; font-size: .64rem !important; color: #64748b !important; margin-top: 1px; }
+    #ihWaMenu .wm-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; text-align: left; font-family: inherit; text-decoration: none !important; }
+    #ihWaMenu .wm-item:hover { background: #f0fdf4; }
+    #ihWaMenu .wm-ic { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center; background: #dcfce7; }
+    body[data-theme] #ihWaMenu .wm-ic svg { width: 16px; height: 16px; color: #16a34a !important; fill: none; stroke: currentColor; }
+    body[data-theme] #ihWaMenu .wm-txt b { display: block; font-size: .74rem !important; font-weight: 700; color: #0f172a !important; }
+    body[data-theme] #ihWaMenu .wm-txt small { display: block; font-size: .64rem !important; color: #64748b !important; margin-top: 1px; line-height: 1.35; }
+    #ihWaMenu .wm-item[disabled] { opacity: .55; cursor: wait; }
+    body[data-theme="dark"] #ihWaMenu { background: #1e293b; border-color: rgba(148, 163, 184, .2); }
+    body[data-theme="dark"] #ihWaMenu .wm-head { border-color: rgba(148, 163, 184, .14); }
+    body[data-theme="dark"] #ihWaMenu .wm-head b, body[data-theme="dark"] #ihWaMenu .wm-txt b { color: #f1f5f9 !important; }
+    body[data-theme="dark"] #ihWaMenu .wm-item:hover { background: rgba(34, 197, 94, .1); }
+    #ihWaToast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1300; max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 12px; background: #0f172a; box-shadow: 0 16px 36px -14px rgba(15, 23, 42, .5); display: none; }
+    body[data-theme] #ihWaToast { color: #ffffff !important; font-size: .76rem !important; font-weight: 600; }
+    #ihWaToast.show { display: block; }
+    #ihWaToast.err { background: #b91c1c; }
     body[data-theme] .ih-card .ih-btn-wa.is-off { background: #e2e8f0 !important; box-shadow: none !important; cursor: not-allowed; }
     body[data-theme] .ih-card .ih-btn-wa.is-off svg { fill: #94a3b8; }
 
@@ -989,7 +1013,7 @@ include '../../includes/header.php';
                             elseif ($waDigits !== '' && $waDigits[0] === '8') $waDigits = '62' . $waDigits;
                             if (strlen($waDigits) >= 9):
                                 $waMsg = 'Hello ' . $guest['guest_name'] . ', this is Front Office ' . (defined('BUSINESS_NAME') ? BUSINESS_NAME : '') . ' (Room ' . $guest['room_number'] . ').'; ?>
-                                <a class="ih-btn ih-btn-wa" href="https://wa.me/<?php echo $waDigits; ?>?text=<?php echo rawurlencode($waMsg); ?>" target="_blank" rel="noopener" title="WhatsApp <?php echo htmlspecialchars((string)$guest['phone']); ?>" aria-label="WhatsApp tamu"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z"/></svg></a>
+                                <button type="button" class="ih-btn ih-btn-wa" data-wa-url="https://wa.me/<?php echo $waDigits; ?>?text=<?php echo rawurlencode($waMsg); ?>" data-booking="<?php echo (int)$guest['booking_id']; ?>" data-guest="<?php echo htmlspecialchars((string)$guest['guest_name']); ?>" data-phone="<?php echo htmlspecialchars((string)$guest['phone']); ?>" onclick="ihWaMenu(this, event)" title="WhatsApp <?php echo htmlspecialchars((string)$guest['phone']); ?>" aria-label="WhatsApp tamu" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z"/></svg></button>
                             <?php else: ?>
                                 <span class="ih-btn ih-btn-wa is-off" title="Nomor WhatsApp tamu belum ada" aria-label="Nomor WhatsApp belum ada"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z"/></svg></span>
                             <?php endif; ?>
@@ -1588,6 +1612,75 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<div id="ihWaMenu" role="menu">
+    <div class="wm-head"><b id="ihWaName">Tamu</b><small id="ihWaPhone"></small></div>
+    <button type="button" class="wm-item" id="ihWaWelcome" role="menuitem">
+        <span class="wm-ic"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><circle cx="9" cy="7" r="4"/><path d="m16 19 2 2 4-4"/></svg></span>
+        <span class="wm-txt"><b>Kirim pesan Welcome</b><small>Template yang sama dengan WA otomatis saat check-in</small></span>
+    </button>
+    <a class="wm-item" id="ihWaChat" href="#" target="_blank" rel="noopener" role="menuitem">
+        <span class="wm-ic"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="wm-txt"><b>Kirim pesan biasa</b><small>Buka chat WhatsApp dengan tamu</small></span>
+    </a>
+</div>
+<div id="ihWaToast" role="status" aria-live="polite"></div>
+<script>
+    // Menu WhatsApp tamu di kartu In-House: kirim welcome (gateway WA sistem) / chat biasa (wa.me)
+    (function() {
+        const menu = document.getElementById('ihWaMenu');
+        const toast = document.getElementById('ihWaToast');
+        let current = null;
+        let toastTimer = null;
+        function showToast(msg, isErr) {
+            toast.textContent = msg;
+            toast.classList.toggle('err', !!isErr);
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+        function close() { menu.classList.remove('open'); current = null; }
+        window.ihWaMenu = function(btn, ev) {
+            ev.stopPropagation();
+            if (current === btn && menu.classList.contains('open')) { close(); return; }
+            current = btn;
+            document.getElementById('ihWaName').textContent = btn.dataset.guest || 'Tamu';
+            document.getElementById('ihWaPhone').textContent = btn.dataset.phone || '';
+            document.getElementById('ihWaChat').href = btn.dataset.waUrl;
+            menu.classList.add('open');
+            const r = btn.getBoundingClientRect();
+            const w = menu.offsetWidth, h = menu.offsetHeight;
+            const left = Math.min(window.innerWidth - w - 8, Math.max(8, r.right - w));
+            let top = r.bottom + 8;
+            if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+            menu.style.left = left + 'px';
+            menu.style.top = top + 'px';
+        };
+        document.getElementById('ihWaChat').addEventListener('click', () => setTimeout(close, 50));
+        document.getElementById('ihWaWelcome').addEventListener('click', function() {
+            if (!current) return;
+            const item = this, btn = current, name = btn.dataset.guest || 'tamu';
+            if (!confirm('Kirim pesan Welcome ke ' + name + '?')) return;
+            item.disabled = true;
+            const fd = new FormData();
+            fd.append('booking_id', btn.dataset.booking);
+            fetch('<?php echo BASE_URL; ?>/api/wa-guest-welcome.php', { method: 'POST', body: fd, credentials: 'include' })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.fallback && d.wa_url) {
+                        window.open(d.wa_url, '_blank', 'noopener');
+                        showToast(d.message || 'Pesan dibuka di WhatsApp');
+                    } else {
+                        showToast(d.message || (d.ok ? 'Terkirim' : 'Gagal mengirim'), !d.ok);
+                    }
+                })
+                .catch(() => showToast('Gagal menghubungi server', true))
+                .finally(() => { item.disabled = false; close(); });
+        });
+        document.addEventListener('click', e => { if (menu.classList.contains('open') && !menu.contains(e.target)) close(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        window.addEventListener('scroll', close, true);
+    })();
+</script>
 <script>
     // Pembayaran langsung dari kartu In-House (dipakai juga oleh popup tagihan: in-house.php?pay=<booking_id>).
     let payState = null;
