@@ -99,21 +99,23 @@ function handleNavMenuClick(e) {
     if (toggle) {
         e.preventDefault();
         e.stopPropagation();
-        toggleDropdown(toggle);
+        toggleDropdown(toggle, e);
     }
 }
 
 function handleDropdownClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    toggleDropdown(this);
+    toggleDropdown(this, e);
 }
 
-function toggleDropdown(toggle) {
+function toggleDropdown(toggle, e) {
     const navItem = toggle.closest('.nav-item.has-submenu');
 
-    // Menu dengan halaman utama (data-href, mis. Front Desk → Dashboard): buka submenu lalu pindah halaman
-    if (toggle.dataset.href) {
+    // Menu dengan halaman utama (data-href, mis. Front Desk → Dashboard): klik nama → pindah halaman;
+    // klik panah (±40px kanan) → buka/tutup submenu seperti menu lain
+    var onArrow = e && typeof e.clientX === 'number' && e.clientX >= toggle.getBoundingClientRect().right - 40;
+    if (toggle.dataset.href && !onArrow) {
         if (navItem) navItem.classList.add('open');
         window.location.href = toggle.dataset.href;
         return;
