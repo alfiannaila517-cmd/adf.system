@@ -322,10 +322,10 @@ class CloudbedsSync
                     }
                 }
                 // Harga mengikuti Cloudbeds: booking OTA SELALU (juga setelah dibayar — sistem mencatat persis seperti
-                // Cloudbeds); booking buatan sistem hanya selama belum ada pembayaran. Tidak saat menunggu edit dari sistem.
+                // Cloudbeds); booking buatan sistem TIDAK (harga sistem, mis. diskon, yang berlaku). Tidak saat menunggu edit dari sistem.
                 $live = array_values(array_filter($bks, fn($b) => in_array($b['status'], ['confirmed', 'pending', 'checked_in'], true)));
                 if (!$this->pushOnlyPlan && !self::isCancelled($it['status']) && $live && count($live) === count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))
-                    && !array_filter($live, fn($b) => (!$isOtaRes && (float)$b['paid_amount'] > 0) || isset($pendingEditIds[(int)$b['id']]))) {
+                    && $isOtaRes && !array_filter($live, fn($b) => isset($pendingEditIds[(int)$b['id']]))) {
                     $liveIn = implode(',', array_map(fn($b) => (int)$b['id'], $live));
                     $hasPay = !$isOtaRes && $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($liveIn) AND amount > 0 LIMIT 1");
                     $cbTotal = $it['total'] ?? null;
@@ -1865,7 +1865,8 @@ class CloudbedsSync
         $in = implode(',', $ids);
         // Reservasi OTA: Cloudbeds patokan harga walau sudah ada pembayaran; buatan sistem: hanya sebelum pembayaran pertama
         $isOta = (bool)$this->db->fetchOne("SELECT booking_id FROM cloudbeds_booking_links WHERE cb_reservation_id = ? AND how <> 'push' LIMIT 1", [$cbId]);
-        if (!$isOta && $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($in) AND amount > 0 LIMIT 1")) return null;
+        // Buatan sistem: harga sistem yang berlaku (mis. diskon di sistem) — tidak ditimpa harga Cloudbeds
+        if (!$isOta) return null;
         if ($this->db->fetchOne("SELECT booking_id FROM cloudbeds_pending_edits WHERE booking_id IN ($in) LIMIT 1")) return null;
         $old = (float)($this->db->fetchOne("SELECT COALESCE(SUM(final_price), 0) s FROM bookings WHERE id IN ($in)")['s'] ?? 0);
         $det = $this->cb->reservationDetail($cbId);
