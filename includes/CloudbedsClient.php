@@ -269,7 +269,102 @@ class CloudbedsClient
      * POST / PUT (form-encoded) ke endpoint Cloudbeds — dipakai tahap Sistem → Cloudbeds.
      * @return array{ok:bool, http:int, data:mixed, detail:string, raw:mixed}
      */
+    /**
+     * Semua penulisan ke Cloudbeds lewat sini: diperiksa pengaman (pembayaran / adjustment tidak boleh melampaui data
+     * sistem) lalu dicatat di cloudbeds_outbound_log — termasuk yang diblokir — agar setiap perubahan bisa ditelusuri.
+     */
     public function send(string $method, string $endpoint, array $params): array
+    {
+        $rid = (string)($params['reservationID'] ?? ($params['roomBlockID'] ?? ''));
+        $blocked = $this->writeGuard($endpoint, $params);
+        if ($blocked !== null) {
+            $res = ['ok' => false, 'http' => 0, 'data' => null, 'detail' => 'Pengaman: ' . $blocked, 'raw' => null];
+            $this->logWrite($method, $endpoint, $rid, $params, $res, true);
+            return $res;
+        }
+        $res = $this->rawSend($method, $endpoint, $params);
+        $this->logWrite($method, $endpoint, $rid, $params, $res, false);
+        return $res;
+    }
+
+    /** Alasan menolak kiriman (string) atau null bila aman. */
+    private function writeGuard(string $endpoint, array $params): ?string
+    {
+        if (!in_array($endpoint, ['postPayment', 'postAdjustment'], true)) return null;
+        $rid = (string)($params['reservationID'] ?? '');
+        $amount = (float)($params['amount'] ?? 0);
+        if ($rid === '') return null;
+        try {
+            $links = $this->db->fetchAll("SELECT l.booking_id FROM cloudbeds_booking_links l JOIN bookings b ON b.id = l.booking_id
+                WHERE l.cb_reservation_id = ? AND b.status <> 'cancelled'", [$rid]) ?: [];
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if (!$links) return null;
+        $in = implode(',', array_map(fn($l) => (int)$l['booking_id'], $links));
+        $sysTotal = (float)($this->db->fetchOne("SELECT COALESCE(SUM(final_price), 0) s FROM bookings WHERE id IN ($in)")['s'] ?? 0);
+        $sysPaid = (float)($this->db->fetchOne("SELECT COALESCE(SUM(amount), 0) s FROM booking_payments WHERE booking_id IN ($in)")['s'] ?? 0);
+        $det = $this->reservationDetail($rid);
+        if (!$det['ok'] || $det['total'] === null) return null; // tidak terbaca: biarkan Cloudbeds yang memutuskan
+        $cbTotal = (float)$det['total'];
+        $cbPaid = $cbTotal - (float)($det['balance'] ?? $cbTotal);
+        $fmt = fn($v) => 'Rp ' . number_format((float)$v, 0, ',', '.');
+        if ($endpoint === 'postPayment') {
+            if ($amount <= 0) return 'nominal pembayaran tidak valid';
+            if ($cbPaid + $amount > $sysPaid + 1) {
+                return 'pembayaran di Cloudbeds akan menjadi ' . $fmt($cbPaid + $amount) . ', melebihi pembayaran di sistem ' . $fmt($sysPaid) . ' — tidak dikirim';
+            }
+            return null;
+        }
+        // postAdjustment
+        $after = $cbTotal + $amount;
+        $ceiling = max($sysTotal, $sysPaid);
+        if (abs($amount) > max($sysTotal, 1)) {
+            return 'adjustment ' . $fmt($amount) . ' lebih besar dari total booking ' . $fmt($sysTotal) . ' — tidak dikirim';
+        }
+        if ($amount > 0 && $after > $ceiling + 1) {
+            return 'total Cloudbeds akan menjadi ' . $fmt($after) . ', melebihi total/pembayaran di sistem ' . $fmt($ceiling) . ' — tidak dikirim';
+        }
+        try {
+            $n = (int)($this->db->fetchOne("SELECT COUNT(*) c FROM cloudbeds_outbound_log WHERE endpoint = 'postAdjustment' AND reservation_id = ? AND ok = 1 AND created_at > NOW() - INTERVAL 1 DAY", [$rid])['c'] ?? 0);
+            if ($n >= 4) return 'sudah ' . $n . ' adjustment ke reservasi ini dalam 24 jam — dihentikan, periksa manual';
+        } catch (\Throwable $e) {
+        }
+        return null;
+    }
+
+    private function logWrite(string $method, string $endpoint, string $rid, array $params, array $res, bool $blocked): void
+    {
+        try {
+            static $ready = false;
+            if (!$ready) {
+                $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_outbound_log (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    method VARCHAR(12) NOT NULL,
+                    endpoint VARCHAR(40) NOT NULL,
+                    reservation_id VARCHAR(40) NULL,
+                    amount DECIMAL(14,2) NULL,
+                    ok TINYINT NOT NULL DEFAULT 0,
+                    blocked TINYINT NOT NULL DEFAULT 0,
+                    detail VARCHAR(255) NULL,
+                    params TEXT NULL,
+                    KEY idx_res (reservation_id, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                $ready = true;
+            }
+            unset($params['propertyID']);
+            $this->db->query("INSERT INTO cloudbeds_outbound_log (method, endpoint, reservation_id, amount, ok, blocked, detail, params) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
+                $method, $endpoint, $rid !== '' ? $rid : null, isset($params['amount']) ? (float)$params['amount'] : null,
+                !empty($res['ok']) ? 1 : 0, $blocked ? 1 : 0, mb_substr((string)($res['detail'] ?? ''), 0, 255), mb_substr(json_encode($params, JSON_UNESCAPED_UNICODE), 0, 2000),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Cloudbeds outbound log: ' . $e->getMessage());
+        }
+    }
+
+    /** Kirim ke Cloudbeds tanpa pengaman/log (dipakai send()). */
+    protected function rawSend(string $method, string $endpoint, array $params): array
     {
         $key = trim($this->apiKey(), " \t\n\r\0\x0B\"'");
         if ($key === '') {

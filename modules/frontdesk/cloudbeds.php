@@ -579,6 +579,17 @@ include '../../includes/header.php';
                         </tbody>
                     </table>
                 <?php endif; ?>
+                <?php if (!empty($diag['outbound'])): ?>
+                    <p class="cbx-hint" style="margin:.7rem 0 .3rem"><b>Riwayat kiriman sistem ke Cloudbeds</b> (terbaru di atas)</p>
+                    <table class="cbx-tbl">
+                        <thead><tr><th>Waktu</th><th>Jenis</th><th style="text-align:right">Nominal</th><th>Hasil</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($diag['outbound'] as $ob): ?>
+                                <tr title="<?php echo htmlspecialchars((string)$ob['params']); ?>"><td><?php echo htmlspecialchars(date('d M H:i:s', strtotime((string)$ob['created_at']))); ?></td><td><?php echo htmlspecialchars($ob['endpoint']); ?></td><td style="text-align:right"><?php echo $ob['amount'] !== null ? $rpx($ob['amount']) : '—'; ?></td><td><span class="cbx-pill <?php echo $ob['blocked'] ? 'warn' : ($ob['ok'] ? 'ok' : 'bad'); ?>"><?php echo $ob['blocked'] ? 'Diblokir pengaman' : ($ob['ok'] ? 'Terkirim' : 'Ditolak'); ?></span> <span class="cbx-hint" style="display:inline"><?php echo htmlspecialchars(mb_substr((string)$ob['detail'], 0, 120)); ?></span></td></tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
                 <?php if (!empty($diag['bk']) || !empty($diag['booking']['group_id'])): ?>
                     <p class="cbx-hint" style="margin:.5rem 0 0"><b>Grup:</b> <?php echo htmlspecialchars($diag['merge_info']['msg'] ?? ''); ?></p>
                 <?php endif; ?>

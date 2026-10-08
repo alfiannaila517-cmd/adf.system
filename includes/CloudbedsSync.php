@@ -1763,6 +1763,7 @@ class CloudbedsSync
         if (!$payments) $issues[] = ['warn', 'Belum ada pembayaran tercatat di sistem untuk booking ini.'];
         if (!$issues) $issues[] = ['ok', 'Semua pembayaran sudah terkirim dan total sama. Bila Cloudbeds masih merah, muat ulang halaman Cloudbeds.'];
         return ['ok' => true, 'booking' => $bk, 'rooms' => $rooms, 'link' => $link ?: null, 'payments' => $payments, 'cb' => $cbInfo,
+            'outbound' => $this->outboundLog($cbInfo['id'] ?? ''),
             'issues' => $issues, 'ghost_paid' => $ghostPaid, 'can_align' => $canAlign, 'can_merge' => $this->groupMergeInfo($bk)['ok'], 'merge_info' => $this->groupMergeInfo($bk), 'marked_paid' => $markedPaid, 'pay_enabled' => $payEnabled, 'pay_since' => $since, 'local_total' => $localTotal, 'local_paid' => $localPaid, 'ids' => $ids];
     }
 
@@ -2067,6 +2068,17 @@ class CloudbedsSync
         }
         return date('Y-m-d H:i:s', $t + $offset);
     }
+    /** Riwayat kiriman ke Cloudbeds untuk satu reservasi (terbaru dulu); [] bila belum ada log. */
+    public function outboundLog(string $cbId, int $limit = 30): array
+    {
+        if ($cbId === '') return [];
+        try {
+            return $this->db->fetchAll("SELECT created_at, endpoint, amount, ok, blocked, detail, params FROM cloudbeds_outbound_log WHERE reservation_id = ? ORDER BY id DESC LIMIT " . (int)$limit, [$cbId]) ?: [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     /** Peringatan ("perlu dicek") & error dari hasil apply(), ringkas untuk disimpan bersama status sinkron. */
     public static function issueList(array $res, int $max = 8): array
     {
