@@ -73,6 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : 'Gagal mengambil harga: ' . htmlspecialchars($res['detail']));
         header('Location: cloudbeds.php?rates=1#rates');
         exit;
+    } elseif ($act === 'align_paid') {
+        $code = trim((string)($_POST['code'] ?? ''));
+        $res = (new CloudbedsSync($db, $cb))->alignPaidToCloudbeds($code);
+        setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
     } elseif ($act === 'fix_paid') {
         $code = trim((string)($_POST['code'] ?? ''));
         $diag = (new CloudbedsSync($db, $cb))->diagnosePayment($code);
@@ -564,6 +570,13 @@ include '../../includes/header.php';
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                <?php endif; ?>
+                <?php if (!empty($diag['can_align'])): ?>
+                    <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Samakan harga, pembayaran dan baris buku kas booking ini dengan total Cloudbeds?')">
+                        <input type="hidden" name="act" value="align_paid">
+                        <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                        <button type="submit" class="cbx-btn">Samakan dengan Cloudbeds (<?php echo $rpx($diag['cb']['total']); ?>)</button>
+                    </form>
                 <?php endif; ?>
                 <?php if (!empty($diag['ghost_paid'])): ?>
                     <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Samakan status bayar booking ini dengan catatan pembayaran yang ada? Setelah itu lakukan Payment ulang.')">

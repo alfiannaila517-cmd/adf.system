@@ -99,6 +99,31 @@ try {
         throw new Exception('Booking ini bukan dari OTA (' . ($bookingSource ?: 'direct') . '). Pilih Cash, Transfer atau QRIS.');
     }
 
+    // Harga mengikuti Cloudbeds: sebelum pembayaran PERTAMA booking yang tertaut, ambil total Cloudbeds sekarang
+    // (tanpa menunggu sinkron 5 menit) agar nominal yang dibayar & masuk buku kas sama dengan Cloudbeds.
+    $cbPriceNote = '';
+    try {
+        require_once __DIR__ . '/../includes/CloudbedsClient.php';
+        require_once __DIR__ . '/../includes/CloudbedsSync.php';
+        $cbClient = new CloudbedsClient($db);
+        if ($cbClient->isConfigured()) {
+            $priceBefore = (float)($db->fetchOne("SELECT final_price FROM bookings WHERE id = ?", [$bookingId])['final_price'] ?? 0);
+            $chg = (new CloudbedsSync($db, $cbClient))->refreshPriceFromCloudbeds((int)$bookingId);
+            if ($chg) {
+                $priceAfter = (float)($db->fetchOne("SELECT final_price FROM bookings WHERE id = ?", [$bookingId])['final_price'] ?? 0);
+                // Nominal yang diketik = total lama (bayar penuh) → menjadi total Cloudbeds
+                if (abs($amount - $chg['old']) < 1) {
+                    $amount = $chg['new'];
+                } elseif (abs($amount - $priceBefore) < 1) {
+                    $amount = $priceAfter;
+                }
+                $cbPriceNote = 'Harga disamakan dengan Cloudbeds: Rp ' . number_format($chg['old'], 0, ',', '.') . ' → Rp ' . number_format($chg['new'], 0, ',', '.') . '. ';
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('add-booking-payment: harga Cloudbeds tidak terbaca: ' . $e->getMessage());
+    }
+
     $db->beginTransaction();
 
     // Kunci baris booking: dua klik "Bayar" bersamaan diproses berurutan, bukan paralel.
@@ -368,7 +393,7 @@ try {
 
     // Prepare success message
     $statusLabel = $displayStatus === 'paid' ? 'LUNAS ✅' : 'PARTIAL - Sisa: Rp ' . number_format($displayRemaining, 0, ',', '.');
-    $successMessage = "Pembayaran tersimpan ✅";
+    $successMessage = $cbPriceNote . "Pembayaran tersimpan ✅";
     $successMessage .= "\nRp " . number_format($amount, 0, ',', '.') . " dicatat untuk booking " . ($bookingDetails['booking_code'] ?? '');
     
     if ($isOTA && $cashbookInserted) {
