@@ -43,12 +43,12 @@ try {
     }
     $last = json_decode((string)($db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_last_auto_sync'")['setting_value'] ?? ''), true);
     if (!empty($last['at']) && time() - strtotime($last['at']) < 55) {
-        echo json_encode(['ok' => true, 'skipped' => 'recent', 'last' => $last['at']]);
+        echo json_encode(['ok' => true, 'skipped' => 'recent', 'last' => $last['at'], 'last_ok' => !empty($last['ok']), 'summary' => $last['summary'] ?? '']);
         exit;
     }
     $lock = fopen(sys_get_temp_dir() . '/adf-cloudbeds-sync.lock', 'c');
     if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
-        echo json_encode(['ok' => true, 'skipped' => 'busy']);
+        echo json_encode(['ok' => true, 'skipped' => 'busy', 'last' => $last['at'] ?? null]);
         exit;
     }
     // Tandai mulai dulu agar halaman lain yang dibuka bersamaan tidak ikut memicu sinkron
@@ -76,6 +76,8 @@ try {
         'blocked' => (int)($d['block'] ?? 0),
         'unblocked' => (int)($d['unblock'] ?? 0),
         'summary' => $summary,
+        'last' => date('Y-m-d H:i:s'),
+        'last_ok' => (bool)$res['ok'] && empty($d['errors']),
     ]);
 } catch (\Throwable $e) {
     error_log('cloudbeds-sync-now: ' . $e->getMessage());
