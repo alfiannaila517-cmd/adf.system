@@ -299,6 +299,19 @@ class CashbookHelper
         return $this->allowedPaymentMethods;
     }
 
+    /** "OTA agoda" / "ota_tiket" / "OTA booking_com" → "OTA Agoda" / "OTA tiket.com" / "OTA Booking.com" (maks. 30 karakter). */
+    public static function otaMethodLabel(string $raw): string
+    {
+        $key = strtolower(trim(preg_replace('/^(ota[ _]?)/i', '', trim($raw))));
+        $labels = ['tiket' => 'tiket.com', 'agoda' => 'Agoda', 'booking' => 'Booking.com', 'traveloka' => 'Traveloka', 'airbnb' => 'Airbnb',
+            'expedia' => 'Expedia', 'pegipegi' => 'Pegipegi', 'trip' => 'Trip.com', 'hotels' => 'Hotels.com'];
+        foreach ($labels as $needle => $label) {
+            if ($key !== '' && strpos(str_replace([' ', '_', '.'], '', $key), $needle) !== false) return 'OTA ' . $label;
+        }
+        $name = ucwords(str_replace('_', ' ', $key));
+        return mb_substr('OTA ' . ($name !== '' ? $name : 'Lainnya'), 0, 30);
+    }
+
     /**
      * Map and validate payment method for cash_book
      */
@@ -307,9 +320,13 @@ class CashbookHelper
         $pmMap = ['bank_transfer' => 'transfer', 'credit_card' => 'debit', 'credit' => 'debit', 'card' => 'debit', 'qris' => 'qr'];
         $cbMethod = $paymentMethod ?? 'cash';
 
-        // OTA payments come via bank transfer from OTA platform → map to 'transfer'
-        // OTA source label is stored in description instead
-        if (stripos($cbMethod, 'OTA ') === 0 || stripos($cbMethod, 'ota_') === 0) {
+        // OTA: metode buku kas = "OTA <platform>" (sama dengan pilihan filter/form Buku Kas: OTA Agoda, OTA tiket.com, …).
+        // Hanya bila kolom payment_method teks bebas; kolom ENUM lama → 'transfer' (label OTA tetap di keterangan).
+        if (stripos($cbMethod, 'OTA ') === 0 || stripos($cbMethod, 'ota_') === 0 || strtolower($cbMethod) === 'ota') {
+            $allowedOta = $this->getAllowedPaymentMethods();
+            if ($allowedOta === null) {
+                return self::otaMethodLabel($cbMethod);
+            }
             $cbMethod = 'transfer';
         } else {
             $cbMethod = strtolower($cbMethod);
