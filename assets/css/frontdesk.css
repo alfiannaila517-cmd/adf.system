@@ -1960,7 +1960,7 @@ body[data-theme] .booking-checked-in {
 }
 
 body[data-theme] .booking-blocked {
-    background: repeating-linear-gradient(135deg, #ef4444 0 8px, #f05252 8px 16px) !important;
+    background: repeating-linear-gradient(135deg, #334155 0 7px, #3e4c61 7px 14px) !important;
 }
 
 body[data-theme] .booking-bar.booking-past {

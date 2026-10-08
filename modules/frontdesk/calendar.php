@@ -1566,9 +1566,9 @@ include '../../includes/header.php';
     }
 
     .booking-blocked {
-        background: linear-gradient(135deg, #ef4444, #f97316) !important;
-        border-right-color: #ef4444;
-        border-left-color: #f97316;
+        background: linear-gradient(135deg, #334155, #475569) !important;
+        border-right-color: #334155;
+        border-left-color: #475569;
     }
 
     .booking-bar-guest,
@@ -3148,7 +3148,10 @@ include '../../includes/header.php';
                                             $reasonText = $reasonMap[$reasonRaw] ?? ucfirst(str_replace('_', ' ', $reasonRaw));
                                             $notesText = trim((string)($block['notes'] ?? ''));
                                             $notesSuffix = $notesText !== '' ? ' • ' . $notesText : '';
-                                            $blockLabel = '⛔ ' . $reasonText;
+                                            // Label: "Block · <untuk siapa / alasan>" — catatan blok (tanpa awalan "Cloudbeds:"), alasan bila bukan "other"
+                                            $who = trim(preg_replace(['/^Cloudbeds:\s*/i', '/\s*\[Dicabut via Cloudbeds\]\s*/i'], '', $notesText));
+                                            $blockParts = array_values(array_filter([$reasonRaw !== 'other' ? $reasonText : '', $who], fn($x) => $x !== ''));
+                                            $blockLabel = 'Block' . ($blockParts ? ' · ' . implode(' · ', $blockParts) : '');
                                 ?>
                                             <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px; z-index: 5;"
                                                 data-block-id="<?php echo (int)$block['id']; ?>"
@@ -3158,9 +3161,9 @@ include '../../includes/header.php';
                                                 data-block-reason="<?php echo htmlspecialchars($reasonRaw); ?>"
                                                 data-block-notes="<?php echo htmlspecialchars($notesText); ?>">
                                                 <div class="booking-bar booking-blocked"
-                                                    style="background: linear-gradient(135deg, #ef4444, #f97316) !important; border-right-color: #ef4444; border-left-color: #f97316;"
+                                                    style="background: repeating-linear-gradient(135deg, #334155 0 7px, #3e4c61 7px 14px) !important; border-right-color: #334155; border-left-color: #475569;"
                                                     onclick="event.stopPropagation();"
-                                                    title="<?php echo htmlspecialchars($blockLabel . $notesSuffix); ?>">
+                                                    title="<?php echo htmlspecialchars($blockLabel); ?>">
                                                     <span><?php echo htmlspecialchars($blockLabel); ?></span>
                                                     <?php if (!$isStaffView): ?>
                                                         <button class="bar-action-btn bar-delete-btn" onclick="event.stopPropagation(); removeRoomBlock(<?php echo (int)$block['id']; ?>, '<?php echo htmlspecialchars($room['room_number'], ENT_QUOTES); ?>')" title="Batalkan Block">✕</button>
@@ -3301,8 +3304,8 @@ include '../../includes/header.php';
             <span class="legend-label">📋 Booking (Confirmed/Pending)</span>
         </div>
         <div class="legend-item">
-            <div class="legend-color" style="background: linear-gradient(135deg, #ef4444, #f97316);"></div>
-            <span class="legend-label">⛔ Block Room (Maintenance/dll)</span>
+            <div class="legend-color" style="background: linear-gradient(135deg, #334155, #475569);"></div>
+            <span class="legend-label">Block kamar (tamu / maintenance / dll)</span>
         </div>
         <div class="legend-item">
             <div class="legend-color" style="background: linear-gradient(135deg, #10b981, #34d399);"></div>
