@@ -1176,9 +1176,27 @@ class CloudbedsSync
                 elseif (!is_array($r)) $roomIds[] = (string)$r;
             }
             if (stripos($reason, 'ADF:') === 0) {
+                // Blok kiriman sistem: bila di sistem sudah dibatalkan (bukan dicabut oleh sinkron) → hapus juga di Cloudbeds
+                $adfRemoved = [];
+                $adfLocalIds = [];
                 foreach ($roomIds as $rid) {
-                    $seen[substr('CB-' . $bid . '-' . $rid, 0, 40)] = true;
-                    $adfBlocks[] = ['bid' => $bid, 'rid' => $rid, 'start' => $start, 'end' => $end];
+                    $code = substr('CB-' . $bid . '-' . $rid, 0, 40);
+                    $seen[$code] = true;
+                    $adfBlocks[] = ['bid' => $bid, 'rid' => $rid, 'start' => $start, 'end' => $end, 'rooms' => $roomIds, 'reason' => $reason, 'type' => (string)($b['roomBlockType'] ?? '')];
+                    if ($push && !$this->db->fetchOne("SELECT id FROM room_blocks WHERE block_code = ? AND status = 'active' LIMIT 1", [$code])) {
+                        $gone = $this->db->fetchOne("SELECT id FROM room_blocks WHERE block_code = ? AND status = 'cancelled' AND COALESCE(notes,'') NOT LIKE '%[Dicabut via Cloudbeds]%' LIMIT 1", [$code]);
+                        if ($gone) { $adfRemoved[] = $rid; $adfLocalIds[] = (int)$gone['id']; }
+                    }
+                }
+                if ($adfRemoved) {
+                    $blkLabel = 'Blok sistem · ' . $start . ' → ' . $end;
+                    $roomsTxt = implode(', ', array_map(fn($x) => $cbRoomName[$x] ?? $x, $adfRemoved));
+                    if (count($adfRemoved) >= count($roomIds)) {
+                        $actions[] = ['type' => 'push_delblock', 'cb' => $bid, 'label' => $blkLabel, 'start' => $start, 'end' => $end, 'block_ids' => $adfLocalIds, 'msg' => 'Hapus blok di Cloudbeds (dibatalkan di sistem: ' . $roomsTxt . ')'];
+                    } else {
+                        $actions[] = ['type' => 'push_putblock', 'cb' => $bid, 'label' => $blkLabel, 'start' => $start, 'end' => $end, 'reason' => $reason, 'block_type' => (string)($b['roomBlockType'] ?? ''),
+                            'rooms' => array_values(array_diff($roomIds, $adfRemoved)), 'block_ids' => $adfLocalIds, 'msg' => 'Keluarkan ' . $roomsTxt . ' dari blok di Cloudbeds'];
+                    }
                 }
                 continue;
             }
@@ -1326,6 +1344,37 @@ class CloudbedsSync
                 }
             }
         }
+
+        // Blok sistem ber-kode ADFCB- (ID Cloudbeds tak terbaca) yang dibatalkan di sistem: cari pasangannya di Cloudbeds
+        // (kamar + tanggal sama, alasan "ADF:") lalu hapus di sana juga
+        if ($push && $adfBlocks) {
+            $gone = $this->db->fetchAll(
+                "SELECT rb.id, rb.block_start_date s, rb.block_end_date e, r.room_number
+                 FROM room_blocks rb JOIN rooms r ON r.id = rb.room_id
+                 WHERE rb.status = 'cancelled' AND rb.block_code LIKE 'ADFCB-%' AND COALESCE(rb.notes,'') NOT LIKE '%[Dicabut via Cloudbeds]%'
+                   AND rb.block_end_date > CURDATE() AND rb.block_start_date <= ? AND rb.block_end_date > ?",
+                [$to, $from]
+            ) ?: [];
+            $ridByNo2 = [];
+            foreach ($cbRoomName as $rid => $nm) {
+                if (preg_match('/\d{2,4}/', $nm, $mm)) $ridByNo2[$mm[0]] = (string)$rid;
+            }
+            foreach ($gone as $lb) {
+                $no = preg_match('/\d{2,4}/', (string)$lb['room_number'], $mm) ? $mm[0] : (string)$lb['room_number'];
+                $rid = $ridByNo2[$no] ?? '';
+                foreach ($adfBlocks as $ab) {
+                    if ($rid === '' || $ab['rid'] !== $rid || $ab['start'] !== $lb['s'] || $ab['end'] !== $lb['e'] || stripos($ab['reason'], 'ADF: perpanjangan') === 0) continue;
+                    $lbl = 'Blok sistem Room ' . $lb['room_number'] . ' · ' . $lb['s'] . ' → ' . $lb['e'];
+                    if (count($ab['rooms']) <= 1) {
+                        $actions[] = ['type' => 'push_delblock', 'cb' => $ab['bid'], 'label' => $lbl, 'start' => $ab['start'], 'end' => $ab['end'], 'block_ids' => [(int)$lb['id']], 'msg' => 'Hapus blok di Cloudbeds (dibatalkan di sistem)'];
+                    } else {
+                        $actions[] = ['type' => 'push_putblock', 'cb' => $ab['bid'], 'label' => $lbl, 'start' => $ab['start'], 'end' => $ab['end'], 'reason' => $ab['reason'], 'block_type' => $ab['type'],
+                            'rooms' => array_values(array_diff($ab['rooms'], [$rid])), 'block_ids' => [(int)$lb['id']], 'msg' => 'Keluarkan Room ' . $lb['room_number'] . ' dari blok di Cloudbeds'];
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     /** Jalankan aksi rencana (link/create/cancel/blok/kirim). Peringatan dilewati. */
@@ -1458,7 +1507,7 @@ class CloudbedsSync
                 case 'push_status': return isset($cbIds[(string)$a['cb']]);
                 case 'push_newblock': return in_array((int)$a['block_id'], $blockIds, true);
                 case 'push_delblock':
-                case 'push_putblock': return isset($cbBlockIds[(string)$a['cb']]);
+                case 'push_putblock': return isset($cbBlockIds[(string)$a['cb']]) || array_intersect($a['block_ids'] ?? [], $blockIds);
             }
             return false;
         }));
