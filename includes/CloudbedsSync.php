@@ -23,6 +23,8 @@ class CloudbedsSync
     private $learnedBlockType = '';
     /** pushFor: rencana ringan — tanpa panggilan detail reservasi (booking baru & cek harga diurus sinkron berkala) */
     private $pushOnlyPlan = false;
+    /** Reservasi Cloudbeds yang totalnya diubah (adjustment) oleh penyamaan saldo di putaran ini */
+    private $adjustedThisRun = [];
     /** Maks. panggilan detail untuk cek harga per sinkron; tiap reservasi dicek ulang paling cepat tiap 3 jam */
     private const MAX_PRICE_DETAIL = 6;
     private const MAX_DETAIL = 30;
@@ -231,6 +233,8 @@ class CloudbedsSync
                 }
                 // Lunas di sistem tetapi Cloudbeds masih ada saldo (pembayaran lama belum terkirim / selisih harga
                 // kecil) → disamakan otomatis: kirim pembayaran yang belum terkirim, lalu adjustment sisa selisih
+                // Reservasi OTA (masuk dari Cloudbeds) → Cloudbeds patokan harga; reservasi buatan sistem → sistem patokan
+                $isOtaRes = (bool)array_filter($linkHow[$cbId] ?? [], fn($h) => $h !== 'push');
                 $settleIds = $this->fullyPaidLinked($bks);
                 if ($settleIds && !$this->pushOnlyPlan && $payOn && !self::isCancelled($it['status'])) {
                     $cbBal = $it['balance'] ?? null;
@@ -241,17 +245,17 @@ class CloudbedsSync
                         $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE checked_at = NOW()", ['bal:' . $cbId]);
                     }
                     if ($cbBal !== null && (float)$cbBal >= 1) {
-                        $actions[] = ['type' => 'settle', 'cb' => $cbId, 'label' => $label, 'booking_ids' => $settleIds,
+                        $actions[] = ['type' => 'settle', 'cb' => $cbId, 'label' => $label, 'booking_ids' => $settleIds, 'ota' => $isOtaRes,
                             'msg' => 'Lunas di sistem, di Cloudbeds masih sisa Rp ' . number_format((float)$cbBal, 0, ',', '.') . ' → samakan saldo'];
                     }
                 }
-                // Harga mengikuti Cloudbeds (sumber rate plan) selama booking belum ada pembayaran sama sekali
-                // dan tidak sedang menunggu edit dari sistem; setelah dibayar harga dikunci.
+                // Harga mengikuti Cloudbeds: booking OTA SELALU (juga setelah dibayar — sistem mencatat persis seperti
+                // Cloudbeds); booking buatan sistem hanya selama belum ada pembayaran. Tidak saat menunggu edit dari sistem.
                 $live = array_values(array_filter($bks, fn($b) => in_array($b['status'], ['confirmed', 'pending', 'checked_in'], true)));
                 if (!$this->pushOnlyPlan && !self::isCancelled($it['status']) && $live && count($live) === count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))
-                    && !array_filter($live, fn($b) => (float)$b['paid_amount'] > 0 || isset($pendingEditIds[(int)$b['id']]))) {
+                    && !array_filter($live, fn($b) => (!$isOtaRes && (float)$b['paid_amount'] > 0) || isset($pendingEditIds[(int)$b['id']]))) {
                     $liveIn = implode(',', array_map(fn($b) => (int)$b['id'], $live));
-                    $hasPay = $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($liveIn) AND amount > 0 LIMIT 1");
+                    $hasPay = !$isOtaRes && $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($liveIn) AND amount > 0 LIMIT 1");
                     $cbTotal = $it['total'] ?? null;
                     // Total tidak ada di daftar reservasi → detail, dibatasi & bergiliran (dicek ulang paling cepat tiap 3 jam).
                     // Sebelum Payment harga tetap diambil langsung (refreshPriceFromCloudbeds), jadi ini hanya penyamaan berkala.
@@ -264,7 +268,7 @@ class CloudbedsSync
                     }
                     $localTotal = array_sum(array_map(fn($b) => (float)$b['final_price'], $live));
                     if (!$hasPay && $cbTotal !== null && (float)$cbTotal > 0 && abs((float)$cbTotal - $localTotal) >= 1) {
-                        $actions[] = ['type' => 'price', 'cb' => $cbId, 'label' => $label, 'booking_ids' => array_map(fn($b) => (int)$b['id'], $live), 'cb_total' => (float)$cbTotal,
+                        $actions[] = ['type' => 'price', 'cb' => $cbId, 'label' => $label, 'booking_ids' => array_map(fn($b) => (int)$b['id'], $live), 'cb_total' => (float)$cbTotal, 'ota' => $isOtaRes,
                             'msg' => 'Samakan harga dengan Cloudbeds: Rp ' . number_format($localTotal, 0, ',', '.') . ' → Rp ' . number_format((float)$cbTotal, 0, ',', '.') . ' (' . implode(', ', array_column($live, 'booking_code')) . ')'];
                     }
                 }
@@ -727,13 +731,13 @@ class CloudbedsSync
      * Total booking (satu reservasi Cloudbeds, bisa beberapa kamar) disamakan dengan total Cloudbeds. Dibagi ke kamar
      * sesuai porsi harga lama. Hanya untuk booking yang belum ada pembayaran (dicek ulang di sini).
      */
-    private function applyCloudbedsPrice(string $cbId, array $ids, float $cbTotal): void
+    private function applyCloudbedsPrice(string $cbId, array $ids, float $cbTotal, bool $evenIfPaid = false): void
     {
         $in = implode(',', array_map('intval', $ids));
         if ($in === '') return;
-        if ($this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($in) AND amount > 0 LIMIT 1")) return;
+        if (!$evenIfPaid && $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($in) AND amount > 0 LIMIT 1")) return;
         $rows = $this->db->fetchAll("SELECT id, final_price, total_price, COALESCE(discount, 0) discount, total_nights, paid_amount FROM bookings WHERE id IN ($in)") ?: [];
-        if (!$rows || array_filter($rows, fn($r) => (float)$r['paid_amount'] > 0)) return;
+        if (!$rows || (!$evenIfPaid && array_filter($rows, fn($r) => (float)$r['paid_amount'] > 0))) return;
         $old = array_sum(array_map(fn($r) => (float)$r['final_price'], $rows));
         $left = round($cbTotal, 2);
         $hasDirect = true;
@@ -755,6 +759,8 @@ class CloudbedsSync
         }
         // Dasar penyamaan harga sistem → Cloudbeds (adjustment) ikut total baru
         $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($cbTotal, 2)]);
+        // Status bayar mengikuti harga baru (mis. kini kurang bayar / lunas)
+        if ($evenIfPaid) $this->resetPaidFromPayments($ids);
     }
 
     /**
@@ -1487,9 +1493,11 @@ class CloudbedsSync
                     }
                     $done['link']++;
                 } elseif ($a['type'] === 'settle') {
-                    if ($this->settleReservation($a['cb'], $a['booking_ids'])) $done['push_pay']++;
+                    if ($this->settleReservation($a['cb'], $a['booking_ids'], !empty($a['ota']))) $done['push_pay']++;
                 } elseif ($a['type'] === 'price') {
-                    $this->applyCloudbedsPrice($a['cb'], $a['booking_ids'], $a['cb_total']);
+                    // Total Cloudbeds baru saja diubah oleh penyamaan saldo di putaran ini → angka rencana sudah basi
+                    if (isset($this->adjustedThisRun[(string)$a['cb']])) continue;
+                    $this->applyCloudbedsPrice($a['cb'], $a['booking_ids'], $a['cb_total'], !empty($a['ota']));
                     $done['price']++;
                 } elseif ($a['type'] === 'cancel') {
                     $this->db->query("UPDATE bookings SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Dibatalkan via Cloudbeds ', NOW(), ']')), updated_at = NOW()
@@ -1759,14 +1767,16 @@ class CloudbedsSync
             WHERE l.cb_reservation_id = ? AND b.status IN ('confirmed','pending','checked_in')", [$cbId]) ?: []);
         if (!$ids) return null;
         $in = implode(',', $ids);
-        if ($this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($in) AND amount > 0 LIMIT 1")) return null;
+        // Reservasi OTA: Cloudbeds patokan harga walau sudah ada pembayaran; buatan sistem: hanya sebelum pembayaran pertama
+        $isOta = (bool)$this->db->fetchOne("SELECT booking_id FROM cloudbeds_booking_links WHERE cb_reservation_id = ? AND how <> 'push' LIMIT 1", [$cbId]);
+        if (!$isOta && $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($in) AND amount > 0 LIMIT 1")) return null;
         if ($this->db->fetchOne("SELECT booking_id FROM cloudbeds_pending_edits WHERE booking_id IN ($in) LIMIT 1")) return null;
         $old = (float)($this->db->fetchOne("SELECT COALESCE(SUM(final_price), 0) s FROM bookings WHERE id IN ($in)")['s'] ?? 0);
         $det = $this->cb->reservationDetail($cbId);
         if (!$det['ok'] || $det['total'] === null || (float)$det['total'] <= 0) return null;
         $new = round((float)$det['total'], 2);
         if (abs($new - $old) < 1) return null;
-        $this->applyCloudbedsPrice($cbId, $ids, $new);
+        $this->applyCloudbedsPrice($cbId, $ids, $new, $isOta);
         return ['old' => $old, 'new' => $new];
     }
 
@@ -1919,7 +1929,7 @@ class CloudbedsSync
      * Cloudbeds, tidak dobel), lalu bila MASIH ada sisa (selisih harga), adjustment agar total Cloudbeds = yang
      * dibayar di sistem. true bila ada yang dikirim.
      */
-    private function settleReservation(string $cbId, array $ids): bool
+    private function settleReservation(string $cbId, array $ids, bool $isOta = false): bool
     {
         if (!$ids) return false;
         $o = $this->pushOldPayments($ids);
@@ -1936,6 +1946,14 @@ class CloudbedsSync
             $this->alignOverpaid($cbId, $ids, $total, $paid, $det['total']);
             return $sent;
         }
+        if ($isOta) {
+            // OTA: total Cloudbeds patokan — tidak diturunkan. Pengecualian: selisih akibat bug lama (adjustment pertama
+            // berpatokan subTotal sehingga pajak/biaya ikut terkirim): sisa <= pajak/biaya & sistem pernah mengirim adjustment.
+            $bd = is_array($det['raw']['balanceDetailed'] ?? null) ? $det['raw']['balanceDetailed'] : [];
+            $tax = isset($bd['taxesFees']) && is_numeric($bd['taxesFees']) ? (float)$bd['taxesFees'] : 0.0;
+            $adfAdjusted = (bool)$this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_price_sync WHERE cb_reservation_id = ?", [$cbId]);
+            if (!($adfAdjusted && $tax > 0 && $bal <= $tax + 1)) return $sent;
+        }
         $r = $this->cb->send('POST', 'postAdjustment', [
             'reservationID' => $cbId,
             'type' => 'rate',
@@ -1945,6 +1963,7 @@ class CloudbedsSync
         if (!$r['ok']) {
             throw new \RuntimeException('adjustment saldo ditolak: ' . $r['detail'] . (in_array((int)$r['http'], [401, 403], true) ? ' (perlu scope "Adjustment: Write")' : ''));
         }
+        $this->adjustedThisRun[$cbId] = true;
         // Dasar penyamaan harga sistem → Cloudbeds ikut total yang kini sama
         $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($total, 2)]);
         $this->alignOverpaid($cbId, $ids, $total, $paid, ($det['total'] ?? 0) - $bal);

@@ -108,14 +108,19 @@ try {
         $cbClient = new CloudbedsClient($db);
         if ($cbClient->isConfigured()) {
             $priceBefore = (float)($db->fetchOne("SELECT final_price FROM bookings WHERE id = ?", [$bookingId])['final_price'] ?? 0);
+            $paidBefore = (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) s FROM booking_payments WHERE booking_id = ?", [$bookingId])['s'] ?? 0);
             $chg = (new CloudbedsSync($db, $cbClient))->refreshPriceFromCloudbeds((int)$bookingId);
             if ($chg) {
                 $priceAfter = (float)($db->fetchOne("SELECT final_price FROM bookings WHERE id = ?", [$bookingId])['final_price'] ?? 0);
-                // Nominal yang diketik = total lama (bayar penuh) → menjadi total Cloudbeds
-                if (abs($amount - $chg['old']) < 1) {
-                    $amount = $chg['new'];
-                } elseif (abs($amount - $priceBefore) < 1) {
-                    $amount = $priceAfter;
+                // Nominal yang diketik = sisa tagihan lama (bayar penuh/pelunasan) → menjadi sisa menurut harga Cloudbeds
+                $groupPaid = (float)($db->fetchOne("SELECT COALESCE(SUM(bp.amount), 0) s FROM booking_payments bp JOIN cloudbeds_booking_links l ON l.booking_id = bp.booking_id WHERE l.cb_reservation_id = (SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1)", [$bookingId])['s'] ?? 0);
+                if (abs($amount - ($chg['old'] - $groupPaid)) < 1) {
+                    $amount = max(0, $chg['new'] - $groupPaid);
+                } elseif (abs($amount - ($priceBefore - $paidBefore)) < 1) {
+                    $amount = max(0, $priceAfter - $paidBefore);
+                }
+                if ($amount <= 0) {
+                    throw new Exception('Harga disamakan dengan Cloudbeds (Rp ' . number_format($chg['new'], 0, ',', '.') . ') — booking ini sudah lunas, tidak ada yang perlu dibayar.');
                 }
                 $cbPriceNote = 'Harga disamakan dengan Cloudbeds: Rp ' . number_format($chg['old'], 0, ',', '.') . ' → Rp ' . number_format($chg['new'], 0, ',', '.') . '. ';
             }
