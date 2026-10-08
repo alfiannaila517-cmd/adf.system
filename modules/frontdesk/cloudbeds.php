@@ -98,6 +98,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash($fails ? 'error' : 'success', $ok . ' pembayaran tarikan Cloudbeds dibatalkan (Rp ' . number_format($sum, 0, ',', '.') . ' dikeluarkan dari buku kas & saldo akun kas).' . ($fails ? ' Gagal: ' . htmlspecialchars(implode(' | ', $fails)) : ''));
         header('Location: cloudbeds.php#tarikan');
         exit;
+    } elseif ($act === 'apply_disc') {
+        $code = trim((string)($_POST['code'] ?? ''));
+        $res = (new CloudbedsSync($db, $cb))->applyDiscountToPrice($code);
+        setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
     } elseif ($act === 'set_price') {
         $code = trim((string)($_POST['code'] ?? ''));
         $price = (float)preg_replace('/[^\d]/', '', (string)($_POST['price'] ?? ''));
@@ -795,6 +801,12 @@ include '../../includes/header.php';
                         <button type="submit" class="cbx-btn ghost">Atur harga</button>
                     </form>
                 <?php endif; ?>
+                <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Potong diskon dari harga booking ini (semua kamar bila grup)? Dipakai bila harga di sistem naik lagi mengikuti harga Cloudbeds padahal ada diskon. Cloudbeds tidak diubah.')">
+                    <input type="hidden" name="act" value="apply_disc">
+                    <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                    <button type="submit" class="cbx-btn ghost">Potong diskon dari harga</button>
+                    <span class="cbx-hint" style="display:inline;margin-left:.4rem">Untuk booking buatan sistem yang diskonnya tidak terpotong (harga kembali ke harga penuh).</span>
+                </form>
                 <?php if (!empty($diag['can_merge'])): ?>
                     <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Gabungkan semua kamar grup ini menjadi SATU reservasi Cloudbeds? Reservasi Cloudbeds yang terpisah akan dibatalkan lalu dibuat ulang sebagai satu reservasi.')">
                         <input type="hidden" name="act" value="merge_group">

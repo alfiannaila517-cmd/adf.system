@@ -2210,6 +2210,48 @@ class CloudbedsSync
         return ['ok' => true, 'n' => $n, 'sum' => $sum];
     }
 
+    /**
+     * Booking buatan sistem yang hargaDISKON-nya terhapus (harga akhir terlanjur diganti harga Cloudbeds, sehingga
+     * "harga kotor" menjadi harga + diskon): kembalikan harga akhir = harga sekarang − diskon, per kamar (juga grup).
+     * Hanya untuk booking buatan sistem (bukan OTA — OTA mengikuti Cloudbeds) dan hanya bila angkanya konsisten.
+     */
+    public function applyDiscountToPrice(string $code): array
+    {
+        $b = $this->db->fetchOne("SELECT id, group_id FROM bookings WHERE booking_code = ?", [$code]);
+        if (!$b) return ['ok' => false, 'msg' => 'Booking tidak ditemukan'];
+        $rows = !empty($b['group_id'])
+            ? $this->db->fetchAll("SELECT id, booking_code, final_price, total_price, COALESCE(discount, 0) discount, total_nights, notes FROM bookings WHERE group_id = ? AND status <> 'cancelled'", [$b['group_id']])
+            : $this->db->fetchAll("SELECT id, booking_code, final_price, total_price, COALESCE(discount, 0) discount, total_nights, notes FROM bookings WHERE id = ?", [(int)$b['id']]);
+        $rows = $rows ?: [];
+        $ids = array_map(fn($r) => (int)$r['id'], $rows);
+        if (!$ids) return ['ok' => false, 'msg' => 'Booking tidak ditemukan'];
+        $in = implode(',', $ids);
+        if ($this->db->fetchOne("SELECT booking_id FROM cloudbeds_booking_links WHERE booking_id IN ($in) AND how <> 'push' LIMIT 1")) {
+            return ['ok' => false, 'msg' => 'Booking dari OTA / Cloudbeds: harga mengikuti Cloudbeds, tidak diubah di sini'];
+        }
+        foreach ($rows as $r) {
+            if (strpos((string)($r['notes'] ?? ''), '[Diskon dipotong') !== false) return ['ok' => false, 'msg' => 'Diskon booking ini sudah pernah dipotong dari harga — tidak diulang agar tidak terpotong dua kali'];
+        }
+        $n = 0; $cut = 0.0;
+        foreach ($rows as $r) {
+            $disc = (float)$r['discount'];
+            $final = (float)$r['final_price'];
+            // Harus konsisten: harga kotor = harga akhir + diskon (artinya diskon belum dipotong)
+            if ($disc < 1 || abs((float)$r['total_price'] - ($final + $disc)) > 1 || $final - $disc < 0) continue;
+            $nights = max(1, (int)$r['total_nights']);
+            $this->db->query("UPDATE bookings SET final_price = ?, total_price = ?, room_price = ?, updated_at = NOW() WHERE id = ?", [$final - $disc, $final, round($final / $nights, 2), (int)$r['id']]);
+            $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", ["
+[Diskon dipotong dari harga " . date('d/m H:i') . "]", (int)$r['id']]);
+            $n++; $cut += $disc;
+        }
+        if (!$n) return ['ok' => false, 'msg' => 'Tidak ada yang perlu dikoreksi (harga sudah termasuk diskon atau angkanya tidak cocok)'];
+        $this->resetPaidFromPayments($ids);
+        // Cloudbeds tidak bisa diturunkan otomatis: antrekan agar sinkron menampilkan peringatan selisih yang harus diturunkan manual
+        $link = $this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id IN ($in) LIMIT 1");
+        if ($link) $this->markEdited($ids);
+        return ['ok' => true, 'msg' => 'Diskon dipotong dari harga di ' . $n . ' kamar (total Rp ' . number_format($cut, 0, ',', '.') . ').' . ($link ? ' Cloudbeds tidak berubah otomatis: turunkan Rp ' . number_format($cut, 0, ',', '.') . ' di folio Cloudbeds.' : '')];
+    }
+
     /** Atur harga booking (satu kamar) ke nominal yang benar — dipakai untuk membereskan harga yang ikut membengkak. */
     public function setBookingPrice(string $code, float $price): array
     {
