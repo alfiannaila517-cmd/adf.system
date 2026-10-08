@@ -21,6 +21,10 @@ class CloudbedsSync
     private $cb;
     /** roomBlockType yang dipakai blok Cloudbeds yang sudah ada (nilai sah untuk properti ini) */
     private $learnedBlockType = '';
+    /** pushFor: rencana ringan — tanpa panggilan detail reservasi (booking baru & cek harga diurus sinkron berkala) */
+    private $pushOnlyPlan = false;
+    /** Maks. panggilan detail untuk cek harga per sinkron; tiap reservasi dicek ulang paling cepat tiap 3 jam */
+    private const MAX_PRICE_DETAIL = 6;
     private const MAX_DETAIL = 30;
 
     public function __construct($db, CloudbedsClient $cb)
@@ -69,6 +73,10 @@ class CloudbedsSync
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (cb_reservation_id, booking_id),
             KEY idx_booking (booking_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_price_checks (
+            cb_reservation_id VARCHAR(40) NOT NULL PRIMARY KEY,
+            checked_at DATETIME NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_sync_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -181,6 +189,13 @@ class CloudbedsSync
         $actions = [];
         $nDetail = 0;
         $nPriceDetail = 0;
+        $recentPriceChecks = [];
+        if (!$this->pushOnlyPlan) {
+            try {
+                foreach ($this->db->fetchAll("SELECT cb_reservation_id FROM cloudbeds_price_checks WHERE checked_at > NOW() - INTERVAL 3 HOUR") ?: [] as $pc) $recentPriceChecks[(string)$pc['cb_reservation_id']] = true;
+            } catch (\Throwable $e) {
+            }
+        }
         // Booking yang sedang menunggu edit dari sistem → harganya jangan ditimpa harga Cloudbeds dulu
         $pendingEditIds = [];
         try {
@@ -216,15 +231,19 @@ class CloudbedsSync
                 // Harga mengikuti Cloudbeds (sumber rate plan) selama booking belum ada pembayaran sama sekali
                 // dan tidak sedang menunggu edit dari sistem; setelah dibayar harga dikunci.
                 $live = array_values(array_filter($bks, fn($b) => in_array($b['status'], ['confirmed', 'pending', 'checked_in'], true)));
-                if (!self::isCancelled($it['status']) && $live && count($live) === count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))
+                if (!$this->pushOnlyPlan && !self::isCancelled($it['status']) && $live && count($live) === count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))
                     && !array_filter($live, fn($b) => (float)$b['paid_amount'] > 0 || isset($pendingEditIds[(int)$b['id']]))) {
                     $liveIn = implode(',', array_map(fn($b) => (int)$b['id'], $live));
                     $hasPay = $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($liveIn) AND amount > 0 LIMIT 1");
                     $cbTotal = $it['total'] ?? null;
-                    if (!$hasPay && $cbTotal === null && $nPriceDetail < self::MAX_DETAIL) {
+                    // Total tidak ada di daftar reservasi → detail, dibatasi & bergiliran (dicek ulang paling cepat tiap 3 jam).
+                    // Sebelum Payment harga tetap diambil langsung (refreshPriceFromCloudbeds), jadi ini hanya penyamaan berkala.
+                    if (!$hasPay && $cbTotal === null && $nPriceDetail < self::MAX_PRICE_DETAIL && max(array_column($live, 'co')) >= date('Y-m-d')
+                        && !isset($recentPriceChecks[$cbId])) {
                         $nPriceDetail++;
                         $pd = $this->cb->reservationDetail($cbId);
                         $cbTotal = $pd['ok'] ? $pd['total'] : null;
+                        $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE checked_at = NOW()", [$cbId]);
                     }
                     $localTotal = array_sum(array_map(fn($b) => (float)$b['final_price'], $live));
                     if (!$hasPay && $cbTotal !== null && (float)$cbTotal > 0 && abs((float)$cbTotal - $localTotal) >= 1) {
@@ -268,6 +287,9 @@ class CloudbedsSync
             if (!in_array(strtolower($it['status']), ['confirmed', 'not_confirmed', 'checked_in'], true)) {
                 $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Status Cloudbeds "' . $it['status'] . '" — tidak dibuat otomatis.'];
                 continue;
+            }
+            if ($this->pushOnlyPlan) {
+                continue; // pengiriman cepat (setelah Payment / check-in / blok): booking baru diurus sinkron berkala
             }
             if ($nDetail >= self::MAX_DETAIL) {
                 $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Batas detail per sinkron tercapai — jalankan sinkron lagi.'];
@@ -1495,7 +1517,12 @@ class CloudbedsSync
         }
         $from = min($dates);
         $to = max($dates);
-        $plan = $this->plan($from, $to);
+        $this->pushOnlyPlan = true;
+        try {
+            $plan = $this->plan($from, $to);
+        } finally {
+            $this->pushOnlyPlan = false;
+        }
         if (!$plan['ok']) {
             return ['ok' => false, 'detail' => $plan['detail']];
         }
