@@ -293,10 +293,19 @@ try {
         // OTA booking belum check-in: masuk buku kas saat check-in (uang dari platform belum cair).
         // OTA booking yang sudah check-in/check-out: dicatat sekarang, NET setelah fee OTA,
         // karena tahap check-in sudah lewat dan tidak akan mencatatnya lagi.
-        $otaSyncNow = $isOTA && in_array($bookingStatus, ['checked_in', 'checked_out'], true);
-        if ($isOTA && !$otaSyncNow) {
-            $cashbookMessage = "Booking OTA - akan tercatat di buku kas saat check-in";
-        } else {
+        // OTA: dicatat di buku kas SAAT DIBAYAR (dulu menunggu check-in). Check-in tidak mencatat ulang
+        // pembayaran yang sudah masuk buku kas (lihat checkin-guest.php).
+        $otaSyncNow = $isOTA;
+        // Booking yang tertaut ke Cloudbeds: harga = nominal Cloudbeds (yang diterima hotel), jadi dicatat apa
+        // adanya tanpa potongan fee OTA lagi.
+        $cbLinked = false;
+        try {
+            $cbLinked = (bool)$db->fetchOne("SELECT l.booking_id FROM cloudbeds_booking_links l JOIN bookings b ON b.id = l.booking_id WHERE b.id = ? OR (? <> '' AND b.group_id = ?) LIMIT 1",
+                [$bookingId, (string)($booking['group_id'] ?? ''), (string)($booking['group_id'] ?? '')]);
+        } catch (\Throwable $e) {
+            // tabel tautan Cloudbeds belum ada
+        }
+        {
             // DIRECT: langsung sync ke buku kas karena uang sudah diterima
             require_once '../includes/CashbookHelper.php';
             $businessId = $_SESSION['business_id'] ?? $db->fetchOne("SELECT business_id FROM users WHERE id = ?", [$currentUser['id']])['business_id'] ?? 1;
@@ -310,7 +319,7 @@ try {
                 'guest_name'     => $bookingDetails['guest_name'] ?? 'Guest',
                 'booking_code'   => $bookingDetails['booking_code'] ?? '',
                 'room_number'    => $bookingDetails['room_number'] ?? '',
-                'booking_source' => $directOnOta ? 'direct' : ($bookingDetails['booking_source'] ?? 'direct'),
+                'booking_source' => ($directOnOta || ($isOTA && $cbLinked)) ? 'direct' : ($bookingDetails['booking_source'] ?? 'direct'),
                 'final_price'    => $isGroupPayment ? $combinedFinalPrice : ($bookingDetails['final_price'] ?? 0),
                 'total_paid'     => $isGroupPayment ? $combinedTotalPaid : $totalPaid,
                 'is_new_reservation' => false,

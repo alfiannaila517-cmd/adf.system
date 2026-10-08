@@ -527,7 +527,7 @@ include '../../includes/header.php';
         $syncer = new CloudbedsSync($db, $cb);
         $plan = isset($_GET['plan']) ? $syncer->plan($sf, $st) : null;
         $syncLog = $syncer->recentLog(8);
-        $typeLabel = ['create' => ['Buat booking', 'ok'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'push_status' => ['Kirim status', 'ok'], 'push_create' => ['Kirim booking', 'ok'], 'push_delblock' => ['Hapus blok', 'ok'], 'push_putblock' => ['Ubah blok', 'ok'], 'push_newblock' => ['Kirim blok', 'ok'], 'push_payment' => ['Kirim bayar', 'ok'], 'adopt_block' => ['Pasangkan blok', ''], 'warn' => ['Perlu dicek', 'warn']];
+        $typeLabel = ['create' => ['Buat booking', 'ok'], 'price' => ['Samakan harga', 'warn'], 'link' => ['Tautkan', ''], 'cancel' => ['Batalkan', 'bad'], 'block' => ['Blok kamar', 'warn'], 'unblock' => ['Cabut blok', ''], 'push_status' => ['Kirim status', 'ok'], 'push_create' => ['Kirim booking', 'ok'], 'push_delblock' => ['Hapus blok', 'ok'], 'push_putblock' => ['Ubah blok', 'ok'], 'push_newblock' => ['Kirim blok', 'ok'], 'push_payment' => ['Kirim bayar', 'ok'], 'adopt_block' => ['Pasangkan blok', ''], 'warn' => ['Perlu dicek', 'warn']];
     ?>
 <?php
         $cekCode = trim((string)($_GET['cek'] ?? ''));
@@ -689,6 +689,7 @@ include '../../includes/header.php';
             <?php elseif ($plan): $c = $plan['counts']; ?>
                 <div class="cbx-row">
                     <span class="cbx-pill ok"><?php echo (int)$c['create']; ?> booking baru</span>
+                    <?php if (!empty($c['price'])): ?><span class="cbx-pill warn"><?php echo (int)$c['price']; ?> harga disamakan</span><?php endif; ?>
                     <span class="cbx-pill"><?php echo (int)$c['link']; ?> ditautkan</span>
                     <span class="cbx-pill bad"><?php echo (int)$c['cancel']; ?> dibatalkan</span>
                     <span class="cbx-pill"><?php echo (int)$c['block']; ?> blok kamar<?php echo $c['unblock'] ? ' · ' . (int)$c['unblock'] . ' dicabut' : ''; ?></span>
@@ -711,8 +712,8 @@ include '../../includes/header.php';
                         </table>
                     </div>
                 <?php endif; ?>
-                <?php if ($c['create'] + $c['link'] + $c['cancel'] + $c['block'] + $c['unblock'] + $c['push_status'] + $c['push_create'] + $c['push_block'] + $c['push_pay'] > 0): ?>
-                    <form method="post" class="cbx-row" data-msg="<?php echo htmlspecialchars('Jalankan sinkron sekarang? ' . (int)$c['create'] . ' booking baru, ' . (int)$c['link'] . ' ditautkan, ' . (int)$c['cancel'] . ' dibatalkan, ' . (int)$c['block'] . ' blok kamar, ' . (int)$c['unblock'] . ' blok dicabut, ' . (int)$c['push_status'] . ' status, ' . (int)$c['push_create'] . ' booking, ' . (int)$c['push_block'] . ' blok & ' . (int)$c['push_pay'] . ' pembayaran dikirim ke Cloudbeds.'); ?>" onsubmit="return confirm(this.dataset.msg)">
+                <?php if ($c['create'] + ($c['price'] ?? 0) + $c['link'] + $c['cancel'] + $c['block'] + $c['unblock'] + $c['push_status'] + $c['push_create'] + $c['push_block'] + $c['push_pay'] > 0): ?>
+                    <form method="post" class="cbx-row" data-msg="<?php echo htmlspecialchars('Jalankan sinkron sekarang? ' . (int)$c['create'] . ' booking baru, ' . (int)($c['price'] ?? 0) . ' harga disamakan, ' . (int)$c['link'] . ' ditautkan, ' . (int)$c['cancel'] . ' dibatalkan, ' . (int)$c['block'] . ' blok kamar, ' . (int)$c['unblock'] . ' blok dicabut, ' . (int)$c['push_status'] . ' status, ' . (int)$c['push_create'] . ' booking, ' . (int)$c['push_block'] . ' blok & ' . (int)$c['push_pay'] . ' pembayaran dikirim ke Cloudbeds.'); ?>" onsubmit="return confirm(this.dataset.msg)">
                         <input type="hidden" name="act" value="run_sync">
                         <input type="hidden" name="sf" value="<?php echo htmlspecialchars($sf); ?>">
                         <input type="hidden" name="st" value="<?php echo htmlspecialchars($st); ?>">

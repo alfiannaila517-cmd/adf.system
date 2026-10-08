@@ -180,6 +180,13 @@ class CloudbedsSync
 
         $actions = [];
         $nDetail = 0;
+        $nPriceDetail = 0;
+        // Booking yang sedang menunggu edit dari sistem → harganya jangan ditimpa harga Cloudbeds dulu
+        $pendingEditIds = [];
+        try {
+            foreach ($this->db->fetchAll("SELECT booking_id FROM cloudbeds_pending_edits") ?: [] as $pe) $pendingEditIds[(int)$pe['booking_id']] = true;
+        } catch (\Throwable $e) {
+        }
         foreach ($list['items'] as $it) {
             $cbId = $it['id'];
             $label = $it['guest'] . ' · ' . $it['checkin'] . ' → ' . $it['checkout'] . ' · ' . $it['source'];
@@ -187,7 +194,7 @@ class CloudbedsSync
             // Sudah tertaut
             if (isset($links[$cbId])) {
                 $bks = $this->db->fetchAll(
-                    "SELECT id, booking_code, status, paid_amount, DATE(check_in_date) ci, DATE(check_out_date) co FROM bookings WHERE id IN (" .
+                    "SELECT id, booking_code, status, paid_amount, final_price, DATE(check_in_date) ci, DATE(check_out_date) co FROM bookings WHERE id IN (" .
                         implode(',', array_map('intval', $links[$cbId])) . ")"
                 ) ?: [];
                 foreach ($bks as $bk) {
@@ -204,6 +211,25 @@ class CloudbedsSync
                     } elseif (in_array($bk['status'], ['confirmed', 'pending'], true) && ($bk['ci'] !== $it['checkin'] || $bk['co'] !== $it['checkout'])
                         && !(isset($extended[(int)$bk['id']]) && $bk['ci'] === $it['checkin'])) {
                         $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Tanggal berubah di Cloudbeds; ' . $bk['booking_code'] . ' masih ' . $bk['ci'] . ' → ' . $bk['co'] . '. Sesuaikan manual.'];
+                    }
+                }
+                // Harga mengikuti Cloudbeds (sumber rate plan) selama booking belum ada pembayaran sama sekali
+                // dan tidak sedang menunggu edit dari sistem; setelah dibayar harga dikunci.
+                $live = array_values(array_filter($bks, fn($b) => in_array($b['status'], ['confirmed', 'pending', 'checked_in'], true)));
+                if (!self::isCancelled($it['status']) && $live && count($live) === count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))
+                    && !array_filter($live, fn($b) => (float)$b['paid_amount'] > 0 || isset($pendingEditIds[(int)$b['id']]))) {
+                    $liveIn = implode(',', array_map(fn($b) => (int)$b['id'], $live));
+                    $hasPay = $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($liveIn) AND amount > 0 LIMIT 1");
+                    $cbTotal = $it['total'] ?? null;
+                    if (!$hasPay && $cbTotal === null && $nPriceDetail < self::MAX_DETAIL) {
+                        $nPriceDetail++;
+                        $pd = $this->cb->reservationDetail($cbId);
+                        $cbTotal = $pd['ok'] ? $pd['total'] : null;
+                    }
+                    $localTotal = array_sum(array_map(fn($b) => (float)$b['final_price'], $live));
+                    if (!$hasPay && $cbTotal !== null && (float)$cbTotal > 0 && abs((float)$cbTotal - $localTotal) >= 1) {
+                        $actions[] = ['type' => 'price', 'cb' => $cbId, 'label' => $label, 'booking_ids' => array_map(fn($b) => (int)$b['id'], $live), 'cb_total' => (float)$cbTotal,
+                            'msg' => 'Samakan harga dengan Cloudbeds: Rp ' . number_format($localTotal, 0, ',', '.') . ' → Rp ' . number_format((float)$cbTotal, 0, ',', '.') . ' (' . implode(', ', array_column($live, 'booking_code')) . ')'];
                     }
                 }
                 continue;
@@ -339,7 +365,7 @@ class CloudbedsSync
         // ---- Blok kamar Cloudbeds → room_blocks (kode CB-<blockID>-<roomID>) ----
         $this->planRoomBlocks($from, $to, $roomByNo, $actions);
 
-        $counts = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'warn' => 0];
+        $counts = ['link' => 0, 'create' => 0, 'price' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'warn' => 0];
         foreach ($actions as $a) {
             $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : ($a['type'] === 'push_payment' ? 'push_pay' : ($a['type'] === 'adopt_block' ? 'link' : $a['type']));
             $counts[$t]++;
@@ -654,6 +680,40 @@ class CloudbedsSync
         $ids = $this->db->fetchAll("SELECT e.booking_id FROM cloudbeds_extensions e LEFT JOIN bookings b ON b.id = e.booking_id
             WHERE (b.id IS NULL OR b.status NOT IN ('pending','confirmed','checked_in') OR DATE(b.check_out_date) <= e.orig_end)" . $where) ?: [];
         if ($ids) $this->markEdited(array_column($ids, 'booking_id'));
+    }
+
+    /**
+     * Total booking (satu reservasi Cloudbeds, bisa beberapa kamar) disamakan dengan total Cloudbeds. Dibagi ke kamar
+     * sesuai porsi harga lama. Hanya untuk booking yang belum ada pembayaran (dicek ulang di sini).
+     */
+    private function applyCloudbedsPrice(string $cbId, array $ids, float $cbTotal): void
+    {
+        $in = implode(',', array_map('intval', $ids));
+        if ($in === '') return;
+        if ($this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($in) AND amount > 0 LIMIT 1")) return;
+        $rows = $this->db->fetchAll("SELECT id, final_price, total_price, COALESCE(discount, 0) discount, total_nights, paid_amount FROM bookings WHERE id IN ($in)") ?: [];
+        if (!$rows || array_filter($rows, fn($r) => (float)$r['paid_amount'] > 0)) return;
+        $old = array_sum(array_map(fn($r) => (float)$r['final_price'], $rows));
+        $left = round($cbTotal, 2);
+        $hasDirect = true;
+        try {
+            $this->db->getConnection()->query("SELECT direct_amount FROM bookings LIMIT 0");
+        } catch (\Throwable $e) {
+            $hasDirect = false;
+        }
+        foreach (array_values($rows) as $i => $r) {
+            $share = $i === count($rows) - 1 ? $left : round($cbTotal * ($old > 0 ? (float)$r['final_price'] / $old : 1 / count($rows)), 2);
+            $left -= $share;
+            $nights = max(1, (int)$r['total_nights']);
+            $gross = $share + (float)$r['discount'];
+            $this->db->query("UPDATE bookings SET final_price = ?, total_price = ?, room_price = ?, updated_at = NOW() WHERE id = ?", [$share, $gross, round($gross / $nights, 2), (int)$r['id']]);
+            // Hotel Collect: bagian bayar langsung = seluruh harga → ikut harga baru
+            if ($hasDirect) {
+                $this->db->query("UPDATE bookings SET direct_amount = ? WHERE id = ? AND COALESCE(direct_amount, 0) > 0 AND direct_amount + 0.01 >= ?", [$share, (int)$r['id'], (float)$r['final_price']]);
+            }
+        }
+        // Dasar penyamaan harga sistem → Cloudbeds (adjustment) ikut total baru
+        $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($cbTotal, 2)]);
     }
 
     /** Kirim blok ke Cloudbeds dengan roomBlockType yang sah: jenis blok itu sendiri / yang tersimpan / yang
@@ -1176,7 +1236,7 @@ class CloudbedsSync
     /** Jalankan aksi rencana (link/create/cancel/blok/kirim). Peringatan dilewati. */
     private function executeActions(array $actions, int $userId): array
     {
-        $done = ['link' => 0, 'create' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'errors' => []];
+        $done = ['link' => 0, 'create' => 0, 'price' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'errors' => []];
         // Kolom direct_amount (Hotel Collect) dibuat sebelum transaksi: ALTER di dalam transaksi = implicit commit
         try {
             require_once __DIR__ . '/BookingSourceHelper.php';
@@ -1192,6 +1252,9 @@ class CloudbedsSync
                         $this->db->query("INSERT IGNORE INTO cloudbeds_booking_links (cb_reservation_id, booking_id, how) VALUES (?, ?, 'link')", [$a['cb'], $bid]);
                     }
                     $done['link']++;
+                } elseif ($a['type'] === 'price') {
+                    $this->applyCloudbedsPrice($a['cb'], $a['booking_ids'], $a['cb_total']);
+                    $done['price']++;
                 } elseif ($a['type'] === 'cancel') {
                     $this->db->query("UPDATE bookings SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Dibatalkan via Cloudbeds ', NOW(), ']')), updated_at = NOW()
                         WHERE id = ? AND status IN ('confirmed','pending') AND COALESCE(paid_amount,0) = 0", [$a['booking_id']]);

@@ -360,7 +360,24 @@ try {
         $unsyncedAmount = (float)($unsyncedPaid['total'] ?? 0);
         $directAlreadyPaid = $unsyncedAmount > 0;
     }
-    if ($isOTA || $payNow || $directAlreadyPaid) {
+    // OTA yang pembayarannya sudah dicatat di buku kas saat Payment (add-booking-payment): jangan dicatat ulang;
+    // hanya bagian yang belum tercatat (bila ada) yang masuk sekarang.
+    $otaPartSynced = false;
+    $otaUnsynced = 0.0;
+    if ($isOTA && !$payNow) {
+        $otaRow = $db->fetchOne("SELECT SUM(CASE WHEN synced_to_cashbook = 1 THEN 1 ELSE 0 END) synced_n,
+                COALESCE(SUM(CASE WHEN synced_to_cashbook = 1 THEN 0 ELSE amount END), 0) unsynced
+            FROM booking_payments WHERE booking_id = ?", [$bookingId]);
+        $otaPartSynced = (int)($otaRow['synced_n'] ?? 0) > 0;
+        $otaUnsynced = (float)($otaRow['unsynced'] ?? 0);
+    }
+    // Booking tertaut Cloudbeds: harga = nominal Cloudbeds (yang diterima hotel) → tanpa potongan fee OTA lagi
+    $cbLinkedCheckin = false;
+    try {
+        $cbLinkedCheckin = (bool)$db->fetchOne("SELECT booking_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [$bookingId]);
+    } catch (\Throwable $e) {
+    }
+    if (($isOTA && !($otaPartSynced && $otaUnsynced <= 0)) || $payNow || $directAlreadyPaid) {
         try {
             require_once '../includes/CashbookHelper.php';
             $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $validUserId ?? 1);
@@ -369,6 +386,10 @@ try {
                 // Direct/OTA bayar sekarang: sync jumlah yang baru dibayar
                 $syncAmount = $payAmount;
                 $syncMethod = $payMethod;
+            } elseif ($isOTA && $otaPartSynced) {
+                // Sebagian sudah tercatat saat Payment: hanya sisanya
+                $syncAmount = $otaUnsynced;
+                $syncMethod = 'OTA ' . ($booking['booking_source'] ?? 'OTA');
             } elseif ($directAlreadyPaid) {
                 // Hanya sync bagian yang belum pernah tercatat di buku kas
                 $syncAmount = $unsyncedAmount;
@@ -393,12 +414,12 @@ try {
                 'guest_name'     => $booking['guest_name'],
                 'booking_code'   => $booking['booking_code'],
                 'room_number'    => $booking['room_number'],
-                'booking_source' => $hotelCollect ? 'direct' : $booking['booking_source'],
+                'booking_source' => ($hotelCollect || ($isOTA && $cbLinkedCheckin)) ? 'direct' : $booking['booking_source'],
                 'booking_notes'  => $booking['notes'] ?? $booking['special_request'] ?? '',
                 'final_price'    => $booking['final_price'],
                 'total_paid'     => $totalPaid,
                 'is_new_reservation' => false,
-                'is_ota_checkin' => $isOTA && !$payNow,
+                'is_ota_checkin' => $isOTA && !$payNow && !$otaPartSynced,
                 // Bagian yang dibayar langsung ke hotel (upgrade/extend) tidak ikut dipotong fee OTA
                 'ota_gross'      => max(0, (float)$booking['final_price'] - (float)($db->fetchOne("SELECT COALESCE(direct_amount, 0) AS d FROM bookings WHERE id = ?", [$bookingId])['d'] ?? 0))
             ]);
