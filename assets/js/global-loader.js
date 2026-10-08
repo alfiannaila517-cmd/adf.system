@@ -50,7 +50,7 @@
     overlay.id = 'adf-loader-overlay'
     overlay.innerHTML =
       '<div class="adf-loader-box">' +
-      '<div class="adf-loader-spinner"><img class="adf-loader-logo" src="' +
+      '<div class="adf-loader-spinner"><span class="adf-loader-glow"></span><img class="adf-loader-logo" src="' +
       LOGO_SRC +
       '" alt="Loading"></div>' +
       '<div class="adf-loader-text">Memuat...</div>' +

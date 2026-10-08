@@ -111,40 +111,92 @@
 }
 
 .adf-loader-logo {
+  position: relative;
+  z-index: 1;
   width: 40px;
   height: 40px;
   object-fit: contain;
   border-radius: 8px;
-  animation: adf-loader-pulse 1.6s ease-in-out infinite;
+  /* Zoom in/out + cahaya redup-terang (warna emas logo dipertahankan lewat filter) */
+  animation: adf-loader-pulse 1.4s ease-in-out infinite;
   filter: brightness(0) saturate(100%) invert(53%) sepia(82%) saturate(776%)
-    hue-rotate(8deg) brightness(88%) contrast(97%);
+    hue-rotate(8deg) brightness(88%) contrast(97%)
+    drop-shadow(0 0 2px rgba(251, 191, 36, 0.35));
+  will-change: transform, filter;
 }
 
 @keyframes adf-loader-pulse {
   0%,
   100% {
-    transform: scale(1);
-    opacity: 1;
+    transform: scale(0.84);
+    filter: brightness(0) saturate(100%) invert(53%) sepia(82%) saturate(776%)
+      hue-rotate(8deg) brightness(80%) contrast(97%)
+      drop-shadow(0 0 1px rgba(251, 191, 36, 0.25));
   }
   50% {
-    transform: scale(0.9);
-    opacity: 0.75;
+    transform: scale(1.14);
+    filter: brightness(0) saturate(100%) invert(53%) sepia(82%) saturate(776%)
+      hue-rotate(8deg) brightness(125%) contrast(105%)
+      drop-shadow(0 0 10px rgba(251, 191, 36, 0.95))
+      drop-shadow(0 0 22px rgba(245, 158, 11, 0.7));
   }
 }
 
-.adf-loader-text {
-  font-family: "Inter", "Plus Jakarta Sans", system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #f8fafc;
-  text-shadow: 0 1px 3px rgba(15, 23, 42, 0.6);
+/* Lingkaran cahaya di belakang logo ikut berdenyut */
+.adf-loader-spinner .adf-loader-glow {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.55) 0%, rgba(251, 191, 36, 0) 70%);
+  animation: adf-loader-glow 1.4s ease-in-out infinite;
+  pointer-events: none;
 }
 
+@keyframes adf-loader-glow {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
+/* Teks: putih terang di kapsul kaca. Selector kuat + !important karena style.css tema terang memaksa warna div. */
+body #adf-loader-overlay .adf-loader-text,
+body[data-theme] #adf-loader-overlay .adf-loader-text {
+  font-family: "Inter", "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.45);
+  animation: adf-loader-text 1.4s ease-in-out infinite;
+}
+
+@keyframes adf-loader-text {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .adf-loader-spinner::before,
   .adf-loader-spinner::after,
   .adf-loader-logo,
+  .adf-loader-glow,
+  .adf-loader-text,
   #adf-loader-bar {
     animation: none !important;
   }
