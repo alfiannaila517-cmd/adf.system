@@ -132,7 +132,7 @@ function fdt_render(array $d, array $opt = []): void
     #fdt .t-sec small { display: block; font-size: 0.68rem !important; color: var(--mute) !important; margin-top: 1px; }
     #fdt .t-open { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); font-size: 0.72rem !important; font-weight: 700; color: var(--accent) !important; }
     #fdt .t-open:hover { border-color: var(--accent); }
-    #fdt .t-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(290px, 1fr); gap: 12px; align-items: stretch; }
+    #fdt .t-grid { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(280px, 1fr); gap: 12px; align-items: stretch; }
     #fdt .t-side { display: flex; flex-direction: column; gap: 12px; }
     #fdt .t-side > .t-card { flex: 1; display: flex; flex-direction: column; }
     #fdt .t-main-card { display: flex; flex-direction: column; }
@@ -218,6 +218,42 @@ function fdt_render(array $d, array $opt = []): void
         #fdt .t-occ { grid-template-columns: 1fr; justify-items: center; }
         #fdt .t-legend { width: 100%; }
     }
+    /* Daftar reservasi bergaya tabel: kolom terpisah, rapi & seragam */
+    #fdt .t-list { padding: 0 10px 8px; scrollbar-gutter: stable; }
+    #fdt { --cols: minmax(140px, 1.6fr) 124px 112px 116px 104px 108px; }
+    #fdt .t-colh, #fdt .t-row { display: grid !important; grid-template-columns: var(--cols); column-gap: 12px; align-items: center; }
+    #fdt .t-colh { position: sticky; top: 0; z-index: 2; padding: 8px 8px; margin: 0 0 2px; background: var(--card); border-bottom: 1px solid var(--line); list-style: none;
+        font-size: 0.58rem !important; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--faint) !important; }
+    #fdt .t-colh > span { font-size: 0.58rem !important; color: var(--faint) !important; }
+    #fdt .t-colh .r, #fdt .t-row .r { text-align: right; justify-self: end; }
+    #fdt .t-row { padding: 10px 8px; border-top: 1px solid var(--line); }
+    #fdt .t-colh + .t-row { border-top: 0; }
+    #fdt .t-row:hover { background: var(--soft); border-radius: 10px; }
+    #fdt .t-guest { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    #fdt .t-guest .t-name { font-size: 0.82rem !important; }
+    #fdt .t-sub { margin-top: 2px; font-size: 0.66rem !important; color: var(--faint) !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #fdt .t-rooms { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    #fdt .t-rooms .more { font-size: 0.66rem !important; font-weight: 700; color: var(--mute) !important; }
+    #fdt .t-stay { min-width: 0; }
+    #fdt .t-stay b { display: block; font-size: 0.76rem !important; font-weight: 700 !important; color: var(--ink) !important; white-space: nowrap; }
+    #fdt .t-stay small { display: block; margin-top: 2px; font-size: 0.66rem !important; color: var(--mute) !important; }
+    #fdt .t-src { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+    #fdt .t-cell-amt { font-size: 0.84rem !important; font-weight: 800; color: var(--ink) !important; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+    #fdt .t-st { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+    #fdt .t-st small { font-size: 0.62rem !important; color: var(--mute) !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    #fdt .t-row.cancel .t-cell-amt { text-decoration: line-through; color: var(--faint) !important; }
+    #fdt .t-list { overflow-x: auto; }
+    #fdt .t-list > li { min-width: 680px; }
+    @media (max-width: 560px) {
+        #fdt .t-colh { display: none !important; }
+        #fdt .t-list > li { min-width: 0; }
+        #fdt .t-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+        #fdt .t-guest { grid-column: 1 / -1; }
+        #fdt .t-rooms, #fdt .t-stay, #fdt .t-src { grid-column: 1; }
+        #fdt .t-cell-amt { grid-column: 2; grid-row: 2; }
+        #fdt .t-st { grid-column: 2; grid-row: 3; align-items: flex-end; }
+        #fdt .t-src { flex-direction: row; flex-wrap: wrap; }
+    }
 </style>
 <div id="fdt">
     <?php if (!empty($opt['title'])): ?>
@@ -252,38 +288,44 @@ function fdt_render(array $d, array $opt = []): void
                 $more = count($d['new_today']) - count($items);
                 ?>
                 <ul class="t-list<?php echo $limit > 0 ? ' limited' : ''; ?>">
+                    <li class="t-colh"><span>Tamu</span><span>Kamar</span><span>Menginap</span><span>Sumber</span><span class="r">Total</span><span class="r">Status</span></li>
                     <?php foreach ($items as $nr):
                         $ota = $isOta($nr['source_type'], $nr['booking_source']);
                         $cancel = $nr['all_cancelled'];
-                        $rooms = array_slice(array_unique($nr['rooms']), 0, 4);
+                        $rooms = array_slice(array_unique($nr['rooms']), 0, 3);
                         $balance = max(0, $nr['total'] - $nr['paid']);
                     ?>
                         <li class="t-row<?php echo $cancel ? ' cancel' : ''; ?>">
-                            <span class="t-time"><?php echo date('H:i', strtotime($nr['created_at'])); ?></span>
-                            <span class="t-av<?php echo $ota ? ' ota' : ''; ?>"><?php echo $h($initials($nr['guest_name'])); ?></span>
-                            <div class="t-main">
-                                <div class="t-name"><?php echo $h($nr['guest_name'] ?: 'Tamu'); ?></div>
-                                <div class="t-meta">
-                                    <?php foreach ($rooms as $rm): ?><span class="t-room"><?php echo $h($rm); ?></span><?php endforeach; ?>
-                                    <?php if ($nr['n_rooms'] > count($rooms)): ?><span>+<?php echo $nr['n_rooms'] - count($rooms); ?></span><?php endif; ?>
-                                    <span><?php echo $date($nr['ci']) . ' → ' . $date($nr['co']); ?></span>
-                                    <span class="t-dot"></span>
-                                    <span><?php echo (int)$nr['total_nights']; ?> malam</span>
-                                    <span class="t-chip <?php echo $ota ? 'ota' : 'dir'; ?>"><?php echo $h($srcName($nr['source_name'], $nr['booking_source'])); ?></span>
-                                    <?php if ($nr['cb_how'] === 'push'): ?><span class="t-chip cb" title="Sudah dikirim ke Cloudbeds">✓ Cloudbeds</span>
-                                    <?php elseif ($nr['cb_how']): ?><span class="t-chip cb" title="Masuk dari Cloudbeds">via Cloudbeds</span><?php endif; ?>
+                            <div class="t-guest">
+                                <span class="t-av<?php echo $ota ? ' ota' : ''; ?>"><?php echo $h($initials($nr['guest_name'])); ?></span>
+                                <div class="t-main">
+                                    <div class="t-name" title="<?php echo $h($nr['guest_name']); ?>"><?php echo $h($nr['guest_name'] ?: 'Tamu'); ?></div>
+                                    <div class="t-sub">Dibuat <?php echo date('H:i', strtotime($nr['created_at'])); ?><?php echo $nr['n_rooms'] > 1 ? ' · ' . (int)$nr['n_rooms'] . ' kamar' : ''; ?></div>
                                 </div>
                             </div>
-                            <div class="t-right">
-                                <div class="t-amt"><?php echo $rp($cancel ? $nr['cancel_total'] : $nr['total']); ?></div>
+                            <div class="t-rooms">
+                                <?php foreach ($rooms as $rm): ?><span class="t-room"><?php echo $h($rm); ?></span><?php endforeach; ?>
+                                <?php if ($nr['n_rooms'] > count($rooms)): ?><span class="more">+<?php echo $nr['n_rooms'] - count($rooms); ?></span><?php endif; ?>
+                            </div>
+                            <div class="t-stay">
+                                <b><?php echo $date($nr['ci']) . ' → ' . $date($nr['co']); ?></b>
+                                <small><?php echo (int)$nr['total_nights']; ?> malam</small>
+                            </div>
+                            <div class="t-src">
+                                <span class="t-chip <?php echo $ota ? 'ota' : 'dir'; ?>"><?php echo $h($srcName($nr['source_name'], $nr['booking_source'])); ?></span>
+                                <?php if ($nr['cb_how'] === 'push'): ?><span class="t-chip cb" title="Sudah dikirim ke Cloudbeds">✓ Cloudbeds</span>
+                                <?php elseif ($nr['cb_how']): ?><span class="t-chip cb" title="Masuk dari Cloudbeds">via Cloudbeds</span><?php endif; ?>
+                            </div>
+                            <div class="t-cell-amt"><?php echo $rp($cancel ? $nr['cancel_total'] : $nr['total']); ?></div>
+                            <div class="t-st">
                                 <?php if ($cancel): ?>
                                     <span class="t-chip bad">Dibatalkan</span>
                                 <?php elseif ($balance <= 0 && $nr['total'] > 0): ?>
                                     <span class="t-chip ok">Lunas</span>
                                 <?php elseif ($nr['paid'] > 0): ?>
-                                    <span class="t-chip warn">DP · sisa <?php echo $rp($balance); ?></span>
+                                    <span class="t-chip warn">DP</span><small>sisa <?php echo $rp($balance); ?></small>
                                 <?php else: ?>
-                                    <span class="t-chip <?php echo $ota ? 'dir' : 'warn'; ?>"><?php echo $ota ? 'Bayar via OTA/hotel' : 'Belum bayar'; ?></span>
+                                    <span class="t-chip <?php echo $ota ? 'dir' : 'warn'; ?>"><?php echo $ota ? 'Bayar di hotel' : 'Belum bayar'; ?></span>
                                 <?php endif; ?>
                             </div>
                         </li>
