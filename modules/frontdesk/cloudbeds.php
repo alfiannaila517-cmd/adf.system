@@ -121,7 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cb->saveSetting('cloudbeds_pay_enabled', $on ? '1' : '0');
         if ($on) {
             // Hanya pembayaran yang dicatat mulai sekarang (yang lama mungkin sudah diketik manual di Cloudbeds)
-            $cb->saveSetting('cloudbeds_pay_since', date('Y-m-d H:i:s'));
+            // Jam database: dibandingkan dengan created_at pembayaran (jam MySQL)
+            $cb->saveSetting('cloudbeds_pay_since', 'db:' . (string)($db->fetchOne("SELECT NOW() n")['n'] ?? date('Y-m-d H:i:s')));
         }
         setFlash('success', $on ? 'Kirim pembayaran ke Cloudbeds diaktifkan.' : 'Kirim pembayaran ke Cloudbeds dimatikan.');
         header('Location: cloudbeds.php');
@@ -131,7 +132,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cb->saveSetting('cloudbeds_push_enabled', $on ? '1' : '0');
         if ($on) {
             // Hanya booking direct yang dibuat mulai sekarang yang dikirim (yang lama sudah diketik manual di Cloudbeds)
-            $cb->saveSetting('cloudbeds_push_since', date('Y-m-d H:i:s'));
+            // Jam database: dibandingkan dengan created_at booking/blok (jam MySQL)
+            $cb->saveSetting('cloudbeds_push_since', 'db:' . (string)($db->fetchOne("SELECT NOW() n")['n'] ?? date('Y-m-d H:i:s')));
         }
         setFlash('success', $on ? 'Kirim ke Cloudbeds diaktifkan: check-in/out & booking direct baru dikirim saat sinkron.' : 'Kirim ke Cloudbeds dimatikan.');
         header('Location: cloudbeds.php');
