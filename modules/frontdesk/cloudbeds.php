@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 . ($res['counts']['warn'] ? ', ' . $res['counts']['warn'] . ' perlu dicek' : '')
                 . ($d['errors'] ? '<br>Gagal: ' . htmlspecialchars(implode(' | ', $d['errors'])) : '') . '.');
         }
-        header('Location: cloudbeds.php?plan=1&sf=' . urlencode($sf) . '&st=' . urlencode($st));
+        header('Location: cloudbeds.php?plan=1&sf=' . urlencode($sf) . '&st=' . urlencode($st) . '#sinkron');
         exit;
     } elseif ($act === 'refresh_rates') {
         $res = (new CloudbedsRates($db, $cb))->refresh(date('Y-m-d'), date('Y-m-d', strtotime('+90 days')));
@@ -157,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $cb->saveSetting('cloudbeds_pay_since', 'db:' . (string)($db->fetchOne("SELECT NOW() n")['n'] ?? date('Y-m-d H:i:s')));
         }
         setFlash('success', $on ? 'Kirim pembayaran ke Cloudbeds diaktifkan.' : 'Kirim pembayaran ke Cloudbeds dimatikan.');
-        header('Location: cloudbeds.php');
+        header('Location: cloudbeds.php#sinkron');
         exit;
     } elseif ($act === 'toggle_push') {
         $on = !empty($_POST['push_on']);
@@ -168,19 +168,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $cb->saveSetting('cloudbeds_push_since', 'db:' . (string)($db->fetchOne("SELECT NOW() n")['n'] ?? date('Y-m-d H:i:s')));
         }
         setFlash('success', $on ? 'Kirim ke Cloudbeds diaktifkan: check-in/out & booking direct baru dikirim saat sinkron.' : 'Kirim ke Cloudbeds dimatikan.');
-        header('Location: cloudbeds.php');
+        header('Location: cloudbeds.php#sinkron');
         exit;
     } elseif ($act === 'toggle_auto') {
         $on = !empty($_POST['auto_on']);
         $cb->saveSetting('cloudbeds_auto_sync', $on ? '1' : '0');
         setFlash('success', $on ? 'Sinkron otomatis diaktifkan (berjalan sesuai jadwal cron).' : 'Sinkron otomatis dimatikan.');
-        header('Location: cloudbeds.php');
+        header('Location: cloudbeds.php#sinkron');
         exit;
     } elseif ($act === 'save_source_map') {
         $cb->saveSourceMap((array)($_POST['source_map'] ?? []));
         setFlash('success', 'Pemetaan sumber booking tersimpan.');
     }
-    header('Location: cloudbeds.php' . (in_array($act, ['save_key', 'save_type_map', 'save_source_map'], true) ? '?test=1' : ''));
+    header('Location: cloudbeds.php' . ($act === 'save_key' ? '?test=1#koneksi' : (in_array($act, ['save_type_map', 'save_source_map'], true) ? '?test=1#pemetaan' : '')));
     exit;
 }
 
@@ -251,12 +251,87 @@ include '../../includes/header.php';
     body[data-theme] .main-content .cbx .cbx-step span:last-child { font-size: .64rem; color: var(--fd-muted) !important; text-align: right; }
     body[data-theme] .main-content .cbx .cbx-note { padding: .55rem .7rem; border-radius: 10px; background: rgba(37, 99, 235, .07); border: 1px solid rgba(37, 99, 235, .18); font-size: .68rem; line-height: 1.55; color: var(--fd-text-2) !important; }
     @media (max-width: 960px) { body[data-theme] .main-content .cbx-grid { grid-template-columns: 1fr; } }
+    /* Tab */
+    body[data-theme] .main-content .cbx-tabs { display: flex; gap: .25rem; overflow-x: auto; padding: .25rem; margin-bottom: .75rem; border-radius: 12px; background: var(--fd-tile); border: 1px solid var(--fd-line); -webkit-overflow-scrolling: touch; }
+    body[data-theme] .main-content .cbx-tab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: .4rem; height: 32px; padding: 0 .9rem; border-radius: 9px; border: 0; background: transparent; cursor: pointer; font-size: .72rem !important; font-weight: 600; font-family: inherit; color: var(--fd-muted) !important; -webkit-text-fill-color: var(--fd-muted) !important; white-space: nowrap; }
+    body[data-theme] .main-content .cbx-tab:hover { color: var(--fd-text) !important; -webkit-text-fill-color: var(--fd-text) !important; }
+    body[data-theme] .main-content .cbx-tab.active { background: var(--fd-card); color: var(--fd-accent) !important; -webkit-text-fill-color: var(--fd-accent) !important; box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+    body[data-theme] .main-content .cbx-pane[hidden] { display: none !important; }
+    /* Ringkasan */
+    body[data-theme] .main-content .cbx-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .6rem; }
+    body[data-theme] .main-content .cbx-tile { display: flex; gap: .6rem; align-items: flex-start; padding: .7rem .8rem; border-radius: 12px; background: var(--fd-tile); border: 1px solid var(--fd-line); cursor: pointer; }
+    body[data-theme] .main-content .cbx-tile:hover { border-color: var(--fd-accent); }
+    body[data-theme] .main-content .cbx-tile .cbx-dot { margin-top: .3rem; }
+    body[data-theme] .main-content .cbx-tile b { display: block; font-size: .76rem; color: var(--fd-text) !important; }
+    body[data-theme] .main-content .cbx-tile small { display: block; margin-top: .1rem; font-size: .64rem !important; line-height: 1.45; color: var(--fd-muted) !important; }
+    body[data-theme] .main-content .cbx-rules { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .55rem; }
+    body[data-theme] .main-content .cbx-rules li { padding: .6rem .75rem; border-radius: 10px; background: var(--fd-tile); border: 1px solid var(--fd-line); font-size: .68rem; line-height: 1.55; color: var(--fd-text-2) !important; }
+    body[data-theme] .main-content .cbx-rules li b { display: block; margin-bottom: .1rem; font-size: .72rem; color: var(--fd-text) !important; }
 </style>
 
 <div class="cbx">
     <div class="cbx-head">
-        <h1>Integrasi Cloudbeds<small>Tahap 1 — koneksi & pemetaan kamar (hanya membaca, belum ada sinkron)</small></h1>
+        <h1>Integrasi Cloudbeds<small>Hubungkan, petakan, dan sinkronkan dua arah antara sistem dan Cloudbeds</small></h1>
         <a class="cbx-btn ghost" href="settings.php">‹ Pengaturan Front Desk</a>
+    </div>
+
+    <?php
+    $rsGet = function ($k) use ($db) {
+        try { return (string)($db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$k])['setting_value'] ?? ''); } catch (\Throwable $e) { return ''; }
+    };
+    $rsAuto = $rsGet('cloudbeds_auto_sync') === '1';
+    $rsPush = $rsGet('cloudbeds_push_enabled') === '1';
+    $rsPay = $rsGet('cloudbeds_pay_enabled') === '1';
+    $rsLast = json_decode($rsGet('cloudbeds_last_auto_sync'), true) ?: [];
+    $rsAge = !empty($rsLast['at']) ? (time() - strtotime($rsLast['at'])) : null;
+    $rsConf = $cb->isConfigured();
+    ?>
+    <div class="cbx-card">
+        <h3>Ringkasan</h3>
+        <p class="cbx-sub">Status integrasi sekilas. Klik kotak untuk membuka pengaturannya.</p>
+        <div class="cbx-tiles">
+            <div class="cbx-tile" data-go="koneksi">
+                <span class="cbx-dot <?php echo $rsConf ? 'on' : 'off'; ?>"></span>
+                <div><b>Koneksi: <?php echo $rsConf ? 'Terhubung' : 'Belum terhubung'; ?></b>
+                    <small><?php echo $rsConf ? 'API key tersimpan (' . htmlspecialchars($cb->keyHint()) . ')' : 'Masukkan API key Cloudbeds di tab Koneksi.'; ?></small></div>
+            </div>
+            <div class="cbx-tile" data-go="sinkron">
+                <span class="cbx-dot <?php echo $rsAuto ? ($rsAge !== null && $rsAge < 1800 ? (!empty($rsLast['ok']) ? 'on' : 'off') : 'off') : ''; ?>"></span>
+                <div><b>Sinkron otomatis: <?php echo $rsAuto ? 'Aktif' : 'Mati'; ?></b>
+                    <small><?php
+                        if (!empty($rsLast['at'])) {
+                            echo 'Terakhir ' . htmlspecialchars(date('d M H:i', strtotime($rsLast['at'])));
+                            if ($rsAuto && $rsAge !== null && $rsAge > 1800) echo ' — <span style="color:#b45309">lebih dari 30 menit tidak berjalan, cek Cron Job</span>';
+                        } else {
+                            echo 'Belum pernah berjalan.';
+                        } ?></small></div>
+            </div>
+            <div class="cbx-tile" data-go="sinkron">
+                <span class="cbx-dot <?php echo $rsPush ? 'on' : ''; ?>"></span>
+                <div><b>Kirim ke Cloudbeds: <?php echo $rsPush ? 'Aktif' : 'Mati'; ?></b>
+                    <small>Check-in/out, booking direct baru, blok kamar &amp; pembatalan dari sistem.</small></div>
+            </div>
+            <div class="cbx-tile" data-go="sinkron">
+                <span class="cbx-dot <?php echo $rsPay ? 'on' : ''; ?>"></span>
+                <div><b>Kirim pembayaran: <?php echo $rsPay ? 'Aktif' : 'Mati'; ?></b>
+                    <small>DP &amp; pelunasan di sistem ikut masuk folio Cloudbeds.</small></div>
+            </div>
+        </div>
+        <?php if (!empty($rsLast['summary'])): ?>
+            <p class="cbx-hint" style="margin-top:.55rem">Hasil sinkron terakhir: <?php echo htmlspecialchars($rsLast['summary']); ?></p>
+        <?php endif; ?>
+    </div>
+    <div class="cbx-card">
+        <h3>Aturan main (supaya tidak bingung)</h3>
+        <p class="cbx-sub">Ringkasan cara sistem dan Cloudbeds saling melengkapi.</p>
+        <ul class="cbx-rules">
+            <li><b>Harga</b>Booking dari OTA / Cloudbeds: harga mengikuti Cloudbeds persis. Booking buatan sistem: harga mengikuti sistem.</li>
+            <li><b>Uang masuk buku kas</b>OTA: saat <u>check-in</u> di sistem. Direct (walk-in, telepon, website): saat DP / pembayaran dicatat.</li>
+            <li><b>Dibayar di Cloudbeds</b>Booking yang masih berjalan dan sudah dibayar di Cloudbeds ikut lunas di sistem. Booking yang sudah check-out tidak disentuh.</li>
+            <li><b>Pengurangan harga</b>Tidak bisa dikirim otomatis ke Cloudbeds. Sistem memberi peringatan — kurangi manual di folio Cloudbeds.</li>
+            <li><b>Kamar &amp; blok</b>Booking dan blok kamar saling diteruskan. Blok di kalender berwarna abu-abu.</li>
+            <li><b>Perlu dicek</b>Sistem sengaja menahan hal yang meragukan (sumber booking belum dipetakan, folio bermasalah). Lihat di tab Sinkron → Pratinjau.</li>
+        </ul>
     </div>
 
     <div class="cbx-grid">
@@ -989,5 +1064,85 @@ include '../../includes/header.php';
         </div>
     <?php endif; ?>
 </div>
+
+<script>
+(function () {
+    var root = document.querySelector('.cbx');
+    if (!root) return;
+    // judul kartu → tab (urutan array menentukan urutan di dalam tab)
+    var rules = [
+        ['Ringkasan', 'ringkasan'], ['Aturan main', 'ringkasan'],
+        ['API Key', 'koneksi'],
+        ['Pemetaan tipe', 'pemetaan'], ['Pemetaan nomor', 'pemetaan'],
+        ['Sinkron Cloudbeds', 'sinkron'],
+        ['Cek pembayaran', 'alat'], ['Pratinjau reservasi', 'alat'],
+        ['Harga', 'harga']
+    ];
+    var tabs = [
+        ['ringkasan', 'Ringkasan'], ['koneksi', 'Koneksi'], ['pemetaan', 'Pemetaan'],
+        ['sinkron', 'Sinkron'], ['alat', 'Cek & Perbaiki'], ['harga', 'Harga & Kamar']
+    ];
+    var panes = {}, nav = document.createElement('div');
+    nav.className = 'cbx-tabs';
+    tabs.forEach(function (t) {
+        var p = document.createElement('div');
+        p.className = 'cbx-pane';
+        p.id = 'pane-' + t[0];
+        p.hidden = true;
+        panes[t[0]] = p;
+    });
+    var items = [];
+    Array.prototype.slice.call(root.children).forEach(function (el) {
+        if (el.classList.contains('cbx-head')) return;
+        var h = el.querySelector('h3');
+        if (!h) return;
+        var txt = h.textContent.trim();
+        for (var i = 0; i < rules.length; i++) {
+            if (txt.indexOf(rules[i][0]) === 0) { items.push({ el: el, tab: rules[i][1], order: i }); return; }
+        }
+    });
+    items.sort(function (a, b) { return a.order - b.order; });
+    var head = root.querySelector('.cbx-head');
+    items.forEach(function (it) { panes[it.tab].appendChild(it.el); });
+    var first = null;
+    tabs.forEach(function (t) {
+        if (!panes[t[0]].children.length) return;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'cbx-tab';
+        b.dataset.tab = t[0];
+        b.textContent = t[1];
+        b.addEventListener('click', function () { show(t[0], true); });
+        nav.appendChild(b);
+        if (!first) first = t[0];
+    });
+    head.insertAdjacentElement('afterend', nav);
+    var anchor = nav;
+    tabs.forEach(function (t) { anchor.insertAdjacentElement('afterend', panes[t[0]]); anchor = panes[t[0]]; });
+
+    function show(name, push) {
+        if (!panes[name] || !panes[name].children.length) name = first;
+        Object.keys(panes).forEach(function (k) { panes[k].hidden = k !== name; });
+        Array.prototype.forEach.call(nav.children, function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+        try { sessionStorage.setItem('cbxTab', name); } catch (e) {}
+        if (push && history.replaceState) history.replaceState(null, '', location.pathname + location.search + '#' + name);
+    }
+    // tab awal: anchor di URL → parameter → tab terakhir → ringkasan
+    var hashMap = { cekbayar: 'alat', tarikan: 'alat', pulihlunas: 'alat', rates: 'harga' };
+    var q = location.search, h = location.hash.replace('#', ''), start = null;
+    if (h && (panes[h] || hashMap[h])) start = panes[h] ? h : hashMap[h];
+    else if (/[?&](plan|auto)=/.test(q)) start = 'sinkron';
+    else if (/[?&](preview|cek)=/.test(q)) start = 'alat';
+    else if (/[?&]rates=/.test(q)) start = 'harga';
+    else if (/[?&]test=/.test(q)) start = 'koneksi';
+    else { try { start = sessionStorage.getItem('cbxTab'); } catch (e) {} }
+    show(start || 'ringkasan', false);
+    if (h && hashMap[h]) { var tgt = document.getElementById(h); if (tgt) setTimeout(function () { tgt.scrollIntoView({ block: 'start' }); }, 50); }
+    document.addEventListener('click', function (e) {
+        var t = e.target.closest ? e.target.closest('[data-go]') : null;
+        if (t) show(t.getAttribute('data-go'), true);
+    });
+})();
+</script>
 
 <?php include '../../includes/footer.php'; ?>
