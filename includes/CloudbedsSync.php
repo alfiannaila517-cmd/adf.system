@@ -1040,7 +1040,7 @@ class CloudbedsSync
         $since = (string)($sinceRow['setting_value'] ?? '');
         if ($since === '') return;
         $rows = $this->db->fetchAll(
-            "SELECT b.id, b.booking_code, b.status, b.booking_source, DATE(b.check_in_date) ci, DATE(b.check_out_date) co,
+            "SELECT b.id, b.booking_code, b.group_id, b.status, b.booking_source, DATE(b.check_in_date) ci, DATE(b.check_out_date) co,
                     b.adults, b.children, b.created_at, b.notes, r.room_number, g.guest_name, g.phone, g.email, g.nationality,
                     bs.source_type
              FROM bookings b
@@ -1055,20 +1055,36 @@ class CloudbedsSync
             [$from, $to, $since]
         ) ?: [];
         $cbRooms = null;
+        // Booking grup (multi-kamar) dikirim sebagai SATU reservasi Cloudbeds berisi semua kamarnya
+        $groups = [];
         foreach ($rows as $b) {
             if (isset($linkedBookingIds[(int)$b['id']])) continue;
             $isDirect = $b['source_type'] === 'direct' || ($b['source_type'] === null && in_array($b['booking_source'], ['walk_in', 'phone', 'online', 'direct', 'website', 'email'], true));
             if (!$isDirect) continue;
-            $label = ($b['guest_name'] ?: 'Guest') . ' · ' . $b['ci'] . ' → ' . $b['co'] . ' · ' . $b['booking_source'] . ' (' . $b['booking_code'] . ')';
+            $key = !empty($b['group_id']) ? 'g:' . $b['group_id'] . ':' . $b['ci'] . ':' . $b['co'] : 'b:' . $b['id'];
+            $groups[$key][] = $b;
+        }
+        foreach ($groups as $members) {
+            $b = $members[0];
+            $codes = implode(', ', array_column($members, 'booking_code'));
+            $label = ($b['guest_name'] ?: 'Guest') . ' · ' . $b['ci'] . ' → ' . $b['co'] . ' · ' . $b['booking_source'] . ' (' . $codes . ')';
             if ($cbRooms === null) $cbRooms = $this->cbRoomsByNo();
-            $no = preg_match('/\d{2,4}/', (string)$b['room_number'], $m) ? $m[0] : (string)$b['room_number'];
-            $cr = $cbRooms[$no] ?? null;
-            if (!$cr || $cr['type_id'] === '') {
-                $actions[] = ['type' => 'warn', 'cb' => '-', 'label' => $label, 'msg' => 'Room ' . $b['room_number'] . ' tidak ditemukan di Cloudbeds — tidak dikirim.'];
+            $items = [];
+            $missing = [];
+            foreach ($members as $mb) {
+                $no = preg_match('/\d{2,4}/', (string)$mb['room_number'], $m) ? $m[0] : (string)$mb['room_number'];
+                $cr = $cbRooms[$no] ?? null;
+                if (!$cr || $cr['type_id'] === '') { $missing[] = $mb['room_number']; continue; }
+                $items[] = ['booking' => $mb, 'cb_room' => $cr];
+            }
+            if ($missing) {
+                $actions[] = ['type' => 'warn', 'cb' => '-', 'label' => $label, 'msg' => 'Room ' . implode(', ', $missing) . ' tidak ditemukan di Cloudbeds — tidak dikirim.'];
                 continue;
             }
-            $actions[] = ['type' => 'push_create', 'cb' => '-', 'label' => $label, 'booking_id' => (int)$b['id'], 'booking' => $b, 'cb_room' => $cr,
-                'msg' => 'Kirim ke Cloudbeds: reservasi baru Room ' . $b['room_number'] . ($b['status'] === 'checked_in' ? ' (lalu status checked-in)' : '')];
+            $roomsTxt = implode(', ', array_map(fn($x) => $x['booking']['room_number'], $items));
+            $actions[] = ['type' => 'push_create', 'cb' => '-', 'label' => $label, 'booking_id' => (int)$b['id'], 'booking_ids' => array_map(fn($x) => (int)$x['booking']['id'], $items),
+                'booking' => $b, 'cb_room' => $items[0]['cb_room'], 'items' => $items,
+                'msg' => 'Kirim ke Cloudbeds: reservasi baru ' . (count($items) > 1 ? count($items) . ' kamar (' . $roomsTxt . ')' : 'Room ' . $roomsTxt) . ($b['status'] === 'checked_in' ? ' (lalu status checked-in)' : '')];
         }
     }
 
@@ -1084,8 +1100,16 @@ class CloudbedsSync
         $nat = strtolower(trim((string)($b['nationality'] ?? '')));
         $country = ($nat === '' || strpos($nat, 'indo') !== false) ? 'ID' : (strlen($nat) === 2 ? strtoupper($nat) : 'ID');
         $email = filter_var((string)$b['email'], FILTER_VALIDATE_EMAIL) ? (string)$b['email'] : 'noemail+' . strtolower($b['booking_code']) . '@adfsystem.online';
-        $adults = max(1, (int)$b['adults']);
-        $children = max(0, (int)$b['children']);
+        // Satu atau beberapa kamar (booking grup) dalam satu reservasi Cloudbeds
+        $items = $a['items'] ?? [['booking' => $b, 'cb_room' => $cr]];
+        $perType = [];
+        foreach ($items as $it) {
+            $tid = $it['cb_room']['type_id'];
+            $perType[$tid] = $perType[$tid] ?? ['rooms' => 0, 'adults' => 0, 'children' => 0];
+            $perType[$tid]['rooms']++;
+            $perType[$tid]['adults'] += max(1, (int)$it['booking']['adults']);
+            $perType[$tid]['children'] += max(0, (int)$it['booking']['children']);
+        }
         $params = [
             'startDate' => $b['ci'],
             'endDate' => $b['co'],
@@ -1097,9 +1121,9 @@ class CloudbedsSync
             'guestPhone' => (string)($b['phone'] ?? ''),
             'paymentMethod' => 'cash',
             'sendEmailConfirmation' => 'false',
-            'rooms' => [['roomTypeID' => $cr['type_id'], 'quantity' => 1]],
-            'adults' => [['roomTypeID' => $cr['type_id'], 'quantity' => $adults]],
-            'children' => [['roomTypeID' => $cr['type_id'], 'quantity' => $children]],
+            'rooms' => array_map(fn($t, $v) => ['roomTypeID' => $t, 'quantity' => $v['rooms']], array_keys($perType), $perType),
+            'adults' => array_map(fn($t, $v) => ['roomTypeID' => $t, 'quantity' => $v['adults']], array_keys($perType), $perType),
+            'children' => array_map(fn($t, $v) => ['roomTypeID' => $t, 'quantity' => $v['children']], array_keys($perType), $perType),
         ];
         $r = $this->cb->send('POST', 'postReservation', $params);
         // Tamu yang sudah menginap sejak kemarin: Cloudbeds bisa menolak tanggal mulai di masa lalu → mulai hari ini
@@ -1115,16 +1139,21 @@ class CloudbedsSync
             throw new \RuntimeException('Reservasi dibuat tetapi ID tidak terbaca dari jawaban Cloudbeds');
         }
         // Tautkan dulu (reservasi sudah ada di Cloudbeds), baru tempatkan kamar
-        $this->db->query("INSERT IGNORE INTO cloudbeds_booking_links (cb_reservation_id, booking_id, how) VALUES (?, ?, 'push')", [$resId, $a['booking_id']]);
-        // Cloudbeds memakai harga rate plan-nya; harga sistem disamakan lewat antrean edit (adjustment)
-        $this->db->query("INSERT IGNORE INTO cloudbeds_pending_edits (booking_id) VALUES (?)", [$a['booking_id']]);
-        $as = $this->cb->send('POST', 'postRoomAssign', ['reservationID' => $resId, 'newRoomID' => $cr['room_id'], 'roomTypeID' => $cr['type_id']]);
-        $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", [
-            "\n[Dikirim ke Cloudbeds #" . $resId . ($as['ok'] ? '' : ' — kamar belum ditempatkan: ' . mb_substr($as['detail'], 0, 120)) . ']', $a['booking_id'],
-        ]);
+        foreach ($items as $it) {
+            $bid = (int)$it['booking']['id'];
+            $this->db->query("INSERT IGNORE INTO cloudbeds_booking_links (cb_reservation_id, booking_id, how) VALUES (?, ?, 'push')", [$resId, $bid]);
+            // Cloudbeds memakai harga rate plan-nya; harga sistem disamakan lewat antrean edit (adjustment)
+            $this->db->query("INSERT IGNORE INTO cloudbeds_pending_edits (booking_id) VALUES (?)", [$bid]);
+        }
+        foreach ($items as $it) {
+            $as = $this->cb->send('POST', 'postRoomAssign', ['reservationID' => $resId, 'newRoomID' => $it['cb_room']['room_id'], 'roomTypeID' => $it['cb_room']['type_id']]);
+            $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", [
+                "\n[Dikirim ke Cloudbeds #" . $resId . ($as['ok'] ? '' : ' — kamar belum ditempatkan: ' . mb_substr($as['detail'], 0, 120)) . ']', (int)$it['booking']['id'],
+            ]);
+        }
         // Reservasi lewat API masuk "Not Confirmed" → langsung dikonfirmasi (booking di sistem sudah pasti)
         $this->cb->send('PUT', 'putReservation', ['reservationID' => $resId, 'status' => 'confirmed']);
-        if ($b['status'] === 'checked_in') {
+        if (array_filter($items, fn($it) => $it['booking']['status'] === 'checked_in')) {
             $this->cb->send('PUT', 'putReservation', ['reservationID' => $resId, 'status' => 'checked_in']);
         }
     }
@@ -1528,8 +1557,8 @@ class CloudbedsSync
         }
         $mine = array_values(array_filter($plan['actions'], function ($a) use ($bookingIds, $blockIds, $cbIds, $cbBlockIds) {
             switch ($a['type']) {
+                case 'push_create': return (bool)array_intersect($a['booking_ids'] ?? [(int)$a['booking_id']], $bookingIds);
                 case 'push_convert_block':
-                case 'push_create':
                 case 'push_payment': return in_array((int)$a['booking_id'], $bookingIds, true);
                 case 'push_status': return isset($cbIds[(string)$a['cb']]);
                 case 'push_newblock': return in_array((int)$a['block_id'], $blockIds, true);

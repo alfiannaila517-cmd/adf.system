@@ -32,10 +32,21 @@ if (!function_exists('cloudbedsPushAfterResponse')) {
         ignore_user_abort(true);
         @set_time_limit(90);
 
-        // Tunggu sebentar bila sinkron lain sedang berjalan (maks. ±15 detik); selebihnya diurus sinkron berkala
+        // Reservasi multi-kamar dibuat satu per satu: beri waktu kamar lain grup ini tercipta, lalu semuanya dikirim
+        // sebagai SATU reservasi Cloudbeds (kiriman kamar berikutnya mendapati grup sudah tertaut)
+        if ($bookingIds) {
+            try {
+                $in = implode(',', $bookingIds);
+                $fresh = $db->fetchOne("SELECT COUNT(*) c FROM bookings WHERE id IN ($in) AND group_id IS NOT NULL AND group_id <> '' AND created_at > NOW() - INTERVAL 30 SECOND");
+                if ((int)($fresh['c'] ?? 0) > 0) sleep(8);
+            } catch (\Throwable $e) {
+            }
+        }
+
+        // Tunggu sebentar bila sinkron lain sedang berjalan (maks. ±30 detik); selebihnya diurus sinkron berkala
         $lock = @fopen(sys_get_temp_dir() . '/adf-cloudbeds-sync.lock', 'c');
         $got = false;
-        for ($i = 0; $lock && $i < 30; $i++) {
+        for ($i = 0; $lock && $i < 60; $i++) {
             if (flock($lock, LOCK_EX | LOCK_NB)) { $got = true; break; }
             usleep(500000);
         }
