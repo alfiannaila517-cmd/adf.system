@@ -1129,7 +1129,27 @@ class CloudbedsSync
         // Tamu yang sudah menginap sejak kemarin: Cloudbeds bisa menolak tanggal mulai di masa lalu → mulai hari ini
         $today = date('Y-m-d');
         if (!$r['ok'] && $b['ci'] < $today && $b['co'] > $today) {
-            $r = $this->cb->send('POST', 'postReservation', ['startDate' => $today] + $params);
+            $params = ['startDate' => $today] + $params;
+            $r = $this->cb->send('POST', 'postReservation', $params);
+        }
+        // Kapasitas tipe kamar Cloudbeds lebih kecil dari jumlah tamu di sistem (mis. 3 dewasa + extra bed di kamar
+        // maks. 2): kirim dengan jumlah maksimum yang diizinkan; jumlah sebenarnya tetap di sistem (dicatat di booking)
+        $capNote = '';
+        for ($try = 0; !$r['ok'] && $try < 3 && preg_match('/maximum\s+(\d+)\s+(adults|children|guests)/i', (string)$r['detail'], $cm); $try++) {
+            $max = (int)$cm[1];
+            $kind = strtolower($cm[2]) === 'children' ? 'children' : 'adults';
+            foreach ($params[$kind] as $i => $row) {
+                $roomsOfType = 1;
+                foreach ($params['rooms'] as $rr) {
+                    if ($rr['roomTypeID'] === $row['roomTypeID']) $roomsOfType = max(1, (int)$rr['quantity']);
+                }
+                $params[$kind][$i]['quantity'] = min((int)$row['quantity'], $max * $roomsOfType);
+            }
+            if (strtolower($cm[2]) === 'guests') {
+                foreach ($params['children'] as $i => $row) $params['children'][$i]['quantity'] = 0;
+            }
+            $capNote = ' — jumlah tamu di Cloudbeds dibatasi kapasitas kamar (' . $max . ' ' . ($kind === 'children' ? 'anak' : 'dewasa') . '/kamar)';
+            $r = $this->cb->send('POST', 'postReservation', $params);
         }
         if (!$r['ok']) {
             throw new \RuntimeException('Cloudbeds menolak reservasi: ' . $r['detail']);
@@ -1148,7 +1168,7 @@ class CloudbedsSync
         foreach ($items as $it) {
             $as = $this->cb->send('POST', 'postRoomAssign', ['reservationID' => $resId, 'newRoomID' => $it['cb_room']['room_id'], 'roomTypeID' => $it['cb_room']['type_id']]);
             $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?", [
-                "\n[Dikirim ke Cloudbeds #" . $resId . ($as['ok'] ? '' : ' — kamar belum ditempatkan: ' . mb_substr($as['detail'], 0, 120)) . ']', (int)$it['booking']['id'],
+                "\n[Dikirim ke Cloudbeds #" . $resId . $capNote . ($as['ok'] ? '' : ' — kamar belum ditempatkan: ' . mb_substr($as['detail'], 0, 120)) . ']', (int)$it['booking']['id'],
             ]);
         }
         // Reservasi lewat API masuk "Not Confirmed" → langsung dikonfirmasi (booking di sistem sudah pasti)
