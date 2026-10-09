@@ -4186,6 +4186,17 @@ include '../../includes/header.php';
     #hsx .hs-stat .hs-badge, #hsx table.hs-v2 .hs-stat .hs-badge { min-width: 62px !important; padding: .1rem .4rem !important; font-size: .5rem !important; }
     #hsx table.hs-v2 .hs-stat { gap: 2px !important; }
     #hsx .hs-action-dropdown-btn { height: 24px; padding: 0 .6rem !important; font-size: .66rem !important; border-radius: 8px !important; }
+    /* Status pembayaran tunggal + ukuran huruf seragam dengan menu sidebar (.78rem) */
+    #hsx .hsp { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+    #hsx .hsp-ok { background: rgba(22,163,74,.12); color: #15803d !important; -webkit-text-fill-color: #15803d !important; }
+    #hsx .hsp-no { background: rgba(220,38,38,.1); color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
+    #hsx .hsp-part { background: rgba(245,158,11,.14); color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; }
+    #hsx .hsp-x { background: rgba(100,116,139,.14); color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+    #hsx table.hs-v2 tbody td, #hsx table.hs-v2 tbody td .hs-guest-name, #hsx table.hs-v2 tbody td .hs-num, #hsx table.hs-v2 td.hs-date, #hsx table.hs-v2 td.hs-phone { font-size: .78rem !important; }
+    #hsx table.hs-v2 thead th { font-size: .62rem !important; }
+    #hsx table.hs-v2 tbody td { padding: 7px 10px !important; }
+    #hsx table.hs-v2 .hs-room-badge, #hsx table.hs-v2 .hs-svc-one { font-size: .7rem !important; }
+    #hsx .hs-action-dropdown-btn { font-size: .72rem !important; }
     @media (max-width: 1100px) { #hsx .hs-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 640px) {
         #hsx { padding: .65rem .5rem 1rem; }
@@ -4314,7 +4325,7 @@ include '../../includes/header.php';
                     <col style="width:100px">
                     <col style="width:100px">
                     <col style="width:100px">
-                    <col style="width:108px">
+                    <col style="width:124px">
                     <col style="width:76px">
                 </colgroup>
                 <thead>
@@ -4327,7 +4338,7 @@ include '../../includes/header.php';
                         <th class="r">Total</th>
                         <th class="r">Dibayar</th>
                         <th class="r">Sisa</th>
-                        <th>Status</th>
+                        <th>Pembayaran</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -4373,14 +4384,19 @@ include '../../includes/header.php';
                                 <?php if ($hsBalanceDue > 0): ?>
                                     <span class="hs-num hs-due"><?php echo number_format($hsBalanceDue, 0, ',', '.'); ?></span>
                                 <?php else: ?>
-                                    <span class="hs-lunas">Lunas</span>
+                                    <span class="hs-dash">—</span>
                                 <?php endif; ?>
                             </td>
                             <td class="c">
-                                <div class="hs-stat">
-                                    <span class="hs-badge" style="background:<?php echo $payStatusColors[$inv['payment_status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['payment_status']); ?></span></span>
-                                    <span class="hs-badge" style="background:<?php echo $statusColors[$inv['status']]; ?>"><span class="hs-badge-text"><?php echo strtoupper($inv['status']); ?></span></span>
-                                </div>
+                                <?php if ($inv['status'] === 'cancelled'): ?>
+                                    <span class="hsp hsp-x">Dibatalkan</span>
+                                <?php elseif ($inv['payment_status'] === 'paid'): ?>
+                                    <span class="hsp hsp-ok">Sudah dibayar</span>
+                                <?php elseif ($inv['payment_status'] === 'partial'): ?>
+                                    <span class="hsp hsp-part">Sebagian</span>
+                                <?php else: ?>
+                                    <span class="hsp hsp-no">Belum dibayar</span>
+                                <?php endif; ?>
                             </td>
                             <td class="c" onclick="event.stopPropagation()">
                                 <div class="hs-action-dropdown">
