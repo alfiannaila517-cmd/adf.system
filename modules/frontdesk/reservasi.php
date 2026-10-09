@@ -684,6 +684,20 @@ include '../../includes/header.php';
         color: var(--text-secondary);
     }
 
+    /* Kolom kamar: pil seragam (kamar tunggal & grup) + tipe kamar di bawahnya */
+    td.rm-cell .rm-pill, body[data-theme] td.rm-cell .rm-pill {
+        display: inline-flex !important; align-items: center; justify-content: center; gap: .3rem;
+        min-width: 66px; height: 26px; padding: 0 .65rem !important; border-radius: 8px !important; box-sizing: border-box;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; border: 0 !important;
+        color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
+        font-size: .74rem !important; font-weight: 700 !important; line-height: 1; letter-spacing: .01em;
+        box-shadow: 0 4px 10px -6px rgba(30, 58, 138, .8) !important; white-space: nowrap;
+    }
+    td.rm-cell .rm-group { cursor: pointer; }
+    td.rm-cell .rm-group svg { opacity: .85; }
+    td.rm-cell .rm-type { font-size: .68rem; color: var(--text-secondary); margin-top: .25rem; padding-left: 2px; }
+    .room-badge.rm-mini { padding: .18rem .5rem !important; border-radius: 6px !important; font-size: .72rem !important; font-weight: 700 !important; margin: 1px; }
+
     .room-badge {
         display: inline-block;
         background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
@@ -1039,14 +1053,14 @@ include '../../includes/header.php';
                             </td>
 
                             <!-- Room -->
-                            <td>
+                            <td class="rm-cell">
                                 <?php if ($isGrouped): ?>
                                     <div class="action-dropdown">
-                                        <button type="button" class="action-dropdown-btn" onclick="toggleActionMenu(event)" aria-haspopup="menu"><?php echo $roomCount; ?> Rooms</button>
+                                        <button type="button" class="action-dropdown-btn rm-pill rm-group" onclick="toggleActionMenu(event)" aria-haspopup="menu"><?php echo $roomCount; ?> Rooms <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
                                         <div class="action-dropdown-menu">
                                             <div style="padding:0.5rem 0.65rem; display:flex; flex-wrap:wrap; gap:3px; max-width:220px;">
                                                 <?php foreach ($booking['_rooms'] as $rm): ?>
-                                                    <span class="room-badge" style="background:linear-gradient(135deg,#1e3a8a,#2563eb) !important;color:#ffffff !important;padding:0.15rem 0.4rem;border-radius:4px;font-weight:600;font-size:0.72rem;display:inline-block;margin:1px;">
+                                                    <span class="room-badge rm-mini">
                                                         <?php echo htmlspecialchars($rm['room_number']); ?>
                                                     </span>
                                                 <?php endforeach; ?>
@@ -1056,11 +1070,12 @@ include '../../includes/header.php';
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="rm-type"><?php echo htmlspecialchars($booking['type_name']); ?></div>
                                 <?php else: ?>
-                                    <span class="room-badge" style="background:linear-gradient(135deg,#1e3a8a,#2563eb) !important;color:#ffffff !important;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
+                                    <span class="room-badge rm-pill">
                                         <?php echo htmlspecialchars($booking['room_number']); ?>
                                     </span>
-                                    <div style="font-size: 0.7rem; margin-top: 0.25rem;">
+                                    <div class="rm-type">
                                         <?php echo htmlspecialchars($booking['type_name']); ?>
                                     </div>
                                 <?php endif; ?>
