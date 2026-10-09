@@ -79,6 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
         header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
         exit;
+    } elseif ($act === 'fix_feecut') {
+        $res = (new CloudbedsSync($db, $cb))->fixFeeCut((array)($_POST['ids'] ?? []));
+        setFlash('success', $res['n'] . ' baris buku kas dikoreksi ke nominal penuh (tambah Rp ' . number_format($res['sum'], 0, ',', '.') . ' — Cloudbeds sudah memotong fee OTA, sistem tidak memotong lagi).');
+        header('Location: cloudbeds.php#feecut');
+        exit;
     } elseif ($act === 'restore_paid') {
         $res = (new CloudbedsSync($db, $cb))->restorePaidFromCashbook((array)($_POST['ids'] ?? []));
         setFlash('success', $res['n'] . ' booking check-out dikembalikan ke status lunas (Rp ' . number_format($res['sum'], 0, ',', '.') . ' — uangnya sudah ada di buku kas, kas tidak ditambah).');
@@ -719,6 +724,37 @@ include '../../includes/header.php';
                             <?php endforeach; ?>
                         </table></div>
                         <button type="submit" class="cbx-btn danger" style="margin-top:.45rem">Batalkan yang dicentang</button>
+                    </form>
+                </div>
+            <?php endif; ?>
+            <?php
+            $feeCut = [];
+            try {
+                $feeCut = (new CloudbedsSync($db, $cb))->feeCutCandidates();
+            } catch (\Throwable $e) {
+                echo '<p class="cbx-hint" style="color:#b91c1c!important">Daftar koreksi fee OTA gagal dibaca: ' . htmlspecialchars($e->getMessage()) . '</p>';
+            }
+            if ($feeCut): ?>
+                <div id="feecut" style="margin:.2rem 0 .8rem;padding:.6rem .7rem;border-radius:9px;background:rgba(37,99,235,.07)">
+                    <b style="color:#1e3a8a!important">Buku kas terpotong fee OTA (padahal Cloudbeds sudah memotong)</b>
+                    <p class="cbx-hint" style="margin:.2rem 0 .45rem">Nominal di buku kas lebih kecil dari pembayaran booking yang tertaut Cloudbeds. Centang lalu <b>Koreksi</b>: baris kas dikembalikan ke nominal penuh dan saldo akun kas ikut disesuaikan.</p>
+                    <form method="post" onsubmit="return confirm('Koreksi baris kas yang dicentang ke nominal penuh? Saldo akun kas ikut bertambah.')">
+                        <input type="hidden" name="act" value="fix_feecut">
+                        <div style="overflow-x:auto"><table class="cbx-tbl" style="width:100%;font-size:.8rem">
+                            <tr><th><input type="checkbox" checked onclick="this.closest('table').querySelectorAll('input[name=&quot;ids[]&quot;]').forEach(c=>c.checked=this.checked)"></th><th>Tanggal</th><th>Tamu / booking</th><th>Sumber</th><th style="text-align:right">Tercatat di kas</th><th style="text-align:right">Seharusnya</th><th style="text-align:right">Selisih</th></tr>
+                            <?php foreach ($feeCut as $fc): ?>
+                                <tr>
+                                    <td><input type="checkbox" name="ids[]" value="<?php echo (int)$fc['cash_id']; ?>" checked></td>
+                                    <td><?php echo htmlspecialchars(date('d M', strtotime((string)$fc['transaction_date']))); ?></td>
+                                    <td><b><?php echo htmlspecialchars($fc['guest_name'] ?: '-'); ?></b> · <?php echo htmlspecialchars($fc['booking_code']); ?></td>
+                                    <td><?php echo htmlspecialchars($fc['booking_source']); ?></td>
+                                    <td style="text-align:right"><?php echo $rpx($fc['cash_amount']); ?></td>
+                                    <td style="text-align:right"><?php echo $rpx($fc['pay_sum']); ?></td>
+                                    <td style="text-align:right;font-weight:700"><?php echo $rpx((float)$fc['pay_sum'] - (float)$fc['cash_amount']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </table></div>
+                        <button type="submit" class="cbx-btn" style="margin-top:.45rem">Koreksi ke nominal penuh</button>
                     </form>
                 </div>
             <?php endif; ?>

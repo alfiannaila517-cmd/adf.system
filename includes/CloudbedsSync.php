@@ -2303,6 +2303,44 @@ class CloudbedsSync
         return ['ok' => true, 'msg' => 'Diskon dipotong dari harga di ' . $n . ' kamar (total Rp ' . number_format($cut, 0, ',', '.') . ').' . ($link ? ' Cloudbeds tidak berubah otomatis: turunkan Rp ' . number_format($cut, 0, ',', '.') . ' di folio Cloudbeds.' : '')];
     }
 
+    /**
+     * Baris buku kas booking tertaut Cloudbeds yang nominalnya LEBIH KECIL dari total pembayarannya (terlanjur dipotong
+     * fee OTA padahal Cloudbeds sudah memotongnya). Dikelompokkan per baris kas; hanya yang semua pembayarannya tertaut Cloudbeds.
+     * @return array<int,array<string,mixed>>
+     */
+    public function feeCutCandidates(): array
+    {
+        $rows = $this->db->fetchAll("SELECT cb.id cash_id, cb.amount cash_amount, cb.description, cb.transaction_date,
+                SUM(bp.amount) pay_sum, COUNT(*) n, MIN(b.booking_code) booking_code, MIN(g.guest_name) guest_name, MIN(b.booking_source) booking_source,
+                SUM(CASE WHEN l.booking_id IS NULL THEN 1 ELSE 0 END) unlinked
+            FROM cash_book cb
+            JOIN booking_payments bp ON bp.cashbook_id = cb.id
+            JOIN bookings b ON b.id = bp.booking_id
+            LEFT JOIN guests g ON g.id = b.guest_id
+            LEFT JOIN (SELECT DISTINCT booking_id FROM cloudbeds_booking_links) l ON l.booking_id = b.id
+            WHERE cb.transaction_type = 'income' AND cb.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 120 DAY)
+            GROUP BY cb.id, cb.amount, cb.description, cb.transaction_date
+            HAVING unlinked = 0 AND SUM(bp.amount) - cb.amount >= 1
+            ORDER BY cb.id DESC LIMIT 100") ?: [];
+        return $rows;
+    }
+
+    /** Koreksi baris kas ke total pembayarannya (saldo akun kas ikut disesuaikan). @return array{n:int,sum:float} */
+    public function fixFeeCut(array $cashIds): array
+    {
+        $want = array_flip(array_map('intval', $cashIds));
+        $n = 0; $sum = 0.0;
+        foreach ($this->feeCutCandidates() as $r) {
+            if (!isset($want[(int)$r['cash_id']])) continue;
+            $new = round((float)$r['pay_sum'], 2);
+            if ($this->cashbookChangeAmount((int)$r['cash_id'], $new)) {
+                $n++;
+                $sum += $new - (float)$r['cash_amount'];
+            }
+        }
+        return ['n' => $n, 'sum' => $sum];
+    }
+
     /** Atur harga booking (satu kamar) ke nominal yang benar — dipakai untuk membereskan harga yang ikut membengkak. */
     public function setBookingPrice(string $code, float $price): array
     {

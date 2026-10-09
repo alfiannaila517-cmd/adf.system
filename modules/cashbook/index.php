@@ -342,7 +342,13 @@ try {
                             break;
                         }
                     }
-                    if ($feeSettingKey) {
+                    // Booking tertaut Cloudbeds: nominalnya sudah bersih (Cloudbeds yang memotong fee OTA) → jangan dipotong lagi
+                    $cbLinkedSweep = false;
+                    try {
+                        $cbLinkedSweep = (bool)$db->fetchOne("SELECT booking_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [$payment['booking_id']]);
+                    } catch (\Throwable $e) {
+                    }
+                    if ($feeSettingKey && !$cbLinkedSweep) {
                         $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
                         $feeStmt->execute([$feeSettingKey]);
                         $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
