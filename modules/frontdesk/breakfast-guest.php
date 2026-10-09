@@ -469,6 +469,27 @@ $token = trim((string)($_GET['t'] ?? ''));
         .qbtn:disabled { opacity: 0.35; cursor: default; }
         .qnum { min-width: 18px; text-align: center; font-weight: 700; font-size: 14px; color: var(--navy); }
 
+        /* Menu: kartu 2 kolom (foto di atas, tombol + / stepper di sudut foto) */
+        .list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; background: none; border: 0; border-radius: 0; overflow: visible; }
+        .item { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 10px 24px -20px rgba(15, 39, 71, .55); transition: border-color .15s, box-shadow .15s; }
+        .item:first-child { border-top: 1px solid var(--line); }
+        .item.sel { background: #fff; border-color: var(--navy); box-shadow: 0 0 0 2px rgba(15, 39, 71, .10), 0 12px 26px -18px rgba(15, 39, 71, .6); }
+        .item.empty { grid-column: 1 / -1; padding: 16px; text-align: center; }
+        .item .media { position: relative; }
+        .item .thumb { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; border-radius: 15px 15px 0 0; object-fit: cover; }
+        .item .thumb.ph { display: grid; place-items: center; font-size: 34px; background: linear-gradient(135deg, #f6efe0, #fbf8f2); }
+        .item .info { flex: 1; padding: 24px 12px 12px; }
+        .item .name { font-size: 13.5px; font-weight: 700; line-height: 1.3; }
+        .item .desc { margin-top: 3px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 11.5px; line-height: 1.45; }
+        .item .qty { position: absolute; right: 10px; bottom: -19px; z-index: 2; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: #fff; box-shadow: 0 8px 18px -8px rgba(15, 39, 71, .5); }
+        .item .qty.one { padding: 0; border: 0; background: none; box-shadow: none; }
+        .item .qty.one .qbtn.plus { width: 38px; height: 38px; font-size: 20px; box-shadow: 0 8px 18px -8px rgba(15, 39, 71, .65); }
+        .item .qbtn { width: 32px; height: 32px; }
+        .item .qnum { min-width: 22px; }
+        .item .add-note { display: inline-block; margin-top: 6px; }
+        .item .note-input { margin-top: 6px; }
+        @media (max-width: 360px) { .list { gap: 8px; } .item .info { padding: 22px 9px 10px; } .item .name { font-size: 12.5px; } }
+
         /* Extra banner */
         .extra {
             display: none;
@@ -932,23 +953,26 @@ $token = trim((string)($_GET['t'] ?? ''));
                 if (m.serve_temp === 'ice') tags += '<span class="tag ice">ICE</span>';
                 if (!free && price > 0) tags += '<span class="tag paid">' + rp(price) + '</span>';
                 var note = notes[group][id] || '';
+                var ph = '<div class="thumb ph">' + (group === 'drink' ? '☕' : '🍳') + '</div>';
+                var media = src
+                    ? '<img class="thumb" src="' + esc(src) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;thumb ph&quot;>🍽️</div>\'">'
+                    : ph;
                 return '<div class="item' + (q ? ' sel' : '') + '" data-g="' + group + '" data-id="' + id + '">' +
-                    (src ? '<img class="thumb" src="' + esc(src) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=thumb>🍽️</div>\'">' : '<div class="thumb">' + (group === 'drink' ? '☕' : '🍳') + '</div>') +
+                    '<div class="media">' + media +
+                    '<div class="qty' + (q ? '' : ' one') + '">' +
+                    (q ? '<button type="button" class="qbtn" data-step="-1" aria-label="Less">−</button><span class="qnum">' + q + '</span>' : '') +
+                    '<button type="button" class="qbtn plus" data-step="1" aria-label="Add">+</button>' +
+                    '</div></div>' +
                     '<div class="info"><div class="name">' + esc(m.menu_name) + tags + '</div>' +
                     (m.description ? '<div class="desc">' + esc(m.description) + '</div>' : '') +
                     (q ? (note || m._noteOpen ? '<input class="note-input" data-note placeholder="Note for the kitchen" maxlength="160" value="' + esc(note) + '">' : '<button type="button" class="add-note" data-addnote>+ Add note</button>') : '') +
-                    '</div>' +
-                    '<div class="qty">' +
-                    (q ? '<button type="button" class="qbtn" data-step="-1" aria-label="Less">−</button><span class="qnum">' + q + '</span>' : '') +
-                    '<button type="button" class="qbtn plus" data-step="1" aria-label="Add">+</button>' +
                     '</div></div>';
             }
-
             var menus = { main: [], drink: [], juice: [], coffee: [], child: [] };
 
             function renderLists() {
                 var mains = menus.main.filter(function(m) { return mainFilter === 'all' || (m.category || '') === mainFilter; });
-                $('mainList').innerHTML = mains.map(function(m) { return itemRow(m, 'main'); }).join('') || '<div class="item"><div class="info desc">No menu in this category</div></div>';
+                $('mainList').innerHTML = mains.map(function(m) { return itemRow(m, 'main'); }).join('') || '<div class="item empty"><div class="desc">No menu in this category</div></div>';
                 $('juiceList').innerHTML = menus.juice.map(function(m) { return itemRow(m, 'drink'); }).join('');
                 $('coffeeList').innerHTML = menus.coffee.map(function(m) { return itemRow(m, 'drink'); }).join('');
                 $('kidList').innerHTML = menus.child.map(function(m) { return itemRow(m, 'child'); }).join('');
