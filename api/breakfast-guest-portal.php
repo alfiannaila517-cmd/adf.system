@@ -394,7 +394,7 @@ try {
 }
 
 // ═══ Front desk: simpan jatah pax (Setup) & kirim link lewat WhatsApp gateway ═══
-if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone') {
+if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone' || $action === 'current_link') {
     require_once '../includes/auth.php';
     $auth = new Auth();
     $auth->requireLogin();
@@ -428,6 +428,29 @@ if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone
             $stmt->execute([$bid, $p, $k, $p + $k, $p, $p * 2, $k, json_encode($kidMenuIds), $price, $_SESSION['user_id'] ?? null]);
         }
         echo json_encode(['success' => true, 'pax' => $pax, 'kids' => $kids]);
+        exit;
+    }
+
+    if ($action === 'current_link') {
+        // Link sarapan yang sudah dikirim ke tamu (link induk terbaru, belum kedaluwarsa) — untuk disalin / dibuka tanpa membuat link baru
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)($body['booking_ids'] ?? [])))));
+        $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($body['breakfast_date'] ?? '')) ? (string)$body['breakfast_date'] : date('Y-m-d');
+        if (!$ids) {
+            echo json_encode(['success' => false, 'message' => 'Booking tidak ditemukan']);
+            exit;
+        }
+        $ph = implode(',', array_fill(0, count($ids), '?'));
+        $row = $db->fetchOne("SELECT token, short_code FROM breakfast_guest_links
+            WHERE breakfast_date = ? AND booking_id IN ($ph) AND parent_token IS NULL AND link_status <> 'expired'
+            ORDER BY id DESC LIMIT 1", array_merge([$date], $ids));
+        if (!$row) {
+            echo json_encode(['success' => false, 'message' => 'Belum ada link aktif']);
+            exit;
+        }
+        echo json_encode(['success' => true, 'data' => [
+            'short_link' => rtrim(BASE_URL, '/') . '/go-breakfast.php?k=' . urlencode((string)$row['short_code']),
+            'link_url' => rtrim(BASE_URL, '/') . '/modules/frontdesk/breakfast-guest.php?t=' . urlencode((string)$row['token']),
+        ]]);
         exit;
     }
 
@@ -681,20 +704,34 @@ if ($action === 'create_link') {
                 WHERE b.id IN ($phIds) AND b.status IN ('checked_in', 'confirmed', 'pending')
                 ORDER BY r.room_number + 0, r.room_number", $allIds) ?: [];
             $paxSum = array_sum(array_map(fn($b) => max(1, (int)$b['adults'] + (int)$b['children']), $bks));
-            if (count($bks) > 1 && $paxSum === ($adultCount + $childYoung + $childOld)) {
+            if (count($bks) > 1) {
                 $kidMenuDefaults = bf_kid_menu_ids($db);
-                foreach ($bks as $bk) {
-                    $p = max(1, (int)$bk['adults'] + (int)$bk['children']);
+                // Grup SELALU dipecah per kamar (juga setelah Setup / kirim ulang): dewasa & anak yang disetel dibagi ke kamar-kamar.
+                // Dasar = pax reservasi tiap kamar; selisih terhadap total yang disetel ditambah/dikurangi bergiliran (min. 1 per kamar).
+                $nRooms = count($bks);
+                $alloc = array_map(fn($b) => max(1, (int)$b['adults'] + (int)$b['children']), $bks);
+                $alloc = array_values($alloc);
+                $diff = max(1, $adultCount) - array_sum($alloc);
+                for ($gk = 0; $diff !== 0 && $gk < 600; $gk++) {
+                    $gi = $gk % $nRooms;
+                    if ($diff > 0) { $alloc[$gi]++; $diff--; }
+                    elseif ($alloc[$gi] > 1) { $alloc[$gi]--; $diff++; }
+                }
+                $kidAlloc = array_fill(0, $nRooms, 0);
+                for ($gk = 0, $kidsTotal = $childYoung + $childOld; $gk < $kidsTotal; $gk++) $kidAlloc[$gk % $nRooms]++;
+                foreach (array_values($bks) as $bi => $bk) {
+                    $p = $alloc[$bi];
+                    $k = $kidAlloc[$bi];
                     $bid = (int)$bk['id'];
                     // jatah per kamar (sama aturan "Setup": 1 makanan + 2 minuman per tamu)
                     $pdo->prepare("INSERT INTO breakfast_guest_quota
                         (booking_id, guest_id, guest_name, breakfast_date, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, child_menu_ids, extra_main_price, extra_drink_price, extra_child_price, created_by)
-                        VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, 0, ?, ?, 0, 0, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, 0, 0, ?)
                         ON DUPLICATE KEY UPDATE guest_id = VALUES(guest_id), guest_name = VALUES(guest_name), breakfast_date = VALUES(breakfast_date),
-                            adult_count = VALUES(adult_count), child_young_count = 0, child_old_count = 0, total_pax = VALUES(total_pax),
-                            max_main = VALUES(max_main), max_drink = VALUES(max_drink), max_child = 0, child_menu_ids = VALUES(child_menu_ids),
+                            adult_count = VALUES(adult_count), child_young_count = VALUES(child_young_count), child_old_count = 0, total_pax = VALUES(total_pax),
+                            max_main = VALUES(max_main), max_drink = VALUES(max_drink), max_child = VALUES(max_child), child_menu_ids = VALUES(child_menu_ids),
                             extra_main_price = VALUES(extra_main_price), extra_drink_price = 0, extra_child_price = 0, updated_at = NOW()")
-                        ->execute([$bid, $bk['guest_id'] ?: $guestId, $bk['guest_name'] ?: $guestName, $breakfastDate, $p, $p, $p, $p * 2, json_encode($kidMenuDefaults), $extraMainPrice, $userId]);
+                        ->execute([$bid, $bk['guest_id'] ?: $guestId, $bk['guest_name'] ?: $guestName, $breakfastDate, $p, $k, $p + $k, $p, $p * 2, $k, json_encode($kidMenuDefaults), $extraMainPrice, $userId]);
                     // link lama untuk kamar ini (selain induk baru) dinonaktifkan
                     $pdo->prepare("UPDATE breakfast_guest_links SET link_status = 'expired' WHERE breakfast_date = ? AND booking_id = ? AND link_status = 'open' AND token <> ? AND parent_token IS NULL")->execute([$breakfastDate, $bid, $token]);
                     $pdo->prepare("UPDATE breakfast_guest_links SET link_status = 'expired' WHERE breakfast_date = ? AND booking_id = ? AND link_status = 'open' AND parent_token IS NOT NULL AND parent_token <> ?")->execute([$breakfastDate, $bid, $token]);
@@ -706,11 +743,11 @@ if ($action === 'create_link') {
                             $pdo->prepare("INSERT INTO breakfast_guest_links
                                 (token, short_code, booking_id, guest_id, guest_name, guest_phone, room_number, breakfast_date,
                                  max_main, max_drink, max_child, child_menu_ids, guest_composition, expires_at, created_by, parent_token)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)")
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                                 ->execute([
                                     $childToken, $childCode, $bid, $bk['guest_id'] ?: $guestId, $bk['guest_name'] ?: $guestName, $guestPhone,
-                                    json_encode([(string)$bk['room_number']]), $breakfastDate, $p, $p * 2, json_encode([]),
-                                    json_encode(['adults' => $p, 'children_young' => 0, 'children_old' => 0, 'total_pax' => $p]),
+                                    json_encode([(string)$bk['room_number']]), $breakfastDate, $p, $p * 2, $k, json_encode($k > 0 ? $kidMenuDefaults : []),
+                                    json_encode(['adults' => $p, 'children_young' => $k, 'children_old' => 0, 'total_pax' => $p + $k]),
                                     $expiresAt, $userId, $token,
                                 ]);
                             $roomLinks[] = ['room' => (string)$bk['room_number'], 'token' => $childToken, 'short_code' => $childCode];
