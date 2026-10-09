@@ -197,6 +197,7 @@ class CloudbedsSync
         $actions = [];
         $nDetail = 0;
         $nPriceDetail = 0;
+        $nBalDetail = 0; // pengecekan karena saldo berubah (batas lebih longgar: harga OTA harus cepat ikut)
         $payOn = $this->payEnabled();
         // Koreksi bug lama (adjustment pertama berpatokan subTotal → pajak/biaya ikut terkirim): hanya reservasi yang
         // dasar harganya tercatat SEBELUM perbaikan ini pertama kali berjalan, dan masing-masing hanya dicek sekali.
@@ -343,9 +344,9 @@ class CloudbedsSync
                     // pengecekan terakhir (mis. harga diubah di Cloudbeds), cek detail sekarang — tidak menunggu 3 jam.
                     $listBalP = isset($it['balance']) && is_numeric($it['balance']) ? (float)$it['balance'] : null;
                     $balChanged = $isOtaRes && $listBalP !== null && (!array_key_exists($cbId, $lastPriceBal) || $lastPriceBal[$cbId] === null || abs($listBalP - $lastPriceBal[$cbId]) >= 1);
-                    if (!$hasPay && $cbTotal === null && $nPriceDetail < self::MAX_PRICE_DETAIL && max(array_column($live, 'co')) >= date('Y-m-d')
+                    if (!$hasPay && $cbTotal === null && ($nPriceDetail < self::MAX_PRICE_DETAIL || ($balChanged && $nBalDetail < 20)) && max(array_column($live, 'co')) >= date('Y-m-d')
                         && (!isset($recentPriceChecks[$cbId]) || $balChanged)) {
-                        $nPriceDetail++;
+                        if ($nPriceDetail < self::MAX_PRICE_DETAIL && !$balChanged) $nPriceDetail++; else $nBalDetail++;
                         $pd = $this->cb->reservationDetail($cbId);
                         $cbTotal = $pd['ok'] ? $pd['total'] : null;
                         $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at, bal) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE checked_at = NOW(), bal = VALUES(bal)", [$cbId, $listBalP]);
