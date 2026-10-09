@@ -26,8 +26,8 @@ class CloudbedsSync
     /** Reservasi Cloudbeds yang totalnya diubah (adjustment) oleh penyamaan saldo di putaran ini */
     private $adjustedThisRun = [];
     /** Pindah kamar di Cloudbeds → sistem: berapa reservasi dibaca per sinkron & jeda minimal antar pembacaan (detik) */
-    private $roomCheckCap = 8;
-    private $roomCheckAge = 900;
+    private $roomCheckCap = 25;   // cron: hingga 25 reservasi per putaran (dibaca paralel)
+    private $roomCheckAge = 240;   // tiap reservasi dibaca ulang paling cepat tiap 4 menit
 
     public function setRoomCheckMode(int $cap, int $ageSeconds): void
     {

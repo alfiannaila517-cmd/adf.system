@@ -155,7 +155,7 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
         }
 
         var serverSkew = <?php echo time() * 1000; ?> - Date.now();
-        var LABELS = { 'baru': 'Booking baru', 'harga': 'Harga disamakan', 'taut': 'Ditautkan', 'batal': 'Dibatalkan', 'blok': 'Blok masuk', 'cabut': 'Blok dicabut',
+        var LABELS = { 'baru': 'Booking baru', 'harga': 'Harga disamakan', 'kamar': 'Kamar dipindah', 'taut': 'Ditautkan', 'batal': 'Dibatalkan', 'blok': 'Blok masuk', 'cabut': 'Blok dicabut',
             'kirim status': 'Status terkirim', 'kirim baru': 'Booking terkirim', 'kirim blok': 'Blok terkirim', 'kirim bayar': 'Bayar terkirim', 'dicek': 'Perlu dicek', 'gagal': 'Gagal' };
         function esc(t) { return String(t).replace(/[&<>"]/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
         function ago(at) {
