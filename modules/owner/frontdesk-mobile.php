@@ -1465,6 +1465,30 @@ function rp($num)
         .ocal-legend { gap: 6px 12px; margin-top: 9px; padding-top: 8px; }
         .ocal-legend-item { font-size: .6rem; }
         .ocal-legend-dot { border-radius: 99px; }
+
+        /* ── Kalender booking v2: ramping, rapi, elegan ── */
+        .ocal-month-room, .ocal-header-room, .ocal-type-header, .ocal-room-label { min-width: 58px !important; max-width: 58px !important; }
+        .ocal-month-label span { left: 64px; }
+        .ocal-header-room { font-size: 0; min-height: 44px; }
+        .ocal-header-room::before { content: 'KAMAR'; font-size: .52rem; font-weight: 800; letter-spacing: .1em; color: #94a3b8; }
+        .ocal-header-date { min-height: 44px; gap: 2px; }
+        .ocal-header-date-day { font-size: .5rem; letter-spacing: .08em; }
+        .ocal-header-date-num { font-size: .78rem; min-width: 22px; line-height: 22px; text-align: center; }
+        .ocal-header-date.we .ocal-header-date-day, .ocal-header-date.we .ocal-header-date-num { color: #dc2626; }
+        .ocal-header-date.today .ocal-header-date-num { color: #fff; }
+        .ocal-date-cell.we { background: #fafbfd; }
+        .ocal-date-cell.today { background: rgba(37, 99, 235, .06) !important; box-shadow: inset 1px 0 0 rgba(37, 99, 235, .25), inset -1px 0 0 rgba(37, 99, 235, .25); }
+        .ocal-type-header { justify-content: flex-start; padding-left: 8px; font-size: .52rem; }
+        .ocal-type-cell { opacity: .55; min-height: 18px; }
+        .ocal-type-header { min-height: 18px; }
+        .ocal-room-label { min-height: 34px; align-items: center; padding: 0; }
+        .ocal-room-number { font-size: .8rem; }
+        .ocal-date-cell { min-height: 34px; }
+        .ocal-bar-container { top: 5px; height: 24px; left: 50%; }
+        .ocal-bar { height: 24px; border-radius: 12px; padding: 0 9px; box-shadow: 0 6px 12px -8px rgba(15, 23, 42, .55), inset 0 1px 0 rgba(255, 255, 255, .22); }
+        .ocal-bar > span { font-size: .6rem; font-weight: 700; letter-spacing: .01em; }
+        .ocal-scroll-wrapper { border-radius: 14px; background: #fff; }
+        .ocal-legend-item { padding: 2px 8px 2px 6px; border-radius: 999px; background: #f8fafc; border: 1px solid #eef2f7; }
     </style>
 </head>
 
@@ -1650,7 +1674,7 @@ function rp($num)
                         </div>
                     </div>
                     <?php
-                    $colW = 90;
+                    $colW = 60;
                     $todayStr = date('Y-m-d');
                     $dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                     $totalCols = count($calDates);
@@ -1671,7 +1695,7 @@ function rp($num)
                     ?>
                     <div class="ocal-scroll-wrapper" id="ocalScroller">
                         <div class="ocal-grid-wrapper">
-                            <div class="ocal-grid" style="grid-template-columns: 90px repeat(<?= $totalCols ?>, <?= $colW ?>px);">
+                            <div class="ocal-grid" style="grid-template-columns: 58px repeat(<?= $totalCols ?>, <?= $colW ?>px);">
                                 <!-- Month Row -->
                                 <div class="ocal-month-row">
                                     <div class="ocal-month-room"></div>
@@ -1688,7 +1712,7 @@ function rp($num)
                                         $dow = date('w', strtotime($d));
                                         $isToday = ($d === $todayStr);
                                     ?>
-                                        <div class="ocal-header-date<?= $isToday ? ' today' : '' ?>" data-date="<?= $d ?>">
+                                        <div class="ocal-header-date<?= $isToday ? ' today' : '' ?><?= in_array($dow, [0, 6]) ? ' we' : '' ?>" data-date="<?= $d ?>">
                                             <span class="ocal-header-date-day"><?= $dayNames[$dow] ?></span>
                                             <span class="ocal-header-date-num"><?= date('j', strtotime($d)) ?></span>
                                         </div>
@@ -1712,7 +1736,7 @@ function rp($num)
                                         <?php foreach ($calDates as $dateIdx => $d):
                                             $isToday = ($d === $todayStr);
                                         ?>
-                                            <div class="ocal-date-cell<?= $isToday ? ' today' : '' ?>" data-date="<?= $d ?>">
+                                            <div class="ocal-date-cell<?= $isToday ? ' today' : '' ?><?= in_array((int)date('w', strtotime($d)), [0, 6]) ? ' we' : '' ?>" data-date="<?= $d ?>">
                                                 <?php
                                                 foreach ($roomBookings as $bk) {
                                                     $ciDate = $bk['check_in_date'];
@@ -1735,7 +1759,7 @@ function rp($num)
                                                         $guestShort = mb_substr($bk['guest_name'] ?? 'Guest', 0, 12);
                                                         echo '<div class="ocal-bar-container" style="left:50%;width:' . $barWidth . 'px;">';
                                                         echo '<div class="ocal-bar ' . $statusCls . '">';
-                                                        echo '<span>' . $icon . htmlspecialchars($guestShort) . '</span>';
+                                                        echo '<span>' . htmlspecialchars($guestShort) . '</span>';
                                                         echo '</div></div>';
                                                     }
                                                 }

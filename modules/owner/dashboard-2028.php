@@ -3252,6 +3252,32 @@ if (!$ovIsHotel) {
         .ow-panel.ow-grid2.on { display: grid; }
         @media (min-width: 700px) { .ow-apps { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); } }
 
+        /* ── Dock bawah (menggantikan footer) ── */
+        body { padding-bottom: 92px !important; }
+        .ow-apps { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; gap: 2px; margin: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid #e2e8f0; box-shadow: 0 -10px 30px -18px rgba(15, 23, 42, .35); overflow-x: auto; scrollbar-width: none; justify-content: center; }
+        .ow-apps::-webkit-scrollbar { display: none; }
+        .ow-app { flex: 1 0 62px; max-width: 96px; background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 4px 2px 2px; border-radius: 12px; gap: 1px; }
+        .ow-app:hover { transform: none; }
+        .ow-app-ic { width: 34px; height: 34px; border-radius: 11px; margin-bottom: 1px; transition: background .15s, transform .15s; }
+        .ow-app-ic svg { width: 18px; height: 18px; }
+        .ow-app b { font-size: .6rem; color: #64748b; }
+        .ow-app small { display: none; }
+        .ow-app.on { background: transparent !important; box-shadow: none !important; }
+        .ow-app.on .ow-app-ic { background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; color: #fff !important; transform: translateY(-2px); box-shadow: 0 8px 16px -8px rgba(37, 99, 235, .9); }
+        .ow-app.on b { color: #1d4ed8; }
+        @media (min-width: 700px) { .ow-apps { grid-template-columns: none; } }
+        .ow-sheet-bg { position: fixed; inset: 0; background: rgba(15, 23, 42, .45); z-index: 950; opacity: 0; pointer-events: none; transition: opacity .18s; }
+        .ow-sheet-bg.on { opacity: 1; pointer-events: auto; }
+        .ow-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 960; background: #fff; border-radius: 22px 22px 0 0; padding: 8px 16px calc(18px + env(safe-area-inset-bottom)); transform: translateY(105%); transition: transform .22s cubic-bezier(.2, .8, .2, 1); box-shadow: 0 -20px 50px -20px rgba(15, 23, 42, .5); max-width: 640px; margin: 0 auto; }
+        .ow-sheet.on { transform: none; }
+        .ow-sheet-grip { width: 40px; height: 4px; border-radius: 99px; background: #cbd5e1; margin: 0 auto 10px; }
+        .ow-sheet-t { font-size: .82rem; font-weight: 800; color: #0f172a; margin-bottom: 10px; }
+        .ow-sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+        .ow-sheet-i { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; border-radius: 14px; background: #f8fafc; border: 1px solid #e8edf3; text-decoration: none; color: #0f172a; }
+        .ow-sheet-i span { font-size: 1.35rem; line-height: 1; }
+        .ow-sheet-i b { font-size: .68rem; font-weight: 700; }
+        .ow-sheet-i.out { background: #fef2f2; border-color: #fecaca; } .ow-sheet-i.out b { color: #b91c1c; }
+
         /* ── Daily Cash lebih kecil ── */
         .dc { padding: 10px 12px; }
         .dc-head { margin-bottom: 8px; }
@@ -3533,12 +3559,10 @@ if (!$ovIsHotel) {
                         <b><?= $t[1] ?></b><small><?= htmlspecialchars($t[2]) ?></small>
                     </button>
                 <?php endforeach; ?>
-                <?php if ($ovHasOcc): ?>
-                    <a class="ow-app" href="<?= $basePath ?>/modules/owner/frontdesk-mobile.php">
-                        <span class="ow-app-ic ic-t-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-                        <b>Kalender</b><small>Booking kamar</small>
-                    </a>
-                <?php endif; ?>
+                <button type="button" class="ow-app ow-app-more" id="owMoreBtn" aria-haspopup="dialog">
+                    <span class="ow-app-ic ic-t-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>
+                    <b>Menu</b>
+                </button>
             </nav>
 
             <section class="ow-sec">
@@ -4286,10 +4310,46 @@ if (!$ovIsHotel) {
     <!-- Footer Nav -->
     <?php
     require_once __DIR__ . '/../../includes/owner_footer_nav.php';
-    renderOwnerFooterNav('home', $basePath, $enabledModules);
+    // Tautan halaman lain (dulu di footer) kini ada di sheet "Menu" pada dock bawah
+    $owLinks = [];
+    $owDefs = getOwnerFooterMenuDefinitions();
+    foreach (getUserFooterMenus() as $k) {
+        if (!isset($owDefs[$k]) || $k === 'home') continue;
+        $m = $owDefs[$k];
+        if (isset($m['requires_module']) && !isset($m['always_show'])) {
+            $okMod = false;
+            foreach ((array)$m['requires_module'] as $mod) if (in_array($mod, $enabledModules)) { $okMod = true; break; }
+            if (!$okMod) continue;
+        }
+        $owLinks[] = ['label' => $m['label'], 'icon' => $m['icon'], 'url' => $k === 'logout' ? $basePath . '/logout.php' : $basePath . '/modules/owner/' . $m['url_key'], 'logout' => $k === 'logout'];
+    }
+    ?>
+    <div class="ow-sheet-bg" id="owSheetBg"></div>
+    <div class="ow-sheet" id="owSheet" role="dialog" aria-label="Menu">
+        <div class="ow-sheet-grip"></div>
+        <div class="ow-sheet-t">Menu</div>
+        <div class="ow-sheet-grid">
+            <?php foreach ($owLinks as $lk): ?>
+                <a href="<?= htmlspecialchars($lk['url']) ?>" class="ow-sheet-i<?= $lk['logout'] ? ' out' : '' ?>">
+                    <span style="font-family:'Segoe UI Emoji','Apple Color Emoji',sans-serif;"><?= $lk['icon'] ?></span>
+                    <b><?= htmlspecialchars($lk['label']) ?></b>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php
     ?>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        (function() {
+            var b = document.getElementById('owMoreBtn'), sh = document.getElementById('owSheet'), bg = document.getElementById('owSheetBg');
+            if (!b || !sh) return;
+            function t(on) { sh.classList.toggle('on', on); bg.classList.toggle('on', on); }
+            b.addEventListener('click', function() { t(!sh.classList.contains('on')); });
+            bg.addEventListener('click', function() { t(false); });
+        })();
+    </script>
     <script>
         // Launcher ikon: satu bagian tampil per kali, halaman tidak memanjang
         (function() {
