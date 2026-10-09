@@ -813,27 +813,27 @@ include '../../includes/header.php';
     }
 
     /* ── Desain ulang kartu Tamu Menginap (ringkas): header, info, total, dan tombol seragam ── */
-    body[data-theme] .ih-guests { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; gap: .6rem !important; align-items: stretch !important; }
-    body[data-theme] .ih-card { gap: .5rem !important; padding: .65rem .75rem !important; border-radius: 13px !important; }
-    body[data-theme] .ih-card .ih-room { min-width: 36px; height: 30px; border-radius: 9px; font-size: .78rem; }
-    body[data-theme] .ih-card .ih-who b { font-size: .8rem; font-weight: 800; }
-    body[data-theme] .ih-card .ih-who small { font-size: .62rem; }
-    body[data-theme] .ih-card .ih-payment-badge { padding: .15rem .5rem !important; font-size: .58rem !important; font-weight: 800 !important; }
-    body[data-theme] .ih-card .ih-meta { gap: .28rem; }
-    body[data-theme] .ih-card .ih-meta span { font-size: .64rem; font-weight: 600; padding: .15rem .45rem; border-radius: 7px; }
+    body[data-theme] .ih-guests { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important; gap: .45rem !important; align-items: stretch !important; }
+    body[data-theme] .ih-card { gap: .35rem !important; padding: .5rem .6rem !important; border-radius: 11px !important; }
+    body[data-theme] .ih-card .ih-room { min-width: 30px; height: 24px; border-radius: 7px; font-size: .68rem; }
+    body[data-theme] .ih-card .ih-who b { font-size: .72rem; font-weight: 800; }
+    body[data-theme] .ih-card .ih-who small { font-size: .54rem; }
+    body[data-theme] .ih-card .ih-payment-badge { padding: .1rem .4rem !important; font-size: .5rem !important; font-weight: 800 !important; }
+    body[data-theme] .ih-card .ih-meta { gap: .2rem; }
+    body[data-theme] .ih-card .ih-meta span { font-size: .56rem; font-weight: 600; padding: .08rem .35rem; border-radius: 6px; }
     body[data-theme] .ih-card .ih-meta span:first-child { background: rgba(37, 99, 235, .1); color: #1d4ed8 !important; }
     body[data-theme="dark"] .ih-card .ih-meta span:first-child { color: #93c5fd !important; }
-    body[data-theme] .ih-card .ih-card-foot { margin-top: auto; flex-direction: column; align-items: stretch; gap: .5rem; padding-top: .5rem; }
+    body[data-theme] .ih-card .ih-card-foot { margin-top: auto; flex-direction: column; align-items: stretch; gap: .35rem; padding-top: .35rem; }
     body[data-theme] .ih-card .ih-total { flex-direction: row; align-items: baseline; gap: .4rem; flex-wrap: wrap; }
-    body[data-theme] .ih-card .ih-total small { font-size: .58rem; }
-    body[data-theme] .ih-card .ih-total b { font-size: .9rem; font-weight: 800; }
-    body[data-theme] .ih-card .ih-total .ih-rest { margin-left: auto; padding: .1rem .45rem; border-radius: 999px; background: rgba(220, 38, 38, .1); font-size: .64rem; font-weight: 800; }
-    body[data-theme] .ih-card .ih-actions { display: flex !important; gap: .35rem !important; width: 100%; }
-    body[data-theme] .ih-card .ih-btn { height: 30px !important; padding: 0 .45rem !important; border-radius: 8px !important; font-size: .7rem !important; font-weight: 700 !important; display: inline-flex !important; align-items: center; justify-content: center; gap: .3rem; flex: 1 1 0 !important; min-width: 0; cursor: pointer; white-space: nowrap; }
+    body[data-theme] .ih-card .ih-total small { font-size: .5rem; }
+    body[data-theme] .ih-card .ih-total b { font-size: .78rem; font-weight: 800; }
+    body[data-theme] .ih-card .ih-total .ih-rest { margin-left: auto; padding: .05rem .4rem; border-radius: 999px; background: rgba(220, 38, 38, .1); font-size: .55rem; font-weight: 800; }
+    body[data-theme] .ih-card .ih-actions { display: flex !important; gap: .3rem !important; width: 100%; }
+    body[data-theme] .ih-card .ih-btn { height: 25px !important; padding: 0 .35rem !important; border-radius: 7px !important; font-size: .62rem !important; font-weight: 700 !important; display: inline-flex !important; align-items: center; justify-content: center; gap: .3rem; flex: 1 1 0 !important; min-width: 0; cursor: pointer; white-space: nowrap; }
     body[data-theme] .ih-card .ih-btn span { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: inherit !important; font-weight: inherit !important; background: none !important; padding: 0 !important; }
-    body[data-theme] .ih-card .ih-btn .ih-ic { width: 13px; height: 13px; flex: none; }
-    body[data-theme] .ih-card .ih-btn-wa { flex: 0 0 30px !important; width: 30px !important; border-radius: 8px !important; }
-    body[data-theme] .ih-card .ih-btn-wa svg { width: 15px; height: 15px; }
+    body[data-theme] .ih-card .ih-btn .ih-ic { width: 11px; height: 11px; flex: none; }
+    body[data-theme] .ih-card .ih-btn-wa { flex: 0 0 25px !important; width: 25px !important; border-radius: 7px !important; }
+    body[data-theme] .ih-card .ih-btn-wa svg { width: 13px; height: 13px; }
     /* teks tombol berwarna solid harus putih */
     body[data-theme] .ih-card .ih-btn-checkout, body[data-theme] .ih-card .ih-btn-pay { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     body[data-theme] .ih-card .ih-btn-breakfast { color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; }
