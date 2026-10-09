@@ -273,26 +273,24 @@ $houseRules = [
 
         <div class="sec">
             <div class="sec-h"><i></i> Stay Details</div>
-            <?php if ($multi): ?>
-                <table class="rooms">
-                    <thead><tr><th style="width:30px">#</th><th>Room Number</th><th>Room Type</th><th>Guests</th><?php if (!$sameDates): ?><th>Stay</th><?php endif; ?></tr></thead>
-                    <tbody>
-                        <?php foreach ($rooms as $ri => $rm): $ra = (int)($rm['adults'] ?? 1); $rc = (int)($rm['children'] ?? 0); ?>
-                            <tr>
-                                <td><?php echo $ri + 1; ?></td>
-                                <td><b><?php echo $e($rm['room_number'] ?: '-'); ?></b></td>
-                                <td><?php echo $e($rm['room_type'] ?: '-'); ?></td>
-                                <td><?php echo $ra . ' Adult' . ($ra === 1 ? '' : 's') . ($rc > 0 ? ', ' . $rc . ' Child' . ($rc === 1 ? '' : 'ren') : ''); ?></td>
-                                <?php if (!$sameDates): ?><td><?php echo $e(date('d M', strtotime($rm['check_in_date'])) . ' – ' . date('d M Y', strtotime($rm['check_out_date']))); ?></td><?php endif; ?>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-                <div class="stay" style="border-top:1px solid var(--line);grid-template-columns:1fr 1fr 1fr">
-                    <div class="f hi"><label>Total Rooms</label><div><?php echo count($rooms); ?> Rooms</div></div>
-                    <div class="f"><label>Nights</label><div><?php echo $nights; ?> Night<?php echo $nights === 1 ? '' : 's'; ?></div></div>
-                    <div class="f"><label>Total Guests</label><div><?php echo $e($guestsText); ?></div></div>
+            <?php if ($multi):
+                // Grup: semua kamar dalam SATU baris (sama seperti kartu satu kamar) agar tetap muat satu lembar A4
+                $typeCnt = [];
+                foreach ($rooms as $rm) { $t = (string)($rm['room_type'] ?: 'Room'); $typeCnt[$t] = ($typeCnt[$t] ?? 0) + 1; }
+                $typeLabel = implode(', ', array_map(fn($t, $n) => $n > 1 ? $t . ' × ' . $n : $t, array_keys($typeCnt), $typeCnt));
+                $roomNos = implode(', ', array_map(fn($rm) => (string)($rm['room_number'] ?: '-'), $rooms));
+            ?>
+            <div class="stay" style="grid-template-columns: 1.1fr 1.3fr .7fr 1fr;">
+                <div class="f hi"><label>Room Type</label><div><?php echo $e($typeLabel); ?></div></div>
+                <div class="f hi"><label>Room Numbers (<?php echo count($rooms); ?> rooms)</label><div><?php echo $e($roomNos); ?></div></div>
+                <div class="f"><label>Nights</label><div><?php echo $nights; ?> Night<?php echo $nights === 1 ? '' : 's'; ?></div></div>
+                <div class="f"><label>Total Guests</label><div><?php echo $e($guestsText); ?></div></div>
+            </div>
+            <?php if (!$sameDates): ?>
+                <div style="padding:6px 12px;border-top:1px solid var(--line);font-size:10px;color:var(--muted)">
+                    <?php echo $e(implode('  ·  ', array_map(fn($rm) => 'Room ' . $rm['room_number'] . ': ' . date('d M', strtotime($rm['check_in_date'])) . ' – ' . date('d M Y', strtotime($rm['check_out_date'])), $rooms))); ?>
                 </div>
+            <?php endif; ?>
             <?php else: ?>
             <div class="stay">
                 <div class="f hi"><label>Room Type</label><div><?php echo $e($booking['room_type'] ?: '-'); ?></div></div>
