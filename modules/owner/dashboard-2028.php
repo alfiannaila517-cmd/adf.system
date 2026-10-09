@@ -1014,6 +1014,7 @@ if ($healthScore >= 80) {
 
 // ═══ OWNER OVERVIEW: grafik 7 hari, okupansi, pemasukan per divisi, notifikasi End Shift ═══
 $ov = ['days' => [], 'inc' => [], 'exp' => [], 'occ7' => [], 'occToday' => ['occupied' => 0, 'vacant' => 0, 'blocked' => 0, 'arriving' => 0, 'total' => 0], 'divInc' => [], 'endShifts' => []];
+$ovIsHotel = ($businessType ?? '') === 'hotel';
 $ovHari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 $ovBln = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 try {
@@ -1036,9 +1037,9 @@ try {
             $ov['exp'][] = $expMap[$dt] ?? 0;
         }
 
-        // Okupansi: perhitungan yang SAMA persis dengan widget Front Desk (includes/frontdesk_today.php)
+        // Okupansi: perhitungan yang SAMA persis dengan widget Front Desk (includes/frontdesk_today.php) — hanya bisnis hotel
         try {
-            if ((int)$pdo->query("SELECT COUNT(*) FROM rooms")->fetchColumn() > 0) {
+            if ($ovIsHotel && (int)$pdo->query("SELECT COUNT(*) FROM rooms")->fetchColumn() > 0) {
                 require_once __DIR__ . '/../../includes/frontdesk_today.php';
                 $ovAdapter = new class($pdo) {
                     private $p;
@@ -1100,6 +1101,10 @@ try {
     }
 } catch (\Throwable $e) {
     error_log('owner overview: ' . $e->getMessage());
+}
+if (!$ovIsHotel) {
+    $totalRooms = 0;
+    $aiFrontdesk = [];
 }
 ?>
 <!DOCTYPE html>
@@ -3171,6 +3176,32 @@ try {
         .ow-bar b { font-size: .66rem; font-weight: 800; color: #475569; margin-top: 5px; }
         .ow-bar small { font-size: .58rem; color: #94a3b8; }
 
+        /* ── Financial Performance ringkas ── */
+        .ow-fp { padding: 12px 14px; border-top: 3px solid #2563eb; }
+        .ow-fp-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+        .ow-fp-t b { display: block; font-size: .82rem; font-weight: 800; color: #0f172a; }
+        .ow-fp-t small, .ow-fp-net small { display: block; font-size: .6rem; color: #64748b; margin-top: 1px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+        .ow-fp-net { text-align: right; }
+        .ow-fp-net b { display: block; font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; margin-top: 1px; }
+        .ow-fp .pos { color: #059669; } .ow-fp .neg { color: #dc2626; }
+        .ow-fp-body { display: flex; align-items: center; gap: 14px; }
+        .ow-fp-donut { position: relative; width: 92px; height: 92px; flex-shrink: 0; }
+        .ow-fp-donut canvas { width: 92px !important; height: 92px !important; }
+        .ow-fp-c { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+        .ow-fp-c small { font-size: .5rem; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; font-weight: 700; }
+        .ow-fp-c b { font-size: 1rem; font-weight: 800; line-height: 1.1; }
+        .ow-fp-rows { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+        .ow-fp-r { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 10px; background: #f8fafc; border: 1px solid #eef2f7; }
+        .ow-fp-r i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .ow-fp-r span { font-size: .66rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+        .ow-fp-r b { margin-left: auto; font-size: .82rem; font-weight: 800; white-space: nowrap; }
+        .ow-fp-r em { font-style: normal; font-size: .62rem; font-weight: 700; color: #94a3b8; min-width: 28px; text-align: right; }
+        .ow-fp-ratio > div:first-child { display: flex; justify-content: space-between; align-items: baseline; }
+        .ow-fp-ratio span { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+        .ow-fp-ratio b { font-size: .68rem; font-weight: 800; }
+        .ow-fp-bar { height: 4px; border-radius: 99px; background: #e8edf3; overflow: hidden; margin-top: 3px; }
+        .ow-fp-bar i { display: block; height: 100%; border-radius: 99px; }
+
         /* ── Mode ringkas ── */
         .container { padding-left: 12px !important; padding-right: 12px !important; }
         .ow-top { padding: 9px 12px; margin-bottom: 10px; border-radius: 14px; }
@@ -3385,7 +3416,34 @@ try {
             $ovOcc = $ov['occToday'];
             $ovOccPct = $ovOcc['total'] > 0 ? ($ovOcc['rate'] ?? round($ovOcc['occupied'] / $ovOcc['total'] * 100, 1)) : 0;
             ?>
+            <?php
+            $fpMargin = $stats['month_income'] > 0 ? round((($stats['month_income'] - $stats['month_expense']) / $stats['month_income']) * 100) : 0;
+            $fpTot = $stats['month_income'] + $stats['month_expense'];
+            $fpIncPct = $fpTot > 0 ? round($stats['month_income'] / $fpTot * 100) : 0;
+            $fpExpPct = $fpTot > 0 ? 100 - $fpIncPct : 0;
+            ?>
             <section class="ow-sec">
+                <div class="ow-card ow-fp">
+                    <div class="ow-fp-top">
+                        <div class="ow-fp-t"><b>Financial Performance</b><small><?= date('F Y') ?></small></div>
+                        <div class="ow-fp-net"><small>Net Profit</small><b class="<?= $netProfit >= 0 ? 'pos' : 'neg' ?>"><?= ($netProfit >= 0 ? '+' : '') . rp($netProfit) ?></b></div>
+                    </div>
+                    <div class="ow-fp-body">
+                        <div class="ow-fp-donut">
+                            <canvas id="pieChart" width="92" height="92"></canvas>
+                            <div class="ow-fp-c"><small>Margin</small><b class="<?= $fpMargin >= 0 ? 'pos' : 'neg' ?>"><?= $fpMargin ?>%</b></div>
+                        </div>
+                        <div class="ow-fp-rows">
+                            <div class="ow-fp-r"><i style="background:#10b981"></i><span>Income</span><b class="pos"><?= rp($stats['month_income']) ?></b><em><?= $fpIncPct ?>%</em></div>
+                            <div class="ow-fp-r"><i style="background:#ef4444"></i><span>Expense</span><b class="neg"><?= rp($stats['month_expense']) ?></b><em><?= $fpExpPct ?>%</em></div>
+                            <div class="ow-fp-ratio">
+                                <div><span>Expense ratio</span><b style="color:<?= $expenseRatio > 70 ? '#dc2626' : ($expenseRatio > 50 ? '#d97706' : '#059669') ?>"><?= number_format($expenseRatio, 1) ?>%</b></div>
+                                <div class="ow-fp-bar"><i style="width:<?= min($expenseRatio, 100) ?>%;background:<?= $expenseRatio > 70 ? '#ef4444' : ($expenseRatio > 50 ? '#f59e0b' : '#10b981') ?>"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="ow-card ow-es">
                     <div class="ow-card-h">
                         <div class="ow-ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
@@ -3420,12 +3478,8 @@ try {
                     <div class="ow-kpi k-red"><span>Pengeluaran</span><b><?= rp($stats['today_expense']) ?></b></div>
                     <div class="ow-kpi <?= $ovNetToday >= 0 ? 'k-blue' : 'k-red' ?>"><span>Net hari ini</span><b><?= ($ovNetToday >= 0 ? '+' : '') . rp($ovNetToday) ?></b></div>
                 </div>
-                <div class="ow-grid2">
-                    <div class="ow-card">
-                        <div class="ow-card-h"><div class="ow-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div><div><b>Pemasukan vs Pengeluaran</b><small>7 hari terakhir</small></div></div>
-                        <div class="ow-chart"><canvas id="ovFlowChart"></canvas></div>
-                    </div>
-                    <?php if ($ovOcc['total'] > 0): ?>
+                <?php if ($ovIsHotel && $ovOcc['total'] > 0): ?>
+                    <div class="ow-grid2">
                         <div class="ow-card">
                             <div class="ow-card-h"><div class="ow-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Okupansi Hari Ini</b><small><?= $ovOcc['total'] ?> kamar</small></div></div>
                             <div class="ow-occ">
@@ -3438,123 +3492,32 @@ try {
                                 </ul>
                             </div>
                         </div>
-                    <?php endif; ?>
-                </div>
-                <div class="ow-grid2">
-                    <?php if ($ov['occ7']): ?>
-                        <div class="ow-card">
-                            <div class="ow-card-h"><div class="ow-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div><div><b>Okupansi 7 Hari</b><small>Kamar terpesan per malam</small></div></div>
-                            <div class="ow-bars">
-                                <?php foreach ($ov['occ7'] as $i => $o): ?>
-                                    <div class="ow-bar<?= $i === 0 ? ' now' : '' ?>">
-                                        <em><?= $o['pct'] ?>%</em>
-                                        <div class="ow-bar-t" title="<?= (int)($o['rooms'] ?? 0) ?> kamar terpesan"><i class="<?= $o['pct'] >= 80 ? 'hi' : ($o['pct'] < 40 ? 'lo' : '') ?>" style="height:<?= max(3, min(100, $o['pct'])) ?>%"></i></div>
-                                        <b><?= htmlspecialchars($o['label']) ?></b><small><?= htmlspecialchars($o['sub']) ?></small>
-                                    </div>
-                                <?php endforeach; ?>
+                        <?php if ($ov['occ7']): ?>
+                            <div class="ow-card">
+                                <div class="ow-card-h"><div class="ow-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div><div><b>Okupansi 7 Hari</b><small>Kamar terpesan per malam</small></div></div>
+                                <div class="ow-bars">
+                                    <?php foreach ($ov['occ7'] as $i => $o): ?>
+                                        <div class="ow-bar<?= $i === 0 ? ' now' : '' ?>">
+                                            <em><?= $o['pct'] ?>%</em>
+                                            <div class="ow-bar-t" title="<?= (int)($o['rooms'] ?? 0) ?> kamar terpesan"><i class="<?= $o['pct'] >= 80 ? 'hi' : ($o['pct'] < 40 ? 'lo' : '') ?>" style="height:<?= max(3, min(100, $o['pct'])) ?>%"></i></div>
+                                            <b><?= htmlspecialchars($o['label']) ?></b><small><?= htmlspecialchars($o['sub']) ?></small>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
-                        </div>
-                    <?php endif; ?>
-                    <?php if ($ov['divInc']): ?>
-                        <div class="ow-card">
-                            <div class="ow-card-h"><div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div></div>
-                            <div class="ow-occ">
-                                <div class="ow-donut"><canvas id="ovDivChart" width="108" height="108"></canvas></div>
-                                <ul class="ow-legend" id="ovDivLegend"></ul>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </section>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
 
-            <!-- Financial Performance — Premium 2028 -->
-            <div class="hero">
-                <div class="hero-content">
-                    <!-- Top Row: Title + Date -->
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                        <div>
-                            <div class="hero-title">Financial Performance</div>
-                            <div class="hero-subtitle"><?= date('F Y') ?></div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;color:#64748b;">Net Profit</div>
-                            <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;color:<?= $netProfit >= 0 ? '#10b981' : '#ef4444' ?>;"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></div>
+                <?php if ($ov['divInc']): ?>
+                    <div class="ow-card">
+                        <div class="ow-card-h"><div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div></div>
+                        <div class="ow-occ">
+                            <div class="ow-donut"><canvas id="ovDivChart" width="108" height="108"></canvas></div>
+                            <ul class="ow-legend" id="ovDivLegend"></ul>
                         </div>
                     </div>
-
-                    <!-- Main Grid: Chart + Stats -->
-                    <div style="display:flex;gap:16px;align-items:center;">
-                        <!-- Donut Chart -->
-                        <div class="pie-wrapper">
-                            <canvas id="pieChart" width="140" height="140"></canvas>
-                            <?php
-                            $profitMargin = $stats['month_income'] > 0
-                                ? round((($stats['month_income'] - $stats['month_expense']) / $stats['month_income']) * 100)
-                                : 0;
-                            $profitClass = $profitMargin > 0 ? 'positive' : ($profitMargin < 0 ? 'negative' : 'zero');
-                            ?>
-                            <div class="pie-center">
-                                <div class="pie-center-label">Margin</div>
-                                <div class="pie-center-value <?= $profitClass ?>"><?= $profitMargin ?>%</div>
-                            </div>
-                        </div>
-
-                        <!-- Right Stats Column -->
-                        <div style="flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;">
-                            <!-- Income -->
-                            <div class="fp-stat-row">
-                                <div class="fp-stat-dot" style="background:#10b981;"></div>
-                                <div class="fp-stat-info">
-                                    <span class="fp-stat-label">Income</span>
-                                    <span class="fp-stat-val" style="color:#34d399;"><?= rp($stats['month_income']) ?></span>
-                                </div>
-                                <?php if ($stats['month_income'] > 0 && ($stats['month_income'] + $stats['month_expense']) > 0): ?>
-                                    <span class="fp-stat-pct"><?= round($stats['month_income'] / ($stats['month_income'] + $stats['month_expense']) * 100) ?>%</span>
-                                <?php endif; ?>
-                            </div>
-                            <!-- Expense -->
-                            <div class="fp-stat-row">
-                                <div class="fp-stat-dot" style="background:#ef4444;"></div>
-                                <div class="fp-stat-info">
-                                    <span class="fp-stat-label">Expense</span>
-                                    <span class="fp-stat-val" style="color:#fb7185;"><?= rp($stats['month_expense']) ?></span>
-                                </div>
-                                <?php if ($stats['month_expense'] > 0 && ($stats['month_income'] + $stats['month_expense']) > 0): ?>
-                                    <span class="fp-stat-pct"><?= round($stats['month_expense'] / ($stats['month_income'] + $stats['month_expense']) * 100) ?>%</span>
-                                <?php endif; ?>
-                            </div>
-                            <!-- Expense Ratio Bar -->
-                            <div style="margin-top:4px;">
-                                <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-                                    <span style="font-size:9px;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Expense Ratio</span>
-                                    <span style="font-size:10px;font-weight:700;color:<?= $expenseRatio > 70 ? '#fb7185' : ($expenseRatio > 50 ? '#fbbf24' : '#34d399') ?>"><?= number_format($expenseRatio, 1) ?>%</span>
-                                </div>
-                                <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
-                                    <div style="height:100%;width:<?= min($expenseRatio, 100) ?>%;background:linear-gradient(90deg,<?= $expenseRatio > 70 ? '#ef4444,#fb7185' : ($expenseRatio > 50 ? '#f59e0b,#fbbf24' : '#10b981,#34d399') ?>);border-radius:2px;transition:width 0.6s ease;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Today Strip -->
-                    <div class="hero-today-row">
-                        <div class="hero-today-item">
-                            <span class="hero-today-label">Today In</span>
-                            <span class="hero-today-value income"><?= rp($stats['today_income']) ?></span>
-                        </div>
-                        <div class="hero-today-divider"></div>
-                        <div class="hero-today-item">
-                            <span class="hero-today-label">Today Out</span>
-                            <span class="hero-today-value expense"><?= rp($stats['today_expense']) ?></span>
-                        </div>
-                        <div class="hero-today-divider"></div>
-                        <div class="hero-today-item">
-                            <span class="hero-today-label">Today Net</span>
-                            <span class="hero-today-value" style="color:<?= $netToday >= 0 ? '#34d399' : '#fb7185' ?>"><?= $netToday >= 0 ? '+' : '' ?><?= rp($netToday) ?></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                <?php endif; ?>            </section>
 
             <!-- Daily Cash Section - SYNCED WITH index.php -->
             <?php
