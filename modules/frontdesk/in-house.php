@@ -834,6 +834,8 @@ include '../../includes/header.php';
     body[data-theme] .ih-card .ih-btn .ih-ic { width: 11px; height: 11px; flex: none; }
     body[data-theme] .ih-card .ih-btn-wa { flex: 0 0 25px !important; width: 25px !important; border-radius: 7px !important; }
     body[data-theme] .ih-card .ih-btn-wa svg { width: 13px; height: 13px; }
+    /* teks status (LUNAS / CICIL / PENDING) putih di atas warna solid */
+    body[data-theme] .ih-card .ih-payment-badge, body[data-theme] .ih-card .ih-payment-badge.paid, body[data-theme] .ih-card .ih-payment-badge.partial, body[data-theme] .ih-card .ih-payment-badge.unpaid { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     /* teks tombol berwarna solid harus putih */
     body[data-theme] .ih-card .ih-btn-checkout, body[data-theme] .ih-card .ih-btn-pay { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
     body[data-theme] .ih-card .ih-btn-breakfast { color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; }
