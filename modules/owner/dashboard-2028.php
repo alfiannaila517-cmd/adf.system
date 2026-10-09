@@ -1036,26 +1036,27 @@ try {
             $ov['exp'][] = $expMap[$dt] ?? 0;
         }
 
-        // Okupansi (hanya bisnis dengan kamar)
+        // Okupansi: perhitungan yang SAMA persis dengan widget Front Desk (includes/frontdesk_today.php)
         try {
-            $totR = (int)$pdo->query("SELECT COUNT(*) FROM rooms")->fetchColumn();
-            if ($totR > 0) {
-                $occN = (int)$pdo->query("SELECT COUNT(DISTINCT room_id) FROM bookings WHERE status = 'checked_in'")->fetchColumn();
-                $blkN = 0;
-                try {
-                    $blkN = (int)$pdo->query("SELECT COUNT(DISTINCT room_id) FROM room_blocks WHERE status = 'active' AND block_start_date <= CURDATE() AND block_end_date > CURDATE()")->fetchColumn();
-                } catch (\Throwable $e) {
-                }
-                $arrN = (int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status IN ('confirmed', 'pending') AND DATE(check_in_date) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)")->fetchColumn();
-                $ov['occToday'] = ['occupied' => $occN, 'blocked' => $blkN, 'arriving' => $arrN, 'vacant' => max(0, $totR - $occN - $blkN), 'total' => $totR];
-                $stO = $pdo->prepare("SELECT COUNT(DISTINCT room_id) FROM bookings WHERE status IN ('checked_in', 'confirmed', 'pending') AND DATE(check_in_date) <= ? AND DATE(check_out_date) > ?");
-                for ($i = 0; $i < 7; $i++) {
-                    $dt = date('Y-m-d', strtotime("+$i days"));
-                    $stO->execute([$dt, $dt]);
+            if ((int)$pdo->query("SELECT COUNT(*) FROM rooms")->fetchColumn() > 0) {
+                require_once __DIR__ . '/../../includes/frontdesk_today.php';
+                $ovAdapter = new class($pdo) {
+                    private $p;
+                    public function __construct($p) { $this->p = $p; }
+                    public function fetchOne($sql, $a = []) { $st = $this->p->prepare($sql); $st->execute($a); return $st->fetch(PDO::FETCH_ASSOC) ?: null; }
+                    public function fetchAll($sql, $a = []) { $st = $this->p->prepare($sql); $st->execute($a); return $st->fetchAll(PDO::FETCH_ASSOC); }
+                };
+                $fdd = fdt_data($ovAdapter);
+                $ov['occToday'] = [
+                    'occupied' => (int)$fdd['occupied_rooms'], 'vacant' => (int)$fdd['vacant_rooms'], 'blocked' => (int)$fdd['blocked_rooms'],
+                    'arriving' => (int)$fdd['arrivals_tomorrow'], 'total' => (int)$fdd['total_rooms'], 'rate' => (float)$fdd['occupancy_rate'],
+                ];
+                foreach ($fdd['forecast'] as $i => $fc) {
+                    $t = strtotime($fc['date']);
                     $ov['occ7'][] = [
-                        'label' => $i === 0 ? 'Hari ini' : $ovHari[(int)date('w', strtotime($dt))],
-                        'sub' => date('j', strtotime($dt)) . ' ' . $ovBln[(int)date('n', strtotime($dt))],
-                        'pct' => (int)round(((int)$stO->fetchColumn()) / $totR * 100),
+                        'label' => $i === 0 ? 'Hari ini' : $ovHari[(int)date('w', $t)],
+                        'sub' => date('j', $t) . ' ' . $ovBln[(int)date('n', $t)],
+                        'pct' => (int)$fc['pct'], 'rooms' => (int)$fc['rooms'],
                     ];
                 }
             }
@@ -3170,11 +3171,62 @@ try {
         .ow-bar b { font-size: .66rem; font-weight: 800; color: #475569; margin-top: 5px; }
         .ow-bar small { font-size: .58rem; color: #94a3b8; }
 
+        /* ── Mode ringkas ── */
+        .container { padding-left: 12px !important; padding-right: 12px !important; }
+        .ow-top { padding: 9px 12px; margin-bottom: 10px; border-radius: 14px; }
+        .ow-logo { width: 34px; height: 34px; border-radius: 10px; font-weight: 800; font-size: .95rem; color: #fff; }
+        .ow-logo.has-img { background: #fff; padding: 2px; }
+        .ow-logo.has-img img { object-fit: contain; border-radius: 8px; }
+        .ow-name { font-size: .9rem; }
+        .ow-sub { font-size: .62rem; }
+        .ow-btn { height: 30px; padding: 0 10px; font-size: .68rem; border-radius: 9px; }
+        .ow-user { height: 30px; }
+        .ow-sec { gap: 10px; margin-bottom: 10px; }
+        .ow-card { padding: 11px 13px; border-radius: 14px; }
+        .ow-card-h { margin-bottom: 8px; gap: 8px; }
+        .ow-card-h b { font-size: .8rem; } .ow-card-h small { font-size: .62rem; }
+        .ow-ic { width: 28px; height: 28px; border-radius: 8px; } .ow-ic svg { width: 15px; height: 15px; }
+        .ow-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        .ow-kpi { padding: 8px 10px; border-radius: 12px; border-left-width: 3px; }
+        .ow-kpi span { font-size: .54rem; letter-spacing: .05em; }
+        .ow-kpi b { font-size: .86rem; margin-top: 2px; }
+        .ow-chart { height: 170px; }
+        .ow-occ { gap: 16px; }
+        .ow-donut { width: 108px; height: 108px; }
+        .ow-donut canvas { width: 108px !important; height: 108px !important; }
+        .ow-donut-c b { font-size: 1.15rem; } .ow-donut-c small { font-size: .6rem; }
+        .ow-legend { gap: 7px; } .ow-legend li { font-size: .72rem; } .ow-legend li i { width: 9px; height: 9px; border-radius: 2px; }
+        .ow-bars { height: auto; gap: 6px; align-items: end; }
+        .ow-bar { gap: 5px; height: auto; }
+        .ow-bar em { font-size: .6rem; margin: 0; }
+        .ow-bar-t { flex: none; height: 66px; max-width: 30px; border-radius: 8px; }
+        .ow-bar-t i { min-height: 3px; border-radius: 5px 5px 0 0; }
+        .ow-bar-t i.hi { background: linear-gradient(180deg, #4ade80, #16a34a); }
+        .ow-bar-t i.lo { background: linear-gradient(180deg, #fcd34d, #f59e0b); }
+        .ow-bar b { font-size: .6rem; margin: 0; } .ow-bar small { font-size: .56rem; }
+        .ow-es-item { padding: 7px 10px; border-radius: 10px; }
+        .ow-es-who { font-size: .72rem; } .ow-es-at { font-size: .6rem; }
+        .ow-es-chips span { font-size: .6rem; padding: 1px 8px; }
+        .ow-empty { padding: 9px; font-size: .68rem; }
+        /* duplikat dihilangkan: ringkasan "Today In/Out/Net" sudah ada di kartu atas */
+        .hero-today-row { display: none !important; }
+        /* pilihan bisnis: strip ramping tanpa kartu */
+        .info-card:has(.biz-switcher) { padding: 8px 10px !important; margin-bottom: 10px !important; border-radius: 14px !important; }
+        .info-card:has(.biz-switcher) > div:first-child { display: none !important; }
+        .biz-switcher { gap: 6px !important; }
+        .biz-pill { padding: 5px 10px 5px 6px !important; border-radius: 10px !important; }
+        .biz-pill-icon { width: 24px !important; height: 24px !important; }
+        .biz-pill-name { font-size: .7rem !important; } .biz-pill-type { font-size: .56rem !important; }
+        @media (max-width: 600px) {
+            .ow-btn span { display: none; }
+            .ow-btn { width: 30px; padding: 0; justify-content: center; }
+            .ow-sub { display: none; }
+            .ow-un { display: none; }
+        }
         @media (max-width: 760px) {
             .ow-grid2 { grid-template-columns: 1fr; }
             .ow-un { display: none; }
             .ow-occ { gap: 14px; }
-            .ow-donut { width: 124px; height: 124px; }
         }
     </style>
 </head>
@@ -3263,14 +3315,14 @@ try {
         <!-- Header -->
         <header class="ow-top">
             <div class="ow-brand">
-                <div class="ow-logo">
-                    <?php if (file_exists(__DIR__ . '/../../uploads/logos/' . $logoFile)): ?>
-                        <img src="<?= $basePath ?>/uploads/logos/<?= $logoFile ?>" alt="Logo">
+                <?php $ovLogo = function_exists('getBusinessLogoById') ? getBusinessLogoById($activeBusinessId, $activeConfig) : ''; ?>
+                <div class="ow-logo<?= $ovLogo ? ' has-img' : '' ?>">
+                    <?php if ($ovLogo): ?>
+                        <img src="<?= htmlspecialchars($ovLogo) ?>" alt="Logo">
                     <?php else: ?>
-                        <span><?= $businessIcon ?></span>
+                        <span><?= htmlspecialchars(mb_strtoupper(mb_substr($businessName, 0, 1))) ?></span>
                     <?php endif; ?>
-                </div>
-                <div class="ow-brand-t">
+                </div>                <div class="ow-brand-t">
                     <div class="ow-name"><?= htmlspecialchars($businessName) ?></div>
                     <div class="ow-sub">Owner Dashboard · <?= ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][(int)date('w')] . ', ' . date('j') . ' ' . $ovBln[(int)date('n')] . ' ' . date('Y') ?></div>
                 </div>
@@ -3295,15 +3347,15 @@ try {
                 <div class="biz-switcher">
                     <?php foreach ($allBusinesses as $bizId => $biz):
                         $isActive = ($bizId === $activeBusinessId);
-                        $bizLogoFile = $bizId . '_logo.png';
-                        $bizLogoExists = file_exists(__DIR__ . '/../../uploads/logos/' . $bizLogoFile);
+                        $bizLogoUrl = function_exists('getBusinessLogoById') ? getBusinessLogoById($bizId, $biz) : '';
+                        $bizLogoExists = (bool)$bizLogoUrl;
                     ?>
                         <a href="<?= $basePath ?>/modules/owner/dashboard-2028.php?business=<?= urlencode($bizId) ?>" class="biz-pill <?= $isActive ? 'active' : '' ?>">
                             <div class="biz-pill-icon">
                                 <?php if ($bizLogoExists): ?>
-                                    <img src="<?= $basePath ?>/uploads/logos/<?= $bizLogoFile ?>" alt="">
+                                    <img src="<?= htmlspecialchars($bizLogoUrl) ?>" alt="">
                                 <?php else: ?>
-                                    <?= $biz['theme']['icon'] ?? '🏢' ?>
+                                    <?= htmlspecialchars(mb_strtoupper(mb_substr($biz['name'], 0, 1))) ?>
                                 <?php endif; ?>
                             </div>
                             <div class="biz-pill-text">
@@ -3331,7 +3383,7 @@ try {
             <?php
             $ovNetToday = $stats['today_income'] - $stats['today_expense'];
             $ovOcc = $ov['occToday'];
-            $ovOccPct = $ovOcc['total'] > 0 ? round($ovOcc['occupied'] / $ovOcc['total'] * 100, 1) : 0;
+            $ovOccPct = $ovOcc['total'] > 0 ? ($ovOcc['rate'] ?? round($ovOcc['occupied'] / $ovOcc['total'] * 100, 1)) : 0;
             ?>
             <section class="ow-sec">
                 <div class="ow-card ow-es">
@@ -3364,15 +3416,10 @@ try {
                 </div>
 
                 <div class="ow-kpis">
-                    <div class="ow-kpi k-green"><span>Pemasukan hari ini</span><b><?= rp($stats['today_income']) ?></b></div>
-                    <div class="ow-kpi k-red"><span>Pengeluaran hari ini</span><b><?= rp($stats['today_expense']) ?></b></div>
+                    <div class="ow-kpi k-green"><span>Pemasukan</span><b><?= rp($stats['today_income']) ?></b></div>
+                    <div class="ow-kpi k-red"><span>Pengeluaran</span><b><?= rp($stats['today_expense']) ?></b></div>
                     <div class="ow-kpi <?= $ovNetToday >= 0 ? 'k-blue' : 'k-red' ?>"><span>Net hari ini</span><b><?= ($ovNetToday >= 0 ? '+' : '') . rp($ovNetToday) ?></b></div>
-                    <?php if ($ovOcc['total'] > 0): ?>
-                        <div class="ow-kpi k-navy"><span>Okupansi</span><b><?= $ovOccPct ?>%</b><small><?= $ovOcc['occupied'] ?> dari <?= $ovOcc['total'] ?> kamar</small></div>
-                        <div class="ow-kpi k-violet"><span>Check-in / out</span><b><?= (int)$todayCheckins ?> / <?= (int)$todayCheckouts ?></b><small>hari ini</small></div>
-                    <?php endif; ?>
                 </div>
-
                 <div class="ow-grid2">
                     <div class="ow-card">
                         <div class="ow-card-h"><div class="ow-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div><div><b>Pemasukan vs Pengeluaran</b><small>7 hari terakhir</small></div></div>
@@ -3382,7 +3429,7 @@ try {
                         <div class="ow-card">
                             <div class="ow-card-h"><div class="ow-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Okupansi Hari Ini</b><small><?= $ovOcc['total'] ?> kamar</small></div></div>
                             <div class="ow-occ">
-                                <div class="ow-donut"><canvas id="ovOccChart"></canvas><div class="ow-donut-c"><b><?= $ovOccPct ?>%</b><small>terisi</small></div></div>
+                                <div class="ow-donut"><canvas id="ovOccChart" width="108" height="108"></canvas><div class="ow-donut-c"><b><?= $ovOccPct ?>%</b><small>terisi</small></div></div>
                                 <ul class="ow-legend">
                                     <li><i style="background:#2563eb"></i>Terisi<b><?= $ovOcc['occupied'] ?></b></li>
                                     <li><i style="background:#cbd5e1"></i>Kosong<b><?= $ovOcc['vacant'] ?></b></li>
@@ -3393,7 +3440,6 @@ try {
                         </div>
                     <?php endif; ?>
                 </div>
-
                 <div class="ow-grid2">
                     <?php if ($ov['occ7']): ?>
                         <div class="ow-card">
@@ -3402,7 +3448,7 @@ try {
                                 <?php foreach ($ov['occ7'] as $i => $o): ?>
                                     <div class="ow-bar<?= $i === 0 ? ' now' : '' ?>">
                                         <em><?= $o['pct'] ?>%</em>
-                                        <div class="ow-bar-t"><i style="height:<?= max(3, $o['pct']) ?>%"></i></div>
+                                        <div class="ow-bar-t" title="<?= (int)($o['rooms'] ?? 0) ?> kamar terpesan"><i class="<?= $o['pct'] >= 80 ? 'hi' : ($o['pct'] < 40 ? 'lo' : '') ?>" style="height:<?= max(3, min(100, $o['pct'])) ?>%"></i></div>
                                         <b><?= htmlspecialchars($o['label']) ?></b><small><?= htmlspecialchars($o['sub']) ?></small>
                                     </div>
                                 <?php endforeach; ?>
@@ -3413,7 +3459,7 @@ try {
                         <div class="ow-card">
                             <div class="ow-card-h"><div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div></div>
                             <div class="ow-occ">
-                                <div class="ow-donut"><canvas id="ovDivChart"></canvas></div>
+                                <div class="ow-donut"><canvas id="ovDivChart" width="108" height="108"></canvas></div>
                                 <ul class="ow-legend" id="ovDivLegend"></ul>
                             </div>
                         </div>
@@ -4326,18 +4372,17 @@ try {
             if (occ && OV.occ.total > 0) {
                 new Chart(occ, {
                     type: 'doughnut',
-                    data: { labels: ['Terisi', 'Kosong', 'Diblok'], datasets: [{ data: [OV.occ.occupied, OV.occ.vacant, OV.occ.blocked], backgroundColor: ['#2563eb', '#e2e8f0', '#f59e0b'], borderWidth: 0 }] },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false } } }
+                    data: { labels: ['Terisi', 'Kosong', 'Diblok'], datasets: [{ data: [OV.occ.occupied, OV.occ.vacant, OV.occ.blocked], backgroundColor: ['#2563eb', '#e2e8f0', '#f59e0b'], borderWidth: 0, borderRadius: 4, spacing: 2 }] },
+                    options: { responsive: false, cutout: '76%', plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(15,23,42,.95)', padding: 10, cornerRadius: 8, callbacks: { label: function(c) { return ' ' + c.label + ': ' + c.parsed + ' kamar'; } } } }, animation: { duration: 700, easing: 'easeOutQuart' } }
                 });
-            }
-            var dv = document.getElementById('ovDivChart');
+            }            var dv = document.getElementById('ovDivChart');
             if (dv && OV.div.length) {
                 var cols = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#94a3b8'];
                 var tot = OV.div.reduce(function(a, d) { return a + d.t; }, 0) || 1;
                 new Chart(dv, {
                     type: 'doughnut',
                     data: { labels: OV.div.map(function(d) { return d.n; }), datasets: [{ data: OV.div.map(function(d) { return d.t; }), backgroundColor: cols, borderWidth: 0 }] },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.label + ': ' + rp(c.parsed); } } } } }
+                    options: { responsive: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.label + ': ' + rp(c.parsed); } } } } }
                 });
                 var lg = document.getElementById('ovDivLegend');
                 lg.innerHTML = OV.div.map(function(d, i) {
