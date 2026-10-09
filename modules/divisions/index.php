@@ -793,34 +793,6 @@ $divisionColors = [
         </div>
     </div>
 
-    <!-- Category Breakdown -->
-    <?php if (!empty($categoryBreakdown)): ?>
-        <div class="card" style="margin-bottom: 1.25rem; padding: 1rem;">
-            <div class="section-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
-                <h3 class="section-title" style="font-size: 0.9rem;">
-                    <span>📊</span> Breakdown Kategori
-                </h3>
-            </div>
-
-            <?php foreach ($categoryBreakdown as $cat):
-                $isIncome = $cat['transaction_type'] === 'income';
-            ?>
-                <div class="category-item <?php echo $isIncome ? 'income' : 'expense'; ?>">
-                    <div class="category-info">
-                        <div class="category-name"><?php echo $cat['category_name'] ?: 'Lainnya'; ?></div>
-                        <div class="category-meta">
-                            <?php echo $cat['transaction_count']; ?> transaksi •
-                            <?php echo $isIncome ? '📈 Pemasukan' : '📉 Pengeluaran'; ?>
-                        </div>
-                    </div>
-                    <div class="category-amount" style="color: <?php echo $isIncome ? '#10b981' : '#ef4444'; ?>;">
-                        <?php echo $isIncome ? '+' : '-'; ?><?php echo formatCurrency($cat['total_amount']); ?>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-
     <!-- Transaction Details - Separated by type -->
     <?php if (!empty($divisionTransactions)):
         // Separate income and expense
