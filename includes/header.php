@@ -1398,7 +1398,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 align-items: center;
                 justify-content: center;
                 overflow: hidden;
-                box-shadow: 0 6px 16px -6px rgba(15, 23, 42, 0.45);
+                box-shadow: none !important;
             }
 
             body[data-theme] .sidebar-header > div:first-child > div:first-child:not(:only-child) img {
@@ -1759,7 +1759,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             var fill = cnt / (w * h);
                             if (Math.abs(w - h) > 0.12 * Math.max(w, h) || fill < 0.68 || fill > 0.9) return;
                             var size = Math.max(w, h), cx = (minX + maxX + 1) / 2, cy = (minY + maxY + 1) / 2;
-                            var scale = (N / size) * 1.01;
+                            var scale = (N / size) * 1.06; // sedikit lebih besar: memangkas tepi putih/bayangan bawaan file logo
                             img.style.objectFit = 'contain';
                             img.style.transform = 'scale(' + scale.toFixed(4) + ') translate(' + (((N / 2 - cx) / N) * 100).toFixed(3) + '%,' + (((N / 2 - cy) / N) * 100).toFixed(3) + '%)';
                         } catch (e) { /* logo lintas-domain: biarkan tampilan bawaan */ }
