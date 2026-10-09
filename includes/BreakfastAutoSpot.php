@@ -150,3 +150,24 @@ function bf_auto_on_the_spot_run($db, $pdo): int
     }
     return $n;
 }
+
+/**
+ * Bersihkan link sarapan lama (sudah lewat beberapa hari): isi pilihan tamu sudah tersimpan di pesanan (breakfast_orders),
+ * jadi baris link tidak diperlukan lagi dan hanya memenuhi database. Pesanan untuk laporan/dapur TIDAK dihapus.
+ * @return int jumlah link yang dihapus
+ */
+function bf_cleanup_old_links($db, int $keepDays = 3): int
+{
+    $keepDays = max(1, $keepDays);
+    $n = 0;
+    try {
+        $row = $db->fetchOne("SELECT COUNT(*) c FROM breakfast_guest_links WHERE breakfast_date < DATE_SUB(CURDATE(), INTERVAL {$keepDays} DAY)");
+        $n = (int)($row['c'] ?? 0);
+        if ($n > 0) {
+            $db->query("DELETE FROM breakfast_guest_links WHERE breakfast_date < DATE_SUB(CURDATE(), INTERVAL {$keepDays} DAY)");
+        }
+    } catch (\Throwable $e) {
+        error_log('breakfast cleanup links: ' . $e->getMessage());
+    }
+    return $n;
+}

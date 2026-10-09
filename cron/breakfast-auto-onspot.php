@@ -45,6 +45,9 @@ foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
         $n = bf_auto_on_the_spot_run($bdb, $bdb->getConnection());
         $total += $n;
         echo date('Y-m-d H:i:s') . " {$slug}: {$n} kamar otomatis on-the-spot\n";
+        // Link sarapan yang sudah lewat 3 hari dihapus agar database tidak penuh (pesanan tetap disimpan)
+        $gone = bf_cleanup_old_links($bdb, 3);
+        if ($gone > 0) echo date('Y-m-d H:i:s') . " {$slug}: {$gone} link sarapan lama dibersihkan\n";
     } catch (\Throwable $e) {
         echo date('Y-m-d H:i:s') . " {$slug}: ERROR " . $e->getMessage() . "\n";
     }

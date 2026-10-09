@@ -79,7 +79,7 @@ $token = trim((string)($_GET['t'] ?? ''));
         .hero {
             background: linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 100%);
             color: #fff;
-            padding: 22px 0 54px;
+            padding: 24px 0 56px;
             position: relative;
         }
 
@@ -93,19 +93,22 @@ $token = trim((string)($_GET['t'] ?? ''));
             background: linear-gradient(90deg, transparent, var(--gold), transparent);
         }
 
-        .hero-top { display: flex; align-items: center; gap: 12px; }
+        .hero-top { display: flex; align-items: center; gap: 16px; }
 
+        /* Logo bulat 68px: bingkai emas tipis + cincin putih, gambar utuh (tidak terpotong) */
         .hero-logo {
-            width: 46px;
-            height: 46px;
+            flex: 0 0 68px;
+            width: 68px;
+            height: 68px;
             border-radius: 50%;
-            object-fit: cover;
+            object-fit: contain;
             background: #fff;
-            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+            border: 2px solid #d9c39c;
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.16), 0 10px 22px -10px rgba(0, 0, 0, 0.55);
         }
 
-        .hero-hotel { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #d9c39c; }
-        .hero h1 { font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 27px; line-height: 1.1; }
+        .hero-hotel { margin-bottom: 3px; font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: #d9c39c; }
+        .hero h1 { font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 30px; line-height: 1.05; letter-spacing: 0.005em; }
 
         /* Guest card */
         .guest {
