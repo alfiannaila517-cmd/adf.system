@@ -1441,6 +1441,21 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 border-radius: 9px !important;
             }
 
+            /* Pemilih bisnis: kartu putih dengan chevron sendiri, fokus bercincin biru */
+            body[data-theme] .sidebar-header .biz-switch { margin-top: .75rem !important; padding-top: .75rem !important; }
+            body[data-theme] .sidebar-header .biz-switch label { display: flex !important; align-items: center; gap: .35rem; font-size: .56rem !important; font-weight: 800 !important; letter-spacing: .12em !important; color: #94a3b8 !important; margin-bottom: .4rem !important; }
+            body[data-theme] .sidebar-header .biz-switch label::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: linear-gradient(135deg, #1e3a8a, #2563eb); }
+            body[data-theme] .sidebar-header .biz-switch select {
+                -webkit-appearance: none; appearance: none; width: 100%; height: 38px; padding: 0 2.1rem 0 .8rem !important;
+                border: 1px solid #dbe3f0 !important; border-radius: 11px !important;
+                background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231e3a8a' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right .75rem center !important;
+                color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; font-size: .8rem !important; font-weight: 700 !important; cursor: pointer;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, .05); transition: border-color .15s, box-shadow .15s;
+            }
+            body[data-theme] .sidebar-header .biz-switch select:hover { border-color: #93b4f5 !important; }
+            body[data-theme] .sidebar-header .biz-switch select:focus { outline: none; border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37, 99, 235, .18); }
+            body[data-theme="dark"] .sidebar-header .biz-switch select { background-color: rgba(255, 255, 255, .06) !important; border-color: rgba(148, 163, 184, .28) !important; color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+            body[data-theme="dark"] .sidebar-header .biz-switch select option { color: #0f172a; }
             /* Label grup */
             .sidebar .nav-group-label {
                 list-style: none;
@@ -1678,7 +1693,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                             </div>
                         <?php else: ?>
                             <div style="width: 76px; height: 76px; border-radius: 50%; overflow: hidden; flex-shrink: 0;">
-                                <img src="<?php echo $logoPath; ?>" alt="<?php echo htmlspecialchars($displayCompanyName); ?>" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                                <img class="adf-logo-fit" src="<?php echo $logoPath; ?>" alt="<?php echo htmlspecialchars($displayCompanyName); ?>" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                             </div>
                         <?php endif; ?>
                     <?php else: ?>
@@ -1700,7 +1715,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 $userBusinesses = getUserAvailableBusinesses();
                 if (count($userBusinesses) > 1):
                 ?>
-                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
+                    <div class="biz-switch" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
                         <label style="font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; display: block;">Switch Business</label>
                         <select onchange="switchBusiness(this.value)" style="width: 100%; padding: 0.5rem; background: var(--bg-tertiary); border: 1px solid var(--bg-quaternary); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.875rem; cursor: pointer;">
                             <?php
@@ -1718,6 +1733,42 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     </div>
                 <?php endif; ?>
             </div>
+
+            <script>
+                // Logo bulat: file logo sering punya margin putih / posisi lingkaran tidak di tengah.
+                // Deteksi kotak lingkaran dari piksel gambar lalu skala + geser agar pas mengisi bingkai bulat.
+                (function() {
+                    function fit(img) {
+                        try {
+                            var N = 160, cv = document.createElement('canvas');
+                            cv.width = cv.height = N;
+                            var ctx = cv.getContext('2d', { willReadFrequently: true });
+                            var iw = img.naturalWidth, ih = img.naturalHeight;
+                            if (!iw || !ih) return;
+                            var k = Math.min(N / iw, N / ih), dw = iw * k, dh = ih * k;
+                            ctx.drawImage(img, (N - dw) / 2, (N - dh) / 2, dw, dh);
+                            var d = ctx.getImageData(0, 0, N, N).data, minX = N, minY = N, maxX = -1, maxY = -1, cnt = 0;
+                            for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+                                var i = (y * N + x) * 4, a = d[i + 3];
+                                var lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+                                if (a > 60 && lum < 215) { cnt++; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+                            }
+                            if (maxX < 0) return;
+                            var w = maxX - minX + 1, h = maxY - minY + 1;
+                            // hanya untuk logo berbentuk lingkaran (kotak ±persegi, isi ±π/4)
+                            var fill = cnt / (w * h);
+                            if (Math.abs(w - h) > 0.12 * Math.max(w, h) || fill < 0.68 || fill > 0.9) return;
+                            var size = Math.max(w, h), cx = (minX + maxX + 1) / 2, cy = (minY + maxY + 1) / 2;
+                            var scale = (N / size) * 1.01;
+                            img.style.objectFit = 'contain';
+                            img.style.transform = 'scale(' + scale.toFixed(4) + ') translate(' + (((N / 2 - cx) / N) * 100).toFixed(3) + '%,' + (((N / 2 - cy) / N) * 100).toFixed(3) + '%)';
+                        } catch (e) { /* logo lintas-domain: biarkan tampilan bawaan */ }
+                    }
+                    document.querySelectorAll('img.adf-logo-fit').forEach(function(img) {
+                        if (img.complete) fit(img); else img.addEventListener('load', function() { fit(img); });
+                    });
+                })();
+            </script>
 
             <nav style="flex: 1; overflow-y: auto; overflow-x: hidden;">
                 <ul class="nav-menu">
