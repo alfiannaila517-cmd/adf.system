@@ -571,6 +571,9 @@ class CloudbedsSync
     public function processEdits(array $onlyIds = [], int $limit = 20): array
     {
         $this->ensureTables();
+        // Antrean kirim yang terus gagal > 45 menit dianggap basi: dibuang agar tidak menimpa perubahan yang dibuat di Cloudbeds
+        // (mis. kamar dipindah di Cloudbeds) dan agar sinkron Cloudbeds → sistem bisa jalan
+        $this->db->query("DELETE FROM cloudbeds_pending_edits WHERE last_error IS NOT NULL AND created_at < NOW() - INTERVAL 45 MINUTE");
         $where = $onlyIds ? ' WHERE pe.booking_id IN (' . implode(',', array_map('intval', $onlyIds)) . ')' : '';
         $pending = $this->db->fetchAll("SELECT pe.booking_id, l.cb_reservation_id FROM cloudbeds_pending_edits pe
             LEFT JOIN cloudbeds_booking_links l ON l.booking_id = pe.booking_id" . $where . " ORDER BY pe.created_at LIMIT " . (int)$limit) ?: [];
@@ -2459,6 +2462,61 @@ class CloudbedsSync
             $n++;
         }
         return $n;
+    }
+
+    /**
+     * Kamar reservasi di sistem vs Cloudbeds (untuk alat Cek): nomor kamar sistem, kamar yang terbaca di Cloudbeds
+     * (termasuk ID yang tidak dikenali), dan antrean kirim ke Cloudbeds yang masih menggantung.
+     * @return array<string,mixed>
+     */
+    public function roomStatus(string $code): array
+    {
+        $b = $this->db->fetchOne("SELECT id FROM bookings WHERE booking_code = ?", [$code]);
+        if (!$b) return ['ok' => false, 'msg' => 'Booking tidak ditemukan'];
+        $link = $this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id = ? LIMIT 1", [(int)$b['id']]);
+        if (!$link) return ['ok' => false, 'msg' => 'Booking ini tidak tertaut ke Cloudbeds'];
+        $cbId = (string)$link['cb_reservation_id'];
+        $ids = array_map(fn($r) => (int)$r['booking_id'], $this->db->fetchAll("SELECT booking_id FROM cloudbeds_booking_links WHERE cb_reservation_id = ?", [$cbId]) ?: []);
+        $in = implode(',', $ids ?: [0]);
+        $sys = array_map(fn($r) => self::roomDigits($r['room_number']), $this->db->fetchAll("SELECT r.room_number FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id IN ($in) AND b.status IN ('confirmed','pending','checked_in') ORDER BY r.room_number + 0, r.room_number") ?: []);
+        $pend = $this->db->fetchAll("SELECT booking_id, last_error FROM cloudbeds_pending_edits WHERE booking_id IN ($in)") ?: [];
+        $det = $this->cb->reservationDetail($cbId);
+        if (!$det['ok']) return ['ok' => false, 'msg' => 'Detail Cloudbeds tidak terbaca: ' . $det['detail']];
+        $idToNo = [];
+        foreach ($this->cbRoomsByNo() as $no => $info) $idToNo[(string)$info['room_id']] = (string)$no;
+        $cb = [];
+        foreach ((array)($det['rooms'] ?? []) as $r) {
+            $cb[] = ['id' => (string)$r['room_id'], 'name' => (string)($r['room_name'] ?? ''), 'assigned' => !empty($r['assigned']), 'no' => $idToNo[(string)$r['room_id']] ?? null];
+        }
+        $cbNos = array_values(array_unique(array_filter(array_map(fn($x) => $x['assigned'] ? $x['no'] : null, $cb))));
+        sort($cbNos, SORT_NATURAL);
+        $sysSorted = $sys;
+        sort($sysSorted, SORT_NATURAL);
+        return ['ok' => true, 'cb_id' => $cbId, 'sys' => $sys, 'cb' => $cb, 'cb_nos' => $cbNos, 'same' => $cbNos === $sysSorted, 'pending' => $pend];
+    }
+
+    /** Samakan kamar sistem dengan Cloudbeds untuk satu reservasi (Cloudbeds menang): antrean kirim dikosongkan, lalu pindah kamar. */
+    public function applyRoomsFromCloudbeds(string $code): array
+    {
+        $st = $this->roomStatus($code);
+        if (empty($st['ok'])) return ['ok' => false, 'msg' => $st['msg'] ?? 'Gagal'];
+        $cbId = $st['cb_id'];
+        $ids = array_map(fn($r) => (int)$r['booking_id'], $this->db->fetchAll("SELECT booking_id FROM cloudbeds_booking_links WHERE cb_reservation_id = ?", [$cbId]) ?: []);
+        $in = implode(',', $ids ?: [0]);
+        // Cloudbeds yang jadi patokan: antrean "kirim kamar ke Cloudbeds" yang menggantung dibuang agar tidak menimpa
+        $this->db->query("DELETE FROM cloudbeds_pending_edits WHERE booking_id IN ($in)");
+        $live = $this->db->fetchAll("SELECT id, status, DATE(check_in_date) ci, DATE(check_out_date) co FROM bookings WHERE id IN ($in) AND status IN ('confirmed','pending','checked_in')") ?: [];
+        $det = $this->cb->reservationDetail($cbId);
+        $actions = [];
+        $this->planRoomMoves($live, $det, $cbId, $code, $actions);
+        $moved = 0; $warns = [];
+        foreach ($actions as $a) {
+            if ($a['type'] === 'room_move') $moved += $this->applyRoomMoves($a['moves']);
+            elseif ($a['type'] === 'warn') $warns[] = $a['msg'];
+        }
+        if ($moved) return ['ok' => true, 'msg' => $moved . ' kamar dipindah mengikuti Cloudbeds.' . ($warns ? ' ' . implode(' ', $warns) : '')];
+        if ($warns) return ['ok' => false, 'msg' => implode(' ', $warns)];
+        return ['ok' => true, 'msg' => 'Kamar sudah sama dengan Cloudbeds (tidak ada yang dipindah).'];
     }
 
     /** Atur harga booking (satu kamar) ke nominal yang benar — dipakai untuk membereskan harga yang ikut membengkak. */

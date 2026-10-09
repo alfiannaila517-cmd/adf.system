@@ -105,6 +105,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash($fails ? 'error' : 'success', $ok . ' pembayaran tarikan Cloudbeds dibatalkan (Rp ' . number_format($sum, 0, ',', '.') . ' dikeluarkan dari buku kas & saldo akun kas).' . ($fails ? ' Gagal: ' . htmlspecialchars(implode(' | ', $fails)) : ''));
         header('Location: cloudbeds.php#tarikan');
         exit;
+    } elseif ($act === 'sync_rooms') {
+        $code = trim((string)($_POST['code'] ?? ''));
+        $res = (new CloudbedsSync($db, $cb))->applyRoomsFromCloudbeds($code);
+        setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
     } elseif ($act === 'apply_disc') {
         $code = trim((string)($_POST['code'] ?? ''));
         $res = (new CloudbedsSync($db, $cb))->applyDiscountToPrice($code);
@@ -838,6 +844,27 @@ include '../../includes/header.php';
                         <input class="cbx-input" name="price" inputmode="numeric" placeholder="mis. 1385100" style="max-width:160px">
                         <button type="submit" class="cbx-btn ghost">Atur harga</button>
                     </form>
+                <?php endif; ?>
+                <?php $roomSt = (new CloudbedsSync($db, $cb))->roomStatus($bk['booking_code']); ?>
+                <?php if (!empty($roomSt['ok'])): ?>
+                    <div class="cbx-note" style="margin-top:.6rem">
+                        <b>Kamar</b> — sistem: <b><?php echo htmlspecialchars(implode(', ', $roomSt['sys']) ?: '-'); ?></b>
+                        · Cloudbeds: <b><?php echo htmlspecialchars(implode(', ', $roomSt['cb_nos']) ?: '-'); ?></b>
+                        <?php if (!empty($roomSt['same'])): ?><span class="cbx-pill ok">sama</span><?php else: ?><span class="cbx-pill warn">berbeda</span><?php endif; ?>
+                        <?php foreach ($roomSt['cb'] as $x): if ($x['no'] === null): ?>
+                            <br><span style="color:#b91c1c">Kamar Cloudbeds tidak dikenali: ID <?php echo htmlspecialchars($x['id']); ?> <?php echo htmlspecialchars($x['name']); ?> (<?php echo $x['assigned'] ? 'sudah bernomor' : 'belum bernomor'; ?>)</span>
+                        <?php endif; endforeach; ?>
+                        <?php foreach ($roomSt['pending'] as $pe): ?>
+                            <br><span style="color:#b45309">Antrean kirim ke Cloudbeds masih menggantung (booking #<?php echo (int)$pe['booking_id']; ?>)<?php echo $pe['last_error'] ? ': ' . htmlspecialchars($pe['last_error']) : ''; ?></span>
+                        <?php endforeach; ?>
+                        <?php if (empty($roomSt['same']) || $roomSt['pending']): ?>
+                            <form method="post" style="margin-top:.45rem" onsubmit="return confirm('Samakan kamar di sistem dengan Cloudbeds untuk reservasi ini? Antrean kirim ke Cloudbeds yang menggantung dibuang; Cloudbeds jadi patokan.')">
+                                <input type="hidden" name="act" value="sync_rooms">
+                                <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                                <button type="submit" class="cbx-btn">Samakan kamar dengan Cloudbeds</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
                 <?php endif; ?>
                 <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Potong diskon dari harga booking ini (semua kamar bila grup)? Dipakai bila harga di sistem naik lagi mengikuti harga Cloudbeds padahal ada diskon. Cloudbeds tidak diubah.')">
                     <input type="hidden" name="act" value="apply_disc">
