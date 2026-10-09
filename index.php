@@ -76,7 +76,7 @@ $displayCompanyName = ($companyNameSetting && $companyNameSetting['setting_value
     ? $companyNameSetting['setting_value']
     : BUSINESS_NAME;
 
-$pageTitle = BUSINESS_ICON . ' ' . $displayCompanyName;
+$pageTitle = $displayCompanyName; // tanpa ikon emoji (judul halaman & tab browser)
 $pageSubtitle = 'Dashboard & Monitoring Real-time';
 
 // ============================================

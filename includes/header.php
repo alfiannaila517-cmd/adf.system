@@ -1387,8 +1387,9 @@ if (isset($forceTheme) && is_string($forceTheme)) {
 
             /* Logo bisnis: bulat presisi, gambar utuh di tengah (tidak terpotong / bergeser) */
             body[data-theme] .sidebar-header > div:first-child > div:first-child:not(:only-child) {
-                width: 56px !important;
-                height: 56px !important;
+                width: 68px !important;
+                height: 68px !important;
+                flex: none !important;
                 padding: 0;
                 box-sizing: border-box;
                 border-radius: 50% !important;
@@ -1408,7 +1409,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 object-position: center !important;
                 display: block;
                 /* File logo punya margin putih di sekeliling lingkaran: diperbesar sedikit agar lingkaran logo mengisi penuh */
-                transform: scale(1.14);
+                transform: scale(1.2);
             }
 
             body[data-theme] .sidebar-header .logo {
