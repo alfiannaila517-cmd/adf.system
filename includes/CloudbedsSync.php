@@ -82,6 +82,10 @@ class CloudbedsSync
             cb_reservation_id VARCHAR(40) NOT NULL PRIMARY KEY,
             checked_at DATETIME NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Saldo reservasi di daftar Cloudbeds saat terakhir dicek: berubah → harga di Cloudbeds berubah → cek detail segera
+        if ($this->db->query("SELECT bal FROM cloudbeds_price_checks LIMIT 0") === false) {
+            $this->db->query("ALTER TABLE cloudbeds_price_checks ADD COLUMN bal DECIMAL(15,2) NULL");
+        }
         $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_sync_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
             range_from DATE NULL,
@@ -213,9 +217,13 @@ class CloudbedsSync
             }
         }
         $recentPriceChecks = [];
+        $lastPriceBal = [];
         if (!$this->pushOnlyPlan) {
             try {
-                foreach ($this->db->fetchAll("SELECT cb_reservation_id FROM cloudbeds_price_checks WHERE checked_at > NOW() - INTERVAL 3 HOUR") ?: [] as $pc) $recentPriceChecks[(string)$pc['cb_reservation_id']] = true;
+                foreach ($this->db->fetchAll("SELECT cb_reservation_id, bal, (checked_at > NOW() - INTERVAL 3 HOUR) AS recent FROM cloudbeds_price_checks") ?: [] as $pc) {
+                    if (!empty($pc['recent'])) $recentPriceChecks[(string)$pc['cb_reservation_id']] = true;
+                    $lastPriceBal[(string)$pc['cb_reservation_id']] = $pc['bal'] === null ? null : (float)$pc['bal'];
+                }
             } catch (\Throwable $e) {
             }
         }
@@ -331,12 +339,17 @@ class CloudbedsSync
                     $cbTotal = $it['total'] ?? null;
                     // Total tidak ada di daftar reservasi → detail, dibatasi & bergiliran (dicek ulang paling cepat tiap 3 jam).
                     // Sebelum Payment harga tetap diambil langsung (refreshPriceFromCloudbeds), jadi ini hanya penyamaan berkala.
+                    // Harga OTA harus cepat mengikuti Cloudbeds: bila saldo reservasi di daftar Cloudbeds berubah sejak
+                    // pengecekan terakhir (mis. harga diubah di Cloudbeds), cek detail sekarang — tidak menunggu 3 jam.
+                    $listBalP = isset($it['balance']) && is_numeric($it['balance']) ? (float)$it['balance'] : null;
+                    $balChanged = $isOtaRes && $listBalP !== null && (!array_key_exists($cbId, $lastPriceBal) || $lastPriceBal[$cbId] === null || abs($listBalP - $lastPriceBal[$cbId]) >= 1);
                     if (!$hasPay && $cbTotal === null && $nPriceDetail < self::MAX_PRICE_DETAIL && max(array_column($live, 'co')) >= date('Y-m-d')
-                        && !isset($recentPriceChecks[$cbId])) {
+                        && (!isset($recentPriceChecks[$cbId]) || $balChanged)) {
                         $nPriceDetail++;
                         $pd = $this->cb->reservationDetail($cbId);
                         $cbTotal = $pd['ok'] ? $pd['total'] : null;
-                        $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE checked_at = NOW()", [$cbId]);
+                        $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at, bal) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE checked_at = NOW(), bal = VALUES(bal)", [$cbId, $listBalP]);
+                        $lastPriceBal[$cbId] = $listBalP;
                     }
                     $localTotal = array_sum(array_map(fn($b) => (float)$b['final_price'], $live));
                     // Pengaman: total Cloudbeds > 2x total sistem → tidak ditarik, cek manual (mis. folio berlipat)
