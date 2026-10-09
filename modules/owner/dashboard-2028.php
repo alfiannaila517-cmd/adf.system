@@ -1072,7 +1072,7 @@ try {
             $rowsD = $st->fetchAll(PDO::FETCH_ASSOC);
             $other = 0;
             foreach ($rowsD as $k => $r) {
-                if ($k < 5) $ov['divInc'][] = ['n' => $r['n'], 't' => (float)$r['t']];
+                if ($k < 7) $ov['divInc'][] = ['n' => $r['n'], 't' => (float)$r['t']];
                 else $other += (float)$r['t'];
             }
             if ($other > 0) $ov['divInc'][] = ['n' => 'Lainnya', 't' => $other];
@@ -3272,6 +3272,14 @@ if (!$ovIsHotel) {
         .ow-cal { display: block; width: 100%; height: 540px; border: 0; border-radius: 12px; background: #fff; }
         .ow-user { font-family: inherit; color: #fff; cursor: pointer; }
 
+        .ow-div-tot { margin-left: auto; font-size: .6rem; color: #64748b; text-align: right; white-space: nowrap; }
+        .ow-div-tot b { display: block; font-size: .8rem; color: #0f172a; font-weight: 800; }
+        .ow-div .ow-legend { gap: 6px; }
+        .ow-div .ow-legend li { font-size: .7rem; gap: 6px; }
+        .ow-div .ow-legend li .ln { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .ow-div .ow-legend li b { margin-left: 0; font-size: .7rem; white-space: nowrap; }
+        .ow-div .ow-legend li em { font-style: normal; font-size: .6rem; color: #94a3b8; font-weight: 700; min-width: 28px; text-align: right; }
+
         /* ── Dock bawah (menggantikan footer) ── */
         body { padding-bottom: 92px !important; }
         .ow-apps { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; gap: 2px; margin: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid #e2e8f0; box-shadow: 0 -10px 30px -18px rgba(15, 23, 42, .35); overflow-x: auto; scrollbar-width: none; justify-content: center; }
@@ -3604,16 +3612,6 @@ if (!$ovIsHotel) {
                     </div>
                 </div>
 
-                <?php if ($ov['divInc']): ?>
-                    <div class="ow-card">
-                        <div class="ow-card-h"><div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div></div>
-                        <div class="ow-occ">
-                            <div class="ow-donut"><canvas id="ovDivChart" width="108" height="108"></canvas></div>
-                            <ul class="ow-legend" id="ovDivLegend"></ul>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
                 <?php if ($ovHasOcc): ?>
                         <div class="ow-card">
                             <div class="ow-card-h"><div class="ow-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Okupansi Hari Ini</b><small><?= $ovOcc['total'] ?> kamar</small></div></div>
@@ -3917,7 +3915,21 @@ if (!$ovIsHotel) {
             // CASH AVAILABLE = Start Cash + Monthly Net (same as index.php)
             $dashCashAvailable = $startKasHariIni + $totalOperationalCash;
             ?>
-            <div class="ow-card dc ow-panel" data-p="kas">
+            <div class="ow-panel ow-stack" data-p="kas">
+            <?php if ($ov['divInc']): $divTot = array_sum(array_column($ov['divInc'], 't')); ?>
+                <div class="ow-card ow-div">
+                    <div class="ow-card-h">
+                        <div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
+                        <div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div>
+                        <span class="ow-div-tot">Total <b><?= rp($divTot) ?></b></span>
+                    </div>
+                    <div class="ow-occ">
+                        <div class="ow-donut"><canvas id="ovDivChart" width="108" height="108"></canvas></div>
+                        <ul class="ow-legend" id="ovDivLegend"></ul>
+                    </div>
+                </div>
+            <?php endif; ?>
+            <div class="ow-card dc">
                 <div class="dc-head">
                     <div class="ow-ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
                     <div class="dc-t"><b>Daily Cash</b><small><?= count($todayKas) ?> transaksi hari ini</small></div>
@@ -3969,6 +3981,7 @@ if (!$ovIsHotel) {
                         <?php endforeach; ?>
                     </ul>
                 <?php endif; ?>
+            </div>
             </div>
             <?php if ($isCQC): ?>
                 <div class="ow-panel" data-p="proyek">
@@ -4434,7 +4447,7 @@ if (!$ovIsHotel) {
                 });
             }            var dv = document.getElementById('ovDivChart');
             if (dv && OV.div.length) {
-                var cols = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#94a3b8'];
+                var cols = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#94a3b8'];
                 var tot = OV.div.reduce(function(a, d) { return a + d.t; }, 0) || 1;
                 new Chart(dv, {
                     type: 'doughnut',
@@ -4443,7 +4456,7 @@ if (!$ovIsHotel) {
                 });
                 var lg = document.getElementById('ovDivLegend');
                 lg.innerHTML = OV.div.map(function(d, i) {
-                    return '<li><i style="background:' + cols[i % cols.length] + '"></i>' + String(d.n).replace(/[<>&]/g, '') + '<b>' + Math.round(d.t / tot * 100) + '%</b></li>';
+                    return '<li><i style="background:' + cols[i % cols.length] + '"></i><span class="ln">' + String(d.n).replace(/[<>&]/g, '') + '</span><b>' + rp(d.t) + '</b><em>' + Math.round(d.t / tot * 100) + '%</em></li>';
                 }).join('');
             }
         });
