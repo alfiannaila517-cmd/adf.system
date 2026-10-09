@@ -3252,6 +3252,26 @@ if (!$ovIsHotel) {
         .ow-panel.ow-grid2.on { display: grid; }
         @media (min-width: 700px) { .ow-apps { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); } }
 
+        /* ── Financial Performance glossy ── */
+        .ow-fp { position: relative; overflow: hidden; border: 1px solid rgba(255, 255, 255, .18) !important; border-top: 1px solid rgba(255, 255, 255, .28) !important;
+            background: radial-gradient(120% 90% at 100% 0%, rgba(96, 165, 250, .55) 0%, rgba(37, 99, 235, 0) 55%), linear-gradient(135deg, #0b1740 0%, #1e3a8a 55%, #2563eb 100%) !important;
+            box-shadow: 0 22px 40px -22px rgba(15, 31, 77, .95), inset 0 1px 0 rgba(255, 255, 255, .28) !important; }
+        .ow-fp::before { content: ''; position: absolute; left: -20%; right: -20%; top: -60%; height: 100%; background: linear-gradient(180deg, rgba(255, 255, 255, .20), rgba(255, 255, 255, 0)); transform: rotate(-8deg); pointer-events: none; }
+        .ow-fp > * { position: relative; }
+        .ow-fp .ow-fp-t b { color: #fff; }
+        .ow-fp .ow-fp-t small, .ow-fp .ow-fp-net small { color: rgba(219, 234, 254, .8); }
+        .ow-fp .ow-fp-net b.pos, .ow-fp .ow-fp-c b.pos { color: #6ee7b7; } .ow-fp .ow-fp-net b.neg, .ow-fp .ow-fp-c b.neg { color: #fda4af; }
+        .ow-fp .ow-fp-c small { color: rgba(219, 234, 254, .7); }
+        .ow-fp .ow-fp-r { background: rgba(255, 255, 255, .10); border: 1px solid rgba(255, 255, 255, .18); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+        .ow-fp .ow-fp-r span { color: rgba(219, 234, 254, .85); }
+        .ow-fp .ow-fp-r b.pos { color: #6ee7b7; } .ow-fp .ow-fp-r b.neg { color: #fda4af; }
+        .ow-fp .ow-fp-r em { color: rgba(219, 234, 254, .6); }
+        .ow-fp .ow-fp-ratio span { color: rgba(219, 234, 254, .7); }
+        .ow-fp .ow-fp-bar { background: rgba(255, 255, 255, .16); }
+        .ow-fp .ow-fp-ratio b { color: #fff !important; }
+        .ow-cal { display: block; width: 100%; height: 540px; border: 0; border-radius: 12px; background: #fff; }
+        .ow-user { font-family: inherit; color: #fff; cursor: pointer; }
+
         /* ── Dock bawah (menggantikan footer) ── */
         body { padding-bottom: 92px !important; }
         .ow-apps { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; gap: 2px; margin: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid #e2e8f0; box-shadow: 0 -10px 30px -18px rgba(15, 23, 42, .35); overflow-x: auto; scrollbar-width: none; justify-content: center; }
@@ -3481,11 +3501,12 @@ if (!$ovIsHotel) {
                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
                     <span>Refresh</span>
                 </button>
-                <div class="ow-user">
+                <button type="button" class="ow-user" id="owMoreBtn" aria-haspopup="dialog" title="Menu">
                     <span class="ow-av"><?= strtoupper(substr($userName, 0, 1)) ?></span>
                     <span class="ow-un"><?= htmlspecialchars($userName) ?></span>
                     <?php if ($isDev): ?><em>DEV</em><?php endif; ?>
-                </div>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
             </div>
         </header>
 
@@ -3548,7 +3569,6 @@ if (!$ovIsHotel) {
             ];
             if ($ovHasOcc) $tiles[] = ['okupansi', 'Okupansi', $ovOccPct . '% terisi', 'ic-t-green', '<path d="M2 20v-8a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v8"/><path d="M2 16h20"/><path d="M6 9V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>'];
             $tiles[] = ['kas', 'Kas Harian', 'Daily cash', 'ic-t-amber', '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/>'];
-            if ($ov['divInc']) $tiles[] = ['divisi', 'Divisi', 'Pemasukan', 'ic-t-violet', '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'];
             if ($attOk) $tiles[] = ['absensi', 'Absensi', ($attStats['present'] + $attStats['late']) . '/' . $attStats['total'] . ' hadir', 'ic-t-rose', '<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'];
             if ($isCQC) $tiles[] = ['proyek', 'Proyek', 'CQC', 'ic-t-navy', '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'];
             ?>
@@ -3559,10 +3579,6 @@ if (!$ovIsHotel) {
                         <b><?= $t[1] ?></b><small><?= htmlspecialchars($t[2]) ?></small>
                     </button>
                 <?php endforeach; ?>
-                <button type="button" class="ow-app ow-app-more" id="owMoreBtn" aria-haspopup="dialog">
-                    <span class="ow-app-ic ic-t-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>
-                    <b>Menu</b>
-                </button>
             </nav>
 
             <section class="ow-sec">
@@ -3587,6 +3603,31 @@ if (!$ovIsHotel) {
                         </div>
                     </div>
                 </div>
+
+                <?php if ($ov['divInc']): ?>
+                    <div class="ow-card">
+                        <div class="ow-card-h"><div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div></div>
+                        <div class="ow-occ">
+                            <div class="ow-donut"><canvas id="ovDivChart" width="108" height="108"></canvas></div>
+                            <ul class="ow-legend" id="ovDivLegend"></ul>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($ovHasOcc): ?>
+                        <div class="ow-card">
+                            <div class="ow-card-h"><div class="ow-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Okupansi Hari Ini</b><small><?= $ovOcc['total'] ?> kamar</small></div></div>
+                            <div class="ow-occ">
+                                <div class="ow-donut"><canvas id="ovOccChart" width="108" height="108"></canvas><div class="ow-donut-c"><b><?= $ovOccPct ?>%</b><small>terisi</small></div></div>
+                                <ul class="ow-legend">
+                                    <li><i style="background:#2563eb"></i>Terisi<b><?= $ovOcc['occupied'] ?></b></li>
+                                    <li><i style="background:#cbd5e1"></i>Kosong<b><?= $ovOcc['vacant'] ?></b></li>
+                                    <li><i style="background:#f59e0b"></i>Diblok<b><?= $ovOcc['blocked'] ?></b></li>
+                                    <li><i style="background:#8b5cf6"></i>Datang besok<b><?= $ovOcc['arriving'] ?></b></li>
+                                </ul>
+                            </div>
+                        </div>
+                <?php endif; ?>
 
                 <div class="ow-card ow-es">
                     <div class="ow-card-h">
@@ -3624,20 +3665,8 @@ if (!$ovIsHotel) {
                 </div>
                 </div>
 
-                <?php if ($ovIsHotel && $ovOcc['total'] > 0): ?>
-                    <div class="ow-panel ow-grid2" data-p="okupansi">
-                        <div class="ow-card">
-                            <div class="ow-card-h"><div class="ow-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Okupansi Hari Ini</b><small><?= $ovOcc['total'] ?> kamar</small></div></div>
-                            <div class="ow-occ">
-                                <div class="ow-donut"><canvas id="ovOccChart" width="108" height="108"></canvas><div class="ow-donut-c"><b><?= $ovOccPct ?>%</b><small>terisi</small></div></div>
-                                <ul class="ow-legend">
-                                    <li><i style="background:#2563eb"></i>Terisi<b><?= $ovOcc['occupied'] ?></b></li>
-                                    <li><i style="background:#cbd5e1"></i>Kosong<b><?= $ovOcc['vacant'] ?></b></li>
-                                    <li><i style="background:#f59e0b"></i>Diblok<b><?= $ovOcc['blocked'] ?></b></li>
-                                    <li><i style="background:#8b5cf6"></i>Datang besok<b><?= $ovOcc['arriving'] ?></b></li>
-                                </ul>
-                            </div>
-                        </div>
+                <?php if ($ovHasOcc): ?>
+                    <div class="ow-panel ow-stack" data-p="okupansi">
                         <?php if ($ov['occ7']): ?>
                             <div class="ow-card">
                                 <div class="ow-card-h"><div class="ow-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div><div><b>Okupansi 7 Hari</b><small>Kamar terpesan per malam</small></div></div>
@@ -3652,18 +3681,13 @@ if (!$ovIsHotel) {
                                 </div>
                             </div>
                         <?php endif; ?>
-                    </div>
-                <?php endif; ?>
-
-                <?php if ($ov['divInc']): ?>
-                    <div class="ow-card ow-panel" data-p="divisi">
-                        <div class="ow-card-h"><div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div></div>
-                        <div class="ow-occ">
-                            <div class="ow-donut"><canvas id="ovDivChart" width="108" height="108"></canvas></div>
-                            <ul class="ow-legend" id="ovDivLegend"></ul>
+                        <div class="ow-card ow-calcard">
+                            <div class="ow-card-h"><div class="ow-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><div><b>Kalender Booking</b><small>Geser kanan-kiri untuk tanggal lain</small></div></div>
+                            <iframe class="ow-cal" src="<?= $basePath ?>/modules/owner/frontdesk-mobile.php?embed=cal" loading="lazy" title="Kalender booking"></iframe>
                         </div>
                     </div>
-                <?php endif; ?>            </section>
+                <?php endif; ?>
+            </section>
 
             <!-- Daily Cash Section - SYNCED WITH index.php -->
             <?php

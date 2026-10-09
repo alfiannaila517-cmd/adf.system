@@ -1489,10 +1489,18 @@ function rp($num)
         .ocal-bar > span { font-size: .6rem; font-weight: 700; letter-spacing: .01em; }
         .ocal-scroll-wrapper { border-radius: 14px; background: #fff; }
         .ocal-legend-item { padding: 2px 8px 2px 6px; border-radius: 999px; background: #f8fafc; border: 1px solid #eef2f7; }
+
+        /* ── Mode embed: hanya kalender booking (dipakai di dashboard owner) ── */
+        body.embed-cal { padding: 0 !important; background: #fff !important; }
+        body.embed-cal .container { padding: 0 !important; max-width: none !important; }
+        body.embed-cal .container > *:not(.ocal-section) { display: none !important; }
+        body.embed-cal .nav-bottom { display: none !important; }
+        body.embed-cal .ocal-section { margin: 0 !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; padding: 6px 4px !important; }
+        body.embed-cal .ocal-header { display: none; }
     </style>
 </head>
 
-<body>
+<body<?= ($_GET['embed'] ?? '') === 'cal' ? ' class="embed-cal"' : '' ?>>
     <div class="container">
         <!-- Header -->
         <div class="header">
