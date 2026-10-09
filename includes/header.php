@@ -1405,11 +1405,10 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 width: 100% !important;
                 height: 100% !important;
                 border-radius: 50% !important;
-                object-fit: cover !important;
+                object-fit: contain !important;
                 object-position: center !important;
                 display: block;
-                /* File logo punya margin putih di sekeliling lingkaran: diperbesar sedikit agar lingkaran logo mengisi penuh */
-                transform: scale(1.2);
+                transform: none;
             }
 
             body[data-theme] .sidebar-header .logo {
@@ -2557,6 +2556,60 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 .main-content > .top-bar .user-avatar-edit-indicator {
                     transform: scale(0.8);
                     transform-origin: bottom right;
+                }
+            </style>
+            <!-- Desain ulang top bar: navy khas ADF System, item kanan berupa pil kaca seragam -->
+            <style>
+                body .main-content > .top-bar {
+                    background: linear-gradient(120deg, #0f1f4d 0%, #1e3a8a 55%, #2563eb 100%) !important;
+                    border: 1px solid rgba(255, 255, 255, .12);
+                    box-shadow: 0 10px 28px -14px rgba(15, 31, 77, .75);
+                    padding: .6rem .9rem .6rem 1.2rem;
+                    border-radius: 14px;
+                }
+                body .main-content > .top-bar::before { width: 4px; background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+                body .main-content > .top-bar .page-title { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-size: 1.05rem !important; font-weight: 800; letter-spacing: -.01em; }
+                body .main-content > .top-bar > div:first-child p { color: rgba(219, 234, 254, .8) !important; -webkit-text-fill-color: rgba(219, 234, 254, .8) !important; font-size: .68rem !important; margin-top: .15rem !important; }
+                body .main-content > .top-bar > div:last-child { gap: .5rem !important; }
+
+                /* pil kaca seragam: tinggi 38px */
+                body .main-content > .top-bar #endShiftButton,
+                body .main-content > .top-bar .tb-bell,
+                body .main-content > .top-bar .adfsub-pro-pill,
+                body .main-content > .top-bar div:has(> #currentDate) {
+                    height: 38px; box-sizing: border-box; margin: 0 !important; border-radius: 11px !important;
+                }
+                body .main-content > .top-bar #endShiftButton {
+                    padding: 0 .85rem !important; gap: .4rem !important; font-size: .76rem; font-weight: 700 !important; align-items: center;
+                    background: linear-gradient(135deg, #b91c1c, #dc2626) !important; border: 1px solid rgba(255, 255, 255, .22) !important;
+                    color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; box-shadow: 0 6px 14px -8px rgba(0, 0, 0, .7);
+                }
+                body .main-content > .top-bar #endShiftButton span { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+                body .main-content > .top-bar #endShiftButton svg, body .main-content > .top-bar #endShiftButton i { width: 15px !important; height: 15px !important; }
+                body .main-content > .top-bar .tb-bell {
+                    width: 38px; background: rgba(255, 255, 255, .12) !important; border: 1px solid rgba(255, 255, 255, .22) !important;
+                    color: #ffffff !important; display: inline-flex; align-items: center; justify-content: center;
+                }
+                body .main-content > .top-bar .tb-bell svg { stroke: #ffffff !important; width: 17px; height: 17px; }
+                body .main-content > .top-bar .tb-bell:hover, body .main-content > .top-bar .tb-bell.open { background: rgba(255, 255, 255, .22) !important; }
+                body .main-content > .top-bar .adfsub-pro-pill {
+                    padding: 0 .75rem; background: rgba(255, 255, 255, .12) !important; border: 1px solid rgba(255, 255, 255, .22) !important; gap: .5rem; align-items: center;
+                }
+                body .main-content > .top-bar .adfsub-pro-dot { background: #4ade80 !important; box-shadow: 0 0 0 3px rgba(74, 222, 128, .25); }
+                body .main-content > .top-bar .adfsub-pro-pill .adfsub-head-text small { color: #bbf7d0 !important; -webkit-text-fill-color: #bbf7d0 !important; font-size: 9.5px; }
+                body .main-content > .top-bar .adfsub-pro-pill .adfsub-head-text strong { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-size: 12px; }
+                body .main-content > .top-bar div:has(> #currentDate) {
+                    display: flex; flex-direction: column; justify-content: center; text-align: center !important; padding: 0 .85rem !important; border: 1px solid rgba(255, 255, 255, .22) !important;
+                    background: rgba(255, 255, 255, .12); min-width: 84px;
+                }
+                body .main-content > .top-bar #currentDate { color: rgba(219, 234, 254, .85) !important; -webkit-text-fill-color: rgba(219, 234, 254, .85) !important; font-size: .62rem !important; font-weight: 600; }
+                body .main-content > .top-bar #currentTime { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-size: .8rem !important; font-weight: 800; }
+                body .main-content > .top-bar .user-info { padding-left: .35rem; }
+                body .main-content > .top-bar .user-info > div:first-child > div:first-child { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-weight: 700 !important; }
+                body .main-content > .top-bar .user-info > div:first-child > div:last-child { color: #fcd34d !important; -webkit-text-fill-color: #fcd34d !important; font-weight: 600; }
+                body .main-content > .top-bar .user-avatar-button { width: 38px; height: 38px; border: 2px solid rgba(255, 255, 255, .55) !important; box-shadow: 0 0 0 3px rgba(255, 255, 255, .12); }
+                @media (max-width: 900px) {
+                    body .main-content > .top-bar .adfsub-pro-pill, body .main-content > .top-bar div:has(> #currentDate) { display: none; }
                 }
             </style>
             <!-- Top Bar -->
