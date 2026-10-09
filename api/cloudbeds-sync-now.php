@@ -42,7 +42,7 @@ try {
         exit;
     }
     $last = json_decode((string)($db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_last_auto_sync'")['setting_value'] ?? ''), true);
-    if (!empty($last['at']) && time() - strtotime($last['at']) < 55) {
+    if (!empty($last['at']) && time() - strtotime($last['at']) < 15) {
         echo json_encode(['ok' => true, 'skipped' => 'recent', 'last' => $last['at'], 'last_ok' => !empty($last['ok']), 'summary' => $last['summary'] ?? '', 'warns' => $last['warns'] ?? [], 'errors' => $last['errors'] ?? []]);
         exit;
     }
@@ -56,7 +56,7 @@ try {
     set_time_limit(120);
 
     $syncRun = new CloudbedsSync($db, $cb);
-    $syncRun->setRoomCheckMode(30, 60); // klik sinkron: baca kamar reservasi aktif sekarang juga
+    $syncRun->setRoomCheckMode(30, 20); // klik sinkron: baca kamar reservasi aktif sekarang juga
     $res = $syncRun->apply(date('Y-m-d', strtotime('-14 days')), date('Y-m-d', strtotime('+120 days')), $userId);
     $d = $res['done'] ?? [];
     $summary = $res['ok']
@@ -77,6 +77,9 @@ try {
         'cancelled' => (int)($d['cancel'] ?? 0),
         'blocked' => (int)($d['block'] ?? 0),
         'unblocked' => (int)($d['unblock'] ?? 0),
+        'moved' => (int)($d['room'] ?? 0),
+        'repriced' => (int)($d['price'] ?? 0),
+        'linked' => (int)($d['link'] ?? 0),
         'summary' => $summary,
         'last' => date('Y-m-d H:i:s'),
         'last_ok' => (bool)$res['ok'] && empty($d['errors']),

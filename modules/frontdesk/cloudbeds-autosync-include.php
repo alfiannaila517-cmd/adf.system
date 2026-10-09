@@ -231,6 +231,8 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
                     if (d.cancelled) items.push(['r', d.cancelled, 'booking dibatalkan']);
                     if (d.blocked) items.push(['a', d.blocked, 'kamar diblok']);
                     if (d.unblocked) items.push(['b', d.unblocked, 'blok kamar dicabut']);
+                    if (d.moved) items.push(['b', d.moved, 'kamar dipindah']);
+                    if (d.repriced) items.push(['a', d.repriced, 'harga disamakan']);
                     if (!items.length) return;
                     var ul = document.getElementById('cbAutoToastList');
                     ul.innerHTML = '';
@@ -243,8 +245,27 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
                         li.appendChild(document.createTextNode(it[2]));
                         ul.appendChild(li);
                     });
-                    document.getElementById('cbAutoToastTime').textContent = 'Disinkron pukul ' + hhmm(d.last) + ' · muat ulang untuk melihatnya';
                     document.getElementById('cbAutoToast').classList.add('show');
+                    // Ada perubahan dari Cloudbeds → halaman dimuat ulang otomatis (hitung mundur 4 dtk, bisa dibatalkan).
+                    // Tidak otomatis bila ada popup / formulir yang sedang dibuka agar isian tidak hilang.
+                    var busyUi = document.querySelector('.modal-overlay.active, .modal.show, .guest-side-panel-overlay.active, .mv-overlay.active, [role="dialog"].open');
+                    var timeEl = document.getElementById('cbAutoToastTime');
+                    // Pengaman: tidak memuat ulang otomatis lebih dari sekali per menit (mencegah muat-ulang berulang)
+                    var lastAuto = 0;
+                    try { lastAuto = parseInt(sessionStorage.getItem('cbsAutoReload') || '0', 10) || 0; } catch (e) {}
+                    if (busyUi || Date.now() - lastAuto < 60000) {
+                        timeEl.textContent = 'Disinkron pukul ' + hhmm(d.last) + ' · muat ulang untuk melihatnya';
+                        return;
+                    }
+                    try { sessionStorage.setItem('cbsAutoReload', String(Date.now())); } catch (e) {}
+                    var left = 4;
+                    var tick = function() {
+                        if (!document.getElementById('cbAutoToast').classList.contains('show')) return; // dibatalkan ("Nanti"/tutup)
+                        timeEl.textContent = 'Memuat ulang dalam ' + left + ' dtk…';
+                        if (left-- <= 0) { location.reload(); return; }
+                        setTimeout(tick, 1000);
+                    };
+                    tick();
                 })
                 .catch(function() { running = false; setPill('err'); });
         }
