@@ -101,7 +101,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             width: 68px;
             height: 68px;
             border-radius: 50%;
-            object-fit: contain;
+            object-fit: cover;
             background: #fff;
             border: 2px solid #d9c39c;
             box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.16), 0 10px 22px -10px rgba(0, 0, 0, 0.55);
@@ -805,6 +805,46 @@ $token = trim((string)($_GET['t'] ?? ''));
         </div>
     </div>
 
+    <script>
+        // Logo di header: otomatis dipangkas ke isi logonya lalu dipusatkan tepat di tengah lingkaran (margin putih rata)
+        (function() {
+            var img = document.querySelector('.hero-logo');
+            if (!img) return;
+            function center() {
+                try {
+                    var w = img.naturalWidth, h = img.naturalHeight;
+                    if (!w || !h || img.dataset.centered) return;
+                    var k = Math.min(1, 600 / Math.max(w, h));
+                    var cw = Math.round(w * k), ch = Math.round(h * k);
+                    var c = document.createElement('canvas');
+                    c.width = cw; c.height = ch;
+                    var ctx = c.getContext('2d');
+                    ctx.drawImage(img, 0, 0, cw, ch);
+                    var d = ctx.getImageData(0, 0, cw, ch).data;
+                    var x0 = cw, y0 = ch, x1 = -1, y1 = -1;
+                    for (var y = 0; y < ch; y++) {
+                        for (var x = 0; x < cw; x++) {
+                            var i = (y * cw + x) * 4;
+                            var solid = d[i + 3] > 40 && (d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235);
+                            if (solid) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+                        }
+                    }
+                    if (x1 < 0) return;
+                    var bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+                    var side = Math.round(Math.max(bw, bh) * 1.16); // margin putih rata ±8% di semua sisi
+                    var o = document.createElement('canvas');
+                    o.width = side; o.height = side;
+                    var octx = o.getContext('2d');
+                    octx.fillStyle = '#fff';
+                    octx.fillRect(0, 0, side, side);
+                    octx.drawImage(c, x0, y0, bw, bh, Math.round((side - bw) / 2), Math.round((side - bh) / 2), bw, bh);
+                    img.dataset.centered = '1';
+                    img.src = o.toDataURL('image/png');
+                } catch (e) { /* gambar dari domain lain / tidak bisa dibaca: biarkan apa adanya */ }
+            }
+            if (img.complete && img.naturalWidth) center(); else img.addEventListener('load', center, { once: true });
+        })();
+    </script>
     <script>
         (function() {
             var TOKEN = <?php echo json_encode($token); ?>;
