@@ -238,7 +238,6 @@ $netToday = $totalIncome - $totalExpense;
 try {
     $esKey = 'esr_notified_' . ($business['database_name'] ?? '');
     if (empty($_SESSION[$esKey]) || time() - (int)$_SESSION[$esKey] > 600) {
-        $_SESSION[$esKey] = time();
         $esOcc = ['occupied' => 0, 'total' => 0];
         try {
             $esOcc['total'] = (int)($businessDb->fetchOne("SELECT COUNT(*) c FROM rooms")['c'] ?? 0);
@@ -263,21 +262,36 @@ try {
         $esMsg = $operatorName . ' menutup shift. Masuk Rp ' . number_format($totalIncome, 0, ',', '.') . ' · Keluar Rp ' . number_format($totalExpense, 0, ',', '.')
             . ' · Net Rp ' . number_format($totalIncome - $totalExpense, 0, ',', '.')
             . ($esOcc['total'] ? ' · Okupansi ' . $esOcc['occupied'] . '/' . $esOcc['total'] : '');
-        $masterDb->query("CREATE TABLE IF NOT EXISTS notifications (
+        // Selalu pakai koneksi ke database MASTER (users/roles/notifications ada di sana), bukan database bisnis yang sedang aktif
+        $esPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $esPdo->exec("CREATE TABLE IF NOT EXISTS notifications (
             id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, type VARCHAR(50) NOT NULL,
             title VARCHAR(255) NOT NULL, message TEXT, data JSON, is_read TINYINT(1) DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_user_read (user_id, is_read), INDEX idx_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        $owners = $masterDb->fetchAll("SELECT u.id FROM users u JOIN roles r ON u.role_id = r.id
-            WHERE r.role_code IN ('owner', 'admin', 'developer') AND u.is_active = 1") ?: [];
-        foreach ($owners as $ow) {
-            $masterDb->query("INSERT INTO notifications (user_id, type, title, message, data, is_read, created_at) VALUES (?, 'end_shift', ?, ?, ?, 0, NOW())",
-                [(int)$ow['id'], $esTitle, $esMsg, json_encode($esData, JSON_UNESCAPED_UNICODE)]);
+        $owners = $esPdo->query("SELECT u.id FROM users u JOIN roles r ON u.role_id = r.id
+            WHERE r.role_code IN ('owner', 'admin', 'developer') AND u.is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
+        $ins = $esPdo->prepare("INSERT INTO notifications (user_id, type, title, message, data, is_read, created_at) VALUES (?, 'end_shift', ?, ?, ?, 0, NOW())");
+        $saved = 0;
+        foreach ($owners as $ownerId) {
+            $ins->execute([(int)$ownerId, $esTitle, $esMsg, json_encode($esData, JSON_UNESCAPED_UNICODE)]);
+            $saved++;
         }
+        if ($saved > 0) $_SESSION[$esKey] = time(); // tandai terkirim hanya bila tersimpan
         try {
             require_once __DIR__ . '/includes/PushNotificationHelper.php';
-            (new PushNotificationHelper($masterDb))->sendToAdmins($esTitle, $esMsg, ['type' => 'end_shift', 'tag' => 'end_shift-' . time(), 'url' => $esData['url']]);
+            // adaptor kecil agar helper push memakai database master
+            $esDb = new class($esPdo) {
+                private $p;
+                public function __construct($p) { $this->p = $p; }
+                public function query($sql, $a = []) { try { $st = $this->p->prepare($sql); $st->execute($a); return $st; } catch (\Throwable $e) { error_log('esDb: ' . $e->getMessage()); return false; } }
+                public function fetchOne($sql, $a = []) { $st = $this->query($sql, $a); return $st ? ($st->fetch(PDO::FETCH_ASSOC) ?: null) : null; }
+                public function fetchAll($sql, $a = []) { $st = $this->query($sql, $a); return $st ? $st->fetchAll(PDO::FETCH_ASSOC) : []; }
+                public function insert($table, $data) { $cols = array_keys($data); $this->query('INSERT INTO `' . $table . '` (`' . implode('`,`', $cols) . '`) VALUES (' . implode(',', array_fill(0, count($cols), '?')) . ')', array_values($data)); return $this->p->lastInsertId(); }
+                public function getConnection() { return $this->p; }
+            };
+            (new PushNotificationHelper($esDb))->sendToAdmins($esTitle, $esMsg, ['type' => 'end_shift', 'tag' => 'end_shift-' . time(), 'url' => $esData['url']]);
         } catch (\Throwable $e) {
             error_log('End shift push: ' . $e->getMessage());
         }
