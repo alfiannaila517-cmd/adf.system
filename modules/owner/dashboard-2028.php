@@ -3374,6 +3374,20 @@ if (!$ovIsHotel) {
         .att-scan-pill .att-sp-lbl { font-size: .46rem; } .att-scan-pill .att-sp-val { font-size: .6rem; }
         .att-emp-hours { font-size: .58rem; }
 
+        /* ── Absensi: baris sederhana (nama · jabatan · status | masuk → pulang · jam) ── */
+        .att-emp-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+        .att-emp-info { flex: 1; min-width: 0; }
+        .att-emp-name { display: flex; align-items: center; gap: 6px; font-size: .76rem; font-weight: 700; color: #0f172a; min-width: 0; }
+        .att-emp-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+        .att-emp-pos { font-size: .62rem; color: #94a3b8; }
+        .att-late-tag { font-size: .54rem; font-weight: 800; padding: 1px 6px; border-radius: 999px; background: #fef3c7; color: #b45309; }
+        .att-emp-time { text-align: right; flex-shrink: 0; }
+        .att-tm { display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; font-variant-numeric: tabular-nums; }
+        .att-tm b { font-size: .76rem; font-weight: 800; color: #0f172a; }
+        .att-tm b.mut { color: #cbd5e1; font-weight: 700; }
+        .att-tm i { font-style: normal; color: #94a3b8; font-size: .66rem; }
+        .att-emp-time small { display: block; font-size: .58rem; color: #64748b; margin-top: 1px; font-weight: 600; }
+
         /* ── Mode ringkas ── */
         .container { padding-left: 12px !important; padding-right: 12px !important; }
         .ow-top { padding: 9px 12px; margin-bottom: 10px; border-radius: 14px; }
@@ -4332,55 +4346,25 @@ if (!$ovIsHotel) {
                         </div>
                         <div id="attStaffList">
                             <?php
+                            $attMap = ['late' => ['av-late', 'asb-late', 'Terlambat'], 'leave' => ['av-leave', 'asb-leave', 'Izin'], 'holiday' => ['av-leave', 'asb-holiday', 'Libur'], 'half_day' => ['av-late', 'asb-half_day', 'Half Day']];
                             foreach ($attRecords as $ar):
-                                $statusCls = 'av-present';
-                                $badgeCls = 'asb-present';
-                                $badgeText = 'Hadir';
-                                $initial = mb_strtoupper(mb_substr($ar['full_name'], 0, 1));
-                                if ($ar['status'] === 'late') {
-                                    $statusCls = 'av-late';
-                                    $badgeCls = 'asb-late';
-                                    $badgeText = 'Terlambat';
-                                } elseif ($ar['status'] === 'leave') {
-                                    $statusCls = 'av-leave';
-                                    $badgeCls = 'asb-leave';
-                                    $badgeText = 'Izin';
-                                } elseif ($ar['status'] === 'holiday') {
-                                    $statusCls = 'av-leave';
-                                    $badgeCls = 'asb-holiday';
-                                    $badgeText = 'Libur';
-                                } elseif ($ar['status'] === 'half_day') {
-                                    $statusCls = 'av-late';
-                                    $badgeCls = 'asb-half_day';
-                                    $badgeText = 'Half Day';
-                                }
-                                $s1 = $ar['check_in_time'] ? substr($ar['check_in_time'], 0, 5) : '-';
-                                $s2 = $ar['check_out_time'] ? substr($ar['check_out_time'], 0, 5) : '-';
-                                $s3 = !empty($ar['scan_3']) ? substr($ar['scan_3'], 0, 5) : '';
-                                $s4 = !empty($ar['scan_4']) ? substr($ar['scan_4'], 0, 5) : '';
-                                $wh = $ar['work_hours'] ? number_format((float)$ar['work_hours'], 1) . 'h' : '';
+                                [$statusCls, $badgeCls, $badgeText] = $attMap[$ar['status']] ?? ['av-present', 'asb-present', 'Hadir'];
+                                $scans = array_values(array_filter([substr((string)($ar['check_in_time'] ?? ''), 0, 5), substr((string)($ar['scan_3'] ?? ''), 0, 5), substr((string)($ar['scan_4'] ?? ''), 0, 5), substr((string)($ar['check_out_time'] ?? ''), 0, 5)]));
+                                $tIn = $scans[0] ?? '';
+                                $tOut = count($scans) > 1 ? end($scans) : '';
+                                $wh = $ar['work_hours'] ? number_format((float)$ar['work_hours'], 1) . ' jam' : '';
                                 $lateMins = (int)($ar['late_minutes'] ?? 0);
-                                $noteText = trim($ar['notes'] ?? '');
+                                $initial = mb_strtoupper(mb_substr($ar['full_name'], 0, 1));
                             ?>
-                                <div class="att-emp-row">
+                                <div class="att-emp-row" title="<?= htmlspecialchars(implode(' · ', $scans)) ?>">
                                     <div class="att-emp-avatar <?= $statusCls ?>"><?= $initial ?></div>
                                     <div class="att-emp-info">
-                                        <div class="att-emp-name"><?= htmlspecialchars($ar['full_name']) ?></div>
-                                        <div class="att-emp-meta">
-                                            <span class="att-emp-pos"><?= htmlspecialchars($ar['position'] ?? '-') ?></span>
-                                            <span class="att-status-badge <?= $badgeCls ?>"><?= $badgeText ?></span>
-                                            <?php if ($lateMins > 0): ?><span class="att-late-tag">+<?= $lateMins ?>m</span><?php endif; ?>
-                                        </div>
+                                        <div class="att-emp-name"><?= htmlspecialchars($ar['full_name']) ?><?php if ($lateMins > 0): ?><span class="att-late-tag">+<?= $lateMins ?>m</span><?php endif; ?></div>
+                                        <div class="att-emp-meta"><span class="att-emp-pos"><?= htmlspecialchars($ar['position'] ?? '-') ?></span><span class="att-status-badge <?= $badgeCls ?>"><?= $badgeText ?></span></div>
                                     </div>
-                                    <div class="att-emp-scans">
-                                        <div class="att-scan-pills">
-                                            <div class="att-scan-pill"><span class="att-sp-lbl">S1</span><span class="att-sp-val"><?= $s1 ?></span></div>
-                                            <div class="att-scan-pill"><span class="att-sp-lbl">S2</span><span class="att-sp-val"><?= $s2 ?></span></div>
-                                            <?php if ($s3): ?><div class="att-scan-pill"><span class="att-sp-lbl">S3</span><span class="att-sp-val"><?= $s3 ?></span></div><?php endif; ?>
-                                            <?php if ($s4): ?><div class="att-scan-pill"><span class="att-sp-lbl">S4</span><span class="att-sp-val"><?= $s4 ?></span></div><?php endif; ?>
-                                        </div>
-                                        <?php if ($wh): ?><div class="att-emp-hours"><?= $wh ?></div><?php endif; ?>
-                                        <?php if ($noteText): ?><div class="att-emp-note"><?= htmlspecialchars(mb_substr($noteText, 0, 20)) ?></div><?php endif; ?>
+                                    <div class="att-emp-time">
+                                        <div class="att-tm"><?php if ($tIn): ?><b><?= $tIn ?></b><?php if ($tOut): ?><i>→</i><b><?= $tOut ?></b><?php else: ?><i>→</i><b class="mut">…</b><?php endif; ?><?php else: ?><b class="mut">—</b><?php endif; ?></div>
+                                        <?php if ($wh): ?><small><?= $wh ?></small><?php endif; ?>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -4389,20 +4373,14 @@ if (!$ovIsHotel) {
                             $recordedIds = array_column($attRecords, 'employee_id');
                             foreach ($attEmployees as $emp):
                                 if (in_array($emp['id'], $recordedIds)) continue;
-                                $initial = mb_strtoupper(mb_substr($emp['full_name'], 0, 1));
                             ?>
                                 <div class="att-emp-row">
-                                    <div class="att-emp-avatar av-absent"><?= $initial ?></div>
+                                    <div class="att-emp-avatar av-absent"><?= mb_strtoupper(mb_substr($emp['full_name'], 0, 1)) ?></div>
                                     <div class="att-emp-info">
                                         <div class="att-emp-name"><?= htmlspecialchars($emp['full_name']) ?></div>
-                                        <div class="att-emp-meta">
-                                            <span class="att-emp-pos"><?= htmlspecialchars($emp['position'] ?? '-') ?></span>
-                                            <span class="att-status-badge asb-absent">Alpha</span>
-                                        </div>
+                                        <div class="att-emp-meta"><span class="att-emp-pos"><?= htmlspecialchars($emp['position'] ?? '-') ?></span><span class="att-status-badge asb-absent">Alpha</span></div>
                                     </div>
-                                    <div class="att-emp-scans">
-                                        <div style="font-size:9px;color:#dc2626;font-weight:700;">Tidak hadir</div>
-                                    </div>
+                                    <div class="att-emp-time"><div class="att-tm"><b class="mut">—</b></div><small>Tidak hadir</small></div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
@@ -4971,67 +4949,27 @@ if (!$ovIsHotel) {
                                 document.getElementById('attListCount').textContent = data.stats.recorded + '/' + data.stats.total + ' staff';
 
                                 let html = '';
-                                // Present/late employees
+                                const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+                                const map = { late: ['av-late', 'asb-late', 'Terlambat'], leave: ['av-leave', 'asb-leave', 'Izin'], holiday: ['av-leave', 'asb-holiday', 'Libur'], half_day: ['av-late', 'asb-half_day', 'Half Day'] };
                                 data.records.forEach(ar => {
-                                    let statusCls = 'av-present',
-                                        badgeCls = 'asb-present',
-                                        badgeText = 'Hadir';
-                                    if (ar.status === 'late') {
-                                        statusCls = 'av-late';
-                                        badgeCls = 'asb-late';
-                                        badgeText = 'Terlambat';
-                                    } else if (ar.status === 'leave') {
-                                        statusCls = 'av-leave';
-                                        badgeCls = 'asb-leave';
-                                        badgeText = 'Izin';
-                                    } else if (ar.status === 'holiday') {
-                                        statusCls = 'av-leave';
-                                        badgeCls = 'asb-holiday';
-                                        badgeText = 'Libur';
-                                    } else if (ar.status === 'half_day') {
-                                        statusCls = 'av-late';
-                                        badgeCls = 'asb-half_day';
-                                        badgeText = 'Half Day';
-                                    }
-                                    const s1 = ar.check_in_time ? ar.check_in_time.substring(0, 5) : '-';
-                                    const s2 = ar.check_out_time ? ar.check_out_time.substring(0, 5) : '-';
-                                    const s3 = ar.scan_3 ? ar.scan_3.substring(0, 5) : '';
-                                    const s4 = ar.scan_4 ? ar.scan_4.substring(0, 5) : '';
-                                    const wh = ar.work_hours ? parseFloat(ar.work_hours).toFixed(1) + 'h' : '';
+                                    const m = map[ar.status] || ['av-present', 'asb-present', 'Hadir'];
+                                    const scans = [ar.check_in_time, ar.scan_3, ar.scan_4, ar.check_out_time].filter(Boolean).map(x => String(x).substring(0, 5));
+                                    const tIn = scans[0] || '';
+                                    const tOut = scans.length > 1 ? scans[scans.length - 1] : '';
+                                    const wh = ar.work_hours ? parseFloat(ar.work_hours).toFixed(1) + ' jam' : '';
                                     const lateMins = parseInt(ar.late_minutes || 0);
-                                    const noteText = (ar.notes || '').trim();
-                                    const initial = (ar.full_name || '?')[0].toUpperCase();
-
-                                    html += '<div class="att-emp-row">';
-                                    html += '<div class="att-emp-avatar ' + statusCls + '">' + initial + '</div>';
-                                    html += '<div class="att-emp-info"><div class="att-emp-name">' + (ar.full_name || '-') + '</div>';
-                                    html += '<div class="att-emp-meta"><span class="att-emp-pos">' + (ar.position || '-') + '</span>';
-                                    html += '<span class="att-status-badge ' + badgeCls + '">' + badgeText + '</span>';
-                                    if (lateMins > 0) html += '<span class="att-late-tag">+' + lateMins + 'm</span>';
-                                    html += '</div></div>';
-                                    html += '<div class="att-emp-scans"><div class="att-scan-pills">';
-                                    html += '<div class="att-scan-pill"><span class="att-sp-lbl">S1</span><span class="att-sp-val">' + s1 + '</span></div>';
-                                    html += '<div class="att-scan-pill"><span class="att-sp-lbl">S2</span><span class="att-sp-val">' + s2 + '</span></div>';
-                                    if (s3) html += '<div class="att-scan-pill"><span class="att-sp-lbl">S3</span><span class="att-sp-val">' + s3 + '</span></div>';
-                                    if (s4) html += '<div class="att-scan-pill"><span class="att-sp-lbl">S4</span><span class="att-sp-val">' + s4 + '</span></div>';
-                                    html += '</div>';
-                                    if (wh) html += '<div class="att-emp-hours">' + wh + '</div>';
-                                    if (noteText) html += '<div class="att-emp-note">' + noteText.substring(0, 20) + '</div>';
-                                    html += '</div></div>';
+                                    const time = tIn ? '<b>' + tIn + '</b><i>→</i>' + (tOut ? '<b>' + tOut + '</b>' : '<b class="mut">…</b>') : '<b class="mut">—</b>';
+                                    html += '<div class="att-emp-row" title="' + esc(scans.join(' · ')) + '"><div class="att-emp-avatar ' + m[0] + '">' + esc((ar.full_name || '?')[0].toUpperCase()) + '</div>' +
+                                        '<div class="att-emp-info"><div class="att-emp-name">' + esc(ar.full_name || '-') + (lateMins > 0 ? '<span class="att-late-tag">+' + lateMins + 'm</span>' : '') + '</div>' +
+                                        '<div class="att-emp-meta"><span class="att-emp-pos">' + esc(ar.position || '-') + '</span><span class="att-status-badge ' + m[1] + '">' + m[2] + '</span></div></div>' +
+                                        '<div class="att-emp-time"><div class="att-tm">' + time + '</div>' + (wh ? '<small>' + wh + '</small>' : '') + '</div></div>';
                                 });
-
-                                // Absent employees
                                 data.absent.forEach(emp => {
-                                    const initial = (emp.full_name || '?')[0].toUpperCase();
-                                    html += '<div class="att-emp-row">';
-                                    html += '<div class="att-emp-avatar av-absent">' + initial + '</div>';
-                                    html += '<div class="att-emp-info"><div class="att-emp-name">' + (emp.full_name || '-') + '</div>';
-                                    html += '<div class="att-emp-meta"><span class="att-emp-pos">' + (emp.position || '-') + '</span>';
-                                    html += '<span class="att-status-badge asb-absent">Alpha</span></div></div>';
-                                    html += '<div class="att-emp-scans"><div style="font-size:9px;color:#dc2626;font-weight:700;">Tidak hadir</div></div>';
-                                    html += '</div>';
+                                    html += '<div class="att-emp-row"><div class="att-emp-avatar av-absent">' + esc((emp.full_name || '?')[0].toUpperCase()) + '</div>' +
+                                        '<div class="att-emp-info"><div class="att-emp-name">' + esc(emp.full_name || '-') + '</div>' +
+                                        '<div class="att-emp-meta"><span class="att-emp-pos">' + esc(emp.position || '-') + '</span><span class="att-status-badge asb-absent">Alpha</span></div></div>' +
+                                        '<div class="att-emp-time"><div class="att-tm"><b class="mut">—</b></div><small>Tidak hadir</small></div></div>';
                                 });
-
                                 if (!html) html = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Tidak ada data kehadiran</div>';
                                 list.innerHTML = html;
                             })
