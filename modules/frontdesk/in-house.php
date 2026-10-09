@@ -812,30 +812,33 @@ include '../../includes/header.php';
         color: #dc2626 !important;
     }
 
-    /* ── Desain ulang kartu Tamu Menginap: header, info, total, dan tombol seragam ── */
-    body[data-theme] .ih-guests { grid-template-columns: repeat(auto-fill, minmax(370px, 1fr)) !important; gap: .85rem !important; align-items: stretch !important; }
-    body[data-theme] .ih-card { gap: .7rem !important; padding: .9rem 1rem !important; border-radius: 16px !important; }
-    body[data-theme] .ih-card .ih-room { min-width: 44px; height: 38px; border-radius: 11px; font-size: .9rem; letter-spacing: .01em; box-shadow: 0 6px 14px -8px rgba(37, 99, 235, .8); }
-    body[data-theme] .ih-card .ih-who b { font-size: .92rem; font-weight: 800; }
-    body[data-theme] .ih-card .ih-who small { font-size: .68rem; margin-top: 1px; }
-    body[data-theme] .ih-card .ih-payment-badge { padding: .22rem .65rem !important; font-size: .64rem !important; font-weight: 800 !important; }
-    body[data-theme] .ih-card .ih-meta { gap: .35rem; }
-    body[data-theme] .ih-card .ih-meta span { font-size: .72rem; font-weight: 600; padding: .22rem .55rem; border-radius: 8px; }
+    /* ── Desain ulang kartu Tamu Menginap (ringkas): header, info, total, dan tombol seragam ── */
+    body[data-theme] .ih-guests { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important; gap: .6rem !important; align-items: stretch !important; }
+    body[data-theme] .ih-card { gap: .5rem !important; padding: .65rem .75rem !important; border-radius: 13px !important; }
+    body[data-theme] .ih-card .ih-room { min-width: 36px; height: 30px; border-radius: 9px; font-size: .78rem; }
+    body[data-theme] .ih-card .ih-who b { font-size: .8rem; font-weight: 800; }
+    body[data-theme] .ih-card .ih-who small { font-size: .62rem; }
+    body[data-theme] .ih-card .ih-payment-badge { padding: .15rem .5rem !important; font-size: .58rem !important; font-weight: 800 !important; }
+    body[data-theme] .ih-card .ih-meta { gap: .28rem; }
+    body[data-theme] .ih-card .ih-meta span { font-size: .64rem; font-weight: 600; padding: .15rem .45rem; border-radius: 7px; }
     body[data-theme] .ih-card .ih-meta span:first-child { background: rgba(37, 99, 235, .1); color: #1d4ed8 !important; }
     body[data-theme="dark"] .ih-card .ih-meta span:first-child { color: #93c5fd !important; }
-    body[data-theme] .ih-card .ih-card-foot { margin-top: auto; flex-direction: column; align-items: stretch; gap: .65rem; padding-top: .7rem; }
-    body[data-theme] .ih-card .ih-total { flex-direction: row; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
-    body[data-theme] .ih-card .ih-total small { font-size: .66rem; }
-    body[data-theme] .ih-card .ih-total b { font-size: 1.05rem; font-weight: 800; }
-    body[data-theme] .ih-card .ih-total .ih-rest { margin-left: auto; padding: .15rem .55rem; border-radius: 999px; background: rgba(220, 38, 38, .1); font-size: .72rem; font-weight: 800; }
-    body[data-theme] .ih-card .ih-actions { display: flex !important; gap: .45rem !important; width: 100%; }
-    body[data-theme] .ih-card .ih-btn { height: 38px !important; padding: 0 .6rem !important; border-radius: 10px !important; font-size: .78rem !important; font-weight: 700 !important; display: inline-flex !important; align-items: center; justify-content: center; gap: .4rem; flex: 1 1 0 !important; min-width: 0; cursor: pointer; white-space: nowrap; transition: background .15s, transform .1s; }
-    body[data-theme] .ih-card .ih-btn:active { transform: scale(.97) !important; }
-    body[data-theme] .ih-card .ih-btn .ih-ic { width: 16px; height: 16px; flex: none; }
-    body[data-theme] .ih-card .ih-btn-wa { flex: 0 0 38px !important; width: 38px !important; border-radius: 10px !important; }
-    body[data-theme] .ih-card .ih-btn-wa svg { width: 18px; height: 18px; }
-    body[data-theme] .ih-card .ih-btn-pay { box-shadow: 0 6px 14px -8px rgba(4, 120, 87, .9) !important; }
-    body[data-theme] .ih-card .ih-btn-checkout { box-shadow: 0 6px 14px -8px rgba(153, 27, 27, .9) !important; }
+    body[data-theme] .ih-card .ih-card-foot { margin-top: auto; flex-direction: column; align-items: stretch; gap: .5rem; padding-top: .5rem; }
+    body[data-theme] .ih-card .ih-total { flex-direction: row; align-items: baseline; gap: .4rem; flex-wrap: wrap; }
+    body[data-theme] .ih-card .ih-total small { font-size: .58rem; }
+    body[data-theme] .ih-card .ih-total b { font-size: .9rem; font-weight: 800; }
+    body[data-theme] .ih-card .ih-total .ih-rest { margin-left: auto; padding: .1rem .45rem; border-radius: 999px; background: rgba(220, 38, 38, .1); font-size: .64rem; font-weight: 800; }
+    body[data-theme] .ih-card .ih-actions { display: flex !important; gap: .35rem !important; width: 100%; }
+    body[data-theme] .ih-card .ih-btn { height: 30px !important; padding: 0 .45rem !important; border-radius: 8px !important; font-size: .7rem !important; font-weight: 700 !important; display: inline-flex !important; align-items: center; justify-content: center; gap: .3rem; flex: 1 1 0 !important; min-width: 0; cursor: pointer; white-space: nowrap; }
+    body[data-theme] .ih-card .ih-btn span { color: inherit !important; -webkit-text-fill-color: currentColor !important; font-size: inherit !important; font-weight: inherit !important; background: none !important; padding: 0 !important; }
+    body[data-theme] .ih-card .ih-btn .ih-ic { width: 13px; height: 13px; flex: none; }
+    body[data-theme] .ih-card .ih-btn-wa { flex: 0 0 30px !important; width: 30px !important; border-radius: 8px !important; }
+    body[data-theme] .ih-card .ih-btn-wa svg { width: 15px; height: 15px; }
+    /* teks tombol berwarna solid harus putih */
+    body[data-theme] .ih-card .ih-btn-checkout, body[data-theme] .ih-card .ih-btn-pay { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+    body[data-theme] .ih-card .ih-btn-breakfast { color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; }
+    body[data-theme] .ih-card .ih-btn-checkout.ih-btn span, body[data-theme] .ih-card .ih-btn-pay.ih-btn span { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; }
+    body[data-theme] .ih-card .ih-btn-breakfast.ih-btn span { color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; }
     .ih-card.ih-focus {
         animation: ihFocus 1.6s ease-out 2;
     }
