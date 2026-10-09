@@ -4177,6 +4177,16 @@ include '../../includes/header.php';
     #hsx .hs-filters .btn-hs { height: 30px; }
     #hsx .hs-table-wrap { border-radius: 14px !important; }
     #hsx table.hs-v2 { min-width: 940px !important; }
+    /* Kolom presisi: tabel penuh lebar, kolom Tamu mengambil sisa ruang agar nama terbaca utuh */
+    #hsx table.hs-v2 { width: 100% !important; min-width: 1060px !important; table-layout: fixed !important; }
+    #hsx table.hs-v2 thead th, #hsx table.hs-v2 tbody td { padding-left: 10px !important; padding-right: 10px !important; }
+    #hsx table.hs-v2 thead th.l, #hsx table.hs-v2 td:nth-child(1), #hsx table.hs-v2 td:nth-child(2), #hsx table.hs-v2 td:nth-child(3), #hsx table.hs-v2 td:nth-child(5) { text-align: left !important; }
+    #hsx table.hs-v2 thead th:nth-child(4), #hsx table.hs-v2 thead th:nth-child(9), #hsx table.hs-v2 thead th:nth-child(10),
+    #hsx table.hs-v2 td:nth-child(4), #hsx table.hs-v2 td:nth-child(9), #hsx table.hs-v2 td:nth-child(10) { text-align: center !important; }
+    #hsx table.hs-v2 thead th:nth-child(5), #hsx table.hs-v2 td:nth-child(5) { padding-left: 10px !important; }
+    #hsx table.hs-v2 .hs-guest-name { overflow: visible !important; text-overflow: clip !important; white-space: normal !important; line-height: 1.2; }
+    #hsx table.hs-v2 .hs-guest { align-items: center; }
+    #hsx table.hs-v2 .hs-svc-one { max-width: 100%; }
     #hsx table.hs-v2 thead th { padding: 8px 10px !important; font-size: .56rem !important; }
     #hsx table.hs-v2 tbody td { padding: 6px 10px !important; font-size: .74rem !important; }
     #hsx table.hs-v2 td.hs-date { font-size: .68rem !important; }
@@ -4320,16 +4330,16 @@ include '../../includes/header.php';
         <?php else: ?>
             <table class="hs-table hs-v2">
                 <colgroup>
-                    <col style="width:104px">
-                    <col>
-                    <col style="width:128px">
-                    <col style="width:84px">
-                    <col style="width:170px">
-                    <col style="width:100px">
-                    <col style="width:100px">
-                    <col style="width:100px">
-                    <col style="width:124px">
-                    <col style="width:76px">
+                    <col style="width:92px">
+                    <col style="min-width:200px">
+                    <col style="width:122px">
+                    <col style="width:62px">
+                    <col style="width:140px">
+                    <col style="width:88px">
+                    <col style="width:88px">
+                    <col style="width:88px">
+                    <col style="width:112px">
+                    <col style="width:68px">
                 </colgroup>
                 <thead>
                     <tr>
