@@ -4153,6 +4153,39 @@ include '../../includes/header.php';
     #hsx table.hs-v2 col:last-child { width: 96px !important; }
     #hsx table.hs-v2 { min-width: 1060px !important; }
     #hsx .hs-empty { padding: 3rem 1rem !important; text-align: center; color: var(--mute) !important; }
+    /* ── Mode ringkas: semua kontainer dikecilkan agar halaman rapat & elegan ── */
+    #hsx { max-width: 1440px; padding: .55rem .7rem 1rem; }
+    #hsx .hs-header-card { padding: .6rem .8rem !important; border-radius: 14px !important; margin-bottom: .5rem !important; }
+    #hsx .hs-topbar { margin-bottom: .55rem !important; gap: .6rem; }
+    #hsx .hs-topbar h2 { font-size: .95rem !important; gap: .45rem; }
+    #hsx .hsx-logo { width: 28px; height: 28px; border-radius: 8px; }
+    #hsx .hsx-logo svg { width: 15px; height: 15px; }
+    #hsx .hs-topmeta { margin-top: .3rem !important; gap: .25rem; }
+    #hsx .hs-topmeta .hsx-chip { padding: .06rem .5rem; font-size: .6rem !important; }
+    #hsx .btn-hs { height: 30px; padding: 0 .8rem !important; border-radius: 9px !important; font-size: .72rem !important; }
+    #hsx .hs-stats { gap: .4rem; }
+    #hsx .hs-stats .hs-stat { padding: .4rem .65rem !important; border-radius: 10px !important; border-top: 1px solid var(--line) !important; border-left: 3px solid var(--c, #2563eb) !important; gap: .05rem; }
+    #hsx .hs-stats .hs-stat .val { font-size: .92rem !important; }
+    #hsx .hs-stats .hs-stat .lbl { font-size: .54rem !important; }
+    #hsx .hsx-rev { padding: .5rem .7rem; border-radius: 14px; margin-bottom: .5rem; }
+    #hsx .hsx-rev-h { margin-bottom: .4rem; font-size: .58rem; }
+    #hsx .hsx-rev-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 200px)); gap: .4rem; }
+    #hsx .hsx-rev-i { padding: .3rem .6rem; border-radius: 10px; border-left-width: 3px; }
+    #hsx .hsx-rev-i .n { font-size: .62rem; } #hsx .hsx-rev-i .v { font-size: .82rem; margin-top: 0; } #hsx .hsx-rev-i .c { font-size: .55rem; }
+    #hsx .hs-filters { padding: .4rem .55rem !important; margin-bottom: .5rem !important; border-radius: 12px !important; gap: .4rem; }
+    #hsx .hs-filters input, #hsx .hs-filters select { height: 30px; padding: 0 .6rem !important; border-radius: 9px !important; font-size: .74rem !important; }
+    #hsx .hs-filters .btn-hs { height: 30px; }
+    #hsx .hs-table-wrap { border-radius: 14px !important; }
+    #hsx table.hs-v2 { min-width: 940px !important; }
+    #hsx table.hs-v2 thead th { padding: 8px 10px !important; font-size: .56rem !important; }
+    #hsx table.hs-v2 tbody td { padding: 6px 10px !important; font-size: .74rem !important; }
+    #hsx table.hs-v2 td.hs-date { font-size: .68rem !important; }
+    #hsx table.hs-v2 .hs-room-badge { font-size: .66rem !important; padding: 1px 9px !important; min-width: 0 !important; }
+    #hsx table.hs-v2 .hs-svc-one { padding: 1px 8px !important; font-size: .66rem !important; }
+    #hsx table.hs-v2 .hs-lunas { font-size: .62rem; padding: 1px 8px; }
+    #hsx .hs-stat .hs-badge, #hsx table.hs-v2 .hs-stat .hs-badge { min-width: 62px !important; padding: .1rem .4rem !important; font-size: .5rem !important; }
+    #hsx table.hs-v2 .hs-stat { gap: 2px !important; }
+    #hsx .hs-action-dropdown-btn { height: 24px; padding: 0 .6rem !important; font-size: .66rem !important; border-radius: 8px !important; }
     @media (max-width: 1100px) { #hsx .hs-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 640px) {
         #hsx { padding: .65rem .5rem 1rem; }
