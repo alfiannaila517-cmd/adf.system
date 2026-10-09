@@ -20,6 +20,17 @@ if (!function_exists('cloudbedsPushAfterResponse')) {
             return;
         }
 
+        // Tandai edit SEKARANG (sebelum respons dikirim): bila halaman langsung di-reload, sinkron dari Cloudbeds
+        // melihat antrean ini dan TIDAK menimpa kamar/tanggal/harga yang baru diubah di sistem.
+        if ($edited) {
+            try {
+                require_once __DIR__ . '/CloudbedsSync.php';
+                (new CloudbedsSync($db, new CloudbedsClient($db)))->markEdited($bookingIds);
+            } catch (\Throwable $e) {
+                error_log('Cloudbeds markEdited: ' . $e->getMessage());
+            }
+        }
+
         $userId = (int)($_SESSION['user_id'] ?? 0);
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
