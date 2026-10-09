@@ -3233,6 +3233,67 @@ if (!$ovIsHotel) {
         .dc-amt { font-size: .76rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
         .dc-amt.in { color: #0f172a; } .dc-amt.out { color: #dc2626; } .dc-amt.op { color: #059669; }
 
+        /* ── Launcher ikon aplikasi + panel ── */
+        .ow-apps { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 8px; margin-bottom: 12px; }
+        .ow-app { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 4px 8px; border-radius: 16px; background: #fff; border: 1px solid #e8edf3; cursor: pointer; text-decoration: none; font-family: inherit; box-shadow: 0 8px 20px -16px rgba(15, 23, 42, .35); transition: transform .12s, box-shadow .12s, border-color .12s; min-width: 0; }
+        .ow-app:hover { transform: translateY(-1px); }
+        .ow-app-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 3px; }
+        .ow-app-ic svg { width: 19px; height: 19px; }
+        .ow-app b { font-size: .68rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
+        .ow-app small { font-size: .54rem; color: #94a3b8; font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ow-app.on { background: linear-gradient(160deg, #1e3a8a, #2563eb); border-color: transparent; box-shadow: 0 12px 24px -14px rgba(30, 58, 138, .9); }
+        .ow-app.on b { color: #fff; } .ow-app.on small { color: rgba(219, 234, 254, .85); }
+        .ow-app.on .ow-app-ic { background: rgba(255, 255, 255, .18) !important; color: #fff !important; }
+        .ic-t-blue { background: #dbeafe; color: #1d4ed8; } .ic-t-green { background: #dcfce7; color: #15803d; } .ic-t-amber { background: #fef3c7; color: #b45309; }
+        .ic-t-violet { background: #ede9fe; color: #6d28d9; } .ic-t-rose { background: #ffe4e6; color: #be123c; } .ic-t-navy { background: #e0e7ff; color: #1e3a8a; } .ic-t-cyan { background: #cffafe; color: #0e7490; }
+        .ow-panel { display: none; }
+        .ow-panel.on { display: block; }
+        .ow-panel.ow-stack.on { display: flex; flex-direction: column; gap: 10px; }
+        .ow-panel.ow-grid2.on { display: grid; }
+        @media (min-width: 700px) { .ow-apps { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); } }
+
+        /* ── Daily Cash lebih kecil ── */
+        .dc { padding: 10px 12px; }
+        .dc-head { margin-bottom: 8px; }
+        .dc-hero { gap: 6px; margin-bottom: 6px; }
+        .dc-tile { padding: 7px 11px; border-radius: 11px; }
+        .dc-tile span { font-size: .52rem; }
+        .dc-tile b { font-size: .92rem; margin-top: 1px; }
+        .dc-tile.main b { font-size: 1.02rem; }
+        .dc-strip { gap: 5px; margin-bottom: 7px; }
+        .dc-strip > div { padding: 4px 8px; border-radius: 9px; }
+        .dc-strip span { font-size: .5rem; } .dc-strip b { font-size: .7rem; }
+        .dc-list { max-height: 210px; }
+        .dc-row { padding: 5px 2px; gap: 6px; grid-template-columns: 34px 30px minmax(0, 1fr) auto; }
+        .dc-time { font-size: .58rem; } .dc-tag { font-size: .5rem; } .dc-desc { font-size: .66rem; } .dc-desc em { font-size: .5rem; } .dc-amt { font-size: .7rem; }
+
+        /* ── Absensi staff (desain baru, kelas lama dipertahankan agar data tetap jalan) ── */
+        .att-section { margin-top: 0; }
+        .att-hero { background: #fff; border: 1px solid #e8edf3; border-radius: 16px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 22px -16px rgba(15, 23, 42, .25); }
+        .att-hero::before { display: none; }
+        .att-hero-top { margin-bottom: 8px; }
+        .att-hero-title { font-size: .82rem; font-weight: 800; letter-spacing: 0; color: #0f172a; }
+        .att-hero-badge { font-size: .54rem; padding: 2px 9px; background: #dcfce7; border: 1px solid #bbf7d0; color: #15803d; letter-spacing: .06em; }
+        .att-date-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
+        .att-date-btn { width: 28px; height: 28px; border-radius: 9px; border: 1px solid #e2e8f0; background: #f8fafc; color: #1e3a8a; font-size: .7rem; display: grid; place-items: center; cursor: pointer; padding: 0; }
+        .att-date-label { font-size: .74rem; font-weight: 800; color: #0f172a; min-width: 150px; text-align: center; }
+        .att-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+        .att-stat-card { padding: 7px 4px; border-radius: 11px; background: #f8fafc; border: 1px solid #eef2f7; text-align: center; box-shadow: none; }
+        .att-stat-num { font-size: 1.1rem; font-weight: 800; color: #0f172a; line-height: 1.1; }
+        .att-stat-label { font-size: .54rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b !important; justify-content: center; }
+        .att-list-wrap { margin-top: 10px; background: #fff; border: 1px solid #e8edf3; border-radius: 16px; padding: 10px 12px; box-shadow: 0 8px 22px -18px rgba(15, 23, 42, .3); }
+        .att-list-header { margin-bottom: 4px; padding-bottom: 6px; border-bottom: 1px solid #eef2f7; }
+        .att-list-title { font-size: .76rem; font-weight: 800; color: #0f172a; }
+        .att-list-count { font-size: .6rem; font-weight: 700; color: #1d4ed8; background: #eff6ff; border-radius: 999px; padding: 2px 8px; }
+        .att-emp-row { padding: 7px 0; gap: 9px; border-bottom: 1px solid #f1f5f9; }
+        .att-emp-avatar { width: 30px; height: 30px; font-size: .74rem; border-radius: 10px; }
+        .att-emp-name { font-size: .72rem; font-weight: 700; color: #0f172a; }
+        .att-emp-pos { font-size: .6rem; color: #94a3b8; }
+        .att-status-badge { font-size: .52rem; padding: 1px 7px; }
+        .att-scan-pill { padding: 1px 5px; border-radius: 6px; }
+        .att-scan-pill .att-sp-lbl { font-size: .46rem; } .att-scan-pill .att-sp-val { font-size: .6rem; }
+        .att-emp-hours { font-size: .58rem; }
+
         /* ── Mode ringkas ── */
         .container { padding-left: 12px !important; padding-right: 12px !important; }
         .ow-top { padding: 9px 12px; margin-bottom: 10px; border-radius: 14px; }
@@ -3453,7 +3514,35 @@ if (!$ovIsHotel) {
             $fpIncPct = $fpTot > 0 ? round($stats['month_income'] / $fpTot * 100) : 0;
             $fpExpPct = $fpTot > 0 ? 100 - $fpIncPct : 0;
             ?>
+            <?php
+            $attOk = (!$isCQC && $attStats['total'] > 0);
+            $ovHasOcc = ($ovIsHotel && $ovOcc['total'] > 0);
+            $tiles = [
+                ['ringkasan', 'Ringkasan', 'Keuangan & End Shift', 'ic-t-blue', '<path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/>'],
+            ];
+            if ($ovHasOcc) $tiles[] = ['okupansi', 'Okupansi', $ovOccPct . '% terisi', 'ic-t-green', '<path d="M2 20v-8a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v8"/><path d="M2 16h20"/><path d="M6 9V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>'];
+            $tiles[] = ['kas', 'Kas Harian', 'Daily cash', 'ic-t-amber', '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/>'];
+            if ($ov['divInc']) $tiles[] = ['divisi', 'Divisi', 'Pemasukan', 'ic-t-violet', '<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>'];
+            if ($attOk) $tiles[] = ['absensi', 'Absensi', ($attStats['present'] + $attStats['late']) . '/' . $attStats['total'] . ' hadir', 'ic-t-rose', '<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'];
+            if ($isCQC) $tiles[] = ['proyek', 'Proyek', 'CQC', 'ic-t-navy', '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'];
+            ?>
+            <nav class="ow-apps" id="owApps" aria-label="Menu dashboard">
+                <?php foreach ($tiles as $t): ?>
+                    <button type="button" class="ow-app" data-go="<?= $t[0] ?>">
+                        <span class="ow-app-ic <?= $t[3] ?>"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><?= $t[4] ?></svg></span>
+                        <b><?= $t[1] ?></b><small><?= htmlspecialchars($t[2]) ?></small>
+                    </button>
+                <?php endforeach; ?>
+                <?php if ($ovHasOcc): ?>
+                    <a class="ow-app" href="<?= $basePath ?>/modules/owner/frontdesk-mobile.php">
+                        <span class="ow-app-ic ic-t-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+                        <b>Kalender</b><small>Booking kamar</small>
+                    </a>
+                <?php endif; ?>
+            </nav>
+
             <section class="ow-sec">
+                <div class="ow-panel ow-stack" data-p="ringkasan">
                 <div class="ow-card ow-fp">
                     <div class="ow-fp-top">
                         <div class="ow-fp-t"><b>Financial Performance</b><small><?= date('F Y') ?></small></div>
@@ -3509,8 +3598,10 @@ if (!$ovIsHotel) {
                     <div class="ow-kpi k-red"><span>Pengeluaran</span><b><?= rp($stats['today_expense']) ?></b></div>
                     <div class="ow-kpi <?= $ovNetToday >= 0 ? 'k-blue' : 'k-red' ?>"><span>Net hari ini</span><b><?= ($ovNetToday >= 0 ? '+' : '') . rp($ovNetToday) ?></b></div>
                 </div>
+                </div>
+
                 <?php if ($ovIsHotel && $ovOcc['total'] > 0): ?>
-                    <div class="ow-grid2">
+                    <div class="ow-panel ow-grid2" data-p="okupansi">
                         <div class="ow-card">
                             <div class="ow-card-h"><div class="ow-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Okupansi Hari Ini</b><small><?= $ovOcc['total'] ?> kamar</small></div></div>
                             <div class="ow-occ">
@@ -3541,7 +3632,7 @@ if (!$ovIsHotel) {
                 <?php endif; ?>
 
                 <?php if ($ov['divInc']): ?>
-                    <div class="ow-card">
+                    <div class="ow-card ow-panel" data-p="divisi">
                         <div class="ow-card-h"><div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div></div>
                         <div class="ow-occ">
                             <div class="ow-donut"><canvas id="ovDivChart" width="108" height="108"></canvas></div>
@@ -3778,7 +3869,7 @@ if (!$ovIsHotel) {
             // CASH AVAILABLE = Start Cash + Monthly Net (same as index.php)
             $dashCashAvailable = $startKasHariIni + $totalOperationalCash;
             ?>
-            <div class="ow-card dc">
+            <div class="ow-card dc ow-panel" data-p="kas">
                 <div class="dc-head">
                     <div class="ow-ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
                     <div class="dc-t"><b>Daily Cash</b><small><?= count($todayKas) ?> transaksi hari ini</small></div>
@@ -3832,6 +3923,7 @@ if (!$ovIsHotel) {
                 <?php endif; ?>
             </div>
             <?php if ($isCQC): ?>
+                <div class="ow-panel" data-p="proyek">
                 <!-- CQC Project Monitoring - Elegant 2026 -->
                 <div style="margin: 16px 0; padding: 20px; background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%); border-radius: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);">
                     <!-- Header with Icon -->
@@ -4049,100 +4141,15 @@ if (!$ovIsHotel) {
                     <?php endif; // end of else (has projects) 
                     ?>
                 </div>
+                </div>
             <?php endif; // end of isCQC 
             ?>
-
-            <!-- AI Health - Compact with Click to Expand -->
-            <div class="ai-card" onclick="toggleAiHealth()" style="cursor:pointer;">
-                <!-- COMPACT VIEW (always visible) -->
-                <div class="ai-header" style="margin-bottom:0;">
-                    <div class="ai-title-wrap">
-                        <span class="ai-badge">✨ AI</span>
-                        <span class="ai-title">Health Monitor</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <?php if ($totalRooms > 0): ?>
-                            <div style="display:flex;gap:6px;">
-                                <span style="font-size:11px;font-weight:700;color:<?= $occupancyRate >= 60 ? '#10b981' : ($occupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($occupancyRate, 0) ?>% occ</span>
-                                <span style="font-size:11px;opacity:0.4;">|</span>
-                            </div>
-                        <?php endif; ?>
-                        <div class="ai-score" style="padding:6px 10px;">
-                            <div class="ai-score-value" style="font-size:18px;"><?= number_format($healthScore, 0) ?></div>
-                            <div class="ai-score-label"><?= $healthStatus ?></div>
-                        </div>
-                        <svg id="aiChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform 0.3s;opacity:0.4;flex-shrink:0;">
-                            <polyline points="6 9 12 15 18 9" />
-                        </svg>
-                    </div>
-                </div>
-                <div style="font-size:11px;margin-top:6px;opacity:0.7;">
-                    <?= $healthEmoji ?> Margin <?= number_format($aiProfitMargin, 1) ?>% · Expense <?= number_format($aiExpenseRatio, 1) ?>%<?= $prevIncome > 0 ? ' · Growth ' . ($incomeGrowth >= 0 ? '+' : '') . number_format($incomeGrowth, 1) . '%' : '' ?><?php if (!empty($aiAlerts)): ?> · <span style="color:#ef4444;font-weight:600;"><?= count($aiAlerts) ?> alert<?= count($aiAlerts) > 1 ? 's' : '' ?></span><?php endif; ?>
-                </div>
-
-                <!-- EXPANDED VIEW (hidden by default) -->
-                <div id="aiHealthDetail" style="display:none;margin-top:14px;border-top:1px solid <?= $aiBorderTint ?>;padding-top:12px;" onclick="event.stopPropagation();">
-                    <div class="ai-content">
-                        <?php if ($totalRooms > 0): ?>
-                            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
-                                <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
-                                    <div style="font-size:16px;font-weight:800;color:<?= $occupancyRate >= 60 ? '#10b981' : ($occupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($occupancyRate, 0) ?>%</div>
-                                    <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Occupancy Now</div>
-                                </div>
-                                <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
-                                    <div style="font-size:16px;font-weight:800;color:<?= $monthlyOccupancyRate >= 60 ? '#10b981' : ($monthlyOccupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($monthlyOccupancyRate, 1) ?>%</div>
-                                    <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Monthly Avg</div>
-                                </div>
-                                <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
-                                    <div style="font-size:16px;font-weight:800;color:#122f54"><?= rp($revPAR) ?></div>
-                                    <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">RevPAR</div>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-
-                        <?php if (!empty($aiFrontdesk)): ?>
-                            <div class="ai-section-title">🏨 Frontdesk Intelligence</div>
-                            <?php foreach ($aiFrontdesk as $fd): ?>
-                                <div class="ai-alert-item"><?= $fd ?></div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-
-                        <?php if (!empty($topExpenseCategories)): ?>
-                            <div class="ai-section-title">💰 Top Expenses</div>
-                            <?php
-                            $maxExp = $topExpenseCategories[0]['total'];
-                            foreach (array_slice($topExpenseCategories, 0, 5) as $cat):
-                                $pct = $maxExp > 0 ? ($cat['total'] / $maxExp) * 100 : 0;
-                            ?>
-                                <div class="ai-expense-bar">
-                                    <span class="ai-expense-name"><?= htmlspecialchars($cat['category_name'] ?? 'Other') ?></span>
-                                    <span class="ai-expense-track"><span class="ai-expense-fill" style="width:<?= $pct ?>%"></span></span>
-                                    <span class="ai-expense-amount"><?= rp($cat['total']) ?></span>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-
-                        <?php if (!empty($aiAlerts)): ?>
-                            <div class="ai-section-title">⚠️ Alerts</div>
-                            <?php foreach ($aiAlerts as $alert): ?>
-                                <div class="ai-alert-item"><?= $alert ?></div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-
-                        <?php if (!empty($aiStrengths)): ?>
-                            <div class="ai-section-title">💪 Strengths</div>
-                            <?php foreach ($aiStrengths as $str): ?>
-                                <div class="ai-alert-item"><?= $str ?></div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
 
             <?php if (!$isCQC && $attStats['total'] > 0): ?>
                 <!-- ═══════════════════════════════════════════ -->
                 <!-- ATTENDANCE MONITORING                      -->
                 <!-- ═══════════════════════════════════════════ -->
+                <div class="ow-panel" data-p="absensi">
                 <div class="att-section">
                     <!-- Hero Card with Stats -->
                     <div class="att-hero">
@@ -4268,6 +4275,7 @@ if (!$ovIsHotel) {
                         </div>
                     </div>
                 </div>
+                </div>
             <?php endif; ?>
 
         <?php endif; // end if (!$error) 
@@ -4282,6 +4290,25 @@ if (!$ovIsHotel) {
     ?>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        // Launcher ikon: satu bagian tampil per kali, halaman tidak memanjang
+        (function() {
+            var apps = document.querySelectorAll('#owApps [data-go]');
+            if (!apps.length) return;
+            function show(name) {
+                var found = false;
+                document.querySelectorAll('.ow-panel').forEach(function(p) { var on = p.dataset.p === name; p.classList.toggle('on', on); if (on) found = true; });
+                if (!found) { name = 'ringkasan'; document.querySelectorAll('.ow-panel').forEach(function(p) { p.classList.toggle('on', p.dataset.p === name); }); }
+                apps.forEach(function(a) { a.classList.toggle('on', a.dataset.go === name); });
+                try { localStorage.setItem('owPanel', name); } catch (e) {}
+                window.dispatchEvent(new Event('resize'));
+            }
+            apps.forEach(function(a) { a.addEventListener('click', function() { show(a.dataset.go); }); });
+            var start = 'ringkasan';
+            try { start = localStorage.getItem('owPanel') || 'ringkasan'; } catch (e) {}
+            show(start);
+        })();
+    </script>
     <script>
         // Grafik ringkasan owner (7 hari, okupansi, pemasukan per divisi)
         document.addEventListener('DOMContentLoaded', function() {
