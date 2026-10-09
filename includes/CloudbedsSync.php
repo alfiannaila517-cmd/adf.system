@@ -25,6 +25,15 @@ class CloudbedsSync
     private $pushOnlyPlan = false;
     /** Reservasi Cloudbeds yang totalnya diubah (adjustment) oleh penyamaan saldo di putaran ini */
     private $adjustedThisRun = [];
+    /** Pindah kamar di Cloudbeds → sistem: berapa reservasi dibaca per sinkron & jeda minimal antar pembacaan (detik) */
+    private $roomCheckCap = 8;
+    private $roomCheckAge = 900;
+
+    public function setRoomCheckMode(int $cap, int $ageSeconds): void
+    {
+        $this->roomCheckCap = max(0, $cap);
+        $this->roomCheckAge = max(30, $ageSeconds);
+    }
     /** Pengurangan harga yang harus dilakukan manual di Cloudbeds (ditampilkan sebagai peringatan) */
     private $manualNotes = [];
     /** Maks. panggilan detail untuk cek harga per sinkron; tiap reservasi dicek ulang paling cepat tiap 3 jam */
@@ -228,6 +237,14 @@ class CloudbedsSync
             } catch (\Throwable $e) {
             }
         }
+        $recentRoomChecks = [];
+        $nRoomChecks = 0;
+        if (!$this->pushOnlyPlan) {
+            try {
+                foreach ($this->db->fetchAll("SELECT cb_reservation_id FROM cloudbeds_price_checks WHERE cb_reservation_id LIKE 'room:%' AND checked_at > NOW() - INTERVAL " . (int)$this->roomCheckAge . " SECOND") ?: [] as $rc) $recentRoomChecks[(string)$rc['cb_reservation_id']] = true;
+            } catch (\Throwable $e) {
+            }
+        }
         // Booking yang sedang menunggu edit dari sistem → harganya jangan ditimpa harga Cloudbeds dulu
         $pendingEditIds = [];
         try {
@@ -328,6 +345,18 @@ class CloudbedsSync
                     if ($cbBal !== null && (float)$cbBal >= 1) {
                         $actions[] = ['type' => 'settle', 'cb' => $cbId, 'label' => $label, 'booking_ids' => $settleIds, 'ota' => $isOtaRes,
                             'msg' => 'Lunas di sistem, di Cloudbeds masih sisa Rp ' . number_format((float)$cbBal, 0, ',', '.') . ' → samakan saldo'];
+                    }
+                }
+                // Kamar dipindah di Cloudbeds → ikut di sistem. Kamar dibaca dari detail reservasi: bergiliran
+                // (jeda per reservasi + batas jumlah per sinkron) agar sinkron tetap cepat.
+                if (!$this->pushOnlyPlan && !self::isCancelled($it['status']) && $nRoomChecks < $this->roomCheckCap) {
+                    $roomLive = array_values(array_filter($bks, fn($b) => in_array($b['status'], ['confirmed', 'pending', 'checked_in'], true)));
+                    if ($roomLive && max(array_column($roomLive, 'co')) >= date('Y-m-d') && !isset($recentRoomChecks['room:' . $cbId])
+                        && !array_filter($roomLive, fn($b) => isset($pendingEditIds[(int)$b['id']]))) {
+                        $nRoomChecks++;
+                        $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE checked_at = NOW()", ['room:' . $cbId]);
+                        $rd = $this->cb->reservationDetail($cbId);
+                        if ($rd['ok']) $this->planRoomMoves($roomLive, $rd, $cbId, $label, $actions);
                     }
                 }
                 // Harga mengikuti Cloudbeds: booking OTA SELALU (juga setelah dibayar — sistem mencatat persis seperti
@@ -499,9 +528,10 @@ class CloudbedsSync
         // ---- Blok kamar Cloudbeds → room_blocks (kode CB-<blockID>-<roomID>) ----
         $this->planRoomBlocks($from, $to, $roomByNo, $actions);
 
-        $counts = ['link' => 0, 'create' => 0, 'price' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'warn' => 0];
+        $counts = ['room' => 0, 'link' => 0, 'create' => 0, 'price' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'warn' => 0];
         foreach ($actions as $a) {
             $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : (in_array($a['type'], ['push_payment', 'settle', 'taxfix', 'pull_payment'], true) ? 'push_pay' : ($a['type'] === 'adopt_block' ? 'link' : ($a['type'] === 'push_convert_block' ? 'push_create' : $a['type'])));
+            if ($t === 'room_move') $t = 'room';
             $counts[$t]++;
         }
         return ['ok' => true, 'detail' => 'OK', 'actions' => $actions, 'counts' => $counts];
@@ -1613,7 +1643,7 @@ class CloudbedsSync
     /** Jalankan aksi rencana (link/create/cancel/blok/kirim). Peringatan dilewati. */
     private function executeActions(array $actions, int $userId): array
     {
-        $done = ['link' => 0, 'create' => 0, 'price' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'errors' => []];
+        $done = ['room' => 0, 'link' => 0, 'create' => 0, 'price' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'errors' => []];
         // Kolom direct_amount (Hotel Collect) dibuat sebelum transaksi: ALTER di dalam transaksi = implicit commit
         try {
             require_once __DIR__ . '/BookingSourceHelper.php';
@@ -1646,6 +1676,8 @@ class CloudbedsSync
                     if (isset($this->adjustedThisRun[(string)$a['cb']])) continue;
                     $this->applyCloudbedsPrice($a['cb'], $a['booking_ids'], $a['cb_total'], !empty($a['ota']));
                     $done['price']++;
+                } elseif ($a['type'] === 'room_move') {
+                    $done['room'] += $this->applyRoomMoves($a['moves']);
                 } elseif ($a['type'] === 'cancel') {
                     $this->db->query("UPDATE bookings SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Dibatalkan via Cloudbeds ', NOW(), ']')), updated_at = NOW()
                         WHERE id = ? AND status IN ('confirmed','pending') AND COALESCE(paid_amount,0) = 0", [$a['booking_id']]);
@@ -2339,6 +2371,94 @@ class CloudbedsSync
             }
         }
         return ['n' => $n, 'sum' => $sum];
+    }
+
+    /** Nomor kamar (angka 2–4 digit) dari nama/nomor kamar. */
+    private static function roomDigits($v): string
+    {
+        return preg_match('/\d{2,4}/', (string)$v, $m) ? $m[0] : trim((string)$v);
+    }
+
+    /**
+     * Bandingkan kamar yang ditempati di Cloudbeds dengan kamar booking di sistem. Kamar sistem yang tidak lagi dipakai
+     * di Cloudbeds dipasangkan dengan kamar baru di Cloudbeds (urut nomor); bila kamar tujuan kosong di sistem → aksi
+     * "room_move", selain itu peringatan.
+     */
+    private function planRoomMoves(array $live, array $det, string $cbId, string $label, array &$actions): void
+    {
+        $ids = implode(',', array_map(fn($b) => (int)$b['id'], $live));
+        $rows = $this->db->fetchAll("SELECT b.id, b.booking_code, b.status, b.room_id, DATE(b.check_in_date) ci, DATE(b.check_out_date) co, r.room_number
+            FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id IN ($ids) ORDER BY r.room_number + 0, r.room_number") ?: [];
+        if (!$rows) return;
+        $idToNo = [];
+        foreach ($this->cbRoomsByNo() as $no => $info) $idToNo[(string)$info['room_id']] = (string)$no;
+        $cbNos = [];
+        foreach ((array)($det['rooms'] ?? []) as $r) {
+            if (!empty($r['assigned']) && (string)$r['room_id'] !== '' && isset($idToNo[(string)$r['room_id']])) $cbNos[] = $idToNo[(string)$r['room_id']];
+        }
+        $cbNos = array_values(array_unique($cbNos));
+        if (!$cbNos) return; // belum ada kamar bernomor di Cloudbeds
+        $sysNos = array_map(fn($r) => self::roomDigits($r['room_number']), $rows);
+        $stale = array_values(array_filter($rows, fn($r) => !in_array(self::roomDigits($r['room_number']), $cbNos, true)));
+        $newNos = array_values(array_diff($cbNos, $sysNos));
+        if (!$stale || !$newNos) return;
+        sort($newNos, SORT_NATURAL);
+        if (count($stale) !== count($newNos)) {
+            $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Kamar di Cloudbeds (' . implode(', ', $cbNos) . ') berbeda dengan sistem (' . implode(', ', $sysNos) . '). Sesuaikan manual di Reservasi → Pindah.'];
+            return;
+        }
+        $allRooms = [];
+        foreach ($this->db->fetchAll("SELECT id, room_number FROM rooms") ?: [] as $rm) $allRooms[self::roomDigits($rm['room_number'])] = (int)$rm['id'];
+        $moves = [];
+        foreach ($stale as $i => $bk) {
+            $to = $newNos[$i];
+            $toId = $allRooms[$to] ?? 0;
+            $from = self::roomDigits($bk['room_number']);
+            if (!$toId) {
+                $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Dipindah ke kamar ' . $to . ' di Cloudbeds, tetapi kamar itu tidak ada di sistem.'];
+                return;
+            }
+            if ($this->roomTaken($toId, $bk['ci'], $bk['co'], $ids)) {
+                $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Dipindah ke kamar ' . $to . ' di Cloudbeds, tetapi kamar ' . $to . ' sudah terisi / diblok di sistem pada tanggal itu — ' . $bk['booking_code'] . ' tetap di kamar ' . $from . '. Cek manual.'];
+                return;
+            }
+            $moves[] = ['booking_id' => (int)$bk['id'], 'booking_code' => $bk['booking_code'], 'status' => $bk['status'], 'from' => $from, 'to' => $to, 'to_room_id' => $toId];
+        }
+        $actions[] = ['type' => 'room_move', 'cb' => $cbId, 'label' => $label, 'moves' => $moves,
+            'msg' => 'Pindah kamar mengikuti Cloudbeds: ' . implode(', ', array_map(fn($m) => $m['booking_code'] . ' ' . $m['from'] . ' → ' . $m['to'], $moves))];
+    }
+
+    /** Kamar sudah dipakai booking lain / diblok pada rentang tanggal itu? ($exceptIds: booking milik reservasi yang sama) */
+    private function roomTaken(int $roomId, string $ci, string $co, string $exceptIds): bool
+    {
+        $ex = $exceptIds !== '' ? " AND id NOT IN ($exceptIds)" : '';
+        if ($this->db->fetchOne("SELECT id FROM bookings WHERE room_id = ? AND status IN ('pending','confirmed','checked_in') AND DATE(check_in_date) < ? AND DATE(check_out_date) > ?" . $ex . " LIMIT 1", [$roomId, $co, $ci])) return true;
+        try {
+            if ($this->db->fetchOne("SELECT id FROM room_blocks WHERE room_id = ? AND status = 'active' AND block_start_date < ? AND block_end_date > ? LIMIT 1", [$roomId, $co, $ci])) return true;
+        } catch (\Throwable $e) {
+        }
+        return false;
+    }
+
+    /** Terapkan pindah kamar dari Cloudbeds: ganti kamar booking (harga tidak diubah) + status kamar bila tamu sudah check-in. */
+    private function applyRoomMoves(array $moves): int
+    {
+        $n = 0;
+        foreach ($moves as $mv) {
+            $cur = $this->db->fetchOne("SELECT status, guest_id, room_id, DATE(check_in_date) ci, DATE(check_out_date) co FROM bookings WHERE id = ?", [(int)$mv['booking_id']]);
+            if (!$cur || (int)$cur['room_id'] === (int)$mv['to_room_id'] || !in_array($cur['status'], ['confirmed', 'pending', 'checked_in'], true)) continue;
+            // cek ulang saat eksekusi
+            if ($this->roomTaken((int)$mv['to_room_id'], $cur['ci'], $cur['co'], (string)(int)$mv['booking_id'])) continue;
+            $ok = $this->db->query("UPDATE bookings SET room_id = ?, notes = TRIM(CONCAT(COALESCE(notes,''), ?)), updated_at = NOW() WHERE id = ?",
+                [(int)$mv['to_room_id'], "\n[Pindah kamar via Cloudbeds " . date('d/m H:i') . ': ' . $mv['from'] . ' -> ' . $mv['to'] . ']', (int)$mv['booking_id']]);
+            if (!$ok) continue;
+            if ($cur['status'] === 'checked_in') {
+                $this->db->query("UPDATE rooms SET status = 'cleaning', current_guest_id = NULL, updated_at = NOW() WHERE id = ?", [(int)$cur['room_id']]);
+                $this->db->query("UPDATE rooms SET status = 'occupied', current_guest_id = ?, updated_at = NOW() WHERE id = ?", [$cur['guest_id'], (int)$mv['to_room_id']]);
+            }
+            $n++;
+        }
+        return $n;
     }
 
     /** Atur harga booking (satu kamar) ke nominal yang benar — dipakai untuk membereskan harga yang ikut membengkak. */
