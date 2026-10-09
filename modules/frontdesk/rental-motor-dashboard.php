@@ -300,6 +300,47 @@ include '../../includes/header.php';
     body[data-theme="dark"] #rmdModal .m-row { border-color: rgba(148,163,184,.14); }
     body[data-theme="dark"] #rmdModal .m-x, body[data-theme="dark"] #rmdModal .m-btn:not(.primary) { background: rgba(255,255,255,.06); border-color: rgba(148,163,184,.2); color: #e2e8f0 !important; }
 
+    /* ── Ringkas: semua elemen dikecilkan & diseragamkan ── */
+    #rmd { padding: .6rem .75rem 1rem; font-size: .76rem; }
+    #rmd .r-head { margin-bottom: 8px; }
+    #rmd .r-eyebrow { font-size: .56rem !important; }
+    #rmd h1.r-title { font-size: .95rem !important; }
+    #rmd .r-sub { font-size: .64rem !important; }
+    #rmd .r-btn { height: 28px; padding: 0 11px; border-radius: 8px; font-size: .68rem !important; }
+    #rmd .r-card { border-radius: 12px; margin-bottom: 8px; }
+    #rmd .r-card-head { padding: 8px 11px 6px; }
+    #rmd .r-card-title b { font-size: .76rem !important; }
+    #rmd .r-card-title small { font-size: .6rem !important; }
+    #rmd .r-ic { width: 24px; height: 24px; border-radius: 7px; }
+    #rmd .r-ic svg { width: 13px; height: 13px; }
+    #rmd .r-kpis { gap: 8px; margin-bottom: 8px; }
+    #rmd .r-kpi { padding: 8px 11px; gap: 4px; }
+    #rmd .r-kpi-label { font-size: .56rem !important; }
+    #rmd .r-kpi-val { font-size: 1.05rem !important; }
+    #rmd .r-kpi-val small { font-size: .62rem !important; }
+    #rmd .r-kpi-sub { font-size: .6rem !important; }
+    #rmd .r-bar { height: 3px; }
+    #rmd .r-chip { padding: 1px 8px; font-size: .6rem !important; }
+    #rmd .r-rent { padding: 6px 6px; gap: 10px; grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 190px; }
+    #rmd .r-moto { width: 32px; height: 32px; border-radius: 9px; }
+    #rmd .r-moto svg { width: 18px; height: 18px; }
+    #rmd .r-plate { font-size: .74rem !important; }
+    #rmd .r-strong { font-size: .74rem !important; }
+    #rmd .r-mute { font-size: .62rem !important; margin-top: 1px; }
+    #rmd .r-amt { font-size: .76rem !important; }
+    #rmd .r-group { padding: 0 11px 10px; }
+    #rmd .r-group + .r-group { padding-top: 8px; }
+    #rmd .r-group-head { margin-bottom: 7px; font-size: .68rem !important; }
+    #rmd .r-fleet { grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)); gap: 7px; }
+    #rmd .r-tile { padding: 8px 9px 7px 12px; gap: 4px; border-radius: 10px; }
+    #rmd .r-tile-ic { width: 24px; height: 24px; border-radius: 7px; }
+    #rmd .r-tile-ic svg { width: 14px; height: 14px; }
+    #rmd .r-tile-name { font-size: .64rem !important; }
+    #rmd .r-tile-foot { font-size: .6rem !important; padding-top: 4px; }
+    #rmd .r-tbl th { padding: 6px 10px; font-size: .56rem !important; }
+    #rmd .r-tbl td { padding: 6px 10px; font-size: .7rem !important; }
+    #rmd .r-empty { padding: 16px 12px 18px; font-size: .7rem !important; }
+    #rmd .r-empty svg { width: 24px; height: 24px; }
     @media (max-width: 1100px) {
         #rmd .r-rent { grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) 190px; }
         #rmd .r-rent .r-when { display: none; }
@@ -320,17 +361,16 @@ include '../../includes/header.php';
     <div class="r-head">
         <div>
             <div class="r-eyebrow">Hotel Services</div>
-            <h1 class="r-title">Rental Motor</h1>
-            <div class="r-sub"><?php echo $hari[(int)date('w')] . ', ' . date('j') . ' ' . $bulan[(int)date('n')] . ' ' . date('Y'); ?> · pantau armada &amp; penyewaan</div>
+            <h1 class="r-title">Monitoring Rental</h1>
+            <div class="r-sub"><?php echo $hari[(int)date('w')] . ', ' . date('j') . ' ' . $bulan[(int)date('n')] . ' ' . date('Y'); ?> · status armada motor &amp; penyewaan berjalan</div>
         </div>
         <div class="r-actions">
-            <a class="r-btn primary" href="rental-motor.php?view=manage&amp;new=1">
+            <a class="r-btn primary" href="hotel-services.php?new=motor">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                Sewa Baru
+                Sewa Motor
             </a>
             <a class="r-btn" href="rental-motor.php?view=manage&amp;tab=fleet">Kelola Armada</a>
             <a class="r-btn" href="rental-motor.php?view=manage&amp;tab=history">Riwayat</a>
-            <a class="r-btn" href="hotel-services.php">Hotel Services</a>
         </div>
     </div>
 
@@ -560,7 +600,7 @@ include '../../includes/header.php';
             }
             document.getElementById('rmdBody').innerHTML = h;
             var f = '<a class="m-btn" href="rental-motor.php?view=manage&tab=' + (rented ? 'monitoring' : 'fleet') + '">' + (rented ? 'Proses pengembalian' : 'Kelola armada') + '</a>';
-            if (!rented && d.status !== 'maintenance') f += '<a class="m-btn primary" href="rental-motor.php?view=manage&new=1&motor=' + d.id + '">Sewakan motor ini</a>';
+            if (!rented && d.status !== 'maintenance') f += '<a class="m-btn primary" href="hotel-services.php?new=motor&motor=' + d.id + '">Sewakan motor ini</a>';
             document.getElementById('rmdFoot').innerHTML = f;
             document.getElementById('rmdOverlay').classList.add('open');
         };

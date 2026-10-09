@@ -5036,5 +5036,28 @@ include '../../includes/header.php';
     }
 </script>
 <script src="../../assets/js/hotel-services-fn.js?v=20261011"></script>
+<script>
+    // Dari Monitoring Rental: ?new=motor[&motor=ID] → form Invoice Baru terbuka dengan layanan Motor Rental (+ motor terpilih)
+    (function() {
+        var p = new URLSearchParams(location.search);
+        if (p.get('new') !== 'motor') return;
+        function go() {
+            if (typeof openCreateModal !== 'function') { setTimeout(go, 150); return; }
+            openCreateModal();
+            var card = document.querySelector('#itemsBody .hs-item-card');
+            if (!card) return;
+            card.querySelector('.iSvc').value = 'motor_rental';
+            onSvcChange(card.id, true);
+            var m = p.get('motor');
+            if (m) {
+                var as = card.querySelector('.iAsset');
+                as.value = m;
+                if (as.value === m && typeof onRentalAssetChange === 'function') onRentalAssetChange(card.id);
+            }
+            try { history.replaceState(null, '', location.pathname); } catch (e) {}
+        }
+        if (document.readyState === 'complete') go(); else window.addEventListener('load', go);
+    })();
+</script>
 
 <?php include '../../includes/footer.php'; ?>
