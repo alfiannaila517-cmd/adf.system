@@ -89,7 +89,7 @@ try {
     // 3b. Daftar tamu yang check-in hari ini (untuk kartu Arrival Today + cetak registration card)
     try {
         $stats['arrival_guests'] = $db->fetchAll("
-        SELECT b.id, b.booking_code, b.status, b.booking_source, b.total_nights, b.adults, b.children,
+        SELECT b.id, b.group_id, b.booking_code, b.status, b.booking_source, b.total_nights, b.adults, b.children,
                g.guest_name, g.phone, r.room_number, rt.type_name AS room_type,
                bs.source_name, bs.source_type
         FROM bookings b
@@ -103,7 +103,7 @@ try {
     } catch (\Throwable $e) {
         // tabel booking_sources belum ada: tanpa nama sumber
         $stats['arrival_guests'] = $db->fetchAll("
-        SELECT b.id, b.booking_code, b.status, b.booking_source, b.total_nights, b.adults, b.children,
+        SELECT b.id, b.group_id, b.booking_code, b.status, b.booking_source, b.total_nights, b.adults, b.children,
                g.guest_name, g.phone, r.room_number, rt.type_name AS room_type,
                NULL AS source_name, NULL AS source_type
         FROM bookings b
@@ -291,6 +291,7 @@ try {
             b.check_in_date,
             b.check_out_date,
             b.status,
+            b.group_id,
             b.booking_code,
             rt.type_name AS room_type
         FROM bookings b
@@ -315,6 +316,7 @@ try {
             b.final_price,
             b.booking_code,
             b.booking_source,
+            b.group_id,
             b.payment_status
         FROM bookings b
         JOIN rooms r ON b.room_id = r.id
@@ -395,7 +397,7 @@ try {
     $stats['dep_total'] = (int)($depRow['total'] ?? 0);
     $stats['dep_done'] = (int)($depRow['done'] ?? 0);
     $stats['departed_today'] = $db->fetchAll("
-        SELECT b.id, b.booking_code, g.guest_name, r.room_number, rt.type_name AS room_type, b.final_price, b.actual_checkout_time
+        SELECT b.id, b.group_id, b.booking_code, g.guest_name, r.room_number, rt.type_name AS room_type, b.final_price, b.actual_checkout_time
         FROM bookings b JOIN rooms r ON r.id = b.room_id LEFT JOIN room_types rt ON rt.id = r.room_type_id LEFT JOIN guests g ON g.id = b.guest_id
         WHERE DATE(b.check_out_date) = ? AND b.status = 'checked_out'
         ORDER BY b.actual_checkout_time DESC LIMIT 30", [$today]) ?: [];
@@ -471,6 +473,43 @@ $depTotal = (int)($stats['dep_total'] ?? 0);
 $depDone = (int)($stats['dep_done'] ?? 0);
 $fdPct = fn($a, $b) => $b > 0 ? (int)round($a / $b * 100) : 0;
 
+// Booking grup ditampilkan SATU baris (kamar-kamarnya digabung); angka KPI di atas tetap dihitung per kamar.
+$fdGroup = function (array $rows): array {
+    $out = [];
+    foreach ($rows as $i => $r) {
+        $gid = $r['group_id'] ?? null;
+        $k = $gid ? 'g:' . $gid : 'b:' . ($r['id'] ?? $i);
+        if (!isset($out[$k])) {
+            $out[$k] = $r + ['rooms' => [], 'types' => [], 'ids' => [], 'sum_final' => 0.0, 'sum_paid' => 0.0, 'n' => 0, 'n_in' => 0, 'pay_list' => [], 'deposits_all' => []];
+        }
+        $out[$k]['rooms'][] = (string)($r['room_number'] ?? '-');
+        $t = trim((string)($r['room_type'] ?? ''));
+        if ($t !== '') $out[$k]['types'][$t] = ($out[$k]['types'][$t] ?? 0) + 1;
+        $out[$k]['ids'][] = (int)($r['id'] ?? 0);
+        $out[$k]['sum_final'] += (float)($r['final_price'] ?? 0);
+        $out[$k]['sum_paid'] += (float)($r['paid_amount'] ?? 0);
+        $out[$k]['n']++;
+        if (($r['status'] ?? '') === 'checked_in') $out[$k]['n_in']++;
+        if (!empty($r['payment_status'])) $out[$k]['pay_list'][] = $r['payment_status'];
+        if (!empty($r['deposits'])) $out[$k]['deposits_all'] = array_merge($out[$k]['deposits_all'], $r['deposits']);
+    }
+    return array_values($out);
+};
+$fdTypes = fn($types) => implode(', ', array_map(fn($t, $n) => $n > 1 ? $t . ' × ' . $n : $t, array_keys($types), $types));
+$fdRooms = function (array $g) {
+    $show = array_slice($g['rooms'], 0, 4);
+    $h = '<span class="fd-rooms">';
+    foreach ($show as $rm) $h .= '<span class="fd-room">' . htmlspecialchars($rm) . '</span>';
+    if (count($g['rooms']) > 4) $h .= '<span class="fd-muted" style="font-size:.7rem;font-weight:700">+' . (count($g['rooms']) - 4) . '</span>';
+    return $h . '</span>';
+};
+$stats['arrival_guests'] = $fdGroup($stats['arrival_guests'] ?? []);
+$stats['checkout_guests'] = $fdGroup($stats['checkout_guests'] ?? []);
+$stats['departed_today'] = $fdGroup($stats['departed_today'] ?? []);
+$stats['guests_today'] = $fdGroup($stats['guests_today'] ?? []);
+$stats['upcoming_reservations'] = $fdGroup($stats['upcoming_reservations'] ?? []);
+$depTabN = count($stats['checkout_guests']) + count($stats['departed_today']);
+
 include '../../includes/header.php';
 ?>
 
@@ -539,6 +578,7 @@ include '../../includes/header.php';
     #fd2 .fd-bar.amber i { background: #f59e0b; }
     #fd2 .fd-bar.violet i { background: #8b5cf6; }
 
+    #fd2 .fd-rooms { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
     #fd2 .fd-room { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 5px; background: var(--brand); color: #fff !important; font-size: 0.66rem !important; font-weight: 800; }
     body[data-theme="dark"] #fd2 .fd-room { background: #1d4ed8; }
     #fd2 .fd-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; font-size: 0.638rem !important; font-weight: 700; white-space: nowrap; border: 1px solid transparent; }
@@ -697,8 +737,8 @@ include '../../includes/header.php';
             </div>
         </div>
         <div class="fd-tabs" role="tablist">
-            <button type="button" class="fd-tab" data-tab="arr">Kedatangan <span class="n"><?php echo $arrTotal; ?></span></button>
-            <button type="button" class="fd-tab" data-tab="dep">Keberangkatan <span class="n"><?php echo $depTotal; ?></span></button>
+            <button type="button" class="fd-tab" data-tab="arr">Kedatangan <span class="n"><?php echo count($stats['arrival_guests']); ?></span></button>
+            <button type="button" class="fd-tab" data-tab="dep">Keberangkatan <span class="n"><?php echo $depTabN; ?></span></button>
             <button type="button" class="fd-tab" data-tab="inh">Menginap <span class="n"><?php echo count($stats['guests_today'] ?? []); ?></span></button>
             <button type="button" class="fd-tab" data-tab="up">Akan Datang <span class="n"><?php echo count($stats['upcoming_reservations'] ?? []); ?></span></button>
         </div>
@@ -715,16 +755,17 @@ include '../../includes/header.php';
                         <tbody>
                             <?php foreach ($stats['arrival_guests'] as $ag):
                                 $agOta = $fdOta($ag['source_type'], $ag['booking_source']);
-                                $agIn = $ag['status'] === 'checked_in';
+                                $agIn = $ag['n_in'] >= $ag['n'];
+                                $agPartial = !$agIn && $ag['n_in'] > 0;
                                 $agWa = dashboard_wa_link($ag['phone'] ?? '');
                             ?>
                                 <tr>
-                                    <td><div class="fd-g-name"><?php echo htmlspecialchars($ag['guest_name'] ?: '-'); ?></div><div class="fd-g-sub"><?php echo htmlspecialchars($ag['booking_code']); ?><?php echo $ag['phone'] ? ' · ' . htmlspecialchars($ag['phone']) : ''; ?></div></td>
-                                    <td><span class="fd-room"><?php echo htmlspecialchars($ag['room_number'] ?: '-'); ?></span></td>
-                                    <td class="fd-muted"><?php echo htmlspecialchars($ag['room_type'] ?: '-'); ?></td>
+                                    <td><div class="fd-g-name"><?php echo htmlspecialchars($ag['guest_name'] ?: '-'); ?></div><div class="fd-g-sub"><?php echo htmlspecialchars($ag['booking_code']); ?><?php echo $ag['phone'] ? ' · ' . htmlspecialchars($ag['phone']) : ''; ?><?php echo $ag['n'] > 1 ? ' · Grup ' . $ag['n'] . ' kamar' : ''; ?></div></td>
+                                    <td><?php echo $fdRooms($ag); ?></td>
+                                    <td class="fd-muted"><?php echo htmlspecialchars($fdTypes($ag['types']) ?: '-'); ?></td>
                                     <td class="num"><?php echo (int)$ag['total_nights']; ?></td>
                                     <td><span class="fd-chip <?php echo $agOta ? 'ota' : 'dir'; ?>"><?php echo htmlspecialchars($fdSrc($ag['source_name'], $ag['booking_source'])); ?></span></td>
-                                    <td><span class="fd-chip <?php echo $agIn ? 'ok' : 'warn'; ?>"><?php echo $agIn ? 'Sudah check-in' : 'Menunggu'; ?></span></td>
+                                    <td><span class="fd-chip <?php echo ($agIn || $agPartial) ? ($agIn ? 'ok' : 'warn') : 'warn'; ?>"><?php echo $agIn ? 'Sudah check-in' : ($agPartial ? $ag['n_in'] . '/' . $ag['n'] . ' check-in' : 'Menunggu'); ?></span></td>
                                     <td class="r"><span class="fd-acts">
                                         <?php if ($agWa): ?><a class="fd-ico-btn wa" href="<?php echo htmlspecialchars($agWa); ?>" target="_blank" rel="noopener" title="WhatsApp"><?php echo $waIcon; ?></a><?php endif; ?>
                                         <a class="fd-ico-btn" href="registration-card.php?booking_id=<?php echo (int)$ag['id']; ?>&amp;autoprint=1" target="_blank" title="Cetak registration card"><?php echo $printIcon; ?></a>
@@ -747,31 +788,31 @@ include '../../includes/header.php';
                         <thead><tr><th>Tamu</th><th>Kamar</th><th>Tipe</th><th class="r">Total</th><th class="r">Dibayar</th><th>Status</th><th class="r"></th></tr></thead>
                         <tbody>
                             <?php foreach ($stats['checkout_guests'] ?? [] as $guest):
-                                $remaining = (float)($guest['remaining'] ?? ($guest['final_price'] - $guest['paid_amount']));
+                                $remaining = (float)($guest['remaining'] ?? ($guest['sum_final'] - $guest['sum_paid']));
                                 $coWa = dashboard_wa_link($guest['phone'] ?? '');
                             ?>
                                 <tr>
                                     <td>
                                         <div class="fd-g-name"><?php echo htmlspecialchars($guest['guest_name'] ?: '-'); ?></div>
                                         <div class="fd-g-sub"><?php echo htmlspecialchars($guest['phone'] ?? '-'); ?></div>
-                                        <?php if (!empty($guest['deposits'])): ?>
-                                            <span class="fd-chip warn" style="margin-top:4px" title="Kembalikan deposit saat check-out">Deposit: <?php echo htmlspecialchars(implode(' · ', $guest['deposits'])); ?></span>
+                                        <?php if (!empty($guest['deposits_all'])): ?>
+                                            <span class="fd-chip warn" style="margin-top:4px" title="Kembalikan deposit saat check-out">Deposit: <?php echo htmlspecialchars(implode(' · ', $guest['deposits_all'])); ?></span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><span class="fd-room"><?php echo htmlspecialchars($guest['room_number']); ?></span></td>
-                                    <td class="fd-muted"><?php echo htmlspecialchars($guest['room_type'] ?? '-'); ?></td>
-                                    <td class="r num"><?php echo $fdRp($guest['final_price']); ?></td>
-                                    <td class="r num"><?php echo $fdRp($guest['paid_amount']); ?></td>
+                                    <td><?php echo $fdRooms($guest); ?></td>
+                                    <td class="fd-muted"><?php echo htmlspecialchars($fdTypes($guest['types']) ?: '-'); ?></td>
+                                    <td class="r num"><?php echo $fdRp($guest['sum_final']); ?></td>
+                                    <td class="r num"><?php echo $fdRp($guest['sum_paid']); ?></td>
                                     <td><?php if ($remaining <= 0): ?><span class="fd-chip ok">Lunas · siap check-out</span><?php else: ?><span class="fd-chip bad">Sisa <?php echo $fdRp($remaining); ?></span><?php endif; ?></td>
                                     <td class="r"><?php if ($coWa): ?><a class="fd-ico-btn wa" href="<?php echo htmlspecialchars($coWa); ?>" target="_blank" rel="noopener" title="WhatsApp"><?php echo $waIcon; ?></a><?php endif; ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             <?php foreach ($stats['departed_today'] ?? [] as $dg): ?>
                                 <tr>
-                                    <td><div class="fd-g-name fd-muted"><?php echo htmlspecialchars($dg['guest_name'] ?: '-'); ?></div><div class="fd-g-sub"><?php echo htmlspecialchars($dg['booking_code']); ?></div></td>
-                                    <td><span class="fd-room" style="opacity:.55"><?php echo htmlspecialchars($dg['room_number']); ?></span></td>
-                                    <td class="fd-muted"><?php echo htmlspecialchars($dg['room_type'] ?? '-'); ?></td>
-                                    <td class="r num fd-muted"><?php echo $fdRp($dg['final_price']); ?></td>
+                                    <td><div class="fd-g-name fd-muted"><?php echo htmlspecialchars($dg['guest_name'] ?: '-'); ?></div><div class="fd-g-sub"><?php echo htmlspecialchars($dg['booking_code']); ?><?php echo $dg['n'] > 1 ? ' · Grup ' . $dg['n'] . ' kamar' : ''; ?></div></td>
+                                    <td style="opacity:.6"><?php echo $fdRooms($dg); ?></td>
+                                    <td class="fd-muted"><?php echo htmlspecialchars($fdTypes($dg['types']) ?: '-'); ?></td>
+                                    <td class="r num fd-muted"><?php echo $fdRp($dg['sum_final']); ?></td>
                                     <td class="r num fd-muted">—</td>
                                     <td><span class="fd-chip dir">Sudah check-out<?php echo $dg['actual_checkout_time'] ? ' · ' . date('H:i', strtotime($dg['actual_checkout_time'])) : ''; ?></span></td>
                                     <td></td>
@@ -798,8 +839,8 @@ include '../../includes/header.php';
                                 $left = (int)round((strtotime($coDate) - strtotime($today)) / 86400);
                             ?>
                                 <tr>
-                                    <td><div class="fd-g-name"><?php echo htmlspecialchars($guest['guest_name'] ?: '-'); ?></div><div class="fd-g-sub"><?php echo htmlspecialchars(($guest['booking_code'] ?? '') . (!empty($guest['room_type']) ? ' · ' . $guest['room_type'] : '')); ?></div></td>
-                                    <td><span class="fd-room"><?php echo htmlspecialchars($guest['room_number']); ?></span></td>
+                                    <td><div class="fd-g-name"><?php echo htmlspecialchars($guest['guest_name'] ?: '-'); ?></div><div class="fd-g-sub"><?php echo htmlspecialchars(($guest['booking_code'] ?? '') . ($fdTypes($guest['types']) !== '' ? ' · ' . $fdTypes($guest['types']) : '')); ?></div></td>
+                                    <td><?php echo $fdRooms($guest); ?></td>
                                     <td class="num"><?php echo $fdDate($guest['check_in_date']); ?></td>
                                     <td class="num"><?php echo $fdDate($guest['check_out_date']); ?></td>
                                     <td>
@@ -830,13 +871,17 @@ include '../../includes/header.php';
                                 $resOta = $fdOta(null, $res['booking_source']);
                             ?>
                                 <tr>
-                                    <td><div class="fd-g-name"><?php echo htmlspecialchars($res['guest_name'] ?? 'Tamu'); ?></div><div class="fd-g-sub"><?php echo htmlspecialchars($res['booking_code'] ?? ''); ?></div></td>
-                                    <td><span class="fd-room"><?php echo htmlspecialchars($res['room_number']); ?></span></td>
+                                    <td><div class="fd-g-name"><?php echo htmlspecialchars($res['guest_name'] ?? 'Tamu'); ?></div><div class="fd-g-sub"><?php echo htmlspecialchars($res['booking_code'] ?? ''); ?><?php echo $res['n'] > 1 ? ' · Grup ' . $res['n'] . ' kamar' : ''; ?></div></td>
+                                    <td><?php echo $fdRooms($res); ?></td>
                                     <td class="num"><?php echo $fdDate($res['check_in_date']); ?><div class="fd-g-sub"><?php echo $daysUntil === 1 ? 'Besok' : $daysUntil . ' hari lagi'; ?></div></td>
                                     <td class="num"><?php echo $fdDate($res['check_out_date']); ?></td>
                                     <td><span class="fd-chip <?php echo $resOta ? 'ota' : 'dir'; ?>"><?php echo htmlspecialchars($fdSrc(null, $res['booking_source'])); ?></span></td>
-                                    <td><?php if ($res['payment_status'] === 'paid'): ?><span class="fd-chip ok">Lunas</span><?php elseif ($res['payment_status'] === 'partial'): ?><span class="fd-chip warn">DP</span><?php else: ?><span class="fd-chip dir">Belum bayar</span><?php endif; ?></td>
-                                    <td class="r num"><?php echo $fdRp($res['final_price']); ?></td>
+                                    <?php
+                                        $pl = $res['pay_list'] ?? [$res['payment_status'] ?? 'unpaid'];
+                                        $resPay = (count($pl) && count(array_unique($pl)) === 1 && $pl[0] === 'paid') ? 'paid' : ((array_intersect($pl, ['paid', 'partial'])) ? 'partial' : 'unpaid');
+                                    ?>
+                                    <td><?php if ($resPay === 'paid'): ?><span class="fd-chip ok">Lunas</span><?php elseif ($resPay === 'partial'): ?><span class="fd-chip warn">DP</span><?php else: ?><span class="fd-chip dir">Belum bayar</span><?php endif; ?></td>
+                                    <td class="r num"><?php echo $fdRp($res['sum_final']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
