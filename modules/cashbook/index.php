@@ -2110,6 +2110,18 @@ echo getPrintCSS();
             height: 14px;
         }
 
+        /* Tombol Input Transaksi di banner Cash Available: biru tua, teks putih */
+        body .cb-add-btn {
+            display: inline-flex; align-items: center; gap: .45rem; height: 38px; padding: 0 1.1rem; border-radius: 11px;
+            background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; border: 1px solid rgba(255, 255, 255, .18);
+            box-shadow: 0 8px 18px -8px rgba(30, 58, 138, .85); text-decoration: none !important; white-space: nowrap;
+            transition: transform .12s, box-shadow .12s;
+        }
+        body .cb-add-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 22px -10px rgba(30, 58, 138, .9); }
+        body .cb-add-btn span { color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-size: .8rem !important; font-weight: 700 !important; }
+        body .cb-add-btn i, body .cb-add-btn svg { width: 16px !important; height: 16px !important; color: #ffffff !important; stroke: #ffffff !important; }
+        @media (max-width: 640px) { #cashAvailableBanner { flex-wrap: wrap; gap: .6rem; } }
+
         /* Highlighted, centered "Tambah Transaksi" button */
         .cashbook-btn-add-highlight {
             background: linear-gradient(135deg, #16a34a, #15803d) !important;
@@ -2562,15 +2574,15 @@ echo getPrintCSS();
 
     <!-- Transactions Table -->
     <div class="table-container">
-        <div class="table-header <?php echo $isCQC ? 'table-header-cqc' : ''; ?>" style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
+        <div class="table-header <?php echo $isCQC ? 'table-header-cqc' : ''; ?>" style="display: grid; grid-template-columns: <?php echo $isCQC ? '1fr auto 1fr' : '1fr auto'; ?>; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <?php if ($isCQC): ?>
                     <div style="width: 40px; height: 40px; border-radius: 8px; background: linear-gradient(135deg, #f0b429, #d4960d); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
                         ☀️
                     </div>
                 <?php else: ?>
-                    <div style="width: 40px; height: 40px; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); display: flex; align-items: center; justify-content: center;">
-                        <i data-feather="book" style="width: 20px; height: 20px; color: white;"></i>
+                    <div style="width: 40px; height: 40px; border-radius: var(--radius-md); background: linear-gradient(135deg, #e0e9ff, #c7d7fe); border: 1px solid #b4c7fb; display: flex; align-items: center; justify-content: center;">
+                        <i data-feather="book" style="width: 20px; height: 20px; color: #1e3a8a; stroke: #1e3a8a;"></i>
                     </div>
                 <?php endif; ?>
                 <div>
@@ -2582,12 +2594,14 @@ echo getPrintCSS();
                     </p>
                 </div>
             </div>
+            <?php if ($isCQC): ?>
             <div style="justify-self: center;">
                 <a href="add.php" class="btn btn-primary btn-white-text cashbook-action-btn cashbook-btn-filter cashbook-btn-add-highlight" style="display: flex; align-items: center; gap: 0.35rem !important; color: #ffffff !important; opacity: 1 !important;">
                     <i data-feather="plus" style="color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
                     <span style="color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important; font-weight:600 !important;">Tambah Transaksi</span>
                 </a>
             </div>
+            <?php endif; ?>
             <div class="table-actions" style="display: flex; gap: 0.5rem; justify-self: end;">
                 <a href="cash-transfers.php" class="btn btn-secondary btn-white-text cashbook-action-btn cashbook-btn-reset" style="display: flex; align-items: center; gap: 0.25rem !important; height: 28px !important; padding: 0 0.5rem !important; background: #1e3a8a !important; border: 1px solid #1e40af !important; color: #ffffff !important; opacity: 1 !important;">
                     <i data-feather="send" style="width: 12px; height: 12px; color:#ffffff !important; stroke:#ffffff !important; opacity:1 !important;"></i>
@@ -2799,9 +2813,15 @@ echo getPrintCSS();
                         <div id="cashAvailableValue" style="font-size: 1.35rem; font-weight: 800; color: <?php echo $cashAvailable >= 0 ? '#059669' : '#dc2626'; ?>; letter-spacing: -0.5px; line-height: 1.2; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($cashAvailable); ?></div>
                     </div>
                 </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 0.15rem;">Start Cash (<?php echo date('M'); ?>)</div>
-                    <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary); font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($startKas); ?></div>
+                <div style="display: flex; align-items: center; gap: 1.1rem;">
+                    <a href="add.php" class="cb-add-btn">
+                        <i data-feather="plus"></i>
+                        <span>Input Transaksi</span>
+                    </a>
+                    <div style="text-align: right; padding-left: 1.1rem; border-left: 1px solid rgba(148, 163, 184, .35);">
+                        <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 0.15rem;">Start Cash (<?php echo date('M'); ?>)</div>
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary); font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($startKas); ?></div>
+                    </div>
                 </div>
             </div>
         <?php endif; ?>
