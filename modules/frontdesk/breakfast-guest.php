@@ -1080,6 +1080,31 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '</div>';
                 $('roomTabs').classList.remove('hidden');
             }
+            // Status kamar diperbarui otomatis (teman yang memilih lewat link yang sama): kamar yang sudah dikonfirmasi langsung terkunci
+            var refreshing = false;
+            async function refreshGroup() {
+                if (!GROUP || refreshing || document.hidden) return;
+                refreshing = true;
+                try {
+                    var res = await fetch(API + '?action=get_link&token=' + encodeURIComponent(PARENT));
+                    var json = await res.json();
+                    if (json.success && json.data && json.data.is_group) {
+                        var cur = GROUP.rooms.filter(function(r) { return r.token === TOKEN; })[0];
+                        var wasOpen = cur && cur.status !== 'submitted';
+                        GROUP.rooms = json.data.rooms;
+                        renderTabs();
+                        var now = GROUP.rooms.filter(function(r) { return r.token === TOKEN; })[0];
+                        if (wasOpen && now && now.status === 'submitted' && data && !data.is_locked) {
+                            await selectRoom(TOKEN);
+                            notice('Room ' + esc(now.room_number) + ' has just been confirmed. Please choose another room.', 'err');
+                        }
+                    }
+                } catch (e) {}
+                refreshing = false;
+            }
+            setInterval(refreshGroup, 15000);
+            document.addEventListener('visibilitychange', function() { if (!document.hidden) refreshGroup(); });
+
             async function selectRoom(token) {
                 TOKEN = token;
                 qty = { main: {}, drink: {}, child: {} };
