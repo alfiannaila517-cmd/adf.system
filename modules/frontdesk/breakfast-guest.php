@@ -34,7 +34,7 @@ $token = trim((string)($_GET['t'] ?? ''));
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
     <title>Breakfast Selection · <?php echo htmlspecialchars($hotelName); ?></title>
     <meta name="theme-color" content="#0f2747">
     <meta property="og:type" content="website">
@@ -441,6 +441,11 @@ $token = trim((string)($_GET['t'] ?? ''));
             font-weight: 600;
             color: var(--gold);
             cursor: pointer;
+        }
+
+        /* Layar sentuh: huruf kolom isian minimal 16px agar browser (iOS) tidak memperbesar tampilan saat kolom diklik */
+        @media (hover: none) and (pointer: coarse) {
+            .note-input, .input, textarea.input, input, textarea, select { font-size: 16px !important; }
         }
 
         .note-input {
