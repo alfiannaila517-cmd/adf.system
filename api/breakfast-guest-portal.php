@@ -116,6 +116,12 @@ function ensure_portal_links_table($pdo, $runAlter = true)
         $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN short_code VARCHAR(16) NULL AFTER token");
     } catch (Exception $e) {
     }
+    // Booking grup: link induk + satu link per kamar (parent_token = token link induk)
+    try {
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD COLUMN parent_token VARCHAR(80) NULL");
+        $pdo->exec("ALTER TABLE breakfast_guest_links ADD INDEX idx_parent (parent_token)");
+    } catch (Exception $e) {
+    }
     try {
         $pdo->exec("ALTER TABLE breakfast_guest_links ADD UNIQUE INDEX uk_short_code (short_code)");
     } catch (Exception $e) {
@@ -266,121 +272,8 @@ function create_short_code()
     return $out;
 }
 
-function auto_submit_on_the_spot_after_midnight($db, $pdo, $link)
-{
-    $linkStatus = (string)($link['link_status'] ?? 'open');
-    if (!in_array($linkStatus, ['open', 'expired'], true) || !empty($link['submitted_at'])) {
-        return false;
-    }
-
-    $breakfastDate = (string)($link['breakfast_date'] ?? '');
-    if ($breakfastDate === '') {
-        return false;
-    }
-
-    $tz = new DateTimeZone('Asia/Jakarta');
-    $now = new DateTime('now', $tz);
-    $breakfastDateTime = DateTime::createFromFormat('Y-m-d', $breakfastDate, $tz);
-    $today = new DateTime('today', $tz);
-
-    // Hanya auto-ON-THE-SPOT kalau breakfast_date adalah tanggal Kemarin atau lebih lama
-    // (berarti sudah melewati tengah malam dari hari sebelumnya)
-    // Jika breakfast_date adalah hari ini atau masa depan, jangan auto-ON-THE-SPOT
-    if ($breakfastDateTime >= $today) {
-        return false;
-    }
-
-    $guestName = trim((string)($link['guest_name'] ?? ''));
-    if ($guestName === '') {
-        return false;
-    }
-
-    $bookingId = !empty($link['booking_id']) ? (int)$link['booking_id'] : null;
-    $roomJson = $link['room_number'] ?: json_encode([]);
-    $guestComposition = json_decode($link['guest_composition'] ?? '{}', true);
-    if (!is_array($guestComposition)) $guestComposition = [];
-    $totalPax = max(1, (int)($guestComposition['total_pax'] ?? (($guestComposition['adults'] ?? 1) + ($guestComposition['children_young'] ?? 0) + ($guestComposition['children_old'] ?? 0))));
-    $createdBy = isset($link['created_by']) ? (int)$link['created_by'] : 0;
-
-    $breakfastTime = '07:00:00';
-    $serviceType = 'restaurant';
-    $breakfastLocation = 'Main Restaurant';
-    $specialReason = '[AUTO ON THE SPOT MIDNIGHT] Guest did not submit menu before 00:00';
-
-    $menuItems = [[
-        'menu_id' => 0,
-        'menu_name' => 'ON THE SPOT (Guest will choose at restaurant)',
-        'quantity' => 1,
-        'price' => 0,
-        'is_free' => 1,
-        'group' => 'on_the_spot',
-        'is_on_the_spot' => 1,
-        'auto_set' => 1
-    ]];
-    $menuJson = json_encode($menuItems);
-
-    $existing = $db->fetchOne(
-        "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
-        [$breakfastDate, $guestName]
-    );
-
-    if ($existing) {
-        $pdo->prepare("UPDATE breakfast_orders SET
-            booking_id = ?, guest_name = ?, room_number = ?, total_pax = ?, breakfast_time = ?,
-            breakfast_date = ?, location = ?, breakfast_location = ?, menu_items = ?, special_requests = ?, total_price = ?,
-            on_the_spot = 1, order_status = 'submitted', updated_at = NOW()
-            WHERE id = ?")
-            ->execute([
-                $bookingId,
-                $guestName,
-                $roomJson,
-                $totalPax,
-                $breakfastTime,
-                $breakfastDate,
-                $serviceType,
-                $breakfastLocation,
-                $menuJson,
-                $specialReason,
-                0,
-                (int)$existing['id']
-            ]);
-    } else {
-        $pdo->prepare("INSERT INTO breakfast_orders
-            (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date,
-             location, breakfast_location, on_the_spot, menu_items, special_requests, total_price, order_status, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 0, 'submitted', ?)")
-            ->execute([
-                $bookingId,
-                $guestName,
-                $roomJson,
-                $totalPax,
-                $breakfastTime,
-                $breakfastDate,
-                $serviceType,
-                $breakfastLocation,
-                $menuJson,
-                $specialReason,
-                $createdBy
-            ]);
-    }
-
-    $pdo->prepare("UPDATE breakfast_guest_links
-        SET link_status = 'submitted', selected_menu_ids = '[]', selected_menu_notes = '{}', selected_menu_qty = '{}',
-            selected_drink_ids = '[]', selected_drink_notes = '{}', selected_drink_qty = '{}',
-            selected_child_ids = '[]', selected_child_notes = '{}', selected_child_qty = '{}',
-            breakfast_time = ?, breakfast_service = ?, breakfast_location = ?, on_the_spot = 1,
-            special_requests = ?, submitted_at = NOW(), updated_at = NOW()
-        WHERE id = ?")
-        ->execute([
-            $breakfastTime,
-            $serviceType,
-            $breakfastLocation,
-            $specialReason,
-            (int)$link['id']
-        ]);
-
-    return true;
-}
+// auto_submit_on_the_spot_after_midnight() dipindah ke includes/BreakfastAutoSpot.php (juga dipakai cron)
+require_once __DIR__ . '/../includes/BreakfastAutoSpot.php';
 
 function detect_guest_preferred_language($db, $link)
 {
@@ -777,6 +670,59 @@ if ($action === 'create_link') {
             throw new Exception('Tidak dapat membuat short link');
         }
 
+        // Booking grup: satu link per kamar (anak dari link induk). Jatah dihitung per kamar dari jumlah tamu reservasinya;
+        // bila jatah gabungan disetel manual (tidak sama dengan jumlah tamu reservasi), tetap satu pilihan gabungan.
+        $roomLinks = [];
+        if ($bookingId && $otherBookingIds) {
+            $allIds = array_values(array_unique(array_merge([$bookingId], $otherBookingIds)));
+            $phIds = implode(',', array_fill(0, count($allIds), '?'));
+            $bks = $db->fetchAll("SELECT b.id, b.guest_id, b.adults, b.children, g.guest_name, r.room_number
+                FROM bookings b JOIN rooms r ON r.id = b.room_id LEFT JOIN guests g ON g.id = b.guest_id
+                WHERE b.id IN ($phIds) AND b.status IN ('checked_in', 'confirmed', 'pending')
+                ORDER BY r.room_number + 0, r.room_number", $allIds) ?: [];
+            $paxSum = array_sum(array_map(fn($b) => max(1, (int)$b['adults'] + (int)$b['children']), $bks));
+            if (count($bks) > 1 && $paxSum === ($adultCount + $childYoung + $childOld)) {
+                $kidMenuDefaults = bf_kid_menu_ids($db);
+                foreach ($bks as $bk) {
+                    $p = max(1, (int)$bk['adults'] + (int)$bk['children']);
+                    $bid = (int)$bk['id'];
+                    // jatah per kamar (sama aturan "Setup": 1 makanan + 2 minuman per tamu)
+                    $pdo->prepare("INSERT INTO breakfast_guest_quota
+                        (booking_id, guest_id, guest_name, breakfast_date, adult_count, child_young_count, child_old_count, total_pax, max_main, max_drink, max_child, child_menu_ids, extra_main_price, extra_drink_price, extra_child_price, created_by)
+                        VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, 0, ?, ?, 0, 0, ?)
+                        ON DUPLICATE KEY UPDATE guest_id = VALUES(guest_id), guest_name = VALUES(guest_name), breakfast_date = VALUES(breakfast_date),
+                            adult_count = VALUES(adult_count), child_young_count = 0, child_old_count = 0, total_pax = VALUES(total_pax),
+                            max_main = VALUES(max_main), max_drink = VALUES(max_drink), max_child = 0, child_menu_ids = VALUES(child_menu_ids),
+                            extra_main_price = VALUES(extra_main_price), extra_drink_price = 0, extra_child_price = 0, updated_at = NOW()")
+                        ->execute([$bid, $bk['guest_id'] ?: $guestId, $bk['guest_name'] ?: $guestName, $breakfastDate, $p, $p, $p, $p * 2, json_encode($kidMenuDefaults), $extraMainPrice, $userId]);
+                    // link lama untuk kamar ini (selain induk baru) dinonaktifkan
+                    $pdo->prepare("UPDATE breakfast_guest_links SET link_status = 'expired' WHERE breakfast_date = ? AND booking_id = ? AND link_status = 'open' AND token <> ? AND parent_token IS NULL")->execute([$breakfastDate, $bid, $token]);
+                    $pdo->prepare("UPDATE breakfast_guest_links SET link_status = 'expired' WHERE breakfast_date = ? AND booking_id = ? AND link_status = 'open' AND parent_token IS NOT NULL AND parent_token <> ?")->execute([$breakfastDate, $bid, $token]);
+                    $childToken = bin2hex(random_bytes(24));
+                    $childCode = null;
+                    for ($i = 0; $i < 5; $i++) {
+                        $childCode = create_short_code();
+                        try {
+                            $pdo->prepare("INSERT INTO breakfast_guest_links
+                                (token, short_code, booking_id, guest_id, guest_name, guest_phone, room_number, breakfast_date,
+                                 max_main, max_drink, max_child, child_menu_ids, guest_composition, expires_at, created_by, parent_token)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)")
+                                ->execute([
+                                    $childToken, $childCode, $bid, $bk['guest_id'] ?: $guestId, $bk['guest_name'] ?: $guestName, $guestPhone,
+                                    json_encode([(string)$bk['room_number']]), $breakfastDate, $p, $p * 2, json_encode([]),
+                                    json_encode(['adults' => $p, 'children_young' => 0, 'children_old' => 0, 'total_pax' => $p]),
+                                    $expiresAt, $userId, $token,
+                                ]);
+                            $roomLinks[] = ['room' => (string)$bk['room_number'], 'token' => $childToken, 'short_code' => $childCode];
+                            break;
+                        } catch (Exception $innerEx) {
+                            if ($i === 4) throw $innerEx;
+                        }
+                    }
+                }
+            }
+        }
+
         $linkUrl = rtrim(BASE_URL, '/') . '/modules/frontdesk/breakfast-guest.php?t=' . urlencode($token);
         $shortLink = rtrim(BASE_URL, '/') . '/go-breakfast.php?k=' . urlencode($shortCode);
         echo json_encode([
@@ -787,7 +733,8 @@ if ($action === 'create_link') {
                 'short_code' => $shortCode,
                 'link_url' => $linkUrl,
                 'short_link' => $shortLink,
-                'expires_at' => $expiresAt
+                'expires_at' => $expiresAt,
+                'rooms' => $roomLinks
             ]
         ]);
     } catch (Exception $e) {
@@ -804,12 +751,34 @@ if ($action === 'get_link') {
         exit;
     }
 
+    if ($token === 'demo-group') {
+        // Contoh link grup 3 kamar (tidak menyimpan apa pun)
+        echo json_encode(['success' => true, 'data' => [
+            'is_group' => true, 'token' => 'demo-group', 'guest_name' => 'Sample Group', 'breakfast_date' => date('Y-m-d', strtotime('+1 day')),
+            'portal_logo_url' => '', 'preferred_lang' => 'en',
+            'rooms' => [
+                ['token' => 'demo-preview-101', 'room_number' => '101', 'status' => 'open', 'pax' => 2, 'on_the_spot' => 0],
+                ['token' => 'demo-preview-102', 'room_number' => '102', 'status' => 'open', 'pax' => 2, 'on_the_spot' => 0],
+                ['token' => 'demo-preview-103', 'room_number' => '103', 'status' => 'open', 'pax' => 1, 'on_the_spot' => 0],
+            ],
+        ]]);
+        exit;
+    }
+    $demoRoom = '108';
+    $demoPax = 2;
+    if (strpos($token, 'demo-preview') === 0) {
+        if (preg_match('/^demo-preview-(\d+)$/', $token, $dm)) {
+            $demoRoom = $dm[1];
+            $demoPax = $demoRoom === '103' ? 1 : 2;
+        }
+        $token = BF_DEMO_TOKEN;
+    }
     if ($token === BF_DEMO_TOKEN) {
         // Tautan contoh untuk mencoba tampilan: data tamu rekaan, tidak ada yang tersimpan
         $link = [
-            'id' => 0, 'booking_id' => null, 'guest_name' => 'Sample Guest', 'room_number' => '["108"]',
-            'guest_composition' => '{"adults":2,"children_young":0,"children_old":0,"total_pax":2}',
-            'breakfast_date' => date('Y-m-d', strtotime('+1 day')), 'max_main' => 2, 'max_drink' => 2, 'max_child' => 0,
+            'id' => 0, 'token' => BF_DEMO_TOKEN, 'booking_id' => null, 'guest_name' => 'Sample Guest', 'room_number' => json_encode([$demoRoom]),
+            'guest_composition' => json_encode(['adults' => $demoPax, 'children_young' => 0, 'children_old' => 0, 'total_pax' => $demoPax]),
+            'breakfast_date' => date('Y-m-d', strtotime('+1 day')), 'max_main' => $demoPax, 'max_drink' => $demoPax * 2, 'max_child' => 0,
             'link_status' => 'open', 'submitted_at' => null, 'expires_at' => null, 'special_requests' => '',
             'breakfast_time' => null, 'breakfast_service' => null, 'breakfast_location' => null, 'on_the_spot' => 0, 'short_code' => null,
         ];
@@ -830,6 +799,38 @@ if ($action === 'get_link') {
         }
     } catch (Exception $e) {
         // keep portal accessible even if auto-update fails
+    }
+
+    // Link induk booking grup: kembalikan daftar kamar (tiap kamar punya link sendiri)
+    $groupKids = $token !== '' ? ($db->fetchAll("SELECT * FROM breakfast_guest_links WHERE parent_token = ? ORDER BY id", [(string)($link['token'] ?? '')]) ?: []) : [];
+    if ($groupKids) {
+        $roomsOut = [];
+        foreach ($groupKids as $kid) {
+            try {
+                if (auto_submit_on_the_spot_after_midnight($db, $pdo, $kid)) {
+                    $kid = $db->fetchOne("SELECT * FROM breakfast_guest_links WHERE id = ? LIMIT 1", [(int)$kid['id']]) ?: $kid;
+                }
+            } catch (Exception $e) {
+            }
+            $kr = json_decode((string)($kid['room_number'] ?? '[]'), true);
+            $kidComp = json_decode((string)($kid['guest_composition'] ?? '{}'), true);
+            $roomsOut[] = [
+                'token' => $kid['token'],
+                'room_number' => is_array($kr) && $kr ? (string)$kr[0] : (string)$kid['room_number'],
+                'status' => (!empty($kid['submitted_at']) || in_array((string)($kid['link_status'] ?? ''), ['submitted', 'closed', 'locked'], true)) ? 'submitted' : 'open',
+                'pax' => (int)($kid['max_main'] ?? 1),
+                'on_the_spot' => (int)($kid['on_the_spot'] ?? 0),
+            ];
+        }
+        usort($roomsOut, fn($x, $y) => strnatcmp($x['room_number'], $y['room_number']));
+        $pLogoPath = get_setting($db, 'breakfast_portal_logo_path');
+        $langG = detect_guest_preferred_language($db, $link);
+        echo json_encode(['success' => true, 'data' => [
+            'is_group' => true, 'token' => $link['token'], 'short_code' => $link['short_code'] ?? null, 'guest_name' => $link['guest_name'], 'breakfast_date' => $link['breakfast_date'],
+            'portal_logo_url' => $pLogoPath ? ((strpos($pLogoPath, 'http') === 0) ? $pLogoPath : rtrim(BASE_URL, '/') . '/' . ltrim($pLogoPath, '/')) : '',
+            'preferred_lang' => $langG['preferred_lang'], 'rooms' => $roomsOut,
+        ]]);
+        exit;
     }
 
     $linkStatus = (string)($link['link_status'] ?? 'open');
@@ -972,8 +973,8 @@ if ($action === 'get_link') {
 
     $specialRequestsLink = (string)($link['special_requests'] ?? '');
     $isAutoOnSpotMidnight = strpos($specialRequestsLink, '[AUTO ON THE SPOT MIDNIGHT]') !== false;
-    $autoOnSpotMessageEn = "We are sorry, because you did not select your breakfast menu before midnight, tomorrow you can order directly at the restaurant. Please be patient. If not, you can contact Front Desk to order manually. Thank you.";
-    $autoOnSpotMessageId = "Mohon maaf, karena Anda belum memilih menu sarapan sebelum tengah malam, besok Anda bisa langsung memesan di restoran. Mohon bersabar ya. Jika tidak, Anda bisa menghubungi Front Desk untuk memesan secara manual. Terima kasih.";
+    $autoOnSpotMessageEn = "We are sorry, because your breakfast menu was not selected before 05:00, you can order directly at the restaurant this morning. Thank you for your understanding. If you need help, please contact Front Office.";
+    $autoOnSpotMessageId = "Mohon maaf, karena menu sarapan belum dipilih sebelum pukul 05:00, pagi ini Anda bisa langsung memesan di restoran. Terima kasih atas pengertiannya. Bila perlu bantuan, silakan hubungi Front Office.";
     $langInfo = detect_guest_preferred_language($db, $link);
 
     echo json_encode([
@@ -1036,7 +1037,7 @@ if ($action === 'submit_link') {
         echo json_encode(['success' => false, 'message' => $msg('Token wajib', 'Token is required')]);
         exit;
     }
-    if ($token === BF_DEMO_TOKEN) {
+    if ($token === BF_DEMO_TOKEN || strpos($token, 'demo-preview') === 0) {
         // Tautan contoh: pura-pura berhasil, tidak menyimpan apa pun
         echo json_encode(['success' => true, 'demo' => true, 'data' => ['extra_total_price' => 0]]);
         exit;
@@ -1155,6 +1156,9 @@ if ($action === 'submit_link') {
         }
         if (!empty($link['submitted_at']) || in_array((string)($link['link_status'] ?? 'open'), ['submitted', 'closed', 'locked'], true)) {
             throw new Exception('Menu sudah dikirim. Untuk perubahan, silakan hubungi Front Office.');
+        }
+        if ($db->fetchOne("SELECT id FROM breakfast_guest_links WHERE parent_token = ? LIMIT 1", [(string)$link['token']])) {
+            throw new Exception($msg('Silakan pilih kamar terlebih dahulu', 'Please choose a room first'));
         }
         if (!empty($link['expires_at']) && strtotime($link['expires_at']) < time()) {
             $pdo->prepare("UPDATE breakfast_guest_links SET link_status = 'expired' WHERE id = ?")->execute([(int)$link['id']]);
@@ -1411,10 +1415,15 @@ if ($action === 'submit_link') {
             $portalNote .= ' ' . $specialRequests;
         }
 
-        $existing = $db->fetchOne(
-            "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
-            [$breakfastDate, $guestName]
-        );
+        // Kamar dalam grup memakai nama tamu yang sama: cocokkan pesanan per booking (per kamar)
+        if (!empty($link['parent_token']) && $bookingId) {
+            $existing = $db->fetchOne("SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND booking_id = ? LIMIT 1", [$breakfastDate, $bookingId]);
+        } else {
+            $existing = $db->fetchOne(
+                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
+                [$breakfastDate, $guestName]
+            );
+        }
 
         if ($existing) {
             $pdo->prepare("UPDATE breakfast_orders SET

@@ -609,6 +609,20 @@ $token = trim((string)($_GET['t'] ?? ''));
 
         .loader { padding: 60px 0; text-align: center; color: var(--muted); }
 
+        /* Group (multi-room) tabs */
+        .room-tabs { position: relative; z-index: 3; margin-bottom: 30px; }
+        .rt-intro { margin-bottom: 8px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+        .rt-intro b { color: var(--ink, #0f172a); }
+        .rt-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+        .rt { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 16px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; font: 700 13px 'Inter', sans-serif; color: #334155; cursor: pointer; }
+        .rt small { font-size: 10px; font-weight: 700; color: var(--muted); }
+        .rt.on { border-color: #1e3a8a; background: #eef2ff; color: #1e3a8a; }
+        .rt.done { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+        .rt.done.on { border-color: #059669; }
+        .rt .ck { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #059669; color: #fff; font-size: 10px; }
+        .rt-share { margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px dashed #94a3b8; border-radius: 10px; background: transparent; font: 600 12px 'Inter', sans-serif; color: #475569; cursor: pointer; }
+        .sent-next { width: 100%; margin-top: 8px; height: 44px; border: 1.5px solid #1e3a8a; border-radius: 13px; background: #fff; color: #1e3a8a; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+
         /* Sent confirmation */
         .sent-ov { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 22px; background: rgba(15, 23, 42, .55); backdrop-filter: blur(4px); }
         .sent-ov.open { display: flex; }
@@ -645,11 +659,13 @@ $token = trim((string)($_GET['t'] ?? ''));
             <p id="sentMsg"></p>
             <div class="sent-meta" id="sentMeta"></div>
             <p style="font-size:12.5px;color:#64748b;margin-top:10px">Should you wish to make any changes, our Front Office team will gladly assist you.</p>
+            <button type="button" class="sent-next hidden" id="sentNext"></button>
             <button type="button" class="sent-btn" id="sentBtn">Done</button>
         </div>
     </div>
 
     <main class="wrap">
+        <div class="room-tabs hidden" id="roomTabs"></div>
         <div class="guest" id="guestCard">
             <div class="loader" id="loader">Loading your breakfast menu…</div>
         </div>
@@ -762,6 +778,9 @@ $token = trim((string)($_GET['t'] ?? ''));
             var service = 'restaurant';
             var time = '07:00';
             var mainFilter = 'all';
+            var PARENT = TOKEN;   // link induk (booking grup: berisi tab kamar)
+            var GROUP = null;
+            var ROOM_PARAM = new URLSearchParams(location.search).get('r') || '';
 
             var $ = function(id) { return document.getElementById(id); };
             var esc = function(s) {
@@ -1016,6 +1035,77 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '<div class="sum-row"><span>Location</span><b>' + esc(data.breakfast_location || '-') + '</b></div></div>';
             }
 
+            // ===== Booking grup: satu link, tab per kamar =====
+            function initGroup(g) {
+                GROUP = g;
+                renderTabs();
+                var pick = null;
+                if (ROOM_PARAM) pick = g.rooms.filter(function(r) { return String(r.room_number) === String(ROOM_PARAM); })[0];
+                if (!pick) pick = g.rooms.filter(function(r) { return r.status !== 'submitted'; })[0] || g.rooms[0];
+                if (pick) selectRoom(pick.token);
+            }
+
+            function renderTabs() {
+                if (!GROUP) return;
+                var pending = GROUP.rooms.filter(function(r) { return r.status !== 'submitted'; }).length;
+                $('roomTabs').innerHTML =
+                    '<div class="rt-intro"><b>' + esc(GROUP.guest_name) + '</b> · ' + GROUP.rooms.length + ' rooms. Each room chooses its own breakfast' +
+                    (pending ? ' — <b>' + pending + '</b> room' + (pending === 1 ? '' : 's') + ' still to choose.' : ' — all rooms are done. Thank you!') + '</div>' +
+                    '<div class="rt-row">' + GROUP.rooms.map(function(r) {
+                        var done = r.status === 'submitted';
+                        return '<button type="button" class="rt' + (done ? ' done' : '') + (r.token === TOKEN ? ' on' : '') + '" data-t="' + esc(r.token) + '">' +
+                            'Room ' + esc(r.room_number) + (done ? '<span class="ck">✓</span>' : '<small>' + r.pax + ' guest' + (r.pax === 1 ? '' : 's') + '</small>') + '</button>';
+                    }).join('') + '</div>' +
+                    '<button type="button" class="rt-share" id="btnShareRoom">🔗 Share this room’s link</button>';
+                $('roomTabs').classList.remove('hidden');
+            }
+
+            async function selectRoom(token) {
+                TOKEN = token;
+                qty = { main: {}, drink: {}, child: {} };
+                notes = { main: {}, drink: {}, child: {} };
+                service = 'restaurant';
+                time = '07:00';
+                mainFilter = 'all';
+                notice('');
+                $('pickArea').classList.add('hidden');
+                $('bar').classList.add('hidden');
+                $('btnSubmit').disabled = false;
+                $('guestCard').innerHTML = '<div class="loader">Loading room…</div>';
+                renderTabs();
+                await load();
+                if (data && !data.is_locked && !data.auto_on_the_spot_midnight && !data.is_group) { try { goStep(0); } catch (e) {} }
+            }
+
+            function roomNo(token) {
+                var r = GROUP && GROUP.rooms.filter(function(x) { return x.token === token; })[0];
+                return r ? r.room_number : '';
+            }
+
+            function markRoomDone() {
+                if (!GROUP) return;
+                GROUP.rooms.forEach(function(r) { if (r.token === TOKEN) r.status = 'submitted'; });
+                renderTabs();
+            }
+
+            function shareRoom() {
+                var rn = roomNo(TOKEN);
+                var url = (GROUP && GROUP.short_code)
+                    ? location.origin + BASE.replace(location.origin, '') + '/go-breakfast.php?k=' + encodeURIComponent(GROUP.short_code) + (rn ? '&r=' + encodeURIComponent(rn) : '')
+                    : location.origin + location.pathname + '?t=' + encodeURIComponent(PARENT) + (rn ? '&r=' + encodeURIComponent(rn) : '');
+                var text = 'Please choose your breakfast' + (rn ? ' for Room ' + rn : '') + ': ' + url;
+                if (navigator.share) { navigator.share({ title: 'Breakfast selection' + (rn ? ' · Room ' + rn : ''), text: text, url: url }).catch(function() {}); return; }
+                var done = function() { notice('Link copied — send it to the guests of Room ' + esc(rn) + '.', 'ok'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+                if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function() { window.prompt('Copy this link:', url); });
+                else window.prompt('Copy this link:', url);
+            }
+
+            $('roomTabs').addEventListener('click', function(e) {
+                var t = e.target.closest('.rt');
+                if (t) { if (t.getAttribute('data-t') !== TOKEN) selectRoom(t.getAttribute('data-t')); return; }
+                if (e.target.closest('#btnShareRoom')) shareRoom();
+            });
+
             async function load() {
                 if (!TOKEN) {
                     $('guestCard').innerHTML = '<div class="loader">This link is not valid.</div>';
@@ -1030,6 +1120,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                         return;
                     }
                     data = json.data || {};
+                    if (data.is_group) { initGroup(data); return; }
                     renderGuest();
                     if (data.auto_on_the_spot_midnight) {
                         notice(esc(data.auto_on_the_spot_message_en || 'The selection time has passed. You can order directly at the restaurant in the morning.'));
@@ -1116,6 +1207,11 @@ $token = trim((string)($_GET['t'] ?? ''));
                 var t = (data.breakfast_time || '').slice(0, 5);
                 $('sentMeta').innerHTML = onSpot ? 'Order on the spot &middot; <b>Main Restaurant</b>'
                     : (t ? '<b>' + esc(t) + '</b> &middot; ' : '') + esc(svcMap[data.breakfast_service] || 'Restaurant');
+                var rn = GROUP ? roomNo(TOKEN) : '';
+                var nxt = GROUP ? GROUP.rooms.filter(function(r) { return r.status !== 'submitted'; })[0] : null;
+                if (rn) $('sentTitle').textContent = 'Room ' + rn + ' · Selection Sent';
+                $('sentNext').classList.toggle('hidden', !nxt);
+                if (nxt) { $('sentNext').textContent = 'Continue with Room ' + nxt.room_number + ' →'; $('sentNext').onclick = function() { $('sentOv').classList.remove('open'); selectRoom(nxt.token); }; }
                 $('sentOv').classList.add('open');
             }
             $('sentBtn').addEventListener('click', function() { $('sentOv').classList.remove('open'); });
@@ -1168,6 +1264,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     } else {
                         await load();
                     }
+                    if (GROUP) markRoomDone();
                     showSent(onSpot);
                     var extra = json.data && json.data.extra_total_price;
                     if (extra > 0) {

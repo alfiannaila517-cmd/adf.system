@@ -28,6 +28,9 @@ try {
 
     $shortUrl = rtrim(BASE_URL, '/') . '/go-breakfast.php?k=' . urlencode($code);
     $target = rtrim(BASE_URL, '/') . '/modules/frontdesk/breakfast-guest.php?t=' . urlencode($link['token']);
+    // Booking grup: teruskan nomor kamar agar tab kamar itu langsung terbuka
+    $roomParam = preg_replace('/[^A-Za-z0-9\-]/', '', (string)($_GET['r'] ?? ''));
+    if ($roomParam !== '') $target .= '&r=' . urlencode($roomParam);
     ?>
 <!DOCTYPE html>
 <html lang="en">
