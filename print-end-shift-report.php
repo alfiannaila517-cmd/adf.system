@@ -233,6 +233,58 @@ foreach ($incomeTransactions as $it) {
 }
 arsort($byMethod);
 $netToday = $totalIncome - $totalExpense;
+
+// ── Notifikasi owner: rekap harian saat End Shift (sekali per operator per 10 menit) ──
+try {
+    $esKey = 'esr_notified_' . ($business['database_name'] ?? '');
+    if (empty($_SESSION[$esKey]) || time() - (int)$_SESSION[$esKey] > 600) {
+        $_SESSION[$esKey] = time();
+        $esOcc = ['occupied' => 0, 'total' => 0];
+        try {
+            $esOcc['total'] = (int)($businessDb->fetchOne("SELECT COUNT(*) c FROM rooms")['c'] ?? 0);
+            $esOcc['occupied'] = (int)($businessDb->fetchOne("SELECT COUNT(DISTINCT room_id) c FROM bookings WHERE status = 'checked_in'")['c'] ?? 0);
+        } catch (\Throwable $e) {
+        }
+        $esData = [
+            'db' => $business['database_name'] ?? '',
+            'business_name' => $business['business_name'] ?? '',
+            'cashier' => $operatorName,
+            'date' => $today,
+            'income' => (float)$totalIncome,
+            'expense' => (float)$totalExpense,
+            'net' => (float)($totalIncome - $totalExpense),
+            'cash_available' => isset($cashAvailable) ? (float)$cashAvailable : null,
+            'tx_count' => count($transactions),
+            'occ_occupied' => $esOcc['occupied'],
+            'occ_total' => $esOcc['total'],
+            'url' => '/modules/owner/dashboard-2028.php',
+        ];
+        $esTitle = 'End Shift · ' . ($business['business_name'] ?? '');
+        $esMsg = $operatorName . ' menutup shift. Masuk Rp ' . number_format($totalIncome, 0, ',', '.') . ' · Keluar Rp ' . number_format($totalExpense, 0, ',', '.')
+            . ' · Net Rp ' . number_format($totalIncome - $totalExpense, 0, ',', '.')
+            . ($esOcc['total'] ? ' · Okupansi ' . $esOcc['occupied'] . '/' . $esOcc['total'] : '');
+        $masterDb->query("CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, type VARCHAR(50) NOT NULL,
+            title VARCHAR(255) NOT NULL, message TEXT, data JSON, is_read TINYINT(1) DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_user_read (user_id, is_read), INDEX idx_created (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $owners = $masterDb->fetchAll("SELECT u.id FROM users u JOIN roles r ON u.role_id = r.id
+            WHERE r.role_code IN ('owner', 'admin', 'developer') AND u.is_active = 1") ?: [];
+        foreach ($owners as $ow) {
+            $masterDb->query("INSERT INTO notifications (user_id, type, title, message, data, is_read, created_at) VALUES (?, 'end_shift', ?, ?, ?, 0, NOW())",
+                [(int)$ow['id'], $esTitle, $esMsg, json_encode($esData, JSON_UNESCAPED_UNICODE)]);
+        }
+        try {
+            require_once __DIR__ . '/includes/PushNotificationHelper.php';
+            (new PushNotificationHelper($masterDb))->sendToAdmins($esTitle, $esMsg, ['type' => 'end_shift', 'tag' => 'end_shift-' . time(), 'url' => $esData['url']]);
+        } catch (\Throwable $e) {
+            error_log('End shift push: ' . $e->getMessage());
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('End shift notify: ' . $e->getMessage());
+}
 $reportNo = 'ESR/' . date('Ymd') . '/' . date('Hi');
 $logoUrl = '';
 try {

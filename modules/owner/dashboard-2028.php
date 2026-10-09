@@ -1011,6 +1011,95 @@ if ($healthScore >= 80) {
     $healthStatus = 'Needs Attention';
     $healthEmoji = '🔴';
 }
+
+// ═══ OWNER OVERVIEW: grafik 7 hari, okupansi, pemasukan per divisi, notifikasi End Shift ═══
+$ov = ['days' => [], 'inc' => [], 'exp' => [], 'occ7' => [], 'occToday' => ['occupied' => 0, 'vacant' => 0, 'blocked' => 0, 'arriving' => 0, 'total' => 0], 'divInc' => [], 'endShifts' => []];
+$ovHari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+$ovBln = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+try {
+    if (isset($pdo) && $pdo instanceof PDO && empty($error)) {
+        $exInc = $excludeOwnerCapital ?? '';
+        $exExp = $excludeProjectExpense ?? '';
+        $d0 = date('Y-m-d', strtotime('-6 days'));
+        $incMap = [];
+        $expMap = [];
+        $st = $pdo->prepare("SELECT transaction_date d, SUM(amount) s FROM cash_book WHERE transaction_type = 'income' AND transaction_date BETWEEN ? AND ?" . $exInc . " GROUP BY transaction_date");
+        $st->execute([$d0, date('Y-m-d')]);
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) $incMap[$r['d']] = (float)$r['s'];
+        $st = $pdo->prepare("SELECT transaction_date d, SUM(amount) s FROM cash_book WHERE transaction_type = 'expense' AND transaction_date BETWEEN ? AND ?" . $exExp . " GROUP BY transaction_date");
+        $st->execute([$d0, date('Y-m-d')]);
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) $expMap[$r['d']] = (float)$r['s'];
+        for ($i = 6; $i >= 0; $i--) {
+            $dt = date('Y-m-d', strtotime("-$i days"));
+            $ov['days'][] = $ovHari[(int)date('w', strtotime($dt))] . ' ' . date('j', strtotime($dt));
+            $ov['inc'][] = $incMap[$dt] ?? 0;
+            $ov['exp'][] = $expMap[$dt] ?? 0;
+        }
+
+        // Okupansi (hanya bisnis dengan kamar)
+        try {
+            $totR = (int)$pdo->query("SELECT COUNT(*) FROM rooms")->fetchColumn();
+            if ($totR > 0) {
+                $occN = (int)$pdo->query("SELECT COUNT(DISTINCT room_id) FROM bookings WHERE status = 'checked_in'")->fetchColumn();
+                $blkN = 0;
+                try {
+                    $blkN = (int)$pdo->query("SELECT COUNT(DISTINCT room_id) FROM room_blocks WHERE status = 'active' AND block_start_date <= CURDATE() AND block_end_date > CURDATE()")->fetchColumn();
+                } catch (\Throwable $e) {
+                }
+                $arrN = (int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status IN ('confirmed', 'pending') AND DATE(check_in_date) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)")->fetchColumn();
+                $ov['occToday'] = ['occupied' => $occN, 'blocked' => $blkN, 'arriving' => $arrN, 'vacant' => max(0, $totR - $occN - $blkN), 'total' => $totR];
+                $stO = $pdo->prepare("SELECT COUNT(DISTINCT room_id) FROM bookings WHERE status IN ('checked_in', 'confirmed', 'pending') AND DATE(check_in_date) <= ? AND DATE(check_out_date) > ?");
+                for ($i = 0; $i < 7; $i++) {
+                    $dt = date('Y-m-d', strtotime("+$i days"));
+                    $stO->execute([$dt, $dt]);
+                    $ov['occ7'][] = [
+                        'label' => $i === 0 ? 'Hari ini' : $ovHari[(int)date('w', strtotime($dt))],
+                        'sub' => date('j', strtotime($dt)) . ' ' . $ovBln[(int)date('n', strtotime($dt))],
+                        'pct' => (int)round(((int)$stO->fetchColumn()) / $totR * 100),
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        // Pemasukan per divisi bulan ini
+        try {
+            $st = $pdo->prepare("SELECT d.division_name n, SUM(cb.amount) t FROM cash_book cb JOIN divisions d ON d.id = cb.division_id
+                WHERE cb.transaction_type = 'income' AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?" . $exInc . " GROUP BY d.id, d.division_name HAVING t > 0 ORDER BY t DESC");
+            $st->execute([date('Y-m')]);
+            $rowsD = $st->fetchAll(PDO::FETCH_ASSOC);
+            $other = 0;
+            foreach ($rowsD as $k => $r) {
+                if ($k < 5) $ov['divInc'][] = ['n' => $r['n'], 't' => (float)$r['t']];
+                else $other += (float)$r['t'];
+            }
+            if ($other > 0) $ov['divInc'][] = ['n' => 'Lainnya', 't' => $other];
+        } catch (\Throwable $e) {
+        }
+
+        // Notifikasi End Shift terbaru (rekap harian dari print-end-shift-report.php)
+        try {
+            $uidOv = (int)($_SESSION['user_id'] ?? 0);
+            if ($uidOv && isset($masterPdo) && $masterPdo instanceof PDO) {
+                $stE = $masterPdo->prepare("SELECT id, data, is_read, created_at FROM notifications WHERE user_id = ? AND type = 'end_shift' ORDER BY id DESC LIMIT 40");
+                $stE->execute([$uidOv]);
+                $unreadIds = [];
+                $dbMine = [($activeConfig['database'] ?? ''), getDbName($activeConfig['database'] ?? '')];
+                foreach ($stE->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                    $dj = json_decode((string)$r['data'], true) ?: [];
+                    if (!(in_array($dj['db'] ?? '', $dbMine, true) || ($dj['business_name'] ?? '') === $businessName)) continue;
+                    if (count($ov['endShifts']) >= 4) break;
+                    $ov['endShifts'][] = ['d' => $dj, 'unread' => !(int)$r['is_read'], 'at' => $r['created_at']];
+                    if (!(int)$r['is_read']) $unreadIds[] = (int)$r['id'];
+                }
+                if ($unreadIds) $masterPdo->exec("UPDATE notifications SET is_read = 1 WHERE id IN (" . implode(',', $unreadIds) . ")");
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('owner overview: ' . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -3005,6 +3094,88 @@ if ($healthScore >= 80) {
             padding: 1px 5px;
             border-radius: 10px;
         }
+
+        /* ═════════ Tema Narayana: navy-biru seragam dengan sistem utama ═════════ */
+        :root {
+            --accent: #1e3a8a; --accent-light: #2563eb;
+            --gold: #2563eb; --gold-light: #60a5fa; --gold-dark: #1e3a8a;
+            --shadow-gold: 0 6px 18px rgba(37, 99, 235, .28);
+        }
+        body { background: #f1f5f9 !important; }
+        body > .dev-badge { display: none !important; }
+        .ow-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; margin-bottom: 14px; border-radius: 16px; color: #fff;
+            background: linear-gradient(120deg, #0f1f4d 0%, #1e3a8a 55%, #2563eb 100%); box-shadow: 0 12px 28px -16px rgba(15, 31, 77, .8); position: relative; overflow: hidden; }
+        .ow-top::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg, #fbbf24, #f59e0b); }
+        .ow-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .ow-logo { width: 42px; height: 42px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .25); display: grid; place-items: center; font-size: 20px; }
+        .ow-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .ow-name { font-size: 1.02rem; font-weight: 800; letter-spacing: -.01em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ow-sub { font-size: .7rem; color: rgba(219, 234, 254, .85); margin-top: 1px; }
+        .ow-top-r { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .ow-btn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .12); color: #fff; font: 700 .72rem inherit; font-family: inherit; cursor: pointer; }
+        .ow-btn:hover { background: rgba(255, 255, 255, .22); }
+        .ow-user { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px 0 4px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .12); }
+        .ow-av { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: #1e3a8a; font-weight: 800; font-size: .72rem; }
+        .ow-un { font-size: .74rem; font-weight: 700; color: #fff; }
+        .ow-user em { font-style: normal; font-size: .56rem; font-weight: 800; padding: 1px 6px; border-radius: 999px; background: #fbbf24; color: #78350f; }
+
+        .ow-sec { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+        .ow-card { background: #fff; border: 1px solid #e8edf3; border-radius: 16px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 22px -16px rgba(15, 23, 42, .25); min-width: 0; }
+        .ow-card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .ow-card-h b { display: block; font-size: .86rem; font-weight: 800; color: #0f172a; }
+        .ow-card-h small { display: block; font-size: .68rem; color: #64748b; margin-top: 1px; }
+        .ow-ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+        .ow-ic svg { width: 17px; height: 17px; }
+        .ic-navy { background: #e0e7ff; color: #1e3a8a; } .ic-blue { background: #dbeafe; color: #1d4ed8; } .ic-green { background: #dcfce7; color: #16a34a; } .ic-violet { background: #ede9fe; color: #6d28d9; }
+        .ow-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .ow-chart { position: relative; height: 210px; }
+
+        .ow-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .ow-kpi { background: #fff; border: 1px solid #e8edf3; border-left: 4px solid var(--kc, #2563eb); border-radius: 14px; padding: 10px 13px; box-shadow: 0 8px 22px -18px rgba(15, 23, 42, .3); }
+        .ow-kpi span { display: block; font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: #64748b; }
+        .ow-kpi b { display: block; font-size: 1.05rem; font-weight: 800; margin-top: 3px; color: #0f172a; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ow-kpi small { display: block; font-size: .64rem; color: #94a3b8; margin-top: 1px; }
+        .k-green { --kc: #10b981; } .k-green b { color: #047857; } .k-red { --kc: #ef4444; } .k-red b { color: #b91c1c; } .k-blue { --kc: #2563eb; } .k-blue b { color: #1d4ed8; }
+        .k-navy { --kc: #1e3a8a; } .k-violet { --kc: #8b5cf6; }
+
+        .ow-es-list { display: flex; flex-direction: column; gap: 8px; }
+        .ow-es-item { padding: 9px 12px; border: 1px solid #e8edf3; border-radius: 12px; background: #f8fafc; }
+        .ow-es-item.unread { background: #eff6ff; border-color: #bfdbfe; }
+        .ow-es-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .ow-es-who { font-size: .78rem; font-weight: 700; color: #0f172a; }
+        .ow-es-at { font-size: .66rem; color: #64748b; white-space: nowrap; }
+        .ow-new { font-style: normal; font-size: .56rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: #2563eb; color: #fff; margin-left: 4px; vertical-align: 1px; }
+        .ow-es-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+        .ow-es-chips span { font-size: .66rem; padding: 2px 9px; border-radius: 999px; background: #fff; border: 1px solid #e2e8f0; color: #475569; }
+        .ow-es-chips span b { color: #0f172a; font-weight: 800; }
+        .ow-es-chips .in b { color: #047857; } .ow-es-chips .out b { color: #b91c1c; }
+        .ow-empty { padding: 14px; text-align: center; font-size: .74rem; color: #64748b; background: #f8fafc; border-radius: 12px; border: 1px dashed #dbe3ee; }
+
+        .ow-occ { display: flex; align-items: center; gap: 20px; }
+        .ow-donut { position: relative; width: 150px; height: 150px; flex-shrink: 0; }
+        .ow-donut-c { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+        .ow-donut-c b { font-size: 1.35rem; font-weight: 800; color: #0f172a; line-height: 1; }
+        .ow-donut-c small { font-size: .66rem; color: #64748b; }
+        .ow-legend { list-style: none; flex: 1; min-width: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+        .ow-legend li { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: #334155; }
+        .ow-legend li i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+        .ow-legend li b { margin-left: auto; color: #0f172a; font-weight: 800; }
+
+        .ow-bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 190px; }
+        .ow-bar { display: flex; flex-direction: column; align-items: center; height: 100%; text-align: center; }
+        .ow-bar em { font-style: normal; font-size: .66rem; font-weight: 800; color: #334155; margin-bottom: 4px; }
+        .ow-bar-t { flex: 1; width: 100%; max-width: 34px; border-radius: 10px; background: #f1f5f9; border: 1px solid #e8edf3; display: flex; align-items: flex-end; overflow: hidden; }
+        .ow-bar-t i { display: block; width: 100%; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #60a5fa, #2563eb); }
+        .ow-bar.now b { color: #2563eb; }
+        .ow-bar b { font-size: .66rem; font-weight: 800; color: #475569; margin-top: 5px; }
+        .ow-bar small { font-size: .58rem; color: #94a3b8; }
+
+        @media (max-width: 760px) {
+            .ow-grid2 { grid-template-columns: 1fr; }
+            .ow-un { display: none; }
+            .ow-occ { gap: 14px; }
+            .ow-donut { width: 124px; height: 124px; }
+        }
     </style>
 </head>
 
@@ -3090,34 +3261,29 @@ if ($healthScore >= 80) {
 
     <div class="container">
         <!-- Header -->
-        <header class="header">
-            <div class="brand">
-                <div class="brand-icon">
+        <header class="ow-top">
+            <div class="ow-brand">
+                <div class="ow-logo">
                     <?php if (file_exists(__DIR__ . '/../../uploads/logos/' . $logoFile)): ?>
                         <img src="<?= $basePath ?>/uploads/logos/<?= $logoFile ?>" alt="Logo">
                     <?php else: ?>
-                        <span style="font-size:22px;display:flex;align-items:center;justify-content:center;width:100%;height:100%"><?= $businessIcon ?></span>
+                        <span><?= $businessIcon ?></span>
                     <?php endif; ?>
                 </div>
-                <div class="brand-text">
-                    <?= htmlspecialchars($businessName) ?>
-                    <span class="brand-subtext">Owner Dashboard</span>
+                <div class="ow-brand-t">
+                    <div class="ow-name"><?= htmlspecialchars($businessName) ?></div>
+                    <div class="ow-sub">Owner Dashboard · <?= ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][(int)date('w')] . ', ' . date('j') . ' ' . $ovBln[(int)date('n')] . ' ' . date('Y') ?></div>
                 </div>
             </div>
-            <div class="header-right">
-                <button class="btn-refresh" onclick="location.reload()" title="Refresh Data">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path d="M1 4v6h6" />
-                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                    </svg>
-                    <span class="btn-refresh-text">Refresh</span>
+            <div class="ow-top-r">
+                <button class="ow-btn" onclick="location.reload()" title="Refresh Data">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
+                    <span>Refresh</span>
                 </button>
-                <div class="user-badge">
-                    <div class="avatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
-                    <div class="user-info">
-                        <?= htmlspecialchars($userName) ?>
-                        <?php if ($isDev): ?><span class="dev-badge">DEV</span><?php endif; ?>
-                    </div>
+                <div class="ow-user">
+                    <span class="ow-av"><?= strtoupper(substr($userName, 0, 1)) ?></span>
+                    <span class="ow-un"><?= htmlspecialchars($userName) ?></span>
+                    <?php if ($isDev): ?><em>DEV</em><?php endif; ?>
                 </div>
             </div>
         </header>
@@ -3161,6 +3327,100 @@ if ($healthScore >= 80) {
         <?php endif; ?>
 
         <?php if (!$error): ?>
+            <!-- ═══ Ringkasan Hari Ini (tema Narayana) ═══ -->
+            <?php
+            $ovNetToday = $stats['today_income'] - $stats['today_expense'];
+            $ovOcc = $ov['occToday'];
+            $ovOccPct = $ovOcc['total'] > 0 ? round($ovOcc['occupied'] / $ovOcc['total'] * 100, 1) : 0;
+            ?>
+            <section class="ow-sec">
+                <div class="ow-card ow-es">
+                    <div class="ow-card-h">
+                        <div class="ow-ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+                        <div><b>Laporan End Shift</b><small>Rekap harian otomatis dari kasir · <?= count($ov['endShifts']) ?: 'belum ada' ?> terbaru</small></div>
+                    </div>
+                    <?php if ($ov['endShifts']): ?>
+                        <div class="ow-es-list">
+                            <?php foreach ($ov['endShifts'] as $es): $d = $es['d']; $net = (float)($d['net'] ?? 0); ?>
+                                <div class="ow-es-item<?= $es['unread'] ? ' unread' : '' ?>">
+                                    <div class="ow-es-top">
+                                        <span class="ow-es-who"><?= htmlspecialchars((string)($d['cashier'] ?? 'Kasir')) ?> menutup shift<?php if ($es['unread']): ?> <i class="ow-new">Baru</i><?php endif; ?></span>
+                                        <span class="ow-es-at"><?= date('j', strtotime($es['at'])) . ' ' . $ovBln[(int)date('n', strtotime($es['at']))] . ' · ' . date('H:i', strtotime($es['at'])) ?></span>
+                                    </div>
+                                    <div class="ow-es-chips">
+                                        <span class="in">Masuk <b><?= rp((float)($d['income'] ?? 0)) ?></b></span>
+                                        <span class="out">Keluar <b><?= rp((float)($d['expense'] ?? 0)) ?></b></span>
+                                        <span class="<?= $net >= 0 ? 'in' : 'out' ?>">Net <b><?= ($net >= 0 ? '+' : '') . rp($net) ?></b></span>
+                                        <?php if (!empty($d['occ_total'])): ?><span>Okupansi <b><?= (int)$d['occ_occupied'] ?>/<?= (int)$d['occ_total'] ?></b></span><?php endif; ?>
+                                        <?php if (isset($d['cash_available']) && $d['cash_available'] !== null): ?><span>Kas <b><?= rp((float)$d['cash_available']) ?></b></span><?php endif; ?>
+                                        <span><b><?= (int)($d['tx_count'] ?? 0) ?></b> transaksi</span>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="ow-empty">Belum ada laporan End Shift. Rekap muncul di sini otomatis setiap kasir menekan End Shift.</div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="ow-kpis">
+                    <div class="ow-kpi k-green"><span>Pemasukan hari ini</span><b><?= rp($stats['today_income']) ?></b></div>
+                    <div class="ow-kpi k-red"><span>Pengeluaran hari ini</span><b><?= rp($stats['today_expense']) ?></b></div>
+                    <div class="ow-kpi <?= $ovNetToday >= 0 ? 'k-blue' : 'k-red' ?>"><span>Net hari ini</span><b><?= ($ovNetToday >= 0 ? '+' : '') . rp($ovNetToday) ?></b></div>
+                    <?php if ($ovOcc['total'] > 0): ?>
+                        <div class="ow-kpi k-navy"><span>Okupansi</span><b><?= $ovOccPct ?>%</b><small><?= $ovOcc['occupied'] ?> dari <?= $ovOcc['total'] ?> kamar</small></div>
+                        <div class="ow-kpi k-violet"><span>Check-in / out</span><b><?= (int)$todayCheckins ?> / <?= (int)$todayCheckouts ?></b><small>hari ini</small></div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="ow-grid2">
+                    <div class="ow-card">
+                        <div class="ow-card-h"><div class="ow-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div><div><b>Pemasukan vs Pengeluaran</b><small>7 hari terakhir</small></div></div>
+                        <div class="ow-chart"><canvas id="ovFlowChart"></canvas></div>
+                    </div>
+                    <?php if ($ovOcc['total'] > 0): ?>
+                        <div class="ow-card">
+                            <div class="ow-card-h"><div class="ow-ic ic-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Okupansi Hari Ini</b><small><?= $ovOcc['total'] ?> kamar</small></div></div>
+                            <div class="ow-occ">
+                                <div class="ow-donut"><canvas id="ovOccChart"></canvas><div class="ow-donut-c"><b><?= $ovOccPct ?>%</b><small>terisi</small></div></div>
+                                <ul class="ow-legend">
+                                    <li><i style="background:#2563eb"></i>Terisi<b><?= $ovOcc['occupied'] ?></b></li>
+                                    <li><i style="background:#cbd5e1"></i>Kosong<b><?= $ovOcc['vacant'] ?></b></li>
+                                    <li><i style="background:#f59e0b"></i>Diblok<b><?= $ovOcc['blocked'] ?></b></li>
+                                    <li><i style="background:#8b5cf6"></i>Datang besok<b><?= $ovOcc['arriving'] ?></b></li>
+                                </ul>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="ow-grid2">
+                    <?php if ($ov['occ7']): ?>
+                        <div class="ow-card">
+                            <div class="ow-card-h"><div class="ow-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div><div><b>Okupansi 7 Hari</b><small>Kamar terpesan per malam</small></div></div>
+                            <div class="ow-bars">
+                                <?php foreach ($ov['occ7'] as $i => $o): ?>
+                                    <div class="ow-bar<?= $i === 0 ? ' now' : '' ?>">
+                                        <em><?= $o['pct'] ?>%</em>
+                                        <div class="ow-bar-t"><i style="height:<?= max(3, $o['pct']) ?>%"></i></div>
+                                        <b><?= htmlspecialchars($o['label']) ?></b><small><?= htmlspecialchars($o['sub']) ?></small>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($ov['divInc']): ?>
+                        <div class="ow-card">
+                            <div class="ow-card-h"><div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div><div><b>Pemasukan per Divisi</b><small><?= date('F Y') ?></small></div></div>
+                            <div class="ow-occ">
+                                <div class="ow-donut"><canvas id="ovDivChart"></canvas></div>
+                                <ul class="ow-legend" id="ovDivLegend"></ul>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </section>
+
             <!-- Financial Performance — Premium 2028 -->
             <div class="hero">
                 <div class="hero-content">
@@ -4030,6 +4290,62 @@ if ($healthScore >= 80) {
     ?>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        // Grafik ringkasan owner (7 hari, okupansi, pemasukan per divisi)
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof Chart === 'undefined') return;
+            var OV = <?= json_encode(['days' => $ov['days'], 'inc' => $ov['inc'], 'exp' => $ov['exp'], 'occ' => $ov['occToday'], 'div' => $ov['divInc']], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
+            function short(n) {
+                var a = Math.abs(n);
+                if (a >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '') + ' jt';
+                if (a >= 1e3) return Math.round(n / 1e3) + ' rb';
+                return String(Math.round(n));
+            }
+            function rp(n) { return 'Rp ' + Math.round(n).toLocaleString('id-ID'); }
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = '#64748b';
+
+            var flow = document.getElementById('ovFlowChart');
+            if (flow) {
+                new Chart(flow, {
+                    type: 'bar',
+                    data: { labels: OV.days, datasets: [
+                        { label: 'Pemasukan', data: OV.inc, backgroundColor: '#10b981', borderRadius: 6, maxBarThickness: 18 },
+                        { label: 'Pengeluaran', data: OV.exp, backgroundColor: '#ef4444', borderRadius: 6, maxBarThickness: 18 }
+                    ] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, font: { size: 11 } } },
+                            tooltip: { callbacks: { label: function(c) { return ' ' + c.dataset.label + ': ' + rp(c.parsed.y); } } } },
+                        scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                            y: { beginAtZero: true, grid: { color: '#eef2f7' }, ticks: { font: { size: 10 }, callback: short } } }
+                    }
+                });
+            }
+            var occ = document.getElementById('ovOccChart');
+            if (occ && OV.occ.total > 0) {
+                new Chart(occ, {
+                    type: 'doughnut',
+                    data: { labels: ['Terisi', 'Kosong', 'Diblok'], datasets: [{ data: [OV.occ.occupied, OV.occ.vacant, OV.occ.blocked], backgroundColor: ['#2563eb', '#e2e8f0', '#f59e0b'], borderWidth: 0 }] },
+                    options: { responsive: true, maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false } } }
+                });
+            }
+            var dv = document.getElementById('ovDivChart');
+            if (dv && OV.div.length) {
+                var cols = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#94a3b8'];
+                var tot = OV.div.reduce(function(a, d) { return a + d.t; }, 0) || 1;
+                new Chart(dv, {
+                    type: 'doughnut',
+                    data: { labels: OV.div.map(function(d) { return d.n; }), datasets: [{ data: OV.div.map(function(d) { return d.t; }), backgroundColor: cols, borderWidth: 0 }] },
+                    options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return ' ' + c.label + ': ' + rp(c.parsed); } } } } }
+                });
+                var lg = document.getElementById('ovDivLegend');
+                lg.innerHTML = OV.div.map(function(d, i) {
+                    return '<li><i style="background:' + cols[i % cols.length] + '"></i>' + String(d.n).replace(/[<>&]/g, '') + '<b>' + Math.round(d.t / tot * 100) + '%</b></li>';
+                }).join('');
+            }
+        });
+    </script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // ============================================
