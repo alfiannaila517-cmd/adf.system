@@ -10287,6 +10287,22 @@ include '../../includes/header.php';
     body #moveRoomModal .mv-btn-primary, body #extendModal .mv-btn-primary, body .mv-notice .mv-btn-primary { border: 0; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: 0 8px 18px -8px rgba(37, 99, 235, .7); }
     body #extendModal .mv-btn-green { background: linear-gradient(135deg, #065f46, #059669); box-shadow: 0 8px 18px -8px rgba(5, 150, 105, .7); }
     body #moveRoomModal .mv-btn:disabled, body #extendModal .mv-btn:disabled { background: #94a3b8; box-shadow: none; cursor: not-allowed; }
+    .mv-up { position: fixed; inset: 0; z-index: 100002; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .5); }
+    .mv-up.open { display: flex; }
+    .mv-up-box { width: min(520px, 100%); padding: 16px; border-radius: 12px; background: #fff; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); color: #0f172a; }
+    .mv-up-alert { padding: 10px 14px; border-radius: 10px; font-weight: 800; font-size: .9rem; margin-bottom: 12px; border: 1px solid; }
+    .mv-up-alert.up { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+    .mv-up-alert.down { background: #fffbeb; border-color: #fcd34d; color: #b45309; }
+    .mv-up-tbl { width: 100%; border-collapse: collapse; font-size: .78rem; margin-bottom: 10px; }
+    .mv-up-tbl th { text-align: left; background: #f1f5f9; padding: 7px 8px; font-weight: 700; }
+    .mv-up-tbl td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+    .mv-up-tbl .plus { color: #16a34a; } .mv-up-tbl .minus { color: #dc2626; }
+    .mv-up-tot { display: flex; justify-content: flex-end; align-items: baseline; gap: 14px; margin: 8px 0; } .mv-up-tot b { font-size: 1.5rem; }
+    .mv-up-sub { font-size: .75rem; color: #64748b; text-align: right; margin-bottom: 4px; }
+    .mv-up-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 12px; }
+    .mv-up-btns .mv-btn { height: 40px; padding: 0 14px; border-radius: 10px; font-weight: 800; cursor: pointer; font-family: inherit; font-size: .85rem; }
+    .mv-up-btns .mv-btn-primary { border: 0; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; }
+    .mv-up-btns .mv-btn-ghost { border: 1px solid #cbd5e1; background: #fff; color: #334155; }
     .mv-notice { position: fixed; inset: 0; z-index: 100001; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
     .mv-notice.open { display: flex; }
     .mv-notice-box { width: min(340px, 100%); padding: 22px 20px 16px; border-radius: 16px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); animation: mvIn .18s ease-out; }
@@ -10799,6 +10815,7 @@ include '../../includes/header.php';
                 }
                 err.style.display = 'none';
                 const d = res.data;
+                ctx.last = d;
                 const kind = { upgrade: ['Upgrade', 'up'], downgrade: ['Downgrade', 'down'], same: ['Pindah kamar · tipe sama', 'same'], none: ['Ubah tanggal', 'same'] }[d.change_kind] || ['Pindah', 'same'];
                 const badge = document.getElementById('mvKind');
                 badge.textContent = kind[0];
@@ -10846,12 +10863,47 @@ include '../../includes/header.php';
             });
     }
 
+    // Konfirmasi up-charge / down-charge (seperti Cloudbeds) sebelum menyimpan pindah kamar yang mengubah total
     window.mvSubmit = function() {
+        if (!mvCtx) return;
+        const d = mvCtx.last;
+        const diff = d ? Math.round(d.final_price - d.old_final) : 0;
+        if (!d || d.old_room.id === d.new_room.id || diff === 0) { mvDoSave(null); return; }
+        const up = diff > 0;
+        let el = document.getElementById('mvUp');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'mvUp';
+            el.className = 'mv-up';
+            document.body.appendChild(el);
+        }
+        const perNight = Math.round(d.new_price - d.old_price);
+        el.innerHTML = '<div class="mv-up-box">' +
+            '<div class="mv-up-alert ' + (up ? 'up' : 'down') + '">' + (up ? 'Up-charge' : 'Penurunan harga') + '</div>' +
+            '<table class="mv-up-tbl"><tr><th>Tipe kamar</th><th>Kamar</th><th>Tanggal</th><th>Harga</th></tr>' +
+            '<tr><td>' + escHtml(d.old_room.type || '-') + '</td><td>' + escHtml(d.old_room.number) + '</td><td>' + mvDate(d.check_in) + ' – ' + mvDate(d.check_out) + '</td><td>' + mvRp(d.old_final) + '</td></tr>' +
+            '<tr><td>' + escHtml(d.new_room.type || '-') + '</td><td>' + escHtml(d.new_room.number) + '</td><td>' + mvDate(d.check_in) + ' – ' + mvDate(d.check_out) + '</td><td><b class="' + (up ? 'plus' : 'minus') + '">' + (up ? '+ ' : '− ') + mvRp(Math.abs(diff)) + '</b></td></tr></table>' +
+            '<div class="mv-up-tot"><span>Total baru</span><b>' + mvRp(d.final_price) + '</b></div>' +
+            (d.paid > 0 ? '<div class="mv-up-sub">Sudah dibayar ' + mvRp(d.paid) + ' · sisa tagihan ' + (d.balance > 0 ? mvRp(d.balance) : 'Lunas') + '</div>' : '') +
+            '<div class="mv-up-sub">' + (up ? 'Selisih juga dikirim ke Cloudbeds sebagai adjustment.' : 'Cloudbeds tidak bisa dikurangi otomatis — kurangi manual di folio Cloudbeds.') + '</div>' +
+            '<div class="mv-up-btns"><button type="button" class="mv-btn mv-btn-primary" id="mvUpOk">' + (up ? 'Konfirmasi Up-charge' : 'Konfirmasi') + '</button>' +
+            '<button type="button" class="mv-btn mv-btn-ghost" id="mvUpKeep">Tanpa ubah harga</button>' +
+            '<button type="button" class="mv-btn mv-btn-ghost" id="mvUpNo">Batal</button></div></div>';
+        const close = () => el.classList.remove('open');
+        el.querySelector('#mvUpOk').onclick = () => { close(); mvDoSave(null); };
+        el.querySelector('#mvUpKeep').onclick = () => { close(); mvDoSave(String(d.old_price)); }; // "override": harga per malam tetap
+        el.querySelector('#mvUpNo').onclick = close;
+        el.classList.add('open');
+    };
+
+    function mvDoSave(forcePrice) {
         if (!mvCtx) return;
         const btn = document.getElementById('mvSave');
         btn.disabled = true;
         btn.textContent = 'Menyimpan…';
-        fetch('../../api/move-booking.php', { method: 'POST', body: mvPayload(false) })
+        const payload = mvPayload(false);
+        if (forcePrice !== null) payload.set('room_price', forcePrice);
+        fetch('../../api/move-booking.php', { method: 'POST', body: payload })
             .then(r => r.json())
             .then(res => {
                 btn.textContent = 'Simpan';
@@ -10860,7 +10912,6 @@ include '../../includes/header.php';
                     mvNotice(res.message, 'ok', () => saveScrollAndReload());
                 } else {
                     btn.disabled = false;
-                document.getElementById('depSavePrint').disabled = false;
                     const err = document.getElementById('mvErr');
                     err.textContent = res.message || 'Gagal menyimpan';
                     err.style.display = '';
@@ -10868,11 +10919,10 @@ include '../../includes/header.php';
             })
             .catch(() => {
                 btn.disabled = false;
-                document.getElementById('depSavePrint').disabled = false;
                 btn.textContent = 'Simpan';
                 mvNotice('Gagal menghubungi server', 'err');
             });
-    };
+    }
     // ===== EXTEND STAY FUNCTIONS =====
     let extendCurrentCO = '';
     let extPriceEdited = false;
