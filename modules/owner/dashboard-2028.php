@@ -1048,6 +1048,7 @@ try {
                     public function fetchAll($sql, $a = []) { $st = $this->p->prepare($sql); $st->execute($a); return $st->fetchAll(PDO::FETCH_ASSOC); }
                 };
                 $fdd = fdt_data($ovAdapter);
+                $ov['rsv'] = ['list' => array_slice($fdd['new_today'], 0, 15), 'total' => count($fdd['new_today']), 'count' => (int)$fdd['new_today_count'], 'value' => (float)$fdd['new_today_value'], 'cancelled' => (int)$fdd['cancelled_today']];
                 $ov['occToday'] = [
                     'occupied' => (int)$fdd['occupied_rooms'], 'vacant' => (int)$fdd['vacant_rooms'], 'blocked' => (int)$fdd['blocked_rooms'],
                     'arriving' => (int)$fdd['arrivals_tomorrow'], 'total' => (int)$fdd['total_rooms'], 'rate' => (float)$fdd['occupancy_rate'],
@@ -3280,6 +3281,31 @@ if (!$ovIsHotel) {
         .ow-div .ow-legend li b { margin-left: 0; font-size: .7rem; white-space: nowrap; }
         .ow-div .ow-legend li em { font-style: normal; font-size: .6rem; color: #94a3b8; font-weight: 700; min-width: 28px; text-align: right; }
 
+        /* ── Reservasi masuk hari ini ── */
+        .ow-rv-sum { margin-left: auto; text-align: right; font-size: .6rem; color: #64748b; white-space: nowrap; }
+        .ow-rv-sum b { font-size: .95rem; color: #1d4ed8; font-weight: 800; }
+        .ow-rv-sum small { display: block; font-size: .62rem; font-weight: 700; color: #0f172a; }
+        .ow-rv-list { list-style: none; margin: 0; padding: 0; max-height: 330px; overflow-y: auto; border-top: 1px solid #eef2f7; }
+        .ow-rv-row { display: flex; gap: 9px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+        .ow-rv-row:last-child { border-bottom: 0; }
+        .ow-rv-row.cancel { opacity: .55; }
+        .ow-rv-av { width: 30px; height: 30px; border-radius: 10px; flex-shrink: 0; display: grid; place-items: center; font-size: .66rem; font-weight: 800; background: #dbeafe; color: #1d4ed8; }
+        .ow-rv-av.ota { background: #ede9fe; color: #6d28d9; }
+        .ow-rv-main { flex: 1; min-width: 0; }
+        .ow-rv-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+        .ow-rv-top b { font-size: .74rem; font-weight: 700; color: #0f172a; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ow-rv-amt { font-size: .72rem; font-weight: 800; color: #0f172a; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .ow-rv-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 3px; }
+        .ow-rv-room { font-size: .6rem; font-weight: 800; padding: 1px 7px; border-radius: 6px; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; }
+        .ow-rv-room.more { background: #e2e8f0; color: #475569; }
+        .ow-rv-stay { font-size: .62rem; color: #64748b; margin-left: 2px; }
+        .ow-rv-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; }
+        .ow-rv-c { font-size: .56rem; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; }
+        .ow-rv-c.ota { background: #ede9fe; color: #6d28d9; } .ow-rv-c.dir { background: #dbeafe; color: #1d4ed8; }
+        .ow-rv-c.ok { background: #dcfce7; color: #15803d; } .ow-rv-c.warn { background: #fef3c7; color: #b45309; } .ow-rv-c.bad { background: #fee2e2; color: #b91c1c; }
+        .ow-rv-t { margin-left: auto; font-size: .58rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
+        .ow-rv-more { text-align: center; font-size: .64rem; color: #64748b; padding-top: 6px; }
+
         /* ── Dock bawah (menggantikan footer) ── */
         body { padding-bottom: 92px !important; }
         .ow-apps { position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; display: flex; gap: 2px; margin: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid #e2e8f0; box-shadow: 0 -10px 30px -18px rgba(15, 23, 42, .35); overflow-x: auto; scrollbar-width: none; justify-content: center; }
@@ -3573,7 +3599,7 @@ if (!$ovIsHotel) {
             $attOk = (!$isCQC && $attStats['total'] > 0);
             $ovHasOcc = ($ovIsHotel && $ovOcc['total'] > 0);
             $tiles = [
-                ['ringkasan', 'Ringkasan', 'Keuangan & End Shift', 'ic-t-blue', '<path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/>'],
+                ['ringkasan', 'Dashboard', 'Keuangan & End Shift', 'ic-t-blue', '<path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/>'],
             ];
             if ($ovHasOcc) $tiles[] = ['okupansi', 'Okupansi', $ovOccPct . '% terisi', 'ic-t-green', '<path d="M2 20v-8a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v8"/><path d="M2 16h20"/><path d="M6 9V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>'];
             $tiles[] = ['kas', 'Kas Harian', 'Daily cash', 'ic-t-amber', '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/>'];
@@ -3627,6 +3653,52 @@ if (!$ovIsHotel) {
                         </div>
                 <?php endif; ?>
 
+                <?php if ($ovHasOcc && !empty($ov['rsv'])): $rv = $ov['rsv']; ?>
+                    <div class="ow-card ow-rv">
+                        <div class="ow-card-h">
+                            <div class="ow-ic ic-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+                            <div><b>Reservasi Masuk Hari Ini</b><small>Booking yang dibuat hari ini (sistem &amp; OTA)</small></div>
+                            <span class="ow-rv-sum"><b><?= (int)$rv['count'] ?></b> masuk<small><?= rp($rv['value']) ?></small></span>
+                        </div>
+                        <?php if ($rv['list']): ?>
+                            <ul class="ow-rv-list">
+                                <?php foreach ($rv['list'] as $nr):
+                                    $cancel = !empty($nr['all_cancelled']);
+                                    $ota = $nr['source_type'] ? $nr['source_type'] !== 'direct' : (bool)preg_match('/agoda|booking|tiket|traveloka|airbnb|expedia|pegipegi|ota/i', (string)$nr['booking_source']);
+                                    $srcN = $nr['source_name'] ?: ucwords(str_replace('_', ' ', (string)($nr['booking_source'] ?: 'Direct')));
+                                    $rooms = array_slice(array_unique($nr['rooms']), 0, 3);
+                                    $bal = max(0, $nr['total'] - $nr['paid']);
+                                    $words = preg_split('/\s+/', trim((string)$nr['guest_name'])) ?: [];
+                                    $ini = mb_strtoupper(mb_substr($words[0] ?? 'T', 0, 1) . (isset($words[1]) ? mb_substr($words[1], 0, 1) : ''));
+                                ?>
+                                    <li class="ow-rv-row<?= $cancel ? ' cancel' : '' ?>">
+                                        <span class="ow-rv-av<?= $ota ? ' ota' : '' ?>"><?= htmlspecialchars($ini) ?></span>
+                                        <div class="ow-rv-main">
+                                            <div class="ow-rv-top"><b><?= htmlspecialchars($nr['guest_name'] ?: 'Tamu') ?></b><span class="ow-rv-amt"><?= rp($cancel ? $nr['cancel_total'] : $nr['total']) ?></span></div>
+                                            <div class="ow-rv-sub">
+                                                <?php foreach ($rooms as $rm): ?><span class="ow-rv-room"><?= htmlspecialchars($rm) ?></span><?php endforeach; ?>
+                                                <?php if ($nr['n_rooms'] > count($rooms)): ?><span class="ow-rv-room more">+<?= $nr['n_rooms'] - count($rooms) ?></span><?php endif; ?>
+                                                <span class="ow-rv-stay"><?= date('j M', strtotime($nr['ci'])) ?> → <?= date('j M', strtotime($nr['co'])) ?> · <?= (int)$nr['total_nights'] ?> malam</span>
+                                            </div>
+                                            <div class="ow-rv-chips">
+                                                <span class="ow-rv-c <?= $ota ? 'ota' : 'dir' ?>"><?= htmlspecialchars($srcN) ?></span>
+                                                <?php if ($cancel): ?><span class="ow-rv-c bad">Dibatalkan</span>
+                                                <?php elseif ($bal <= 0 && $nr['total'] > 0): ?><span class="ow-rv-c ok">Lunas</span>
+                                                <?php elseif ($nr['paid'] > 0): ?><span class="ow-rv-c warn">DP · sisa <?= rp($bal) ?></span>
+                                                <?php else: ?><span class="ow-rv-c <?= $ota ? 'dir' : 'warn' ?>"><?= $ota ? 'Bayar di hotel' : 'Belum bayar' ?></span><?php endif; ?>
+                                                <span class="ow-rv-t"><?= date('H:i', strtotime($nr['created_at'])) ?></span>
+                                            </div>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                            <?php if ($rv['total'] > count($rv['list'])): ?><div class="ow-rv-more">+<?= $rv['total'] - count($rv['list']) ?> reservasi lainnya</div><?php endif; ?>
+                        <?php else: ?>
+                            <div class="ow-empty">Belum ada reservasi masuk hari ini.</div>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
                 <div class="ow-card ow-es">
                     <div class="ow-card-h">
                         <div class="ow-ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
@@ -3656,11 +3728,6 @@ if (!$ovIsHotel) {
                     <?php endif; ?>
                 </div>
 
-                <div class="ow-kpis">
-                    <div class="ow-kpi k-green"><span>Pemasukan</span><b><?= rp($stats['today_income']) ?></b></div>
-                    <div class="ow-kpi k-red"><span>Pengeluaran</span><b><?= rp($stats['today_expense']) ?></b></div>
-                    <div class="ow-kpi <?= $ovNetToday >= 0 ? 'k-blue' : 'k-red' ?>"><span>Net hari ini</span><b><?= ($ovNetToday >= 0 ? '+' : '') . rp($ovNetToday) ?></b></div>
-                </div>
                 </div>
 
                 <?php if ($ovHasOcc): ?>
@@ -3916,6 +3983,11 @@ if (!$ovIsHotel) {
             $dashCashAvailable = $startKasHariIni + $totalOperationalCash;
             ?>
             <div class="ow-panel ow-stack" data-p="kas">
+                <div class="ow-kpis">
+                    <div class="ow-kpi k-green"><span>Pemasukan</span><b><?= rp($stats['today_income']) ?></b></div>
+                    <div class="ow-kpi k-red"><span>Pengeluaran</span><b><?= rp($stats['today_expense']) ?></b></div>
+                    <div class="ow-kpi <?= $ovNetToday >= 0 ? 'k-blue' : 'k-red' ?>"><span>Net hari ini</span><b><?= ($ovNetToday >= 0 ? '+' : '') . rp($ovNetToday) ?></b></div>
+                </div>
             <?php if ($ov['divInc']): $divTot = array_sum(array_column($ov['divInc'], 't')); ?>
                 <div class="ow-card ow-div">
                     <div class="ow-card-h">
