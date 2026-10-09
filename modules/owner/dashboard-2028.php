@@ -3202,6 +3202,37 @@ if (!$ovIsHotel) {
         .ow-fp-bar { height: 4px; border-radius: 99px; background: #e8edf3; overflow: hidden; margin-top: 3px; }
         .ow-fp-bar i { display: block; height: 100%; border-radius: 99px; }
 
+        /* ── Daily Cash ── */
+        .dc { margin-bottom: 12px; }
+        .dc-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+        .dc-t b { display: block; font-size: .82rem; font-weight: 800; color: #0f172a; }
+        .dc-t small { display: block; font-size: .62rem; color: #64748b; margin-top: 1px; }
+        .dc-date { margin-left: auto; font-size: .64rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; white-space: nowrap; }
+        .dc-hero { display: grid; grid-template-columns: 1fr 1.25fr; gap: 8px; margin-bottom: 8px; }
+        .dc-tile { padding: 10px 13px; border-radius: 13px; background: #f8fafc; border: 1px solid #e8edf3; min-width: 0; }
+        .dc-tile span { display: block; font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: #64748b; }
+        .dc-tile b { display: block; margin-top: 2px; font-size: 1.08rem; font-weight: 800; color: #0f172a; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+        .dc-tile.main { background: linear-gradient(135deg, #0f1f4d, #1e3a8a 60%, #2563eb); border-color: transparent; box-shadow: 0 10px 22px -14px rgba(30, 58, 138, .8); }
+        .dc-tile.main span { color: rgba(219, 234, 254, .85); }
+        .dc-tile.main b { color: #fff; font-size: 1.2rem; }
+        .dc-tile.main.neg { background: linear-gradient(135deg, #7f1d1d, #b91c1c 60%, #dc2626); }
+        .dc-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+        .dc-strip > div { padding: 6px 10px; border-radius: 10px; background: #fff; border: 1px solid #e8edf3; min-width: 0; }
+        .dc-strip span { display: block; font-size: .54rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+        .dc-strip b { display: block; font-size: .78rem; font-weight: 800; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+        .dc-strip b.g { color: #047857; } .dc-strip b.r { color: #b91c1c; }
+        .dc-warn { margin-bottom: 8px; padding: 6px 10px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: .68rem; font-weight: 700; }
+        .dc-list { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; border-top: 1px solid #eef2f7; }
+        .dc-row { display: grid; grid-template-columns: 38px 34px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px solid #f1f5f9; }
+        .dc-row:last-child { border-bottom: 0; }
+        .dc-time { font-size: .64rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
+        .dc-tag { font-size: .54rem; font-weight: 800; text-align: center; padding: 2px 0; border-radius: 6px; letter-spacing: .04em; }
+        .dc-tag.in { background: #dcfce7; color: #15803d; } .dc-tag.out { background: #fee2e2; color: #b91c1c; }
+        .dc-desc { font-size: .72rem; color: #334155; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dc-desc em { font-style: normal; font-size: .54rem; font-weight: 800; margin-left: 6px; padding: 1px 6px; border-radius: 5px; background: #eef2ff; color: #4338ca; vertical-align: 1px; }
+        .dc-amt { font-size: .76rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .dc-amt.in { color: #0f172a; } .dc-amt.out { color: #dc2626; } .dc-amt.op { color: #059669; }
+
         /* ── Mode ringkas ── */
         .container { padding-left: 12px !important; padding-right: 12px !important; }
         .ow-top { padding: 9px 12px; margin-bottom: 10px; border-radius: 14px; }
@@ -3747,107 +3778,59 @@ if (!$ovIsHotel) {
             // CASH AVAILABLE = Start Cash + Monthly Net (same as index.php)
             $dashCashAvailable = $startKasHariIni + $totalOperationalCash;
             ?>
-            <div class="kas-harian-section">
-                <div class="kas-harian-header">
-                    <div class="kas-harian-title">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2">
-                            <rect x="2" y="3" width="20" height="14" rx="2" />
-                            <path d="M8 21h8m-4-4v4" />
-                        </svg>
-                        Daily Cash
-                    </div>
-                    <div class="kas-harian-date"><?= date('d M Y') ?> (Today)</div>
+            <div class="ow-card dc">
+                <div class="dc-head">
+                    <div class="ow-ic ic-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+                    <div class="dc-t"><b>Daily Cash</b><small><?= count($todayKas) ?> transaksi hari ini</small></div>
+                    <span class="dc-date"><?= date('d M Y') ?></span>
                 </div>
 
-                <!-- Hero: Start Cash + Cash Available -->
-                <div class="kas-hero-row">
-                    <div class="kas-hero-card start">
-                        <div class="kas-hero-label muted">Start Cash (<?= date('M') ?>)</div>
-                        <div class="kas-hero-value white"><?= number_format($startKasHariIni, 0, ',', '.') ?></div>
+                <div class="dc-hero">
+                    <div class="dc-tile">
+                        <span>Start Cash · <?= date('M') ?></span>
+                        <b><?= number_format($startKasHariIni, 0, ',', '.') ?></b>
                     </div>
-                    <div class="kas-hero-card <?= $dashCashAvailable >= 0 ? 'available-pos' : 'available-neg' ?>">
-                        <div class="kas-hero-label <?= $dashCashAvailable >= 0 ? 'green' : 'red' ?>">Cash Available</div>
-                        <div class="kas-hero-value <?= $dashCashAvailable >= 0 ? 'green' : 'red' ?>"><?= number_format($dashCashAvailable, 0, ',', '.') ?></div>
+                    <div class="dc-tile main<?= $dashCashAvailable < 0 ? ' neg' : '' ?>">
+                        <span>Cash Available</span>
+                        <b><?= number_format($dashCashAvailable, 0, ',', '.') ?></b>
                     </div>
                 </div>
 
-                <!-- Summary Strip: Owner Transfer | Guest Cash | Owner + Guest | Expense -->
-                <div class="kas-summary-strip">
-                    <div class="kas-strip-item">
-                        <div class="kas-strip-label">Owner Transfer</div>
-                        <div class="kas-strip-value green"><?= number_format($ownerTransferThisMonth, 0, ',', '.') ?></div>
-                    </div>
-                    <div class="kas-strip-item">
-                        <div class="kas-strip-label">Owner + Guest</div>
-                        <div class="kas-strip-value green"><?= number_format($ownerTransferThisMonth + $guestCashIncome, 0, ',', '.') ?></div>
-                    </div>
-                    <div class="kas-strip-item">
-                        <div class="kas-strip-label">Expense</div>
-                        <div class="kas-strip-value red"><?= number_format($totalOperationalExpense, 0, ',', '.') ?></div>
-                    </div>
+                <div class="dc-strip">
+                    <div><span>Owner Transfer</span><b class="g"><?= number_format($ownerTransferThisMonth, 0, ',', '.') ?></b></div>
+                    <div><span>Owner + Guest</span><b class="g"><?= number_format($ownerTransferThisMonth + $guestCashIncome, 0, ',', '.') ?></b></div>
+                    <div><span>Expense</span><b class="r"><?= number_format($totalOperationalExpense, 0, ',', '.') ?></b></div>
                 </div>
 
                 <?php if ($dashCashAvailable < 0): ?>
-                    <div style="margin-bottom: 10px; padding: 6px 10px; background: rgba(239,68,68,0.08); border-left: 2px solid #ef4444; border-radius: 4px;">
-                        <div style="font-size: 11px; color: #fb7185; font-weight: 600;">⚠️ Negative cash!</div>
-                    </div>
+                    <div class="dc-warn">⚠ Kas negatif — cash available di bawah nol.</div>
                 <?php endif; ?>
 
-                <div class="kas-table-wrapper" style="max-height: 400px; overflow-y: auto;">
-                    <?php if (empty($todayKas)): ?>
-                        <div class="kas-empty">No transactions today</div>
-                    <?php else: ?>
-                        <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px; text-align: right;"><?= count($todayKas) ?> transaksi hari ini</div>
-                        <table class="kas-table">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Description</th>
-                                    <th class="text-right">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                // Build lookup array of operational account IDs for color coding
-                                $operationalIds = array_map('intval', $allAccounts);
-                                foreach ($todayKas as $kas):
-                                    $isMasuk = $kas['transaction_type'] === 'income';
-                                    $amount = (float)$kas['amount'];
-                                    $payMethod = strtolower(trim($kas['payment_method'] ?? 'other'));
-                                    $payLabel = strtoupper($payMethod === 'transfer' ? 'TF' : $payMethod);
-                                    $payClass = in_array($payMethod, ['cash', 'transfer', 'tf', 'qr', 'debit', 'edc']) ? $payMethod : 'other';
-                                    // Color logic:
-                                    // GREEN = transfer dana operasional masuk (income to owner/petty cash accounts)
-                                    // RED = semua pengeluaran (expense)
-                                    // WHITE = lainnya (income dari tamu/guest)
-                                    $txAccId = isset($kas['cash_account_id']) ? (int)$kas['cash_account_id'] : 0;
-                                    $isOperationalIn = $isMasuk && $txAccId > 0 && in_array($txAccId, $operationalIds);
-                                    if ($isOperationalIn) {
-                                        $rowColor = '#0f9d6a'; // green (income operasional)
-                                    } elseif (!$isMasuk) {
-                                        $rowColor = '#d83a5b'; // red (pengeluaran)
-                                    } else {
-                                        $rowColor = '#334155'; // slate dark (income dari tamu)
-                                    }
-                                ?>
-                                    <tr>
-                                        <td style="white-space:nowrap;font-size:11px;color:<?= $rowColor ?>;"><?= $kas['jam'] ?></td>
-                                        <td>
-                                            <span class="<?= $isMasuk ? 'kas-badge-masuk' : 'kas-badge-keluar' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
-                                            <span style="color:<?= $rowColor ?>;<?= $isOperationalIn ? 'font-weight:600;' : '' ?>"><?= htmlspecialchars(html_entity_decode(mb_substr($kas['description'], 0, 30), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?></span>
-                                            <span class="kas-pay-badge <?= $payClass ?>"><?= $payLabel ?></span>
-                                        </td>
-                                        <td class="text-right" style="white-space:nowrap;font-weight:700;color:<?= $rowColor ?>;">
-                                            <?= $isMasuk ? '+' : '-' ?><?= number_format($amount, 0, ',', '.') ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    <?php endif; ?>
-                </div>
+                <?php if (empty($todayKas)): ?>
+                    <div class="ow-empty">Belum ada transaksi hari ini.</div>
+                <?php else: ?>
+                    <ul class="dc-list">
+                        <?php
+                        $operationalIds = array_map('intval', $allAccounts);
+                        foreach ($todayKas as $kas):
+                            $isMasuk = $kas['transaction_type'] === 'income';
+                            $amount = (float)$kas['amount'];
+                            $payMethod = strtolower(trim($kas['payment_method'] ?? 'other'));
+                            $payLabel = strtoupper($payMethod === 'transfer' ? 'TF' : $payMethod);
+                            $txAccId = isset($kas['cash_account_id']) ? (int)$kas['cash_account_id'] : 0;
+                            $isOperationalIn = $isMasuk && $txAccId > 0 && in_array($txAccId, $operationalIds);
+                            $amtClass = $isOperationalIn ? 'op' : ($isMasuk ? 'in' : 'out');
+                        ?>
+                            <li class="dc-row">
+                                <span class="dc-time"><?= htmlspecialchars((string)$kas['jam']) ?></span>
+                                <span class="dc-tag <?= $isMasuk ? 'in' : 'out' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
+                                <span class="dc-desc"><?= htmlspecialchars(html_entity_decode(mb_substr((string)$kas['description'], 0, 60), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?><em><?= htmlspecialchars($payLabel) ?></em></span>
+                                <b class="dc-amt <?= $amtClass ?>"><?= $isMasuk ? '+' : '−' ?><?= number_format($amount, 0, ',', '.') ?></b>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
             </div>
-
             <?php if ($isCQC): ?>
                 <!-- CQC Project Monitoring - Elegant 2026 -->
                 <div style="margin: 16px 0; padding: 20px; background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%); border-radius: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);">
