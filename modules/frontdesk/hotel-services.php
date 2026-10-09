@@ -4194,7 +4194,10 @@ include '../../includes/header.php';
     #hsx .hsp-x { background: rgba(100,116,139,.14); color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
     #hsx table.hs-v2 tbody td, #hsx table.hs-v2 tbody td .hs-guest-name, #hsx table.hs-v2 tbody td .hs-num, #hsx table.hs-v2 td.hs-date, #hsx table.hs-v2 td.hs-phone { font-size: .78rem !important; }
     #hsx table.hs-v2 thead th { font-size: .62rem !important; }
-    #hsx table.hs-v2 tbody td { padding: 7px 10px !important; }
+    /* baris rapat: tinggi 48px bawaan dibuang */
+    #hsx table.hs-v2 tbody td { height: 32px !important; padding: 3px 10px !important; line-height: 1.2 !important; }
+    #hsx table.hs-v2 thead th { padding: 7px 10px !important; }
+    #hsx table.hs-v2 .hs-action-dropdown-btn, #hsx .hs-action-dropdown-btn { height: 22px !important; }
     #hsx table.hs-v2 .hs-room-badge, #hsx table.hs-v2 .hs-svc-one { font-size: .7rem !important; }
     #hsx .hs-action-dropdown-btn { font-size: .72rem !important; }
     @media (max-width: 1100px) { #hsx .hs-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
