@@ -108,6 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($act === 'sync_rooms') {
         $code = trim((string)($_POST['code'] ?? ''));
         $res = (new CloudbedsSync($db, $cb))->applyRoomsFromCloudbeds($code);
+        // Hasil ditampilkan mencolok tepat di kotak Kamar (pesan flash di atas halaman tidak terlihat dari alat Cek)
+        $_SESSION['cbx_room_result'] = ['ok' => (bool)$res['ok'], 'msg' => (string)$res['msg'], 'code' => $code, 'at' => date('H:i:s')];
         setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
         header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
         exit;
@@ -846,6 +848,14 @@ include '../../includes/header.php';
                     </form>
                 <?php endif; ?>
                 <?php $roomSt = (new CloudbedsSync($db, $cb))->roomStatus($bk['booking_code']); ?>
+                <?php $rr = $_SESSION['cbx_room_result'] ?? null; unset($_SESSION['cbx_room_result']); ?>
+                <?php if ($rr && $rr['code'] === $bk['booking_code']): ?>
+                    <div id="cbxRoomResult" style="margin-top:.6rem;padding:.7rem .9rem;border-radius:10px;font-weight:600;border:2px solid <?php echo $rr['ok'] ? '#16a34a' : '#dc2626'; ?>;background:<?php echo $rr['ok'] ? '#f0fdf4' : '#fef2f2'; ?>;color:<?php echo $rr['ok'] ? '#166534' : '#991b1b'; ?>">
+                        <?php echo $rr['ok'] ? '✔' : '✖'; ?> <?php echo htmlspecialchars($rr['msg']); ?> <span style="font-weight:400;opacity:.7">(<?php echo htmlspecialchars($rr['at']); ?>)</span>
+                        <?php if ($rr['ok']): ?><br><a href="calendar.php" style="font-weight:700;color:inherit;text-decoration:underline">Buka kalender →</a><?php endif; ?>
+                    </div>
+                    <script>document.getElementById('cbxRoomResult').scrollIntoView({block:'center'});</script>
+                <?php endif; ?>
                 <?php if (!empty($roomSt['ok'])): ?>
                     <div class="cbx-note" style="margin-top:.6rem">
                         <b>Kamar</b> — sistem: <b><?php echo htmlspecialchars(implode(', ', $roomSt['sys']) ?: '-'); ?></b>
@@ -861,7 +871,7 @@ include '../../includes/header.php';
                             <form method="post" style="margin-top:.45rem" onsubmit="return confirm('Samakan kamar di sistem dengan Cloudbeds untuk reservasi ini? Antrean kirim ke Cloudbeds yang menggantung dibuang; Cloudbeds jadi patokan.')">
                                 <input type="hidden" name="act" value="sync_rooms">
                                 <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
-                                <button type="submit" class="cbx-btn">Samakan kamar dengan Cloudbeds</button>
+                                <button type="submit" class="cbx-btn" onclick="var b=this;setTimeout(function(){b.disabled=true;b.textContent='Memproses… (tunggu)';},0)">Samakan kamar dengan Cloudbeds</button>
                             </form>
                         <?php endif; ?>
                     </div>

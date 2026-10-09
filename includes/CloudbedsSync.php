@@ -2394,6 +2394,48 @@ class CloudbedsSync
         return ['n' => $n, 'sum' => $sum];
     }
 
+    /**
+     * Pemeriksaan KAMAR kilat (dipanggil saat halaman Front Desk dibuka): hanya reservasi tertaut yang menginap sekarang atau
+     * dalam $days hari ke depan; detail dibaca paralel, tanpa daftar reservasi/blok/harga → biasanya 1–3 detik.
+     * Kamar yang berbeda di Cloudbeds langsung dipindah di sistem.
+     * @return array{checked:int,moved:int,warns:array<int,string>}
+     */
+    public function quickRoomSync(int $days = 14): array
+    {
+        $this->ensureTables();
+        $rows = $this->db->fetchAll("SELECT l.cb_reservation_id cb, b.id, b.status, DATE(b.check_in_date) ci, DATE(b.check_out_date) co
+            FROM cloudbeds_booking_links l JOIN bookings b ON b.id = l.booking_id
+            WHERE b.status IN ('confirmed','pending','checked_in') AND DATE(b.check_out_date) >= CURDATE()
+              AND DATE(b.check_in_date) <= DATE_ADD(CURDATE(), INTERVAL " . max(1, $days) . " DAY)") ?: [];
+        $pending = [];
+        try {
+            foreach ($this->db->fetchAll("SELECT booking_id FROM cloudbeds_pending_edits") ?: [] as $pe) $pending[(int)$pe['booking_id']] = true;
+        } catch (\Throwable $e) {
+        }
+        $groups = [];
+        foreach ($rows as $r) $groups[(string)$r['cb']][] = $r;
+        foreach ($groups as $cb => $bks) {
+            if (array_filter($bks, fn($b) => isset($pending[(int)$b['id']]))) unset($groups[$cb]); // menunggu kirim dari sistem
+        }
+        if (!$groups) return ['checked' => 0, 'moved' => 0, 'warns' => []];
+        $this->cb->prefetchDetails(array_slice(array_keys($groups), 0, 60), 10);
+        $moved = 0;
+        $warns = [];
+        $checked = 0;
+        foreach (array_slice($groups, 0, 60, true) as $cbId => $bks) {
+            $det = $this->cb->reservationDetail((string)$cbId);
+            if (empty($det['ok'])) continue;
+            $checked++;
+            $actions = [];
+            $this->planRoomMoves($bks, $det, (string)$cbId, (string)$cbId, $actions);
+            foreach ($actions as $a) {
+                if ($a['type'] === 'room_move') $moved += $this->applyRoomMoves($a['moves']);
+                elseif ($a['type'] === 'warn') $warns[] = $a['msg'];
+            }
+        }
+        return ['checked' => $checked, 'moved' => $moved, 'warns' => $warns];
+    }
+
     /** Nomor kamar (angka 2–4 digit) dari nama/nomor kamar. */
     private static function roomDigits($v): string
     {

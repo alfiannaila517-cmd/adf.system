@@ -269,8 +269,33 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
                 })
                 .catch(function() { running = false; setPill('err'); });
         }
-        if (document.readyState === 'complete') setTimeout(run, 300);
-        else window.addEventListener('load', function() { setTimeout(run, 300); });
+        // 1) Pemeriksaan KAMAR kilat (1–3 dtk): kamar yang dipindah di Cloudbeds langsung ikut → halaman segera dimuat ulang
+        // 2) Sinkron penuh di latar belakang (booking baru, harga, dll.)
+        function quickRooms() {
+            fetch(<?php echo json_encode(BASE_URL . '/api/cloudbeds-rooms-now.php'); ?>, { method: 'POST', credentials: 'include' })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d && d.moved) {
+                        var lastAuto = 0;
+                        try { lastAuto = parseInt(sessionStorage.getItem('cbsAutoReload') || '0', 10) || 0; } catch (e) {}
+                        var ul = document.getElementById('cbAutoToastList');
+                        ul.innerHTML = '<li><span class="cbs-num b">' + d.moved + '</span>kamar dipindah mengikuti Cloudbeds</li>';
+                        document.getElementById('cbAutoToastTime').textContent = 'Memuat ulang…';
+                        document.getElementById('cbAutoToast').classList.add('show');
+                        var busyUi = document.querySelector('.modal-overlay.active, .modal.show, .guest-side-panel-overlay.active, .mv-overlay.active, [role="dialog"].open');
+                        if (!busyUi && Date.now() - lastAuto > 20000) {
+                            try { sessionStorage.setItem('cbsAutoReload', String(Date.now())); } catch (e) {}
+                            setTimeout(function() { if (document.getElementById('cbAutoToast').classList.contains('show')) location.reload(); }, 900);
+                            return;
+                        }
+                        document.getElementById('cbAutoToastTime').textContent = 'Muat ulang halaman untuk melihatnya';
+                    }
+                    setTimeout(run, 100);
+                })
+                .catch(function() { setTimeout(run, 100); });
+        }
+        if (document.readyState === 'complete') setTimeout(quickRooms, 150);
+        else window.addEventListener('load', function() { setTimeout(quickRooms, 150); });
         // Selama halaman terbuka: cek Cloudbeds tiap menit (server tetap membatasi); berhenti saat tab disembunyikan
         setInterval(function() { if (!document.hidden) run(); }, 60000);
         document.addEventListener('visibilitychange', function() { if (!document.hidden) run(); });
