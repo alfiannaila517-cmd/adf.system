@@ -663,7 +663,7 @@ include '../../includes/header.php';
     <div class="fd-kpis">
         <div class="fd-card fd-kpi">
             <div class="fd-kpi-top">
-                <span class="fd-kpi-label">Kedatangan</span>
+                <span class="fd-kpi-label">Check-in Hari Ini</span>
                 <span class="fd-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg></span>
             </div>
             <div class="fd-kpi-val"><?php echo $arrDone; ?><small> / <?php echo $arrTotal; ?></small></div>
@@ -672,7 +672,7 @@ include '../../includes/header.php';
         </div>
         <div class="fd-card fd-kpi">
             <div class="fd-kpi-top">
-                <span class="fd-kpi-label">Keberangkatan</span>
+                <span class="fd-kpi-label">Check-out Hari Ini</span>
                 <span class="fd-ic ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>
             </div>
             <div class="fd-kpi-val"><?php echo $depDone; ?><small> / <?php echo $depTotal; ?></small></div>
@@ -732,18 +732,18 @@ include '../../includes/header.php';
                 <span class="fd-ic ic-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
                 <div>
                     <b>Aktivitas Tamu</b>
-                    <small>Kedatangan, keberangkatan, tamu menginap, dan reservasi berikutnya</small>
+                    <small>Check-in, check-out, tamu menginap, dan reservasi berikutnya</small>
                 </div>
             </div>
         </div>
         <div class="fd-tabs" role="tablist">
-            <button type="button" class="fd-tab" data-tab="arr">Kedatangan <span class="n"><?php echo count($stats['arrival_guests']); ?></span></button>
-            <button type="button" class="fd-tab" data-tab="dep">Keberangkatan <span class="n"><?php echo $depTabN; ?></span></button>
+            <button type="button" class="fd-tab" data-tab="arr">Check-in <span class="n"><?php echo count($stats['arrival_guests']); ?></span></button>
+            <button type="button" class="fd-tab" data-tab="dep">Check-out <span class="n"><?php echo $depTabN; ?></span></button>
             <button type="button" class="fd-tab" data-tab="inh">Menginap <span class="n"><?php echo count($stats['guests_today'] ?? []); ?></span></button>
             <button type="button" class="fd-tab" data-tab="up">Akan Datang <span class="n"><?php echo count($stats['upcoming_reservations'] ?? []); ?></span></button>
         </div>
 
-        <!-- Kedatangan -->
+        <!-- Check-in -->
         <div class="fd-pane" data-pane="arr">
             <?php if (!empty($stats['arrival_guests'])): ?>
                 <div class="fd-pane-bar">
@@ -780,7 +780,7 @@ include '../../includes/header.php';
             <?php endif; ?>
         </div>
 
-        <!-- Keberangkatan -->
+        <!-- Check-out -->
         <div class="fd-pane" data-pane="dep">
             <?php if (!empty($stats['checkout_guests']) || !empty($stats['departed_today'])): ?>
                 <div class="fd-tbl-wrap">

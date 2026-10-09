@@ -101,7 +101,7 @@ try {
         WHERE b.check_out_date = ? AND b.status = 'checked_in'
         ORDER BY r.room_number ASC", [$tomorrow]) ?: [];
 
-    // 6. Kedatangan besok
+    // 6. Check-in besok
     $arrivalTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, g.phone, r.room_number, rt.type_name, b.check_in_date, b.check_out_date, b.guest_count
         FROM bookings b
         INNER JOIN guests g ON b.guest_id = g.id

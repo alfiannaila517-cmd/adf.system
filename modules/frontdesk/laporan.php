@@ -833,7 +833,7 @@ $section = static function (string $title, array $rows, array $cols, string $emp
     <div class="rp-grid rp-row-gap">
         <?php
         $section('Check-out Besok', $checkOutTomorrow, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Masuk' => $cIn], 'Tidak ada check-out besok');
-        $section('Kedatangan Besok', $arrivalTomorrow, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Pax' => static fn($r) => '<td>' . (int)($r['guest_count'] ?: 1) . '</td>', 'Keluar' => $cOut], 'Tidak ada kedatangan besok');
+        $section('Check-in Besok', $arrivalTomorrow, ['Kamar' => $cRoom, 'Tipe' => $cType, 'Tamu' => $cName, 'Telepon' => $cPhone, 'Pax' => static fn($r) => '<td>' . (int)($r['guest_count'] ?: 1) . '</td>', 'Keluar' => $cOut], 'Tidak ada kedatangan besok');
         ?>
     </div>
 
