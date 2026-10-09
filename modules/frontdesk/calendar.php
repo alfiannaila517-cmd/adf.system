@@ -10287,23 +10287,33 @@ include '../../includes/header.php';
     body #moveRoomModal .mv-btn-primary, body #extendModal .mv-btn-primary, body .mv-notice .mv-btn-primary { border: 0; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: 0 8px 18px -8px rgba(37, 99, 235, .7); }
     body #extendModal .mv-btn-green { background: linear-gradient(135deg, #065f46, #059669); box-shadow: 0 8px 18px -8px rgba(5, 150, 105, .7); }
     body #moveRoomModal .mv-btn:disabled, body #extendModal .mv-btn:disabled { background: #94a3b8; box-shadow: none; cursor: not-allowed; }
-    .mv-up { position: fixed; inset: 0; z-index: 100002; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .5); }
+    .mv-up { position: fixed; inset: 0; z-index: 100002; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .55); backdrop-filter: blur(3px); }
     .mv-up.open { display: flex; }
-    .mv-up-box { width: min(520px, 100%); padding: 16px; border-radius: 12px; background: #fff; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); color: #0f172a; }
-    .mv-up-alert { padding: 10px 14px; border-radius: 10px; font-weight: 800; font-size: .9rem; margin-bottom: 12px; border: 1px solid; }
-    .mv-up-alert.up { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
-    .mv-up-alert.down { background: #fffbeb; border-color: #fcd34d; color: #b45309; }
-    .mv-up-tbl { width: 100%; border-collapse: collapse; font-size: .78rem; margin-bottom: 10px; }
-    .mv-up-tbl th { text-align: left; background: #f1f5f9; padding: 7px 8px; font-weight: 700; }
-    .mv-up-tbl td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
-    .mv-up-tbl .plus { color: #16a34a; } .mv-up-tbl .minus { color: #dc2626; }
-    .mv-up-tot { display: flex; justify-content: flex-end; align-items: baseline; gap: 14px; margin: 8px 0; } .mv-up-tot b { font-size: 1.5rem; }
-    .mv-up-sub { font-size: .75rem; color: #64748b; text-align: right; margin-bottom: 4px; }
-    .mv-up-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 12px; }
-    .mv-up-btns .mv-btn { height: 40px; padding: 0 14px; border-radius: 10px; font-weight: 800; cursor: pointer; font-family: inherit; font-size: .85rem; }
-    .mv-up-btns .mv-btn-primary { border: 0; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; }
-    .mv-up-btns .mv-btn-ghost { border: 1px solid #cbd5e1; background: #fff; color: #334155; }
-    .mv-notice { position: fixed; inset: 0; z-index: 100001; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+    .mv-up-box { width: min(400px, 100%); max-height: 92vh; overflow-y: auto; border-radius: 18px; background: #fff; box-shadow: 0 28px 70px rgba(0, 0, 0, .35); color: #0f172a; animation: mvIn .18s ease-out; }
+    .mv-up-head { display: flex; gap: 12px; align-items: center; padding: 16px 18px; border-radius: 18px 18px 0 0; }
+    .mv-up-head.up { background: linear-gradient(135deg, #fff7ed, #ffedd5); } .mv-up-head.down { background: linear-gradient(135deg, #eff6ff, #dbeafe); }
+    .mv-up-ic { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; color: #fff; }
+    .mv-up-head.up .mv-up-ic { background: #ea580c; } .mv-up-head.down .mv-up-ic { background: #2563eb; }
+    .mv-up-ic svg { width: 22px; height: 22px; }
+    .mv-up-ttl { font-weight: 800; font-size: .95rem; color: #0f172a; } .mv-up-who { font-size: .78rem; color: #64748b; margin-top: 2px; }
+    .mv-up-route { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px 18px 4px; }
+    .mv-up-room { flex: 1; text-align: center; padding: 10px 8px; border-radius: 12px; background: #f1f5f9; border: 1px solid #e2e8f0; }
+    .mv-up-room.new { background: #eff6ff; border-color: #93c5fd; }
+    .mv-up-room b { display: block; font-size: 1.35rem; font-weight: 800; color: #0f172a; } .mv-up-room span { font-size: .72rem; color: #64748b; }
+    .mv-up-go { font-size: 1.3rem; color: #94a3b8; }
+    .mv-up-date { text-align: center; font-size: .75rem; color: #64748b; padding: 4px 18px 10px; }
+    .mv-up-rows { margin: 0 18px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+    .mv-up-rows > div { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; font-size: .82rem; border-top: 1px solid #f1f5f9; } .mv-up-rows > div:first-child { border-top: 0; }
+    .mv-up-rows span { color: #475569; } .mv-up-rows b { color: #0f172a; font-weight: 800; }
+    .mv-up-rows .chg.up b { color: #ea580c; } .mv-up-rows .chg.down b { color: #2563eb; }
+    .mv-up-rows .tot { background: #f8fafc; } .mv-up-rows .tot b { font-size: 1.15rem; }
+    .mv-up-rows b.due { color: #dc2626; } .mv-up-rows b.paid { color: #16a34a; }
+    .mv-up-note { margin: 12px 18px 0; font-size: .76rem; color: #64748b; line-height: 1.5; text-align: center; }
+    .mv-up-btns { display: flex; flex-direction: column; gap: 8px; padding: 14px 18px 18px; }
+    .mv-up-btn { height: 46px; border-radius: 12px; font-weight: 800; font-size: .9rem; cursor: pointer; font-family: inherit; border: 1px solid transparent; }
+    body .mv-up-btn.main { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: 0 8px 18px -8px rgba(37, 99, 235, .7); }
+    body .mv-up-btn.alt { background: #fff; border-color: #cbd5e1; color: #1e3a8a !important; -webkit-text-fill-color: #1e3a8a !important; }
+    body .mv-up-btn.no { background: transparent; height: 38px; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }    .mv-notice { position: fixed; inset: 0; z-index: 100001; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
     .mv-notice.open { display: flex; }
     .mv-notice-box { width: min(340px, 100%); padding: 22px 20px 16px; border-radius: 16px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(0, 0, 0, .3); animation: mvIn .18s ease-out; }
     .mv-notice-ic { width: 54px; height: 54px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; }
@@ -10637,7 +10647,8 @@ include '../../includes/header.php';
                 checkOut: d.checkOut,
                 newRoomId: t.roomId,
                 newCheckIn: t.ci,
-                newCheckOut: t.co
+                newCheckOut: t.co,
+                direct: true
             });
         }
         const hasClashFor = (d, t) => d.bars.some(x => x.roomId === t.roomId && x.ci < t.co && x.co > t.ci);
@@ -10758,7 +10769,7 @@ include '../../includes/header.php';
         document.getElementById('mvPrice').value = '';
         document.getElementById('mvErr').style.display = 'none';
         document.getElementById('mvSave').disabled = true;
-        document.getElementById('moveRoomModal').classList.add('active');
+        if (!o.direct) document.getElementById('moveRoomModal').classList.add('active');
         mvPreview();
     };
 
@@ -10808,6 +10819,7 @@ include '../../includes/header.php';
                 if (mvCtx !== ctx) return;
                 const err = document.getElementById('mvErr');
                 if (!res.success) {
+                    if (ctx.direct) { ctx.direct = false; document.getElementById('moveRoomModal').classList.add('active'); }
                     err.textContent = res.message || 'Tidak bisa dipindah';
                     err.style.display = '';
                     document.getElementById('mvSummary').style.display = 'none';
@@ -10855,6 +10867,8 @@ include '../../includes/header.php';
                     '<div><span>Sisa tagihan</span><b class="' + (d.balance > 0 ? 'due' : 'paid') + '">' + (d.balance > 0 ? mvRp(d.balance) : 'Lunas') + '</b></div>';
                 document.getElementById('mvSummary').style.display = '';
                 document.getElementById('mvSave').disabled = false;
+                // Geser kamar di kalender: langsung ke konfirmasi / simpan, tanpa membuka popup Pindah Kamar
+                if (ctx.direct && !ctx.directDone) { ctx.directDone = true; mvSubmit(); }
             })
             .catch(() => {
                 const err = document.getElementById('mvErr');
@@ -10863,13 +10877,14 @@ include '../../includes/header.php';
             });
     }
 
-    // Konfirmasi up-charge / down-charge (seperti Cloudbeds) sebelum menyimpan pindah kamar yang mengubah total
+    // Popup konfirmasi up-charge / penurunan harga (seperti Cloudbeds) — muncul sebelum pindah kamar yang mengubah total tersimpan
     window.mvSubmit = function() {
         if (!mvCtx) return;
         const d = mvCtx.last;
         const diff = d ? Math.round(d.final_price - d.old_final) : 0;
         if (!d || d.old_room.id === d.new_room.id || diff === 0) { mvDoSave(null); return; }
         const up = diff > 0;
+        const ctx = mvCtx;
         let el = document.getElementById('mvUp');
         if (!el) {
             el = document.createElement('div');
@@ -10877,22 +10892,28 @@ include '../../includes/header.php';
             el.className = 'mv-up';
             document.body.appendChild(el);
         }
-        const perNight = Math.round(d.new_price - d.old_price);
+        const arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="' + (up ? 'M12 19V5M5 12l7-7 7 7' : 'M12 5v14M5 12l7 7 7-7') + '"/></svg>';
         el.innerHTML = '<div class="mv-up-box">' +
-            '<div class="mv-up-alert ' + (up ? 'up' : 'down') + '">' + (up ? 'Up-charge' : 'Penurunan harga') + '</div>' +
-            '<table class="mv-up-tbl"><tr><th>Tipe kamar</th><th>Kamar</th><th>Tanggal</th><th>Harga</th></tr>' +
-            '<tr><td>' + escHtml(d.old_room.type || '-') + '</td><td>' + escHtml(d.old_room.number) + '</td><td>' + mvDate(d.check_in) + ' – ' + mvDate(d.check_out) + '</td><td>' + mvRp(d.old_final) + '</td></tr>' +
-            '<tr><td>' + escHtml(d.new_room.type || '-') + '</td><td>' + escHtml(d.new_room.number) + '</td><td>' + mvDate(d.check_in) + ' – ' + mvDate(d.check_out) + '</td><td><b class="' + (up ? 'plus' : 'minus') + '">' + (up ? '+ ' : '− ') + mvRp(Math.abs(diff)) + '</b></td></tr></table>' +
-            '<div class="mv-up-tot"><span>Total baru</span><b>' + mvRp(d.final_price) + '</b></div>' +
-            (d.paid > 0 ? '<div class="mv-up-sub">Sudah dibayar ' + mvRp(d.paid) + ' · sisa tagihan ' + (d.balance > 0 ? mvRp(d.balance) : 'Lunas') + '</div>' : '') +
-            '<div class="mv-up-sub">' + (up ? 'Selisih juga dikirim ke Cloudbeds sebagai adjustment.' : 'Cloudbeds tidak bisa dikurangi otomatis — kurangi manual di folio Cloudbeds.') + '</div>' +
-            '<div class="mv-up-btns"><button type="button" class="mv-btn mv-btn-primary" id="mvUpOk">' + (up ? 'Konfirmasi Up-charge' : 'Konfirmasi') + '</button>' +
-            '<button type="button" class="mv-btn mv-btn-ghost" id="mvUpKeep">Tanpa ubah harga</button>' +
-            '<button type="button" class="mv-btn mv-btn-ghost" id="mvUpNo">Batal</button></div></div>';
+            '<div class="mv-up-head ' + (up ? 'up' : 'down') + '"><span class="mv-up-ic">' + arrow + '</span><div><div class="mv-up-ttl">' + (up ? 'Upgrade kamar · ada tambahan biaya' : 'Downgrade kamar · harga turun') + '</div>' +
+            '<div class="mv-up-who">' + escHtml(ctx.guest || '-') + (ctx.code ? ' · ' + escHtml(ctx.code) : '') + '</div></div></div>' +
+            '<div class="mv-up-route"><div class="mv-up-room"><b>' + escHtml(d.old_room.number) + '</b><span>' + escHtml(d.old_room.type || '') + '</span></div>' +
+            '<span class="mv-up-go">→</span>' +
+            '<div class="mv-up-room new"><b>' + escHtml(d.new_room.number) + '</b><span>' + escHtml(d.new_room.type || '') + '</span></div></div>' +
+            '<div class="mv-up-date">' + mvDate(d.check_in) + ' – ' + mvDate(d.check_out) + ' · ' + d.nights + ' malam</div>' +
+            '<div class="mv-up-rows">' +
+            '<div><span>Total sebelumnya</span><b>' + mvRp(d.old_final) + '</b></div>' +
+            '<div class="chg ' + (up ? 'up' : 'down') + '"><span>' + (up ? 'Tambahan biaya' : 'Pengurangan') + '</span><b>' + (up ? '+ ' : '− ') + mvRp(Math.abs(diff)) + '</b></div>' +
+            '<div class="tot"><span>Total baru</span><b>' + mvRp(d.final_price) + '</b></div>' +
+            (d.paid > 0 ? '<div><span>Sudah dibayar</span><b>' + mvRp(d.paid) + '</b></div>' : '') +
+            '<div><span>Sisa tagihan</span><b class="' + (d.balance > 0 ? 'due' : 'paid') + '">' + (d.balance > 0 ? mvRp(d.balance) : 'Lunas') + '</b></div></div>' +
+            '<p class="mv-up-note">' + (up ? 'Tambahan ' + mvRp(diff) + ' akan ditagihkan ke tamu dan otomatis dikirim ke Cloudbeds.' : 'Cloudbeds tidak bisa dikurangi otomatis — kurangi manual di folio Cloudbeds.') + '</p>' +
+            '<div class="mv-up-btns"><button type="button" class="mv-up-btn main" id="mvUpOk">' + (up ? 'Konfirmasi Up-charge' : 'Konfirmasi Pindah') + '</button>' +
+            '<button type="button" class="mv-up-btn alt" id="mvUpKeep">Pindah tanpa ubah harga</button>' +
+            '<button type="button" class="mv-up-btn no" id="mvUpNo">Batal</button></div></div>';
         const close = () => el.classList.remove('open');
         el.querySelector('#mvUpOk').onclick = () => { close(); mvDoSave(null); };
         el.querySelector('#mvUpKeep').onclick = () => { close(); mvDoSave(String(d.old_price)); }; // "override": harga per malam tetap
-        el.querySelector('#mvUpNo').onclick = close;
+        el.querySelector('#mvUpNo').onclick = () => { close(); if (ctx.direct) closeMoveModal(); };
         el.classList.add('open');
     };
 
@@ -10912,6 +10933,7 @@ include '../../includes/header.php';
                     mvNotice(res.message, 'ok', () => saveScrollAndReload());
                 } else {
                     btn.disabled = false;
+                    document.getElementById('moveRoomModal').classList.add('active'); // mode langsung: tampilkan popup agar pesan terlihat
                     const err = document.getElementById('mvErr');
                     err.textContent = res.message || 'Gagal menyimpan';
                     err.style.display = '';
