@@ -685,17 +685,19 @@ include '../../includes/header.php';
     }
 
     /* Kolom kamar: pil seragam (kamar tunggal & grup) + tipe kamar di bawahnya */
-    td.rm-cell .rm-pill, body[data-theme] td.rm-cell .rm-pill {
-        display: inline-flex !important; align-items: center; justify-content: center; gap: .3rem;
-        min-width: 66px; height: 26px; padding: 0 .65rem !important; border-radius: 8px !important; box-sizing: border-box;
-        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; border: 0 !important;
+    /* Kolom kamar: pil kecil seragam (kamar tunggal & grup) + tipe kamar di bawahnya */
+    body[data-theme] .bookings-table tbody td.rm-cell .rm-pill {
+        display: inline-flex !important; align-items: center; justify-content: center;
+        width: 64px !important; height: 22px !important; padding: 0 !important; box-sizing: border-box;
+        border-radius: 7px !important; border: 0 !important; line-height: 1 !important; gap: .25rem !important;
+        background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
         color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
-        font-size: .74rem !important; font-weight: 700 !important; line-height: 1; letter-spacing: .01em;
-        box-shadow: 0 4px 10px -6px rgba(30, 58, 138, .8) !important; white-space: nowrap;
+        font-size: .7rem !important; font-weight: 700 !important; letter-spacing: 0 !important; white-space: nowrap;
+        box-shadow: none !important; cursor: default;
     }
-    td.rm-cell .rm-group { cursor: pointer; }
-    td.rm-cell .rm-group svg { opacity: .85; }
-    td.rm-cell .rm-type { font-size: .68rem; color: var(--text-secondary); margin-top: .25rem; padding-left: 2px; }
+    body[data-theme] .bookings-table tbody td.rm-cell .rm-group { cursor: pointer; }
+    body[data-theme] .bookings-table tbody td.rm-cell .rm-group::after { width: 4px !important; height: 4px !important; }
+    body[data-theme] .bookings-table tbody td.rm-cell .rm-type { font-size: .66rem !important; color: var(--text-secondary); margin-top: .2rem; padding-left: 1px; }
     .room-badge.rm-mini { padding: .18rem .5rem !important; border-radius: 6px !important; font-size: .72rem !important; font-weight: 700 !important; margin: 1px; }
 
     .room-badge {
@@ -1056,7 +1058,7 @@ include '../../includes/header.php';
                             <td class="rm-cell">
                                 <?php if ($isGrouped): ?>
                                     <div class="action-dropdown">
-                                        <button type="button" class="action-dropdown-btn rm-pill rm-group" onclick="toggleActionMenu(event)" aria-haspopup="menu"><?php echo $roomCount; ?> Rooms <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+                                        <button type="button" class="action-dropdown-btn rm-pill rm-group" onclick="toggleActionMenu(event)" aria-haspopup="menu"><?php echo $roomCount; ?> Rooms</button>
                                         <div class="action-dropdown-menu">
                                             <div style="padding:0.5rem 0.65rem; display:flex; flex-wrap:wrap; gap:3px; max-width:220px;">
                                                 <?php foreach ($booking['_rooms'] as $rm): ?>
