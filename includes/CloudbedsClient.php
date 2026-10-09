@@ -275,6 +275,9 @@ class CloudbedsClient
      */
     public function send(string $method, string $endpoint, array $params): array
     {
+        // detail yang di-cache jadi basi setelah ada tulisan ke reservasi itu
+        if (isset($params['reservationID'])) unset($this->detailCache[(string)$params['reservationID']]);
+        else $this->detailCache = [];
         $rid = (string)($params['reservationID'] ?? ($params['roomBlockID'] ?? ''));
         $blocked = $this->writeGuard($endpoint, $params);
         if ($blocked !== null) {
@@ -428,8 +431,13 @@ class CloudbedsClient
         $err = curl_error($ch);
         $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+        return $this->interpretResponse($body, $http, $err);
+    }
 
-        if ($body === false) {
+    /** Tafsirkan jawaban HTTP Cloudbeds (dipakai get() dan pengambilan paralel). */
+    private function interpretResponse($body, int $http, string $err): array
+    {
+        if ($body === false || $body === null) {
             return ['ok' => false, 'http' => 0, 'data' => null, 'detail' => 'Tidak bisa menghubungi Cloudbeds: ' . $err];
         }
         $json = json_decode($body, true);
@@ -509,11 +517,76 @@ class CloudbedsClient
      */
     public function reservationDetail(string $reservationId): array
     {
+        // Cache singkat per proses: satu reservasi tidak dibaca berulang kali dalam satu sinkron (dibersihkan saat ada tulisan ke reservasi itu)
+        if (isset($this->detailCache[$reservationId]) && time() - $this->detailCache[$reservationId]['t'] < 45) {
+            return $this->detailCache[$reservationId]['r'];
+        }
+        $r = $this->get('getReservation', $this->detailQuery($reservationId));
+        $out = $this->detailFromResponse($r);
+        if ($out['ok']) $this->detailCache[$reservationId] = ['t' => time(), 'r' => $out];
+        return $out;
+    }
+
+    /** @var array<string,array{t:int,r:array}> */
+    private $detailCache = [];
+
+    private function detailQuery(string $reservationId): array
+    {
         $q = ['reservationID' => $reservationId];
         if ($this->propertyId() !== '') {
             $q['propertyID'] = $this->propertyId();
         }
-        $r = $this->get('getReservation', $q);
+        return $q;
+    }
+
+    /**
+     * Ambil detail banyak reservasi SEKALIGUS (paralel, 8 sekaligus) ke cache — jauh lebih cepat daripada satu per satu.
+     * Hanya klien asli (uji coba/mock memakai get() sendiri).
+     */
+    public function prefetchDetails(array $ids, int $parallel = 8): void
+    {
+        if (static::class !== self::class || !function_exists('curl_multi_init')) return;
+        $key = trim((string)$this->apiKey(), " \t\n\r\0\x0B\"'");
+        if ($key === '') return;
+        $todo = [];
+        foreach ($ids as $id) {
+            $id = (string)$id;
+            if ($id === '' || isset($todo[$id])) continue;
+            if (isset($this->detailCache[$id]) && time() - $this->detailCache[$id]['t'] < 45) continue;
+            $todo[$id] = true;
+        }
+        foreach (array_chunk(array_keys($todo), max(1, $parallel)) as $chunk) {
+            $mh = curl_multi_init();
+            $handles = [];
+            foreach ($chunk as $id) {
+                $ch = curl_init($this->baseUrl() . '/getReservation?' . http_build_query($this->detailQuery((string)$id)));
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 25,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_HTTPHEADER => ['x-api-key: ' . $key, 'Accept: application/json'],
+                ]);
+                curl_multi_add_handle($mh, $ch);
+                $handles[(string)$id] = $ch;
+            }
+            do {
+                $st = curl_multi_exec($mh, $running);
+                if ($running) curl_multi_select($mh, 1.0);
+            } while ($running && $st === CURLM_OK);
+            foreach ($handles as $id => $ch) {
+                $body = curl_multi_getcontent($ch);
+                $r = $this->interpretResponse($body === null ? false : $body, (int)curl_getinfo($ch, CURLINFO_HTTP_CODE), (string)curl_error($ch));
+                $out = $this->detailFromResponse($r);
+                if ($out['ok']) $this->detailCache[$id] = ['t' => time(), 'r' => $out];
+                curl_multi_remove_handle($mh, $ch);
+                curl_close($ch);
+            }
+            curl_multi_close($mh);
+        }
+    }
+
+    private function detailFromResponse(array $r): array
+    {
         $out = ['ok' => $r['ok'], 'detail' => $r['detail'], 'rooms' => [], 'total' => null, 'balance' => null, 'adults' => 0, 'children' => 0, 'raw' => $r['data']];
         if (!$r['ok'] || !is_array($r['data'])) {
             return $out;

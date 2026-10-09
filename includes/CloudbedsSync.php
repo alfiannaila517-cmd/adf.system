@@ -251,6 +251,20 @@ class CloudbedsSync
             foreach ($this->db->fetchAll("SELECT booking_id FROM cloudbeds_pending_edits") ?: [] as $pe) $pendingEditIds[(int)$pe['booking_id']] = true;
         } catch (\Throwable $e) {
         }
+        // Detail reservasi yang akan dibaca (kamar / saldo berubah) diambil PARALEL dulu → sinkron jauh lebih cepat
+        if (!$this->pushOnlyPlan) {
+            $needRoom = [];
+            $needBal = [];
+            foreach ($list['items'] as $pit) {
+                $pid = (string)$pit['id'];
+                if (!isset($links[$pid]) || self::isCancelled($pit['status'])) continue;
+                if (!isset($recentRoomChecks['room:' . $pid]) && count($needRoom) < $this->roomCheckCap) $needRoom[] = $pid;
+                $pOta = (bool)array_filter($linkHow[$pid] ?? [], fn($h) => $h !== 'push');
+                $pLb = isset($pit['balance']) && is_numeric($pit['balance']) ? (float)$pit['balance'] : null;
+                if ($pOta && $pLb !== null && count($needBal) < 20 && (!array_key_exists($pid, $lastPriceBal) || $lastPriceBal[$pid] === null || abs($pLb - $lastPriceBal[$pid]) >= 1)) $needBal[] = $pid;
+            }
+            $this->cb->prefetchDetails(array_merge($needRoom, $needBal));
+        }
         foreach ($list['items'] as $it) {
             $cbId = $it['id'];
             $label = $it['guest'] . ' · ' . $it['checkin'] . ' → ' . $it['checkout'] . ' · ' . $it['source'];
@@ -354,9 +368,13 @@ class CloudbedsSync
                     if ($roomLive && max(array_column($roomLive, 'co')) >= date('Y-m-d') && !isset($recentRoomChecks['room:' . $cbId])
                         && !array_filter($roomLive, fn($b) => isset($pendingEditIds[(int)$b['id']]))) {
                         $nRoomChecks++;
-                        $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE checked_at = NOW()", ['room:' . $cbId]);
                         $rd = $this->cb->reservationDetail($cbId);
+                        $nBefore = count($actions);
                         if ($rd['ok']) $this->planRoomMoves($roomLive, $rd, $cbId, $label, $actions);
+                        // Tandai "sudah dicek" HANYA bila tidak ada selisih: selisih harus tetap terlihat di pratinjau DAN saat dijalankan
+                        if ($rd['ok'] && count($actions) === $nBefore) {
+                            $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE checked_at = NOW()", ['room:' . $cbId]);
+                        }
                     }
                 }
                 // Harga mengikuti Cloudbeds: booking OTA SELALU (juga setelah dibayar — sistem mencatat persis seperti
