@@ -490,7 +490,9 @@ $token = trim((string)($_GET['t'] ?? ''));
         .item .qbtn { width: 32px; height: 32px; }
         .item .qnum { min-width: 22px; }
         .item .add-note { display: inline-block; margin-top: 6px; }
-        .item .note-input { margin-top: 6px; }
+        .item .note-input { margin-top: 8px; }
+        .item:not(.sel):not(.empty) { cursor: pointer; }
+        .item.sel .media, .item.sel .info { cursor: default; }
         @media (max-width: 360px) { .list { gap: 8px; } .item .info { padding: 22px 9px 10px; } .item .name { font-size: 12.5px; } }
 
         /* Extra banner */
@@ -1008,7 +1010,7 @@ $token = trim((string)($_GET['t'] ?? ''));
                     '</div></div>' +
                     '<div class="info"><div class="name">' + esc(m.menu_name) + tags + '</div>' +
                     (m.description ? '<div class="desc">' + esc(m.description) + '</div>' : '') +
-                    (q ? (note || m._noteOpen ? '<input class="note-input" data-note placeholder="Note for the kitchen" maxlength="160" value="' + esc(note) + '">' : '<button type="button" class="add-note" data-addnote>+ Add note</button>') : '') +
+                    (q ? '<input class="note-input" data-note placeholder="Note for the kitchen (optional)" maxlength="160" value="' + esc(note) + '">' : '') +
                     '</div></div>';
             }
             var menus = { main: [], drink: [], juice: [], coffee: [], child: [] };
@@ -1270,8 +1272,14 @@ $token = trim((string)($_GET['t'] ?? ''));
                 if (!row) return;
                 var g = row.dataset.g, id = row.dataset.id;
                 var step = e.target.closest('[data-step]');
-                if (step) {
-                    var delta = parseInt(step.dataset.step, 10);
+                // Ketuk foto / kartu yang belum dipilih = langsung tambah 1; selanjutnya atur lewat tombol − / +
+                var tapAdd = !step && !e.target.closest('input, button, [data-addnote]') && !(qty[g][id] > 0);
+                if (tapAdd) {
+                    var plus = row.querySelector('[data-step="1"]');
+                    if (plus && plus.disabled) return;
+                }
+                if (step || tapAdd) {
+                    var delta = step ? parseInt(step.dataset.step, 10) : 1;
                     var apply = function() {
                         var next = Math.max(0, Math.min(20, (qty[g][id] || 0) + delta));
                         if (next) qty[g][id] = next; else { delete qty[g][id]; delete notes[g][id]; }
