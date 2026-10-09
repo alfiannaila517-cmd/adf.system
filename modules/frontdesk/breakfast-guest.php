@@ -609,18 +609,33 @@ $token = trim((string)($_GET['t'] ?? ''));
 
         .loader { padding: 60px 0; text-align: center; color: var(--muted); }
 
-        /* Group (multi-room) tabs */
-        .room-tabs { position: relative; z-index: 3; margin-bottom: 30px; }
-        .rt-intro { margin-bottom: 8px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
-        .rt-intro b { color: var(--ink, #0f172a); }
-        .rt-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
-        .rt { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 16px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; font: 700 13px 'Inter', sans-serif; color: #334155; cursor: pointer; }
-        .rt small { font-size: 10px; font-weight: 700; color: var(--muted); }
-        .rt.on { border-color: #1e3a8a; background: #eef2ff; color: #1e3a8a; }
+        /* Group (multi-room) card */
+        .room-tabs { position: relative; z-index: 3; margin-bottom: 46px; }
+        .grp { padding: 14px 14px 12px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 10px 30px -18px rgba(15, 39, 71, .35); }
+        .grp-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .grp-head small { display: block; font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #b8913a; }
+        .grp-head b { display: block; margin-top: 2px; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 21px; font-weight: 700; line-height: 1.1; color: #0f2747; }
+        .grp-prog { flex-shrink: 0; text-align: right; font-size: 11px; font-weight: 600; color: var(--muted); line-height: 1.3; }
+        .grp-prog b { display: inline; font-family: inherit; font-size: 15px; font-weight: 800; color: #0f2747; }
+        .grp-bar { height: 4px; margin-top: 4px; border-radius: 4px; background: #e8edf3; overflow: hidden; }
+        .grp-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #059669, #10b981); }
+        .rt-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(96px, 1fr); gap: 8px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+        .rt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; padding: 6px 8px; border: 1.5px solid var(--line); border-radius: 13px; background: #f8fafc; font: 800 13px 'Inter', sans-serif; color: #334155; cursor: pointer; }
+        .rt small { font-size: 10.5px; font-weight: 600; color: var(--muted); }
+        .rt.on { border-color: #0f2747; background: #0f2747; color: #fff; box-shadow: 0 8px 18px -10px rgba(15, 39, 71, .7); }
+        .rt.on small { color: rgba(255, 255, 255, .75); }
         .rt.done { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
-        .rt.done.on { border-color: #059669; }
-        .rt .ck { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #059669; color: #fff; font-size: 10px; }
-        .rt-share { margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px dashed #94a3b8; border-radius: 10px; background: transparent; font: 600 12px 'Inter', sans-serif; color: #475569; cursor: pointer; }
+        .rt.done small { color: #059669; font-weight: 700; }
+        .rt.done.on { border-color: #059669; background: #059669; color: #fff; }
+        .rt.done.on small { color: #fff; }
+        .grp-share { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; margin-top: 12px; padding: 11px 12px; border: 1px solid #ecd9ab; border-radius: 14px; background: linear-gradient(180deg, #fffdf7, #fff9ea); }
+        .grp-share .gs-ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #f6ecd0; font-size: 16px; }
+        .grp-share .gs-t b { display: block; font-size: 13px; font-weight: 800; color: #0f2747; }
+        .grp-share .gs-t span { display: block; margin-top: 1px; font-size: 11.5px; line-height: 1.45; color: #64748b; }
+        .grp-share .gs-act { grid-column: 1 / -1; display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; margin-top: 2px; }
+        .grp-share button { height: 38px; border-radius: 11px; font: 700 12.5px 'Inter', sans-serif; cursor: pointer; }
+        .grp-share .gs-share { border: 0; background: linear-gradient(135deg, #0f2747, #1e3a8a); color: #fff; }
+        .grp-share .gs-copy { border: 1.5px solid #cbd5e1; background: #fff; color: #334155; }
         .sent-next { width: 100%; margin-top: 8px; height: 44px; border: 1.5px solid #1e3a8a; border-radius: 13px; background: #fff; color: #1e3a8a; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
 
         /* Sent confirmation */
@@ -778,6 +793,7 @@ $token = trim((string)($_GET['t'] ?? ''));
             var service = 'restaurant';
             var time = '07:00';
             var mainFilter = 'all';
+            var HOTEL = <?php echo json_encode($hotelName); ?>;
             var PARENT = TOKEN;   // link induk (booking grup: berisi tab kamar)
             var GROUP = null;
             var ROOM_PARAM = new URLSearchParams(location.search).get('r') || '';
@@ -1047,19 +1063,23 @@ $token = trim((string)($_GET['t'] ?? ''));
 
             function renderTabs() {
                 if (!GROUP) return;
-                var pending = GROUP.rooms.filter(function(r) { return r.status !== 'submitted'; }).length;
+                var total = GROUP.rooms.length;
+                var done = GROUP.rooms.filter(function(r) { return r.status === 'submitted'; }).length;
                 $('roomTabs').innerHTML =
-                    '<div class="rt-intro"><b>' + esc(GROUP.guest_name) + '</b> · ' + GROUP.rooms.length + ' rooms. Each room chooses its own breakfast' +
-                    (pending ? ' — <b>' + pending + '</b> room' + (pending === 1 ? '' : 's') + ' still to choose.' : ' — all rooms are done. Thank you!') + '</div>' +
+                    '<div class="grp">' +
+                    '<div class="grp-head"><div><small>Group booking · ' + total + ' rooms</small><b>' + esc(GROUP.guest_name) + '</b></div>' +
+                    '<div class="grp-prog"><b>' + done + '</b> of ' + total + ' rooms done<div class="grp-bar"><i style="width:' + Math.round(done / total * 100) + '%"></i></div></div></div>' +
                     '<div class="rt-row">' + GROUP.rooms.map(function(r) {
-                        var done = r.status === 'submitted';
-                        return '<button type="button" class="rt' + (done ? ' done' : '') + (r.token === TOKEN ? ' on' : '') + '" data-t="' + esc(r.token) + '">' +
-                            'Room ' + esc(r.room_number) + (done ? '<span class="ck">✓</span>' : '<small>' + r.pax + ' guest' + (r.pax === 1 ? '' : 's') + '</small>') + '</button>';
+                        var d = r.status === 'submitted';
+                        return '<button type="button" class="rt' + (d ? ' done' : '') + (r.token === TOKEN ? ' on' : '') + '" data-t="' + esc(r.token) + '">' +
+                            '<span>Room ' + esc(r.room_number) + '</span><small>' + (d ? '✓ Confirmed' : r.pax + ' guest' + (r.pax === 1 ? '' : 's')) + '</small></button>';
                     }).join('') + '</div>' +
-                    '<button type="button" class="rt-share" id="btnShareRoom">🔗 Share this room’s link</button>';
+                    '<div class="grp-share"><div class="gs-ic">👥</div>' +
+                    '<div class="gs-t"><b>Travelling with friends?</b><span>Share this link — each friend picks their own room and chooses their own breakfast.</span></div>' +
+                    '<div class="gs-act"><button type="button" class="gs-share" id="btnShareRoom">Share with a friend</button><button type="button" class="gs-copy" id="btnCopyRoom">Copy link</button></div></div>' +
+                    '</div>';
                 $('roomTabs').classList.remove('hidden');
             }
-
             async function selectRoom(token) {
                 TOKEN = token;
                 qty = { main: {}, drink: {}, child: {} };
@@ -1088,22 +1108,22 @@ $token = trim((string)($_GET['t'] ?? ''));
                 renderTabs();
             }
 
-            function shareRoom() {
-                var rn = roomNo(TOKEN);
+            // Bagikan link grup ke teman: mereka memilih kamar & sarapannya sendiri (tanpa menyebut kamar tertentu)
+            function shareRoom(copyOnly) {
                 var url = (GROUP && GROUP.short_code)
-                    ? location.origin + BASE.replace(location.origin, '') + '/go-breakfast.php?k=' + encodeURIComponent(GROUP.short_code) + (rn ? '&r=' + encodeURIComponent(rn) : '')
-                    : location.origin + location.pathname + '?t=' + encodeURIComponent(PARENT) + (rn ? '&r=' + encodeURIComponent(rn) : '');
-                var text = 'Please choose your breakfast' + (rn ? ' for Room ' + rn : '') + ': ' + url;
-                if (navigator.share) { navigator.share({ title: 'Breakfast selection' + (rn ? ' · Room ' + rn : ''), text: text, url: url }).catch(function() {}); return; }
-                var done = function() { notice('Link copied — send it to the guests of Room ' + esc(rn) + '.', 'ok'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+                    ? location.origin + BASE.replace(location.origin, '') + '/go-breakfast.php?k=' + encodeURIComponent(GROUP.short_code)
+                    : location.origin + location.pathname + '?t=' + encodeURIComponent(PARENT);
+                var text = 'Hi! 👋 Please choose your breakfast at ' + HOTEL + ' — open the link and pick your room number:\n' + url;
+                if (!copyOnly && navigator.share) { navigator.share({ title: 'Breakfast selection · ' + HOTEL, text: text, url: url }).catch(function() {}); return; }
+                var done = function() { notice('Link copied — paste it in a chat with your friends so they can choose their own breakfast.', 'ok'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
                 if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, function() { window.prompt('Copy this link:', url); });
                 else window.prompt('Copy this link:', url);
             }
-
             $('roomTabs').addEventListener('click', function(e) {
                 var t = e.target.closest('.rt');
                 if (t) { if (t.getAttribute('data-t') !== TOKEN) selectRoom(t.getAttribute('data-t')); return; }
-                if (e.target.closest('#btnShareRoom')) shareRoom();
+                if (e.target.closest('#btnShareRoom')) shareRoom(false);
+                else if (e.target.closest('#btnCopyRoom')) shareRoom(true);
             });
 
             async function load() {
