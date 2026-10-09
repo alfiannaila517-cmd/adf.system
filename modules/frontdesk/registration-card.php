@@ -24,7 +24,7 @@ $bookingId = (int)($_GET['booking_id'] ?? 0);
 $arrivalDate = (string)($_GET['arrivals'] ?? '');
 
 $select = "
-    SELECT b.id, b.booking_code, b.check_in_date, b.check_out_date, b.total_nights, b.adults, b.children,
+    SELECT b.id, b.group_id, b.booking_code, b.check_in_date, b.check_out_date, b.total_nights, b.adults, b.children,
            b.booking_source, b.special_request,
            g.guest_name, g.phone, g.email, g.address, g.nationality, g.id_card_type, g.id_card_number,
            r.room_number, rt.type_name AS room_type
@@ -35,6 +35,11 @@ $select = "
 
 if ($bookingId > 0) {
     $bookings = $db->fetchAll($select . " WHERE b.id = ?", [$bookingId]) ?: [];
+    // Booking grup: satu lembar untuk seluruh kamar dalam grup
+    if ($bookings && !empty($bookings[0]['group_id'])) {
+        $grp = $db->fetchAll($select . " WHERE b.group_id = ? AND b.status <> 'cancelled' ORDER BY r.room_number + 0, r.room_number", [$bookings[0]['group_id']]) ?: [];
+        if ($grp) $bookings = $grp;
+    }
 } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $arrivalDate)) {
     // Semua tamu yang check-in pada tanggal tsb (belum datang maupun sudah check-in), urut nomor kamar
     $bookings = $db->fetchAll($select . " WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'pending', 'checked_in')
@@ -45,6 +50,14 @@ if ($bookingId > 0) {
 if (!$bookings) {
     die($bookingId > 0 ? 'Booking not found' : 'No arrivals on ' . htmlspecialchars($arrivalDate));
 }
+
+// Satu kartu per booking; kamar-kamar satu grup digabung dalam SATU kartu
+$cards = [];
+foreach ($bookings as $bk) {
+    $k = !empty($bk['group_id']) ? 'g:' . $bk['group_id'] : 'b:' . $bk['id'];
+    $cards[$k][] = $bk;
+}
+$cards = array_values($cards);
 
 // Nama sumber booking (OTA / direct) dari booking_sources
 $sources = [];
@@ -115,7 +128,7 @@ $houseRules = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo count($bookings) > 1 ? 'Registration Cards - Arrivals ' . $e(date('d M Y', strtotime($arrivalDate))) : 'Registration Card - ' . $e($bookings[0]['booking_code']); ?></title>
+    <title><?php echo count($cards) > 1 ? 'Registration Cards - Arrivals ' . $e(date('d M Y', strtotime($arrivalDate))) : 'Registration Card - ' . $e($bookings[0]['booking_code']); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -161,6 +174,11 @@ $houseRules = [
         .stay .hi div { color: var(--navy); }
         .stay small { display: block; margin-top: 2px; font-size: 9.5px; font-weight: 600; color: var(--gold); }
 
+        table.rooms { width: 100%; border-collapse: collapse; }
+        table.rooms th { padding: 6px 12px; text-align: left; font-size: 8.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); background: var(--soft); border-bottom: 1px solid var(--line); }
+        table.rooms td { padding: 7px 12px; font-size: 12.5px; font-weight: 600; border-bottom: 1px solid var(--line); }
+        table.rooms td b { color: var(--navy); font-size: 13.5px; }
+        table.rooms tbody tr:last-child td { border-bottom: 0; }
         .dep { display: grid; grid-template-columns: 1fr 1.3fr; }
         .dep-opts { padding: 10px 12px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 9px; }
         .dep-opts label { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
@@ -203,11 +221,24 @@ $houseRules = [
 
 <body>
     <div class="toolbar">
-        <button class="print" onclick="window.print()">Print <?php echo count($bookings) > 1 ? count($bookings) . ' Registration Cards' : 'Registration Card'; ?></button>
+        <button class="print" onclick="window.print()">Print <?php echo count($cards) > 1 ? count($cards) . ' Registration Cards' : 'Registration Card'; ?></button>
         <button class="close" onclick="window.close()">Close</button>
     </div>
 
-    <?php foreach ($bookings as $booking): [$nights, $guestsText, $guestRows] = $cardData($booking); ?>
+    <?php foreach ($cards as $rooms):
+        $booking = $rooms[0];
+        [$nights, $guestsText, $guestRows] = $cardData($booking);
+        $multi = count($rooms) > 1;
+        if ($multi) {
+            // Grup: total tamu seluruh kamar, catatan khusus digabung
+            $sumA = array_sum(array_map(fn($r) => (int)($r['adults'] ?? 1), $rooms));
+            $sumC = array_sum(array_map(fn($r) => (int)($r['children'] ?? 0), $rooms));
+            $guestsText = $sumA . ' Adult' . ($sumA === 1 ? '' : 's') . ($sumC > 0 ? ', ' . $sumC . ' Child' . ($sumC === 1 ? '' : 'ren') : '');
+            $reqs = array_values(array_unique(array_filter(array_map(fn($r) => trim((string)$r['special_request']), $rooms))));
+            $booking['special_request'] = implode("\n", $reqs);
+            $sameDates = count(array_unique(array_map(fn($r) => $r['check_in_date'] . '|' . $r['check_out_date'], $rooms))) === 1;
+        }
+    ?>
     <div class="page">
         <div class="head">
             <?php if ($logoUrl): ?><img src="<?php echo $e($logoUrl); ?>" alt="<?php echo $e($coName); ?>"><?php endif; ?>
@@ -218,6 +249,7 @@ $houseRules = [
             <div class="doc">
                 <div class="t">Reservation ID</div>
                 <div class="n"><?php echo $e($booking['booking_code']); ?></div>
+                <?php if ($multi): ?><div class="d" style="font-weight:700;color:var(--navy)">Group · <?php echo count($rooms); ?> rooms</div><?php endif; ?>
                 <div class="d">Printed <?php echo date('d M Y, H:i'); ?></div>
             </div>
         </div>
@@ -241,12 +273,34 @@ $houseRules = [
 
         <div class="sec">
             <div class="sec-h"><i></i> Stay Details</div>
+            <?php if ($multi): ?>
+                <table class="rooms">
+                    <thead><tr><th style="width:30px">#</th><th>Room Number</th><th>Room Type</th><th>Guests</th><?php if (!$sameDates): ?><th>Stay</th><?php endif; ?></tr></thead>
+                    <tbody>
+                        <?php foreach ($rooms as $ri => $rm): $ra = (int)($rm['adults'] ?? 1); $rc = (int)($rm['children'] ?? 0); ?>
+                            <tr>
+                                <td><?php echo $ri + 1; ?></td>
+                                <td><b><?php echo $e($rm['room_number'] ?: '-'); ?></b></td>
+                                <td><?php echo $e($rm['room_type'] ?: '-'); ?></td>
+                                <td><?php echo $ra . ' Adult' . ($ra === 1 ? '' : 's') . ($rc > 0 ? ', ' . $rc . ' Child' . ($rc === 1 ? '' : 'ren') : ''); ?></td>
+                                <?php if (!$sameDates): ?><td><?php echo $e(date('d M', strtotime($rm['check_in_date'])) . ' – ' . date('d M Y', strtotime($rm['check_out_date']))); ?></td><?php endif; ?>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <div class="stay" style="border-top:1px solid var(--line);grid-template-columns:1fr 1fr 1fr">
+                    <div class="f hi"><label>Total Rooms</label><div><?php echo count($rooms); ?> Rooms</div></div>
+                    <div class="f"><label>Nights</label><div><?php echo $nights; ?> Night<?php echo $nights === 1 ? '' : 's'; ?></div></div>
+                    <div class="f"><label>Total Guests</label><div><?php echo $e($guestsText); ?></div></div>
+                </div>
+            <?php else: ?>
             <div class="stay">
                 <div class="f hi"><label>Room Type</label><div><?php echo $e($booking['room_type'] ?: '-'); ?></div></div>
                 <div class="f hi"><label>Room Number</label><div><?php echo $e($booking['room_number'] ?: '-'); ?></div></div>
                 <div class="f"><label>Nights</label><div><?php echo $nights; ?> Night<?php echo $nights === 1 ? '' : 's'; ?></div></div>
                 <div class="f"><label>Guests</label><div><?php echo $e($guestsText); ?></div></div>
             </div>
+            <?php endif; ?>
             <div class="grid g3" style="border-top:1px solid var(--line);">
                 <div class="f"><label>Check-in Date</label><div><?php echo $e($fmtDate($booking['check_in_date'])); ?></div><small style="display:block;margin-top:2px;font-size:9.5px;font-weight:600;color:var(--gold);">From 14:00</small></div>
                 <div class="f"><label>Check-out Date</label><div><?php echo $e($fmtDate($booking['check_out_date'])); ?></div><small style="display:block;margin-top:2px;font-size:9.5px;font-weight:600;color:var(--gold);">Before 10:30</small></div>
