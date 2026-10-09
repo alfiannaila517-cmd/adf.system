@@ -97,8 +97,18 @@ function calendar_ota_badge(?string $source, array $names): string
 {
     $key = strtolower(trim((string)$source));
     [$name, $type] = $names[$key] ?? ['', ''];
-    if ($type === 'direct') return ''; // mis. "Direct Booking" jangan dikira Booking.com
     $hay = strtolower($key . ' ' . $name);
+    // Booking langsung (telepon, walk-in, website, direct): logo kalender centang + jam
+    $isDirect = $type === 'direct' || ($type === '' && ($key === '' || preg_match('/phone|telp|walk|direct|langsung|website|whatsapp|\bwa\b|offline|call/', $hay)));
+    if ($isDirect) {
+        $directArt = '<rect x=".5" y=".5" width="15" height="15" rx="3.4" fill="#fff" stroke="#d4d4d8"/>'
+            . '<rect x="2.6" y="4" width="8.8" height="8.6" rx="1.5" fill="none" stroke="#1e3a5f" stroke-width="1.1"/>'
+            . '<path d="M2.6 6.5h8.8M5 2.9v2.2M9 2.9v2.2" fill="none" stroke="#1e3a5f" stroke-width="1.1" stroke-linecap="round"/>'
+            . '<path d="M4.5 9.3l1.7 1.7 3.1-3.5" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+            . '<circle cx="11.7" cy="11.7" r="2.4" fill="#fff" stroke="#f59e0b" stroke-width="1.1"/>'
+            . '<path d="M11.7 10.5v1.3l.9.5" fill="none" stroke="#f59e0b" stroke-width=".8" stroke-linecap="round"/>';
+        return '<i class="cal-ota-logo" title="Booking Langsung' . ($name ? ' · ' . htmlspecialchars($name) : '') . '"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' . $directArt . '</svg></i>';
+    }
     // Logo mini (kotak 16×16) bergaya ikon OTA di Cloudbeds
     $txt = fn($bg, $t, $fg = '#fff', $size = 10) => '<rect width="16" height="16" rx="3.5" fill="' . $bg . '"/><text x="8" y="11.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="' . $size . '" fill="' . $fg . '">' . $t . '</text>';
     $logos = [
