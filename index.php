@@ -3037,6 +3037,23 @@ if (BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')) {
         box-shadow: 0 0 0 3px rgba(<?php echo $cAccentRgb; ?>, 0.1);
     }
 
+    /* Dark theme: filter bar was hardcoded white */
+    body:not([data-theme="light"]) .dashboard-month-selector {
+        background: var(--glass-tile, #111a2e);
+        border-color: rgba(148, 163, 184, 0.2);
+        box-shadow: none;
+    }
+
+    body:not([data-theme="light"]) .dashboard-month-selector label {
+        color: #cbd5e1;
+    }
+
+    body:not([data-theme="light"]) .dashboard-month-selector select {
+        background: #0f172a;
+        border-color: rgba(148, 163, 184, 0.28);
+        color: #e2e8f0;
+    }
+
     .dashboard-month-selector button {
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
         color: #fff;

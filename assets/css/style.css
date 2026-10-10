@@ -1367,6 +1367,12 @@ body:not([data-theme="light"]) {
   color: var(--text-primary);
 }
 
+/* Native controls (calendar/clock picker icon, select popup, scrollbar) render for dark */
+html:has(body:not([data-theme="light"])),
+body:not([data-theme="light"]) {
+  color-scheme: dark;
+}
+
 body:not([data-theme="light"]) h1,
 body:not([data-theme="light"]) h2,
 body:not([data-theme="light"]) h3,
