@@ -2482,6 +2482,33 @@ class CloudbedsSync
         return ['checked' => $checked, 'moved' => $moved, 'warns' => $warns];
     }
 
+    /**
+     * Pemeriksaan BLOK kilat: hanya membaca blok kamar Cloudbeds (getRoomBlocks + getRooms) untuk $days hari ke depan,
+     * lalu memasang blok baru / mencabut blok yang sudah dihapus di Cloudbeds. Tanpa daftar reservasi/harga → cepat,
+     * aman dipanggil tiap ±20 detik. Gagal membaca Cloudbeds = tidak ada aksi (planRoomBlocks hanya memberi peringatan).
+     * @return array{blocked:int,unblocked:int,warns:array<int,string>}
+     */
+    public function quickBlockSync(int $days = 45): array
+    {
+        $this->ensureTables();
+        $roomByNo = [];
+        foreach ($this->db->fetchAll("SELECT r.id, r.room_number, COALESCE(rt.type_name,'') type_name FROM rooms r LEFT JOIN room_types rt ON rt.id = r.room_type_id") ?: [] as $r) {
+            $roomByNo[(string)$r['room_number']] = $r;
+            $digits = preg_replace('/\D+/', '', (string)$r['room_number']);
+            if ($digits !== '' && !isset($roomByNo[$digits])) $roomByNo[$digits] = $r;
+        }
+        $actions = [];
+        $this->planRoomBlocks(date('Y-m-d'), date('Y-m-d', strtotime('+' . max(1, $days) . ' days')), $roomByNo, $actions);
+        $warns = [];
+        $run = [];
+        foreach ($actions as $a) {
+            if ($a['type'] === 'warn') $warns[] = $a['msg'];
+            elseif (in_array($a['type'], ['block', 'unblock', 'adopt_block'], true)) $run[] = $a;
+        }
+        $done = $run ? $this->executeActions($run, 0) : ['block' => 0, 'unblock' => 0];
+        return ['blocked' => (int)($done['block'] ?? 0), 'unblocked' => (int)($done['unblock'] ?? 0), 'warns' => $warns];
+    }
+
     /** Nomor kamar (angka 2–4 digit) dari nama/nomor kamar. */
     private static function roomDigits($v): string
     {

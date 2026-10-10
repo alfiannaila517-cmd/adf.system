@@ -299,6 +299,33 @@ if (($cbAutoRow['setting_value'] ?? '0') === '1' && !empty($cbKeyRow['setting_va
         // Selama halaman terbuka: cek Cloudbeds tiap menit (server tetap membatasi); berhenti saat tab disembunyikan
         setInterval(function() { if (!document.hidden) run(); }, 60000);
         document.addEventListener('visibilitychange', function() { if (!document.hidden) run(); });
+
+        // Pemeriksaan BLOK kilat tiap ±20 dtk: blok yang dihapus / dibuat di Cloudbeds langsung ikut di sistem (1–3 dtk per cek)
+        var blockBusy = false;
+        function quickBlocks() {
+            if (blockBusy || document.hidden || running) return;
+            blockBusy = true;
+            fetch(<?php echo json_encode(BASE_URL . '/api/cloudbeds-blocks-now.php'); ?>, { method: 'POST', credentials: 'include' })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    blockBusy = false;
+                    if (!d || !(d.blocked || d.unblocked)) return;
+                    var ul = document.getElementById('cbAutoToastList');
+                    ul.innerHTML = '';
+                    if (d.blocked) ul.innerHTML += '<li><span class="cbs-num a">' + d.blocked + '</span>kamar diblok</li>';
+                    if (d.unblocked) ul.innerHTML += '<li><span class="cbs-num b">' + d.unblocked + '</span>blok kamar dicabut</li>';
+                    document.getElementById('cbAutoToastTime').textContent = 'Memuat ulang…';
+                    document.getElementById('cbAutoToast').classList.add('show');
+                    var busyUi = document.querySelector('.modal-overlay.active, .modal.show, .guest-side-panel-overlay.active, .mv-overlay.active, [role="dialog"].open');
+                    if (!busyUi) {
+                        setTimeout(function() { if (document.getElementById('cbAutoToast').classList.contains('show')) location.reload(); }, 900);
+                    } else {
+                        document.getElementById('cbAutoToastTime').textContent = 'Muat ulang halaman untuk melihatnya';
+                    }
+                })
+                .catch(function() { blockBusy = false; });
+        }
+        setInterval(quickBlocks, 20000);
     })();
 </script>
 <?php endif; ?>
