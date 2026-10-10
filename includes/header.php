@@ -3539,7 +3539,7 @@ if ($userTheme === 'system') {
                                     save.disabled = true;
                                     var fd = new FormData();
                                     fd.append('full_name', name);
-                                    fetch('<?php echo BASE_URL; ?>/api/update-profile.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+                                    fetch('<?php echo BASE_URL; ?>/api/account-name.php', { method: 'POST', body: fd, credentials: 'same-origin' })
                                         .then(function(r) { return r.json(); })
                                         .then(function(d) {
                                             save.disabled = false;
