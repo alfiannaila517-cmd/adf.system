@@ -11130,17 +11130,56 @@ include '../../includes/header.php';
     function mvDoSave(forcePrice) {
         if (!mvCtx) return;
         const btn = document.getElementById('mvSave');
-        btn.disabled = true;
-        btn.textContent = 'Menyimpan…';
+        const ctx = mvCtx;
         const payload = mvPayload(false);
         if (forcePrice !== null) payload.set('room_price', forcePrice);
+
+        // Optimistic path: a pure room swap (same dates, same room type, not in-house) only changes
+        // which row the bar sits in, so move the bar right now and confirm with the server in the
+        // background. Anything that changes dates / price / availability counts falls back to a
+        // reload (immediately after the save, without the old 1.5s notice).
+        const d = ctx.last;
+        const newRoomId = document.getElementById('mvRoom').value;
+        const day = v => String(v || '').slice(0, 10);
+        const optimistic = ctx.status !== 'checked_in' && d && d.old_room && d.new_room &&
+            String(newRoomId) !== String(ctx.roomId) &&
+            (d.old_room.type || '') === (d.new_room.type || '') &&
+            day(document.getElementById('mvCheckIn').value) === day(ctx.checkIn) &&
+            day(document.getElementById('mvCheckOut').value) === day(ctx.checkOut);
+        let undoMove = null;
+        if (optimistic) {
+            const bar = document.querySelector('.booking-bar-container[data-booking-id="' + ctx.bookingId + '"]');
+            const target = document.querySelector('.grid-date-cell[data-room-id="' + newRoomId + '"][data-date="' + day(ctx.checkIn) + '"]');
+            if (bar && target && bar.parentNode && target !== bar.parentNode) {
+                const oldParent = bar.parentNode, oldNext = bar.nextSibling, oldRoom = bar.dataset.roomId;
+                target.appendChild(bar);
+                bar.dataset.roomId = String(newRoomId);
+                undoMove = () => {
+                    oldParent.insertBefore(bar, oldNext && oldNext.parentNode === oldParent ? oldNext : null);
+                    bar.dataset.roomId = oldRoom;
+                };
+            }
+        }
+
+        if (undoMove) {
+            closeMoveModal();
+            spToast('Memindahkan kamar…', true);
+        } else {
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan…';
+        }
+
         fetch('../../api/move-booking.php', { method: 'POST', body: payload })
             .then(r => r.json())
             .then(res => {
                 btn.textContent = 'Simpan';
                 if (res.success) {
-                    closeMoveModal();
-                    mvNotice(res.message, 'ok', () => saveScrollAndReload());
+                    if (mvCtx === ctx) closeMoveModal();
+                    if (undoMove) spToast(res.message || 'Kamar dipindahkan', true);
+                    else saveScrollAndReload();
+                } else if (undoMove) {
+                    undoMove();
+                    spToast(res.message || 'Gagal memindahkan — dikembalikan', false);
                 } else {
                     btn.disabled = false;
                     document.getElementById('moveRoomModal').classList.add('active'); // mode langsung: tampilkan popup agar pesan terlihat
@@ -11152,7 +11191,12 @@ include '../../includes/header.php';
             .catch(() => {
                 btn.disabled = false;
                 btn.textContent = 'Simpan';
-                mvNotice('Gagal menghubungi server', 'err');
+                if (undoMove) {
+                    undoMove();
+                    spToast('Gagal menghubungi server — kamar dikembalikan', false);
+                } else {
+                    mvNotice('Gagal menghubungi server', 'err');
+                }
             });
     }
     // ===== EXTEND STAY FUNCTIONS =====
