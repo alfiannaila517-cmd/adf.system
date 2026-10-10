@@ -3422,79 +3422,7 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- DASHBOARD STATS WIDGETS -->
-    <div class="stats-dashboard-grid" style="margin-top: 1.5rem;">
-        <!-- New Reservations -->
-        <div class="stats-card">
-            <h3>Reservasi Terbaru</h3>
-            <ul class="stats-list">
-                <?php if (empty($recentBookings)): ?>
-                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
-                <?php else: ?>
-                    <?php
-                    $displayBookings = array_slice($recentBookings, 0, 5); // Limit 5 items
-                    $statsTagBlue = '#1e3a8a';
-                    foreach ($displayBookings as $rb):
-                        $bName = $rb['guest_name'] ?? 'Guest';
-                        $bStats = str_replace('_', ' ', $rb['status']);
-                        $bColor = $statsTagBlue;
-                    ?>
-                        <li>
-                            <div class="stat-info">
-                                <span class="stat-name"><?php echo htmlspecialchars(substr($bName, 0, 18)); ?></span>
-                                <span class="stat-meta"><?php echo htmlspecialchars($rb['booking_code']); ?></span>
-                            </div>
-                            <span class="stat-tag" style="background:<?php echo $bColor; ?>; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;"><?php echo ucfirst($bStats); ?></span>
-                        </li>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </ul>
-        </div>
 
-        <!-- Latest Check-ins -->
-        <div class="stats-card">
-            <h3>Check-in Terbaru</h3>
-            <ul class="stats-list">
-                <?php if (empty($recentCheckins)): ?>
-                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
-                <?php else: ?>
-                    <?php
-                    $displayCheckins = array_slice($recentCheckins, 0, 5); // Limit 5 items
-                    foreach ($displayCheckins as $rc): ?>
-                        <li>
-                            <div class="stat-info">
-                                <span class="stat-name"><?php echo htmlspecialchars(substr($rc['guest_name'] ?? '', 0, 18)); ?></span>
-                                <span class="stat-meta">Room <?php echo $rc['room_number']; ?> • <?php echo date('d M', strtotime($rc['check_in_date'])); ?></span>
-                            </div>
-                            <span class="stat-tag" style="background:#1e3a8a; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;">Active</span>
-                        </li>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </ul>
-        </div>
-
-        <!-- Latest Check-outs -->
-        <div class="stats-card">
-            <h3>Checkout Terbaru</h3>
-            <ul class="stats-list">
-                <?php if (empty($recentCheckouts)): ?>
-                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
-                <?php else: ?>
-                    <?php
-                    $displayCheckouts = array_slice($recentCheckouts, 0, 5); // Limit 5 items
-                    foreach ($displayCheckouts as $rco): ?>
-                        <li>
-                            <div class="stat-info">
-                                <span class="stat-name"><?php echo htmlspecialchars(substr($rco['guest_name'] ?? '', 0, 18)); ?></span>
-                                <span class="stat-meta">Room <?php echo $rco['room_number']; ?> • <?php echo date('d M', strtotime($rco['check_out_date'])); ?></span>
-                            </div>
-                            <span class="stat-tag" style="background:#1e3a8a; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;">Done</span>
-                        </li>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </ul>
-        </div>
-    </div>
 
 </div>
 
