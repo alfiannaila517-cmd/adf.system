@@ -1060,6 +1060,22 @@ include '../../includes/header.php';
     body[data-theme="dark"] .calendar-grid .cal-h.today { background: rgba(37, 99, 235, 0.16) !important; box-shadow: none; }
     body[data-theme="dark"] .calendar-grid .cal-h.today .cal-h-dow { color: #93c5fd !important; }
 
+    /* Sticky date header: the page keeps scrolling normally; once the calendar's top scrolls past the top of the screen,
+       JS slides the month + date header rows down by --hdr-y so they stay pinned there (no scroll container change,
+       so drag & drop and horizontal scroll are untouched). */
+    body[data-theme] .calendar-grid .grid-month-room,
+    body[data-theme] .calendar-grid .grid-month-label,
+    body[data-theme] .calendar-grid .grid-header-room,
+    body[data-theme] .calendar-grid .grid-header-date {
+        transform: translateY(var(--hdr-y, 0px));
+    }
+    body[data-theme] .calendar-grid .grid-month-label { position: relative; z-index: 60; }
+    body[data-theme] .calendar-grid .grid-month-room { z-index: 62; }
+    body[data-theme] .calendar-grid .grid-header-room { z-index: 63; }
+    body[data-theme] .calendar-grid .grid-header-date { z-index: 58; }
+    #drag-container.hdr-stuck .grid-header-date,
+    #drag-container.hdr-stuck .grid-header-room { box-shadow: 0 8px 14px -8px rgba(0, 0, 0, .45) !important; }
+
     /* Dark MATTE calendar: flat, softer surfaces — no gradients, glow or glossy shadows */
     body[data-theme="dark"] .calendar-container,
     body[data-theme="dark"] .calendar-wrapper { background: #12161d !important; box-shadow: none !important; border-color: rgba(148, 163, 184, .10) !important; }
@@ -6209,6 +6225,36 @@ include '../../includes/header.php';
     // Setup form event listeners (removed click-outside-to-close functionality)
 
     // Save scroll position before reload so we return to same spot
+    // Pin the month + date header rows to the top of the screen while the page scrolls
+    (function() {
+        let raf = 0;
+        function update() {
+            raf = 0;
+            const w = document.getElementById('drag-container');
+            if (!w) return;
+            const top = w.getBoundingClientRect().top;
+            let y = 0;
+            if (top < 0) {
+                const month = w.querySelector('.grid-month-label');
+                const date = w.querySelector('.grid-header-date');
+                const foot = w.querySelector('.grid-footer-date');
+                // header height (both rows move together, so their difference is the natural height)
+                const headH = (month && date) ? (date.getBoundingClientRect().bottom - month.getBoundingClientRect().top) : 100;
+                const footH = foot ? foot.offsetHeight : 0;
+                const maxY = Math.max(0, w.scrollHeight - headH - footH - 6);
+                y = Math.min(-top, maxY);
+            }
+            w.style.setProperty('--hdr-y', y + 'px');
+            w.classList.toggle('hdr-stuck', y > 0);
+        }
+        function schedule() { if (!raf) raf = requestAnimationFrame(update); }
+        // capture = true so it also fires when the scrolling element is the page container, not the window
+        window.addEventListener('scroll', schedule, true);
+        window.addEventListener('resize', schedule);
+        window.addEventListener('load', schedule);
+        schedule();
+    })();
+
     function saveScrollAndReload() {
         const scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
         if (scroller) {
