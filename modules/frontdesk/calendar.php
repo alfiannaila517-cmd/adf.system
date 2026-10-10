@@ -1060,65 +1060,6 @@ include '../../includes/header.php';
     body[data-theme="dark"] .calendar-grid .cal-h.today { background: rgba(37, 99, 235, 0.16) !important; box-shadow: none; }
     body[data-theme="dark"] .calendar-grid .cal-h.today .cal-h-dow { color: #93c5fd !important; }
 
-    /* FROZEN header & footer (like Cloudbeds): the calendar scrolls inside its own viewport-sized box, so the month/date
-       header sticks to the top and the date footer to the bottom while rooms scroll; the ROOMS column stays frozen left. */
-    body[data-theme] #drag-container.calendar-scroll-wrapper {
-        overflow-x: auto !important;
-        overflow-y: auto !important;
-        max-height: var(--cal-max-h, calc(100vh - 240px));
-        overscroll-behavior: contain;
-    }
-    /* Legend as a popover opened by the "i" button next to New Reservation */
-    .calendar-container > .legend.legend-pop {
-        display: none;
-        position: fixed;
-        right: 24px;
-        top: 150px;
-        z-index: 400;
-        width: min(340px, calc(100vw - 32px));
-        flex-direction: column;
-        gap: 0.5rem;
-        padding: 0.7rem 0.85rem;
-        background: var(--card-bg, #fff);
-        box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .45);
-    }
-    .calendar-container > .legend.legend-pop.open { display: flex; }
-    .legend-pop-btn {
-        width: 30px;
-        height: 30px;
-        margin-right: 8px;
-        border-radius: 50%;
-        border: 1px solid rgba(148, 163, 184, .4);
-        background: transparent;
-        color: inherit;
-        font: 700 0.85rem/1 serif;
-        font-style: italic;
-        cursor: pointer;
-        flex-shrink: 0;
-    }
-    .legend-pop-btn:hover { background: rgba(148, 163, 184, .15); }
-    body[data-theme] .calendar-grid { --cal-month-h: 28px; }
-    /* Slimmer frozen header/footer rows = more room rows visible between them */
-    body[data-theme] .calendar-grid .cal-h { min-height: 52px !important; padding: 3px 4px !important; }
-    body[data-theme] .calendar-grid .grid-header-room,
-    body[data-theme] .calendar-grid .grid-footer-room { min-height: 52px; }
-    body[data-theme] .calendar-grid .grid-month-room,
-    body[data-theme] .calendar-grid .grid-month-label {
-        position: sticky;
-        top: 0;
-        height: var(--cal-month-h);
-        min-height: var(--cal-month-h);
-        box-sizing: border-box;
-        padding-top: 0;
-        padding-bottom: 0;
-    }
-    body[data-theme] .calendar-grid .grid-month-room { left: 0; z-index: 64; }
-    body[data-theme] .calendar-grid .grid-month-label { z-index: 60; }
-    body[data-theme] .calendar-grid .grid-header-room { position: sticky; top: var(--cal-month-h); left: 0; z-index: 63; }
-    body[data-theme] .calendar-grid .grid-header-date { position: sticky; top: var(--cal-month-h); z-index: 58; }
-    body[data-theme] .calendar-grid .grid-footer-room { position: sticky; bottom: 0; left: 0; z-index: 63; }
-    body[data-theme] .calendar-grid .grid-footer-date { position: sticky; bottom: 0; z-index: 58; }
-
     /* Dark MATTE calendar: flat, softer surfaces — no gradients, glow or glossy shadows */
     body[data-theme="dark"] .calendar-container,
     body[data-theme="dark"] .calendar-wrapper { background: #12161d !important; box-shadow: none !important; border-color: rgba(148, 163, 184, .10) !important; }
@@ -3455,7 +3396,79 @@ include '../../includes/header.php';
         </div>
     </div>
 
+    <!-- DASHBOARD STATS WIDGETS -->
+    <div class="stats-dashboard-grid" style="margin-top: 1.5rem;">
+        <!-- New Reservations -->
+        <div class="stats-card">
+            <h3>Reservasi Terbaru</h3>
+            <ul class="stats-list">
+                <?php if (empty($recentBookings)): ?>
+                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
+                <?php else: ?>
+                    <?php
+                    $displayBookings = array_slice($recentBookings, 0, 5); // Limit 5 items
+                    $statsTagBlue = '#1e3a8a';
+                    foreach ($displayBookings as $rb):
+                        $bName = $rb['guest_name'] ?? 'Guest';
+                        $bStats = str_replace('_', ' ', $rb['status']);
+                        $bColor = $statsTagBlue;
+                    ?>
+                        <li>
+                            <div class="stat-info">
+                                <span class="stat-name"><?php echo htmlspecialchars(substr($bName, 0, 18)); ?></span>
+                                <span class="stat-meta"><?php echo htmlspecialchars($rb['booking_code']); ?></span>
+                            </div>
+                            <span class="stat-tag" style="background:<?php echo $bColor; ?>; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;"><?php echo ucfirst($bStats); ?></span>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ul>
+        </div>
 
+        <!-- Latest Check-ins -->
+        <div class="stats-card">
+            <h3>Check-in Terbaru</h3>
+            <ul class="stats-list">
+                <?php if (empty($recentCheckins)): ?>
+                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
+                <?php else: ?>
+                    <?php
+                    $displayCheckins = array_slice($recentCheckins, 0, 5); // Limit 5 items
+                    foreach ($displayCheckins as $rc): ?>
+                        <li>
+                            <div class="stat-info">
+                                <span class="stat-name"><?php echo htmlspecialchars(substr($rc['guest_name'] ?? '', 0, 18)); ?></span>
+                                <span class="stat-meta">Room <?php echo $rc['room_number']; ?> • <?php echo date('d M', strtotime($rc['check_in_date'])); ?></span>
+                            </div>
+                            <span class="stat-tag" style="background:#1e3a8a; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;">Active</span>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ul>
+        </div>
+
+        <!-- Latest Check-outs -->
+        <div class="stats-card">
+            <h3>Checkout Terbaru</h3>
+            <ul class="stats-list">
+                <?php if (empty($recentCheckouts)): ?>
+                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
+                <?php else: ?>
+                    <?php
+                    $displayCheckouts = array_slice($recentCheckouts, 0, 5); // Limit 5 items
+                    foreach ($displayCheckouts as $rco): ?>
+                        <li>
+                            <div class="stat-info">
+                                <span class="stat-name"><?php echo htmlspecialchars(substr($rco['guest_name'] ?? '', 0, 18)); ?></span>
+                                <span class="stat-meta">Room <?php echo $rco['room_number']; ?> • <?php echo date('d M', strtotime($rco['check_out_date'])); ?></span>
+                            </div>
+                            <span class="stat-tag" style="background:#1e3a8a; color:#ffffff !important; -webkit-text-fill-color:#ffffff !important; opacity:1 !important;">Done</span>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </div>
 
 </div>
 
@@ -6196,64 +6209,10 @@ include '../../includes/header.php';
     // Setup form event listeners (removed click-outside-to-close functionality)
 
     // Save scroll position before reload so we return to same spot
-    // Size the calendar box to the viewport so header/footer rows stay frozen while the rooms scroll inside it
-    (function() {
-        function fitCalendarHeight() {
-            const w = document.getElementById('drag-container');
-            if (!w) return;
-            // Full-screen calendar: no site footer and only a thin page padding under the grid
-            const mc0 = w.closest('.main-content');
-            document.querySelectorAll('footer').forEach(function(f) {
-                if (!f.closest('.modal, .modal-overlay, [role="dialog"]')) f.style.display = 'none';
-            });
-            if (mc0) mc0.style.paddingBottom = '4px';
-            // Legend leaves the page flow (so the grid reaches the bottom edge): it becomes a popover behind an "i" button
-            const lg = document.querySelector('.calendar-container > .legend');
-            if (lg && !lg.dataset.popover) {
-                lg.dataset.popover = '1';
-                lg.classList.add('legend-pop');
-                const tb = document.getElementById('newReservationBtn');
-                if (tb && tb.parentNode) {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'legend-pop-btn';
-                    btn.title = 'Keterangan warna';
-                    btn.textContent = 'i';
-                    btn.addEventListener('click', function(e) { e.stopPropagation(); lg.classList.toggle('open'); });
-                    document.addEventListener('click', function() { lg.classList.remove('open'); });
-                    tb.parentNode.insertBefore(btn, tb);
-                }
-            }
-            const y = window.pageYOffset || 0;
-            const wr = w.getBoundingClientRect();
-            const top = wr.top + y;
-            // Whatever sits under the grid (legend, container padding, page bottom padding) is subtracted so the grid
-            // reaches the bottom edge of the screen
-            const box = w.closest('.calendar-container');
-            const below = box ? Math.max(0, box.getBoundingClientRect().bottom + y - (wr.bottom + y)) : 0;
-            const mc = w.closest('.main-content');
-            const mcPad = mc ? (parseFloat(getComputedStyle(mc).paddingBottom) || 0) : 0;
-            const h = Math.max(320, window.innerHeight - top - below - mcPad - 4);
-            w.style.setProperty('--cal-max-h', h + 'px');
-        }
-        fitCalendarHeight();
-        window.addEventListener('load', fitCalendarHeight);
-        window.addEventListener('resize', fitCalendarHeight);
-        // Layout above the calendar (toolbar, sync pill) can settle a moment after load
-        setTimeout(fitCalendarHeight, 400);
-        setTimeout(fitCalendarHeight, 1500);
-        try {
-            const ts = parseInt(sessionStorage.getItem('calendarScrollTs') || '0', 10);
-            const st = parseInt(sessionStorage.getItem('calendarScrollTop') || '0', 10);
-            const w = document.getElementById('drag-container');
-            if (w && st > 0 && ts > 0 && (Date.now() - ts) < 20000) setTimeout(function() { w.scrollTop = st; }, 60);
-        } catch (e) {}
-    })();
-
     function saveScrollAndReload() {
         const scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
         if (scroller) {
-            sessionStorage.setItem('calendarScrollLeft', scroller.scrollLeft); sessionStorage.setItem('calendarScrollTop', scroller.scrollTop); sessionStorage.setItem('calendarScrollTs', String(Date.now()));
+            sessionStorage.setItem('calendarScrollLeft', scroller.scrollLeft); sessionStorage.setItem('calendarScrollTs', String(Date.now()));
         }
         location.reload();
     }
