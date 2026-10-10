@@ -507,9 +507,24 @@ if (isset($forceTheme) && is_string($forceTheme)) {
         $userTheme = $forceTheme;
     }
 }
+
+// Pilihan "Sistem": server tidak tahu tema perangkat → pakai gelap dulu, lalu script di bawah <body> menyesuaikan
+// dengan prefers-color-scheme sebelum halaman digambar.
+$userThemePref = $userTheme;
+if ($userTheme === 'system') {
+    $userTheme = 'dark';
+}
 ?>
 
-<body data-theme="<?php echo htmlspecialchars($userTheme); ?>" data-business="<?php echo ACTIVE_BUSINESS_ID; ?>" data-business-type="<?php echo BUSINESS_TYPE; ?>">
+<body data-theme="<?php echo htmlspecialchars($userTheme); ?>" data-theme-pref="<?php echo htmlspecialchars($userThemePref); ?>" data-business="<?php echo ACTIVE_BUSINESS_ID; ?>" data-business-type="<?php echo BUSINESS_TYPE; ?>">
+    <script>
+        (function() {
+            var b = document.body;
+            if (b.getAttribute('data-theme-pref') === 'system') {
+                b.setAttribute('data-theme', (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+            }
+        })();
+    </script>
     <?php if ($themeError): ?>
         <!-- Theme Load Warning: <?php echo htmlspecialchars($themeError); ?> -->
     <?php endif; ?>
@@ -2673,12 +2688,7 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
-                    <!-- End Shift Button -->
-                    <a id="endShiftButton" href="<?php echo BASE_URL; ?>/print-end-shift-report.php" target="_blank" rel="noopener"
-                        style="padding: 0.5rem 1rem; background: #991b1b; color: #ffffff; border: 1px solid #7f1d1d; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; transition: all 0.2s; text-decoration: none;">
-                        <i data-feather="power" style="width: 18px; height: 18px;"></i>
-                        <span>End Shift</span>
-                    </a>
+                    <!-- End Shift sekarang ada di menu foto user (pojok kanan atas) -->
 
                     <!-- Notification Bell: tombol tersendiri; panel dipindah ke <body> oleh JS
                          (top bar ber-overflow:hidden memotong panel bila tetap di dalamnya). -->
@@ -3245,31 +3255,309 @@ if (isset($forceTheme) && is_string($forceTheme)) {
                     <!-- User Info -->
                     <div class="user-info">
                         <div style="text-align: right; margin-right: 1rem;">
-                            <div style="font-weight: 600; color: #1e3a8a; -webkit-text-fill-color: #1e3a8a;">
-                                <?php echo $_SESSION['full_name'] ?? 'User'; ?>
+                            <div id="topbarUserName" style="font-weight: 600; color: #1e3a8a; -webkit-text-fill-color: #1e3a8a;">
+                                <?php echo htmlspecialchars((string)($_SESSION['full_name'] ?? 'User')); ?>
                             </div>
                             <div style="font-size: 0.875rem; color: #2563eb; -webkit-text-fill-color: #2563eb; opacity: 0.95;">
-                                <?php echo ucfirst($_SESSION['role'] ?? 'staff'); ?>
+                                <?php echo htmlspecialchars(ucfirst((string)($_SESSION['role'] ?? 'staff'))); ?>
                             </div>
                         </div>
                         <?php
                         $avatarUrl = isset($_SESSION['user_id']) ? adfGetUserAvatarUrl((int)$_SESSION['user_id']) : null;
                         $userInitial = strtoupper(substr($_SESSION['full_name'] ?? 'U', 0, 1));
+                        $umName = (string)($_SESSION['full_name'] ?? 'User');
+                        $umRole = ucfirst((string)($_SESSION['role'] ?? 'staff'));
                         ?>
-                        <div class="user-avatar-wrap" title="Klik untuk ganti foto profil">
+                        <div class="user-avatar-wrap">
                             <form id="topbarAvatarUploadForm" method="post" enctype="multipart/form-data" style="display:none;">
                                 <input type="hidden" name="__upload_topbar_avatar" value="1">
-                                <input id="topbarAvatarInput" type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="console.log('Avatar file selected, submitting form...'); document.getElementById('topbarAvatarUploadForm').submit();">
+                                <input id="topbarAvatarInput" type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="document.getElementById('topbarAvatarUploadForm').submit();">
                             </form>
-                            <button type="button" class="user-avatar user-avatar-button" onclick="console.log('Avatar button clicked'); document.getElementById('topbarAvatarInput').click();" aria-label="Upload foto profil">
+                            <button type="button" id="userMenuBtn" class="user-avatar user-avatar-button" aria-haspopup="true" aria-expanded="false" aria-controls="userMenuPanel" aria-label="Menu pengguna" title="Menu pengguna">
                                 <?php if ($avatarUrl): ?>
                                     <img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="Foto Profil" class="user-avatar-image">
                                 <?php else: ?>
-                                    <?php echo $userInitial; ?>
+                                    <?php echo htmlspecialchars($userInitial); ?>
                                 <?php endif; ?>
                             </button>
-                            <span class="user-avatar-edit-indicator">+</span>
                         </div>
+
+                        <!-- Dropdown menu foto user (dipindah ke <body> oleh JS karena top bar memotong elemen yang keluar) -->
+                        <div id="userMenuPanel" class="um-panel" role="menu" aria-label="Menu pengguna">
+                            <div class="um-head">
+                                <span class="um-head-av">
+                                    <?php if ($avatarUrl): ?><img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt=""><?php else: ?><?php echo htmlspecialchars($userInitial); ?><?php endif; ?>
+                                </span>
+                                <span class="um-head-t">
+                                    <b id="umName"><?php echo htmlspecialchars($umName); ?></b>
+                                    <small><?php echo htmlspecialchars($umRole); ?></small>
+                                </span>
+                            </div>
+                            <div class="um-sec">
+                                <button type="button" class="um-item" role="menuitem" onclick="umOpenProfile()">
+                                    <i data-feather="user"></i>
+                                    <span><b>Pengaturan Akun</b><small>Ganti nama dan foto profil</small></span>
+                                </button>
+                                <a class="um-item" role="menuitem" href="<?php echo BASE_URL; ?>/modules/settings/change-password.php">
+                                    <i data-feather="lock"></i>
+                                    <span><b>Ganti Password</b><small>Ubah kata sandi akun</small></span>
+                                </a>
+                            </div>
+                            <div class="um-sec">
+                                <div class="um-label">Tampilan</div>
+                                <div class="um-seg" id="umTheme" role="group" aria-label="Tampilan">
+                                    <button type="button" data-pref="dark" title="Gelap"><i data-feather="moon"></i><span>Gelap</span></button>
+                                    <button type="button" data-pref="light" title="Terang"><i data-feather="sun"></i><span>Terang</span></button>
+                                    <button type="button" data-pref="system" title="Ikuti pengaturan perangkat"><i data-feather="monitor"></i><span>Sistem</span></button>
+                                </div>
+                            </div>
+                            <div class="um-sec">
+                                <a id="endShiftButton" class="um-item um-danger" role="menuitem" href="<?php echo BASE_URL; ?>/print-end-shift-report.php" target="_blank" rel="noopener">
+                                    <i data-feather="power"></i>
+                                    <span><b>End Shift</b><small>Tutup shift dan cetak laporan</small></span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Pengaturan akun: nama + foto -->
+                        <div id="umProfileModal" class="um-modal" role="dialog" aria-modal="true" aria-label="Pengaturan Akun">
+                            <div class="um-modal-box">
+                                <div class="um-modal-head">
+                                    <b>Pengaturan Akun</b>
+                                    <button type="button" class="um-x" onclick="umCloseProfile()" aria-label="Tutup">&times;</button>
+                                </div>
+                                <div class="um-modal-body">
+                                    <div class="um-photo">
+                                        <span class="um-photo-av">
+                                            <?php if ($avatarUrl): ?><img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="Foto Profil"><?php else: ?><?php echo htmlspecialchars($userInitial); ?><?php endif; ?>
+                                        </span>
+                                        <span>
+                                            <button type="button" class="um-btn" onclick="document.getElementById('topbarAvatarInput').click()">Ganti foto</button>
+                                            <small>JPG, PNG, WEBP atau GIF, maks. 3MB. Halaman dimuat ulang setelah foto dipilih.</small>
+                                        </span>
+                                    </div>
+                                    <label class="um-field">
+                                        <span>Nama lengkap</span>
+                                        <input type="text" id="umFullName" maxlength="100" value="<?php echo htmlspecialchars($umName); ?>" autocomplete="name">
+                                    </label>
+                                    <div id="umProfileMsg" class="um-msg" hidden></div>
+                                </div>
+                                <div class="um-modal-foot">
+                                    <button type="button" class="um-btn" onclick="umCloseProfile()">Batal</button>
+                                    <button type="button" class="um-btn primary" id="umProfileSave" onclick="umSaveProfile()">Simpan</button>
+                                </div>
+                            </div>
+                        </div>
+                        <style>
+                            .um-panel { position: fixed; z-index: 10050; width: 286px; max-width: calc(100vw - 16px); display: none; padding: 6px; border-radius: 16px; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 24px 50px -16px rgba(15, 23, 42, .45); color: #0f172a; }
+                            .um-panel.open { display: block; animation: umIn .16s ease-out; }
+                            @keyframes umIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+                            .um-panel, .um-panel * { box-sizing: border-box; font-family: inherit; letter-spacing: normal; text-transform: none; }
+                            .um-head { display: flex; align-items: center; gap: 11px; padding: 10px 10px 12px; border-bottom: 1px solid #eef2f7; margin-bottom: 4px; }
+                            .um-head-av, .um-photo-av { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff; font-weight: 800; font-size: 1rem; }
+                            .um-head-av, .um-photo-av { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+                            .um-head-av img, .um-photo-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+                            .um-head-t { display: flex; flex-direction: column; min-width: 0; }
+                            .um-head-t b { font-size: .86rem; font-weight: 800; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                            .um-head-t small { font-size: .7rem; font-weight: 600; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+                            .um-sec { padding: 4px 0; }
+                            .um-sec + .um-sec { border-top: 1px solid #eef2f7; }
+                            .um-label { padding: 6px 10px 4px; font-size: .62rem; font-weight: 800; letter-spacing: .08em !important; text-transform: uppercase !important; color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+                            .um-item { width: 100%; display: flex; align-items: center; gap: 11px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; text-align: left; cursor: pointer; text-decoration: none !important; color: #0f172a; }
+                            .um-item:hover { background: #f1f5f9; }
+                            .um-item i, .um-item svg { width: 17px; height: 17px; flex-shrink: 0; color: #475569; stroke: #475569; }
+                            .um-item span { display: flex; flex-direction: column; min-width: 0; }
+                            .um-item b { font-size: .8rem; font-weight: 700; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+                            .um-item small { font-size: .66rem; font-weight: 500; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+                            #userMenuPanel #endShiftButton { background: transparent !important; border: 0 !important; padding: 8px 10px !important; font-size: inherit !important; border-radius: 10px !important; gap: 11px !important; display: flex !important; }
+                            #userMenuPanel #endShiftButton:hover { background: rgba(220, 38, 38, .09) !important; }
+                            #userMenuPanel #endShiftButton i, #userMenuPanel #endShiftButton svg { width: 17px !important; height: 17px !important; color: #dc2626 !important; stroke: #dc2626 !important; }
+                            #userMenuPanel #endShiftButton b { color: #dc2626 !important; -webkit-text-fill-color: #dc2626 !important; }
+                            #userMenuPanel #endShiftButton small { color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+                            #userMenuPanel #endShiftButton span { color: inherit !important; }
+                            .um-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin: 2px 6px 6px; border-radius: 12px; background: #f1f5f9; }
+                            .um-seg button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 4px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-size: .66rem; font-weight: 700; color: #64748b; }
+                            .um-seg button svg, .um-seg button i { width: 15px; height: 15px; stroke: currentColor; }
+                            .um-seg button span { color: inherit !important; -webkit-text-fill-color: currentColor !important; }
+                            .um-seg button:hover { color: #0f172a; }
+                            .um-seg button.active { background: #ffffff; color: #1d4ed8; box-shadow: 0 1px 3px rgba(15, 23, 42, .18); }
+                            body[data-theme="dark"] .um-panel { background: #111a2e; border-color: rgba(148, 163, 184, .22); color: #e2e8f0; box-shadow: 0 24px 50px -16px rgba(0, 0, 0, .75); }
+                            body[data-theme="dark"] .um-head { border-color: rgba(148, 163, 184, .14); }
+                            body[data-theme="dark"] .um-sec + .um-sec { border-color: rgba(148, 163, 184, .14); }
+                            body[data-theme="dark"] .um-head-t b, body[data-theme="dark"] .um-item b { color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+                            body[data-theme="dark"] .um-head-t small, body[data-theme="dark"] .um-item small { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+                            body[data-theme="dark"] .um-item { color: #e2e8f0; }
+                            body[data-theme="dark"] .um-item:hover { background: rgba(255, 255, 255, .06); }
+                            body[data-theme="dark"] .um-item i, body[data-theme="dark"] .um-item svg { color: #94a3b8; stroke: #94a3b8; }
+                            body[data-theme="dark"] #userMenuPanel #endShiftButton b { color: #f87171 !important; -webkit-text-fill-color: #f87171 !important; }
+                            body[data-theme="dark"] #userMenuPanel #endShiftButton i, body[data-theme="dark"] #userMenuPanel #endShiftButton svg { color: #f87171 !important; stroke: #f87171 !important; }
+                            body[data-theme="dark"] #userMenuPanel #endShiftButton small { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+                            body[data-theme="dark"] .um-seg { background: rgba(255, 255, 255, .06); }
+                            body[data-theme="dark"] .um-seg button { color: #94a3b8; }
+                            body[data-theme="dark"] .um-seg button:hover { color: #e2e8f0; }
+                            body[data-theme="dark"] .um-seg button.active { background: #1e3a8a; color: #ffffff; box-shadow: none; }
+
+                            .um-modal { position: fixed; inset: 0; z-index: 10060; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .55); }
+                            .um-modal.open { display: flex; }
+                            .um-modal, .um-modal * { box-sizing: border-box; font-family: inherit; letter-spacing: normal; }
+                            .um-modal-box { width: min(420px, 100%); border-radius: 18px; overflow: hidden; background: #ffffff; color: #0f172a; box-shadow: 0 30px 70px rgba(0, 0, 0, .4); animation: umIn .16s ease-out; }
+                            .um-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: linear-gradient(135deg, #1e3a8a, #2563eb); }
+                            .um-modal-head b { font-size: .95rem; font-weight: 800; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+                            .um-x { width: 30px; height: 30px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, .18); color: #fff; font-size: 1.2rem; line-height: 1; cursor: pointer; }
+                            .um-modal-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+                            .um-photo { display: flex; align-items: center; gap: 14px; }
+                            .um-photo-av { width: 64px; height: 64px; font-size: 1.4rem; }
+                            .um-photo small { display: block; margin-top: 6px; font-size: .66rem; line-height: 1.4; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+                            .um-field { display: flex; flex-direction: column; gap: 6px; }
+                            .um-field span { font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+                            .um-field input { height: 42px; padding: 0 12px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; font-size: .9rem; font-weight: 600; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+                            .um-field input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+                            .um-msg { padding: 8px 10px; border-radius: 9px; font-size: .74rem; font-weight: 600; background: #fef2f2; color: #b91c1c; }
+                            .um-msg.ok { background: #ecfdf5; color: #047857; }
+                            .um-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px 16px; }
+                            .um-btn { height: 36px; padding: 0 16px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; font-size: .78rem; font-weight: 700; color: #334155; cursor: pointer; }
+                            .um-btn:hover { background: #f1f5f9; }
+                            .um-btn.primary { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
+                            .um-btn.primary:hover { background: #1d4ed8; }
+                            .um-btn[disabled] { opacity: .6; cursor: wait; }
+                            body[data-theme="dark"] .um-modal-box { background: #111a2e; color: #e2e8f0; border: 1px solid rgba(148, 163, 184, .22); }
+                            body[data-theme="dark"] .um-photo small { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+                            body[data-theme="dark"] .um-field span { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+                            body[data-theme="dark"] .um-field input { background: #0f172a; border-color: rgba(148, 163, 184, .3); color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+                            body[data-theme="dark"] .um-btn { background: rgba(255, 255, 255, .06); border-color: rgba(148, 163, 184, .28); color: #e2e8f0; }
+                            body[data-theme="dark"] .um-btn:hover { background: rgba(255, 255, 255, .12); }
+                            body[data-theme="dark"] .um-btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+                            body[data-theme="dark"] .um-msg { background: rgba(239, 68, 68, .14); color: #fca5a5; }
+                            body[data-theme="dark"] .um-msg.ok { background: rgba(16, 185, 129, .14); color: #6ee7b7; }
+                            body .main-content > .top-bar .user-avatar-button { cursor: pointer; }
+                        </style>
+                        <script>
+                            (function() {
+                                var btn = document.getElementById('userMenuBtn');
+                                var panel = document.getElementById('userMenuPanel');
+                                var modal = document.getElementById('umProfileModal');
+                                if (!btn || !panel) return;
+                                // Top bar memotong elemen yang keluar darinya → panel & modal dipindah ke <body>
+                                document.body.appendChild(panel);
+                                if (modal) document.body.appendChild(modal);
+
+                                function place() {
+                                    var r = btn.getBoundingClientRect();
+                                    panel.style.top = Math.round(r.bottom + 10) + 'px';
+                                    panel.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
+                                }
+
+                                function setOpen(open) {
+                                    if (open) place();
+                                    panel.classList.toggle('open', open);
+                                    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                                }
+                                btn.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    setOpen(!panel.classList.contains('open'));
+                                });
+                                panel.addEventListener('click', function(e) {
+                                    e.stopPropagation();
+                                    // item menu (link / End Shift) menutup dropdown; tombol tampilan tetap
+                                    if (e.target.closest('a.um-item') || e.target.closest('button.um-item')) setOpen(false);
+                                });
+                                document.addEventListener('click', function() { setOpen(false); });
+                                document.addEventListener('keydown', function(e) {
+                                    if (e.key === 'Escape') { setOpen(false); umCloseProfile(); }
+                                });
+                                window.addEventListener('resize', function() { if (panel.classList.contains('open')) place(); });
+                                window.addEventListener('scroll', function() { if (panel.classList.contains('open')) place(); }, true);
+
+                                // ----- Tampilan: gelap / terang / sistem -----
+                                var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+
+                                function resolve(pref) {
+                                    if (pref === 'system') return (mq && mq.matches) ? 'light' : 'dark';
+                                    return pref === 'light' ? 'light' : 'dark';
+                                }
+
+                                function markActive(pref) {
+                                    var bs = panel.querySelectorAll('#umTheme button');
+                                    for (var i = 0; i < bs.length; i++) bs[i].classList.toggle('active', bs[i].getAttribute('data-pref') === pref);
+                                }
+                                var curPref = document.body.getAttribute('data-theme-pref') || document.body.getAttribute('data-theme') || 'dark';
+                                markActive(curPref);
+
+                                function applyTheme(pref) {
+                                    document.body.setAttribute('data-theme-pref', pref);
+                                    document.body.setAttribute('data-theme', resolve(pref));
+                                    markActive(pref);
+                                }
+                                if (mq && mq.addEventListener) {
+                                    mq.addEventListener('change', function() {
+                                        if (document.body.getAttribute('data-theme-pref') === 'system') applyTheme('system');
+                                    });
+                                }
+                                panel.querySelector('#umTheme').addEventListener('click', function(e) {
+                                    var b = e.target.closest('button[data-pref]');
+                                    if (!b) return;
+                                    var pref = b.getAttribute('data-pref');
+                                    if (pref === document.body.getAttribute('data-theme-pref')) return;
+                                    var prev = document.body.getAttribute('data-theme-pref') || 'dark';
+                                    applyTheme(pref);
+                                    var fd = new FormData();
+                                    fd.append('theme', pref);
+                                    fetch('<?php echo BASE_URL; ?>/api/set-theme.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+                                        .then(function(r) { return r.json(); })
+                                        .then(function(d) {
+                                            if (d && d.success) {
+                                                // sebagian halaman menghitung warna saat dimuat → muat ulang agar konsisten
+                                                setTimeout(function() { location.reload(); }, 200);
+                                            } else {
+                                                applyTheme(prev);
+                                                alert((d && d.message) || 'Gagal menyimpan tampilan');
+                                            }
+                                        })
+                                        .catch(function() { applyTheme(prev); alert('Gagal menghubungi server'); });
+                                });
+
+                                // ----- Pengaturan akun (nama) -----
+                                window.umOpenProfile = function() {
+                                    var m = document.getElementById('umProfileMsg');
+                                    if (m) { m.hidden = true; m.textContent = ''; m.className = 'um-msg'; }
+                                    modal.classList.add('open');
+                                    var inp = document.getElementById('umFullName');
+                                    if (inp) { inp.focus(); inp.select(); }
+                                };
+                                window.umCloseProfile = function() { if (modal) modal.classList.remove('open'); };
+                                modal.addEventListener('click', function(e) { if (e.target === modal) umCloseProfile(); });
+                                document.getElementById('umFullName').addEventListener('keydown', function(e) {
+                                    if (e.key === 'Enter') { e.preventDefault(); umSaveProfile(); }
+                                });
+                                window.umSaveProfile = function() {
+                                    var inp = document.getElementById('umFullName');
+                                    var save = document.getElementById('umProfileSave');
+                                    var msg = document.getElementById('umProfileMsg');
+                                    var name = (inp.value || '').trim();
+                                    function show(text, ok) { msg.textContent = text; msg.className = 'um-msg' + (ok ? ' ok' : ''); msg.hidden = false; }
+                                    if (name.length < 2) { show('Nama minimal 2 karakter', false); return; }
+                                    save.disabled = true;
+                                    var fd = new FormData();
+                                    fd.append('full_name', name);
+                                    fetch('<?php echo BASE_URL; ?>/api/update-profile.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+                                        .then(function(r) { return r.json(); })
+                                        .then(function(d) {
+                                            save.disabled = false;
+                                            if (d && d.success) {
+                                                var a = document.getElementById('topbarUserName');
+                                                var b = document.getElementById('umName');
+                                                if (a) a.textContent = d.full_name;
+                                                if (b) b.textContent = d.full_name;
+                                                show('Nama berhasil disimpan', true);
+                                                setTimeout(umCloseProfile, 900);
+                                            } else {
+                                                show((d && d.message) || 'Gagal menyimpan', false);
+                                            }
+                                        })
+                                        .catch(function() { save.disabled = false; show('Gagal menghubungi server', false); });
+                                };
+                            })();
+                        </script>
                     </div>
                 </div>
             </div>

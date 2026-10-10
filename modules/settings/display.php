@@ -84,7 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Update user preferences (theme & language)
-        $theme = $_POST['theme'] ?? 'dark';
+        // Tanpa pilihan tema di form (mis. tema "system" dari menu foto user) → pertahankan yang tersimpan
+        $theme = $_POST['theme'] ?? $currentTheme;
         $language = $_POST['language'] ?? 'id';
         
         // Debug log
