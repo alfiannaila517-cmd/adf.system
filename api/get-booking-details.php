@@ -273,6 +273,47 @@ try {
         }
     }
 
+    // Hotel Service invoices (laundry, tour, rental, dll) linked to this booking / its group.
+    // Also picks up unlinked invoices (booking_id NULL) for the same guest + room within the stay.
+    $serviceInvoices = [];
+    $serviceOutstanding = 0.0;
+    try {
+        $svcIds = [(int)$bookingId];
+        if (!empty($booking['is_group_booking'])) {
+            $svcIds = array_map(fn($gb) => (int)$gb['id'], $groupBookings);
+        }
+        $svcPh = implode(',', array_fill(0, count($svcIds), '?'));
+        $stayFrom = substr((string)($booking['check_in_date'] ?? ''), 0, 10);
+        $stayTo = date('Y-m-d', strtotime(substr((string)($booking['check_out_date'] ?? ''), 0, 10) . ' +1 day'));
+        $iStmt = $conn->prepare("
+            SELECT id, invoice_number, total, paid_amount, payment_status, created_at
+            FROM hotel_invoices
+            WHERE status <> 'cancelled'
+              AND (
+                    booking_id IN ($svcPh)
+                 OR (booking_id IS NULL AND guest_name = ? AND room_number = ?
+                     AND DATE(created_at) >= ? AND DATE(created_at) <= ?)
+              )
+            ORDER BY created_at ASC
+        ");
+        $iStmt->execute(array_merge($svcIds, [
+            $booking['guest_name'] ?? '',
+            $booking['room_number'] ?? '',
+            $stayFrom,
+            $stayTo
+        ]));
+        $itemStmt = $conn->prepare("SELECT service_type, description, quantity, unit_price, total_price FROM hotel_invoice_items WHERE invoice_id = ? ORDER BY id ASC");
+        foreach ($iStmt->fetchAll(PDO::FETCH_ASSOC) as $inv) {
+            $itemStmt->execute([$inv['id']]);
+            $inv['items'] = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+            $serviceOutstanding += max(0, (float)$inv['total'] - (float)$inv['paid_amount']);
+            $serviceInvoices[] = $inv;
+        }
+    } catch (Exception $e) { /* hotel service tables are optional */
+    }
+    $booking['service_invoices'] = $serviceInvoices;
+    $booking['service_outstanding'] = $serviceOutstanding;
+
     // Return JSON response
     ob_clean();
     echo json_encode([

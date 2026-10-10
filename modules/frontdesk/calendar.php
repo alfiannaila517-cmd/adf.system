@@ -3698,11 +3698,25 @@ include '../../includes/header.php';
         const isGroup = !!(booking.is_group_booking && booking.group_bookings && booking.group_bookings.length > 1);
 
         // Balance
-        const balance = isGroup ? (booking.combined_balance || 0) : ((booking.final_price || 0) - (booking.paid_amount || 0));
+        const roomBalance = Math.max(0, isGroup ? (booking.combined_balance || 0) : ((booking.final_price || 0) - (booking.paid_amount || 0)));
+        // Hotel Service invoices (laundry, tour, rental...) that are still unpaid are part of the guest's tagihan
+        const svcInvoices = booking.service_invoices || [];
+        const svcOutstanding = parseFloat(booking.service_outstanding || 0);
+        const balance = roomBalance + svcOutstanding;
         const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);
         document.getElementById('sp-balance').textContent = fmtR(Math.max(0, balance));
         document.getElementById('sp-balance-box').classList.toggle('paid', balance <= 0);
         document.getElementById('sp-balance-label').textContent = balance <= 0 ? 'Lunas · tidak ada tagihan' : 'Balance due';
+        // Breakdown line only when a service bill is outstanding
+        const balSplit = document.getElementById('sp-balance-split');
+        if (balSplit) {
+            if (svcOutstanding > 0) {
+                balSplit.innerHTML = '<span>Kamar ' + fmtR(roomBalance) + '</span><span>Hotel Service ' + fmtR(svcOutstanding) + '</span>';
+                balSplit.style.display = 'flex';
+            } else {
+                balSplit.style.display = 'none';
+            }
+        }
 
         // Folio table
         let folioRows = '';
@@ -3774,6 +3788,23 @@ include '../../includes/header.php';
                     folioRows += '<tr><td><div class="folio-desc-title">' + pmLabel(p) + ' - Payment Recorded</div><div class="folio-desc-sub">' + pdLabel(p) + '</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(p.amount) + '</td></tr>';
                 });
             }
+        }
+
+        // Hotel Service charges (per invoice: item rows as debit, paid amount as credit)
+        if (svcInvoices.length > 0) {
+            folioRows += '<tr class="sp-folio-section"><td colspan="3">Hotel Service</td></tr>';
+            svcInvoices.forEach(function(inv) {
+                (inv.items || []).forEach(function(it) {
+                    const title = it.description || String(it.service_type || 'Service').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                    const qty = parseFloat(it.quantity || 1);
+                    totalDebit += parseFloat(it.total_price || 0);
+                    folioRows += '<tr><td><div class="folio-desc-title">' + escHtml(title) + (qty > 1 ? ' (' + qty + 'x)' : '') + '</div><div class="folio-desc-sub">' + escHtml(inv.invoice_number || '') + ' • ' + fmtD(inv.created_at) + '</div></td><td class="text-right">' + fmtR(it.total_price) + '</td><td class="text-right">-</td></tr>';
+                });
+                if (parseFloat(inv.paid_amount) > 0) {
+                    totalCredit += parseFloat(inv.paid_amount);
+                    folioRows += '<tr><td><div class="folio-desc-title">Pembayaran Hotel Service</div><div class="folio-desc-sub">' + escHtml(inv.invoice_number || '') + '</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(inv.paid_amount) + '</td></tr>';
+                }
+            });
         }
 
         document.getElementById('sp-folio-body').innerHTML = folioRows;
@@ -8501,6 +8532,7 @@ include '../../includes/header.php';
                 <div>
                     <div class="sp-balance-label" id="sp-balance-label">Balance due</div>
                     <div class="sp-balance-amount" id="sp-balance">Rp0</div>
+                    <div class="sp-balance-split" id="sp-balance-split" style="display:none;"></div>
                 </div>
                 <button type="button" class="sp-note-btn" onclick="openRoomNoteEditor(currentPaymentBooking.id)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
@@ -9672,11 +9704,38 @@ include '../../includes/header.php';
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        margin-bottom: 10px;
-        padding: 12px 14px;
-        border-radius: 12px;
+        margin-bottom: 8px;
+        padding: 8px 12px;
+        border-radius: 10px;
         background: rgba(220, 38, 38, 0.06);
         border: 1px solid rgba(220, 38, 38, 0.2);
+    }
+
+    /* Compact breakdown under the balance (room vs hotel service) */
+    #bookingQuickView .sp-balance-split {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        margin-top: 3px;
+        font-size: 0.64rem;
+        font-weight: 600;
+        opacity: 0.8;
+    }
+
+    /* "Hotel Service" divider row inside the folio table */
+    #bookingQuickView .sp-folio-table .sp-folio-section td {
+        padding: 7px 12px;
+        font-size: 0.6rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        background: rgba(148, 163, 184, 0.1);
+        color: #64748b;
+    }
+
+    body[data-theme="dark"] #bookingQuickView .sp-folio-table .sp-folio-section td {
+        background: rgba(148, 163, 184, 0.08);
+        color: #94a3b8;
     }
 
     #bookingQuickView .sp-balance-box.paid {
@@ -9694,8 +9753,9 @@ include '../../includes/header.php';
     }
 
     body[data-theme] #bookingQuickView .sp-balance-amount {
-        font-size: 1.25rem !important;
+        font-size: 1rem !important;
         font-weight: 800;
+        line-height: 1.2;
         color: #b91c1c !important;
         -webkit-text-fill-color: #b91c1c !important;
     }
@@ -9710,9 +9770,9 @@ include '../../includes/header.php';
         display: inline-flex;
         align-items: center;
         gap: 5px;
-        height: 32px;
-        padding: 0 12px !important;
-        border-radius: 9px !important;
+        height: 28px;
+        padding: 0 10px !important;
+        border-radius: 8px !important;
         border: 1px solid var(--sp-line) !important;
         background: var(--sp-bg) !important;
         font-size: 0.74rem !important;
