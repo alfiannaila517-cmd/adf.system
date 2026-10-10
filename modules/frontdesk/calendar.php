@@ -6240,8 +6240,16 @@ include '../../includes/header.php';
         function fitCalendarHeight() {
             const w = document.getElementById('drag-container');
             if (!w) return;
-            const top = w.getBoundingClientRect().top + (window.pageYOffset || 0);
-            const h = Math.max(320, window.innerHeight - top - 14);
+            const y = window.pageYOffset || 0;
+            const wr = w.getBoundingClientRect();
+            const top = wr.top + y;
+            // Whatever sits under the grid (legend, container padding, page bottom padding) is subtracted so the grid
+            // reaches the bottom edge of the screen
+            const box = w.closest('.calendar-container');
+            const below = box ? Math.max(0, box.getBoundingClientRect().bottom + y - (wr.bottom + y)) : 0;
+            const mc = w.closest('.main-content');
+            const mcPad = mc ? (parseFloat(getComputedStyle(mc).paddingBottom) || 0) : 0;
+            const h = Math.max(320, window.innerHeight - top - below - mcPad - 4);
             w.style.setProperty('--cal-max-h', h + 'px');
         }
         fitCalendarHeight();
