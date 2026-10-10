@@ -3697,9 +3697,11 @@ if (!$ovIsHotel) {
                                             <div class="ow-rv-chips">
                                                 <span class="ow-rv-c <?= $ota ? 'ota' : 'dir' ?>"><?= htmlspecialchars($srcN) ?></span>
                                                 <?php if ($cancel): ?><span class="ow-rv-c bad">Dibatalkan</span>
+                                                <?php elseif ($ota && (float)($nr['direct'] ?? 0) > 0): ?><span class="ow-rv-c warn"><?= (float)$nr['direct'] >= $nr['total'] - 1 ? 'Bayar di hotel' : 'Sebagian di hotel · ' . rp((float)$nr['direct']) ?></span>
                                                 <?php elseif ($bal <= 0 && $nr['total'] > 0): ?><span class="ow-rv-c ok">Lunas</span>
+                                                <?php elseif ($ota): ?><span class="ow-rv-c ota">Dibayar OTA</span>
                                                 <?php elseif ($nr['paid'] > 0): ?><span class="ow-rv-c warn">DP · sisa <?= rp($bal) ?></span>
-                                                <?php else: ?><span class="ow-rv-c <?= $ota ? 'dir' : 'warn' ?>"><?= $ota ? 'Bayar di hotel' : 'Belum bayar' ?></span><?php endif; ?>
+                                                <?php else: ?><span class="ow-rv-c warn">Belum bayar</span><?php endif; ?>
                                                 <span class="ow-rv-t"><?= date('H:i', strtotime($nr['created_at'])) ?></span>
                                             </div>
                                         </div>

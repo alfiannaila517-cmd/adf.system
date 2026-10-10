@@ -22,10 +22,12 @@ function fdt_data($db): array
     $d['arrivals_tomorrow'] = (int)($db->fetchOne("SELECT COUNT(*) c FROM bookings WHERE DATE(check_in_date) = ? AND status IN ('confirmed','pending')", [date('Y-m-d', strtotime('+1 day'))])['c'] ?? 0);
 
     // Reservasi masuk hari ini (dibuat hari ini, semua sumber), grup digabung
-    $sql = function (bool $withSources, bool $withCb) {
+    $sql = function (bool $withSources, bool $withCb, bool $withDirect = false) {
         return "SELECT b.id, b.group_id, b.status, b.booking_source, b.created_at,
                    DATE(b.check_in_date) ci, DATE(b.check_out_date) co, b.total_nights, b.final_price, b.paid_amount,
                    g.guest_name, r.room_number"
+            // direct_amount = bagian tagihan OTA yang dibayar tamu langsung ke hotel (Hotel Collect)
+            . ($withDirect ? ", COALESCE(b.direct_amount, 0) AS direct_amount" : ", 0 AS direct_amount")
             . ($withSources ? ", bs.source_name, bs.source_type" : ", NULL AS source_name, NULL AS source_type")
             . ($withCb ? ", (SELECT l.how FROM cloudbeds_booking_links l WHERE l.booking_id = b.id LIMIT 1) AS cb_how" : ", NULL AS cb_how") . "
             FROM bookings b
@@ -36,19 +38,19 @@ function fdt_data($db): array
             ORDER BY b.created_at DESC, b.id DESC LIMIT 60";
     };
     $rows = [];
-    foreach ([[true, true], [true, false], [false, false]] as [$ws, $wc]) {
+    foreach ([[true, true, true], [true, true, false], [true, false, false], [false, false, false]] as [$ws, $wc, $wd]) {
         try {
-            $rows = $db->fetchAll($sql($ws, $wc), [$today]) ?: [];
+            $rows = $db->fetchAll($sql($ws, $wc, $wd), [$today]) ?: [];
             break;
         } catch (\Throwable $e) {
-            // booking_sources / cloudbeds_booking_links belum ada → versi lebih sederhana
+            // direct_amount / booking_sources / cloudbeds_booking_links belum ada → versi lebih sederhana
         }
     }
     $list = [];
     foreach ($rows as $r) {
         $k = $r['group_id'] ? 'g:' . $r['group_id'] : 'b:' . $r['id'];
         if (!isset($list[$k])) {
-            $list[$k] = $r + ['rooms' => [], 'total' => 0.0, 'paid' => 0.0, 'cancel_total' => 0.0, 'n_rooms' => 0, 'all_cancelled' => true];
+            $list[$k] = $r + ['rooms' => [], 'total' => 0.0, 'paid' => 0.0, 'direct' => 0.0, 'cancel_total' => 0.0, 'n_rooms' => 0, 'all_cancelled' => true];
         }
         $list[$k]['rooms'][] = $r['room_number'] ?: '-';
         $list[$k]['n_rooms']++;
@@ -57,6 +59,7 @@ function fdt_data($db): array
         } else {
             $list[$k]['total'] += (float)$r['final_price'];
             $list[$k]['paid'] += (float)$r['paid_amount'];
+            $list[$k]['direct'] += (float)($r['direct_amount'] ?? 0);
             $list[$k]['all_cancelled'] = false;
         }
     }
@@ -220,7 +223,9 @@ function fdt_render(array $d, array $opt = []): void
     }
     /* Daftar reservasi bergaya tabel: kolom terpisah, rapi & seragam */
     #fdt .t-list { padding: 0 10px 8px; scrollbar-gutter: stable; }
-    #fdt { --cols: minmax(140px, 1.6fr) 124px 112px 116px 104px 108px; }
+    /* Kolom pas satu kartu tanpa geser samping: Tamu & Sumber fleksibel, sisanya lebar tetap */
+    #fdt { --cols: minmax(120px, 1.5fr) 64px 104px minmax(100px, .9fr) 92px 112px; }
+    #fdt .t-main-card { container-type: inline-size; }
     #fdt .t-colh, #fdt .t-row { display: grid !important; grid-template-columns: var(--cols); column-gap: 12px; align-items: center; }
     #fdt .t-colh { position: sticky; top: 0; z-index: 2; padding: 8px 8px; margin: 0 0 2px; background: var(--card); border-bottom: 1px solid var(--line); list-style: none;
         font-size: 0.58rem !important; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--faint) !important; }
@@ -242,8 +247,23 @@ function fdt_render(array $d, array $opt = []): void
     #fdt .t-st { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
     #fdt .t-st small { font-size: 0.62rem !important; color: var(--mute) !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
     #fdt .t-row.cancel .t-cell-amt { text-decoration: line-through; color: var(--faint) !important; }
-    #fdt .t-list { overflow-x: auto; }
-    #fdt .t-list > li { min-width: 680px; }
+    #fdt .t-list { overflow-x: hidden; }
+    #fdt .t-list > li { min-width: 0; }
+    /* nama tamu boleh dua baris (tidak dipotong "…"), status panjang boleh turun baris */
+    #fdt .t-av { flex-shrink: 0; }
+    #fdt .t-guest .t-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.25; }
+    #fdt .t-st small { white-space: normal; text-align: right; line-height: 1.2; }
+    #fdt .t-src .t-chip { max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; }
+    /* kartu sempit (layar kecil / kolom samping): tiap reservasi jadi dua baris */
+    @container (max-width: 640px) {
+        #fdt .t-colh { display: none !important; }
+        #fdt .t-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+        #fdt .t-guest { grid-column: 1 / -1; }
+        #fdt .t-rooms, #fdt .t-stay, #fdt .t-src { grid-column: 1; }
+        #fdt .t-cell-amt { grid-column: 2; grid-row: 2; }
+        #fdt .t-st { grid-column: 2; grid-row: 3; align-items: flex-end; }
+        #fdt .t-src { flex-direction: row; flex-wrap: wrap; }
+    }
     @media (max-width: 560px) {
         #fdt .t-colh { display: none !important; }
         #fdt .t-list > li { min-width: 0; }
@@ -318,14 +338,23 @@ function fdt_render(array $d, array $opt = []): void
                             </div>
                             <div class="t-cell-amt"><?php echo $rp($cancel ? $nr['cancel_total'] : $nr['total']); ?></div>
                             <div class="t-st">
+                                <?php
+                                // OTA dibayar lewat OTA (bukan di hotel). Pengecualian: Hotel Collect / sebagian dibayar tamu langsung ke hotel.
+                                $direct = (float)($nr['direct'] ?? 0);
+                                ?>
                                 <?php if ($cancel): ?>
                                     <span class="t-chip bad">Dibatalkan</span>
+                                <?php elseif ($ota && $direct > 0): ?>
+                                    <span class="t-chip warn"><?php echo $direct >= $nr['total'] - 1 ? 'Bayar di hotel' : 'Sebagian di hotel'; ?></span>
+                                    <small><?php echo $rp($direct); ?> di hotel</small>
                                 <?php elseif ($balance <= 0 && $nr['total'] > 0): ?>
                                     <span class="t-chip ok">Lunas</span>
+                                <?php elseif ($ota): ?>
+                                    <span class="t-chip ota">Dibayar OTA</span>
                                 <?php elseif ($nr['paid'] > 0): ?>
                                     <span class="t-chip warn">DP</span><small>sisa <?php echo $rp($balance); ?></small>
                                 <?php else: ?>
-                                    <span class="t-chip <?php echo $ota ? 'dir' : 'warn'; ?>"><?php echo $ota ? 'Bayar di hotel' : 'Belum bayar'; ?></span>
+                                    <span class="t-chip warn">Belum bayar</span>
                                 <?php endif; ?>
                             </div>
                         </li>
