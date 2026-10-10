@@ -2522,56 +2522,6 @@ echo getPrintCSS();
         }
     </style>
 
-    <!-- Summary Cards -->
-    <div class="dashboard-grid" id="cashbookSummaryGrid" style="margin-bottom: 1rem;<?php echo $isCQC ? ' display: none;' : ''; ?>">
-        <?php if ($isCQC):
-            // Use actual balance from cash_accounts
-            $saldoKasOperasional = $actualPettyCashBalance;
-        ?>
-            <!-- CQC: Skip top summary cards, shown in Petty Cash CQC section below -->
-        <?php else: ?>
-            <div class="card">
-                <div class="card-header">
-                    <div>
-                        <div class="card-title">Total Pemasukan</div>
-                        <div class="card-value text-success"><?php echo formatCurrency($totalIncome); ?></div>
-                    </div>
-                    <div class="card-icon income">
-                        <i data-feather="arrow-down-circle"></i>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
-
-        <?php if (!$isCQC): ?>
-            <div class="card">
-                <div class="card-header">
-                    <div>
-                        <div class="card-title">Total Pengeluaran</div>
-                        <div class="card-value text-danger"><?php echo formatCurrency($totalExpense); ?></div>
-                    </div>
-                    <div class="card-icon expense">
-                        <i data-feather="arrow-up-circle"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <div>
-                        <div class="card-title">Saldo</div>
-                        <div class="card-value <?php echo $balance >= 0 ? 'text-success' : 'text-danger'; ?>">
-                            <?php echo formatCurrency($balance); ?>
-                        </div>
-                    </div>
-                    <div class="card-icon balance">
-                        <i data-feather="dollar-sign"></i>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
-    </div>
-
     <!-- Transactions Table -->
     <div class="table-container">
         <div class="table-header <?php echo $isCQC ? 'table-header-cqc' : ''; ?>" style="display: grid; grid-template-columns: <?php echo $isCQC ? '1fr auto 1fr' : '1fr auto'; ?>; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
