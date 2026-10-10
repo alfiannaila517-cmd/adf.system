@@ -95,6 +95,10 @@ class CloudbedsSync
         if ($this->db->query("SELECT bal FROM cloudbeds_price_checks LIMIT 0") === false) {
             $this->db->query("ALTER TABLE cloudbeds_price_checks ADD COLUMN bal DECIMAL(15,2) NULL");
         }
+        // Patokan: total reservasi Cloudbeds yang terakhir terlihat/diselaraskan → perubahan harga langsung di Cloudbeds terdeteksi
+        if ($this->db->query("SELECT cb_total FROM cloudbeds_price_checks LIMIT 0") === false) {
+            $this->db->query("ALTER TABLE cloudbeds_price_checks ADD COLUMN cb_total DECIMAL(15,2) NULL");
+        }
         $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_sync_log (
             id INT AUTO_INCREMENT PRIMARY KEY,
             range_from DATE NULL,
@@ -228,12 +232,14 @@ class CloudbedsSync
         }
         $recentPriceChecks = [];
         $lastPriceBal = [];
+        $cbBase = [];
         if (!$this->pushOnlyPlan) {
             try {
                 foreach ($this->db->fetchAll("SELECT cb_reservation_id, bal, (checked_at > NOW() - INTERVAL 3 HOUR) AS recent FROM cloudbeds_price_checks") ?: [] as $pc) {
                     if (!empty($pc['recent'])) $recentPriceChecks[(string)$pc['cb_reservation_id']] = true;
                     $lastPriceBal[(string)$pc['cb_reservation_id']] = $pc['bal'] === null ? null : (float)$pc['bal'];
                 }
+                foreach ($this->db->fetchAll("SELECT cb_reservation_id, cb_total FROM cloudbeds_price_checks WHERE cb_total IS NOT NULL") ?: [] as $pc) $cbBase[(string)$pc['cb_reservation_id']] = (float)$pc['cb_total'];
             } catch (\Throwable $e) {
             }
         }
@@ -261,7 +267,7 @@ class CloudbedsSync
                 if (!isset($recentRoomChecks['room:' . $pid]) && count($needRoom) < $this->roomCheckCap) $needRoom[] = $pid;
                 $pOta = (bool)array_filter($linkHow[$pid] ?? [], fn($h) => $h !== 'push');
                 $pLb = isset($pit['balance']) && is_numeric($pit['balance']) ? (float)$pit['balance'] : null;
-                if ($pOta && $pLb !== null && count($needBal) < 20 && (!array_key_exists($pid, $lastPriceBal) || $lastPriceBal[$pid] === null || abs($pLb - $lastPriceBal[$pid]) >= 1)) $needBal[] = $pid;
+                if ($pLb !== null && count($needBal) < 20 && (!array_key_exists($pid, $lastPriceBal) || $lastPriceBal[$pid] === null || abs($pLb - $lastPriceBal[$pid]) >= 1)) $needBal[] = $pid;
             }
             $this->cb->prefetchDetails(array_merge($needRoom, $needBal));
         }
@@ -408,6 +414,42 @@ class CloudbedsSync
                     if (!$isHit && !$hasPay && $cbTotal !== null && (float)$cbTotal > 0 && abs((float)$cbTotal - $localTotal) >= 1) {
                         $actions[] = ['type' => 'price', 'cb' => $cbId, 'label' => $label, 'booking_ids' => array_map(fn($b) => (int)$b['id'], $live), 'cb_total' => (float)$cbTotal, 'ota' => $isOtaRes,
                             'msg' => 'Samakan harga dengan Cloudbeds: Rp ' . number_format($localTotal, 0, ',', '.') . ' → Rp ' . number_format((float)$cbTotal, 0, ',', '.') . ' (' . implode(', ', array_column($live, 'booking_code')) . ')'];
+                    }
+                }
+                // Reservasi buatan SISTEM: harga sistem (mis. diskon) tetap berlaku, KECUALI harga diubah langsung di Cloudbeds.
+                // Dikenali dari total Cloudbeds yang berbeda dari patokan terakhir; bila belum ada patokan dan tanpa diskon,
+                // selisih terhadap sistem dianggap ubahan di Cloudbeds. Tidak saat menunggu edit dari sistem / sudah ada pembayaran.
+                if (!$this->pushOnlyPlan && !$isOtaRes && !$isHit && !self::isCancelled($it['status']) && $live
+                    && count($live) === count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))
+                    && !array_filter($live, fn($b) => isset($pendingEditIds[(int)$b['id']]))
+                    && max(array_column($live, 'co')) >= date('Y-m-d')) {
+                    $listBalS = isset($it['balance']) && is_numeric($it['balance']) ? (float)$it['balance'] : null;
+                    $baseS = $cbBase[$cbId] ?? null;
+                    $balChgS = $listBalS !== null && (!array_key_exists($cbId, $lastPriceBal) || $lastPriceBal[$cbId] === null || abs($listBalS - $lastPriceBal[$cbId]) >= 1);
+                    if (($balChgS || $baseS === null) && $nBalDetail < 20) {
+                        $nBalDetail++;
+                        $pdS = $this->cb->reservationDetail($cbId);
+                        if ($pdS['ok'] && $pdS['total'] !== null && (float)$pdS['total'] > 0) {
+                            $cbTotS = round((float)$pdS['total'], 2);
+                            $localS = round(array_sum(array_map(fn($b) => (float)$b['final_price'], $live)), 2);
+                            $liveInS = implode(',', array_map(fn($b) => (int)$b['id'], $live));
+                            $hasPayS = (bool)$this->db->fetchOne("SELECT booking_id FROM booking_payments WHERE booking_id IN ($liveInS) AND amount > 0 LIMIT 1")
+                                || (bool)$this->db->fetchOne("SELECT id FROM bookings WHERE id IN ($liveInS) AND COALESCE(paid_amount, 0) > 0 LIMIT 1");
+                            $hasDiscS = (bool)$this->db->fetchOne("SELECT id FROM bookings WHERE id IN ($liveInS) AND COALESCE(discount, 0) > 0 LIMIT 1");
+                            $changedS = $baseS !== null ? abs($cbTotS - $baseS) >= 1 : (!$hasDiscS && abs($cbTotS - $localS) >= 1);
+                            $planned = false;
+                            if ($changedS && abs($cbTotS - $localS) >= 1 && !$hasPayS && !($localS > 0 && $cbTotS > 2 * $localS)) {
+                                $planned = true;
+                                $actions[] = ['type' => 'price', 'cb' => $cbId, 'label' => $label, 'booking_ids' => array_map(fn($b) => (int)$b['id'], $live), 'cb_total' => $cbTotS, 'ota' => false, 'force' => true,
+                                    'msg' => 'Harga diubah di Cloudbeds → samakan sistem: Rp ' . number_format($localS, 0, ',', '.') . ' → Rp ' . number_format($cbTotS, 0, ',', '.') . ' (' . implode(', ', array_column($live, 'booking_code')) . ')'];
+                            }
+                            // Patokan & saldo dicatat HANYA bila tidak ada aksi (pratinjau dan eksekusi harus sama-sama melihat perubahan)
+                            if (!$planned) {
+                                $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at, bal, cb_total) VALUES (?, NOW(), ?, ?) ON DUPLICATE KEY UPDATE checked_at = NOW(), bal = VALUES(bal), cb_total = VALUES(cb_total)", [$cbId, $listBalS, $cbTotS]);
+                                $lastPriceBal[$cbId] = $listBalS;
+                                $cbBase[$cbId] = $cbTotS;
+                            }
+                        }
                     }
                 }
                 continue;
@@ -607,6 +649,9 @@ class CloudbedsSync
         foreach ($byCb as $cbId => $ids) {
             try {
                 $changed = $this->syncReservationEdits($cbId);
+                // Edit dari sistem sudah terkirim: total Cloudbeds sekarang jadi patokan baru (supaya tidak dianggap ubahan di Cloudbeds)
+                $dAfter = $this->cb->reservationDetail($cbId);
+                if ($dAfter['ok'] && $dAfter['total'] !== null && (float)$dAfter['total'] > 0) $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at, cb_total) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE cb_total = VALUES(cb_total)", [$cbId, round((float)$dAfter['total'], 2)]);
                 $in = implode(',', array_map('intval', $ids));
                 $this->db->query("DELETE FROM cloudbeds_pending_edits WHERE booking_id IN ($in)");
                 if ($changed) $done++;
@@ -909,6 +954,7 @@ class CloudbedsSync
                 $this->db->query("UPDATE bookings SET direct_amount = ? WHERE id = ? AND COALESCE(direct_amount, 0) > 0 AND direct_amount + 0.01 >= ?", [$share, (int)$r['id'], (float)$r['final_price']]);
             }
         }
+        $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at, cb_total) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE cb_total = VALUES(cb_total)", [$cbId, round($cbTotal, 2)]);
         // Dasar penyamaan harga sistem → Cloudbeds (adjustment) ikut total baru
         $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, round($cbTotal, 2)]);
         // Status bayar mengikuti harga baru (mis. kini kurang bayar / lunas)
