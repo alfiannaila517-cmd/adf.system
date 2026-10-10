@@ -1060,6 +1060,62 @@ include '../../includes/header.php';
     body[data-theme="dark"] .calendar-grid .cal-h.today { background: rgba(37, 99, 235, 0.16) !important; box-shadow: none; }
     body[data-theme="dark"] .calendar-grid .cal-h.today .cal-h-dow { color: #93c5fd !important; }
 
+    /* Dark MATTE calendar: flat, softer surfaces — no gradients, glow or glossy shadows */
+    body[data-theme="dark"] .calendar-container,
+    body[data-theme="dark"] .calendar-wrapper { background: #12161d !important; box-shadow: none !important; border-color: rgba(148, 163, 184, .10) !important; }
+    body[data-theme="dark"] .calendar-grid { background: #12161d !important; }
+    body[data-theme="dark"] .calendar-grid .grid-month-room,
+    body[data-theme="dark"] .calendar-grid .grid-month-label,
+    body[data-theme="dark"] .calendar-grid .grid-month-label span { background: #1b2230 !important; border-color: rgba(148, 163, 184, .10) !important; background-image: none !important; color: #cbd5e1 !important; }
+    body[data-theme="dark"] .calendar-grid .grid-header-room,
+    body[data-theme="dark"] .calendar-grid .grid-footer-room,
+    body[data-theme="dark"] .calendar-grid .grid-room-label,
+    body[data-theme="dark"] .calendar-grid .grid-footer-date,
+    body[data-theme="dark"] .calendar-grid .grid-header-date {
+        background: #181d27 !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        border-color: rgba(148, 163, 184, .10) !important;
+    }
+    body[data-theme="dark"] .calendar-grid .grid-room-label:hover { background: #202736 !important; background-image: none !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h { background: #181d27 !important; border-color: rgba(148, 163, 184, .10) !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h.weekend { background: #1a1b24 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h.today,
+    body[data-theme="dark"] .calendar-grid .grid-footer-date.today { background: #1d2636 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h.today .cal-h-day { background: #3b5fb0; }
+    body[data-theme="dark"] .calendar-grid .grid-room-type-header,
+    body[data-theme="dark"] .calendar-grid .grid-type-price-cell {
+        background: #1b2130 !important;
+        background-image: none !important;
+        box-shadow: none !important;
+        border-color: rgba(148, 163, 184, .10) !important;
+    }
+    body[data-theme="dark"] .calendar-grid .grid-date-cell {
+        background: #14181f;
+        background-image: none;
+        border-right: 1px solid rgba(148, 163, 184, .07);
+        border-bottom: 1px solid rgba(148, 163, 184, .07);
+        box-shadow: none;
+    }
+    body[data-theme="dark"] .calendar-grid .grid-date-cell:hover { background: #1a202b; }
+    body[data-theme="dark"] .calendar-grid .cal-h-occ { background: rgba(148, 163, 184, .12); color: #cbd5e1 !important; }
+    body[data-theme="dark"] .calendar-grid .cal-h-avail { background: rgba(52, 211, 153, .10); color: #86d4b4 !important; }
+    /* Booking bars: flat muted fills, no glow */
+    body[data-theme="dark"] .calendar-grid .booking-bar { box-shadow: none !important; text-shadow: none !important; }
+    body[data-theme="dark"] .calendar-grid .booking-bar > span { text-shadow: none !important; }
+    body[data-theme="dark"] .calendar-grid .booking-bar:hover { box-shadow: none !important; filter: brightness(1.12); }
+    body[data-theme="dark"] .calendar-grid .booking-confirmed,
+    body[data-theme="dark"] .calendar-grid .booking-pending { background: #3e5a9e !important; background-image: none !important; border-right-color: #3e5a9e; border-left-color: #3e5a9e; }
+    body[data-theme="dark"] .calendar-grid .booking-checked-in { background: #2f7a63 !important; background-image: none !important; border-right-color: #2f7a63; border-left-color: #2f7a63; }
+    body[data-theme="dark"] .calendar-grid .booking-blocked { background: #3a4151 !important; background-image: none !important; border-right-color: #3a4151; border-left-color: #3a4151; }
+    body[data-theme="dark"] .calendar-grid .booking-bar.booking-past { background: #2b313d !important; background-image: none !important; opacity: .6 !important; border-right-color: #2b313d !important; border-left-color: #2b313d !important; }
+    body[data-theme="dark"] .calendar-grid .booking-bar.booking-past > span { color: #94a3b8 !important; }
+    body[data-theme="dark"] .calendar-grid .booking-bar > i.cal-ota-logo { box-shadow: 0 0 0 1px rgba(255, 255, 255, .55) !important; }
+    body[data-theme="dark"] .calendar-grid .booking-bar .status-dot { box-shadow: 0 0 0 1.5px #12161d !important; }
+    /* Toolbar: flat too */
+    body[data-theme="dark"] .cal-toolbar { background: #171c26 !important; box-shadow: none !important; border-color: rgba(148, 163, 184, .10) !important; }
+    body[data-theme="dark"] .cal-toolbar #newReservationBtn { background: #3e5a9e !important; background-image: none !important; box-shadow: none !important; }
+
     /* Footer Row - Bottom Date Reference */
     .calendar-grid-footer {
         display: contents;
