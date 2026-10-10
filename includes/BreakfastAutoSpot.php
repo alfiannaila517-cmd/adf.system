@@ -44,9 +44,38 @@ function auto_submit_on_the_spot_after_midnight($db, $pdo, $link)
 
     $bookingId = !empty($link['booking_id']) ? (int)$link['booking_id'] : null;
     $roomJson = $link['room_number'] ?: json_encode([]);
+
+    // Link yang sudah DIGANTI link baru (dikirim ulang) tidak boleh membuat pesanan lagi: yang berlaku link terbaru
+    if ($linkStatus === 'expired' && $bookingId) {
+        try {
+            if ($db->fetchOne("SELECT id FROM breakfast_guest_links WHERE breakfast_date = ? AND booking_id = ? AND id > ? LIMIT 1", [$breakfastDate, $bookingId, (int)($link['id'] ?? 0)])) {
+                return false;
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    // Kamar yang SUDAH punya pesanan hari itu (dari link mana pun, termasuk yang dipilih tamu setelah link dikirim ulang)
+    // tidak dibuatkan "on the spot" lagi. Bila hanya sebagian kamar yang sudah memesan, on the spot hanya untuk sisanya.
+    $linkRooms = json_decode((string)$roomJson, true);
+    if (is_array($linkRooms) && $linkRooms) {
+        $uncovered = [];
+        foreach ($linkRooms as $rm) {
+            $hit = $db->fetchOne("SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND room_number LIKE ? LIMIT 1", [$breakfastDate, '%"' . $rm . '"%']);
+            if (!$hit) $uncovered[] = (string)$rm;
+        }
+        if (!$uncovered) {
+            return false;
+        }
+        if (count($uncovered) < count($linkRooms)) {
+            $roomJson = json_encode(array_values($uncovered));
+            $coveredShare = count($uncovered) / count($linkRooms);
+        }
+    }
     $guestComposition = json_decode($link['guest_composition'] ?? '{}', true);
     if (!is_array($guestComposition)) $guestComposition = [];
     $totalPax = max(1, (int)($guestComposition['total_pax'] ?? (($guestComposition['adults'] ?? 1) + ($guestComposition['children_young'] ?? 0) + ($guestComposition['children_old'] ?? 0))));
+    if (isset($coveredShare)) $totalPax = max(1, (int)round($totalPax * $coveredShare));
     $createdBy = isset($link['created_by']) ? (int)$link['created_by'] : 0;
 
     $breakfastTime = '07:00:00';
@@ -68,12 +97,17 @@ function auto_submit_on_the_spot_after_midnight($db, $pdo, $link)
 
     // Kamar dalam grup memakai nama tamu yang sama: pesanan dicocokkan per booking (per kamar), bukan per nama
     if (!empty($link['parent_token']) && $bookingId) {
-        $existing = $db->fetchOne("SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND booking_id = ? LIMIT 1", [$breakfastDate, $bookingId]);
+        $existing = $db->fetchOne("SELECT id, on_the_spot FROM breakfast_orders WHERE breakfast_date = ? AND booking_id = ? LIMIT 1", [$breakfastDate, $bookingId]);
     } else {
         $existing = $db->fetchOne(
-            "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
+            "SELECT id, on_the_spot FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0 LIMIT 1",
             [$breakfastDate, $guestName]
         );
+    }
+
+    if ($existing && empty($existing['on_the_spot'])) {
+        // Tamu sudah punya pesanan menu sungguhan: jangan ditimpa menjadi on the spot
+        return false;
     }
 
     if ($existing) {
