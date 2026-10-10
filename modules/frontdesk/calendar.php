@@ -1060,6 +1060,32 @@ include '../../includes/header.php';
     body[data-theme="dark"] .calendar-grid .cal-h.today { background: rgba(37, 99, 235, 0.16) !important; box-shadow: none; }
     body[data-theme="dark"] .calendar-grid .cal-h.today .cal-h-dow { color: #93c5fd !important; }
 
+    /* FROZEN header & footer (like Cloudbeds): the calendar scrolls inside its own viewport-sized box, so the month/date
+       header sticks to the top and the date footer to the bottom while rooms scroll; the ROOMS column stays frozen left. */
+    body[data-theme] #drag-container.calendar-scroll-wrapper {
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        max-height: var(--cal-max-h, calc(100vh - 240px));
+        overscroll-behavior: contain;
+    }
+    body[data-theme] .calendar-grid { --cal-month-h: 34px; }
+    body[data-theme] .calendar-grid .grid-month-room,
+    body[data-theme] .calendar-grid .grid-month-label {
+        position: sticky;
+        top: 0;
+        height: var(--cal-month-h);
+        min-height: var(--cal-month-h);
+        box-sizing: border-box;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+    body[data-theme] .calendar-grid .grid-month-room { left: 0; z-index: 64; }
+    body[data-theme] .calendar-grid .grid-month-label { z-index: 60; }
+    body[data-theme] .calendar-grid .grid-header-room { position: sticky; top: var(--cal-month-h); left: 0; z-index: 63; }
+    body[data-theme] .calendar-grid .grid-header-date { position: sticky; top: var(--cal-month-h); z-index: 58; }
+    body[data-theme] .calendar-grid .grid-footer-room { position: sticky; bottom: 0; left: 0; z-index: 63; }
+    body[data-theme] .calendar-grid .grid-footer-date { position: sticky; bottom: 0; z-index: 58; }
+
     /* Dark MATTE calendar: flat, softer surfaces — no gradients, glow or glossy shadows */
     body[data-theme="dark"] .calendar-container,
     body[data-theme="dark"] .calendar-wrapper { background: #12161d !important; box-shadow: none !important; border-color: rgba(148, 163, 184, .10) !important; }
@@ -6209,10 +6235,33 @@ include '../../includes/header.php';
     // Setup form event listeners (removed click-outside-to-close functionality)
 
     // Save scroll position before reload so we return to same spot
+    // Size the calendar box to the viewport so header/footer rows stay frozen while the rooms scroll inside it
+    (function() {
+        function fitCalendarHeight() {
+            const w = document.getElementById('drag-container');
+            if (!w) return;
+            const top = w.getBoundingClientRect().top + (window.pageYOffset || 0);
+            const h = Math.max(320, window.innerHeight - top - 14);
+            w.style.setProperty('--cal-max-h', h + 'px');
+        }
+        fitCalendarHeight();
+        window.addEventListener('load', fitCalendarHeight);
+        window.addEventListener('resize', fitCalendarHeight);
+        // Layout above the calendar (toolbar, sync pill) can settle a moment after load
+        setTimeout(fitCalendarHeight, 400);
+        setTimeout(fitCalendarHeight, 1500);
+        try {
+            const ts = parseInt(sessionStorage.getItem('calendarScrollTs') || '0', 10);
+            const st = parseInt(sessionStorage.getItem('calendarScrollTop') || '0', 10);
+            const w = document.getElementById('drag-container');
+            if (w && st > 0 && ts > 0 && (Date.now() - ts) < 20000) setTimeout(function() { w.scrollTop = st; }, 60);
+        } catch (e) {}
+    })();
+
     function saveScrollAndReload() {
         const scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
         if (scroller) {
-            sessionStorage.setItem('calendarScrollLeft', scroller.scrollLeft); sessionStorage.setItem('calendarScrollTs', String(Date.now()));
+            sessionStorage.setItem('calendarScrollLeft', scroller.scrollLeft); sessionStorage.setItem('calendarScrollTop', scroller.scrollTop); sessionStorage.setItem('calendarScrollTs', String(Date.now()));
         }
         location.reload();
     }
