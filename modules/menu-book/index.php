@@ -492,6 +492,19 @@ include '../../includes/header.php';
         }
     }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .mb-card { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .mb-item { background: #18233a; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .mb-item img,
+body:not([data-theme="light"]) .mb-qr img { border-color: rgba(148,163,184,.25); background: #fff; }
+body:not([data-theme="light"]) .mb-input { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.3); }
+body:not([data-theme="light"]) .mb-input::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .mb-alert-ok { background: rgba(34,197,94,.15); color: #86efac; border-color: rgba(34,197,94,.35); }
+body:not([data-theme="light"]) .mb-alert-err { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.35); }
+body:not([data-theme="light"]) .mb-wrap h2[style*="color:#0f172a"] { color: #f1f5f9 !important; }
+body:not([data-theme="light"]) .mb-wrap [style*="color:#64748b"] { color: #94a3b8 !important; }
+</style>
 
 <div class="mb-wrap">
     <div style="margin-bottom:10px;">

@@ -153,6 +153,36 @@ include '../../includes/header.php';
         .cqc-table th, .cqc-table td { padding: 8px; }
     }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .cqc-header h1,
+body:not([data-theme="light"]) .cqc-card h3,
+body:not([data-theme="light"]) .cqc-table th,
+body:not([data-theme="light"]) .cqc-category-name { color: #f1f5f9; }
+body:not([data-theme="light"]) .cqc-back-link,
+body:not([data-theme="light"]) .cqc-btn-secondary { background: #18233a; color: #cbd5e1; }
+body:not([data-theme="light"]) .cqc-back-link:hover { background: #22304d; }
+body:not([data-theme="light"]) .cqc-card { background: #111a2e; box-shadow: 0 2px 10px rgba(0,0,0,.35); border: 1px solid rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .cqc-alert.success { background: rgba(34,197,94,.15); color: #86efac; border-color: rgba(34,197,94,.35); }
+body:not([data-theme="light"]) .cqc-alert.error { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.35); }
+body:not([data-theme="light"]) .cqc-form-group label { color: #94a3b8; }
+body:not([data-theme="light"]) .cqc-form-group input { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .cqc-form-group input::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .cqc-icon-picker { background: #0f172a; }
+body:not([data-theme="light"]) .cqc-icon-btn { background: #18233a; border-color: rgba(148,163,184,.25); color: #e2e8f0; }
+body:not([data-theme="light"]) .cqc-icon-btn:hover { background: rgba(240,180,41,.15); }
+body:not([data-theme="light"]) .cqc-icon-btn.selected { background: rgba(240,180,41,.25); }
+body:not([data-theme="light"]) .cqc-table thead { background: #18233a; }
+body:not([data-theme="light"]) .cqc-table td { border-bottom-color: rgba(148,163,184,.15); color: #e2e8f0; }
+body:not([data-theme="light"]) .cqc-table tbody tr:hover { background: #18233a; }
+body:not([data-theme="light"]) .cqc-category-stats { color: #94a3b8; }
+body:not([data-theme="light"]) .cqc-status-badge.active { background: rgba(34,197,94,.15); color: #86efac; }
+body:not([data-theme="light"]) .cqc-status-badge.inactive { background: rgba(239,68,68,.15); color: #fca5a5; }
+body:not([data-theme="light"]) .cqc-card [style*="color: #64748b"] { color: #94a3b8 !important; }
+body:not([data-theme="light"]) .cqc-table td[style*="#0d1f3c"] { color: #f1f5f9 !important; }
+body:not([data-theme="light"]) [style*="background: white"] { background: #111a2e !important; border: 1px solid rgba(148,163,184,.2); }
+body:not([data-theme="light"]) [style*="background: white"] h3 { color: #f1f5f9 !important; }
+</style>
 
 <div class="cqc-container">
     <!-- Header -->

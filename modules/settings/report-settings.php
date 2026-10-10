@@ -172,6 +172,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_FILES['invoice_logo'])) {
 include '../../includes/header.php';
 ?>
 
+<style>
+/* dark-theme-overrides */
+/* The invoice/report preview is a paper mockup: keep it a white sheet with dark ink (inline colours already dark) */
+body:not([data-theme="light"]) [style*="background: white; padding: 1.5rem"] { background: #fff; }
+body:not([data-theme="light"]) [style*="background: white; padding: 1.5rem"] div,
+body:not([data-theme="light"]) [style*="background: white; padding: 1.5rem"] span,
+body:not([data-theme="light"]) [style*="background: white; padding: 1.5rem"] td,
+body:not([data-theme="light"]) [style*="background: white; padding: 1.5rem"] th,
+body:not([data-theme="light"]) [style*="background: white; padding: 1.5rem"] p { color: #1e293b; }
+body:not([data-theme="light"]) input[type="file"][style*="border: 1px solid var(--bg-tertiary)"] { background: #0f172a; color: #e2e8f0; }
+</style>
 <div style="max-width: 1200px;">
     <div style="margin-bottom: 1rem;">
         <a href="index.php" class="btn btn-secondary btn-sm">

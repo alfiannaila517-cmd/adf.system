@@ -352,6 +352,35 @@ include '../../includes/header.php';
         .cqc-form-grid, .cqc-form-grid.cols-3, .cqc-form-grid.cols-4 { grid-template-columns: 1fr; }
     }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) {
+    --cqc-primary: #f1f5f9;
+    --cqc-text: #e2e8f0;
+    --cqc-muted: #94a3b8;
+    --cqc-border: rgba(148,163,184,.2);
+    --cqc-bg: #18233a;
+}
+body:not([data-theme="light"]) .cqc-header,
+body:not([data-theme="light"]) .cqc-form-card { background: #111a2e; }
+body:not([data-theme="light"]) .cqc-header .btn-back,
+body:not([data-theme="light"]) .cqc-btn-secondary { background: #18233a; color: #cbd5e1; }
+body:not([data-theme="light"]) .cqc-header .btn-back:hover,
+body:not([data-theme="light"]) .cqc-btn-secondary:hover { background: #22304d; }
+body:not([data-theme="light"]) .cqc-form-input,
+body:not([data-theme="light"]) .cqc-form-select,
+body:not([data-theme="light"]) .cqc-form-textarea { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .cqc-form-input::placeholder,
+body:not([data-theme="light"]) .cqc-form-textarea::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .cqc-form-select option { background: #0f172a; color: #e2e8f0; }
+body:not([data-theme="light"]) .cqc-calc-preview { background: linear-gradient(135deg, #18233a, #111a2e); }
+body:not([data-theme="light"]) .cqc-btn-primary { color: #0d1f3c; }
+body:not([data-theme="light"]) .cqc-alert-error { background: rgba(239,68,68,.15); color: #fca5a5; }
+body:not([data-theme="light"]) .cqc-project-info { background: linear-gradient(135deg, rgba(148,163,184,.06), rgba(240,180,41,.08)); }
+body:not([data-theme="light"]) [style*="linear-gradient(135deg, #e8f5e9"] { background: rgba(34,197,94,.15) !important; border-left-color: #22c55e !important; }
+body:not([data-theme="light"]) [style*="color: #1b5e20"] { color: #86efac !important; }
+body:not([data-theme="light"]) [style*="color: #2e7d32"] { color: #4ade80 !important; }
+</style>
 
 <div class="cqc-container">
     <div class="cqc-header">

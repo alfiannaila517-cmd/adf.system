@@ -96,6 +96,24 @@ include '../../includes/header.php';
     to { opacity: 1; transform: translateY(0); }
 }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) [style*="linear-gradient(135deg, #d1fae5"] { background: rgba(34,197,94,.15) !important; border-left-color: #22c55e !important; box-shadow: none !important; }
+body:not([data-theme="light"]) [style*="color: #065f46"] { color: #6ee7b7 !important; }
+body:not([data-theme="light"]) [style*="color: #047857"] { color: #86efac !important; }
+body:not([data-theme="light"]) #paymentModal > div { background: #111a2e !important; border: 1px solid rgba(148,163,184,.2); }
+body:not([data-theme="light"]) #paymentModal [style*="background: #f3f4f6"] { background: #18233a !important; }
+body:not([data-theme="light"]) #paymentModal [style*="color: #6b7280"] { color: #94a3b8 !important; }
+body:not([data-theme="light"]) #paymentModal [style*="color: #1f2937"] { color: #e2e8f0 !important; }
+body:not([data-theme="light"]) #paymentModal [style*="background: #fffbeb"] { background: rgba(245,158,11,.12) !important; }
+body:not([data-theme="light"]) #paymentModal [style*="color: #92400e"] { color: #fcd34d !important; }
+body:not([data-theme="light"]) #paymentModal input,
+body:not([data-theme="light"]) #paymentModal select,
+body:not([data-theme="light"]) #paymentModal textarea { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) #paymentModal input::placeholder,
+body:not([data-theme="light"]) #paymentModal textarea::placeholder { color: #64748b; }
+body:not([data-theme="light"]) #paymentModal option { background: #0f172a; color: #e2e8f0; }
+</style>
 
 <div style="margin-bottom: 1.25rem;">
     <div style="display: flex; justify-content: space-between; align-items: center;">

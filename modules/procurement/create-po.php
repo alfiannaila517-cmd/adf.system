@@ -512,6 +512,82 @@ include '../../includes/header.php';
         background: var(--bg-primary, #fff) !important;
     }
 </style>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) [style*="background: #fff;"], body:not([data-theme="light"]) [style*="background: #ffffff;"] {
+    background: #111a2e !important;
+}
+body:not([data-theme="light"]) [style*="background: #f8fafc"], body:not([data-theme="light"]) [style*="background:#fbfdff"], body:not([data-theme="light"]) [style*="180deg, #fbfdff"], body:not([data-theme="light"]) [style*="background: #f4f9ff"] {
+    background: #18233a !important;
+}
+body:not([data-theme="light"]) [style*="135deg, #d1fae5"] {
+    background: rgba(34,197,94,.15) !important;
+}
+body:not([data-theme="light"]) [style*="135deg, #fee2e2"] {
+    background: rgba(239,68,68,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background:#fffbeb"] {
+    background: rgba(245,158,11,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background: #f0f9ff"] {
+    background: rgba(59,130,246,.15) !important;
+}
+body:not([data-theme="light"]) [style*="solid #e5edf7"], body:not([data-theme="light"]) [style*="solid #dbe7f7"], body:not([data-theme="light"]) [style*="solid #edf3fa"], body:not([data-theme="light"]) [style*="solid #d6e6f8"] {
+    border-color: rgba(148,163,184,.2) !important;
+}
+body:not([data-theme="light"]) [style*="solid #fde68a"] {
+    border-color: rgba(148,163,184,.3) !important;
+}
+body:not([data-theme="light"]) [style*="color: #0f172a"] {
+    color: #e2e8f0 !important;
+}
+body:not([data-theme="light"]) [style*="color:#475569"], body:not([data-theme="light"]) [style*="color: #475569"], body:not([data-theme="light"]) [style*="color:#64748b"], body:not([data-theme="light"]) [style*="color: #64748b"] {
+    color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) [style*="color: #065f46"], body:not([data-theme="light"]) [style*="color: #047857"] {
+    color: #86efac !important;
+}
+body:not([data-theme="light"]) [style*="color: #991b1b"], body:not([data-theme="light"]) [style*="color: #b91c1c"] {
+    color: #fca5a5 !important;
+}
+body:not([data-theme="light"]) [style*="color:#92400e"] {
+    color: #fcd34d !important;
+}
+body:not([data-theme="light"]) .main-content input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=color]):not([type=range]):not([type=file]):not([type=hidden]), body:not([data-theme="light"]) .main-content select, body:not([data-theme="light"]) .main-content textarea, body:not([data-theme="light"]) .modal input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=color]):not([type=range]):not([type=file]):not([type=hidden]), body:not([data-theme="light"]) .modal select, body:not([data-theme="light"]) .modal textarea {
+    background-color: #0f172a !important; color: #e2e8f0 !important; border-color: rgba(148,163,184,.25) !important;
+}
+body:not([data-theme="light"]) .main-content input::placeholder, body:not([data-theme="light"]) .main-content textarea::placeholder {
+    color: #64748b !important; opacity: 1;
+}
+body:not([data-theme="light"]) .main-content option, body:not([data-theme="light"]) .main-content optgroup {
+    background: #0f172a; color: #e2e8f0;
+}
+body:not([data-theme="light"]) .main-content input:disabled, body:not([data-theme="light"]) .main-content input[readonly], body:not([data-theme="light"]) .main-content select:disabled {
+    background-color: #18233a !important; color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) .main-content table thead th {
+    background-color: #18233a; border-color: rgba(148,163,184,.2);
+}
+body:not([data-theme="light"]) .main-content table td {
+    border-color: rgba(148,163,184,.15);
+}
+body:not([data-theme="light"]) .modal-content {
+    background: #111a2e; border-color: rgba(148,163,184,.2);
+}
+body:not([data-theme="light"]) .po-panel-card { background: #111a2e; border-color: rgba(148,163,184,.2); box-shadow: none; }
+body:not([data-theme="light"]) .po-panel-header, body:not([data-theme="light"]) .po-footer-bar { background: #18233a; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .po-panel-header-label, body:not([data-theme="light"]) .po-left-list .item-info strong, body:not([data-theme="light"]) .po-right-row .item-name, body:not([data-theme="light"]) .po-footer-summary strong { color: #e2e8f0; }
+body:not([data-theme="light"]) .po-search-wrap { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .po-left-list, body:not([data-theme="light"]) .po-right-list { background: #111a2e; }
+body:not([data-theme="light"]) .po-left-list .po-chk-row, body:not([data-theme="light"]) .po-right-row { border-bottom-color: rgba(148,163,184,.15); }
+body:not([data-theme="light"]) .po-left-list .po-chk-row:hover { background: #18233a; }
+body:not([data-theme="light"]) .po-left-list .item-meta, body:not([data-theme="light"]) .po-right-row .item-unit, body:not([data-theme="light"]) .po-footer-summary { color: #94a3b8; }
+body:not([data-theme="light"]) .po-left-list .item-price { color: #4ade80; }
+body:not([data-theme="light"]) .po-right-row input.form-control { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .po-right-row .remove-btn { background: rgba(239,68,68,.15); color: #fca5a5; }
+body:not([data-theme="light"]) .po-drop-item:hover { background: #18233a !important; }
+body:not([data-theme="light"]) .po-item-drop { background: #111a2e !important; color: #e2e8f0; }
+</style>
 
 <div style="margin-bottom: 1.25rem;">
     <div style="display: flex; align-items: center; gap: 0.75rem;">

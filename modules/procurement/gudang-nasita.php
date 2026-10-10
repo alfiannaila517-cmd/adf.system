@@ -1297,6 +1297,87 @@ include '../../includes/header.php';
         max-width: 100%;
     }
 </style>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) [style*="background:#fff;"], body:not([data-theme="light"]) [style*="background: #fff;"] {
+    background: #111a2e !important;
+}
+body:not([data-theme="light"]) [style*="background:#f8fafc"], body:not([data-theme="light"]) [style*="background: #f8fafc"], body:not([data-theme="light"]) [style*="background: #f1f5f9"], body:not([data-theme="light"]) [style*="background-color:#f1f5f9"], body:not([data-theme="light"]) [style*="background:#f0f0f0"] {
+    background: #18233a !important;
+}
+body:not([data-theme="light"]) [style*="background:#fee2e2"], body:not([data-theme="light"]) [style*="background:#fef2f2"], body:not([data-theme="light"]) [style*="background: #fef2f2"] {
+    background: rgba(239,68,68,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background:#fffbeb"] {
+    background: rgba(245,158,11,.15) !important;
+}
+body:not([data-theme="light"]) [style*="solid #e2e8f0"], body:not([data-theme="light"]) [style*="solid #f1f5f9"] {
+    border-color: rgba(148,163,184,.2) !important;
+}
+body:not([data-theme="light"]) [style*="solid #fcd34d"], body:not([data-theme="light"]) [style*="solid #fca5a5"] {
+    border-color: rgba(148,163,184,.3) !important;
+}
+body:not([data-theme="light"]) [style*="color:#0f172a"], body:not([data-theme="light"]) [style*="color: #0f172a"], body:not([data-theme="light"]) [style*="color:#111827"], body:not([data-theme="light"]) [style*="color: #1e293b"], body:not([data-theme="light"]) [style*="color:#334155"], body:not([data-theme="light"]) [style*="color: #334155"] {
+    color: #e2e8f0 !important;
+}
+body:not([data-theme="light"]) [style*="color:#6b7280"], body:not([data-theme="light"]) [style*="color:#64748b"], body:not([data-theme="light"]) [style*="color: #64748b"] {
+    color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) [style*="color:#1e3a8a"] {
+    color: #93c5fd !important;
+}
+body:not([data-theme="light"]) [style*="color:#991b1b"], body:not([data-theme="light"]) [style*="color:#b91c1c"] {
+    color: #fca5a5 !important;
+}
+body:not([data-theme="light"]) [style*="color:#b45309"] {
+    color: #fcd34d !important;
+}
+body:not([data-theme="light"]) [style*="color:#4c1d95"] {
+    color: #c4b5fd !important;
+}
+body:not([data-theme="light"]) .main-content input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=color]):not([type=range]):not([type=file]):not([type=hidden]), body:not([data-theme="light"]) .main-content select, body:not([data-theme="light"]) .main-content textarea, body:not([data-theme="light"]) .modal input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=color]):not([type=range]):not([type=file]):not([type=hidden]), body:not([data-theme="light"]) .modal select, body:not([data-theme="light"]) .modal textarea {
+    background-color: #0f172a !important; color: #e2e8f0 !important; border-color: rgba(148,163,184,.25) !important;
+}
+body:not([data-theme="light"]) .main-content input::placeholder, body:not([data-theme="light"]) .main-content textarea::placeholder {
+    color: #64748b !important; opacity: 1;
+}
+body:not([data-theme="light"]) .main-content option, body:not([data-theme="light"]) .main-content optgroup {
+    background: #0f172a; color: #e2e8f0;
+}
+body:not([data-theme="light"]) .main-content input:disabled, body:not([data-theme="light"]) .main-content input[readonly], body:not([data-theme="light"]) .main-content select:disabled {
+    background-color: #18233a !important; color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) .main-content table thead th {
+    background-color: #18233a; border-color: rgba(148,163,184,.2);
+}
+body:not([data-theme="light"]) .main-content table td {
+    border-color: rgba(148,163,184,.15);
+}
+body:not([data-theme="light"]) .modal-content {
+    background: #111a2e; border-color: rgba(148,163,184,.2);
+}
+body:not([data-theme="light"]) .alert-danger {
+    background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.35);
+}
+body:not([data-theme="light"]) .alert-success {
+    background: rgba(34,197,94,.15); color: #86efac; border-color: rgba(34,197,94,.35);
+}
+body:not([data-theme="light"]) .gudang-more-menu { background: #111a2e; border-color: rgba(148,163,184,.2); box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+body:not([data-theme="light"]) .gudang-more-menu > a, body:not([data-theme="light"]) .gudang-more-menu > button { color: #e2e8f0; }
+body:not([data-theme="light"]) .gudang-more-menu > a:hover, body:not([data-theme="light"]) .gudang-more-menu > button:hover { background: #18233a; }
+body:not([data-theme="light"]) .gudang-more-menu form > button.danger { color: #fca5a5; }
+body:not([data-theme="light"]) .gudang-more-menu form > button.danger:hover { background: rgba(239,68,68,.15); }
+body:not([data-theme="light"]) .gudang-more-label, body:not([data-theme="light"]) .gudang-more-print { color: #94a3b8; }
+body:not([data-theme="light"]) .gudang-more-print span:first-of-type { color: #e2e8f0; }
+body:not([data-theme="light"]) .gudang-chip { background: #111a2e; border-color: rgba(148,163,184,.25); color: #cbd5e1; box-shadow: none; }
+body:not([data-theme="light"]) .gudang-chip:hover { color: #f1f5f9; }
+body:not([data-theme="light"]) .gudang-chip.active { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-color: transparent; color: #fff; }
+body:not([data-theme="light"]) .gudang-toolbar, body:not([data-theme="light"]) .gudang-side-card { background: #111a2e; border-color: rgba(148,163,184,.2); box-shadow: none; }
+body:not([data-theme="light"]) .gudang-search-wrap { background: #0f172a; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) #stockResetBtn { color: #e2e8f0; background: #18233a; border-color: rgba(148,163,184,.3); }
+body:not([data-theme="light"]) #stockTable tbody td:first-child { color: #94a3b8; }
+body:not([data-theme="light"]) [style*="rgba(248,250,252"], body:not([data-theme="light"]) [style*="rgba(248, 250, 252"] { background: #111a2e !important; }
+</style>
 
 <div class="gudang-shell">
     <div style="margin-bottom: 0.85rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">

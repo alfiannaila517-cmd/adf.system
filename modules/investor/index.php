@@ -1955,6 +1955,66 @@ include $base_path . '/includes/header.php';
     }
 }
 </style>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) [style*="background: white;"] {
+    background: #111a2e !important;
+}
+body:not([data-theme="light"]) [style*="background: #f3f4f6"] {
+    background: #18233a !important;
+}
+body:not([data-theme="light"]) [style*="background: #d1fae5"] {
+    background: rgba(34,197,94,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background: #fee2e2"], body:not([data-theme="light"]) [style*="background: #fecaca"] {
+    background: rgba(239,68,68,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background: #fef3c7"] {
+    background: rgba(245,158,11,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background: #dbeafe"], body:not([data-theme="light"]) [style*="background: #e0e7ff"] {
+    background: rgba(59,130,246,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background: #e9d5ff"] {
+    background: rgba(139,92,246,.15) !important;
+}
+body:not([data-theme="light"]) [style*="color: #333"], body:not([data-theme="light"]) [style*="color: #374151"] {
+    color: #e2e8f0 !important;
+}
+body:not([data-theme="light"]) [style*="color: #6b7280"] {
+    color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) [style*="color: #1e40af"] {
+    color: #93c5fd !important;
+}
+body:not([data-theme="light"]) [style*="color: #065f46"] {
+    color: #86efac !important;
+}
+body:not([data-theme="light"]) [style*="color: #991b1b"] {
+    color: #fca5a5 !important;
+}
+body:not([data-theme="light"]) [style*="color: #92400e"] {
+    color: #fcd34d !important;
+}
+body:not([data-theme="light"]) [style*="color: #6b21a8"], body:not([data-theme="light"]) [style*="color: #4338ca"] {
+    color: #c4b5fd !important;
+}
+body:not([data-theme="light"]) .category-land { background: rgba(59,130,246,.15); color: #93c5fd; }
+body:not([data-theme="light"]) .category-property { background: rgba(99,102,241,.18); color: #a5b4fc; }
+body:not([data-theme="light"]) .category-utility, body:not([data-theme="light"]) .status-warning { background: rgba(245,158,11,.15); color: #fcd34d; }
+body:not([data-theme="light"]) .category-tax, body:not([data-theme="light"]) .status-danger { background: rgba(239,68,68,.15); color: #fca5a5; }
+body:not([data-theme="light"]) .category-service, body:not([data-theme="light"]) .status-success { background: rgba(34,197,94,.15); color: #86efac; }
+body:not([data-theme="light"]) .category-legal { background: rgba(139,92,246,.18); color: #d8b4fe; }
+body:not([data-theme="light"]) .category-other, body:not([data-theme="light"]) .status-secondary { background: rgba(148,163,184,.15); color: #cbd5e1; }
+body:not([data-theme="light"]) .btn-icon { background: #18233a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .btn-icon.btn-success { background: rgba(34,197,94,.15); border-color: #22c55e; color: #86efac; }
+body:not([data-theme="light"]) .btn-icon.btn-edit { background: rgba(245,158,11,.15); border-color: #f59e0b; }
+body:not([data-theme="light"]) .btn-icon.btn-delete { background: rgba(239,68,68,.15); border-color: #ef4444; }
+body:not([data-theme="light"]) .btn-icon.btn-success:hover, body:not([data-theme="light"]) .btn-icon.btn-edit:hover, body:not([data-theme="light"]) .btn-icon.btn-delete:hover { color: #fff; }
+body:not([data-theme="light"]) .btn-icon.btn-success:hover { background: #10b981; }
+body:not([data-theme="light"]) .btn-icon.btn-edit:hover { background: #f59e0b; }
+body:not([data-theme="light"]) .btn-icon.btn-delete:hover { background: #ef4444; }
+</style>
 
 <div class="investor-page">
     <!-- Header -->

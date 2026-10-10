@@ -227,6 +227,37 @@ include '../../includes/header.php';
     .btn-save:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(240,180,41,0.3); }
     .btn-draft { background: #f1f5f9; color: #475569; padding: 12px 25px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .inv-head h1 { color: #f1f5f9; }
+body:not([data-theme="light"]) .inv-head { border-bottom-color: rgba(148,163,184,.3); }
+body:not([data-theme="light"]) .btn-back,
+body:not([data-theme="light"]) .btn-draft { background: #18233a; color: #cbd5e1; }
+body:not([data-theme="light"]) .btn-back:hover { background: #22304d; }
+body:not([data-theme="light"]) .card { background: #111a2e; border: 1px solid rgba(148,163,184,.2); box-shadow: 0 2px 15px rgba(0,0,0,.35); }
+body:not([data-theme="light"]) .form-group label { color: #94a3b8; }
+body:not([data-theme="light"]) .form-group input,
+body:not([data-theme="light"]) .form-group textarea,
+body:not([data-theme="light"]) .form-group select,
+body:not([data-theme="light"]) .items-table input,
+body:not([data-theme="light"]) .summary-row input { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .form-group input::placeholder,
+body:not([data-theme="light"]) .form-group textarea::placeholder,
+body:not([data-theme="light"]) .items-table input::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .form-group select option { background: #0f172a; color: #e2e8f0; }
+body:not([data-theme="light"]) .alert-error { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.35); }
+body:not([data-theme="light"]) .items-table th { background: #1a3a5c; color: #f1f5f9; }
+body:not([data-theme="light"]) .items-table td { border-bottom-color: rgba(148,163,184,.15); color: #e2e8f0; }
+body:not([data-theme="light"]) .items-table .col-amount { color: #f1f5f9; }
+body:not([data-theme="light"]) .btn-remove { background: rgba(239,68,68,.15); color: #fca5a5; }
+body:not([data-theme="light"]) .btn-add-row,
+body:not([data-theme="light"]) .btn-save { color: #0d1f3c; }
+body:not([data-theme="light"]) .summary-box { background: #18233a; }
+body:not([data-theme="light"]) .summary-row { border-bottom-color: rgba(148,163,184,.2); color: #e2e8f0; }
+body:not([data-theme="light"]) .summary-row.total { background: #1a3a5c; color: #fff; }
+body:not([data-theme="light"]) .form-actions { border-top-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) [style*="background: #e0f7fa"] { background: rgba(56,189,248,.12) !important; border-left-color: #38bdf8 !important; color: #e2e8f0; }
+</style>
 
 <div class="inv-wrap">
     <div class="inv-head">

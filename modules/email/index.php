@@ -297,6 +297,28 @@ if ($__isSunseaVariant) {
         font-size: 0.85rem;
     }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .em-sidebar { border-right-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .em-sidebar a,
+body:not([data-theme="light"]) .em-sidebar a span { color: #94a3b8 !important; }
+body:not([data-theme="light"]) .em-sidebar a.active,
+body:not([data-theme="light"]) .em-sidebar a.active span { color: #f1f5f9 !important; }
+body:not([data-theme="light"]) .em-sidebar a:hover { border-left-color: #64748b !important; }
+@media (max-width: 720px) { body:not([data-theme="light"]) .em-sidebar { border-bottom-color: rgba(148,163,184,.2); } }
+body:not([data-theme="light"]) .em-card { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .em-row { border-bottom-color: rgba(148,163,184,.12); }
+body:not([data-theme="light"]) .em-row:hover { background: #18233a; }
+body:not([data-theme="light"]) .em-row.unread { background: rgba(79,70,229,.15); }
+body:not([data-theme="light"]) .em-date { color: #94a3b8; }
+body:not([data-theme="light"]) .em-error { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35); color: #fca5a5; }
+body:not([data-theme="light"]) .em-pager a { border-color: rgba(148,163,184,.25); color: #cbd5e1; }
+body:not([data-theme="light"]) .em-wrap a[style*="color:#1e3a8a;font-size"] { color: #93c5fd !important; }
+body:not([data-theme="light"]) .em-wrap [style*="color:#64748b"] { color: #94a3b8 !important; }
+body:not([data-theme="light"]) .em-wrap a[style*="border:1px solid #dbe4ee"] { border-color: rgba(148,163,184,.25) !important; color: #cbd5e1 !important; }
+body:not([data-theme="light"]) .em-wrap [style*="background:#f0fdf4"] { background: rgba(34,197,94,.15) !important; border-color: rgba(34,197,94,.35) !important; color: #86efac !important; }
+body:not([data-theme="light"]) .em-wrap button[style*="color:#b91c1c"] { color: #fca5a5 !important; }
+</style>
 
 <div class="em-wrap">
     <a href="<?php echo BASE_URL; ?>/index.php" style="display:inline-block;margin-bottom:12px;text-decoration:none;color:#1e3a8a;font-size:0.9rem;">&larr; Kembali ke Dashboard</a>

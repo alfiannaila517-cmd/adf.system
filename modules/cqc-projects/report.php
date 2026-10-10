@@ -220,6 +220,45 @@ include '../../includes/header.php';
     .rpt-sec { break-inside: avoid; }
 }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .rpt-hero { background: linear-gradient(135deg, rgba(240,180,41,.14) 0%, #111a2e 100%); }
+body:not([data-theme="light"]) .rpt-hero h2,
+body:not([data-theme="light"]) .rpt-profit-val,
+body:not([data-theme="light"]) .rpt-sec-ttl { color: #f1f5f9; }
+body:not([data-theme="light"]) .rpt-profit-val.green { color: #4ade80; }
+body:not([data-theme="light"]) .rpt-profit-val.red { color: #f87171; }
+body:not([data-theme="light"]) .rpt-profit-val.gold { color: #f0b429; }
+body:not([data-theme="light"]) .rpt-pill-gold { color: #0d1f3c; }
+body:not([data-theme="light"]) .rpt-hero-tag { color: #f0b429; }
+body:not([data-theme="light"]) .rpt-hero-sub,
+body:not([data-theme="light"]) .rpt-card-lbl { color: #94a3b8; }
+body:not([data-theme="light"]) .rpt-card-note,
+body:not([data-theme="light"]) .rpt-sec-sub,
+body:not([data-theme="light"]) .rpt-empty { color: #94a3b8; }
+body:not([data-theme="light"]) .rpt-pill { background: #18233a; border-color: rgba(148,163,184,.25); color: #cbd5e1; }
+body:not([data-theme="light"]) .rpt-pill-gold { background: #f0b429; border-color: #f0b429; color: #0d1f3c; }
+body:not([data-theme="light"]) .rpt-card { background: linear-gradient(180deg, rgba(240,180,41,.12) 0%, #111a2e 40%); border-color: rgba(148,163,184,.2); border-top-color: #f0b429; }
+body:not([data-theme="light"]) .rpt-card.highlight { background: linear-gradient(180deg, rgba(34,197,94,.18) 0%, #111a2e 40%); border-color: #059669; }
+body:not([data-theme="light"]) .rpt-profit { background: linear-gradient(135deg, rgba(240,180,41,.14) 0%, #111a2e 100%); }
+body:not([data-theme="light"]) .rpt-profit-lbl { color: #fcd34d; }
+body:not([data-theme="light"]) .rpt-sec { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .rpt-sec-hdr { background: linear-gradient(90deg, rgba(240,180,41,.12), #111a2e); border-bottom-color: rgba(148,163,184,.15); }
+body:not([data-theme="light"]) .rpt-tbl th { background: #18233a; border-bottom-color: rgba(148,163,184,.2); color: #94a3b8; }
+body:not([data-theme="light"]) .rpt-tbl td { border-bottom-color: rgba(148,163,184,.12); color: #e2e8f0; }
+body:not([data-theme="light"]) .rpt-tbl tr:hover { background: #18233a; }
+body:not([data-theme="light"]) .rpt-tbl .tot td { background: linear-gradient(90deg, rgba(240,180,41,.12), #111a2e); }
+body:not([data-theme="light"]) .st-paid { background: rgba(34,197,94,.15); color: #86efac; }
+body:not([data-theme="light"]) .st-partial { background: rgba(245,158,11,.15); color: #fcd34d; }
+body:not([data-theme="light"]) .st-pending { background: rgba(148,163,184,.15); color: #cbd5e1; }
+body:not([data-theme="light"]) .st-overdue { background: rgba(239,68,68,.15); color: #fca5a5; }
+body:not([data-theme="light"]) .cat-bar { background: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .rpt-btn-out { background: #18233a; color: #cbd5e1; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .rpt-btn-out:hover { background: #22304d; }
+body:not([data-theme="light"]) .rpt-btn-gold { color: #0d1f3c; }
+body:not([data-theme="light"]) .rpt-btn-green, body:not([data-theme="light"]) .confetti, body:not([data-theme="light"]) .rpt-badge { color: #fff; }
+body:not([data-theme="light"]) .rpt-card-val[style*="var(--navy)"] { color: #f1f5f9 !important; }
+</style>
 
 <div class="rpt">
 

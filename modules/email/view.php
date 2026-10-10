@@ -129,6 +129,20 @@ if ($__isSunseaVariant) {
         border: none;
     }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .em-card { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .em-meta { border-bottom-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .em-meta h2 { color: #f1f5f9; }
+body:not([data-theme="light"]) .em-meta div { color: #94a3b8; }
+body:not([data-theme="light"]) .em-back { color: #93c5fd; }
+body:not([data-theme="light"]) .em-error { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35); color: #fca5a5; }
+/* HTML emails are authored for a white canvas; keep the frame white so their content stays readable */
+body:not([data-theme="light"]) .em-body-frame { background: #fff; border-radius: 8px; }
+body:not([data-theme="light"]) .em-card pre[style*="color: #1e293b"] { color: #e2e8f0 !important; }
+body:not([data-theme="light"]) .em-card div[style*="border-top:1px solid #eef2f7"] { border-top-color: rgba(148,163,184,.2) !important; }
+body:not([data-theme="light"]) .em-card button[style*="background:#fef2f2"] { background: rgba(239,68,68,.15) !important; border-color: rgba(239,68,68,.35) !important; color: #fca5a5 !important; }
+</style>
 
 <div class="em-wrap">
     <a class="em-back" href="<?php echo BASE_URL; ?>/modules/email/index.php?folder=<?php echo urlencode($folder); ?>">&larr; Kembali ke <?php echo htmlspecialchars(EmailHelper::FOLDERS[$folder]); ?></a>

@@ -57,6 +57,30 @@ $users = $db->fetchAll("SELECT id, full_name FROM users ORDER BY full_name");
 
 include '../../includes/header.php';
 ?>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) [style*="background: white;"] {
+    background: #111a2e !important;
+}
+body:not([data-theme="light"]) [style*="background: #f9fafb"] {
+    background: #18233a !important;
+}
+body:not([data-theme="light"]) [style*="background: #fef3c7"] {
+    background: rgba(245,158,11,.15) !important;
+}
+body:not([data-theme="light"]) [style*="solid #fde68a"] {
+    border-color: rgba(148,163,184,.3) !important;
+}
+body:not([data-theme="light"]) [style*="color: #1f2937"] {
+    color: #e2e8f0 !important;
+}
+body:not([data-theme="light"]) [style*="color: #6b7280"] {
+    color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) [style*="color: #92400e"], body:not([data-theme="light"]) [style*="color: #78350f"] {
+    color: #fcd34d !important;
+}
+</style>
 
 <div style="margin-bottom: 1.25rem;">
     <div style="display: flex; justify-content: space-between; align-items: center;">

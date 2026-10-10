@@ -1341,6 +1341,96 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
             width: 100%;
         }
     }
+
+    /* ===== Dark theme overrides ===== */
+    @media screen {
+        body:not([data-theme="light"]) .inv-stat,
+        body:not([data-theme="light"]) .inv-table-wrap,
+        body:not([data-theme="light"]) .cf-card,
+        body:not([data-theme="light"]) .modal-box,
+        body:not([data-theme="light"]) .inv-preview { background: #111a2e; border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .inv-stat.s1 .val { color: #38bdf8; }
+        body:not([data-theme="light"]) .inv-stat.s2 .val { color: #fca5a5; }
+        body:not([data-theme="light"]) .inv-stat.s3 .val { color: #6ee7b7; }
+        body:not([data-theme="light"]) .inv-stat.s4 .val { color: #93c5fd; }
+        body:not([data-theme="light"]) .inv-filters { background: #0f172a; }
+        body:not([data-theme="light"]) .inv-filters a { color: #94a3b8; }
+        body:not([data-theme="light"]) .inv-filters a.active { background: #18233a; color: #7dd3fc; }
+        body:not([data-theme="light"]) .inv-filters a:hover:not(.active) { color: #e2e8f0; }
+        body:not([data-theme="light"]) .inv-table th { background: #18233a; color: #7dd3fc; border-bottom-color: rgba(148, 163, 184, .25); }
+        body:not([data-theme="light"]) .inv-table td { border-bottom-color: rgba(148, 163, 184, .15); }
+        body:not([data-theme="light"]) .inv-table tr:hover { background: rgba(56, 189, 248, .07); }
+        body:not([data-theme="light"]) .inv-num { color: #7dd3fc; }
+        body:not([data-theme="light"]) .b-unpaid { background: rgba(239, 68, 68, .15); color: #fca5a5; border-color: rgba(239, 68, 68, .35); }
+        body:not([data-theme="light"]) .b-paid { background: rgba(34, 197, 94, .15); color: #86efac; border-color: rgba(34, 197, 94, .35); }
+        body:not([data-theme="light"]) .b-cancelled { background: rgba(148, 163, 184, .15); color: #94a3b8; border-color: rgba(148, 163, 184, .25); }
+        body:not([data-theme="light"]) .btn-ghost { background: #18233a; color: #cbd5e1; border-color: rgba(148, 163, 184, .25); }
+        body:not([data-theme="light"]) .btn-ghost:hover { background: #1f2d4a; color: #e2e8f0; border-color: rgba(148, 163, 184, .4); }
+        body:not([data-theme="light"]) .cf-title,
+        body:not([data-theme="light"]) .modal-title,
+        body:not([data-theme="light"]) .item-header,
+        body:not([data-theme="light"]) .inv-title-label,
+        body:not([data-theme="light"]) .inv-title-number,
+        body:not([data-theme="light"]) .inv-bank-label,
+        body:not([data-theme="light"]) .inv-qr-label,
+        body:not([data-theme="light"]) .inv-bank-num,
+        body:not([data-theme="light"]) .inv-footer-bar .thanks { color: #7dd3fc; }
+        body:not([data-theme="light"]) .cf-title { border-bottom-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .item-header { border-bottom-color: rgba(125, 211, 252, .35); }
+        body:not([data-theme="light"]) .cf-label,
+        body:not([data-theme="light"]) .totals-row,
+        body:not([data-theme="light"]) .inv-total-row,
+        body:not([data-theme="light"]) .pay-card .pay-label,
+        body:not([data-theme="light"]) .inv-bank-holder { color: #cbd5e1; }
+        body:not([data-theme="light"]) .cf-input,
+        body:not([data-theme="light"]) .cf-card input,
+        body:not([data-theme="light"]) .cf-card select,
+        body:not([data-theme="light"]) .cf-card textarea,
+        body:not([data-theme="light"]) .modal-box input,
+        body:not([data-theme="light"]) .modal-box select,
+        body:not([data-theme="light"]) .modal-box textarea { background: #0f172a; color: #e2e8f0; border-color: rgba(148, 163, 184, .25); }
+        body:not([data-theme="light"]) .cf-input:focus { background: #0b1220; border-color: #38bdf8; }
+        body:not([data-theme="light"]) .cf-input::placeholder,
+        body:not([data-theme="light"]) .cf-card input::placeholder,
+        body:not([data-theme="light"]) .modal-box input::placeholder,
+        body:not([data-theme="light"]) .modal-box textarea::placeholder { color: #94a3b8; }
+        body:not([data-theme="light"]) .cf-input option,
+        body:not([data-theme="light"]) .cf-card select option,
+        body:not([data-theme="light"]) .modal-box select option { background: #0f172a; color: #e2e8f0; }
+        body:not([data-theme="light"]) .item-row,
+        body:not([data-theme="light"]) .pay-card { background: #18233a; border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .item-row:hover { background: #1c2a45; }
+        body:not([data-theme="light"]) .pay-card.selected { background: rgba(56, 189, 248, .15); border-color: #38bdf8; }
+        body:not([data-theme="light"]) .remove-item { background: transparent; color: #fca5a5; border-color: rgba(239, 68, 68, .45); }
+        body:not([data-theme="light"]) .remove-item:hover { background: #dc2626; color: #fff; }
+        body:not([data-theme="light"]) .totals-box { background: rgba(56, 189, 248, .1); border-color: rgba(56, 189, 248, .35); }
+        body:not([data-theme="light"]) .totals-row.grand,
+        body:not([data-theme="light"]) .inv-total-row.grand,
+        body:not([data-theme="light"]) .inv-bank-bankname { color: #e2e8f0; }
+        /* invoice preview on dark surface */
+        body:not([data-theme="light"]) .inv-title-bar { border-bottom-color: rgba(125, 211, 252, .35); }
+        body:not([data-theme="light"]) .inv-meta-grid { border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .inv-meta-val { color: #e2e8f0; }
+        body:not([data-theme="light"]) .inv-items-tbl tbody td { border-bottom-color: rgba(148, 163, 184, .15); }
+        body:not([data-theme="light"]) .inv-items-tbl tbody tr:nth-child(even) { background: rgba(148, 163, 184, .07); }
+        body:not([data-theme="light"]) .inv-footer-bar { background: #18233a; border-top-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .inv-status-line.paid { color: #6ee7b7; }
+        body:not([data-theme="light"]) .inv-status-line.unpaid { color: #fca5a5; }
+        /* inline-styled elements */
+        body:not([data-theme="light"]) [style*="background:linear-gradient(135deg,#f0fdf4"] { background: rgba(34, 197, 94, .12) !important; border-color: rgba(34, 197, 94, .35) !important; color: #86efac !important; }
+        body:not([data-theme="light"]) [style*="background:linear-gradient(135deg,#fef2f2"] { background: rgba(239, 68, 68, .12) !important; border-color: rgba(239, 68, 68, .35) !important; color: #fca5a5 !important; }
+        body:not([data-theme="light"]) [style*="background:linear-gradient(135deg,var(--cafe-cream)"],
+        body:not([data-theme="light"]) [style*="background:var(--cafe-cream)"],
+        body:not([data-theme="light"]) [style*="background:#fafafa"] { background: #18233a !important; border-color: rgba(148, 163, 184, .25) !important; }
+        body:not([data-theme="light"]) [style*="background:var(--cafe-light)"] { background: rgba(56, 189, 248, .18) !important; }
+        body:not([data-theme="light"]) [style*="border:1px solid #f3f4f6"],
+        body:not([data-theme="light"]) [style*="border-bottom:1px solid #f3f4f6"] { border-color: rgba(148, 163, 184, .2) !important; }
+        body:not([data-theme="light"]) [style*="color:var(--cafe-dark)"],
+        body:not([data-theme="light"]) [style*="color:var(--cafe)"] { color: #7dd3fc !important; }
+        body:not([data-theme="light"]) [style*="color:#1f2937"] { color: #e2e8f0 !important; }
+        body:not([data-theme="light"]) [style*="color:#dc2626"] { color: #fca5a5 !important; }
+        body:not([data-theme="light"]) [style*="color:#059669"] { color: #6ee7b7 !important; }
+    }
 </style>
 
 <?php if ($successMsg): ?>

@@ -164,6 +164,14 @@ include '../../includes/header.php';
 .add-form-card label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem; display: block; }
 .add-form-card input, .add-form-card select { height: 38px; font-size: 0.85rem; }
 </style>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) [style*="background: #fee2e2"] {
+    background: rgba(239,68,68,.15) !important;
+}
+body:not([data-theme="light"]) .account-actions button.delete:hover { background: rgba(239,68,68,.15); }
+body:not([data-theme="light"]) .inactive-tag { background: rgba(239,68,68,.15); color: #fca5a5; }
+</style>
 
 <div class="accounts-container">
     <!-- Header -->

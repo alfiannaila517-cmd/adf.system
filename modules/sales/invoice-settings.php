@@ -145,6 +145,28 @@ include '../../includes/header.php';
     .btn-save { background: linear-gradient(135deg, var(--gold), #d4960d); color: var(--navy); padding: 10px 24px; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .btn-save:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(240,180,41,0.3); }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .set-head { border-bottom-color: rgba(148,163,184,.3); }
+body:not([data-theme="light"]) .set-head h1 { color: #f1f5f9; }
+body:not([data-theme="light"]) .set-head p { color: #94a3b8; }
+body:not([data-theme="light"]) .btn-back { background: #18233a; color: #cbd5e1; }
+body:not([data-theme="light"]) .btn-back:hover { background: #22304d; }
+body:not([data-theme="light"]) .card { background: #111a2e; border: 1px solid rgba(148,163,184,.2); box-shadow: 0 2px 12px rgba(0,0,0,.35); }
+body:not([data-theme="light"]) .form-group label { color: #94a3b8; }
+body:not([data-theme="light"]) .form-group input,
+body:not([data-theme="light"]) .form-group textarea { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .form-group input::placeholder,
+body:not([data-theme="light"]) .form-group textarea::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .logo-preview,
+body:not([data-theme="light"]) .upload-box { background: #0f172a; border-color: rgba(148,163,184,.3); }
+body:not([data-theme="light"]) .logo-preview .no-logo,
+body:not([data-theme="light"]) .upload-box .text { color: #94a3b8; }
+body:not([data-theme="light"]) .alert-success { background: rgba(34,197,94,.15); color: #86efac; border-color: rgba(34,197,94,.35); }
+body:not([data-theme="light"]) .alert-error { background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.35); }
+body:not([data-theme="light"]) .form-actions { border-top-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .btn-save { color: #0d1f3c; }
+</style>
 
 <div class="set-wrap">
     <div class="set-head">

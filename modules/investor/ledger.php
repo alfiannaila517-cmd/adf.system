@@ -412,6 +412,59 @@ include $base_path . '/includes/header.php';
     .fg { min-width: 100% !important; }
 }
 </style>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) [style*="background:#fff;"], body:not([data-theme="light"]) [style*="background: #fff;"] {
+    background: #111a2e !important;
+}
+body:not([data-theme="light"]) [style*="background:#f8fafc"], body:not([data-theme="light"]) [style*="background:#f1f5f9"] {
+    background: #18233a !important;
+}
+body:not([data-theme="light"]) [style*="135deg,#f0fdf4"], body:not([data-theme="light"]) [style*="background: #d1fae5"] {
+    background: rgba(34,197,94,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background: #fee2e2"] {
+    background: rgba(239,68,68,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background: #fef3c7"] {
+    background: rgba(245,158,11,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background: #dbeafe"], body:not([data-theme="light"]) [style*="background: #e0e7ff"] {
+    background: rgba(59,130,246,.15) !important;
+}
+body:not([data-theme="light"]) [style*="solid #e2e8f0"], body:not([data-theme="light"]) [style*="solid #ddd"] {
+    border-color: rgba(148,163,184,.2) !important;
+}
+body:not([data-theme="light"]) [style*="solid #86efac"] {
+    border-color: rgba(148,163,184,.3) !important;
+}
+body:not([data-theme="light"]) [style*="color:#64748b"] {
+    color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) [style*="color: #1e40af"] {
+    color: #93c5fd !important;
+}
+body:not([data-theme="light"]) [style*="color: #065f46"] {
+    color: #86efac !important;
+}
+body:not([data-theme="light"]) [style*="color: #991b1b"] {
+    color: #fca5a5 !important;
+}
+body:not([data-theme="light"]) [style*="color: #92400e"] {
+    color: #fcd34d !important;
+}
+body:not([data-theme="light"]) [style*="color:#4338ca"], body:not([data-theme="light"]) [style*="color: #3730a3"] {
+    color: #c4b5fd !important;
+}
+body:not([data-theme="light"]) .nav-tab.active { background: #18233a; color: #a5b4fc; box-shadow: none; }
+body:not([data-theme="light"]) .fg .total-display { background: rgba(34,197,94,.15) !important; color: #86efac !important; border-color: rgba(34,197,94,.4) !important; }
+body:not([data-theme="light"]) .badge-draft, body:not([data-theme="light"]) .badge-pending { background: rgba(245,158,11,.15); color: #fcd34d; }
+body:not([data-theme="light"]) .badge-submitted { background: rgba(59,130,246,.15); color: #93c5fd; }
+body:not([data-theme="light"]) .badge-approved, body:not([data-theme="light"]) .badge-active { background: rgba(34,197,94,.15); color: #86efac; }
+body:not([data-theme="light"]) .badge-paid { background: rgba(99,102,241,.18); color: #a5b4fc; }
+body:not([data-theme="light"]) .badge-inactive { background: rgba(239,68,68,.15); color: #fca5a5; }
+body:not([data-theme="light"]) .tbl .money, body:not([data-theme="light"]) .lap-card .lap-total { color: #fbbf24; }
+</style>
 
 <div class="lp">
     <!-- TOP BAR -->

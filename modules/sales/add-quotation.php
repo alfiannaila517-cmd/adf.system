@@ -211,6 +211,12 @@ include '../../includes/header.php';
     }
     .btn-submit:hover { opacity: 0.9; }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) input[readonly][style*="background: #f1f5f9"] { background: #18233a !important; color: #e2e8f0; }
+body:not([data-theme="light"]) [style*="background: #fee2e2"] { background: rgba(239,68,68,.15) !important; border-color: rgba(239,68,68,.35) !important; color: #fca5a5 !important; }
+body:not([data-theme="light"]) [style*="color: #64748b"] { color: #94a3b8 !important; }
+</style>
 
 <div class="quote-container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">

@@ -119,6 +119,21 @@ include '../../includes/header.php';
         cursor: not-allowed;
     }
 </style>
+<style>
+/* dark-theme-overrides */
+/* --card-bg / --border-color are not defined globally; give the cards explicit dark surfaces */
+body:not([data-theme="light"]) .audit-card { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .audit-stat { border-bottom-color: rgba(148,163,184,.15); }
+body:not([data-theme="light"]) .reset-form { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.35); }
+body:not([data-theme="light"]) .reset-input { background: #0f172a; color: #e2e8f0; border-color: rgba(239,68,68,.5); }
+body:not([data-theme="light"]) .reset-input::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .btn-reset:disabled { background: #475569; color: #cbd5e1; }
+body:not([data-theme="light"]) [style*="background: #f0fdf4"] { background: rgba(34,197,94,.15) !important; border-color: rgba(34,197,94,.35) !important; color: #86efac !important; }
+body:not([data-theme="light"]) [style*="background: #fef2f2"] { background: rgba(239,68,68,.15) !important; border-color: rgba(239,68,68,.35) !important; color: #fca5a5 !important; }
+body:not([data-theme="light"]) .reset-form [style*="color: #7f1d1d"] { color: #fca5a5 !important; }
+body:not([data-theme="light"]) .reset-form [style*="color: #991b1b"] { color: #fca5a5 !important; }
+body:not([data-theme="light"]) .reset-form h3[style*="color: #dc2626"] { color: #f87171 !important; }
+</style>
 
 <!-- Back button -->
 <div style="margin-bottom: 1rem;">

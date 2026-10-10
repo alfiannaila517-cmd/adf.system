@@ -438,6 +438,50 @@ include __DIR__ . '/../../includes/header.php';
     .kas-muted { color:#94a3b8; }
     @media (max-width: 1000px) { .kas-kpis { grid-template-columns:repeat(2, 1fr); } }
 </style>
+<style>
+/* dark-theme-overrides */
+/* --card-bg / --border are not defined globally, so the fallbacks above stayed light in dark mode */
+body:not([data-theme="light"]) .fin-card,
+body:not([data-theme="light"]) .fin-stat { background: #111a2e; border-color: rgba(148,163,184,.2); box-shadow: none; }
+body:not([data-theme="light"]) .fin-stat { border-left-color: var(--fin-accent, #94a3b8); }
+body:not([data-theme="light"]) .fin-stat-label,
+body:not([data-theme="light"]) .fin-stat-sub,
+body:not([data-theme="light"]) .fin-table th,
+body:not([data-theme="light"]) .fin-empty,
+body:not([data-theme="light"]) .fin-section-sub { color: #94a3b8; }
+body:not([data-theme="light"]) .fin-stat-value,
+body:not([data-theme="light"]) .fin-section-title { color: #f1f5f9; }
+body:not([data-theme="light"]) .fin-badge { background: #18233a; color: #cbd5e1; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .fin-badge-highlight { background: rgba(249,115,22,.15); color: #fdba74; border-color: rgba(249,115,22,.35); }
+body:not([data-theme="light"]) .fin-table th { border-bottom-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .fin-table td { border-bottom-color: rgba(148,163,184,.12); }
+body:not([data-theme="light"]) .fin-table tbody tr:hover td { background: #18233a; }
+body:not([data-theme="light"]) .fin-table tfoot td { background: #18233a; color: #e2e8f0; }
+body:not([data-theme="light"]) .kas-kpi { background: #111a2e; border-color: rgba(148,163,184,.2); border-top-color: var(--k, #2563eb); }
+body:not([data-theme="light"]) .kas-kpi small,
+body:not([data-theme="light"]) .kas-kpi span { color: #94a3b8; }
+body:not([data-theme="light"]) .kas-kpi b { color: #f1f5f9; }
+body:not([data-theme="light"]) .kas-kpi b[style*="#0f172a"] { color: #f1f5f9 !important; }
+body:not([data-theme="light"]) .kas-kpi b[style*="#be123c"] { color: #fda4af !important; }
+body:not([data-theme="light"]) .kas-filter button { background: #18233a; border-color: rgba(148,163,184,.25); color: #cbd5e1; }
+body:not([data-theme="light"]) .kas-filter button.on { background: #1e40af; border-color: #1e40af; color: #fff; }
+body:not([data-theme="light"]) .kas-num-in { color: #6ee7b7; }
+body:not([data-theme="light"]) .kas-num-out { color: #fda4af; }
+body:not([data-theme="light"]) .kas-muted { color: #94a3b8; }
+body:not([data-theme="light"]) #kasTable thead[style*="background:#fff"] { background: #111a2e !important; }
+body:not([data-theme="light"]) .fin-table td[style*="color:#475569"],
+body:not([data-theme="light"]) .fin-table td[style*="color:#64748b"] { color: #94a3b8 !important; }
+body:not([data-theme="light"]) .fin-table td[style*="color:#6d28d9"] { color: #c4b5fd !important; }
+body:not([data-theme="light"]) .fin-table td[style*="color:#be123c"],
+body:not([data-theme="light"]) .fin-table td[style*="color:#e11d48"] { color: #fda4af !important; }
+body:not([data-theme="light"]) .fin-table td[style*="color:#d97706"] { color: #fbbf24 !important; }
+body:not([data-theme="light"]) .kas-badge[style*="#d1fae5"] { background: rgba(16,185,129,.18) !important; color: #6ee7b7 !important; }
+body:not([data-theme="light"]) .kas-badge[style*="#ede9fe"] { background: rgba(139,92,246,.2) !important; color: #c4b5fd !important; }
+body:not([data-theme="light"]) .kas-badge[style*="#fef3c7"] { background: rgba(245,158,11,.18) !important; color: #fcd34d !important; }
+body:not([data-theme="light"]) .kas-badge[style*="#ccfbf1"] { background: rgba(20,184,166,.18) !important; color: #5eead4 !important; }
+body:not([data-theme="light"]) .kas-badge[style*="#e0f2fe"] { background: rgba(14,165,233,.18) !important; color: #7dd3fc !important; }
+body:not([data-theme="light"]) .kas-badge[style*="#ffe4e6"] { background: rgba(244,63,94,.18) !important; color: #fda4af !important; }
+</style>
 
 <div class="kas-head">
     <div>

@@ -155,6 +155,37 @@ include '../../includes/header.php';
     .sb-kv dt { color: var(--text-muted, #94a3b8); }
     .sb-kv dd { margin: 0; }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .sb-b-ok,
+body:not([data-theme="light"]) .sb-b-paid { background: rgba(34,197,94,.18); color: #86efac; }
+body:not([data-theme="light"]) .sb-b-lock,
+body:not([data-theme="light"]) .sb-b-overdue { background: rgba(239,68,68,.18); color: #fca5a5; }
+body:not([data-theme="light"]) .sb-b-unpaid { background: rgba(245,158,11,.18); color: #fcd34d; }
+body:not([data-theme="light"]) .sb-b-cancelled { background: rgba(148,163,184,.18); color: #cbd5e1; }
+body:not([data-theme="light"]) .sb-due { border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.1); }
+body:not([data-theme="light"]) .sb-due.late { border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.1); }
+body:not([data-theme="light"]) .sb-due-info small { color: #fcd34d; }
+body:not([data-theme="light"]) .sb-due.late .sb-due-info small { color: #fca5a5; }
+body:not([data-theme="light"]) .sb-due-info b { color: #f1f5f9; }
+body:not([data-theme="light"]) .sb-due-info span { color: #94a3b8; }
+body:not([data-theme="light"]) .sb-btn { border-color: rgba(148,163,184,.3); background: #18233a; color: #e2e8f0; }
+body:not([data-theme="light"]) .sb-btn-pay { background: #16a34a; border-color: #16a34a; color: #fff !important; }
+body:not([data-theme="light"]) .sb-btn-wa { background: #25d366; border-color: #25d366; color: #fff !important; }
+body:not([data-theme="light"]) .sb-card { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .sb-tabs { background: #18233a; }
+body:not([data-theme="light"]) .sb-tabs a { color: #94a3b8; }
+body:not([data-theme="light"]) .sb-tabs a.on { background: #111a2e; color: #f1f5f9; }
+body:not([data-theme="light"]) .sb-table th,
+body:not([data-theme="light"]) .sb-table td { border-bottom-color: rgba(148,163,184,.15); }
+body:not([data-theme="light"]) .sb-flash-success { background: rgba(34,197,94,.15); color: #86efac; }
+body:not([data-theme="light"]) .sb-flash-error { background: rgba(239,68,68,.15); color: #fca5a5; }
+body:not([data-theme="light"]) .sb-flash-info { background: rgba(59,130,246,.15); color: #93c5fd; }
+body:not([data-theme="light"]) .sb-form label { color: #94a3b8; }
+body:not([data-theme="light"]) .sb-form input { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.3); }
+body:not([data-theme="light"]) .sb-form input::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .sb-plan-meta div b[style*="#b45309"] { color: #fbbf24 !important; }
+</style>
 
 <div class="sb">
     <div class="sb-head">

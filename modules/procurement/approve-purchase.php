@@ -311,6 +311,54 @@ include '../../includes/header.php';
     color: white !important;
 }
 </style>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) [style*="background: white;"] {
+    background: #111a2e !important;
+}
+body:not([data-theme="light"]) [style*="background: #e5e7eb"] {
+    background: #18233a !important;
+}
+body:not([data-theme="light"]) [style*="135deg, #fff9e6"] {
+    background: rgba(245,158,11,.15) !important;
+}
+body:not([data-theme="light"]) [style*="solid #f3f4f6"] {
+    border-color: rgba(148,163,184,.2) !important;
+}
+body:not([data-theme="light"]) [style*="color: #1f2937"] {
+    color: #e2e8f0 !important;
+}
+body:not([data-theme="light"]) [style*="color: #6b7280"], body:not([data-theme="light"]) [style*="color: #666"] {
+    color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) [style*="color: #2e7d32"] {
+    color: #86efac !important;
+}
+body:not([data-theme="light"]) .main-content input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=color]):not([type=range]):not([type=file]):not([type=hidden]), body:not([data-theme="light"]) .main-content select, body:not([data-theme="light"]) .main-content textarea, body:not([data-theme="light"]) .modal input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=color]):not([type=range]):not([type=file]):not([type=hidden]), body:not([data-theme="light"]) .modal select, body:not([data-theme="light"]) .modal textarea {
+    background-color: #0f172a !important; color: #e2e8f0 !important; border-color: rgba(148,163,184,.25) !important;
+}
+body:not([data-theme="light"]) .main-content input::placeholder, body:not([data-theme="light"]) .main-content textarea::placeholder {
+    color: #64748b !important; opacity: 1;
+}
+body:not([data-theme="light"]) .main-content option, body:not([data-theme="light"]) .main-content optgroup {
+    background: #0f172a; color: #e2e8f0;
+}
+body:not([data-theme="light"]) .main-content input:disabled, body:not([data-theme="light"]) .main-content input[readonly], body:not([data-theme="light"]) .main-content select:disabled {
+    background-color: #18233a !important; color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) .main-content table thead th {
+    background-color: #18233a; border-color: rgba(148,163,184,.2);
+}
+body:not([data-theme="light"]) .main-content table td {
+    border-color: rgba(148,163,184,.15);
+}
+body:not([data-theme="light"]) .modal-content {
+    background: #111a2e; border-color: rgba(148,163,184,.2);
+}
+body:not([data-theme="light"]) .alert-danger {
+    background: rgba(239,68,68,.15); color: #fca5a5; border-color: rgba(239,68,68,.35);
+}
+</style>
 
 <script>
     feather.replace();

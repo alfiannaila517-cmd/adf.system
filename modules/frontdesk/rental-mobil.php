@@ -971,6 +971,52 @@ include '../../includes/header.php';
             grid-template-columns: repeat(2, 1fr)
         }
     }
+
+    /* ===== Dark theme overrides ===== */
+    @media screen {
+        body:not([data-theme="light"]) .rm-stat,
+        body:not([data-theme="light"]) .rm-car-card,
+        body:not([data-theme="light"]) .rm-pricelist-wrap,
+        body:not([data-theme="light"]) .rm-filters,
+        body:not([data-theme="light"]) .rm-table-wrap,
+        body:not([data-theme="light"]) .rm-modal { background: #111a2e; border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .rm-car-card .mc-plate { color: #e2e8f0; }
+        body:not([data-theme="light"]) .rm-car-card .mc-owner,
+        body:not([data-theme="light"]) .rm-car-card .mc-rate { color: #a5b4fc; }
+        body:not([data-theme="light"]) .rm-car-card .mc-rate-driver { color: #93c5fd; }
+        body:not([data-theme="light"]) .rm-price-tbl th,
+        body:not([data-theme="light"]) .rm-table th { background: #18233a; color: #94a3b8; border-bottom-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .rm-price-tbl td,
+        body:not([data-theme="light"]) .rm-table td { border-bottom-color: rgba(148, 163, 184, .15); }
+        body:not([data-theme="light"]) .rm-price-tbl tr:hover td,
+        body:not([data-theme="light"]) .rm-table tr:hover td { background: rgba(148, 163, 184, .08); }
+        body:not([data-theme="light"]) .rm-filters select,
+        body:not([data-theme="light"]) .rm-field input,
+        body:not([data-theme="light"]) .rm-field select,
+        body:not([data-theme="light"]) .rm-field textarea { background: #0f172a; color: #e2e8f0; border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .rm-filters select option,
+        body:not([data-theme="light"]) .rm-field select option { background: #0f172a; color: #e2e8f0; }
+        body:not([data-theme="light"]) .rm-field input::placeholder,
+        body:not([data-theme="light"]) .rm-field textarea::placeholder { color: #94a3b8; }
+        body:not([data-theme="light"]) .rm-action-btn.return-btn { background: rgba(34, 197, 94, .15); color: #86efac; border-color: rgba(34, 197, 94, .35); }
+        body:not([data-theme="light"]) .btn-rm-secondary { background: #18233a; color: #e2e8f0; border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .rm-tabs { border-bottom-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .rm-tab { color: #94a3b8; }
+        body:not([data-theme="light"]) .rm-tab.active { color: #a5b4fc; }
+        body:not([data-theme="light"]) .rm-total-preview { background: rgba(99, 102, 241, .15); color: #c7d2fe; }
+        body:not([data-theme="light"]) .owner-info-box { background: rgba(34, 197, 94, .12); border-color: rgba(34, 197, 94, .35); }
+        body:not([data-theme="light"]) .owner-info-box strong { color: #86efac; }
+        body:not([data-theme="light"]) .guest-toggle button { background: #0f172a; color: #e2e8f0; border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .guest-toggle button.active { background: rgba(99, 102, 241, .25); color: #c7d2fe; border-color: #6366f1; }
+        /* inline-styled chips/buttons */
+        body:not([data-theme="light"]) [style*="background:#e0e7ff"] { background: rgba(99, 102, 241, .2) !important; color: #c7d2fe !important; }
+        body:not([data-theme="light"]) [style*="background:#dcfce7"] { background: rgba(34, 197, 94, .15) !important; color: #86efac !important; }
+        body:not([data-theme="light"]) [style*="background:#fee2e2"] { background: rgba(239, 68, 68, .15) !important; color: #fca5a5 !important; }
+        body:not([data-theme="light"]) [style*="color:#059669"] { color: #6ee7b7 !important; }
+        body:not([data-theme="light"]) [style*="color:#4f46e5"],
+        body:not([data-theme="light"]) [style*="color:#6366f1"] { color: #a5b4fc !important; }
+        body:not([data-theme="light"]) [style*="color:#2563eb"] { color: #93c5fd !important; }
+    }
 </style>
 
 <div class="rm-page">

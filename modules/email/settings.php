@@ -160,6 +160,20 @@ if ($__isSunseaVariant) {
         font-size: 0.9rem;
     }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .es-card { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .es-field label { color: #cbd5e1; }
+body:not([data-theme="light"]) .es-field input,
+body:not([data-theme="light"]) .es-field select { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .es-field input::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .es-field select option { background: #0f172a; color: #e2e8f0; }
+body:not([data-theme="light"]) .es-hint { color: #94a3b8; }
+body:not([data-theme="light"]) .es-msg.success { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.35); color: #86efac; }
+body:not([data-theme="light"]) .es-msg.error { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35); color: #fca5a5; }
+body:not([data-theme="light"]) .es-wrap a[style*="color:#1e3a8a"] { color: #93c5fd !important; }
+body:not([data-theme="light"]) .es-wrap h2[style*="color:#1e293b"] { color: #f1f5f9 !important; }
+</style>
 
 <div class="es-wrap">
     <a href="<?php echo BASE_URL; ?>/modules/email/index.php" style="display:inline-block;margin-bottom:12px;text-decoration:none;color:#1e3a8a;font-size:0.9rem;">&larr; Kembali ke Inbox</a>

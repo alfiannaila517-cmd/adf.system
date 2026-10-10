@@ -1137,6 +1137,11 @@ function closePDFPreview() {
         page-break-inside: avoid;
     }
 </style>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) .card[style*="#f0f9ff"] { background: rgba(59,130,246,.15) !important; }
+body:not([data-theme="light"]) .card[style*="#f0f9ff"] div { color: #93c5fd !important; }
+</style>
 
 <!-- Print-Only Report Section -->
 <div id="printContent">

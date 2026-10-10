@@ -526,6 +526,36 @@ include '../../includes/header.php';
     padding: 0;
 }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .payroll-hero { background: #111a2e; border-color: rgba(148,163,184,.2); box-shadow: 0 4px 12px rgba(0,0,0,.35); }
+body:not([data-theme="light"]) .payroll-hero h1 { color: #f1f5f9; }
+body:not([data-theme="light"]) .payroll-hero p { color: #94a3b8 !important; }
+body:not([data-theme="light"]) .payroll-hero .btn-hero { color: #fff; }
+body:not([data-theme="light"]) .pr-stat-card,
+body:not([data-theme="light"]) .pr-action-card,
+body:not([data-theme="light"]) .pr-history-card { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .pr-action-card:hover { border-color: rgba(148,163,184,.35); box-shadow: 0 20px 40px rgba(0,0,0,.45); }
+body:not([data-theme="light"]) .pr-stat-label,
+body:not([data-theme="light"]) .pr-stat-sub,
+body:not([data-theme="light"]) .pr-action-content p,
+body:not([data-theme="light"]) .pr-history-table th,
+body:not([data-theme="light"]) .pr-empty-icon,
+body:not([data-theme="light"]) .pr-empty p { color: #94a3b8; }
+body:not([data-theme="light"]) .pr-history-header { border-bottom-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .pr-history-table th { background: #18233a; }
+body:not([data-theme="light"]) .pr-history-table td { border-bottom-color: rgba(148,163,184,.12); color: #e2e8f0; }
+body:not([data-theme="light"]) .pr-history-table tr:hover td { background: #18233a; }
+body:not([data-theme="light"]) .pr-empty-icon { background: #18233a; }
+body:not([data-theme="light"]) .pr-status.draft { background: rgba(148,163,184,.18); color: #cbd5e1; }
+body:not([data-theme="light"]) .pr-status.submitted { background: rgba(245,158,11,.18); color: #fcd34d; }
+body:not([data-theme="light"]) .pr-status.approved { background: rgba(56,189,248,.18); color: #7dd3fc; }
+body:not([data-theme="light"]) .pr-status.paid { background: rgba(34,197,94,.18); color: #86efac; }
+body:not([data-theme="light"]) .pr-btn-detail { background: #18233a; border-color: rgba(148,163,184,.25); color: #e2e8f0; }
+body:not([data-theme="light"]) .pr-btn-detail:hover { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
+body:not([data-theme="light"]) .pr-month-selector select { background: #0f172a; border-color: rgba(148,163,184,.3); color: #e2e8f0; }
+body:not([data-theme="light"]) .pr-month-selector select option { background: #0f172a; color: #e2e8f0; }
+</style>
 
 <div class="pr-page-wrapper">
     

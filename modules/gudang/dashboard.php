@@ -238,6 +238,26 @@ include __DIR__ . '/../../includes/header.php';
     .gd-flow a:not(:last-child)::after { content:'→'; position:absolute; right:-.55rem; top:50%; transform:translateY(-50%); color:#94a3b8; font-weight:700; z-index:1; }
     @media (max-width: 900px) { .gd-flow { grid-template-columns:repeat(2, 1fr); } .gd-flow a::after { display:none; } }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .gd-flow a { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .gd-flow a:hover { border-color: #60a5fa; box-shadow: 0 6px 16px rgba(0,0,0,.4); }
+body:not([data-theme="light"]) .gd-flow b { color: #f1f5f9; }
+body:not([data-theme="light"]) .gd-flow span { color: #94a3b8; }
+body:not([data-theme="light"]) .gd-fm-rank { background: #18233a; color: #e2e8f0; }
+body:not([data-theme="light"]) .gd-table th { border-bottom-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .gd-table td { border-bottom-color: rgba(148,163,184,.12); }
+body:not([data-theme="light"]) .gd-badge[style*="#dbeafe"] { background: rgba(59,130,246,.2) !important; color: #93c5fd !important; }
+body:not([data-theme="light"]) .gd-badge[style*="#fef3c7"] { background: rgba(245,158,11,.18) !important; color: #fcd34d !important; }
+body:not([data-theme="light"]) .gd-badge[style*="#dcfce7"] { background: rgba(34,197,94,.18) !important; color: #86efac !important; }
+body:not([data-theme="light"]) .gd-badge[style*="#fee2e2"] { background: rgba(239,68,68,.18) !important; color: #fca5a5 !important; }
+body:not([data-theme="light"]) .gd-badge[style*="#e5e7eb"] { background: rgba(148,163,184,.18) !important; color: #cbd5e1 !important; }
+body:not([data-theme="light"]) #gudangDetailModal > div { background: #111a2e !important; border: 1px solid rgba(148,163,184,.2); color: #e2e8f0; }
+body:not([data-theme="light"]) #gudangDetailModal [style*="border-bottom:1px solid var(--border)"] { border-bottom-color: rgba(148,163,184,.2) !important; }
+body:not([data-theme="light"]) #gudangDetailModal button[style*="color:#64748b"] { color: #94a3b8 !important; }
+body:not([data-theme="light"]) #gudangDetailModal td,
+body:not([data-theme="light"]) #gudangDetailModal th { color: #e2e8f0; }
+</style>
 <div class="gd-flow">
     <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-po-supplier.php"><b><i>1</i> Order ke Supplier</b><span>Pesan barang. Saat datang, terima barangnya → stok bertambah.</span></a>
     <a href="<?php echo BASE_URL; ?>/modules/procurement/gudang-nasita.php"><b><i>2</i> Stok Gudang</b><span>Cek stok, catat pemakaian harian, lihat barang menipis.</span></a>

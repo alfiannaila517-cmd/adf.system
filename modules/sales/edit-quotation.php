@@ -271,6 +271,33 @@ include '../../includes/header.php';
     .btn-secondary { background: var(--cqc-bg); color: var(--cqc-muted); border: 1px solid var(--cqc-border); }
     .btn-secondary:hover { background: #e2e8f0; }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) {
+    --cqc-primary: #f1f5f9;
+    --cqc-muted: #94a3b8;
+    --cqc-border: rgba(148,163,184,.2);
+    --cqc-bg: #18233a;
+}
+body:not([data-theme="light"]) .quote-header { background: linear-gradient(135deg, #1a3a5c, #0d1f3c); }
+body:not([data-theme="light"]) .quote-form { background: #111a2e; }
+body:not([data-theme="light"]) .form-input,
+body:not([data-theme="light"]) .form-select,
+body:not([data-theme="light"]) .form-textarea,
+body:not([data-theme="light"]) .items-table .item-input { background: #0f172a; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .form-input::placeholder,
+body:not([data-theme="light"]) .form-textarea::placeholder,
+body:not([data-theme="light"]) .items-table .item-input::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .form-select option { background: #0f172a; color: #e2e8f0; }
+body:not([data-theme="light"]) .items-table th { background: #1a3a5c; color: #f1f5f9; }
+body:not([data-theme="light"]) .items-table td,
+body:not([data-theme="light"]) .summary-row { color: #e2e8f0; }
+body:not([data-theme="light"]) .btn-add-row:hover { color: #f0b429; }
+body:not([data-theme="light"]) .btn-primary { color: #0d1f3c; }
+body:not([data-theme="light"]) .btn-secondary:hover { background: #22304d; }
+body:not([data-theme="light"]) input.form-input[readonly][style*="background"],
+body:not([data-theme="light"]) input.item-input[readonly][style*="background"] { background: #18233a !important; color: #e2e8f0; }
+</style>
 
 <div class="quote-container">
     <div class="quote-header">

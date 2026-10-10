@@ -641,6 +641,43 @@ include '../../includes/header.php';
             grid-template-columns: repeat(3, 1fr);
         }
     }
+
+    /* ===== Dark theme overrides ===== */
+    @media screen {
+        body:not([data-theme="light"]) .stat-card,
+        body:not([data-theme="light"]) .rc-card,
+        body:not([data-theme="light"]) .filter-bar,
+        body:not([data-theme="light"]) .owner-recap-table,
+        body:not([data-theme="light"]) .empty-state[style*="background:white"],
+        body:not([data-theme="light"]) [style*="background:white;border-radius:12px"] {
+            background: #111a2e !important;
+            box-shadow: 0 1px 6px rgba(0, 0, 0, .35) !important;
+        }
+        body:not([data-theme="light"]) .dashboard-panel { background: rgba(17, 26, 46, .72); border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .rc-card.overdue { background: rgba(239, 68, 68, .12); }
+        body:not([data-theme="light"]) .stat-card .progress-bar { background: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .rc-plate,
+        body:not([data-theme="light"]) [style*="color:#1e293b"] { color: #e2e8f0 !important; }
+        body:not([data-theme="light"]) .filter-bar input { background: #0f172a; color: #e2e8f0; border-color: rgba(148, 163, 184, .2); }
+        body:not([data-theme="light"]) .filter-bar input::placeholder { color: #94a3b8; }
+        body:not([data-theme="light"]) .owner-recap-table th,
+        body:not([data-theme="light"]) th[style*="background:#f8fafc"],
+        body:not([data-theme="light"]) .rc-card [style*="background:#f8fafc"] { background: #18233a !important; border-color: rgba(148, 163, 184, .2) !important; }
+        body:not([data-theme="light"]) .owner-recap-table td,
+        body:not([data-theme="light"]) td[style*="border-bottom:1px solid #f1f5f9"] { border-bottom-color: rgba(148, 163, 184, .15) !important; }
+        body:not([data-theme="light"]) .owner-recap-table tr:hover { background: rgba(148, 163, 184, .08); }
+        body:not([data-theme="light"]) .owner-total-row { background: rgba(34, 197, 94, .12) !important; border-top-color: rgba(34, 197, 94, .35) !important; }
+        body:not([data-theme="light"]) .owner-total-row td { color: #86efac !important; }
+        body:not([data-theme="light"]) .car-available { background: rgba(34, 197, 94, .12); border-color: rgba(34, 197, 94, .35); }
+        body:not([data-theme="light"]) .car-available .name,
+        body:not([data-theme="light"]) .car-available .rate { color: #6ee7b7; }
+        body:not([data-theme="light"]) .car-available .plate { color: #a7f3d0; }
+        body:not([data-theme="light"]) .car-available .owner { color: #86efac; }
+        body:not([data-theme="light"]) .print-btn { background: #18233a; border-color: rgba(148, 163, 184, .2); color: #e2e8f0; }
+        body:not([data-theme="light"]) .print-btn:hover { background: #1f2d4a; }
+        body:not([data-theme="light"]) span[style*="background:#dcfce7"] { background: rgba(34, 197, 94, .15) !important; color: #86efac !important; }
+        body:not([data-theme="light"]) [style*="color:#059669"] { color: #6ee7b7 !important; }
+    }
 </style>
 
 <div class="rmd-page">

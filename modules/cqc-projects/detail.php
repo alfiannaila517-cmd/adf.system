@@ -1009,6 +1009,69 @@ include '../../includes/header.php';
         }
     }
 </style>
+<style>
+/* dark-theme-overrides */
+body:not([data-theme="light"]) .cqc-detail-header,
+body:not([data-theme="light"]) .cqc-card { background: #111a2e; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .cqc-detail-header h1,
+body:not([data-theme="light"]) .cqc-card h3,
+body:not([data-theme="light"]) .cqc-budget-value,
+body:not([data-theme="light"]) .cqc-category-amount .amount,
+body:not([data-theme="light"]) .cqc-category-detail-desc,
+body:not([data-theme="light"]) .cqc-category-detail-amount,
+body:not([data-theme="light"]) .cqc-expenses-table th,
+body:not([data-theme="light"]) .cqc-modal-header { color: #f1f5f9 !important; }
+body:not([data-theme="light"]) .cqc-budget-item.warn .cqc-budget-value { color: #f0b429 !important; }
+body:not([data-theme="light"]) .cqc-project-meta,
+body:not([data-theme="light"]) .cqc-progress-text,
+body:not([data-theme="light"]) .cqc-category-detail-header,
+body:not([data-theme="light"]) .cqc-budget-label,
+body:not([data-theme="light"]) .cqc-info-label,
+body:not([data-theme="light"]) .cqc-category-info p,
+body:not([data-theme="light"]) .cqc-category-amount .count,
+body:not([data-theme="light"]) .cqc-category-detail-meta,
+body:not([data-theme="light"]) .cqc-category-detail-empty { color: #94a3b8; }
+body:not([data-theme="light"]) .cqc-info-value,
+body:not([data-theme="light"]) .cqc-category-info h4,
+body:not([data-theme="light"]) .cqc-form-group label { color: #cbd5e1; }
+body:not([data-theme="light"]) .cqc-detail-actions a,
+body:not([data-theme="light"]) .cqc-detail-actions button,
+body:not([data-theme="light"]) .cqc-btn-submit { color: #0d1f3c; }
+body:not([data-theme="light"]) .cqc-status-bar,
+body:not([data-theme="light"]) .cqc-info-block,
+body:not([data-theme="light"]) .cqc-category-item,
+body:not([data-theme="light"]) .cqc-expenses-table td { border-bottom-color: rgba(148,163,184,.15); }
+body:not([data-theme="light"]) .cqc-budget-item { border-color: rgba(148,163,184,.2); background: #0f172a; }
+body:not([data-theme="light"]) .cqc-progress-bar { background: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .cqc-progress-fill { background: linear-gradient(90deg, #38bdf8, #f0b429); }
+body:not([data-theme="light"]) .status-planning { background: rgba(96,165,250,.15); color: #93c5fd; }
+body:not([data-theme="light"]) .status-procurement { background: rgba(245,158,11,.15); color: #fcd34d; }
+body:not([data-theme="light"]) .status-installation { background: rgba(56,189,248,.15); color: #7dd3fc; }
+body:not([data-theme="light"]) .status-testing { background: rgba(34,197,94,.15); color: #86efac; }
+body:not([data-theme="light"]) .status-completed { background: rgba(34,197,94,.25); color: #bbf7d0; }
+body:not([data-theme="light"]) .cqc-category-item:hover { background: #18233a; }
+body:not([data-theme="light"]) .cqc-category-item.active { background: rgba(96,165,250,.15); }
+body:not([data-theme="light"]) .cqc-category-detail { background: #0f172a; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .cqc-category-detail-row { background: #18233a; border-color: rgba(148,163,184,.2); }
+body:not([data-theme="light"]) .cqc-export-btn { background: #f0b429; color: #0d1f3c; }
+body:not([data-theme="light"]) .cqc-export-btn:hover { background: #ffc942; color: #0d1f3c; }
+body:not([data-theme="light"]) .cqc-expenses-table thead { background: #18233a; }
+body:not([data-theme="light"]) .cqc-expenses-table td { color: #e2e8f0; }
+body:not([data-theme="light"]) .cqc-modal-content { background: #111a2e; border: 1px solid rgba(148,163,184,.2); box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+body:not([data-theme="light"]) .cqc-form-group input,
+body:not([data-theme="light"]) .cqc-form-group select,
+body:not([data-theme="light"]) .cqc-form-group textarea { background: #0f172a !important; color: #e2e8f0; border-color: rgba(148,163,184,.25); }
+body:not([data-theme="light"]) .cqc-form-group input::placeholder,
+body:not([data-theme="light"]) .cqc-form-group textarea::placeholder { color: #64748b; }
+body:not([data-theme="light"]) .cqc-form-group select option { background: #0f172a; color: #e2e8f0; }
+body:not([data-theme="light"]) .cqc-btn-cancel { background: #18233a; color: #cbd5e1; }
+body:not([data-theme="light"]) .cqc-alert { background: rgba(34,197,94,.15); color: #86efac; border-color: rgba(34,197,94,.35); }
+body:not([data-theme="light"]) [style*="color: #0d1f3c"],
+body:not([data-theme="light"]) [style*="color:#0d1f3c"] { color: #f1f5f9 !important; }
+body:not([data-theme="light"]) a[style*="background: #f1f5f9"] { background: #18233a !important; color: #cbd5e1 !important; }
+body:not([data-theme="light"]) small[style*="color: #64748b"] { color: #94a3b8 !important; }
+body:not([data-theme="light"]) select[style*="linear-gradient"] { background: #0f172a !important; }
+</style>
 
 <!-- Header -->
 <div class="cqc-detail-header">

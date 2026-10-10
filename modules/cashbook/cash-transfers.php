@@ -748,6 +748,42 @@ include '../../includes/header.php';
         white-space: nowrap;
     }
 </style>
+<style>
+/* ===== Dark theme overrides (light theme unchanged) ===== */
+body:not([data-theme="light"]) [style*="background:#fff;"] {
+    background: #111a2e !important;
+}
+body:not([data-theme="light"]) [style*="background: #fee2e2"], body:not([data-theme="light"]) [style*="background: #fef2f2"] {
+    background: rgba(239,68,68,.15) !important;
+}
+body:not([data-theme="light"]) [style*="background:#fef3c7"], body:not([data-theme="light"]) [style*="background: #fff7ed"] {
+    background: rgba(245,158,11,.15) !important;
+}
+body:not([data-theme="light"]) [style*="135deg, #dbeafe"] {
+    background: rgba(59,130,246,.15) !important;
+}
+body:not([data-theme="light"]) [style*="solid #fcd34d"], body:not([data-theme="light"]) [style*="solid #fca5a5"] {
+    border-color: rgba(148,163,184,.3) !important;
+}
+body:not([data-theme="light"]) [style*="color:#64748b"] {
+    color: #94a3b8 !important;
+}
+body:not([data-theme="light"]) [style*="color: #0c4a6e"] {
+    color: #93c5fd !important;
+}
+body:not([data-theme="light"]) [style*="color: #991b1b"], body:not([data-theme="light"]) [style*="color:#b91c1c"], body:not([data-theme="light"]) [style*="color: #b91c1c"] {
+    color: #fca5a5 !important;
+}
+body:not([data-theme="light"]) [style*="color:#92400e"], body:not([data-theme="light"]) [style*="color:#b45309"], body:not([data-theme="light"]) [style*="color: #9a3412"] {
+    color: #fcd34d !important;
+}
+body:not([data-theme="light"]) .tx-btn-del { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); color: #fca5a5; }
+body:not([data-theme="light"]) .summary-box { background: linear-gradient(135deg, rgba(14,165,233,.16), rgba(59,130,246,.1)); border-color: rgba(56,189,248,.35); }
+body:not([data-theme="light"]) .summary-label { color: #7dd3fc; }
+body:not([data-theme="light"]) .summary-value, body:not([data-theme="light"]) .tx-amount-setor { color: #38bdf8; }
+body:not([data-theme="light"]) .tx-amount-expense, body:not([data-theme="light"]) .expense-detail-amount { color: #fca5a5; }
+body:not([data-theme="light"]) .expense-summary-note { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.35); color: #fdba74; }
+</style>
 
 <div style="max-width: 1000px; margin: 0 auto;">
     <!-- Header -->

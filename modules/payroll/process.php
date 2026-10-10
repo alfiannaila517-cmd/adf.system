@@ -2832,6 +2832,37 @@ include '../../includes/header.php';
         }
     }
 </style>
+<style>
+/* dark-theme-overrides */
+/* --border-color / --border-light / --text-tertiary are not defined globally; define them for this page */
+body:not([data-theme="light"]) {
+    --border-color: rgba(148,163,184,.2);
+    --border-light: rgba(148,163,184,.12);
+    --text-tertiary: #94a3b8;
+}
+body:not([data-theme="light"]) .ps-header { background: #111a2e; border-color: rgba(148,163,184,.2); box-shadow: 0 2px 8px rgba(0,0,0,.35); color: #e2e8f0 !important; }
+body:not([data-theme="light"]) .ps-header > div { color: #e2e8f0 !important; }
+body:not([data-theme="light"]) .ps-header h1 { color: #f1f5f9 !important; }
+body:not([data-theme="light"]) .ps-header p { color: #94a3b8 !important; }
+body:not([data-theme="light"]) .ps-filter select { background: #0f172a; color: #e2e8f0; border: 1px solid rgba(148,163,184,.3); }
+body:not([data-theme="light"]) .ps-filter select option { background: #0f172a; color: #e2e8f0; }
+body:not([data-theme="light"]) .ps-status-badge.draft { color: #cbd5e1; }
+body:not([data-theme="light"]) .ps-status-badge.submitted { color: #fcd34d; }
+body:not([data-theme="light"]) .ps-status-badge.approved { color: #86efac; }
+body:not([data-theme="light"]) .ps-status-badge.paid { color: #c4b5fd; }
+body:not([data-theme="light"]) .att-badge.present { color: #86efac; }
+body:not([data-theme="light"]) .att-badge.late { color: #fcd34d; }
+body:not([data-theme="light"]) .att-badge.absent { color: #fca5a5; }
+body:not([data-theme="light"]) .att-badge.holiday { color: #c4b5fd; }
+body:not([data-theme="light"]) input.ps-input[style*="background:#f1f5f9"] { background: #18233a !important; color: #94a3b8; }
+body:not([data-theme="light"]) .ps-input.negative { color: #f87171; }
+body:not([data-theme="light"]) [style*="color: #991b1b"] { color: #fca5a5 !important; }
+body:not([data-theme="light"]) [style*="color: #1e40af"] { color: #93c5fd !important; }
+body:not([data-theme="light"]) strong[style*="color:#b91c1c"],
+body:not([data-theme="light"]) th[style*="color:#b91c1c"],
+body:not([data-theme="light"]) [style*="background:rgba(220,38,38,0.08);color:#b91c1c"] { color: #fca5a5 !important; }
+body:not([data-theme="light"]) span[style*="color:#6b7280"] { color: #94a3b8 !important; }
+</style>
 
 <script>
     // Per-business payroll rules (dari settingan di menu Absensi > Pengaturan Waktu)
