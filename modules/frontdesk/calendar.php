@@ -1068,7 +1068,11 @@ include '../../includes/header.php';
         max-height: var(--cal-max-h, calc(100vh - 240px));
         overscroll-behavior: contain;
     }
-    body[data-theme] .calendar-grid { --cal-month-h: 34px; }
+    body[data-theme] .calendar-grid { --cal-month-h: 28px; }
+    /* Slimmer frozen header/footer rows = more room rows visible between them */
+    body[data-theme] .calendar-grid .cal-h { min-height: 52px !important; padding: 3px 4px !important; }
+    body[data-theme] .calendar-grid .grid-header-room,
+    body[data-theme] .calendar-grid .grid-footer-room { min-height: 52px; }
     body[data-theme] .calendar-grid .grid-month-room,
     body[data-theme] .calendar-grid .grid-month-label {
         position: sticky;
@@ -6168,6 +6172,13 @@ include '../../includes/header.php';
         function fitCalendarHeight() {
             const w = document.getElementById('drag-container');
             if (!w) return;
+            // Full-screen calendar: no site footer and only a thin page padding under the grid
+            const mc0 = w.closest('.main-content');
+            if (mc0) {
+                const f = mc0.querySelector('footer');
+                if (f) f.style.display = 'none';
+                mc0.style.paddingBottom = '6px';
+            }
             const y = window.pageYOffset || 0;
             const wr = w.getBoundingClientRect();
             const top = wr.top + y;
