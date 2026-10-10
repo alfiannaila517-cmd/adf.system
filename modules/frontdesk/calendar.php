@@ -3535,6 +3535,16 @@ include '../../includes/header.php';
     let currentPaymentBooking = null;
     let currentGroupRoomsMap = {};
 
+    // Expand / collapse the item details of a Hotel Service invoice row in the folio
+    function toggleSvcDetail(idx, row) {
+        const det = document.getElementById('sp-svc-detail-' + idx);
+        if (!det) return;
+        const open = det.style.display === 'none';
+        det.style.display = open ? 'table-row' : 'none';
+        const caret = row.querySelector('.sp-svc-caret');
+        if (caret) caret.textContent = open ? '▾' : '▸';
+    }
+
     function escHtml(str) {
         return String(str || '').replace(/[&<>"']/g, function(ch) {
             return ({
@@ -3789,14 +3799,16 @@ include '../../includes/header.php';
 
         // Hotel Service charges (per invoice: item rows as debit, paid amount as credit)
         if (svcInvoices.length > 0) {
-            folioRows += '<tr class="sp-folio-section"><td colspan="3">Hotel Service</td></tr>';
-            svcInvoices.forEach(function(inv) {
-                (inv.items || []).forEach(function(it) {
+            // One compact row per invoice (invoice id + total); click to expand the item details
+            svcInvoices.forEach(function(inv, idx) {
+                const itemLines = (inv.items || []).map(function(it) {
                     const title = it.description || String(it.service_type || 'Service').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                     const qty = parseFloat(it.quantity || 1);
-                    totalDebit += parseFloat(it.total_price || 0);
-                    folioRows += '<tr><td><div class="folio-desc-title">' + escHtml(title) + (qty > 1 ? ' (' + qty + 'x)' : '') + '</div><div class="folio-desc-sub">' + escHtml(inv.invoice_number || '') + ' • ' + fmtD(inv.created_at) + '</div></td><td class="text-right">' + fmtR(it.total_price) + '</td><td class="text-right">-</td></tr>';
-                });
+                    return '<div class="sp-svc-line"><span>' + escHtml(title) + (qty > 1 ? ' (' + qty + 'x)' : '') + '</span><b>' + fmtR(it.total_price) + '</b></div>';
+                }).join('');
+                totalDebit += parseFloat(inv.total || 0);
+                folioRows += '<tr class="sp-svc-inv" onclick="toggleSvcDetail(' + idx + ', this)"><td><div class="folio-desc-title"><span class="sp-svc-caret">▸</span> Hotel Service · ' + escHtml(inv.invoice_number || '') + '</div><div class="folio-desc-sub">' + (inv.items || []).length + ' item • ' + fmtD(inv.created_at) + '</div></td><td class="text-right">' + fmtR(inv.total) + '</td><td class="text-right">-</td></tr>' +
+                    '<tr class="sp-svc-detail" id="sp-svc-detail-' + idx + '" style="display:none;"><td colspan="3">' + itemLines + '</td></tr>';
                 if (parseFloat(inv.paid_amount) > 0) {
                     totalCredit += parseFloat(inv.paid_amount);
                     folioRows += '<tr><td><div class="folio-desc-title">Pembayaran Hotel Service</div><div class="folio-desc-sub">' + escHtml(inv.invoice_number || '') + '</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(inv.paid_amount) + '</td></tr>';
@@ -9722,7 +9734,7 @@ include '../../includes/header.php';
         justify-content: space-between;
         gap: 10px;
         margin-bottom: 8px;
-        padding: 9px 12px;
+        padding: 6px 12px;
         border-radius: 10px;
         background: rgba(245, 158, 11, 0.09);
         border: 1px solid rgba(245, 158, 11, 0.32);
@@ -9738,7 +9750,7 @@ include '../../includes/header.php';
     }
 
     body[data-theme] #bookingQuickView .sp-svc-amount {
-        font-size: 1.3rem !important;
+        font-size: 0.88rem !important;
         font-weight: 800;
         line-height: 1.2;
         color: #b45309 !important;
@@ -9764,20 +9776,41 @@ include '../../includes/header.php';
         -webkit-text-fill-color: #94a3b8 !important;
     }
 
-    /* "Hotel Service" divider row inside the folio table */
-    #bookingQuickView .sp-folio-table .sp-folio-section td {
-        padding: 7px 12px;
-        font-size: 0.6rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        background: rgba(148, 163, 184, 0.1);
+    /* Hotel Service invoice row: click to expand its items */
+    #bookingQuickView .sp-folio-table .sp-svc-inv {
+        cursor: pointer;
+    }
+
+    #bookingQuickView .sp-folio-table .sp-svc-inv:hover td {
+        background: rgba(148, 163, 184, 0.08);
+    }
+
+    #bookingQuickView .sp-svc-caret {
+        display: inline-block;
+        width: 10px;
+        color: #f59e0b;
+    }
+
+    #bookingQuickView .sp-folio-table .sp-svc-detail td {
+        padding: 4px 12px 8px 26px;
+        background: rgba(148, 163, 184, 0.06);
+    }
+
+    #bookingQuickView .sp-svc-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 2px 0;
+        font-size: 0.7rem;
         color: #64748b;
     }
 
-    body[data-theme="dark"] #bookingQuickView .sp-folio-table .sp-folio-section td {
-        background: rgba(148, 163, 184, 0.08);
+    body[data-theme="dark"] #bookingQuickView .sp-svc-line {
         color: #94a3b8;
+    }
+
+    body[data-theme="dark"] #bookingQuickView .sp-svc-line b {
+        color: #e2e8f0;
     }
 
     #bookingQuickView .sp-balance-box.paid {
