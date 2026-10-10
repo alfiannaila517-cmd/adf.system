@@ -215,6 +215,44 @@ foreach ($allBookings as $bk) {
     $combinedDiscount += $bk['discount'];
 }
 
+// Hotel Service invoices (not recorded in Cloudbeds) are merged into this one invoice:
+// their items are listed, and their total / paid amount are added to TOTAL / Amount paid.
+$serviceItems = [];
+$serviceTotal = 0.0;
+$servicePaid = 0.0;
+try {
+    $stayFrom = substr((string)$booking['check_in_date'], 0, 10);
+    $stayTo = date('Y-m-d', strtotime(substr((string)$booking['check_out_date'], 0, 10) . ' +1 day'));
+    $svcInvoices = $db->fetchAll("
+        SELECT id, invoice_number, total, paid_amount, created_at
+        FROM hotel_invoices
+        WHERE status <> 'cancelled'
+          AND (
+                booking_id IN ($placeholders)
+             OR (booking_id IS NULL AND guest_name = ? AND room_number = ?
+                 AND DATE(created_at) >= ? AND DATE(created_at) <= ?)
+          )
+        ORDER BY created_at ASC
+    ", array_merge($allBookingIds, [$booking['guest_name'] ?? '', $booking['room_number'] ?? '', $stayFrom, $stayTo])) ?: [];
+    foreach ($svcInvoices as $svcInv) {
+        $rows = $db->fetchAll(
+            "SELECT service_type, description, quantity, unit_price, total_price FROM hotel_invoice_items WHERE invoice_id = ? ORDER BY id ASC",
+            [$svcInv['id']]
+        ) ?: [];
+        foreach ($rows as $row) {
+            $row['invoice_number'] = $svcInv['invoice_number'];
+            $serviceItems[] = $row;
+        }
+        $serviceTotal += (float)$svcInv['total'];
+        $servicePaid += (float)$svcInv['paid_amount'];
+    }
+} catch (Throwable $e) {
+    // hotel service tables not available for this business
+}
+$roomFinalPrice = $combinedFinalPrice;
+$combinedFinalPrice += $serviceTotal;
+$totalPaid += $servicePaid;
+
 $remaining = $combinedFinalPrice - $totalPaid;
 $isPdf = isset($_GET['pdf']);
 
@@ -733,6 +771,20 @@ if (!function_exists('invAmountWords')) {
                             <td class="r"><?php echo $rp($ex['total_price']); ?></td>
                         </tr>
                     <?php endforeach; ?>
+                    <?php foreach ($serviceItems as $si): $no++;
+                        $siTitle = trim((string)($si['description'] ?? '')) !== '' ? $si['description'] : ucwords(str_replace('_', ' ', (string)$si['service_type']));
+                        $siQty = (float)$si['quantity']; ?>
+                        <tr>
+                            <td><?php echo $no; ?></td>
+                            <td>
+                                <div class="desc"><?php echo htmlspecialchars($siTitle); ?></div>
+                                <div class="sub">Hotel service · <?php echo htmlspecialchars($si['invoice_number']); ?></div>
+                            </td>
+                            <td class="c"><?php echo rtrim(rtrim(number_format($siQty, 2, '.', ''), '0'), '.'); ?></td>
+                            <td class="r"><?php echo $rp($si['unit_price']); ?></td>
+                            <td class="r"><?php echo $rp($si['total_price']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
 
@@ -746,6 +798,9 @@ if (!function_exists('invAmountWords')) {
                     <div class="row"><span>Room subtotal</span><span><?php echo $rp($combinedTotalPrice); ?></span></div>
                     <?php if ($combinedExtrasTotal > 0): ?>
                         <div class="row"><span>Additional services</span><span><?php echo $rp($combinedExtrasTotal); ?></span></div>
+                    <?php endif; ?>
+                    <?php if ($serviceTotal > 0): ?>
+                        <div class="row"><span>Hotel services</span><span><?php echo $rp($serviceTotal); ?></span></div>
                     <?php endif; ?>
                     <?php if ($combinedDiscount > 0): ?>
                         <div class="row disc"><span>Discount</span><span>- <?php echo $rp($combinedDiscount); ?></span></div>

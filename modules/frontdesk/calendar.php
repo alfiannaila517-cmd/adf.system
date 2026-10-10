@@ -3702,20 +3702,17 @@ include '../../includes/header.php';
         // Hotel Service invoices (laundry, tour, rental...) that are still unpaid are part of the guest's tagihan
         const svcInvoices = booking.service_invoices || [];
         const svcOutstanding = parseFloat(booking.service_outstanding || 0);
-        const balance = roomBalance + svcOutstanding;
+        const balance = roomBalance;
         const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);
-        document.getElementById('sp-balance').textContent = fmtR(Math.max(0, balance));
-        document.getElementById('sp-balance-box').classList.toggle('paid', balance <= 0);
-        document.getElementById('sp-balance-label').textContent = balance <= 0 ? 'Lunas · tidak ada tagihan' : 'Balance due';
-        // Breakdown line only when a service bill is outstanding
-        const balSplit = document.getElementById('sp-balance-split');
-        if (balSplit) {
-            if (svcOutstanding > 0) {
-                balSplit.innerHTML = '<span>Kamar ' + fmtR(roomBalance) + '</span><span>Hotel Service ' + fmtR(svcOutstanding) + '</span>';
-                balSplit.style.display = 'flex';
-            } else {
-                balSplit.style.display = 'none';
-            }
+        // Two separate bills: room (synced with Cloudbeds) and Hotel Service (not in Cloudbeds)
+        document.getElementById('sp-balance').textContent = fmtR(roomBalance);
+        document.getElementById('sp-balance-box').classList.toggle('paid', roomBalance <= 0);
+        document.getElementById('sp-balance-label').textContent = roomBalance <= 0 ? 'Kamar lunas' : 'Balance due · Kamar';
+        const svcBox = document.getElementById('sp-svc-box');
+        if (svcBox) {
+            svcBox.style.display = svcOutstanding > 0 ? 'flex' : 'none';
+            document.getElementById('sp-svc-amount').textContent = fmtR(svcOutstanding);
+            document.getElementById('sp-svc-total').textContent = 'Total ' + fmtR(roomBalance + svcOutstanding);
         }
 
         // Folio table
@@ -8532,12 +8529,19 @@ include '../../includes/header.php';
                 <div>
                     <div class="sp-balance-label" id="sp-balance-label">Balance due</div>
                     <div class="sp-balance-amount" id="sp-balance">Rp0</div>
-                    <div class="sp-balance-split" id="sp-balance-split" style="display:none;"></div>
                 </div>
                 <button type="button" class="sp-note-btn" onclick="openRoomNoteEditor(currentPaymentBooking.id)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
                     Catatan
                 </button>
+            </div>
+            <!-- Hotel Service bill: separate from the room balance (not recorded in Cloudbeds) -->
+            <div class="sp-svc-box" id="sp-svc-box" style="display:none;">
+                <div>
+                    <div class="sp-svc-label">Hotel Service · belum dibayar</div>
+                    <div class="sp-svc-amount" id="sp-svc-amount">Rp0</div>
+                </div>
+                <div class="sp-svc-total" id="sp-svc-total"></div>
             </div>
             <div id="sp-folio-note-banner" class="sp-note-banner" style="display:none;">
                 <span class="status-dot dot-yellow" style="position:static;margin-top:3px;flex-shrink:0;"></span>
@@ -9705,21 +9709,59 @@ include '../../includes/header.php';
         justify-content: space-between;
         gap: 10px;
         margin-bottom: 8px;
-        padding: 8px 12px;
+        padding: 6px 12px;
         border-radius: 10px;
         background: rgba(220, 38, 38, 0.06);
         border: 1px solid rgba(220, 38, 38, 0.2);
     }
 
-    /* Compact breakdown under the balance (room vs hotel service) */
-    #bookingQuickView .sp-balance-split {
+    /* Hotel Service bill: separate amber box, amount larger than the room balance */
+    #bookingQuickView .sp-svc-box {
         display: flex;
-        flex-wrap: wrap;
-        gap: 4px 12px;
-        margin-top: 3px;
-        font-size: 0.64rem;
-        font-weight: 600;
-        opacity: 0.8;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+        padding: 9px 12px;
+        border-radius: 10px;
+        background: rgba(245, 158, 11, 0.09);
+        border: 1px solid rgba(245, 158, 11, 0.32);
+    }
+
+    body[data-theme] #bookingQuickView .sp-svc-label {
+        font-size: 0.6rem !important;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #b45309 !important;
+        -webkit-text-fill-color: #b45309 !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-svc-amount {
+        font-size: 1.3rem !important;
+        font-weight: 800;
+        line-height: 1.2;
+        color: #b45309 !important;
+        -webkit-text-fill-color: #b45309 !important;
+    }
+
+    body[data-theme] #bookingQuickView .sp-svc-total {
+        font-size: 0.66rem !important;
+        font-weight: 700;
+        text-align: right;
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+    }
+
+    body[data-theme="dark"] #bookingQuickView .sp-svc-label,
+    body[data-theme="dark"] #bookingQuickView .sp-svc-amount {
+        color: #fcd34d !important;
+        -webkit-text-fill-color: #fcd34d !important;
+    }
+
+    body[data-theme="dark"] #bookingQuickView .sp-svc-total {
+        color: #94a3b8 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
     }
 
     /* "Hotel Service" divider row inside the folio table */
@@ -9753,7 +9795,7 @@ include '../../includes/header.php';
     }
 
     body[data-theme] #bookingQuickView .sp-balance-amount {
-        font-size: 1rem !important;
+        font-size: 0.88rem !important;
         font-weight: 800;
         line-height: 1.2;
         color: #b91c1c !important;
