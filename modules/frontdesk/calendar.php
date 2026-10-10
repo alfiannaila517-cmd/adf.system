@@ -1068,6 +1068,35 @@ include '../../includes/header.php';
         max-height: var(--cal-max-h, calc(100vh - 240px));
         overscroll-behavior: contain;
     }
+    /* Legend as a popover opened by the "i" button next to New Reservation */
+    .calendar-container > .legend.legend-pop {
+        display: none;
+        position: fixed;
+        right: 24px;
+        top: 150px;
+        z-index: 400;
+        width: min(340px, calc(100vw - 32px));
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.7rem 0.85rem;
+        background: var(--card-bg, #fff);
+        box-shadow: 0 18px 40px -12px rgba(0, 0, 0, .45);
+    }
+    .calendar-container > .legend.legend-pop.open { display: flex; }
+    .legend-pop-btn {
+        width: 30px;
+        height: 30px;
+        margin-right: 8px;
+        border-radius: 50%;
+        border: 1px solid rgba(148, 163, 184, .4);
+        background: transparent;
+        color: inherit;
+        font: 700 0.85rem/1 serif;
+        font-style: italic;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .legend-pop-btn:hover { background: rgba(148, 163, 184, .15); }
     body[data-theme] .calendar-grid { --cal-month-h: 28px; }
     /* Slimmer frozen header/footer rows = more room rows visible between them */
     body[data-theme] .calendar-grid .cal-h { min-height: 52px !important; padding: 3px 4px !important; }
@@ -6174,10 +6203,26 @@ include '../../includes/header.php';
             if (!w) return;
             // Full-screen calendar: no site footer and only a thin page padding under the grid
             const mc0 = w.closest('.main-content');
-            if (mc0) {
-                const f = mc0.querySelector('footer');
-                if (f) f.style.display = 'none';
-                mc0.style.paddingBottom = '6px';
+            document.querySelectorAll('footer').forEach(function(f) {
+                if (!f.closest('.modal, .modal-overlay, [role="dialog"]')) f.style.display = 'none';
+            });
+            if (mc0) mc0.style.paddingBottom = '4px';
+            // Legend leaves the page flow (so the grid reaches the bottom edge): it becomes a popover behind an "i" button
+            const lg = document.querySelector('.calendar-container > .legend');
+            if (lg && !lg.dataset.popover) {
+                lg.dataset.popover = '1';
+                lg.classList.add('legend-pop');
+                const tb = document.getElementById('newReservationBtn');
+                if (tb && tb.parentNode) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'legend-pop-btn';
+                    btn.title = 'Keterangan warna';
+                    btn.textContent = 'i';
+                    btn.addEventListener('click', function(e) { e.stopPropagation(); lg.classList.toggle('open'); });
+                    document.addEventListener('click', function() { lg.classList.remove('open'); });
+                    tb.parentNode.insertBefore(btn, tb);
+                }
             }
             const y = window.pageYOffset || 0;
             const wr = w.getBoundingClientRect();
