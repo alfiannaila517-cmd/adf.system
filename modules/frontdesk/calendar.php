@@ -3532,6 +3532,23 @@ include '../../includes/header.php';
         const ok = confirm(`Batalkan block room ${roomNumber || ''}?`);
         if (!ok) return;
 
+        // Optimistic update: the block bar disappears right away (no page reload);
+        // the request runs in the background and the bar is restored if it fails.
+        const bar = document.querySelector('.booking-bar-container[data-block-id="' + blockId + '"]');
+        const restore = () => {
+            if (!bar) return;
+            bar.style.pointerEvents = '';
+            bar.style.transition = '';
+            bar.style.opacity = '';
+            bar.style.transform = '';
+        };
+        if (bar) {
+            bar.style.pointerEvents = 'none';
+            bar.style.transition = 'opacity .18s ease, transform .18s ease';
+            bar.style.opacity = '0';
+            bar.style.transform = 'scaleY(.6)';
+        }
+
         try {
             const fd = new FormData();
             fd.append('block_id', blockId);
@@ -3542,13 +3559,15 @@ include '../../includes/header.php';
             });
             const data = await res.json();
             if (data && data.success) {
-                alert(data.message || 'Block room dibatalkan');
-                location.reload();
+                if (bar) bar.remove();
+                spToast(data.message || 'Block room dibatalkan', true);
             } else {
-                alert(data && data.message ? data.message : 'Gagal membatalkan block');
+                restore();
+                spToast(data && data.message ? data.message : 'Gagal membatalkan block', false);
             }
         } catch (e) {
-            alert('Gagal menghubungi server');
+            restore();
+            spToast('Gagal menghubungi server — block dikembalikan', false);
         }
     }
 
