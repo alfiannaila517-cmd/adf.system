@@ -677,6 +677,72 @@ include '../../includes/header.php';
         $rpx = fn($v) => $v === null ? '—' : 'Rp ' . number_format((float)$v, 0, ',', '.');
         $stateLbl = ['sent' => ['Terkirim', 'ok'], 'skip_paid' => ['Cloudbeds sudah lunas', 'ok'], 'before' => ['Sebelum kirim aktif', 'warn'], 'pending' => ['Belum terkirim', 'bad']];
         ?>
+        <?php $blkDiag = isset($_GET['cekblok']) ? (new CloudbedsSync($db, $cb))->diagnoseBlocks(45) : null; ?>
+        <div class="cbx-card" id="cekblok">
+            <h3>Cek blok kamar</h3>
+            <p class="cbx-sub">Blok dari sistem belum muncul di Cloudbeds, atau blok yang dihapus di Cloudbeds belum hilang di sistem? Tombol ini hanya membaca (tidak mengubah apa pun) dan menampilkan status kirim tiap blok.</p>
+            <form method="get" action="cloudbeds.php#cekblok"><input type="hidden" name="cekblok" value="1"><button type="submit" class="cbx-btn">Periksa blok sekarang</button></form>
+            <?php if ($blkDiag): ?>
+                <p class="cbx-hint" style="margin:.6rem 0 .3rem">
+                    Kirim ke Cloudbeds: <span class="cbx-pill <?php echo $blkDiag['push'] ? 'ok' : 'warn'; ?>"><?php echo $blkDiag['push'] ? 'AKTIF' : 'MATI'; ?></span>
+                    · aktif sejak: <b><?php echo htmlspecialchars($blkDiag['since'] ?: '—'); ?></b>
+                    · jam database: <b><?php echo htmlspecialchars($blkDiag['db_now']); ?></b>
+                    <?php if (!empty($blkDiag['sync_last']['at'])): ?>· sinkron terakhir: <b><?php echo htmlspecialchars($blkDiag['sync_last']['at']); ?></b> (<?php echo htmlspecialchars((string)($blkDiag['sync_last']['summary'] ?? '')); ?>)<?php endif; ?>
+                </p>
+                <?php if ($blkDiag['cb_error'] !== ''): ?>
+                    <p class="cbx-hint" style="color:#b91c1c!important">Blok Cloudbeds tidak bisa dibaca: <?php echo htmlspecialchars($blkDiag['cb_error']); ?></p>
+                <?php endif; ?>
+                <b class="cbx-hint" style="display:block;margin:.5rem 0 .2rem">Blok di sistem (terbaru 25)</b>
+                <div style="overflow:auto"><table class="cbx-tbl">
+                    <thead><tr><th>#</th><th>Kamar</th><th>Tanggal</th><th>Status</th><th>Kode</th><th>Dibuat</th><th>Keterangan kirim</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($blkDiag['local'] as $r): ?>
+                            <tr>
+                                <td><?php echo (int)$r['id']; ?></td>
+                                <td><?php echo htmlspecialchars($r['room_number']); ?></td>
+                                <td><?php echo htmlspecialchars($r['s'] . ' → ' . $r['e']); ?></td>
+                                <td><span class="cbx-pill <?php echo $r['status'] === 'active' ? 'ok' : ''; ?>"><?php echo htmlspecialchars($r['status']); ?></span></td>
+                                <td style="font-size:.66rem"><?php echo htmlspecialchars($r['block_code']); ?></td>
+                                <td style="font-size:.66rem"><?php echo htmlspecialchars((string)$r['created_at']); ?></td>
+                                <td><?php echo htmlspecialchars($r['state']); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (!$blkDiag['local']): ?><tr><td colspan="7">Tidak ada blok.</td></tr><?php endif; ?>
+                    </tbody>
+                </table></div>
+                <b class="cbx-hint" style="display:block;margin:.6rem 0 .2rem">Blok di Cloudbeds (45 hari ke depan)</b>
+                <div style="overflow:auto"><table class="cbx-tbl">
+                    <thead><tr><th>ID</th><th>Kamar</th><th>Tanggal</th><th>Jenis</th><th>Alasan</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($blkDiag['cb'] as $b): ?>
+                            <tr>
+                                <td style="font-size:.66rem"><?php echo htmlspecialchars($b['id']); ?></td>
+                                <td><?php echo htmlspecialchars($b['rooms']); ?></td>
+                                <td><?php echo htmlspecialchars($b['start'] . ' → ' . $b['end']); ?></td>
+                                <td><?php echo htmlspecialchars($b['type']); ?></td>
+                                <td><?php echo htmlspecialchars($b['reason']); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (!$blkDiag['cb']): ?><tr><td colspan="5">Tidak ada blok terbaca di Cloudbeds.</td></tr><?php endif; ?>
+                    </tbody>
+                </table></div>
+                <b class="cbx-hint" style="display:block;margin:.6rem 0 .2rem">Kiriman blok terakhir ke Cloudbeds</b>
+                <div style="overflow:auto"><table class="cbx-tbl">
+                    <thead><tr><th>Waktu</th><th>Aksi</th><th>Hasil</th><th>Pesan Cloudbeds</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($blkDiag['log'] as $l): ?>
+                            <tr>
+                                <td style="font-size:.66rem"><?php echo htmlspecialchars((string)$l['created_at']); ?></td>
+                                <td><?php echo htmlspecialchars($l['method'] . ' ' . $l['endpoint']); ?></td>
+                                <td><span class="cbx-pill <?php echo !empty($l['ok']) ? 'ok' : 'warn'; ?>"><?php echo !empty($l['ok']) ? 'berhasil' : (!empty($l['blocked']) ? 'diblokir pengaman' : 'ditolak'); ?></span></td>
+                                <td><?php echo htmlspecialchars((string)$l['detail']); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php if (!$blkDiag['log']): ?><tr><td colspan="4">Belum pernah ada kiriman blok ke Cloudbeds.</td></tr><?php endif; ?>
+                    </tbody>
+                </table></div>
+            <?php endif; ?>
+        </div>
         <div class="cbx-card" id="cekbayar">
             <h3>Cek pembayaran booking</h3>
             <p class="cbx-sub">Sudah bayar di sistem tetapi di Cloudbeds masih merah? Ketik kode booking untuk melihat penyebabnya dan mengirim ulang.</p>
@@ -1162,7 +1228,7 @@ include '../../includes/header.php';
         ['API Key', 'koneksi'],
         ['Pemetaan tipe', 'pemetaan'], ['Pemetaan nomor', 'pemetaan'],
         ['Sinkron Cloudbeds', 'sinkron'],
-        ['Cek pembayaran', 'alat'], ['Pratinjau reservasi', 'alat'],
+        ['Cek blok kamar', 'alat'], ['Cek pembayaran', 'alat'], ['Pratinjau reservasi', 'alat'],
         ['Harga', 'harga']
     ];
     var tabs = [
@@ -1215,11 +1281,11 @@ include '../../includes/header.php';
         if (push && history.replaceState) history.replaceState(null, '', location.pathname + location.search + '#' + name);
     }
     // tab awal: anchor di URL → parameter → tab terakhir → ringkasan
-    var hashMap = { cekbayar: 'alat', tarikan: 'alat', pulihlunas: 'alat', rates: 'harga' };
+    var hashMap = { cekblok: 'alat', cekbayar: 'alat', tarikan: 'alat', pulihlunas: 'alat', rates: 'harga' };
     var q = location.search, h = location.hash.replace('#', ''), start = null;
     if (h && (panes[h] || hashMap[h])) start = panes[h] ? h : hashMap[h];
     else if (/[?&](plan|auto)=/.test(q)) start = 'sinkron';
-    else if (/[?&](preview|cek)=/.test(q)) start = 'alat';
+    else if (/[?&](preview|cek|cekblok)=/.test(q)) start = 'alat';
     else if (/[?&]rates=/.test(q)) start = 'harga';
     else if (/[?&]test=/.test(q)) start = 'koneksi';
     else { try { start = sessionStorage.getItem('cbxTab'); } catch (e) {} }

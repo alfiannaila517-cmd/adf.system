@@ -53,7 +53,7 @@ try {
     set_time_limit(40);
     $res = (new CloudbedsSync($db, $cb))->quickBlockSync(45);
     flock($lock, LOCK_UN);
-    echo json_encode(['ok' => true, 'blocked' => $res['blocked'], 'unblocked' => $res['unblocked'], 'warns' => array_slice($res['warns'], 0, 3)]);
+    echo json_encode(['ok' => true, 'blocked' => $res['blocked'], 'unblocked' => $res['unblocked'], 'pushed' => $res['pushed'], 'errors' => $res['errors'], 'warns' => array_slice($res['warns'], 0, 3)]);
 } catch (\Throwable $e) {
     error_log('cloudbeds-blocks-now: ' . $e->getMessage());
     echo json_encode(['ok' => false, 'error' => 'gagal']);

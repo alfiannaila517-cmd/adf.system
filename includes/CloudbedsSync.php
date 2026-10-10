@@ -1803,6 +1803,49 @@ class CloudbedsSync
     }
 
     /**
+     * Kirim blok BARU (aktif, belum bertaut) langsung ke Cloudbeds tanpa rencana sinkron penuh. Syarat sama dengan
+     * rencana: kirim aktif, dibuat setelah kirim diaktifkan, belum lewat. Kode blok jadi CB-<id>-<roomID>
+     * (atau ADFCB-<id> bila ID tidak terbaca) agar sinkron berikutnya tidak mengirimnya lagi.
+     * @return array{0:int,1:array<int,string>} [jumlah terkirim, daftar galat]
+     */
+    private function pushNewBlocksDirect(array $blockIds): array
+    {
+        $done = 0;
+        $errors = [];
+        $since = $this->sinceSetting('cloudbeds_push_since');
+        if ($since === '' || !$blockIds) return [0, []];
+        $in = implode(',', array_map('intval', $blockIds));
+        $rows = $this->db->fetchAll("SELECT rb.id, rb.block_start_date s, rb.block_end_date e, rb.block_reason, rb.notes, r.room_number
+            FROM room_blocks rb JOIN rooms r ON r.id = rb.room_id
+            WHERE rb.id IN ($in) AND rb.status = 'active' AND COALESCE(rb.block_code,'') NOT LIKE 'CB-%' AND COALESCE(rb.block_code,'') NOT LIKE 'ADFCB-%'
+              AND rb.created_at >= ? AND rb.block_end_date > CURDATE()", [$since]) ?: [];
+        if (!$rows) return [0, []];
+        $cbRooms = $this->cbRoomsByNo();
+        foreach ($rows as $nb) {
+            $no = preg_match('/\d{2,4}/', (string)$nb['room_number'], $mm) ? $mm[0] : (string)$nb['room_number'];
+            $cr = $cbRooms[$no] ?? null;
+            if (!$cr) {
+                $errors[] = 'Room ' . $nb['room_number'] . ' tidak ditemukan di Cloudbeds — blok tidak dikirim';
+                continue;
+            }
+            try {
+                $why = trim(str_replace('_', ' ', (string)$nb['block_reason']) . ($nb['notes'] ? ' - ' . $nb['notes'] : ''));
+                $r = $this->sendBlock('POST', 'postRoomBlock', ['startDate' => $nb['s'], 'endDate' => $nb['e'], 'roomBlockReason' => mb_substr('ADF: ' . ($why ?: 'block'), 0, 100), 'rooms' => [['roomID' => $cr['room_id']]]], '');
+                if (!$r['ok']) {
+                    $errors[] = 'Cloudbeds menolak blok baru Room ' . $nb['room_number'] . ': ' . $r['detail'];
+                    continue;
+                }
+                $newId = self::findValue($r['raw'], 'roomblockid');
+                $this->db->query("UPDATE room_blocks SET block_code = ? WHERE id = ?", [$newId !== '' ? substr('CB-' . $newId . '-' . $cr['room_id'], 0, 40) : 'ADFCB-' . $nb['id'], $nb['id']]);
+                $done++;
+            } catch (\Throwable $e) {
+                $errors[] = 'Blok Room ' . $nb['room_number'] . ': ' . $e->getMessage();
+            }
+        }
+        return [$done, $errors];
+    }
+
+    /**
      * Kirim SEGERA ke Cloudbeds hanya untuk booking/blok tertentu (dipanggil setelah reservasi dibuat,
      * check-in/out, atau blok kamar dibuat/dibatalkan). Hanya aksi "kirim" milik id tersebut yang dijalankan;
      * sisanya tetap diurus sinkron berkala.
@@ -1815,6 +1858,13 @@ class CloudbedsSync
         $this->ensureTables();
         $bookingIds = array_values(array_filter(array_map('intval', $bookingIds)));
         $blockIds = array_values(array_filter(array_map('intval', $blockIds)));
+        // Blok BARU dari sistem dikirim langsung (1–2 panggilan API), tidak menunggu perencanaan penuh yang membaca semua
+        // reservasi. Blok yang dibatalkan / sudah tertaut tetap lewat rencana di bawah.
+        $directErrors = [];
+        $directDone = 0;
+        if ($blockIds && $this->pushEnabled()) {
+            [$directDone, $directErrors] = $this->pushNewBlocksDirect($blockIds);
+        }
         $dates = [];
         $cbIds = [];
         if ($bookingIds) {
@@ -1838,6 +1888,9 @@ class CloudbedsSync
         }
         if (!$dates) {
             return ['ok' => true, 'skipped' => 'nothing'];
+        }
+        if ($directErrors) {
+            error_log('Cloudbeds pushFor (blok langsung): ' . implode(' | ', $directErrors));
         }
         $from = min($dates);
         $to = max($dates);
@@ -2483,10 +2536,111 @@ class CloudbedsSync
     }
 
     /**
+     * Diagnosa blok kamar (hanya membaca, tidak mengubah apa pun): blok sistem vs blok Cloudbeds, status kirim, dan
+     * riwayat kiriman terakhir ke Cloudbeds — untuk mencari tahu kenapa blok belum muncul / belum hilang.
+     * @return array<string,mixed>
+     */
+    public function diagnoseBlocks(int $days = 45): array
+    {
+        $this->ensureTables();
+        $push = $this->pushEnabled();
+        $since = $this->sinceSetting('cloudbeds_push_since');
+        $out = [
+            'push' => $push,
+            'since' => $since,
+            'db_now' => (string)($this->db->fetchOne("SELECT NOW() n")['n'] ?? ''),
+            'sync_last' => null,
+            'local' => [],
+            'cb' => [],
+            'cb_error' => '',
+            'log' => [],
+        ];
+        try {
+            $out['sync_last'] = json_decode((string)($this->db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_last_auto_sync'")['setting_value'] ?? ''), true) ?: null;
+        } catch (\Throwable $e) {
+        }
+
+        $rows = $this->db->fetchAll("SELECT rb.id, rb.block_code, rb.block_start_date s, rb.block_end_date e, rb.status, rb.block_reason, rb.notes, rb.created_at, r.room_number
+            FROM room_blocks rb JOIN rooms r ON r.id = rb.room_id
+            WHERE rb.block_end_date >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) ORDER BY rb.id DESC LIMIT 25") ?: [];
+        foreach ($rows as $r) {
+            $code = (string)$r['block_code'];
+            if (strpos($code, 'CB-') === 0) {
+                $state = 'Tertaut ke blok Cloudbeds';
+            } elseif (strpos($code, 'ADFCB-') === 0) {
+                $state = 'Terkirim, ID Cloudbeds belum terbaca (menunggu dipasangkan)';
+            } else {
+                $state = 'BELUM dikirim ke Cloudbeds';
+                if ($r['status'] === 'active') {
+                    if (!$push) $state .= ' — saklar "Kirim ke Cloudbeds" MATI';
+                    elseif ($since === '') $state .= ' — waktu mulai kirim belum tercatat (matikan lalu nyalakan lagi saklar kirim)';
+                    elseif ((string)$r['created_at'] < $since) $state .= ' — dibuat sebelum kirim diaktifkan (' . $since . '), tidak akan dikirim';
+                    elseif ((string)$r['e'] <= date('Y-m-d')) $state .= ' — sudah lewat';
+                    else $state .= ' — seharusnya terkirim di sinkron berikutnya; bila terus begini lihat riwayat kiriman di bawah';
+                } else {
+                    $state = 'Dibatalkan sebelum sempat dikirim';
+                }
+            }
+            $r['state'] = $state;
+            $out['local'][] = $r;
+        }
+
+        $from = date('Y-m-d');
+        $to = date('Y-m-d', strtotime('+' . max(1, $days) . ' days'));
+        $roomName = [];
+        $walkRooms = function ($d) use (&$walkRooms, &$roomName) {
+            if (!is_array($d)) return;
+            if (isset($d['roomID']) && !is_array($d['roomID']) && isset($d['roomName'])) {
+                $roomName[(string)$d['roomID']] = (string)$d['roomName'];
+                return;
+            }
+            foreach ($d as $v) $walkRooms($v);
+        };
+        $rm = $this->cb->get('getRooms', $this->cb->propertyId() !== '' ? ['propertyID' => $this->cb->propertyId()] : []);
+        $walkRooms($rm['data'] ?? []);
+        $seen = [];
+        for ($cs = $from; $cs <= $to; $cs = date('Y-m-d', strtotime($cs . ' +30 days'))) {
+            $ce = min($to, date('Y-m-d', strtotime($cs . ' +29 days')));
+            $q = ['startDate' => $cs, 'endDate' => $ce];
+            if ($this->cb->propertyId() !== '') $q['propertyID'] = $this->cb->propertyId();
+            $res = $this->cb->get('getRoomBlocks', $q);
+            if (!$res['ok']) {
+                $out['cb_error'] = (string)$res['detail'];
+                break;
+            }
+            $walk = function ($d) use (&$walk, &$out, &$seen, $roomName) {
+                if (!is_array($d)) return;
+                if (isset($d['roomBlockID']) && !is_array($d['roomBlockID'])) {
+                    $id = (string)$d['roomBlockID'];
+                    if (isset($seen[$id])) return;
+                    $seen[$id] = true;
+                    $names = [];
+                    foreach ((array)($d['rooms'] ?? []) as $x) {
+                        $rid = is_array($x) ? (string)($x['roomID'] ?? '') : (string)$x;
+                        if ($rid !== '') $names[] = $roomName[$rid] ?? $rid;
+                    }
+                    $out['cb'][] = ['id' => $id, 'start' => substr((string)($d['startDate'] ?? ''), 0, 10), 'end' => substr((string)($d['endDate'] ?? ''), 0, 10),
+                        'reason' => (string)($d['roomBlockReason'] ?? $d['roomBlockName'] ?? ''), 'type' => is_array($d['roomBlockType'] ?? null) ? '' : (string)($d['roomBlockType'] ?? ''), 'rooms' => implode(', ', $names)];
+                    return;
+                }
+                foreach ($d as $v) $walk($v);
+            };
+            $walk($res['data']);
+        }
+        try {
+            $out['log'] = $this->db->fetchAll("SELECT created_at, method, endpoint, ok, blocked, detail, params FROM cloudbeds_outbound_log
+                WHERE endpoint LIKE '%RoomBlock%' ORDER BY id DESC LIMIT 12") ?: [];
+        } catch (\Throwable $e) {
+        }
+        return $out;
+    }
+
+    /**
      * Pemeriksaan BLOK kilat: hanya membaca blok kamar Cloudbeds (getRoomBlocks + getRooms) untuk $days hari ke depan,
      * lalu memasang blok baru / mencabut blok yang sudah dihapus di Cloudbeds. Tanpa daftar reservasi/harga → cepat,
      * aman dipanggil tiap ±20 detik. Gagal membaca Cloudbeds = tidak ada aksi (planRoomBlocks hanya memberi peringatan).
-     * @return array{blocked:int,unblocked:int,warns:array<int,string>}
+     * Juga mengirim blok sistem yang belum terkirim / sudah dibatalkan ke Cloudbeds (aturan sama dengan sinkron penuh).
+     * @return array{blocked:int,unblocked:int,pushed:int,errors:array<int,string>,warns:array<int,string>}
      */
     public function quickBlockSync(int $days = 45): array
     {
@@ -2503,10 +2657,11 @@ class CloudbedsSync
         $run = [];
         foreach ($actions as $a) {
             if ($a['type'] === 'warn') $warns[] = $a['msg'];
-            elseif (in_array($a['type'], ['block', 'unblock', 'adopt_block'], true)) $run[] = $a;
+            elseif (in_array($a['type'], ['block', 'unblock', 'adopt_block', 'push_newblock', 'push_delblock', 'push_putblock'], true)) $run[] = $a;
         }
-        $done = $run ? $this->executeActions($run, 0) : ['block' => 0, 'unblock' => 0];
-        return ['blocked' => (int)($done['block'] ?? 0), 'unblocked' => (int)($done['unblock'] ?? 0), 'warns' => $warns];
+        $done = $run ? $this->executeActions($run, 0) : ['block' => 0, 'unblock' => 0, 'push_block' => 0, 'errors' => []];
+        if (!empty($done['errors'])) error_log('Cloudbeds quickBlockSync: ' . implode(' | ', $done['errors']));
+        return ['blocked' => (int)($done['block'] ?? 0), 'unblocked' => (int)($done['unblock'] ?? 0), 'pushed' => (int)($done['push_block'] ?? 0), 'errors' => array_slice($done['errors'] ?? [], 0, 3), 'warns' => $warns];
     }
 
     /** Nomor kamar (angka 2–4 digit) dari nama/nomor kamar. */
