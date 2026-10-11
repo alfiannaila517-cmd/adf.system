@@ -261,6 +261,9 @@ $faviconUrl = BASE_URL . '/assets/img/developer-logo.png';
     <!-- Global Loading Indicator (progress bar + overlay) -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/global-loader.css?v=<?php echo time(); ?>">
 
+    <!-- Tampilan HP & tablet: hanya berlaku di layar <= 1024px (desktop tidak terpengaruh) -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/responsive.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/responsive.css') ?: 1; ?>">
+
     <!-- Icons (Feather Icons) -->
     <script src="https://unpkg.com/feather-icons"></script>
 
@@ -1680,7 +1683,38 @@ if ($userTheme === 'system') {
                 line-height: 1.5 !important;
             }
         </style>
-        <aside class="sidebar">
+        <script>
+            // Menu samping jadi laci di HP/tablet (CSS: responsive.css). Di desktop skrip ini tidak melakukan apa pun.
+            (function() {
+                var b = document.body, bd = null;
+
+                function backdrop() {
+                    if (!bd) {
+                        bd = document.createElement('div');
+                        bd.className = 'm-backdrop';
+                        bd.addEventListener('click', close);
+                        b.appendChild(bd);
+                    }
+                    return bd;
+                }
+
+                function open() { backdrop(); b.classList.add('m-nav-open'); }
+
+                function close() { b.classList.remove('m-nav-open'); }
+                document.addEventListener('click', function(e) {
+                    var t = e.target.closest ? e.target.closest('#mMenuBtn') : null;
+                    if (t) {
+                        e.preventDefault();
+                        if (b.classList.contains('m-nav-open')) close(); else open();
+                        return;
+                    }
+                    if (b.classList.contains('m-nav-open') && e.target.closest && e.target.closest('.sidebar a[href]:not([href^="javascript"])')) close();
+                });
+                document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close(); });
+                window.addEventListener('resize', function() { if (window.innerWidth > 1024) close(); });
+            })();
+        </script>
+        <aside class="sidebar" id="adfSidebar">
             <div class="sidebar-header">
                 <?php
                 // Get business logo
@@ -2681,6 +2715,10 @@ if ($userTheme === 'system') {
             <!-- Top Bar -->
             <div class="top-bar">
                 <div>
+                    <!-- Tombol menu: hanya muncul di HP/tablet (responsive.css); inline display:none menjaga desktop -->
+                    <button type="button" id="mMenuBtn" class="m-menu-btn" style="display:none" aria-label="Buka menu" aria-controls="adfSidebar">
+                        <svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                    </button>
                     <h1 class="page-title" style="color:#1e3a8a;-webkit-text-fill-color:#1e3a8a;background:none;"><?php echo $pageTitle ?? 'Dashboard'; ?></h1>
                     <?php if (isset($pageSubtitle)): ?>
                         <p style="color: var(--text-muted); margin-top: 0.5rem;"><?php echo $pageSubtitle; ?></p>

@@ -1,0 +1,178 @@
+/* ============================================================
+   RESPONSIVE (HP & tablet) — ADF System
+   ------------------------------------------------------------
+   Semua aturan di file ini HANYA berlaku di layar <= 1024px.
+   Di atas itu (laptop / desktop / jendela Windows normal) file ini
+   tidak mengubah apa pun. Dimuat setelah style.css & frontdesk.css.
+   ============================================================ */
+
+/* Elemen khusus mobile: tersembunyi di desktop */
+.m-menu-btn { display: none; }
+.m-backdrop { display: none; }
+
+/* ---------- Tablet & HP: menu samping jadi laci (off-canvas) ---------- */
+@media (max-width: 1024px) {
+    body[data-theme] .sidebar {
+        width: min(292px, 86vw) !important;
+        max-width: 86vw;
+        padding: 0.85rem 0.7rem calc(0.6rem + env(safe-area-inset-bottom, 0px)) !important;
+        border-right: 1px solid rgba(148, 163, 184, 0.25) !important;
+        transform: translateX(-104%);
+        transition: transform 0.22s ease, box-shadow 0.22s ease;
+        z-index: 1300 !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    body.m-nav-open .sidebar {
+        transform: none;
+        box-shadow: 0 0 44px rgba(0, 0, 0, 0.5);
+    }
+
+    .m-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 1250;
+        background: rgba(15, 23, 42, 0.55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+    }
+
+    body.m-nav-open .m-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    body.m-nav-open {
+        overflow: hidden;
+    }
+
+    body[data-theme] .main-content {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100%;
+        padding: 0.65rem !important;
+    }
+
+    /* Top bar: satu baris, menempel di atas agar menu selalu terjangkau */
+    body .main-content > .top-bar {
+        position: sticky;
+        top: 6px;
+        z-index: 900;
+        flex-direction: row !important;
+        align-items: center;
+        gap: 0.5rem !important;
+        padding: 0.5rem 0.65rem !important;
+        margin-bottom: 0.75rem;
+    }
+
+    body .main-content > .top-bar > div:first-child {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    body .main-content > .top-bar > div:first-child > p {
+        display: none !important;
+    }
+
+    body .main-content > .top-bar .page-title {
+        min-width: 0;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    body .main-content > .top-bar > div:last-child {
+        flex: 0 0 auto;
+        gap: 0.4rem !important;
+    }
+
+    .m-menu-btn {
+        display: inline-grid !important;
+        place-items: center;
+        flex: 0 0 auto;
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        border-radius: 11px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .m-menu-btn:active {
+        background: rgba(255, 255, 255, 0.28);
+    }
+
+    .m-menu-btn svg {
+        width: 20px;
+        height: 20px;
+        stroke: #ffffff;
+        fill: none;
+    }
+
+    /* Panel & modal tidak boleh lebih lebar dari layar */
+    .guest-side-panel,
+    .modal-content,
+    .modal-compact,
+    .modal-dialog {
+        max-width: calc(100vw - 16px) !important;
+    }
+}
+
+/* ---------- HP (<= 768px) ---------- */
+@media (max-width: 768px) {
+    /* Grid inline (kartu statistik, form 2-4 kolom) turun baris otomatis */
+    .main-content [style*="grid-template-columns"]:not(.calendar-grid) {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)) !important;
+    }
+
+    /* Tabel lebar: geser samping di dalam kartu, bukan melebarkan halaman */
+    .main-content :not(.table-container) > table {
+        display: block;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .main-content img {
+        max-width: 100%;
+    }
+
+    .table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ---------- HP sempit (<= 640px) ---------- */
+@media (max-width: 640px) {
+    /* Top bar: sisakan lonceng + foto; nama, jam, & langganan ada di menu / disembunyikan */
+    body .main-content > .top-bar .user-info > div:first-child,
+    body .main-content > .top-bar .adfsub-pro-pill,
+    body .main-content > .top-bar .adfsub-head-pill,
+    body .main-content > .top-bar div:has(> #currentDate) {
+        display: none !important;
+    }
+
+    body .main-content > .top-bar .page-title {
+        font-size: 0.92rem !important;
+    }
+}
+
+/* ---------- Layar sentuh (HP/tablet): cegah zoom otomatis iOS saat mengetik ---------- */
+@media (max-width: 768px) and (pointer: coarse) {
+    .main-content input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+    .main-content select,
+    .main-content textarea {
+        font-size: 16px !important;
+    }
+}
