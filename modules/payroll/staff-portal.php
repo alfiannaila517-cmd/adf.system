@@ -87,11 +87,11 @@ try {
     }
     if ($staffBgVal) {
         if (strpos($staffBgVal, 'http') === 0) {
-            $authBgUrl = $staffBgVal;
+            $authBgUrl = $staffBgVal . (strpos($staffBgVal, '?') === false ? '?v=' . substr(md5($staffBgVal), 0, 8) : '');
         } else {
             $localPath = __DIR__ . '/../../uploads/backgrounds/' . $staffBgVal;
             if (file_exists($localPath)) {
-                $authBgUrl = $baseUrl . '/uploads/backgrounds/' . $staffBgVal;
+                $authBgUrl = $baseUrl . '/uploads/backgrounds/' . $staffBgVal . '?v=' . @filemtime($localPath); // cache-bust: nama berkas sama saat diganti
             }
         }
     }
