@@ -1,0 +1,60 @@
+<?php
+/** Kamus EN: Laporan (modules/reports), Tagihan (modules/bills), Pengaturan (modules/settings). */
+return [
+    'text' => [
+        // ---- umum ----
+        'Cari' => 'Search', 'Cetak' => 'Print', 'Hari' => 'Day', 'Item' => 'Item', 'Barang' => 'Items', 'Gunakan' => 'Use', 'Nilai' => 'Value', 'Periode' => 'Period', 'Penjualan' => 'Sales',
+        'Tagihan' => 'Bills', 'Transaksi' => 'Transactions', 'Tampilkan password' => 'Show password', 'Total Transaksi' => 'Total Transactions', 'Saldo Bersih' => 'Net Balance',
+        'Jatuh Tempo' => 'Due Date', 'Jatuh Tempo *' => 'Due Date *', 'Jumlah (Rp)' => 'Amount (Rp)', 'Jumlah (Rp) *' => 'Amount (Rp) *', 'Jumlah Tagihan' => 'Bill Amount', 'Jumlah Tagihan (Rp) *' => 'Bill Amount (Rp) *',
+        'Catatan (opsional)' => 'Notes (optional)', 'Keterangan tambahan' => 'Additional notes', 'Kategori/Item' => 'Category/Item', 'Nama Divisi' => 'Division Name', 'Total Divisi' => 'Total Divisions',
+        'Tidak ada pengeluaran' => 'No expenses', 'Tidak ada data untuk periode yang dipilih' => 'No data for the selected period', '- Belum ada data -' => '- No data yet -',
+        '-- Semua Divisi --' => '-- All Divisions --', '— Pilih Divisi —' => '— Select Division —', '— Pilih Template —' => '— Select Template —', '— Auto (dari jenis tagihan) —' => '— Auto (from bill type) —',
+        // ---- laporan ----
+        'Laporan Harian' => 'Daily Report', 'Laporan Keuangan Harian' => 'Daily Financial Report', 'Ringkasan Harian' => 'Daily Summary', 'Ringkasan Per Hari' => 'Summary Per Day', 'Analisa Per Divisi' => 'Analysis Per Division',
+        'Detail Transaksi Periode' => 'Period Transaction Details', 'DETAIL PEMASUKAN' => 'INCOME DETAILS', 'DETAIL PENGELUARAN' => 'EXPENSE DETAILS', 'DETAIL PENDAPATAN' => 'REVENUE DETAILS', 'DETAIL PEMBELIAN' => 'PURCHASE DETAILS',
+        'INCOME PER DIVISI' => 'INCOME PER DIVISION', 'EXPENSES PER DIVISI' => 'EXPENSES PER DIVISION', 'TOTAL PEMASUKAN:' => 'TOTAL INCOME:', 'TOTAL PENGELUARAN:' => 'TOTAL EXPENSES:', 'TOTAL' => 'TOTAL', 'TOTAL:' => 'TOTAL:',
+        'Pemasukan Terbesar (Divisi)' => 'Top Income (Division)', 'Pengeluaran Terbesar (Divisi)' => 'Top Expenses (Division)', 'Saldo Cash & Bank' => 'Cash & Bank Balance', 'Saldo Cash Saat Ini' => 'Current Cash Balance',
+        'Saldo Modal Owner' => 'Owner Capital Balance', 'Sisa Owner' => 'Owner Remaining', 'TOTAL KAS OPERASIONAL' => 'TOTAL OPERATIONAL CASH', 'Cetak Laporan' => 'Print Report', 'Kirim WA' => 'Send WA', 'Export PDF' => 'Export PDF',
+        'Tips Laporan' => 'Report Tips', 'Rekap Per Divisi ( - )' => 'Summary Per Division ( - )', 'Rekap Per Tahun ( - )' => 'Summary Per Year ( - )', 'Detail Transaksi ( - )' => 'Transaction Details ( - )',
+        '(Kas Besar - Operasional)' => '(Main Cash - Operational)', '(Petty Cash + Modal Owner)' => '(Petty Cash + Owner Capital)', '(Untuk Expense Operasional)' => '(For Operational Expenses)', 'Petty Cash' => 'Petty Cash',
+        'Transfer Owner' => 'Owner Transfer', 'End Shift Configuration' => 'End Shift Configuration', 'Pengaturan Laporan PDF' => 'PDF Report Settings', 'Konfigurasi header laporan: logo, nama, alamat yang tampil di PDF' => 'Report header configuration: logo, name, and address shown in the PDF',
+        'Logo' => 'Logo', 'Format: JPG, PNG, GIF. Max 2MB. Rekomendasi: 400x150px' => 'Format: JPG, PNG, GIF. Max 2MB. Recommended: 400x150px', 'Logo tidak ditemukan. Silakan upload logo baru.' => 'Logo not found. Please upload a new logo.',
+        'Alamat Lengkap *' => 'Full Address *', 'Nama Perusahaan *' => 'Company Name *', 'Preview:' => 'Preview:', '| Tel: |' => '| Tel: |',
+        // ---- tagihan ----
+        'Tagihan Berulang (Bulanan)' => 'Recurring Bills (Monthly)', 'Tagihan Rutin' => 'Routine Bills', 'Tambah Tagihan' => 'Add Bill', 'Tambah Tagihan Baru' => 'Add New Bill', 'Simpan Tagihan' => 'Save Bill',
+        'Tambah Tagihan Belanja / Supplier' => 'Add Purchase / Supplier Bill', 'Template Tagihan *' => 'Bill Template *', 'Nama Tagihan *' => 'Bill Name *', 'Periode (Bulan) *' => 'Period (Month) *',
+        'Belum ada template.' => 'No templates yet.', 'Pilih Tagihan untuk Pencairan' => 'Select Bills to Disburse', 'Bayar & Catat ke Kas' => 'Pay & Record in Cash Book', 'Lunas ·' => 'Paid ·',
+        'Menunggu Bayar (' => 'Awaiting Payment (', 'Jatuh Tempo (' => 'Due Date (', 'Jatuh Tempo (Tanggal 1-28)' => 'Due Date (Day 1-28)', 'Pengingat (hari sebelum)' => 'Reminder (days before)',
+        'Nominal (Rp)' => 'Amount (Rp)', 'Nominal Default (Rp)' => 'Default Amount (Rp)', 'Nominal Tetap?' => 'Fixed Amount?', 'Ya (tetap)' => 'Yes (fixed)', 'Tidak (berubah)' => 'No (varies)',
+        'Item Tagihan (opsional - rincian per tanggal untuk rekap supplier)' => 'Bill Items (optional - per-date breakdown for supplier summary)',
+        'Tagihan mitra (driver, motor, trip), manual & bulanan' => 'Partner bills (driver, motorbike, trip), manual & monthly', 'Bagian Driver / Pemilik (Rp)' => 'Driver / Owner Share (Rp)', 'Bagian Perusahaan / Hotel (otomatis)' => 'Company / Hotel Share (automatic)',
+        'Edit Nominal Trip' => 'Edit Trip Amount', 'Bayar Trip Driver' => 'Pay Driver Trip', 'Driver / Mitra' => 'Driver / Partner', 'Total Tarif (Rp)' => 'Total Rate (Rp)', 'Total Pengajuan' => 'Total Requests',
+        'Diajukan oleh,' => 'Requested by,', 'Disetujui oleh,' => 'Approved by,', 'Nama Customer / Toko *' => 'Customer / Store Name *', 'Cetak Rekap' => 'Print Summary', 'Cetak Rekap per Toko' => 'Print Summary per Store',
+        'Cetak Semua' => 'Print All', 'Cetak per Nama' => 'Print per Name', 'Cetak per Toko/Minggu' => 'Print per Store/Week',
+        'Contoh: BCA 1234567890 a.n. Toko Sinar Jaya (opsional)' => 'e.g. BCA 1234567890 a.n. Toko Sinar Jaya (optional)', 'Contoh: Listrik, Air, Gaji, Sewa' => 'e.g. Electricity, Water, Salary, Rent',
+        'Contoh: Toko Sinar Jaya (opsional)' => 'e.g. Toko Sinar Jaya (optional)', 'cth: Listrik PLN, WiFi IndiHome' => 'e.g. PLN Electricity, IndiHome WiFi', 'cth: PLN, Telkom' => 'e.g. PLN, Telkom',
+        // ---- tagihan gudang (ringkas) ----
+        'Belum dibayar Gudang' => 'Not yet paid by Warehouse', 'Tagihan dari Gudang ·' => 'Bills from Warehouse ·', 'Dari Gudang Nasita ·' => 'From Nasita Warehouse ·', 'Barang yang kami kirim, dibayar oleh Gudang.' => 'Items we sent, paid by the Warehouse.',
+        'Barang yang kami kirim ·' => 'Items we sent ·', 'Barang kami kirim ·' => 'Items we sent ·', 'Semua uang antar bisnis lewat Gudang Nasita, per bulan.' => 'All money between businesses goes through the Nasita Warehouse, per month.',
+        'Uang masuk dari Gudang ·' => 'Money received from Warehouse ·', 'Dari bisnis lain (dibayar lewat Gudang) ·' => 'From other businesses (paid through the Warehouse) ·', 'Rincian barang bulan ini tidak tersedia (tagihan lama).' => 'This month\'s item breakdown is not available (old bill).',
+        'harga belum diisi — memakai estimasi' => 'price not filled in — using an estimate', 'tercatat sebagai pendapatan (kategori Penjualan ke Gudang);' => 'recorded as income (Sales to Warehouse category);',
+        'tercatat sebagai pengurangan biaya tagihan Gudang — bukan pendapatan.' => 'recorded as a reduction of the Warehouse bill cost — not income.', '— sisa dikembalikan Gudang' => '— remainder returned by the Warehouse',
+        // ---- pengaturan ----
+        'Pengaturan Perusahaan' => 'Company Settings', 'Edit nama, logo, alamat, kontak perusahaan untuk laporan dan tampilan' => 'Edit the company name, logo, address, and contact for reports and display',
+        'Edit nama, logo, alamat, kontak CQC untuk laporan dan tampilan' => 'Edit the CQC name, logo, address, and contact for reports and display',
+        'Atur format tanggal, mata uang, timezone, tema gelap/terang dan bahasa' => 'Set the date format, currency, timezone, dark/light theme, and language',
+        'Backup database, reset data buku kas CQC atau data proyek' => 'Database backup, reset CQC cash book data or project data', 'Backup database, restore data, atau reset data tertentu' => 'Database backup, restore data, or reset specific data',
+        'Kelola kategori transaksi per divisi (pemasukan & pengeluaran)' => 'Manage transaction categories per division (income & expenses)', 'Tambah, edit, hapus divisi hotel (Restaurant, SPA, Laundry, dll)' => 'Add, edit, delete hotel divisions (Restaurant, SPA, Laundry, etc.)',
+        'Ubah password akun Anda dengan verifikasi password lama' => 'Change your account password with old password verification', 'Masukkan password lama, lalu password baru.' => 'Enter your old password, then the new password.',
+        'Lupa password lama? Hubungi developer untuk reset. Gunakan kombinasi huruf, angka, dan simbol (disarankan 8+ karakter).' => 'Forgot your old password? Contact the developer to reset it. Use a combination of letters, numbers, and symbols (8+ characters recommended).',
+        'Format Tanggal' => 'Date Format', 'Rp (Rupiah)' => 'Rp (Rupiah)', 'Sebelum angka (Rp 1,500,000)' => 'Before the number (Rp 1,500,000)', 'Setelah angka (1,500,000 Rp)' => 'After the number (1,500,000 Rp)',
+        'WIB (Jakarta, Medan)' => 'WIB (Jakarta, Medan)', 'WITA (Makassar, Bali)' => 'WITA (Makassar, Bali)', 'WIT (Jayapura, Manado)' => 'WIT (Jayapura, Manado)', 'Singapore (SGT)' => 'Singapore (SGT)', 'UTC (Universal)' => 'UTC (Universal)',
+        'Tambah Kategori Baru' => 'Add New Category', 'Atur format' => 'Set format',
+        // ---- kategori biaya (emoji) ----
+        'BBM' => 'Fuel', 'BBM/Gas' => 'Fuel/Gas', 'Makanan' => 'Food', 'Makanan/Bahan' => 'Food/Ingredients', 'Dekorasi' => 'Decoration', 'Kesehatan' => 'Health', 'Listrik' => 'Electricity', 'Kartu' => 'Card',
+        'Paket' => 'Package', 'Perlengkapan' => 'Supplies', 'Komunikasi' => 'Communication', 'Perbaikan' => 'Repairs', 'Transport' => 'Transport', 'Belanja' => 'Shopping', 'Belanja Harian' => 'Daily Shopping', 'Kebersihan' => 'Cleaning',
+        'Ringkasan Harian' => 'Daily Summary', 'Loading...' => 'Loading...',
+    ],
+    'js' => [],
+    'patterns' => [],
+];
