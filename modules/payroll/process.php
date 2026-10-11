@@ -1662,10 +1662,10 @@ include '../../includes/header.php';
     .svc-modal form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
     .svc-head { display: flex; align-items: center; gap: 14px; padding: 18px 22px; color: #fff; background: linear-gradient(135deg, #1e3a8a, #6d28d9); position: relative; }
     .svc-head-ic { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,.16); display: grid; place-items: center; flex-shrink: 0; }
-    .svc-head-ic svg { stroke: #fff; }
-    .svc-head h4 { margin: 0; font-size: 1.05rem; font-weight: 800; color: #fff; }
-    .svc-head p { margin: 2px 0 0; font-size: .76rem; color: rgba(255,255,255,.8); }
-    .svc-x { margin-left: auto; width: 32px; height: 32px; border-radius: 9px; border: 0; background: rgba(255,255,255,.16); color: #fff; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+    .svc-head-ic svg { stroke: #fff !important; fill: none !important; }
+    .svc-head h4 { margin: 0; font-size: 1.05rem; font-weight: 800; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+    .svc-head p { margin: 2px 0 0; font-size: .76rem; color: rgba(255,255,255,.88) !important; -webkit-text-fill-color: rgba(255,255,255,.88) !important; }
+    .svc-x { margin-left: auto; width: 32px; height: 32px; border-radius: 9px; border: 0; background: rgba(255,255,255,.16); color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: 1.3rem; line-height: 1; cursor: pointer; }
     .svc-x:hover { background: rgba(255,255,255,.28); }
     .svc-body { padding: 18px 22px 6px; overflow-y: auto; min-height: 0; }
     .svc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
@@ -1693,7 +1693,7 @@ include '../../includes/header.php';
     .svc-emp:hover { background: rgba(99,102,241,.07); }
     .svc-emp:has(input:checked) { border-color: rgba(99,102,241,.55); background: rgba(99,102,241,.1); }
     .svc-emp input { accent-color: #6366f1; width: 16px; height: 16px; flex-shrink: 0; }
-    .svc-av { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; display: grid; place-items: center; font-size: .72rem; font-weight: 800; flex-shrink: 0; }
+    .svc-av { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff !important; -webkit-text-fill-color: #fff !important; display: grid; place-items: center; font-size: .72rem; font-weight: 800; flex-shrink: 0; }
     .svc-emp span.t { display: block; min-width: 0; }
     .svc-emp span.t b { display: block; font-size: .82rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .svc-emp span.t small { display: block; font-size: .68rem; color: var(--text-tertiary); }
@@ -1703,7 +1703,8 @@ include '../../includes/header.php';
     .svc-auto small { display: block; margin-top: 2px; font-size: .72rem; line-height: 1.45; color: var(--text-tertiary); }
     .svc-note { font-size: .72rem; color: var(--text-tertiary); margin: 10px 0 0; line-height: 1.5; }
     .svc-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--border-color); background: rgba(99,102,241,.04); flex-wrap: wrap; }
-    .svc-foot .ps-btn { padding: .55rem 1.1rem; }
+    .svc-foot .ps-btn { padding: .55rem 1.1rem; color: #fff !important; -webkit-text-fill-color: #fff !important; text-shadow: none; }
+    .svc-foot .ps-btn svg { stroke: #fff !important; }
     .ps-btn-cancel { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff !important; }
     .ps-btn-cancel:hover { background: linear-gradient(135deg, #64748b, #475569); }
     @media (max-width: 600px) { .svc-stats, .svc-fields, .svc-emp-grid { grid-template-columns: 1fr; } .svc-search { width: 100%; margin-left: 0; } }
