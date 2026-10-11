@@ -914,6 +914,84 @@ if ($period) {
     }
 }
 
+// ===== Setup Service: service = % dari total income bulan itu, dibagi rata ke penerima terpilih =====
+function psServiceConfig($db)
+{
+    $cfg = ['percent' => 1.0, 'override_total' => null, 'configured' => 0, 'recipients' => []];
+    try {
+        $pdo = $db->getConnection();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_service_config` (
+            `id` INT PRIMARY KEY,
+            `percent` DECIMAL(5,2) NOT NULL DEFAULT 1.00,
+            `override_total` DECIMAL(15,2) NULL,
+            `configured` TINYINT NOT NULL DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_service_recipients` (
+            `employee_id` INT PRIMARY KEY
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("INSERT IGNORE INTO `payroll_service_config` (`id`) VALUES (1)");
+        $row = $db->fetchOne("SELECT percent, override_total, configured FROM payroll_service_config WHERE id = 1");
+        if ($row) {
+            $cfg['percent'] = (float)$row['percent'];
+            $cfg['override_total'] = $row['override_total'] !== null ? (float)$row['override_total'] : null;
+            $cfg['configured'] = (int)$row['configured'];
+        }
+        $cfg['recipients'] = array_map('intval', array_column($db->fetchAll("SELECT employee_id FROM payroll_service_recipients") ?: [], 'employee_id'));
+    } catch (Throwable $e) {
+        error_log('psServiceConfig: ' . $e->getMessage());
+    }
+    return $cfg;
+}
+
+/** Total income (cash book) pada bulan tertentu, di luar modal pemilik bila kolom source_type ada. */
+function psMonthIncome($db, $month, $year)
+{
+    try {
+        $pdo = $db->getConnection();
+        $exclude = '';
+        $col = $pdo->query("SHOW COLUMNS FROM cash_book LIKE 'source_type'");
+        if ($col && $col->rowCount() > 0) {
+            $exclude = " AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project'))";
+        }
+        $st = $pdo->prepare("SELECT COALESCE(SUM(amount),0) FROM cash_book WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $exclude);
+        $st->execute([sprintf('%04d-%02d', $year, $month)]);
+        return (float)$st->fetchColumn();
+    } catch (Throwable $e) {
+        error_log('psMonthIncome: ' . $e->getMessage());
+        return 0.0;
+    }
+}
+
+$svcIncome = $period ? psMonthIncome($db, $month, $year) : 0.0;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_service_config'])) {
+    $svcCfgPrev = psServiceConfig($db); // memastikan tabel ada
+    $pct = max(0, min(100, (float)str_replace(',', '.', (string)($_POST['svc_percent'] ?? '1'))));
+    $ovRaw = preg_replace('/[^0-9]/', '', (string)($_POST['svc_override'] ?? ''));
+    $override = $ovRaw !== '' && (float)$ovRaw > 0 ? (float)$ovRaw : null;
+    $recipients = array_values(array_unique(array_map('intval', (array)($_POST['svc_emp'] ?? []))));
+    dbExec($db, "UPDATE payroll_service_config SET percent = ?, override_total = ?, configured = 1 WHERE id = 1", [$pct, $override]);
+    dbExec($db, "DELETE FROM payroll_service_recipients");
+    foreach ($recipients as $rid) {
+        if ($rid > 0) dbExec($db, "INSERT IGNORE INTO payroll_service_recipients (employee_id) VALUES (?)", [$rid]);
+    }
+    if (isset($_POST['svc_apply']) && $period && in_array($period['status'], ['draft', 'submitted', 'approved'], true)) {
+        $pool = $override !== null ? $override : round($svcIncome * $pct / 100);
+        $share = count($recipients) > 0 ? floor($pool / count($recipients)) : 0;
+        foreach ($slips as $sl) {
+            $amt = in_array((int)$sl['employee_id'], $recipients, true) ? $share : 0;
+            dbExec($db, "UPDATE payroll_slips SET incentive = ? WHERE id = ?", [$amt, $sl['id']]);
+        }
+        $_POST['save_proses'] = 1; // hitung ulang net semua slip lewat blok Save/Proses di bawah
+        $_POST['__svc_msg'] = 'Service diterapkan: Rp ' . number_format($pool, 0, ',', '.') . ' dibagi ' . count($recipients) . ' penerima (Rp ' . number_format($share, 0, ',', '.') . ' per orang).';
+    } else {
+        setFlash('success', 'Pengaturan service tersimpan.');
+        header("Location: process.php?month=$month&year=$year");
+        exit;
+    }
+}
+$svcCfg = psServiceConfig($db);
+
 // Handle Save/Proses Button (recalculate all slips and update period net total)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
     if ($period) {
@@ -949,7 +1027,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
         }
         $period_id = $period['id'];
         dbExec($db, "UPDATE payroll_periods p LEFT JOIN ( SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ? ) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$period_id, $period_id]);
-        setFlash('success', 'All slips recalculated and totals updated!');
+        setFlash('success', $_POST['__svc_msg'] ?? 'All slips recalculated and totals updated!');
         header("Location: process.php?month=$month&year=$year");
         exit;
     }
@@ -1519,6 +1597,40 @@ include '../../includes/header.php';
         stroke: #ffffff !important;
         fill: none !important;
     }
+
+    /* Dropdown "Menu" aksi lain */
+    .ps-more { position: relative; display: inline-block; }
+    .ps-more-menu {
+        display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 210px;
+        background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px;
+        box-shadow: 0 14px 34px -12px rgba(15, 23, 42, 0.45); padding: 6px;
+    }
+    .ps-more.open .ps-more-menu { display: block; }
+    .ps-more-menu form { margin: 0; display: block; }
+    .ps-more-item {
+        display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 12px; border: 0; background: transparent;
+        border-radius: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 600; text-align: left; text-decoration: none;
+        color: var(--text-primary) !important; -webkit-text-fill-color: var(--text-primary);
+    }
+    .ps-more-item svg { stroke: currentColor !important; flex-shrink: 0; opacity: .75; }
+    .ps-more-item:hover { background: rgba(99, 102, 241, 0.12); }
+    .ps-more-item.danger { color: #dc2626 !important; -webkit-text-fill-color: #dc2626; }
+    .ps-more-item.danger:hover { background: rgba(220, 38, 38, 0.12); }
+    .ps-more-sep { height: 1px; background: var(--border-color); margin: 5px 4px; }
+    /* Setup Service */
+    .svc-modal { max-width: 560px; width: 94vw; }
+    .svc-stat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 12px; }
+    .svc-stat div { background: rgba(99, 102, 241, 0.08); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; }
+    .svc-stat small { display: block; font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-tertiary); }
+    .svc-stat b { font-size: .95rem; color: var(--text-primary); }
+    .svc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .svc-emp-box { border: 1px solid var(--border-color); border-radius: 10px; max-height: 240px; overflow-y: auto; padding: 4px; }
+    .svc-emp { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: .84rem; color: var(--text-primary); }
+    .svc-emp:hover { background: rgba(99, 102, 241, 0.08); }
+    .svc-emp small { color: var(--text-tertiary); margin-left: auto; }
+    .svc-row .ps-form-input { width: 100%; box-sizing: border-box; min-width: 0; }
+    .svc-note { font-size: .74rem; color: var(--text-tertiary); margin: 8px 0 0; line-height: 1.45; }
+    @media (max-width: 520px) { .svc-stat, .svc-row { grid-template-columns: 1fr; } }
 
     /* Table Card */
     .ps-card {
@@ -2449,91 +2561,49 @@ include '../../includes/header.php';
             </div>
 
             <div class="ps-actions">
-                <!-- Sync Absensi & Save always available for editing -->
-                <form method="POST" style="display:inline;" title="Sync jam kerja dari data absensi GPS">
-                    <input type="hidden" name="sync_attendance" value="1">
-                    <button type="submit" class="ps-btn ps-btn-secondary" style="margin-right:0.5rem;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <polyline points="1 20 1 14 7 14"></polyline>
-                            <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                        </svg>
-                        Sync Absensi
-                    </button>
-                </form>
+                <!-- Tombol utama; aksi lain dikumpulkan di dropdown "Menu" -->
                 <form method="POST" id="saveProsesForm" style="display:inline;">
                     <input type="hidden" name="save_proses" value="1">
-                    <button type="submit" class="ps-btn ps-btn-primary" style="margin-right:0.5rem;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Save/Proses
-                    </button>
+                    <button type="submit" class="ps-btn ps-btn-primary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Save/Proses</button>
                 </form>
-                <?php if ($period['status'] == 'draft'): ?>
-                    <form method="POST" onsubmit="return confirm('Submit this payroll to Owner?')" style="display:inline;">
-                        <input type="hidden" name="submit_period" value="1">
-                        <button type="submit" class="ps-btn ps-btn-warning">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="22" y1="2" x2="11" y2="13"></line>
-                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                            </svg>
-                            Submit to Owner
-                        </button>
-                    </form>
-                <?php endif; ?>
+                <button type="button" class="ps-btn ps-btn-secondary" onclick="openServiceModal()" title="Atur penerima & persentase service dari pendapatan hotel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg> Setup Service</button>
                 <?php if (in_array($period['status'], ['draft', 'submitted', 'approved'])): ?>
                     <form method="POST" onsubmit="return confirm('Bayar langsung & publish slip gaji ke Staff Portal?')" style="display:inline;">
                         <input type="hidden" name="quick_pay" value="1">
-                        <button type="submit" class="ps-btn ps-btn-success" style="margin-left:0.5rem;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                            </svg>
-                            💰 Bayar & Publish
-                        </button>
+                        <button type="submit" class="ps-btn ps-btn-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Bayar &amp; Publish</button>
                     </form>
                 <?php endif; ?>
-                <?php if ($period['status'] == 'submitted'): ?>
-                    <form method="POST" onsubmit="return confirm('Approve and record to Cashbook?')" style="display:inline;">
-                        <input type="hidden" name="approve_period" value="1">
-                        <button type="submit" class="ps-btn ps-btn-success">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            Approve & Record
-                        </button>
-                    </form>
-                <?php endif; ?>
-
-                <form method="POST" style="display: inline;">
-                    <input type="hidden" name="refresh_employees" value="1">
-                    <button type="submit" class="ps-btn ps-btn-refresh" title="Refresh: Add new employees to this period">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <polyline points="1 20 1 14 7 14"></polyline>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                        </svg>
-                        Refresh
-                    </button>
-                </form>
-                <form method="POST" style="display: inline;" onsubmit="return confirm('⚠️ RESET period <?php echo $months[$month] . ' ' . $year; ?>?\n\nSemua data gaji, slip, dan catatan cashbook untuk bulan ini akan DIHAPUS.\n\nAnda bisa buat ulang setelah reset.\n\nLanjutkan?');">
-                    <input type="hidden" name="reset_period" value="1">
-                    <button type="submit" class="ps-btn ps-btn-reset" title="Reset: Hapus period ini dan mulai ulang">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                        Reset
-                    </button>
-                </form>
-                <a href="print-submission.php?period_id=<?php echo $period['id']; ?>" target="_blank" class="ps-btn ps-btn-outline">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                        <rect x="6" y="14" width="12" height="8"></rect>
-                    </svg>
-                    Print
-                </a>
+                <div class="ps-more" id="psMore">
+                    <button type="button" class="ps-btn ps-btn-outline" onclick="psToggleMore(event)" aria-haspopup="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg> Menu <span style="font-size:.7rem;">&#9662;</span></button>
+                    <div class="ps-more-menu">
+                        <form method="POST" title="Sync jam kerja dari data absensi GPS">
+                            <input type="hidden" name="sync_attendance" value="1">
+                            <button type="submit" class="ps-more-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> Sync Absensi</button>
+                        </form>
+                        <?php if ($period['status'] == 'draft'): ?>
+                            <form method="POST" onsubmit="return confirm('Submit this payroll to Owner?')">
+                                <input type="hidden" name="submit_period" value="1">
+                                <button type="submit" class="ps-more-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Submit to Owner</button>
+                            </form>
+                        <?php endif; ?>
+                        <?php if ($period['status'] == 'submitted'): ?>
+                            <form method="POST" onsubmit="return confirm('Approve and record to Cashbook?')">
+                                <input type="hidden" name="approve_period" value="1">
+                                <button type="submit" class="ps-more-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Approve &amp; Record</button>
+                            </form>
+                        <?php endif; ?>
+                        <form method="POST">
+                            <input type="hidden" name="refresh_employees" value="1">
+                            <button type="submit" class="ps-more-item" title="Refresh: Add new employees to this period"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg> Refresh</button>
+                        </form>
+                        <a href="print-submission.php?period_id=<?php echo $period['id']; ?>" target="_blank" class="ps-more-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Print</a>
+                        <div class="ps-more-sep"></div>
+                        <form method="POST" onsubmit="return confirm('⚠️ RESET period <?php echo $months[$month] . ' ' . $year; ?>?\n\nSemua data gaji, slip, dan catatan cashbook untuk bulan ini akan DIHAPUS.\n\nAnda bisa buat ulang setelah reset.\n\nLanjutkan?');">
+                            <input type="hidden" name="reset_period" value="1">
+                            <button type="submit" class="ps-more-item danger" title="Reset: Hapus period ini dan mulai ulang"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Reset</button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -2753,6 +2823,87 @@ include '../../includes/header.php';
 </div>
 
 <!-- Deduction Modal -->
+<?php if ($period): ?>
+<div class="ps-modal-overlay" id="serviceModal">
+    <div class="ps-modal svc-modal">
+        <div class="ps-modal-header">
+            <h4 class="ps-modal-title">Setup Service — <?php echo $months[$month] . ' ' . $year; ?></h4>
+            <button type="button" class="ps-modal-close" onclick="closeServiceModal()">&times;</button>
+        </div>
+        <form method="POST" id="serviceForm">
+            <input type="hidden" name="save_service_config" value="1">
+            <div class="svc-stat">
+                <div><small>Income bulan ini</small><b>Rp <?php echo number_format($svcIncome, 0, ',', '.'); ?></b></div>
+                <div><small>Total service</small><b id="svcPool">Rp 0</b></div>
+                <div><small>Per orang</small><b id="svcShare">Rp 0</b></div>
+            </div>
+            <div class="svc-row">
+                <div class="ps-form-group">
+                    <label class="ps-form-label">Persentase dari income (%)</label>
+                    <input type="number" step="0.1" min="0" max="100" class="ps-form-input" name="svc_percent" id="svcPercent" value="<?php echo htmlspecialchars((string)$svcCfg['percent']); ?>" oninput="svcRecalc()">
+                </div>
+                <div class="ps-form-group">
+                    <label class="ps-form-label">Atur total manual (opsional, Rp)</label>
+                    <input type="text" inputmode="numeric" class="ps-form-input" name="svc_override" id="svcOverride" placeholder="Kosong = otomatis dari %" value="<?php echo $svcCfg['override_total'] !== null ? number_format($svcCfg['override_total'], 0, ',', '.') : ''; ?>" oninput="svcFmt(this); svcRecalc()">
+                </div>
+            </div>
+            <label class="ps-form-label" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Penerima service (<span id="svcCount">0</span> dipilih)</span>
+                <a href="#" onclick="svcToggleAll(event)" style="font-size:.74rem;">Pilih / kosongkan semua</a>
+            </label>
+            <div class="svc-emp-box">
+                <?php foreach ($slips as $sl):
+                    $checked = $svcCfg['configured'] ? in_array((int)$sl['employee_id'], $svcCfg['recipients'], true) : true; ?>
+                    <label class="svc-emp">
+                        <input type="checkbox" name="svc_emp[]" value="<?php echo (int)$sl['employee_id']; ?>" <?php echo $checked ? 'checked' : ''; ?> onchange="svcRecalc()">
+                        <span><?php echo htmlspecialchars($sl['employee_name']); ?></span>
+                        <small><?php echo htmlspecialchars($sl['department'] ?? ''); ?></small>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+            <p class="svc-note">Service = persentase dari total income (buku kas, tidak termasuk modal pemilik) bulan ini, dibagi rata ke penerima terpilih. Saat <strong>Terapkan</strong>, kolom Service penerima diisi nominal per orang dan karyawan yang tidak dipilih menjadi 0. Setelah itu Anda masih bisa mengubah angka per karyawan secara manual.</p>
+            <div class="ps-modal-actions" style="margin-top:14px;">
+                <button type="button" class="ps-btn ps-btn-outline" onclick="closeServiceModal()">Batal</button>
+                <button type="submit" class="ps-btn ps-btn-secondary">Simpan Pengaturan</button>
+                <?php if (in_array($period['status'], ['draft', 'submitted', 'approved'])): ?>
+                    <button type="submit" name="svc_apply" value="1" class="ps-btn ps-btn-primary" onclick="return confirm('Terapkan service ke semua slip bulan ini? Nilai Service yang ada akan ditimpa.')">Simpan &amp; Terapkan ke Slip</button>
+                <?php endif; ?>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    (function () {
+        var income = <?php echo json_encode($svcIncome); ?>;
+        function rp(n) { return 'Rp ' + Math.floor(n).toLocaleString('id-ID'); }
+        window.svcFmt = function (el) { var d = el.value.replace(/[^0-9]/g, ''); el.value = d ? Number(d).toLocaleString('id-ID') : ''; };
+        window.svcRecalc = function () {
+            var pct = parseFloat(document.getElementById('svcPercent').value) || 0;
+            var ov = parseInt((document.getElementById('svcOverride').value || '').replace(/[^0-9]/g, ''), 10) || 0;
+            var n = document.querySelectorAll('#serviceForm input[name="svc_emp[]"]:checked').length;
+            var pool = ov > 0 ? ov : Math.round(income * pct / 100);
+            document.getElementById('svcPool').textContent = rp(pool);
+            document.getElementById('svcShare').textContent = rp(n ? pool / n : 0);
+            document.getElementById('svcCount').textContent = n;
+        };
+        window.svcToggleAll = function (e) {
+            e.preventDefault();
+            var boxes = document.querySelectorAll('#serviceForm input[name="svc_emp[]"]');
+            var all = Array.prototype.every.call(boxes, function (b) { return b.checked; });
+            boxes.forEach(function (b) { b.checked = !all; });
+            svcRecalc();
+        };
+        window.openServiceModal = function () { document.getElementById('serviceModal').classList.add('active'); svcRecalc(); };
+        window.closeServiceModal = function () { document.getElementById('serviceModal').classList.remove('active'); };
+        window.psToggleMore = function (e) { e.stopPropagation(); document.getElementById('psMore').classList.toggle('open'); };
+        document.addEventListener('click', function (e) {
+            var m = document.getElementById('psMore');
+            if (m && !m.contains(e.target)) m.classList.remove('open');
+        });
+    })();
+</script>
+<?php endif; ?>
+
 <div class="ps-modal-overlay" id="deductionModal">
     <div class="ps-modal">
         <div class="ps-modal-header">
