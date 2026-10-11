@@ -18,6 +18,7 @@ if ($client && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = adf_ledger_admin_action((string) ($_POST['id'] ?? ''), $action, [
                 'base_fee' => $num('base_fee'),
                 'guest_count' => (int) ($_POST['guest_count'] ?? 0),
+                'carry_guests' => (int) ($_POST['carry_guests'] ?? 0),
                 'adjustment' => (float) str_replace(',', '.', (string) ($_POST['adjustment'] ?? '0')),
                 'note' => $_POST['note'] ?? '',
                 'due_date' => $_POST['due_date'] ?? '',
@@ -115,7 +116,7 @@ require __DIR__ . '/../includes/admin-header.php';
                 $stLabel = ['unpaid' => 'Belum dibayar', 'paid' => 'Lunas', 'cancelled' => 'Dibatalkan'][$st] ?? $st;
                 $payload = [
                     'id' => $inv['id'], 'title' => $inv['period'] . ($inv['kind'] === 'topup' ? ' · susulan' : ''),
-                    'base_fee' => (int) $inv['base_fee'], 'guest_count' => (int) $inv['guest_count'],
+                    'base_fee' => (int) $inv['base_fee'], 'guest_count' => (int) $inv['guest_count'], 'carry_guests' => (int) ($inv['carry_guests'] ?? 0),
                     'fee' => (float) $inv['per_guest_fee'], 'adjustment' => (float) ($inv['adjustment'] ?? 0),
                     'due_date' => (string) ($inv['due_date'] ?? ''), 'note' => (string) ($inv['note'] ?? ''),
                 ];
@@ -132,6 +133,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         <ul class="si-lines">
                             <?php if ((float) $inv['base_fee'] > 0): ?><li><span>Biaya bulanan</span><b><?php echo $rp((float) $inv['base_fee']); ?></b></li><?php endif; ?>
                             <?php if ((int) $inv['guest_count'] > 0): ?><li><span><?php echo (int) $inv['guest_count']; ?> pax × <?php echo $rp((float) $inv['per_guest_fee']); ?></span><b><?php echo $rp((int) $inv['guest_count'] * (float) $inv['per_guest_fee']); ?></b></li><?php endif; ?>
+                            <?php if ((int) ($inv['carry_guests'] ?? 0) > 0): ?><li><span><?php echo (int) $inv['carry_guests']; ?> pax susulan<?php echo !empty($inv['carry_from']) ? ' (' . htmlspecialchars($inv['carry_from']) . ')' : ''; ?> × <?php echo $rp((float) $inv['per_guest_fee']); ?></span><b><?php echo $rp((int) $inv['carry_guests'] * (float) $inv['per_guest_fee']); ?></b></li><?php endif; ?>
                             <?php if ((float) ($inv['adjustment'] ?? 0) != 0.0): ?><li><span>Penyesuaian</span><b><?php echo ((float) $inv['adjustment'] < 0 ? '−' : '') . $rp(abs((float) $inv['adjustment'])); ?></b></li><?php endif; ?>
                         </ul>
                         <?php if (!empty($inv['note'])): ?><div class="si-note"><?php echo htmlspecialchars($inv['note']); ?></div><?php endif; ?>
@@ -158,7 +160,7 @@ require __DIR__ . '/../includes/admin-header.php';
             <?php endforeach; ?>
             <?php if (!$invoices): ?><div class="si-empty">Belum ada tagihan. Muncul otomatis setelah sistem klien sinkron.</div><?php endif; ?>
             </div>
-            <p class="si-foot">Membatalkan = membebaskan pax/biaya itu (tidak dibuat ulang). Invoice yang diedit tidak ikut berubah saat pax bertambah; pax baru ditagih di invoice susulan.</p>
+            <p class="si-foot">Membatalkan = membebaskan pax/biaya itu (tidak dibuat ulang). Invoice yang diedit atau sudah dibayar tidak ikut berubah saat pax bertambah; pax yang terdaftar setelah invoice sebuah bulan dibayar otomatis ditagih di invoice bulan berikutnya (baris "pax susulan").</p>
         </section>
     </div>
 
@@ -171,6 +173,7 @@ require __DIR__ . '/../includes/admin-header.php';
             <div class="si-fields">
                 <label>Biaya bulanan (Rp)<input type="text" name="base_fee" id="siBase" inputmode="numeric"></label>
                 <label>Jumlah pax<input type="text" name="guest_count" id="siGuests" inputmode="numeric"></label>
+                <label>Pax susulan<input type="text" name="carry_guests" id="siCarry" inputmode="numeric" title="Tamu bulan sebelumnya yang baru terdaftar setelah invoicenya dibayar"></label>
                 <label>Penyesuaian (± Rp)<input type="text" name="adjustment" id="siAdj" inputmode="numeric" placeholder="-50000 untuk diskon"></label>
                 <label>Jatuh tempo<input type="date" name="due_date" id="siDue"></label>
                 <label class="si-full">Catatan<input type="text" name="note" id="siNote" maxlength="200" placeholder="Opsional, tampil di sistem klien"></label>
@@ -258,19 +261,19 @@ require __DIR__ . '/../includes/admin-header.php';
     var fee = 0;
     function num(v) { v = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isNaN(v) ? 0 : v; }
     function rp(n) { return (n < 0 ? '-' : '') + 'Rp ' + Math.abs(Math.round(n)).toLocaleString('id-ID'); }
-    function preview() { el('siTotal').textContent = rp(num(el('siBase').value) + Math.max(0, Math.floor(num(el('siGuests').value))) * fee + num(el('siAdj').value)); }
+    function preview() { el('siTotal').textContent = rp(num(el('siBase').value) + (Math.max(0, Math.floor(num(el('siGuests').value))) + Math.max(0, Math.floor(num(el('siCarry').value)))) * fee + num(el('siAdj').value)); }
     document.querySelectorAll('[data-edit]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var d = JSON.parse(btn.getAttribute('data-edit'));
             fee = d.fee;
             el('siId').value = d.id; el('siTitle').textContent = d.title;
-            el('siBase').value = d.base_fee; el('siGuests').value = d.guest_count;
+            el('siBase').value = d.base_fee; el('siGuests').value = d.guest_count; el('siCarry').value = d.carry_guests;
             el('siAdj').value = d.adjustment; el('siDue').value = d.due_date; el('siNote').value = d.note;
             preview();
             if (typeof modal.showModal === 'function') modal.showModal(); else modal.setAttribute('open', '');
         });
     });
-    ['siBase', 'siGuests', 'siAdj'].forEach(function (id) { el(id).addEventListener('input', preview); });
+    ['siBase', 'siGuests', 'siCarry', 'siAdj'].forEach(function (id) { el(id).addEventListener('input', preview); });
     modal.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', function () { modal.close(); }); });
     modal.addEventListener('click', function (e) { if (e.target === modal) modal.close(); });
     document.querySelectorAll('form[data-confirm]').forEach(function (f) {

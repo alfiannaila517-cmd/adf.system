@@ -7,8 +7,8 @@
  * lewat api/subscription-invoices.php, lalu ADF menghitung:
  *     tagihan bulan = biaya bulanan + total pax x biaya per pax
  * dikurangi bagian yang sudah tertagih (lunas / dibatalkan = dibebaskan / sudah punya link bayar).
- * Selisihnya ditagih lewat satu invoice terbuka per periode: invoice pertama = tagihan bulanan,
- * invoice berikutnya (TOPUP-<periode>-<n>) = tamu/biaya yang bertambah setelah itu.
+ * Satu invoice per periode (bulan). Tamu yang baru terdaftar SETELAH invoice periodenya dibayar tidak
+ * membuat invoice susulan: mereka ikut ditagih di invoice bulan berikutnya (kolom carry_guests).
  *
  * Admin bisa membatalkan, mengedit, atau menandai lunas dari admin/subscription-invoices.php.
  * Tagihan manual (di luar hitungan ini) tetap di subscription-manual-invoices-store.php.
@@ -58,7 +58,7 @@ function adf_ledger_load(): array
 
 function adf_ledger_total(array $inv): float
 {
-    return round((float) ($inv['base_fee'] ?? 0) + (int) ($inv['guest_count'] ?? 0) * (float) ($inv['per_guest_fee'] ?? 0) + (float) ($inv['adjustment'] ?? 0), 2);
+    return round((float) ($inv['base_fee'] ?? 0) + ((int) ($inv['guest_count'] ?? 0) + (int) ($inv['carry_guests'] ?? 0)) * (float) ($inv['per_guest_fee'] ?? 0) + (float) ($inv['adjustment'] ?? 0), 2);
 }
 
 /** Invoice milik klien, urut periode lalu id. */
@@ -93,8 +93,14 @@ function adf_ledger_due(array $client, string $period, bool $topup): string
 /**
  * Hitung ulang satu periode. Invoice "tetap" (lunas, dibatalkan, sudah punya link bayar, atau diedit
  * admin) tidak disentuh dan dihitung sebagai sudah tertagih; hanya invoice terbuka yang disesuaikan.
+ *
+ * $carryIn = tamu dari periode sebelumnya yang belum tertagih (mis. terdaftar setelah invoice bulan itu
+ * dibayar); diserap ke invoice terbuka periode ini. Return: jumlah tamu yang harus diteruskan ke periode
+ * berikutnya (tamu periode ini yang muncul setelah invoicenya tetap + carry yang tidak bisa diserap).
+ *
+ * @param array $carryFrom daftar periode asal tamu susulan (diperbarui)
  */
-function adf_ledger_recompute_period(array &$data, array $client, string $period, int $guests): void
+function adf_ledger_recompute_period(array &$data, array $client, string $period, int $guests, int $carryIn = 0, array &$carryFrom = []): int
 {
     $key = (string) $client['client_key'];
     $fee = (float) ($client['per_guest_fee'] ?? 0);
@@ -109,71 +115,103 @@ function adf_ledger_recompute_period(array &$data, array $client, string $period
 
     $guestsBilled = 0;
     $baseBilled = 0.0;
+    $carryBilled = 0;
     $open = null;
+    $drop = [];
     foreach ($idx as $i) {
         $inv = $data['invoices'][$i];
         $fixed = ($inv['status'] ?? '') !== 'unpaid' || !empty($inv['locked']) || !empty($inv['edited']);
         if ($fixed) {
             $guestsBilled += (int) $inv['guest_count'];
             $baseBilled += (float) $inv['base_fee'];
+            $carryBilled += (int) ($inv['carry_guests'] ?? 0);
+        } elseif (($inv['kind'] ?? '') === 'topup') {
+            $drop[] = $i; // model lama (tagihan susulan terpisah) tidak dipakai lagi
         } elseif ($open === null) {
             $open = $i;
-        }
-    }
-
-    $needGuests = max(0, $guests - $guestsBilled);
-    $needBase = max(0.0, $base - $baseBilled);
-
-    if ($open !== null) {
-        if ($needGuests <= 0 && $needBase <= 0) {
-            unset($data['invoices'][$open]);
-            $data['invoices'] = array_values($data['invoices']);
         } else {
-            $data['invoices'][$open]['base_fee'] = $needBase;
-            $data['invoices'][$open]['guest_count'] = $needGuests;
-            $data['invoices'][$open]['per_guest_fee'] = $fee;
+            $drop[] = $i;
         }
-        return;
     }
-    if ($needGuests <= 0 && $needBase <= 0) {
-        return;
+    foreach ($drop as $i) {
+        unset($data['invoices'][$i]);
     }
-
-    $currentMonth = date('Y-m');
-    $isFirst = empty($idx);
-    if ($isFirst && $period > $currentMonth) {
-        // Bulan depan baru ditagih setelah bulan ini tidak punya tagihan yang menunggu bayar.
-        foreach ($data['invoices'] as $inv) {
-            if (($inv['client_key'] ?? '') === $key && ($inv['period'] ?? '') <= $currentMonth && ($inv['status'] ?? '') === 'unpaid') {
-                return;
+    if ($drop) {
+        $data['invoices'] = array_values($data['invoices']);
+        // indeks bergeser: cari ulang invoice terbuka
+        $open = null;
+        foreach ($data['invoices'] as $i => $inv) {
+            if (($inv['client_key'] ?? '') === $key && ($inv['period'] ?? '') === $period
+                && ($inv['status'] ?? '') === 'unpaid' && empty($inv['locked']) && empty($inv['edited'])) {
+                $open = $i;
+                break;
             }
         }
     }
 
-    $n = count($idx);
-    $ref = $isFirst ? $period : 'TOPUP-' . $period . '-' . max(1, $n);
-    $taken = array_column(array_filter($data['invoices'], static fn(array $i): bool => ($i['client_key'] ?? '') === $key), 'ref');
-    while (in_array($ref, $taken, true)) {
-        $n++;
-        $ref = 'TOPUP-' . $period . '-' . $n;
+    $needOwn = max(0, $guests - $guestsBilled);
+    $needBase = max(0.0, $base - $baseBilled);
+    $needCarry = max(0, $carryIn - $carryBilled);
+    $hasInvoice = (bool) array_filter($data['invoices'], static fn(array $i): bool => ($i['client_key'] ?? '') === $key && ($i['period'] ?? '') === $period);
+
+    if ($open !== null) {
+        if ($needOwn <= 0 && $needBase <= 0 && $needCarry <= 0) {
+            unset($data['invoices'][$open]);
+            $data['invoices'] = array_values($data['invoices']);
+        } else {
+            $data['invoices'][$open]['base_fee'] = $needBase;
+            $data['invoices'][$open]['guest_count'] = $needOwn;
+            $data['invoices'][$open]['carry_guests'] = $needCarry;
+            $data['invoices'][$open]['carry_from'] = $needCarry > 0 ? implode(', ', array_unique($carryFrom)) : '';
+            $data['invoices'][$open]['per_guest_fee'] = $fee;
+        }
+        $carryFrom = [];
+        return 0;
+    }
+
+    if ($hasInvoice) {
+        // Invoice periode ini sudah tetap (mis. lunas): tamu yang bertambah sesudahnya diteruskan ke bulan depan.
+        $out = $needOwn + $needCarry;
+        if ($needOwn > 0) {
+            $carryFrom[] = $period;
+        }
+        return $out;
+    }
+
+    if ($needOwn <= 0 && $needBase <= 0 && $needCarry <= 0) {
+        return 0;
+    }
+
+    $currentMonth = date('Y-m');
+    if ($period > $currentMonth) {
+        // Bulan depan baru ditagih setelah bulan ini tidak punya tagihan yang menunggu bayar.
+        foreach ($data['invoices'] as $inv) {
+            if (($inv['client_key'] ?? '') === $key && ($inv['period'] ?? '') <= $currentMonth && ($inv['status'] ?? '') === 'unpaid') {
+                return $needCarry; // belum dibuat: tamu susulan tetap menunggu
+            }
+        }
     }
 
     $data['invoices'][] = [
         'id' => uniqid('li', true),
         'client_key' => $key,
-        'ref' => $ref,
-        'kind' => $ref === $period ? 'recurring' : 'topup',
+        'ref' => $period,
+        'kind' => 'recurring',
         'period' => $period,
         'base_fee' => $needBase,
-        'guest_count' => $needGuests,
+        'guest_count' => $needOwn,
+        'carry_guests' => $needCarry,
+        'carry_from' => $needCarry > 0 ? implode(', ', array_unique($carryFrom)) : '',
         'per_guest_fee' => $fee,
         'adjustment' => 0,
         'note' => '',
         'status' => 'unpaid',
-        'due_date' => adf_ledger_due($client, $period, $ref !== $period),
+        'due_date' => adf_ledger_due($client, $period, false),
         'created_at' => date('c'),
         'paid_at' => null,
     ];
+    $carryFrom = [];
+    return 0;
 }
 
 function adf_ledger_recompute_all(array &$data, array $client): void
@@ -183,13 +221,14 @@ function adf_ledger_recompute_all(array &$data, array $client): void
     $to = date('Y-m', strtotime('first day of next month'));
     $usage = (array) ($data['usage'][$key] ?? []);
     ksort($usage);
+    $carry = 0;
+    $carryFrom = [];
     foreach ($usage as $period => $row) {
         if (preg_match('/^\d{4}-\d{2}$/', (string) $period) && $period >= $from && $period <= $to) {
-            adf_ledger_recompute_period($data, $client, (string) $period, (int) ($row['guests'] ?? 0));
+            $carry = adf_ledger_recompute_period($data, $client, (string) $period, (int) ($row['guests'] ?? 0), $carry, $carryFrom);
         }
     }
 }
-
 /**
  * Proses sinkron dari klien: impor invoice lunas lama, kunci invoice yang sudah punya link bayar,
  * simpan pax per bulan, hitung ulang, lalu kembalikan daftar invoice klien.
@@ -312,6 +351,7 @@ function adf_ledger_admin_action(string $id, string $action, array $fields = [])
             }
             $inv['base_fee'] = max(0, (float) ($fields['base_fee'] ?? $inv['base_fee']));
             $inv['guest_count'] = max(0, (int) ($fields['guest_count'] ?? $inv['guest_count']));
+            $inv['carry_guests'] = max(0, (int) ($fields['carry_guests'] ?? ($inv['carry_guests'] ?? 0)));
             $inv['adjustment'] = (float) ($fields['adjustment'] ?? 0);
             $inv['note'] = mb_substr(trim((string) ($fields['note'] ?? '')), 0, 200);
             if (!empty($fields['due_date']) && strtotime((string) $fields['due_date'])) {

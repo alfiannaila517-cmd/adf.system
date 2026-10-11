@@ -54,6 +54,8 @@ echo json_encode([
             'period' => $inv['period'],
             'base_fee' => (float) $inv['base_fee'],
             'guest_count' => (int) $inv['guest_count'],
+            'carry_guests' => (int) ($inv['carry_guests'] ?? 0),
+            'carry_from' => (string) ($inv['carry_from'] ?? ''),
             'per_guest_fee' => (float) $inv['per_guest_fee'],
             'adjustment' => (float) ($inv['adjustment'] ?? 0),
             'note' => (string) ($inv['note'] ?? ''),
