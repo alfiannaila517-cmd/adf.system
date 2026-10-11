@@ -3173,7 +3173,26 @@ include '../../includes/header.php';
         .av-body { flex: 1; min-height: 120px; overflow-y: auto; padding: 4px 16px 12px; }
         .av-empty { padding: 26px 8px; text-align: center; font-size: 0.8rem; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
         .av-type { margin-top: 10px; }
-        .av-type-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+        .av-type-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+        .av-price { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+        .av-disc { display: inline-flex; align-items: center; gap: 4px; }
+        .av-disc-in { width: 100px; height: 28px; padding: 0 8px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.74rem; font-weight: 700; text-align: right; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+        .av-disc-in::placeholder { color: #94a3b8; font-weight: 500; -webkit-text-fill-color: #94a3b8; }
+        .av-disc-in:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+        .av-seg { display: inline-flex; padding: 2px; border-radius: 8px; background: #f1f5f9; }
+        .av-seg button { min-width: 28px; height: 24px; padding: 0 7px; border: 0; border-radius: 6px; background: transparent; font-size: 0.68rem; font-weight: 800; color: #64748b; cursor: pointer; }
+        .av-seg button.on { background: #ffffff; color: #1d4ed8; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18); }
+        .av-net { display: flex; flex-direction: column; align-items: flex-end; text-align: right; line-height: 1.3; }
+        .av-net b { font-size: 0.78rem; font-weight: 800; color: #15803d !important; -webkit-text-fill-color: #15803d !important; }
+        .av-net span { font-size: 0.64rem; font-weight: 600; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+        .av-net[hidden] { display: none; }
+        body[data-theme="dark"] .av-disc-in { background: #0f172a; border-color: rgba(148, 163, 184, 0.3); color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+        body[data-theme="dark"] .av-seg { background: rgba(255, 255, 255, 0.07); }
+        body[data-theme="dark"] .av-seg button { color: #94a3b8; }
+        body[data-theme="dark"] .av-seg button.on { background: #1e3a8a; color: #ffffff; box-shadow: none; }
+        body[data-theme="dark"] .av-net b { color: #86efac !important; -webkit-text-fill-color: #86efac !important; }
+        body[data-theme="dark"] .av-net span { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+        @media (max-width: 520px) { .av-type-h { flex-direction: column; } .av-price, .av-net { align-items: flex-start; text-align: left; } }
         .av-type-h b { font-size: 0.8rem; font-weight: 800; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
         .av-type-h small { font-size: 0.68rem; font-weight: 700; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
         .av-rooms { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -5101,7 +5120,7 @@ include '../../includes/header.php';
     // ===== CEK KETERSEDIAAN ROOM (tanggal A → B) =====
     // Popup daftar room kosong (dari api/get-available-rooms.php: booking aktif & blok sudah diperhitungkan),
     // kalender digeser ke tanggal check-in dan kolom rentang disorot (biru), sel kamar kosong hijau.
-    const availState = { ci: '', co: '', rooms: [], sel: new Set() };
+    const availState = { ci: '', co: '', nights: 0, rooms: [], sel: new Set(), disc: {} };
 
     window.openAvailModal = function openAvailModal() {
         const m = document.getElementById('availModal');
@@ -5326,7 +5345,9 @@ include '../../includes/header.php';
             availState.co = co;
             availState.rooms = data.rooms || [];
             availState.sel = new Set();
+            availState.disc = {};
             const nights = Math.round((Date.parse(co) - Date.parse(ci)) / 86400000);
+            availState.nights = nights;
             const total = parseInt(data.total_rooms || 0, 10);
             const avail = availState.rooms.length;
             const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
@@ -5343,8 +5364,14 @@ include '../../includes/header.php';
                 let html = '';
                 Object.keys(groups).forEach(t => {
                     const list = groups[t];
-                    const price = (!IS_STAFF_VIEW && list[0].base_price) ? 'Rp ' + parseInt(list[0].base_price, 10).toLocaleString('id-ID') + ' /malam' : '';
-                    html += '<div class="av-type"><div class="av-type-h"><b>' + escHtml(t) + ' · ' + list.length + ' room</b><small>' + price + '</small></div><div class="av-rooms">';
+                    const base = parseFloat(list[0].base_price) || 0;
+                    // Harga + simulasi diskon (di bawah nominal): isi disc → tampil harga pas per malam & total
+                    const priceBlock = (IS_STAFF_VIEW || !base) ? '' :
+                        '<div class="av-price"><small>Rp ' + Math.round(base).toLocaleString('id-ID') + ' /malam</small>' +
+                        '<div class="av-disc"><input type="text" inputmode="decimal" class="av-disc-in" placeholder="Disc %" autocomplete="off" aria-label="Diskon ' + escHtml(t) + '">' +
+                        '<span class="av-seg"><button type="button" data-u="pct" class="on">%</button><button type="button" data-u="rp">Rp</button></span></div>' +
+                        '<div class="av-net" hidden></div></div>';
+                    html += '<div class="av-type" data-type="' + escHtml(t) + '" data-price="' + base + '"><div class="av-type-h"><b>' + escHtml(t) + ' · ' + list.length + ' room</b>' + priceBlock + '</div><div class="av-rooms">';
                     list.forEach(r => {
                         html += '<button type="button" class="av-room" data-id="' + parseInt(r.id, 10) + '" onclick="availToggleRoom(this)">' + escHtml(r.room_number) +
                             (r.status === 'cleaning' ? '<small>kotor</small>' : '<small>' + (r.floor_number ? 'Lt ' + escHtml(r.floor_number) : 'siap') + '</small>') + '</button>';
@@ -5369,10 +5396,74 @@ include '../../includes/header.php';
         }
     };
 
+    // ----- Simulasi diskon per tipe room -----
+    const availRp = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+
+    function availDiscRender(section) {
+        const net = section.querySelector('.av-net');
+        if (!net) return;
+        const base = parseFloat(section.dataset.price) || 0;
+        const st = availState.disc[section.dataset.type];
+        if (!st || !(st.val > 0)) { net.hidden = true; net.innerHTML = ''; return; }
+        const perNight = Math.round(st.unit === 'pct' ? base * (1 - Math.min(100, st.val) / 100) : Math.max(0, base - st.val));
+        const nights = availState.nights || 1;
+        const saved = Math.max(0, base - perNight) * nights;
+        net.innerHTML = '<b>Harga pas ' + availRp(perNight) + ' /malam</b>' +
+            '<span>Total ' + nights + ' malam: ' + availRp(perNight * nights) + (saved > 0 ? ' · hemat ' + availRp(saved) : '') + '</span>';
+        net.hidden = false;
+    }
+
+    document.addEventListener('input', function(e) {
+        const inp = e.target && e.target.closest ? e.target.closest('.av-disc-in') : null;
+        if (!inp) return;
+        const section = inp.closest('.av-type');
+        const key = section.dataset.type;
+        const st = availState.disc[key] || (availState.disc[key] = { unit: 'pct', val: 0 });
+        if (st.unit === 'pct') {
+            let c = inp.value.replace(',', '.').replace(/[^\d.]/g, '');
+            const dot = c.indexOf('.');
+            if (dot > -1) c = c.slice(0, dot + 1) + c.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+            let v = parseFloat(c) || 0;
+            if (v > 100) { v = 100; c = '100'; }
+            inp.value = c;
+            st.val = v;
+        } else {
+            const digits = inp.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+            inp.value = digits ? Number(digits).toLocaleString('id-ID') : '';
+            st.val = parseInt(digits || '0', 10);
+        }
+        availDiscRender(section);
+    });
+    document.addEventListener('click', function(e) {
+        const b = e.target && e.target.closest ? e.target.closest('.av-seg button') : null;
+        if (!b) return;
+        const section = b.closest('.av-type');
+        const key = section.dataset.type;
+        const st = availState.disc[key] || (availState.disc[key] = { unit: 'pct', val: 0 });
+        if (st.unit === b.dataset.u) return;
+        st.unit = b.dataset.u;
+        st.val = 0; // arti angka berubah (persen ↔ rupiah): kosongkan agar tidak salah hitung
+        section.querySelectorAll('.av-seg button').forEach(x => x.classList.toggle('on', x === b));
+        const inp = section.querySelector('.av-disc-in');
+        inp.value = '';
+        inp.placeholder = st.unit === 'pct' ? 'Disc %' : 'Rp /malam';
+        inp.focus();
+        availDiscRender(section);
+    });
+
     window.availBook = function availBook() {
         if (!availState.sel.size) return;
+        // Diskon dibawa ke form reservasi hanya bila semua room terpilih memakai diskon yang sama
+        let discount = null;
+        const picked = availState.rooms.filter(r => availState.sel.has(String(r.id)));
+        const specs = picked.map(r => availState.disc[r.type_name || 'Lainnya']);
+        if (picked.length && specs.every(s => s && s.val > 0) && specs.every(s => s.unit === specs[0].unit && s.val === specs[0].val)) {
+            discount = specs[0].unit === 'pct' ?
+                { type: 'percent', value: specs[0].val } :
+                { type: 'rp', value: specs[0].val * (availState.nights || 1) * picked.length }; // Rp/malam → total seluruh room & malam
+        }
         closeAvailModal();
-        openNewReservationForm({ checkIn: availState.ci, checkOut: availState.co, roomIds: Array.from(availState.sel) });
+        openNewReservationForm({ checkIn: availState.ci, checkOut: availState.co, roomIds: Array.from(availState.sel), discount: discount });
     };
 
     // Esc: tutup kalender kecil dulu; bila sudah tertutup, tutup popup
@@ -5432,6 +5523,12 @@ include '../../includes/header.php';
                         if (item) item.style.background = '#dcfce7';
                     }
                 });
+                // Diskon dari simulasi (bila ada) ikut terisi di form
+                if (opts.discount && opts.discount.value > 0) {
+                    setDiscountTypeCalendar(opts.discount.type === 'percent' ? 'percent' : 'rp');
+                    const dEl = document.getElementById('discount');
+                    if (dEl) dEl.value = opts.discount.value;
+                }
                 calculateMultiRoomTotalCalendar();
             });
         }
