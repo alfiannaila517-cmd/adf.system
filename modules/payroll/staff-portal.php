@@ -1274,11 +1274,71 @@ header('Expires: 0');
             }
         }
 
+        /* Tombol pengumuman di header (di samping lonceng) — menimpa gaya FAB melayang di atas */
+        .app-header-actions .chat-fab {
+            position: relative;
+            bottom: auto;
+            right: auto;
+            width: 30px;
+            height: 30px;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, .1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, .18);
+            box-shadow: none;
+            z-index: auto;
+            animation: none;
+            transition: background .15s ease, transform .1s ease;
+        }
+
+        .app-header-actions .chat-fab:hover {
+            transform: none;
+            box-shadow: none;
+            background: rgba(255, 255, 255, .18);
+        }
+
+        .app-header-actions .chat-fab:active {
+            background: rgba(255, 255, 255, .22);
+            transform: scale(.92);
+        }
+
+        .app-header-actions .chat-fab.shake {
+            animation: chatShake .9s ease-in-out;
+        }
+
+        .app-header-actions .chat-fab.has-unread {
+            animation: chatNudge 1.5s ease-in-out infinite;
+        }
+
+        .app-header-actions .chat-fab .chat-fab-icon {
+            display: inline-flex;
+            filter: none;
+        }
+
+        .app-header-actions .chat-fab .chat-fab-icon svg {
+            stroke: #fff;
+            width: 16px;
+            height: 16px;
+        }
+
+        .app-header-actions .chat-fab-dot {
+            top: -3px;
+            right: -3px;
+            min-width: 15px;
+            height: 15px;
+            padding: 0 3px;
+            font-size: 9px;
+            font-weight: 800;
+            line-height: 12px;
+            border: 1.5px solid var(--navy);
+            box-shadow: none;
+        }
+
         .chat-popup {
             position: fixed;
-            bottom: 140px;
-            right: 16px;
-            left: 16px;
+            top: 74px;
+            right: 10px;
+            left: 10px;
             max-width: 380px;
             margin: auto;
             background: #fff;
@@ -3818,6 +3878,10 @@ header('Expires: 0');
                 </div>
             </div>
             <div class="app-header-actions">
+                <div class="chat-fab" id="chatFab" onclick="toggleChat()" title="Pengumuman" role="button" aria-label="Pengumuman">
+                    <span class="chat-fab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></span>
+                    <div class="chat-fab-dot" id="chatFabDot">0</div>
+                </div>
                 <div class="notif-bell" onclick="toggleNotifs()">
                     🔔
                     <div class="notif-dot" id="notifDot"></div>
@@ -3835,14 +3899,10 @@ header('Expires: 0');
             </div>
         </div>
 
-        <!-- Chat FAB: pengumuman dari admin -->
-        <div class="chat-fab" id="chatFab" onclick="toggleChat()">
-            <span class="chat-fab-icon" aria-hidden="true">&#128172;</span>
-            <div class="chat-fab-dot" id="chatFabDot">0</div>
-        </div>
+        <!-- Popup pengumuman dari admin (tombolnya ada di header, di samping lonceng) -->
         <div class="chat-popup" id="chatPopup">
             <div class="cp-head">
-                <span>💬 Pengumuman</span>
+                <span>📣 Pengumuman</span>
                 <span class="cp-close" onclick="toggleChat()">✕</span>
             </div>
             <div class="cp-body" id="chatMsgList">
