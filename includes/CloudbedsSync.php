@@ -1986,6 +1986,7 @@ class CloudbedsSync
         $localPaid = array_sum(array_map(fn($p) => (float)$p['amount'], $payments));
 
         $cbInfo = null;
+        $cbFolio = ['ok' => false, 'rows' => [], 'msg' => ''];
         $issues = [];
         if (!$payEnabled) $issues[] = ['bad', 'Saklar "Kirim pembayaran" MATI — pembayaran tidak dikirim ke Cloudbeds. Nyalakan di bagian Sinkron.'];
         if (!$link) {
@@ -1998,6 +1999,34 @@ class CloudbedsSync
                 $cbInfo = ['id' => (string)$link['cb_reservation_id'], 'status' => (string)($raw['status'] ?? ''), 'total' => $det['total'], 'balance' => $det['balance'],
                     'paid' => isset($bd['paid']) && is_numeric($bd['paid']) ? (float)$bd['paid'] : null,
                     'tax' => isset($bd['taxesFees']) && is_numeric($bd['taxesFees']) ? (float)$bd['taxesFees'] : null];
+                // Baris pembayaran di folio Cloudbeds (jenis, nominal, keterangan) — untuk melacak selisih / saldo minus
+                try {
+                    $pq = ['reservationID' => (string)$link['cb_reservation_id']];
+                    if ($this->cb->propertyId() !== '') $pq['propertyID'] = $this->cb->propertyId();
+                    $pr = $this->cb->get('getPayments', $pq);
+                    if ($pr['ok']) {
+                        $cbFolio['ok'] = true;
+                        $walkPay = function ($d) use (&$walkPay, &$cbFolio) {
+                            if (!is_array($d)) return;
+                            if (isset($d['amount']) && !is_array($d['amount']) && is_numeric($d['amount'])) {
+                                $cbFolio['rows'][] = [
+                                    'id' => (string)($d['paymentID'] ?? $d['id'] ?? ''),
+                                    'type' => (string)($d['type'] ?? $d['paymentType'] ?? $d['method'] ?? $d['paymentMethod'] ?? ''),
+                                    'amount' => (float)$d['amount'],
+                                    'desc' => (string)($d['description'] ?? $d['notes'] ?? ''),
+                                    'at' => (string)($d['transactionDate'] ?? $d['createdDate'] ?? $d['date'] ?? ''),
+                                ];
+                                return;
+                            }
+                            foreach ($d as $v) $walkPay($v);
+                        };
+                        $walkPay($pr['data'] ?? []);
+                    } else {
+                        $cbFolio['msg'] = (string)$pr['detail'] . (in_array((int)($pr['http'] ?? 0), [401, 403], true) ? ' (perlu scope "Payment: Read")' : '');
+                    }
+                } catch (\Throwable $e) {
+                    $cbFolio['msg'] = $e->getMessage();
+                }
                 if ($det['total'] !== null && abs((float)$det['total'] - $localTotal) >= 1) {
                     $issues[] = ['warn', 'Total di Cloudbeds (Rp ' . number_format((float)$det['total'], 0, ',', '.') . ') berbeda dengan total di sistem (Rp ' . number_format($localTotal, 0, ',', '.') . ')' .
                         ($cbInfo['tax'] ? ', termasuk pajak/biaya Rp ' . number_format($cbInfo['tax'], 0, ',', '.') : '') . '. Walau semua pembayaran sistem terkirim, Cloudbeds tetap menunjukkan sisa saldo (dot merah) sebesar selisih ini.'];
@@ -2020,7 +2049,7 @@ class CloudbedsSync
         if ($before) $issues[] = ['warn', count($before) . ' pembayaran dicatat sebelum "Kirim pembayaran" dinyalakan (' . ($since ?: 'belum pernah') . '), jadi tidak dikirim otomatis. Klik "Kirim juga pembayaran lama booking ini" (dibatasi sisa saldo Cloudbeds, tidak dobel).'];
         if (!$payments) $issues[] = ['warn', 'Belum ada pembayaran tercatat di sistem untuk booking ini.'];
         if (!$issues) $issues[] = ['ok', 'Semua pembayaran sudah terkirim dan total sama. Bila Cloudbeds masih merah, muat ulang halaman Cloudbeds.'];
-        return ['ok' => true, 'booking' => $bk, 'rooms' => $rooms, 'link' => $link ?: null, 'payments' => $payments, 'cb' => $cbInfo,
+        return ['ok' => true, 'booking' => $bk, 'rooms' => $rooms, 'link' => $link ?: null, 'payments' => $payments, 'cb' => $cbInfo, 'cb_folio' => $cbFolio,
             'outbound' => $this->outboundLog($cbInfo['id'] ?? ''),
             'issues' => $issues, 'ghost_paid' => $ghostPaid, 'can_align' => $canAlign, 'can_merge' => $this->groupMergeInfo($bk)['ok'], 'merge_info' => $this->groupMergeInfo($bk), 'marked_paid' => $markedPaid, 'pay_enabled' => $payEnabled, 'pay_since' => $since, 'local_total' => $localTotal, 'local_paid' => $localPaid, 'ids' => $ids];
     }

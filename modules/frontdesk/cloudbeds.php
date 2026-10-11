@@ -890,6 +890,28 @@ include '../../includes/header.php';
                         </tbody>
                     </table>
                 <?php endif; ?>
+                <?php $folio = $diag['cb_folio'] ?? null; if ($folio && ($folio['ok'] || $folio['msg'] !== '')): ?>
+                    <p class="cbx-hint" style="margin:.7rem 0 .3rem"><b>Pembayaran di folio Cloudbeds</b> (dibaca langsung dari Cloudbeds)</p>
+                    <?php if (!$folio['ok']): ?>
+                        <p class="cbx-hint" style="color:#b91c1c!important">Tidak bisa dibaca: <?php echo htmlspecialchars($folio['msg']); ?></p>
+                    <?php elseif (!$folio['rows']): ?>
+                        <p class="cbx-hint">Tidak ada baris pembayaran di folio Cloudbeds.</p>
+                    <?php else: ?>
+                        <table class="cbx-tbl">
+                            <thead><tr><th>Waktu</th><th>Jenis</th><th>Keterangan</th><th style="text-align:right">Nominal</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($folio['rows'] as $fr): ?>
+                                    <tr>
+                                        <td style="font-size:.66rem"><?php echo htmlspecialchars($fr['at']); ?></td>
+                                        <td><?php echo htmlspecialchars($fr['type']); ?></td>
+                                        <td><?php echo htmlspecialchars($fr['desc']); ?></td>
+                                        <td style="text-align:right;<?php echo $fr['amount'] < 0 ? 'color:#b91c1c;font-weight:700' : ''; ?>"><?php echo $rpx($fr['amount']); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
+                <?php endif; ?>
                 <?php if (!empty($diag['outbound'])): ?>
                     <p class="cbx-hint" style="margin:.7rem 0 .3rem"><b>Riwayat kiriman sistem ke Cloudbeds</b> (terbaru di atas)</p>
                     <table class="cbx-tbl">
