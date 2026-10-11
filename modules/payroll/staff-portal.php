@@ -17,6 +17,8 @@ if (!$bizSlug || !file_exists($bizFile)) {
 }
 $bizConfig = require $bizFile;
 if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $bizConfig['business_id']);
+// Pengaturan developer (logo & background login staff portal) tersimpan di DB utama; ambil koneksinya SEBELUM pindah ke DB bisnis
+$settingsDb = Database::getInstance();
 $db = Database::switchDatabase($bizConfig['database']);
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 $apiUrl = 'staff-api.php?b=' . urlencode($bizSlug);
@@ -50,8 +52,7 @@ try {
 // PWA Icon — use login_logo from settings (same DB as login.php & developer-settings.php)
 $pwaIconUrl = 'absen-icon.php?size=192'; // fallback
 try {
-    // developer-settings.php stores into getInstance() DB, login.php reads from same
-    $settingsDb = Database::getInstance();
+    // developer-settings.php menyimpan ke DB utama ($settingsDb di atas), bukan DB bisnis
     $iconKeys = [
         'pwa_app_icon' => 'uploads/icons/',
         'login_logo'   => 'uploads/logos/',
@@ -77,8 +78,13 @@ try {
 // Login screen background — per-business, configurable via developer/developer-settings.php
 $authBgUrl = null;
 try {
-    $staffBgRow = $settingsDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", ['staff_login_bg_' . $bizSlug]);
-    $staffBgVal = $staffBgRow['setting_value'] ?? null;
+    // kunci memakai business_id (sama seperti developer-settings); slug nama berkas sebagai cadangan
+    $staffBgVal = null;
+    foreach (array_unique([(string)($bizConfig['business_id'] ?? ''), $bizSlug]) as $bgKey) {
+        if ($bgKey === '') continue;
+        $staffBgRow = $settingsDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", ['staff_login_bg_' . $bgKey]);
+        if (!empty($staffBgRow['setting_value'])) { $staffBgVal = $staffBgRow['setting_value']; break; }
+    }
     if ($staffBgVal) {
         if (strpos($staffBgVal, 'http') === 0) {
             $authBgUrl = $staffBgVal;
@@ -3550,7 +3556,9 @@ header('Expires: 0');
 
         /* ═══ HOME: ABSENSI ═══ */
         .ab-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-        .ab-clock { font-size: 30px; font-weight: 800; color: #0f172a; line-height: 1.05; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+        .ab-clock { display: flex; align-items: baseline; font-size: 24px; font-weight: 700; color: #0f172a; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: .01em; margin-top: 2px; }
+        .ab-clock .ab-sec { font-size: 13px; font-weight: 600; color: #94a3b8; margin-left: 4px; }
+        .ab-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; margin-right: 6px; vertical-align: middle; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
         .ab-badge { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
         .ab-slots { display: grid; gap: 6px; }
         .ab-slot { position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 8px 4px 9px; text-align: center; background: #fbfcfe; overflow: hidden; }
@@ -3874,8 +3882,8 @@ header('Expires: 0');
                 <div class="rm-card ab-card">
                     <div class="ab-top">
                         <div>
-                            <div class="rm-occ-label">Absensi hari ini</div>
-                            <div class="ab-clock" id="liveClockTime">--:--:--</div>
+                            <div class="rm-occ-label"><span class="ab-dot"></span>Absensi hari ini</div>
+                            <div class="ab-clock"><span id="liveClockTime">--:--</span><span class="ab-sec" id="liveClockSec">:--</span></div>
                             <div class="rm-sub" id="liveClockDate"></div>
                         </div>
                         <div id="todayBadge"></div>
@@ -4784,7 +4792,9 @@ header('Expires: 0');
                 const hh = String(now.getHours()).padStart(2, '0');
                 const mm = String(now.getMinutes()).padStart(2, '0');
                 const ss = String(now.getSeconds()).padStart(2, '0');
-                if (timeEl) timeEl.textContent = `${hh}:${mm}:${ss}`;
+                const secEl = document.getElementById('liveClockSec');
+                if (timeEl) timeEl.textContent = secEl ? `${hh}:${mm}` : `${hh}:${mm}:${ss}`;
+                if (secEl) secEl.textContent = `:${ss}`;
                 if (dateEl) dateEl.textContent = `${dayNames[now.getDay()]}, ${now.getDate()} ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
             };
             tick();
