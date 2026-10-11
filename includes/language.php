@@ -120,7 +120,7 @@ function langPhraseMap(string $code): array
     foreach (glob(__DIR__ . '/languages/phrases/' . $code . '/*.php') ?: [] as $extra) {
         $files[] = $extra;
     }
-    $map = ['text' => [], 'js' => [], 'patterns' => []];
+    $map = ['text' => [], 'js' => [], 'patterns' => [], 'jsraw' => []];
     foreach ($files as $file) {
         if (!is_file($file)) {
             continue;
@@ -129,6 +129,7 @@ function langPhraseMap(string $code): array
         $map['text'] = array_merge($map['text'], $part['text'] ?? []);
         $map['js'] = array_merge($map['js'], $part['js'] ?? []);
         $map['patterns'] = array_merge($map['patterns'], $part['patterns'] ?? []);
+        $map['jsraw'] = array_merge($map['jsraw'] ?? [], $part['jsraw'] ?? []);
     }
 
     // indeks teks: kunci dinormalisasi (spasi dirapatkan)
@@ -147,6 +148,10 @@ function langPhraseMap(string $code): array
                 $jsPairs['"' . $lead . $k . $trail . '"'] = '"' . $lead . str_replace('"', '\\"', $v) . $trail . '"';
             }
         }
+    }
+    // fragmen JS mentah (mis. bagian template literal berisi ${...}) diganti apa adanya, tanpa bungkus kutip
+    foreach ($map['jsraw'] as $k => $v) {
+        $jsPairs[(string)$k] = (string)$v;
     }
     return $cache[$code] = ['text' => $text, 'js' => $jsPairs, 'patterns' => $map['patterns']];
 }
