@@ -189,7 +189,7 @@ if (isset($_GET['saved'])) {
             <!-- Theme & Language Settings -->
             <div style="padding: 1rem; background: var(--bg-tertiary); border-radius: 0.5rem; margin-bottom: 1rem;">
                 <h4 style="font-size: 0.938rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--text-primary);">
-                    Tema & Bahasa
+                    <?php echo __('display.theme_language'); ?>
                 </h4>
                 
                 <!-- Theme Selection -->
@@ -230,19 +230,60 @@ if (isset($_GET['saved'])) {
                     </div>
                 </div>
                 
-                <!-- Language Selection -->
+                <!-- Language Selection: pilihan langsung dari layar (kartu) -->
                 <div>
                     <label class="form-label">
                         <i data-feather="globe" style="width: 14px; height: 14px;"></i>
-                        Bahasa / Language
+                        <?php echo __('display.language_label'); ?>
                     </label>
-                    <select name="language" class="form-control" style="max-width: 300px;" id="languageSelect">
-                        <option value="id" <?php echo $currentLanguage === 'id' ? 'selected' : ''; ?>>🇮🇩 Bahasa Indonesia</option>
-                        <option value="en" <?php echo $currentLanguage === 'en' ? 'selected' : ''; ?>>🇬🇧 English</option>
-                    </select>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin: 0.15rem 0 0.6rem;"><?php echo __('display.language_hint'); ?></div>
+                    <div class="lang-grid" id="langGrid">
+                        <?php foreach (langSupported() as $__lc => $__li): $__on = $currentLanguage === $__lc; ?>
+                            <label class="lang-card<?php echo $__on ? ' active' : ''; ?>" data-lang="<?php echo $__lc; ?>">
+                                <input type="radio" name="language" value="<?php echo $__lc; ?>" <?php echo $__on ? 'checked' : ''; ?> style="display:none;">
+                                <span class="lang-flag"><?php echo $__li['flag']; ?></span>
+                                <span class="lang-txt"><strong><?php echo htmlspecialchars($__li['name']); ?></strong><small><?php echo strtoupper($__lc); ?></small></span>
+                                <span class="lang-check"><i data-feather="check"></i></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
+                <style>
+                    .lang-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; max-width: 560px; }
+                    .lang-card { position: relative; display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem; border: 2px solid var(--bg-tertiary); border-radius: var(--radius-lg, 12px); cursor: pointer; transition: all .2s ease; background: transparent; }
+                    .lang-card:hover { border-color: var(--primary-light, #60a5fa); transform: translateY(-1px); }
+                    .lang-card.active { border-color: var(--primary-color, #2563eb); background: rgba(37, 99, 235, .08); }
+                    .lang-flag { font-size: 1.7rem; line-height: 1; }
+                    .lang-txt { display: flex; flex-direction: column; min-width: 0; }
+                    .lang-txt strong { font-size: .9rem; color: var(--text-primary); }
+                    .lang-txt small { font-size: .7rem; color: var(--text-muted); letter-spacing: .06em; }
+                    .lang-check { margin-left: auto; width: 22px; height: 22px; border-radius: 50%; display: none; align-items: center; justify-content: center; background: var(--primary-color, #2563eb); color: #fff; }
+                    .lang-card.active .lang-check { display: inline-flex; }
+                    .lang-check svg { width: 13px; height: 13px; stroke: #fff; }
+                </style>
+                <script>
+                    (function() {
+                        var grid = document.getElementById('langGrid');
+                        if (!grid) return;
+                        grid.addEventListener('click', function(e) {
+                            var card = e.target.closest('.lang-card');
+                            if (!card || card.classList.contains('active')) return;
+                            var code = card.getAttribute('data-lang');
+                            var radio = card.querySelector('input[type=radio]');
+                            if (radio) radio.checked = true;
+                            grid.querySelectorAll('.lang-card').forEach(function(c) { c.classList.toggle('active', c === card); });
+                            var fd = new FormData();
+                            fd.append('language', code);
+                            fetch('<?php echo BASE_URL; ?>/api/set-language.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+                                .then(function(r) { return r.json(); })
+                                .then(function(d) {
+                                    if (d && d.success) { location.reload(); } else { alert((d && d.message) || '<?php echo addslashes(__('user_menu.language_failed')); ?>'); }
+                                })
+                                .catch(function() { alert('<?php echo addslashes(__('user_menu.server_failed')); ?>'); });
+                        });
+                    })();
+                </script>
             </div>
-            
             <!-- Currency Settings -->
             <div style="padding: 1rem; background: var(--bg-tertiary); border-radius: 0.5rem; margin-bottom: 1rem;">
                 <h4 style="font-size: 0.938rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--text-primary);">

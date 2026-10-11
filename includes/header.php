@@ -1765,7 +1765,7 @@ if ($userTheme === 'system') {
                 if (count($userBusinesses) > 1):
                 ?>
                     <div class="biz-switch" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
-                        <label style="font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; display: block;">Switch Business</label>
+                        <label style="font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; display: block;"><?php echo __('nav.switch_business'); ?></label>
                         <select onchange="switchBusiness(this.value)" style="width: 100%; padding: 0.5rem; background: var(--bg-tertiary); border: 1px solid var(--bg-quaternary); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.875rem; cursor: pointer;">
                             <?php
                             foreach ($userBusinesses as $bizId => $bizConfig):
@@ -1870,7 +1870,7 @@ if ($userTheme === 'system') {
                             .gudang-nav-group { list-style: none; margin: 0.85rem 0 0.2rem; padding: 0 0.9rem; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted, #94a3b8); }
                         </style>
                     <?php else: ?>
-                        <li class="nav-group-label">Utama</li>
+                        <li class="nav-group-label"><?php echo __('nav.main'); ?></li>
                         <?php if ($auth->hasPermission('dashboard')): ?>
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/index.php" class="nav-link <?php echo activeMenu('index.php'); ?>">
@@ -1885,19 +1885,19 @@ if ($userTheme === 'system') {
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/cqc-projects/') !== false) ? 'open' : ''; ?>">
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('cqc-projects'); ?>">
                                     <i data-feather="sun" class="nav-icon"></i>
-                                    <span>CQC Projects</span>
+                                    <span><?php echo __('nav.cqc_projects'); ?></span>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/cqc-projects/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
                                             <i data-feather="bar-chart-2" class="submenu-icon"></i>
-                                            <span>Dashboard</span>
+                                            <span><?php echo __('dashboard.title'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/cqc-projects/add.php" class="submenu-link <?php echo activeMenu('add.php'); ?>">
                                             <i data-feather="plus-circle" class="submenu-icon"></i>
-                                            <span>Tambah Proyek</span>
+                                            <span><?php echo __('nav.add_project'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
@@ -1932,7 +1932,7 @@ if ($userTheme === 'system') {
                             </li>
                         <?php endif; ?>
 
-                        <li class="nav-group-label">Operasional</li>
+                        <li class="nav-group-label"><?php echo __('nav.operations'); ?></li>
                         <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
                             <style>
                                 .fd-unpaid-dot {
@@ -1995,7 +1995,7 @@ if ($userTheme === 'system') {
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hk-allocation.php" class="submenu-link <?php echo activeMenu('hk-allocation.php'); ?>">
                                             <i data-feather="check-square" class="submenu-icon"></i>
-                                            <span>Pembagian HK</span>
+                                            <span><?php echo __('nav.housekeeping'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
@@ -2021,7 +2021,7 @@ if ($userTheme === 'system') {
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/frontdesk/cloudbeds.php" class="submenu-link <?php echo activeMenu('cloudbeds.php'); ?>">
                                             <i data-feather="link" class="submenu-icon"></i>
-                                            <span>Integrasi Cloudbeds</span>
+                                            <span><?php echo __('nav.cloudbeds'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
@@ -2033,25 +2033,25 @@ if ($userTheme === 'system') {
                             <li class="nav-item has-submenu <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'open' : ''; ?>">
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
                                     <i data-feather="briefcase" class="nav-icon"></i>
-                                    <span>Hotel Services</span>
+                                    <span><?php echo __('nav.hotel_services'); ?></span>
                                     <?php if (!empty($unpaidHotelServices)): ?>
-                                        <span class="nav-menu-dot" title="Ada tagihan belum lunas"></span>
+                                        <span class="nav-menu-dot" title="<?php echo __('nav.unpaid_bills'); ?>"></span>
                                     <?php endif; ?>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php" class="submenu-link <?php echo activeMenu('hotel-services.php'); ?>">
                                             <i data-feather="file-text" class="submenu-icon"></i>
-                                            <span>Invoice & Layanan</span>
+                                            <span><?php echo __('nav.invoice_services'); ?></span>
                                             <?php if (!empty($unpaidHotelServices)): ?>
-                                                <span class="nav-menu-dot" title="Ada tagihan belum lunas"></span>
+                                                <span class="nav-menu-dot" title="<?php echo __('nav.unpaid_bills'); ?>"></span>
                                             <?php endif; ?>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/frontdesk/rental-motor-dashboard.php" class="submenu-link <?php echo (activeMenu('rental-motor.php') || activeMenu('rental-motor-dashboard.php')) ? 'active' : ''; ?>">
                                             <i data-feather="truck" class="submenu-icon"></i>
-                                            <span>Rental Motor</span>
+                                            <span><?php echo __('nav.motor_rental'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
@@ -2069,19 +2069,19 @@ if ($userTheme === 'system') {
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=termin" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'termin') ? 'active' : ''; ?>">
                                             <i data-feather="file" class="submenu-icon"></i>
-                                            <span>Invoice Termin</span>
+                                            <span><?php echo __('nav.invoice_installment'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=general" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'general') ? 'active' : ''; ?>">
                                             <i data-feather="file-text" class="submenu-icon"></i>
-                                            <span>Invoice Umum</span>
+                                            <span><?php echo __('nav.invoice_general'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=quotation" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'quotation') ? 'active' : ''; ?>">
                                             <i data-feather="clipboard" class="submenu-icon"></i>
-                                            <span>Quotation</span>
+                                            <span><?php echo __('nav.quotation'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
@@ -2093,25 +2093,25 @@ if ($userTheme === 'system') {
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/bills/') !== false) ? 'open' : ''; ?>">
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('bills'); ?>">
                                     <i data-feather="credit-card" class="nav-icon"></i>
-                                    <span>Tagihan</span>
+                                    <span><?php echo __('nav.bills'); ?></span>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/bills/index.php" class="submenu-link <?php echo activeMenu('bills/index'); ?>">
                                             <i data-feather="list" class="submenu-icon"></i>
-                                            <span>Daftar Tagihan</span>
+                                            <span><?php echo __('nav.bill_list'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/bills/templates.php" class="submenu-link <?php echo activeMenu('templates.php'); ?>">
                                             <i data-feather="layers" class="submenu-icon"></i>
-                                            <span>Template Rutin</span>
+                                            <span><?php echo __('nav.bill_templates'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/bills/business-warehouse.php" class="submenu-link <?php echo activeMenu('business-warehouse'); ?>">
                                             <i data-feather="repeat" class="submenu-icon"></i>
-                                            <span>Tagihan Bisnis & Gudang</span>
+                                            <span><?php echo __('nav.bills_business_warehouse'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
@@ -2133,25 +2133,25 @@ if ($userTheme === 'system') {
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/payroll/') !== false) ? 'open' : ''; ?>">
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('payroll'); ?>">
                                     <i data-feather="dollar-sign" class="nav-icon"></i>
-                                    <span>Payroll</span>
+                                    <span><?php echo __('nav.payroll'); ?></span>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/payroll/employees.php" class="submenu-link <?php echo activeMenu('employees.php'); ?>">
                                             <i data-feather="users" class="submenu-icon"></i>
-                                            <span>Employee Data</span>
+                                            <span><?php echo __('nav.employee_data'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/payroll/process.php" class="submenu-link <?php echo activeMenu('process.php'); ?>">
                                             <i data-feather="monitor" class="submenu-icon"></i>
-                                            <span>Process Salary</span>
+                                            <span><?php echo __('nav.process_salary'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/payroll/attendance.php" class="submenu-link <?php echo activeMenu('attendance.php'); ?>">
                                             <i data-feather="map-pin" class="submenu-icon"></i>
-                                            <span>Absensi GPS</span>
+                                            <span><?php echo __('nav.gps_attendance'); ?></span>
                                         </a>
                                     </li>
 
@@ -2164,14 +2164,14 @@ if ($userTheme === 'system') {
                             <li class="nav-item has-submenu <?php echo (activeMenu('purchase-orders.php') || activeMenu('business-stock-incoming.php')) ? 'open' : ''; ?>">
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('purchase-orders.php') || activeMenu('business-stock-incoming.php')) ? 'active' : ''; ?>">
                                     <i data-feather="shopping-bag" class="nav-icon"></i>
-                                    <span>Purchase</span>
+                                    <span><?php echo __('nav.purchase'); ?></span>
                                 </a>
                                 <ul class="submenu">
                                     <?php if ($auth->hasPermission('procurement_po')): ?>
                                         <li class="submenu-item">
                                             <a href="<?php echo BASE_URL; ?>/modules/procurement/purchase-orders.php" class="submenu-link <?php echo activeMenu('purchase-orders.php'); ?>">
                                                 <i data-feather="clipboard" class="submenu-icon"></i>
-                                                <span>PO Gudang</span>
+                                                <span><?php echo __('nav.po_warehouse'); ?></span>
                                             </a>
                                         </li>
                                     <?php endif; ?>
@@ -2179,13 +2179,13 @@ if ($userTheme === 'system') {
                                         <li class="submenu-item">
                                             <a href="<?php echo BASE_URL; ?>/modules/procurement/business-stock-incoming.php" class="submenu-link <?php echo activeMenu('business-stock-incoming.php'); ?>">
                                                 <i data-feather="inbox" class="submenu-icon"></i>
-                                                <span>Stock Gudang</span>
+                                                <span><?php echo __('nav.stock_warehouse'); ?></span>
                                             </a>
                                         </li>
                                         <li class="submenu-item">
                                             <a href="<?php echo BASE_URL; ?>/modules/procurement/staff-stock-access.php" class="submenu-link <?php echo activeMenu('staff-stock-access.php'); ?>">
                                                 <i data-feather="user-check" class="submenu-icon"></i>
-                                                <span>Akses Stock Staff</span>
+                                                <span><?php echo __('nav.staff_stock_access'); ?></span>
                                             </a>
                                         </li>
                                     <?php endif; ?>
@@ -2198,56 +2198,56 @@ if ($userTheme === 'system') {
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/gudang/') !== false) ? 'open' : ''; ?>">
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/gudang/') !== false) ? 'active' : ''; ?>">
                                     <i data-feather="archive" class="nav-icon"></i>
-                                    <span>Gudang Nasita</span>
+                                    <span><?php echo __('nav.warehouse_nasita'); ?></span>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/gudang/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
                                             <i data-feather="home" class="submenu-icon"></i>
-                                            <span>Dashboard</span>
+                                            <span><?php echo __('dashboard.title'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/gudang/barang.php" class="submenu-link <?php echo activeMenu('barang.php'); ?>">
                                             <i data-feather="package" class="submenu-icon"></i>
-                                            <span>Master Barang</span>
+                                            <span><?php echo __('nav.item_master'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/gudang/stock.php" class="submenu-link <?php echo activeMenu('stock.php'); ?>">
                                             <i data-feather="layers" class="submenu-icon"></i>
-                                            <span>Kelola Stok</span>
+                                            <span><?php echo __('nav.manage_stock'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/gudang/po-supplier.php" class="submenu-link <?php echo activeMenu('po-supplier.php'); ?>">
                                             <i data-feather="file-text" class="submenu-icon"></i>
-                                            <span>PO Supplier</span>
+                                            <span><?php echo __('nav.supplier_po'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/gudang/transfer.php" class="submenu-link <?php echo activeMenu('transfer.php'); ?>">
                                             <i data-feather="arrow-right" class="submenu-icon"></i>
-                                            <span>Transfer ke Bisnis</span>
+                                            <span><?php echo __('nav.transfer_to_business'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/gudang/minimum-stock.php" class="submenu-link <?php echo activeMenu('minimum-stock.php'); ?>">
                                             <i data-feather="alert-circle" class="submenu-icon"></i>
-                                            <span>Minimum Stock Alert</span>
+                                            <span><?php echo __('nav.min_stock_alert'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/gudang/reports.php" class="submenu-link <?php echo activeMenu('reports.php'); ?>">
                                             <i data-feather="bar-chart-2" class="submenu-icon"></i>
-                                            <span>Laporan Gudang</span>
+                                            <span><?php echo __('nav.warehouse_report'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
                             </li>
                         <?php endif; ?>
 
-                        <li class="nav-group-label">Keuangan &amp; Laporan</li>
+                        <li class="nav-group-label"><?php echo __('nav.finance_reports'); ?></li>
                         <!-- Laporan Dropdown Menu -->
                         <?php if ($auth->hasPermission('reports') && isModuleEnabled('reports')): ?>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/reports/') !== false) ? 'open' : ''; ?>">
@@ -2259,25 +2259,25 @@ if ($userTheme === 'system') {
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/reports/daily.php" class="submenu-link <?php echo activeMenu('daily.php'); ?>">
                                             <i data-feather="calendar" class="submenu-icon"></i>
-                                            <span>Laporan Harian</span>
+                                            <span><?php echo __('nav.report_daily'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/reports/monthly.php" class="submenu-link <?php echo activeMenu('monthly.php'); ?>">
                                             <i data-feather="trending-up" class="submenu-icon"></i>
-                                            <span>Laporan Bulanan</span>
+                                            <span><?php echo __('nav.report_monthly'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/reports/yearly.php" class="submenu-link <?php echo activeMenu('yearly.php'); ?>">
                                             <i data-feather="activity" class="submenu-icon"></i>
-                                            <span>Laporan Tahunan</span>
+                                            <span><?php echo __('nav.report_yearly'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/reports/by-division.php" class="submenu-link <?php echo activeMenu('by-division.php'); ?>">
                                             <i data-feather="grid" class="submenu-icon"></i>
-                                            <span>Laporan Per Divisi</span>
+                                            <span><?php echo __('nav.report_division'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
@@ -2289,7 +2289,7 @@ if ($userTheme === 'system') {
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/project/" class="nav-link <?php echo activeMenu('project'); ?>">
                                     <i data-feather="folder" class="nav-icon"></i>
-                                    <span>Project</span>
+                                    <span><?php echo __('nav.project'); ?></span>
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -2300,7 +2300,7 @@ if ($userTheme === 'system') {
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/finance/" class="nav-link <?php echo activeMenu('finance'); ?>">
                                     <i data-feather="trending-up" class="nav-icon"></i>
-                                    <span>Manajemen Keuangan</span>
+                                    <span><?php echo __('nav.financial_mgmt'); ?></span>
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -2310,42 +2310,42 @@ if ($userTheme === 'system') {
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/owner/" class="nav-link <?php echo activeMenu('owner'); ?>">
                                     <i data-feather="eye" class="nav-icon"></i>
-                                    <span>Owner Monitoring</span>
+                                    <span><?php echo __('nav.owner_monitoring'); ?></span>
                                 </a>
                             </li>
                         <?php endif; ?>
 
-                        <li class="nav-group-label">Sistem</li>
+                        <li class="nav-group-label"><?php echo __('nav.system'); ?></li>
                         <!-- Database Master Menu (CQC) -->
                         <?php if ($auth->hasPermission('database')): ?>
                             <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/database/') !== false) ? 'open' : ''; ?>">
                                 <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('database'); ?>">
                                     <i data-feather="database" class="nav-icon"></i>
-                                    <span>Database</span>
+                                    <span><?php echo __('nav.database'); ?></span>
                                 </a>
                                 <ul class="submenu">
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/database/" class="submenu-link">
                                             <i data-feather="home" class="submenu-icon"></i>
-                                            <span>Dashboard</span>
+                                            <span><?php echo __('dashboard.title'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/database/suppliers.php" class="submenu-link">
                                             <i data-feather="truck" class="submenu-icon"></i>
-                                            <span>Supplier</span>
+                                            <span><?php echo __('nav.supplier'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/database/customers.php" class="submenu-link">
                                             <i data-feather="users" class="submenu-icon"></i>
-                                            <span>Customer</span>
+                                            <span><?php echo __('nav.customer'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/database/staff.php" class="submenu-link">
                                             <i data-feather="user-check" class="submenu-icon"></i>
-                                            <span>Staf</span>
+                                            <span><?php echo __('nav.staff'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
@@ -2362,25 +2362,25 @@ if ($userTheme === 'system') {
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/settings/" class="submenu-link <?php echo activeMenu('settings-index'); ?>">
                                             <i data-feather="home" class="submenu-icon"></i>
-                                            <span>Beranda Settings</span>
+                                            <span><?php echo __('nav.homepage_settings'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/settings/change-password.php" class="submenu-link <?php echo activeMenu('change-password.php'); ?>">
                                             <i data-feather="lock" class="submenu-icon"></i>
-                                            <span>Ganti Password</span>
+                                            <span><?php echo __('nav.change_password'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/settings/company.php" class="submenu-link <?php echo activeMenu('company.php'); ?>">
                                             <i data-feather="briefcase" class="submenu-icon"></i>
-                                            <span>Setup Perusahaan</span>
+                                            <span><?php echo __('nav.company_setup'); ?></span>
                                         </a>
                                     </li>
                                     <li class="submenu-item">
                                         <a href="<?php echo BASE_URL; ?>/modules/settings/display.php" class="submenu-link <?php echo activeMenu('display.php'); ?>">
                                             <i data-feather="eye" class="submenu-icon"></i>
-                                            <span>Display & Theme</span>
+                                            <span><?php echo __('nav.display_theme'); ?></span>
                                         </a>
                                     </li>
                                 </ul>
@@ -2398,7 +2398,7 @@ if ($userTheme === 'system') {
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/menu-book/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/menu-book/') !== false) ? 'active' : ''; ?>">
                                     <i data-feather="book-open" class="nav-icon"></i>
-                                    <span>Buku Menu</span>
+                                    <span><?php echo __('nav.menu_book'); ?></span>
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -2408,7 +2408,7 @@ if ($userTheme === 'system') {
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/email/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/email/') !== false) ? 'active' : ''; ?>" style="position:relative;">
                                     <i data-feather="mail" class="nav-icon"></i>
-                                    <span>Email Kantor</span>
+                                    <span><?php echo __('nav.office_email'); ?></span>
                                     <span id="emailUnreadDot" style="display:none;position:absolute;left:26px;top:10px;width:9px;height:9px;border-radius:50%;background:#ef4444;border:1.5px solid #fff;"></span>
                                 </a>
                             </li>
@@ -2420,7 +2420,7 @@ if ($userTheme === 'system') {
                         <li class="nav-item">
                             <a href="<?php echo BASE_URL; ?>/modules/subscription/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/subscription/') !== false) ? 'active' : ''; ?>">
                                 <i data-feather="file-text" class="nav-icon"></i>
-                                <span>Tagihan Langganan</span>
+                                <span><?php echo __('nav.subscription_billing'); ?></span>
                                 <?php if (!empty($adfsubState['unpaid'])): ?>
                                     <span style="margin-left:auto;background:#ef4444;color:#fff;-webkit-text-fill-color:#fff;border-radius:99px;font-size:10px;padding:1px 6px;"><?php echo count($adfsubState['unpaid']); ?></span>
                                 <?php endif; ?>
@@ -3311,9 +3311,9 @@ if ($userTheme === 'system') {
                                 <input type="hidden" name="__upload_topbar_avatar" value="1">
                                 <input id="topbarAvatarInput" type="file" name="avatar_file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="document.getElementById('topbarAvatarUploadForm').submit();">
                             </form>
-                            <button type="button" id="userMenuBtn" class="user-avatar user-avatar-button" aria-haspopup="true" aria-expanded="false" aria-controls="userMenuPanel" aria-label="Menu pengguna" title="Menu pengguna">
+                            <button type="button" id="userMenuBtn" class="user-avatar user-avatar-button" aria-haspopup="true" aria-expanded="false" aria-controls="userMenuPanel" aria-label="<?php echo __('user_menu.menu_title'); ?>" title="<?php echo __('user_menu.menu_title'); ?>">
                                 <?php if ($avatarUrl): ?>
-                                    <img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="Foto Profil" class="user-avatar-image">
+                                    <img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="<?php echo __('user_menu.profile_photo'); ?>" class="user-avatar-image">
                                 <?php else: ?>
                                     <?php echo htmlspecialchars($userInitial); ?>
                                 <?php endif; ?>
@@ -3321,7 +3321,7 @@ if ($userTheme === 'system') {
                         </div>
 
                         <!-- Dropdown menu foto user (dipindah ke <body> oleh JS karena top bar memotong elemen yang keluar) -->
-                        <div id="userMenuPanel" class="um-panel" role="menu" aria-label="Menu pengguna">
+                        <div id="userMenuPanel" class="um-panel" role="menu" aria-label="<?php echo __('user_menu.menu_title'); ?>">
                             <div class="um-head">
                                 <span class="um-head-av">
                                     <?php if ($avatarUrl): ?><img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt=""><?php else: ?><?php echo htmlspecialchars($userInitial); ?><?php endif; ?>
@@ -3334,55 +3334,63 @@ if ($userTheme === 'system') {
                             <div class="um-sec">
                                 <button type="button" class="um-item" role="menuitem" onclick="umOpenProfile()">
                                     <i data-feather="user"></i>
-                                    <span><b>Pengaturan Akun</b><small>Ganti nama dan foto profil</small></span>
+                                    <span><b><?php echo __('user_menu.account_settings'); ?></b><small><?php echo __('user_menu.account_settings_sub'); ?></small></span>
                                 </button>
                                 <a class="um-item" role="menuitem" href="<?php echo BASE_URL; ?>/modules/settings/change-password.php">
                                     <i data-feather="lock"></i>
-                                    <span><b>Ganti Password</b><small>Ubah kata sandi akun</small></span>
+                                    <span><b><?php echo __('user_menu.change_password'); ?></b><small><?php echo __('user_menu.change_password_sub'); ?></small></span>
                                 </a>
                             </div>
                             <div class="um-sec">
-                                <div class="um-label">Tampilan</div>
-                                <div class="um-seg" id="umTheme" role="group" aria-label="Tampilan">
-                                    <button type="button" data-pref="dark" title="Gelap"><i data-feather="moon"></i><span>Gelap</span></button>
-                                    <button type="button" data-pref="light" title="Terang"><i data-feather="sun"></i><span>Terang</span></button>
-                                    <button type="button" data-pref="system" title="Ikuti pengaturan perangkat"><i data-feather="monitor"></i><span>Sistem</span></button>
+                                <div class="um-label"><?php echo __('user_menu.appearance'); ?></div>
+                                <div class="um-seg" id="umTheme" role="group" aria-label="<?php echo __('user_menu.appearance'); ?>">
+                                    <button type="button" data-pref="dark" title="<?php echo __('user_menu.theme_dark_title'); ?>"><i data-feather="moon"></i><span><?php echo __('user_menu.theme_dark'); ?></span></button>
+                                    <button type="button" data-pref="light" title="<?php echo __('user_menu.theme_light_title'); ?>"><i data-feather="sun"></i><span><?php echo __('user_menu.theme_light'); ?></span></button>
+                                    <button type="button" data-pref="system" title="<?php echo __('user_menu.theme_system_title'); ?>"><i data-feather="monitor"></i><span><?php echo __('user_menu.theme_system'); ?></span></button>
+                                </div>
+                            </div>
+                            <div class="um-sec">
+                                <div class="um-label"><?php echo __('user_menu.language'); ?></div>
+                                <div class="um-seg" id="umLang" role="group" aria-label="<?php echo __('user_menu.language'); ?>">
+                                    <?php foreach (langSupported() as $__lc => $__li): ?>
+                                        <button type="button" data-lang="<?php echo $__lc; ?>" title="<?php echo htmlspecialchars($__li['name']); ?>" class="<?php echo getCurrentLanguage() === $__lc ? 'active' : ''; ?>"><span><?php echo $__li['flag']; ?> <?php echo htmlspecialchars($__li['short']); ?></span></button>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                             <div class="um-sec">
                                 <a id="endShiftButton" class="um-item um-danger" role="menuitem" href="<?php echo BASE_URL; ?>/print-end-shift-report.php" target="_blank" rel="noopener">
                                     <i data-feather="power"></i>
-                                    <span><b>End Shift</b><small>Tutup shift dan cetak laporan</small></span>
+                                    <span><b><?php echo __('user_menu.end_shift'); ?></b><small><?php echo __('user_menu.end_shift_sub'); ?></small></span>
                                 </a>
                             </div>
                         </div>
 
                         <!-- Pengaturan akun: nama + foto -->
-                        <div id="umProfileModal" class="um-modal" role="dialog" aria-modal="true" aria-label="Pengaturan Akun">
+                        <div id="umProfileModal" class="um-modal" role="dialog" aria-modal="true" aria-label="<?php echo __('user_menu.account_settings'); ?>">
                             <div class="um-modal-box">
                                 <div class="um-modal-head">
-                                    <b>Pengaturan Akun</b>
-                                    <button type="button" class="um-x" onclick="umCloseProfile()" aria-label="Tutup">&times;</button>
+                                    <b><?php echo __('user_menu.account_settings'); ?></b>
+                                    <button type="button" class="um-x" onclick="umCloseProfile()" aria-label="<?php echo __('common.close'); ?>">&times;</button>
                                 </div>
                                 <div class="um-modal-body">
                                     <div class="um-photo">
                                         <span class="um-photo-av">
-                                            <?php if ($avatarUrl): ?><img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="Foto Profil"><?php else: ?><?php echo htmlspecialchars($userInitial); ?><?php endif; ?>
+                                            <?php if ($avatarUrl): ?><img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="<?php echo __('user_menu.profile_photo'); ?>"><?php else: ?><?php echo htmlspecialchars($userInitial); ?><?php endif; ?>
                                         </span>
                                         <span>
-                                            <button type="button" class="um-btn" onclick="document.getElementById('topbarAvatarInput').click()">Ganti foto</button>
-                                            <small>JPG, PNG, WEBP atau GIF, maks. 3MB. Halaman dimuat ulang setelah foto dipilih.</small>
+                                            <button type="button" class="um-btn" onclick="document.getElementById('topbarAvatarInput').click()"><?php echo __('user_menu.change_photo'); ?></button>
+                                            <small><?php echo __('user_menu.photo_hint'); ?></small>
                                         </span>
                                     </div>
                                     <label class="um-field">
-                                        <span>Nama lengkap</span>
+                                        <span><?php echo __('user_menu.full_name'); ?></span>
                                         <input type="text" id="umFullName" maxlength="100" value="<?php echo htmlspecialchars($umName); ?>" autocomplete="name">
                                     </label>
                                     <div id="umProfileMsg" class="um-msg" hidden></div>
                                 </div>
                                 <div class="um-modal-foot">
-                                    <button type="button" class="um-btn" onclick="umCloseProfile()">Batal</button>
-                                    <button type="button" class="um-btn primary" id="umProfileSave" onclick="umSaveProfile()">Simpan</button>
+                                    <button type="button" class="um-btn" onclick="umCloseProfile()"><?php echo __('common.cancel'); ?></button>
+                                    <button type="button" class="um-btn primary" id="umProfileSave" onclick="umSaveProfile()"><?php echo __('common.save'); ?></button>
                                 </div>
                             </div>
                         </div>
@@ -3415,6 +3423,8 @@ if ($userTheme === 'system') {
                             #userMenuPanel #endShiftButton span { color: inherit !important; }
                             .um-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; margin: 2px 6px 6px; border-radius: 12px; background: #f1f5f9; }
                             .um-seg button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 4px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-size: .66rem; font-weight: 700; color: #64748b; }
+                            #umLang { grid-template-columns: repeat(2, 1fr); }
+                            #umLang button { flex-direction: row; justify-content: center; font-size: .72rem; padding: 8px 6px; }
                             .um-seg button svg, .um-seg button i { width: 15px; height: 15px; stroke: currentColor; }
                             .um-seg button span { color: inherit !important; -webkit-text-fill-color: currentColor !important; }
                             .um-seg button:hover { color: #0f172a; }
@@ -3506,6 +3516,23 @@ if ($userTheme === 'system') {
                                 window.addEventListener('resize', function() { if (panel.classList.contains('open')) place(); });
                                 window.addEventListener('scroll', function() { if (panel.classList.contains('open')) place(); }, true);
 
+                                var UM_T = <?php echo langJs(['user_menu.theme_failed', 'user_menu.server_failed', 'user_menu.name_too_short', 'user_menu.name_saved', 'user_menu.save_failed', 'user_menu.language_failed']); ?>;
+
+                                // ----- Bahasa: Indonesia / English -----
+                                var langBox = panel.querySelector('#umLang');
+                                if (langBox) langBox.addEventListener('click', function(e) {
+                                    var b = e.target.closest('button[data-lang]');
+                                    if (!b || b.classList.contains('active')) return;
+                                    var fd = new FormData();
+                                    fd.append('language', b.getAttribute('data-lang'));
+                                    fetch('<?php echo BASE_URL; ?>/api/set-language.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+                                        .then(function(r) { return r.json(); })
+                                        .then(function(d) {
+                                            if (d && d.success) { location.reload(); } else { alert((d && d.message) || UM_T['user_menu.language_failed']); }
+                                        })
+                                        .catch(function() { alert(UM_T['user_menu.server_failed']); });
+                                });
+
                                 // ----- Tampilan: gelap / terang / sistem -----
                                 var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
@@ -3548,10 +3575,10 @@ if ($userTheme === 'system') {
                                                 setTimeout(function() { location.reload(); }, 200);
                                             } else {
                                                 applyTheme(prev);
-                                                alert((d && d.message) || 'Gagal menyimpan tampilan');
+                                                alert((d && d.message) || UM_T['user_menu.theme_failed']);
                                             }
                                         })
-                                        .catch(function() { applyTheme(prev); alert('Gagal menghubungi server'); });
+                                        .catch(function() { applyTheme(prev); alert(UM_T['user_menu.server_failed']); });
                                 });
 
                                 // ----- Pengaturan akun (nama) -----
@@ -3573,7 +3600,7 @@ if ($userTheme === 'system') {
                                     var msg = document.getElementById('umProfileMsg');
                                     var name = (inp.value || '').trim();
                                     function show(text, ok) { msg.textContent = text; msg.className = 'um-msg' + (ok ? ' ok' : ''); msg.hidden = false; }
-                                    if (name.length < 2) { show('Nama minimal 2 karakter', false); return; }
+                                    if (name.length < 2) { show(UM_T['user_menu.name_too_short'], false); return; }
                                     save.disabled = true;
                                     var fd = new FormData();
                                     fd.append('full_name', name);
@@ -3586,13 +3613,13 @@ if ($userTheme === 'system') {
                                                 var b = document.getElementById('umName');
                                                 if (a) a.textContent = d.full_name;
                                                 if (b) b.textContent = d.full_name;
-                                                show('Nama berhasil disimpan', true);
+                                                show(UM_T['user_menu.name_saved'], true);
                                                 setTimeout(umCloseProfile, 900);
                                             } else {
-                                                show((d && d.message) || 'Gagal menyimpan', false);
+                                                show((d && d.message) || UM_T['user_menu.save_failed'], false);
                                             }
                                         })
-                                        .catch(function() { save.disabled = false; show('Gagal menghubungi server', false); });
+                                        .catch(function() { save.disabled = false; show(UM_T['user_menu.server_failed'], false); });
                                 };
                             })();
                         </script>
