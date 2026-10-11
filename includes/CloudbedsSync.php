@@ -509,13 +509,21 @@ class CloudbedsSync
             $srcName = $srcById[$srcId] ?? ($raw['sourceName'] ?? $it['source']);
             $collect = CloudbedsClient::collectType((string)$srcName);
             $sourceKey = $sourceMap[$srcId] ?? '';
-            if ($sourceKey === '') {
-                // nama sumber di daftar ("Tiket.com") tanpa jenis collect: pakai pemetaan sumber yang namanya diawali sama
+            if ($sourceKey === '' && trim((string)$it['source']) !== '') {
+                // nama sumber di daftar ("Tiket.com") tanpa jenis collect: pakai pemetaan sumber yang namanya diawali sama.
+                // (Nama kosong tidak boleh ikut: stripos(x, '') === 0 akan memilih sumber pertama yang terpetakan, mis. "Phone".)
                 foreach ($srcById as $sid => $sn) {
                     if (isset($sourceMap[$sid]) && stripos($sn, $it['source']) === 0) {
                         $sourceKey = $sourceMap[$sid];
                         break;
                     }
+                }
+            }
+            if ($sourceKey === '' && preg_match('/website|booking\s*engine/i', (string)$srcName . ' ' . (string)$it['source'])) {
+                // Reservasi dari website resmi (booking engine Cloudbeds) yang sumbernya belum terpetakan: Direct Online.
+                $webSrc = $this->db->fetchOne("SELECT source_key FROM booking_sources WHERE source_key = 'online' LIMIT 1");
+                if ($webSrc) {
+                    $sourceKey = 'online';
                 }
             }
             // Hotel Collect: tamu bayar langsung ke hotel → booking dibuat dengan direct_amount = harga
