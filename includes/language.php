@@ -211,8 +211,17 @@ function langTranslateOutput(string $html): string
     foreach ($parts as $i => $part) {
         if ($i % 2 === 1) {
             // blok <script>/<style>: hanya <script> inline biasa yang diterjemahkan literalnya
-            if (stripos($part, '<script') === 0 && !preg_match('~^<script\b[^>]*(src=|type="(?:application/(?:ld\+)?json|text/template)")~i', $part) && $map['js']) {
-                $parts[$i] = strtr($part, $map['js']);
+            if (stripos($part, '<script') === 0 && !preg_match('~^<script\b[^>]*(src=|type="(?:application/(?:ld\+)?json|text/template)")~i', $part)) {
+                if ($map['js']) {
+                    $part = strtr($part, $map['js']);
+                }
+                // Potongan HTML di dalam literal JS (mis. '<span>Total baru</span>'): teks di antara tag ikut diterjemahkan.
+                // Hanya yang persis ada di kamus teks, jadi ekspresi seperti 'a>b&&c<d' tidak tersentuh.
+                $part = preg_replace_callback('~>([^<>\n\\\\\'"`;{}]+)<~', function ($m) use ($map) {
+                    $tr = $map['text'][langNorm($m[1])] ?? null;
+                    return $tr === null ? $m[0] : '>' . str_replace("'", "\\'", $tr) . '<';
+                }, $part);
+                $parts[$i] = $part;
             }
             continue;
         }
