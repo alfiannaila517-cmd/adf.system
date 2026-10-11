@@ -313,4 +313,11 @@ return [
         'year_long' => 'Year ',
         'year_short' => 'yr ',
     ],
+
+    // ---- Status pembayaran (dipakai endpoint data) ----
+    'pay_state' => [
+        'paid' => 'Paid',
+        'partial' => 'DP',
+        'unpaid' => 'Unpaid',
+    ],
 ];

@@ -149,7 +149,7 @@ try {
 $bfLocationLabel = static function (?string $loc): string {
     return $loc === 'take_away' ? 'Take Away' : ($loc === 'room_service' ? 'Room Service' : 'Restaurant');
 };
-$payStateLabel = ['paid' => 'Lunas', 'partial' => 'DP', 'unpaid' => 'Belum bayar'];
+$payStateLabel = ['paid' => __('pay_state.paid'), 'partial' => __('pay_state.partial'), 'unpaid' => __('pay_state.unpaid')];
 $breakfastPax = array_sum(array_map(fn($o) => (int)($o['total_pax'] ?? 0), $breakfastOrders));
 
 // Ringkasan untuk pesan WhatsApp (menyertai file PDF).
