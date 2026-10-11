@@ -5,6 +5,9 @@ return [
         'Bagikan manual' => 'Share manually', 'Belum ada order sarapan hari ini' => 'No breakfast orders today yet', 'Check-out besok' => 'Check-out tomorrow', 'In house' => 'In house',
         'Kirim Laporan Harian' => 'Send Daily Report', 'Kirim PDF ke WhatsApp' => 'Send PDF to WhatsApp', 'LAPORAN HARIAN' => 'DAILY REPORT', 'Lihat & Cetak' => 'View & Print',
         'Order Sarapan' => 'Breakfast Orders', 'Pax sarapan' => 'Breakfast pax', 'Tiba besok' => 'Arriving tomorrow', 'Unduh PDF' => 'Download PDF', 'Bagikan PDF lewat menu Share perangkat' => 'Share the PDF through the device Share menu',
+        'Check-out Besok' => 'Check-out Tomorrow', 'Check-in Besok' => 'Check-in Tomorrow', 'Check-in Hari Ini' => 'Check-in Today', 'Check-out Hari Ini' => 'Check-out Today',
+        'Tamu In-House' => 'In-House Guests', 'Tidak ada tamu in-house' => 'No in-house guests', 'Tidak ada check-out besok' => 'No check-outs tomorrow',
+        'Tidak ada kedatangan besok' => 'No arrivals tomorrow', 'Datang besok' => 'Arriving tomorrow', 'History Check-out (Hari Ini & Kemarin)' => 'Check-out History (Today & Yesterday)',
         'Rekap Total per Menu (untuk kitchen)' => 'Total Summary per Menu (for the kitchen)', 'Lunas' => 'Paid', 'Belum bayar' => 'Unpaid',
     ],
     'js' => [
