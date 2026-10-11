@@ -92,6 +92,16 @@ if ($section === 'user-setup') {
                     if (!$username || !$fullName || !$email || !$roleId) {
                         throw new Exception('Username, name, email, dan role harus diisi!');
                     }
+
+                    // Email & username harus unik: beri tahu siapa pemakainya (email dipakai untuk login Google)
+                    $dup = $pdo->prepare("SELECT username, full_name, email FROM users WHERE (LOWER(email) = LOWER(?) OR username = ?) AND id <> ? LIMIT 1");
+                    $dup->execute([$email, $username, (int)$userId]);
+                    if ($dupRow = $dup->fetch(PDO::FETCH_ASSOC)) {
+                        if (strcasecmp((string)$dupRow['email'], (string)$email) === 0) {
+                            throw new Exception('Email ' . $email . ' sudah dipakai oleh user "' . $dupRow['username'] . '" (' . $dupRow['full_name'] . '). Ubah email user tersebut dulu atau pakai email lain.');
+                        }
+                        throw new Exception('Username "' . $username . '" sudah dipakai user lain.');
+                    }
                     
                     if ($userId) {
                         // Update existing user
