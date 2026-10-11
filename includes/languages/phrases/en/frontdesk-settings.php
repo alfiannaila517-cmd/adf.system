@@ -1,0 +1,62 @@
+<?php
+/** Kamus EN: Pengaturan Front Desk (settings.php, settings-nav.php, whatsapp.php). */
+return [
+    'text' => [
+        // ---- menu ikon pengaturan ----
+        'Room & Tipe' => 'Rooms & Types', 'Kamar, tipe & harga dasar' => 'Rooms, types & base prices', 'Menu & portal sarapan' => 'Menu & breakfast portal',
+        'Sumber booking & komisi' => 'Booking sources & commissions', 'Format & identitas invoice' => 'Invoice format & identity', 'Pesan otomatis ke tamu' => 'Automatic messages to guests',
+        'Sinkron channel manager' => 'Channel manager sync', '← Pengaturan Front Desk' => '← Front Desk Settings', '‹ Pengaturan Front Desk' => '‹ Front Desk Settings',
+        // ---- sumber booking & fee ----
+        'Tambah Menu' => 'Add Menu', 'Tambah Sumber' => 'Add Source', 'Tambah Sumber Booking Baru' => 'Add New Booking Source', 'Cara Kerja Fee' => 'How Fees Work',
+        'Anda bisa tambahkan biro perjalanan lokal dengan fee tetap (contoh: Biro ABC fee 8%).' => 'You can add local travel agencies with a fixed fee (e.g. ABC Agency 8% fee).',
+        'Fee otomatis dikurangi dari total harga saat masuk buku kas. Contoh: Harga Rp 500.000, Fee 15% = Net Income Rp 425.000' => 'The fee is automatically deducted from the total price when recorded in the cash book. Example: Price Rp 500.000, Fee 15% = Net Income Rp 425.000',
+        'Pembayaran baru masuk buku kas saat tamu' => 'Payment is recorded in the cash book only upon guest', 'Tidak ada potongan fee. 100% masuk buku kas.' => 'No fee deduction. 100% is recorded in the cash book.',
+        'Atur sumber booking dan persentase komisi. Fee otomatis dikurangi dari harga booking di buku kas.' => 'Set booking sources and commission percentages. The fee is automatically deducted from the booking price in the cash book.',
+        'Tambahkan OTA baru, biro perjalanan, atau sumber booking lain beserta persentase komisi/fee-nya.' => 'Add a new OTA, travel agency, or other booking source along with its commission/fee percentage.',
+        'Biro / Agen' => 'Agency / Agent', 'Booking OTA' => 'OTA Booking', 'OTA & Biro' => 'OTA & Agencies', 'Direct (tanpa fee)' => 'Direct (no fee)', 'komisi/fee' => 'commission/fee',
+        'Nama Sumber' => 'Source Name', 'Key (opsional)' => 'Key (optional)', 'Huruf kecil, angka, underscore saja' => 'Lowercase letters, numbers, underscores only',
+        'Contoh: Traveloka, Biro XYZ' => 'e.g. Traveloka, XYZ Agency',
+        // ---- invoice settings ----
+        'Setup informasi rekening bank untuk ditampilkan di invoice' => 'Set up bank account information to display on invoices', 'Setup tanda tangan Accounting yang akan tampil di invoice' => 'Set up the Accounting signature that will appear on invoices',
+        'Atas Nama (a.n)' => 'Account Holder', 'Nama pemilik rekening' => 'Account holder name', 'Nomor Rekening' => 'Account Number', 'Nomor rekening BNI (tanpa spasi)' => 'BNI account number (no spaces)',
+        'Kode Swift untuk transfer internasional (BIC Code)' => 'Swift code for international transfers (BIC Code)', 'Simpan Bank Info' => 'Save Bank Info', 'Simpan Info Accounting' => 'Save Accounting Info',
+        'Nama Accounting / Finance Staff' => 'Accounting / Finance Staff Name', 'Auto-filled dengan nama user login Anda' => 'Auto-filled with your login name', 'Judul / Posisi' => 'Title / Position',
+        'Contoh: 1926663992' => 'e.g. 1926663992', 'Contoh: Accounting Staff' => 'e.g. Accounting Staff', 'Contoh: BNIAIDJA' => 'e.g. BNIAIDJA', 'Contoh: PT. NARAYANA KARIMUNJAWA' => 'e.g. PT. NARAYANA KARIMUNJAWA',
+        'Klik untuk ubah' => 'Click to change', 'Logo portal' => 'Portal logo', 'Logo header portal' => 'Portal header logo', 'Hapus logo' => 'Remove logo',
+        'JPG, PNG, WEBP · maks. 3 MB · disarankan PNG transparan' => 'JPG, PNG, WEBP · max 3 MB · transparent PNG recommended', 'JPG, PNG, WEBP, GIF · maks. 5 MB' => 'JPG, PNG, WEBP, GIF · max 5 MB',
+        // ---- menu sarapan ----
+        'Daftar Menu' => 'Menu List', 'Total menu' => 'Total menus', 'Nama menu' => 'Menu name', 'Nama' => 'Name', 'Harga' => 'Price', 'Harga (Rp) · 0 untuk menu gratis' => 'Price (Rp) · 0 for a free menu',
+        'Gambar (opsional)' => 'Image (optional)', 'Gambar Menu (opsional)' => 'Menu Image (optional)', 'Hapus gambar saat ini' => 'Remove current image', 'Belum ada gambar' => 'No image yet',
+        'Belum ada menu. Tambahkan menu pertama di form sebelah kanan.' => 'No menu yet. Add the first menu in the form on the right.', 'Deskripsi (opsional)' => 'Description (optional)',
+        'Klik status untuk mengaktifkan / menonaktifkan menu' => 'Click the status to enable / disable the menu', 'Tampil di form order & portal tamu.' => 'Shown in the order form & guest portal.',
+        'Termasuk harga kamar. Matikan untuk menu berbayar.' => 'Included in the room rate. Turn off for chargeable menus.', 'Berbayar' => 'Chargeable', 'Extra (Berbayar)' => 'Extra (Chargeable)',
+        'Penyajian' => 'Serving', 'Hot (merah)' => 'Hot (red)', 'Ice (biru)' => 'Ice (blue)', 'Kids (< 7 th, gratis)' => 'Kids (< 7 yrs, free)', 'Tersedia' => 'Available',
+        'Hapus' => 'Delete', 'Salin menu ini' => 'Copy this menu', 'mis. Cappuccino' => 'e.g. Cappuccino', 'mis. Espresso, susu, foam' => 'e.g. Espresso, milk, foam',
+        'Teks Portal Tamu & WhatsApp' => 'Guest Portal & WhatsApp Text', 'Teks di halaman pilih menu tamu, template pesan WA, dan logo portal' => 'Text on the guest menu selection page, WhatsApp message template, and portal logo',
+        'Teks info di portal' => 'Portal info text', 'Template pesan WhatsApp' => 'WhatsApp message template', 'Simpan Teks Portal' => 'Save Portal Text',
+        'FrontDesk tables belum diinisialisasi. Silakan setup database terlebih dahulu.' => 'FrontDesk tables have not been initialized. Please set up the database first.',
+        // ---- whatsapp ----
+        'Pengaturan WhatsApp' => 'WhatsApp Settings', 'Laporan harian ke staf & pesan otomatis ke tamu saat check-in · Fonnte' => 'Daily reports to staff & automatic messages to guests at check-in · Fonnte',
+        'Koneksi Gateway' => 'Gateway Connection', 'Token Fonnte' => 'Fonnte Token', 'Hapus token (putuskan integrasi)' => 'Remove token (disconnect integration)', 'Cek koneksi' => 'Check connection',
+        'Token perangkat dari dashboard Fonnte (menu Device → Token). Disimpan di server, tidak pernah ditampilkan utuh.' => 'Device token from the Fonnte dashboard (Device → Token menu). Stored on the server, never shown in full.',
+        'Tujuan Laporan Harian' => 'Daily Report Recipients', 'Tujuan' => 'Recipients', 'Nomor / grup (satu per baris)' => 'Numbers / groups (one per line)', 'Ambil daftar grup' => 'Fetch group list',
+        'Tombol "Kirim ke WhatsApp" di menu Laporan langsung mengirim PDF ke semua tujuan ini.' => 'The "Send to WhatsApp" button in the Reports menu sends the PDF directly to all of these recipients.',
+        'Pesan Otomatis Saat Check-in' => 'Automatic Message at Check-in', 'Aktifkan pesan check-in' => 'Enable check-in message', 'Matikan bila tidak ingin mengirim pesan otomatis ke tamu.' => 'Turn off if you do not want to send automatic messages to guests.',
+        'Dikirim ke nomor telepon tamu setelah check-in berhasil. Booking grup hanya menerima 1 pesan.' => 'Sent to the guest\'s phone number after a successful check-in. Group bookings receive only 1 message.',
+        'Isi pesan' => 'Message content', 'Klik untuk menyisipkan:' => 'Click to insert:', 'Placeholder yang bisa dipakai:' => 'Available placeholders:', 'Pratinjau' => 'Preview',
+        'Tes Kirim' => 'Test Send', 'Kirim pesan percobaan untuk memastikan koneksi berjalan.' => 'Send a test message to make sure the connection works.', 'Kirim tes' => 'Send test',
+        'Riwayat Pengiriman' => 'Delivery History', 'Belum ada pengiriman.' => 'No messages sent yet.', 'Pengiriman hari ini · reset otomatis setiap hari pukul 00:00.' => 'Sent today · resets automatically every day at 00:00.',
+        'Terkirim' => 'Sent', 'Gagal' => 'Failed', 'Sisa kredit' => 'Remaining credit', 'Simpan Pengaturan' => 'Save Settings', '— Tidak ada' => '— None',
+        'Nomor tujuan, mis. 0812…' => 'Recipient number, e.g. 0812…',
+    ],
+    'js' => [
+        '(token yang diketik — klik Simpan Pengaturan untuk memakainya)' => '(typed token — click Save Settings to use it)', 'Aktif s/d' => 'Active until',
+        'Gagal memeriksa koneksi' => 'Failed to check the connection', 'Gagal menghubungi server.' => 'Could not reach the server.', 'Gagal:' => 'Failed:', 'Gagal' => 'Failed',
+        'Hapus QRIS saat ini?' => 'Remove the current QRIS?', 'Isi nomor tujuan dulu.' => 'Enter the recipient number first.', 'Kuota' => 'Quota', 'Memeriksa koneksi…' => 'Checking connection…',
+        'Mengambil grup…' => 'Fetching groups…', 'Paket' => 'Plan', 'Penyebab:' => 'Cause:', 'Terhubung ·' => 'Connected ·', 'Terkirim ✓ — cek WhatsApp tujuan.' => 'Sent ✓ — check the recipient\'s WhatsApp.',
+        'Tidak ada grup. Pastikan nomor hotel sudah masuk grup.' => 'No groups. Make sure the hotel number has joined the group.', 'Tidak terhubung' => 'Not connected', 'tidak diketahui' => 'unknown',
+        '· Token belum tersimpan — tempel token lalu klik Simpan Pengaturan.' => '· Token not saved — paste the token then click Save Settings.', '✓ Ditambahkan' => '✓ Added',
+        'Ambil daftar grup' => 'Fetch group list', 'Belum ada gambar' => 'No image yet',
+    ],
+    'patterns' => [],
+];

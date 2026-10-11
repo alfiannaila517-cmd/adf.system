@@ -173,7 +173,11 @@ function langTranslateText(string $s, array $map): ?string
     }
     // awalan (emoji, simbol, "+", "←") dan akhiran (":", "*", "→", "...") dipisahkan
     $raw = trim(preg_replace('/\s+/u', ' ', $s)); // awalan asli (termasuk penanda emoji) dipertahankan
-    if (preg_match('/^([^\p{L}\p{N}]*)(.*?)([\s:*→…\.!?]*)$/us', $raw, $m) && $m[2] !== '' && ($m[1] !== '' || $m[3] !== '')) {
+    if (preg_match('/^((?:[^\p{L}\p{N}]|[\x{2100}-\x{214F}])*)(.*?)([\s:*→…\.!?]*)$/us', $raw, $m) && $m[2] !== '' && ($m[1] !== '' || $m[3] !== '')) {
+        $withTail = langNorm($m[2] . $m[3]); // kunci yang memang berakhiran titik/tanda dicoba dulu
+        if ($m[1] !== '' && isset($map['text'][$withTail])) {
+            return $m[1] . $map['text'][$withTail];
+        }
         $m[2] = langNorm($m[2]);
         if (isset($map['text'][$m[2]])) {
             return $m[1] . $map['text'][$m[2]] . $m[3];

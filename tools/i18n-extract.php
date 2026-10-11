@@ -12,6 +12,18 @@
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; } // hanya untuk baris perintah
 $root = dirname(__DIR__);
 $files = array_slice($argv, 1);
+$missing = null; // --missing=en : tampilkan hanya frasa yang belum ada di kamus bahasa itu
+foreach ($files as $i => $a) {
+    if (strpos($a, '--missing=') === 0) {
+        $missing = substr($a, 10);
+        unset($files[$i]);
+    }
+}
+if ($missing !== null) {
+    $_SESSION = [];
+    require_once $root . '/includes/language.php';
+    $known = langPhraseMap($missing);
+}
 if (!$files) {
     fwrite(STDERR, "Usage: php tools/i18n-extract.php <file> [file...]\n");
     exit(1);
@@ -57,6 +69,12 @@ foreach ($files as $rel) {
 }
 
 foreach (['text', 'attr', 'js'] as $k) {
+    if ($missing !== null && !empty($found[$k])) {
+        foreach (array_keys($found[$k]) as $phrase) {
+            $hit = ($k === 'js') ? isset($known['js']["'" . $phrase . "'"]) : (langTranslateText($phrase, $known) !== null);
+            if ($hit) unset($found[$k][$phrase]);
+        }
+    }
     if (empty($found[$k])) continue;
     echo "=== $k (" . count($found[$k]) . ") ===\n";
     ksort($found[$k]);
