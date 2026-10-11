@@ -521,9 +521,9 @@ class CloudbedsSync
             }
             if ($sourceKey === '' && preg_match('/website|booking\s*engine/i', (string)$srcName . ' ' . (string)$it['source'])) {
                 // Reservasi dari website resmi (booking engine Cloudbeds) yang sumbernya belum terpetakan: Direct Online.
-                $webSrc = $this->db->fetchOne("SELECT source_key FROM booking_sources WHERE source_key = 'online' LIMIT 1");
+                $webSrc = $this->db->fetchOne("SELECT source_key FROM booking_sources WHERE is_active = 1 AND source_key IN ('online','website') ORDER BY source_key = 'online' DESC LIMIT 1");
                 if ($webSrc) {
-                    $sourceKey = 'online';
+                    $sourceKey = (string)$webSrc['source_key'];
                 }
             }
             // Hotel Collect: tamu bayar langsung ke hotel → booking dibuat dengan direct_amount = harga

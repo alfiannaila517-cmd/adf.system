@@ -223,6 +223,14 @@ foreach ($localRooms as $lr) {
 }
 $localSources = [];
 try {
+    // Sumber langsung untuk reservasi website resmi (booking engine Cloudbeds). Tanpa ini, "Website/Booking Engine"
+    // tidak punya pilihan di pemetaan dan terpaksa dipasangkan ke sumber lain (mis. Phone Booking).
+    $hasWeb = $db->fetchOne("SELECT source_key FROM booking_sources WHERE is_active = 1 AND source_type = 'direct' AND (source_key IN ('online','website') OR source_name LIKE '%website%' OR source_name LIKE '%online%') LIMIT 1");
+    if (!$hasWeb) {
+        $db->getConnection()->prepare("INSERT INTO booking_sources (source_key, source_name, source_type, fee_percent, icon, sort_order, is_active)
+            VALUES ('website', 'Website (Booking Engine)', 'direct', 0, '🌐', 4, 1)
+            ON DUPLICATE KEY UPDATE is_active = 1")->execute();
+    }
     $localSources = $db->fetchAll("SELECT source_key, source_name, source_type, fee_percent FROM booking_sources WHERE is_active = 1 ORDER BY source_name") ?: [];
 } catch (\Throwable $e) {
 }

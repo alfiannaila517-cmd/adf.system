@@ -3888,6 +3888,7 @@ include '../../includes/header.php';
             'walk_in': 'Walk-In',
             'phone': 'Phone Booking',
             'online': 'Direct Online',
+            'website': 'Website (Booking Engine)',
             'direct': 'Direct',
             'agoda': '🏨 OTA Agoda',
             'booking': '📱 OTA Booking.com',
