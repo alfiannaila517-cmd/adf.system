@@ -343,6 +343,30 @@ include '../../includes/header.php';
     .hk-save { position: sticky; bottom: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-top: .7rem; padding: .55rem .8rem; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 -10px 30px -20px rgba(15, 23, 42, .5); backdrop-filter: blur(8px); }
     .hk-save small { font-size: .66rem; color: var(--mute) !important; }
     @media (max-width: 640px) { .hk-board { grid-template-columns: 1fr; } .hk-staff { margin-left: 0; } }
+
+    /* ── Tampilan lencana & tombol: teks putih di atas warna solid (terang & gelap) ──
+       Aturan ".hk-wrap :is(span, ...)" di atas memaksa warna turunan dengan !important dan mengalahkan
+       warna lencana; di sini spesifisitasnya dinaikkan supaya teks tombol/lencana selalu putih terbaca. */
+    body[data-theme] .hk-wrap .hk-code,
+    body[data-theme] .hk-wrap .hk-av,
+    body[data-theme] .hk-wrap .hk-pill,
+    body[data-theme] .hk-wrap .hk-abs,
+    body[data-theme] .hk-wrap .hk-btn.pri { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+    body[data-theme] .hk-wrap .hk-code { font-size: .6rem; letter-spacing: .03em; padding: 2px 8px; border-radius: 7px; box-shadow: 0 2px 6px -2px rgba(15, 23, 42, .45); }
+    body[data-theme] .hk-wrap .hk-pill { padding: 2px 9px; }
+    body[data-theme] .hk-wrap .hk-pill.auto { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+    body[data-theme] .hk-wrap .hk-pill.manual { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+    body[data-theme] .hk-wrap .hk-abs { background: linear-gradient(135deg, #dc2626, #ef4444); border-color: transparent; }
+    body[data-theme] .hk-wrap .hk-btn.sm.pri,
+    body[data-theme] .hk-wrap .hk-btn.pri { background: linear-gradient(135deg, #1e3a8a, #2563eb) !important; }
+    /* Tombol biasa & pilihan staf mengikuti tema (teks gelap di terang, putih di gelap) */
+    body[data-theme] .hk-wrap .hk-btn:not(.pri),
+    body[data-theme] .hk-wrap .hk-select { color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important; }
+    body[data-theme="dark"] .hk-wrap .hk-btn:not(.pri) { background: rgba(255, 255, 255, .08) !important; }
+    body[data-theme="dark"] .hk-wrap .hk-select { background: rgba(15, 23, 42, .85) !important; }
+    body[data-theme="dark"] .hk-wrap .hk-select option { color: #f1f5f9; background: #0f172a; }
+    .hk-wrap .hk-task { transition: box-shadow .15s ease, transform .15s ease; }
+    .hk-wrap .hk-task:hover { box-shadow: 0 8px 18px -12px rgba(15, 23, 42, .55); transform: translateY(-1px); }
 </style>
 
 <div class="hk-wrap">
