@@ -156,7 +156,7 @@ function adfGoogleFindUser(string $email): ?array
 }
 
 /**
- * Buat sesi login (sama seperti Auth::login) lalu arahkan ke halaman awal sesuai role.
+ * Buat sesi login (sama seperti Auth::login) lalu arahkan ke sistem utama (index.php) seperti System Login.
  * Tidak mengembalikan nilai: selalu redirect + exit.
  */
 function adfGoogleCompleteLogin(array $user): void
@@ -200,12 +200,13 @@ function adfGoogleCompleteLogin(array $user): void
     require_once __DIR__ . '/business_helper.php';
     require_once __DIR__ . '/business_access.php';
 
-    if (in_array($roleCode, ['owner', 'admin', 'developer'], true)) {
-        $list = getUserAvailableBusinesses();
-        if (!empty($list)) {
-            setActiveBusinessId(getPreferredDefaultBusiness($list));
+    // Sama dengan tombol "System Login": selalu ke sistem utama (bukan dashboard owner).
+    if ($roleCode === 'developer') {
+        $all = getAvailableBusinesses();
+        if (!empty($all)) {
+            setActiveBusinessId(getPreferredDefaultBusiness($all));
         }
-        header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
+        header('Location: ' . BASE_URL . '/index.php');
         exit;
     }
 
