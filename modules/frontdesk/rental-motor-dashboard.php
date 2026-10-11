@@ -120,8 +120,8 @@ $recent->execute([$businessId]);
 $recentReturns = $recent->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Tampilan ─────────────────────────────────────────────────────────────────
-$bulan = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-$hari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+$bulan = array_merge([''], ($GLOBALS['lang']['date']['months_short'] ?? ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']));
+$hari = ($GLOBALS['lang']['date']['days'] ?? ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']);
 $rmDt = function ($v) use ($bulan) {
     $t = strtotime((string)$v);
     return $t ? date('j', $t) . ' ' . $bulan[(int)date('n', $t)] . ' ' . date('H:i', $t) : '-';
@@ -571,7 +571,7 @@ include '../../includes/header.php';
 
 <script>
     (function() {
-        var BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        var BULAN = <?php echo json_encode(($GLOBALS['lang']['date']['months_short'] ?? ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']), JSON_UNESCAPED_UNICODE); ?>;
         function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
         function dt(s) {
             var d = new Date(String(s || '').replace(' ', 'T'));

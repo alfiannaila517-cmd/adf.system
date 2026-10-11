@@ -1016,7 +1016,7 @@ if ($healthScore >= 80) {
 $ov = ['days' => [], 'inc' => [], 'exp' => [], 'occ7' => [], 'occToday' => ['occupied' => 0, 'vacant' => 0, 'blocked' => 0, 'arriving' => 0, 'total' => 0], 'divInc' => [], 'endShifts' => []];
 $ovIsHotel = ($businessType ?? '') === 'hotel';
 $ovHari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-$ovBln = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+$ovBln = array_merge([''], ($GLOBALS['lang']['date']['months_short'] ?? ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']));
 try {
     if (isset($pdo) && $pdo instanceof PDO && empty($error)) {
         $exInc = $excludeOwnerCapital ?? '';
@@ -4311,8 +4311,8 @@ if (!$ovIsHotel) {
                         <div class="att-date-nav">
                             <button class="att-date-btn" onclick="attNavDate(-1)">◀</button>
                             <span class="att-date-label" id="attDateLabel"><?php
-                                                                            $hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-                                                                            $bulanIndoShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                                                                            $hariIndo = ($GLOBALS['lang']['date']['days'] ?? ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']);
+                                                                            $bulanIndoShort = ($GLOBALS['lang']['date']['months_short'] ?? ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']);
                                                                             $dt = new DateTime($attDate);
                                                                             echo $hariIndo[(int)$dt->format('w')] . ', ' . $dt->format('d') . ' ' . $bulanIndoShort[(int)$dt->format('n') - 1] . ' ' . $dt->format('Y');
                                                                             ?></span>
@@ -4912,7 +4912,7 @@ if (!$ovIsHotel) {
                     let attCurrentDate = '<?= $attDate ?>';
                     const businessId = <?= (int)$_SESSION['business_id'] ?>;
                     const hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-                    const bulanShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                    const bulanShort = <?php echo json_encode(($GLOBALS['lang']['date']['months_short'] ?? ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']), JSON_UNESCAPED_UNICODE); ?>;
 
                     function formatDateIndo(dateStr) {
                         const d = new Date(dateStr + 'T00:00:00');

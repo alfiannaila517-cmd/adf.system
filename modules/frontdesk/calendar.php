@@ -5143,7 +5143,7 @@ include '../../includes/header.php';
 
     // ----- Date picker kustom (pengganti kalender bawaan browser/Windows) -----
     const AV_MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    const AV_MON_S = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const AV_MON_S = <?php echo json_encode(($GLOBALS['lang']['date']['months_short'] ?? ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']), JSON_UNESCAPED_UNICODE); ?>;
     const AV_DOW_S = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
     const avCal = { open: false, mode: 'in', y: 0, m: 0, anchor: null, el: null };
 
