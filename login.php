@@ -1169,6 +1169,99 @@ if (isset($_GET['biz'])) {
                 animation: none !important;
             }
         }
+
+        /* ═══ Tema "Konstelasi": navy glass + aksen emas (seragam dengan gambar latar) ═══ */
+        .login-shell { width: min(320px, 90vw); }
+        .login-shell::before {
+            background: conic-gradient(from var(--angle, 0deg), #fbbf24, #7dd3fc 35%, #a78bfa 65%, #fbbf24);
+            opacity: .5;
+        }
+        .login-box {
+            position: relative;
+            padding: 1.45rem 1.3rem 1.1rem;
+            background: linear-gradient(170deg, rgba(8, 16, 40, .66), rgba(4, 9, 24, .74));
+            border: 1px solid rgba(125, 211, 252, .1);
+            box-shadow: 0 30px 80px rgba(0, 2, 12, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
+        }
+        .login-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 24%; right: 24%;
+            height: 2px;
+            border-radius: 2px;
+            background: linear-gradient(90deg, transparent, #fbbf24, transparent);
+        }
+        .lg-mark { display: block; width: 44px; height: 44px; margin: 0 auto .5rem; overflow: visible; }
+        .login-header { margin-bottom: .95rem; }
+        .login-logo {
+            font-size: 1.02rem;
+            font-weight: 700;
+            letter-spacing: .2px;
+            background: linear-gradient(120deg, #f8fafc 35%, #fde68a 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+        .login-box .login-subtitle { font-size: .7rem; margin-top: .22rem; letter-spacing: .3px; color: rgba(148, 178, 220, .7) !important; }
+        .form-group { margin-bottom: .68rem; }
+        .form-label, .login-box .form-label { font-size: .58rem; letter-spacing: .16em; margin-bottom: .28rem; color: rgba(148, 178, 220, .72) !important; }
+        .field { position: relative; }
+        .field .fi-ic {
+            position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+            width: 15px; height: 15px; color: rgba(125, 211, 252, .55); pointer-events: none;
+            transition: color .2s;
+        }
+        .field:focus-within .fi-ic { color: #fbbf24; }
+        .login-box .form-control {
+            padding: .56rem .8rem .56rem 2.15rem;
+            font-size: .82rem;
+            border-radius: 10px;
+            border: 1px solid rgba(125, 211, 252, .16);
+            background: rgba(8, 18, 44, .55) !important;
+            color: #e8eeff !important;
+        }
+        .login-box .form-control:focus {
+            border-color: rgba(251, 191, 36, .6);
+            box-shadow: 0 0 0 3px rgba(251, 191, 36, .12);
+            background: rgba(10, 22, 52, .7) !important;
+        }
+        .login-box .form-control:-webkit-autofill,
+        .login-box .form-control:-webkit-autofill:hover,
+        .login-box .form-control:-webkit-autofill:focus {
+            -webkit-text-fill-color: #e8eeff;
+            caret-color: #fff;
+            -webkit-box-shadow: 0 0 0 1000px #0a1630 inset;
+            box-shadow: 0 0 0 1000px #0a1630 inset;
+            border-color: rgba(125, 211, 252, .22);
+            transition: background-color 9999s ease-in-out 0s;
+        }
+        .password-toggle { display: inline-flex; right: 10px; color: rgba(148, 178, 220, .65); line-height: 0; }
+        .password-toggle svg { width: 16px; height: 16px; }
+        .password-toggle .eye-off { display: none; }
+        .password-toggle.on .eye { display: none; }
+        .password-toggle.on .eye-off { display: block; }
+        .password-toggle:hover { color: #fde68a; }
+        .save-pw-row { margin: .1rem 0 .75rem; }
+        .save-pw-label, .login-box .save-pw-label, .login-box .save-pw-label span { font-size: .72rem; color: rgba(199, 210, 232, .8) !important; }
+        .save-pw-label input[type="checkbox"] {
+            -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 4px;
+            border: 1px solid rgba(125, 211, 252, .4); background: rgba(8, 18, 44, .6); cursor: pointer; flex-shrink: 0;
+        }
+        .save-pw-label input[type="checkbox"]:checked {
+            border-color: #fbbf24;
+            background: #fbbf24 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.2 2.2 4.8-5' fill='none' stroke='%231a1203' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/10px no-repeat;
+        }
+        .login-buttons { gap: .5rem; grid-template-columns: 1fr 1.4fr; margin-top: .2rem; }
+        .login-buttons button { padding: .58rem .6rem; border-radius: 10px; font-size: .78rem; letter-spacing: .2px; }
+        .btn-owner { background: rgba(251, 191, 36, .06); color: #fde68a; border: 1px solid rgba(251, 191, 36, .35); }
+        .btn-owner:hover { background: rgba(251, 191, 36, .14); border-color: rgba(251, 191, 36, .6); color: #fff7d6; }
+        .btn-primary {
+            background: linear-gradient(120deg, #fde68a, #fbbf24 45%, #f59e0b);
+            background-size: 200% 200%;
+            color: #1a1203;
+            box-shadow: 0 8px 22px rgba(245, 158, 11, .3);
+        }
+        .btn-primary:hover { box-shadow: 0 12px 30px rgba(245, 158, 11, .45); }
+        .login-footer { margin-top: .9rem; padding-top: .7rem; font-size: .56rem; letter-spacing: .08em; }
     </style>
 </head>
 
@@ -1187,6 +1280,7 @@ if (isset($_GET['biz'])) {
         <div class="login-shell">
             <div class="login-box">
                 <div class="login-header">
+                    <svg class="lg-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true"><defs><radialGradient id="lgHalo" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fbbf24" stop-opacity=".65"/><stop offset="1" stop-color="#fbbf24" stop-opacity="0"/></radialGradient><linearGradient id="lgLine" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset=".55" stop-color="#7dd3fc"/><stop offset="1" stop-color="#c4b5fd"/></linearGradient></defs><circle cx="22" cy="8" r="13" fill="url(#lgHalo)"/><path d="M22 8 L8 38 M22 8 L36 38 M14.5 24 H29.5" stroke="url(#lgLine)" stroke-width="2" stroke-linecap="round"/><circle cx="8" cy="38" r="2.2" fill="#7dd3fc"/><circle cx="36" cy="38" r="2.2" fill="#7dd3fc"/><circle cx="14.5" cy="24" r="1.8" fill="#c4b5fd"/><circle cx="29.5" cy="24" r="1.8" fill="#c4b5fd"/><circle cx="22" cy="8" r="3.4" fill="#fbbf24" stroke="#fff" stroke-width="1"/></svg>
                     <h2 class="login-logo">Sign in to Dashboard</h2>
                     <p class="login-subtitle"><?php echo $displayInfo['subtitle']; ?><?php if (isset($_GET['biz'])): ?> • Hotel System<?php endif; ?></p>
                 </div>
@@ -1200,14 +1294,18 @@ if (isset($_GET['biz'])) {
                 <form method="POST" action="" autocomplete="on" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('btnSystemLogin').click();}">
                     <div class="form-group">
                         <label class="form-label">Username</label>
-                        <input type="text" name="username" autocomplete="username" class="form-control" placeholder="Enter username" required autofocus value="<?= htmlspecialchars($savedUser) ?>">
+                        <div class="field">
+                            <svg class="fi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                            <input type="text" name="username" autocomplete="username" class="form-control" placeholder="Enter username" required autofocus value="<?= htmlspecialchars($savedUser) ?>">
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Password</label>
-                        <div class="password-wrapper">
-                            <input type="password" name="password" id="loginPassword" autocomplete="current-password" class="form-control" placeholder="Enter password" required style="padding-right: 45px;">
-                            <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
+                        <div class="password-wrapper field">
+                            <svg class="fi-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                            <input type="password" name="password" id="loginPassword" autocomplete="current-password" class="form-control" placeholder="Enter password" required style="padding-right: 40px;">
+                            <span class="password-toggle" onclick="togglePassword('loginPassword', this)" role="button" aria-label="Show password"><svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.6 10.6 0 0 1 12 19C5.6 19 2 12 2 12a18.7 18.7 0 0 1 4.1-5M9.9 5.2A9.8 9.8 0 0 1 12 5c6.4 0 10 7 10 7a18.6 18.6 0 0 1-2.2 3.2"/><path d="M1 1l22 22"/></svg></span>
                         </div>
                     </div>
 
@@ -1236,13 +1334,9 @@ if (isset($_GET['biz'])) {
         // Toggle password visibility
         function togglePassword(inputId, iconElement) {
             const input = document.getElementById(inputId);
-            if (input.type === 'password') {
-                input.type = 'text';
-                iconElement.textContent = '👁️‍🗨️';
-            } else {
-                input.type = 'password';
-                iconElement.textContent = '👁️';
-            }
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            iconElement.classList.toggle('on', show);
         }
 
         function toggleSavePassword(chk) {
@@ -1336,7 +1430,9 @@ if (isset($_GET['biz'])) {
                 }, wait);
             };
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', hide, { once: true });
+                document.addEventListener('DOMContentLoaded', hide, {
+                    once: true
+                });
             } else {
                 hide();
             }
