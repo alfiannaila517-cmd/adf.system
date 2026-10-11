@@ -1295,20 +1295,25 @@ if (isset($_GET['biz'])) {
         .dev-contact .dot { color: rgba(251, 191, 36, .5); font-size: .5rem; }
         .login-footer { margin-top: .9rem; padding-top: .7rem; font-size: .56rem; letter-spacing: .08em; }
         /* ═══ Kontak developer (di luar kartu) ═══ */
-        .dev-contact-out {
-            width: min(320px, 90vw);
-            display: flex; align-items: center; justify-content: center; gap: .6rem;
-            margin-top: .85rem; position: relative; z-index: 1;
+        .dev-contact-out { width: min(320px, 90vw); margin-top: .85rem; position: relative; z-index: 1; }
+        .dev-wa {
+            display: flex; align-items: center; justify-content: space-between; gap: .9rem; padding: .55rem .6rem .55rem 1rem; border-radius: 16px;
+            background: rgba(8, 16, 40, .55); border: 1px solid rgba(125, 211, 252, .16); text-decoration: none;
+            -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: border-color .2s, background .2s, transform .2s;
         }
-        .dev-contact-out a {
-            display: inline-flex; align-items: center; gap: .4rem; padding: .38rem .8rem; border-radius: 999px;
-            background: rgba(8, 16, 40, .5); border: 1px solid rgba(125, 211, 252, .16);
-            -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-            color: rgba(226, 232, 240, .88) !important; text-decoration: none; font-size: .74rem; font-weight: 600; letter-spacing: .02em;
-            transition: color .2s, border-color .2s, background .2s, transform .2s;
+        .dev-wa:hover { border-color: rgba(251, 191, 36, .5); background: rgba(251, 191, 36, .07); transform: translateY(-1px); }
+        .dev-wa-txt { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+        .dev-wa-txt small { font-size: .56rem; letter-spacing: .2em; text-transform: uppercase; color: rgba(148, 178, 220, .75); }
+        .dev-wa-txt b { display: inline-flex; align-items: center; gap: .4rem; font-size: .84rem; font-weight: 700; letter-spacing: .03em; color: #e8eeff; }
+        .dev-wa-txt b svg { width: 15px; height: 15px; color: #fbbf24; flex-shrink: 0; }
+        .dev-wa-qr { display: block; width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(251, 191, 36, .35), 0 6px 16px rgba(0, 0, 0, .35); }
+        .dev-official {
+            position: fixed; left: 5vw; bottom: 1.5rem; z-index: 3; font-size: .72rem; letter-spacing: .08em; text-decoration: none;
+            color: rgba(203, 213, 225, .78) !important; transition: color .2s;
         }
-        .dev-contact-out a svg { width: 14px; height: 14px; flex-shrink: 0; color: #fbbf24; }
-        .dev-contact-out a:hover { color: #fde68a !important; border-color: rgba(251, 191, 36, .5); background: rgba(251, 191, 36, .08); transform: translateY(-1px); }
+        .dev-official em { font-style: normal; font-weight: 700; color: #fbbf24; letter-spacing: .14em; text-transform: uppercase; font-size: .62rem; margin-left: .2rem; }
+        .dev-official:hover { color: #fff !important; }
+        @media (max-width: 860px) { .dev-official { left: 0; right: 0; text-align: center; bottom: .9rem; } }
 
         /* ═══ Intro "Welcome to ADF System" ═══ */
         #bootSplash {
@@ -1343,10 +1348,11 @@ if (isset($_GET['biz'])) {
         @keyframes bsLine { to { width: 200px; } }
 
         /* Form login muncul "dari dalam": mendekat dari kedalaman, blur -> tajam */
-        body:not(.intro-enter) .login-shell, body:not(.intro-enter) .dev-contact-out { opacity: 0; animation: none; }
+        body:not(.intro-enter) .login-shell, body:not(.intro-enter) .dev-contact-out, body:not(.intro-enter) .dev-official { opacity: 0; animation: none; }
         .no-intro .login-shell { opacity: 1 !important; animation: riseIn 0.45s ease !important; }
-        .no-intro .dev-contact-out { opacity: 1 !important; }
+        .no-intro .dev-contact-out, .no-intro .dev-official { opacity: 1 !important; }
         body.intro-enter .login-shell { opacity: 1; animation: formEmerge 1.8s cubic-bezier(.22, 1, .36, 1) both; }
+        body.intro-enter .dev-official { animation: bsUp 1.2s cubic-bezier(.22, 1, .36, 1) 1.4s both; }
         body.intro-enter .dev-contact-out { animation: bsUp 1.2s cubic-bezier(.22, 1, .36, 1) 1s both; }
         body.intro-enter .login-box { animation: boxFlash 2.4s ease-out both; }
         @keyframes formEmerge {
@@ -1437,9 +1443,12 @@ if (isset($_GET['biz'])) {
             </div>
         </div>
         <div class="dev-contact-out">
-            <a href="https://adfsystem.store" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>adfsystem.store</span></a>
-            <a href="https://wa.me/628214400664" target="_blank" rel="noopener" title="Hubungi admin developer via WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.9 7L4 20l1.5-4A8 8 0 1 1 20 11.5z"/><path d="M9 8.8c.3 2.2 2 4 4.2 4.6l1.2-1.1-1.5-.9-.7.6a3.700 3.700 0 0 1-1.600-1.600l.6-.7-.9-1.500z" fill="currentColor" stroke="none"/></svg><span>0821-4400-664</span></a>
+            <a class="dev-wa" href="https://wa.me/628214400664" target="_blank" rel="noopener" title="Chat admin developer via WhatsApp">
+                <span class="dev-wa-txt"><small>Admin Developer</small><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.9 7L4 20l1.5-4A8 8 0 1 1 20 11.5z"/><path d="M9 8.8c.3 2.2 2 4 4.2 4.6l1.2-1.1-1.5-.9-.7.6a3.7 3.7 0 0 1-1.6-1.6l.6-.7-.9-1.5z" fill="currentColor" stroke="none"/></svg> 0821-4400-664</b></span>
+                <img class="dev-wa-qr" src="<?php echo BASE_URL; ?>/assets/img/wa-admin-qr.svg" alt="QR WhatsApp admin developer" width="54" height="54">
+            </a>
         </div>
+        <a class="dev-official" href="https://adfsystem.store" target="_blank" rel="noopener">&copy; <?php echo APP_YEAR; ?> adfsystem.store <em>official</em></a>
     </div>
 
     <script>
