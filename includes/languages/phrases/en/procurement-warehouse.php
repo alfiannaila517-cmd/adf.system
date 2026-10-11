@@ -107,7 +107,7 @@ return [
         '>← Centang barang di sebelah kiri<' => '>← Tick items on the left<', '>Memuat detail item...<' => '>Loading item details...<', '>Baru</span>' => '>New</span>',
     ],
     'patterns' => [
-        '/^(\d+) koreksi$/u' => '$1 adjustments', '/^(\d+) item \| Khusus bisnis aktif$/u' => '$1 items | Active business only', '/^Menampilkan (\d+) item$/u' => 'Showing $1 items',
+        '/^Gudang \+ manual: ([\d.,]+)$/u' => 'Warehouse + manual: $1', '/^(\d+) koreksi$/u' => '$1 adjustments', '/^(\d+) item \| Khusus bisnis aktif$/u' => '$1 items | Active business only', '/^Menampilkan (\d+) item$/u' => 'Showing $1 items',
         '/^(\d+) item$/u' => '$1 items', '/^(\d+) barang$/u' => '$1 items', '/^Total hari ini: ([\d.,]+) qty$/u' => 'Total today: $1 qty', '/^Transfer ke (.+)$/u' => 'Transfer to $1',
         '/^item \| Khusus bisnis aktif$/u' => 'items | Active business only',
     ],
