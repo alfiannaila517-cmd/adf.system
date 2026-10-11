@@ -4134,8 +4134,18 @@ if (BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')) {
 
             // Variabel tema dibaca dari <body> karena mode gelap menimpa variabel di body[data-theme="dark"].
             const cssVar = (name, fallback) => getComputedStyle(document.body).getPropertyValue(name).trim() || fallback;
-            const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-            const UNIT_WORD = { daily: 'jam', monthly: 'hari', yearly: 'bulan', alltime: 'tahun' };
+            // Teks periode/satuan mengikuti bahasa aktif (kamus: includes/languages/*.php, kunci 'dash' & 'date')
+            const DT = <?php echo json_encode([
+                'unit' => ['daily' => __('dash.u_hour'), 'monthly' => __('dash.u_day'), 'yearly' => __('dash.u_month'), 'alltime' => __('dash.u_year')],
+                'units' => ['daily' => __('dash.p_hours'), 'monthly' => __('dash.p_days'), 'yearly' => __('dash.p_months'), 'alltime' => __('dash.p_years')],
+                'surplus' => ['daily' => __('dash.s_hours'), 'monthly' => __('dash.s_days'), 'yearly' => __('dash.s_months'), 'alltime' => __('dash.s_years')],
+                'of' => __('dash.of'), 'activeWord' => __('dash.active_word'), 'on' => __('dash.on_date'), 'none' => __('dash.none_yet'),
+                'yearLong' => __('dash.year_long'), 'yearShort' => __('dash.year_short'),
+                'locale' => getCurrentLanguage() === 'en' ? 'en-US' : 'id-ID',
+                'months' => $GLOBALS['lang']['date']['months'] ?? [],
+            ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG); ?>;
+            const MONTHS_ID = DT.months;
+            const UNIT_WORD = DT.unit;
 
             // Format ringkas sumbu/angka besar: Rp 1,2 M · Rp 35 jt · Rp 800 rb (nilai negatif didukung).
             function fmtCompact(v) {
@@ -4159,16 +4169,16 @@ if (BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')) {
                 const mode = chartViewMode();
                 if (mode === 'daily') return (long ? 'Pukul ' : 'pukul ') + label;
                 if (mode === 'yearly') return label + (long ? ' ' + document.getElementById('chartYearFilter').value : '');
-                if (mode === 'alltime') return (long ? 'Tahun ' : 'th ') + label;
+                if (mode === 'alltime') return (long ? DT.yearLong : DT.yearShort) + label;
                 const [y, m] = (document.getElementById('chartMonthFilter').value || '').split('-');
-                return long ? label + ' ' + (MONTHS_ID[(+m || 1) - 1] || '') + ' ' + (y || '') : 'tgl ' + label;
+                return long ? label + ' ' + (MONTHS_ID[(+m || 1) - 1] || '') + ' ' + (y || '') : DT.on + ' ' + label;
             }
 
             function periodTitle() {
                 const mode = chartViewMode();
                 if (mode === 'daily') {
                     const d = new Date(document.getElementById('chartDateFilter').value + 'T00:00:00');
-                    return isNaN(d) ? 'Hari ini' : d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                    return isNaN(d) ? 'Hari ini' : d.toLocaleDateString(DT.locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
                 }
                 if (mode === 'yearly') return 'Tahun ' + document.getElementById('chartYearFilter').value;
                 if (mode === 'alltime') return 'Semua periode';
@@ -4333,14 +4343,14 @@ if (BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')) {
                 setText('statAvgLabel', 'Rata-rata per ' + unit);
                 setText('statAvgIncome', active ? fmtCompact(totalInc / active) : 'Rp 0');
                 setText('statBestValue', best >= 0 ? fmtCompact(inc[best]) : '–');
-                setText('statBestWhen', best >= 0 ? pointLabel(labels[best], false) : 'belum ada');
+                setText('statBestWhen', best >= 0 ? pointLabel(labels[best], false) : DT.none);
                 setText('statWorstValue', worst >= 0 ? fmtCompact(exp[worst]) : '–');
-                setText('statWorstWhen', worst >= 0 ? pointLabel(labels[worst], false) : 'belum ada');
-                setText('statSurplusLabel', unit.charAt(0).toUpperCase() + unit.slice(1) + ' surplus');
-                setText('statSurplus', surplus + ' ' + unit);
-                setText('statSurplusOf', 'dari ' + active + ' ' + unit + ' aktif');
+                setText('statWorstWhen', worst >= 0 ? pointLabel(labels[worst], false) : DT.none);
+                setText('statSurplusLabel', DT.surplus[chartViewMode()]);
+                setText('statSurplus', surplus + ' ' + DT.units[chartViewMode()]);
+                setText('statSurplusOf', DT.of + ' ' + active + ' ' + DT.units[chartViewMode()] + ' ' + DT.activeWord);
 
-                setHtml('summaryIncomeSub', '<b>' + active + '</b> ' + unit + ' ada transaksi');
+                setHtml('summaryIncomeSub', '<b>' + active + '</b> ' + DT.units[chartViewMode()] + ' ada transaksi');
                 setHtml('summaryExpenseSub', totalInc > 0 ? '<b>' + fmtPct(totalExp / totalInc * 100) + '</b> dari pemasukan' : 'Belum ada pemasukan');
                 setHtml('summaryNetSub', margin === null ? 'Margin –' : 'Margin <b>' + fmtPct(margin) + '</b>');
             }

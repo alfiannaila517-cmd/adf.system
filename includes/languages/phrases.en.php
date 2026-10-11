@@ -126,7 +126,6 @@ return [
         'Sehat' => 'Healthy',
         'Semua periode' => 'All periods',
         'Tahun' => 'Year',
-        'th' => 'yr',
         'Terisi' => 'Occupied',
         'Tidak ada data' => 'No data',
         'ada transaksi' => 'with transactions',

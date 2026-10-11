@@ -291,4 +291,26 @@ return [
         'days' => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
         'days_short' => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     ],
+
+    // ---- Dasbor (teks yang dirangkai di JavaScript) ----
+    'dash' => [
+        'u_hour' => 'hour',
+        'u_day' => 'day',
+        'u_month' => 'month',
+        'u_year' => 'year',
+        'p_hours' => 'hours',
+        'p_days' => 'days',
+        'p_months' => 'months',
+        'p_years' => 'years',
+        's_hours' => 'Surplus hours',
+        's_days' => 'Surplus days',
+        's_months' => 'Surplus months',
+        's_years' => 'Surplus years',
+        'of' => 'of',
+        'active_word' => 'active',
+        'on_date' => 'on',
+        'none_yet' => 'none yet',
+        'year_long' => 'Year ',
+        'year_short' => 'yr ',
+    ],
 ];

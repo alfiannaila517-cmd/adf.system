@@ -287,4 +287,26 @@ return [
         'days' => ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
         'days_short' => ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
     ],
+
+    // ---- Dasbor (teks yang dirangkai di JavaScript) ----
+    'dash' => [
+        'u_hour' => 'jam',
+        'u_day' => 'hari',
+        'u_month' => 'bulan',
+        'u_year' => 'tahun',
+        'p_hours' => 'jam',
+        'p_days' => 'hari',
+        'p_months' => 'bulan',
+        'p_years' => 'tahun',
+        's_hours' => 'Jam surplus',
+        's_days' => 'Hari surplus',
+        's_months' => 'Bulan surplus',
+        's_years' => 'Tahun surplus',
+        'of' => 'dari',
+        'active_word' => 'aktif',
+        'on_date' => 'tgl',
+        'none_yet' => 'belum ada',
+        'year_long' => 'Tahun ',
+        'year_short' => 'th ',
+    ],
 ];
