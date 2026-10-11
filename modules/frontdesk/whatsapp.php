@@ -161,6 +161,8 @@ include '../../includes/header.php';
         <a class="wa-btn ghost" href="settings.php">← Pengaturan Front Desk</a>
     </div>
 
+    <?php $sxActiveKey = 'whatsapp'; include __DIR__ . '/settings-nav.php'; ?>
+
     <form method="POST" id="waForm" autocomplete="off">
         <div class="wa-grid">
             <div>

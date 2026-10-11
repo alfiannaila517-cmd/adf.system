@@ -60,7 +60,8 @@ if (!$tablesExist) {
 $roomTypes = [];
 
 // ==================== ROOMS MANAGEMENT ====================
-if ($activeTab === 'rooms' && $tablesExist) {
+$roomsView = in_array($activeTab, ['rooms', 'room_types'], true); // Room & Tipe digabung dalam satu halaman
+if ($roomsView && $tablesExist) {
     // Add/Edit Room
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
@@ -145,7 +146,7 @@ if ($activeTab === 'rooms' && $tablesExist) {
 }
 
 // ==================== ROOM TYPES MANAGEMENT ====================
-elseif ($activeTab === 'room_types') {
+if ($roomsView && $tablesExist) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             if (in_array($_POST['action'], ['add_type', 'edit_type'], true)) {
@@ -1367,142 +1368,11 @@ include '../../includes/header.php';
     </div>
 <?php else: ?>
 
-    <!-- Menu pengaturan (ikon) -->
-    <style>
-        .sx-menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; margin-bottom: 1.75rem; }
-        .sx-tile { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 13px; text-decoration: none; color: var(--text-primary);
-            background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 16px; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease; }
-        .sx-tile:hover { transform: translateY(-2px); border-color: rgba(99, 102, 241, .55); box-shadow: 0 10px 24px rgba(15, 23, 42, .18); }
-        .sx-ico { width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: #fff;
-            background: linear-gradient(135deg, var(--sx-a, #6366f1), var(--sx-b, #4338ca)); box-shadow: 0 6px 14px rgba(0, 0, 0, .22); }
-        .sx-ico svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-        .sx-txt strong { display: block; font-size: .92rem; font-weight: 700; line-height: 1.2; color: var(--text-primary); }
-        .sx-txt small { display: block; margin-top: 3px; font-size: .74rem; color: var(--text-secondary); line-height: 1.3; }
-        .sx-ext { position: absolute; top: 12px; right: 12px; width: 15px; height: 15px; stroke: var(--text-secondary); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .7; }
-        .sx-tile.is-active { border-color: var(--primary, #6366f1); background: linear-gradient(180deg, rgba(99, 102, 241, .14), rgba(99, 102, 241, .04)); box-shadow: 0 0 0 1px var(--primary, #6366f1) inset, 0 10px 24px rgba(99, 102, 241, .18); }
-        .sx-tile.is-active::after { content: ''; position: absolute; left: 50%; bottom: -1px; width: 34px; height: 3px; transform: translateX(-50%); border-radius: 3px 3px 0 0; background: var(--primary, #6366f1); }
-        @media (max-width: 700px) {
-            .sx-menu { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-            .sx-tile { flex-direction: row; align-items: center; padding: 11px 12px; gap: 10px; }
-            .sx-ico { width: 36px; height: 36px; border-radius: 10px; flex: none; }
-            .sx-txt small { display: none; }
-            .sx-ext { top: 8px; right: 8px; }
-        }
-    </style>
-    <?php
-    $sxItems = [
-        ['tab' => 'rooms', 'title' => 'Manage Rooms', 'sub' => 'Kamar, lantai & status', 'a' => '#6366f1', 'b' => '#4338ca',
-            'icon' => '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>'],
-        ['tab' => 'room_types', 'title' => 'Room Types', 'sub' => 'Tipe kamar & harga dasar', 'a' => '#0ea5e9', 'b' => '#0369a1',
-            'icon' => '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'],
-        ['tab' => 'breakfast_menu', 'title' => 'Breakfast Menu', 'sub' => 'Menu & portal sarapan', 'a' => '#f59e0b', 'b' => '#b45309',
-            'icon' => '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>'],
-        ['tab' => 'ota_fees', 'title' => 'OTA Fees', 'sub' => 'Sumber booking & komisi', 'a' => '#10b981', 'b' => '#047857',
-            'icon' => '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>'],
-        ['tab' => 'invoice_settings', 'title' => 'Invoice Settings', 'sub' => 'Format & identitas invoice', 'a' => '#ec4899', 'b' => '#be185d',
-            'icon' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'],
-        ['href' => 'whatsapp.php', 'title' => 'WhatsApp', 'sub' => 'Pesan otomatis ke tamu', 'a' => '#22c55e', 'b' => '#15803d',
-            'icon' => '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>'],
-        ['href' => 'cloudbeds.php', 'title' => 'Cloudbeds', 'sub' => 'Sinkron channel manager', 'a' => '#8b5cf6', 'b' => '#6d28d9',
-            'icon' => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'],
-    ];
-    ?>
-    <nav class="sx-menu" aria-label="Menu pengaturan">
-        <?php foreach ($sxItems as $sx):
-            $sxExternal = isset($sx['href']);
-            $sxActive = !$sxExternal && $activeTab === $sx['tab'];
-            $sxLink = $sxExternal ? $sx['href'] : '?tab=' . $sx['tab'];
-        ?>
-            <a class="sx-tile<?php echo $sxActive ? ' is-active' : ''; ?>" href="<?php echo htmlspecialchars($sxLink); ?>"<?php echo $sxActive ? ' aria-current="page"' : ''; ?> style="--sx-a: <?php echo $sx['a']; ?>; --sx-b: <?php echo $sx['b']; ?>;">
-                <span class="sx-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><?php echo $sx['icon']; ?></svg></span>
-                <span class="sx-txt"><strong><?php echo htmlspecialchars($sx['title']); ?></strong><small><?php echo htmlspecialchars($sx['sub']); ?></small></span>
-                <?php if ($sxExternal): ?><svg class="sx-ext" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17L17 7"/><polyline points="7 7 17 7 17 17"/></svg><?php endif; ?>
-            </a>
-        <?php endforeach; ?>
-    </nav>
-    <!-- ==================== ROOMS TAB ==================== -->
-    <?php if ($activeTab === 'rooms'): ?>
-
-        <div class="form-card">
-            <h2 style="margin-top: 0; color: var(--primary);">➕ Add New Room</h2>
-            <form method="POST">
-                <input type="hidden" name="action" value="add_room">
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Room Number</label>
-                        <input type="text" name="room_number" class="form-input" placeholder="e.g., 101" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Room Type</label>
-                        <select name="room_type_id" class="form-select" required>
-                            <option value="">-- Select Type --</option>
-                            <?php foreach ($roomTypes as $type): ?>
-                                <option value="<?php echo $type['id']; ?>">
-                                    <?php echo htmlspecialchars($type['type_name']); ?> (Rp <?php echo number_format($type['base_price']); ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Floor Number</label>
-                        <input type="number" name="floor_number" class="form-input" placeholder="e.g., 1" required>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-success">✓ Add Room</button>
-            </form>
-        </div>
-
-        <div class="table-wrapper">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Room Number</th>
-                        <th>Type</th>
-                        <th>Floor</th>
-                        <th>Base Price</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($rooms as $room): ?>
-                        <tr>
-                            <td><strong>🚪 <?php echo htmlspecialchars($room['room_number']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($room['type_name']); ?></td>
-                            <td><span class="badge badge-primary">Floor <?php echo $room['floor_number']; ?></span></td>
-                            <td>Rp <?php echo number_format($room['base_price']); ?></td>
-                            <td>
-                                <span class="badge <?php echo $room['status'] === 'available' ? 'badge-success' : 'badge-danger'; ?>">
-                                    <?php echo ucfirst($room['status']); ?>
-                                </span>
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button type="button" class="btn btn-primary btn-sm"
-                                        onclick="editRoom(<?php echo htmlspecialchars(json_encode($room)); ?>)">
-                                        ✏️ Edit
-                                    </button>
-                                    <form method="POST" style="display: inline;">
-                                        <input type="hidden" name="action" value="delete_room">
-                                        <input type="hidden" name="room_id" value="<?php echo $room['id']; ?>">
-                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus kamar ini?')">
-                                            🗑️ Delete
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-
-    <?php endif; ?>
+    <?php $sxActiveKey = in_array($activeTab, ['rooms', 'room_types'], true) ? 'rooms' : $activeTab;
+    include __DIR__ . '/settings-nav.php'; ?>
 
     <!-- ==================== ROOM TYPES TAB ==================== -->
-    <?php if ($activeTab === 'room_types'): ?>
+    <?php if ($roomsView): ?>
 
         <div class="form-card">
             <h2 style="margin-top: 0; color: var(--primary);">➕ Add New Room Type</h2>
@@ -1586,6 +1456,87 @@ include '../../includes/header.php';
                                         <input type="hidden" name="action" value="delete_type">
                                         <input type="hidden" name="type_id" value="<?php echo $type['id']; ?>">
                                         <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus tipe kamar ini?\n\n⚠️ PERHATIAN: Semua kamar dengan tipe ini akan ikut terhapus!')">
+                                            🗑️ Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+    <?php endif; ?>
+
+    <!-- ==================== ROOMS TAB ==================== -->
+    <?php if ($roomsView): ?>
+
+        <div class="form-card">
+            <h2 style="margin-top: 0; color: var(--primary);">➕ Add New Room</h2>
+            <form method="POST">
+                <input type="hidden" name="action" value="add_room">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Room Number</label>
+                        <input type="text" name="room_number" class="form-input" placeholder="e.g., 101" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Room Type</label>
+                        <select name="room_type_id" class="form-select" required>
+                            <option value="">-- Select Type --</option>
+                            <?php foreach ($roomTypes as $type): ?>
+                                <option value="<?php echo $type['id']; ?>">
+                                    <?php echo htmlspecialchars($type['type_name']); ?> (Rp <?php echo number_format($type['base_price']); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Floor Number</label>
+                        <input type="number" name="floor_number" class="form-input" placeholder="e.g., 1" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success">✓ Add Room</button>
+            </form>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Room Number</th>
+                        <th>Type</th>
+                        <th>Floor</th>
+                        <th>Base Price</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($rooms as $room): ?>
+                        <tr>
+                            <td><strong>🚪 <?php echo htmlspecialchars($room['room_number']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($room['type_name']); ?></td>
+                            <td><span class="badge badge-primary">Floor <?php echo $room['floor_number']; ?></span></td>
+                            <td>Rp <?php echo number_format($room['base_price']); ?></td>
+                            <td>
+                                <span class="badge <?php echo $room['status'] === 'available' ? 'badge-success' : 'badge-danger'; ?>">
+                                    <?php echo ucfirst($room['status']); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button type="button" class="btn btn-primary btn-sm"
+                                        onclick="editRoom(<?php echo htmlspecialchars(json_encode($room)); ?>)">
+                                        ✏️ Edit
+                                    </button>
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="action" value="delete_room">
+                                        <input type="hidden" name="room_id" value="<?php echo $room['id']; ?>">
+                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus kamar ini?')">
                                             🗑️ Delete
                                         </button>
                                     </form>

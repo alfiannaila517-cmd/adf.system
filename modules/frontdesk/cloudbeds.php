@@ -304,6 +304,8 @@ include '../../includes/header.php';
         <a class="cbx-btn ghost" href="settings.php">‹ Pengaturan Front Desk</a>
     </div>
 
+    <?php $sxActiveKey = 'cloudbeds'; include __DIR__ . '/settings-nav.php'; ?>
+
     <?php
     $rsGet = function ($k) use ($db) {
         try { return (string)($db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$k])['setting_value'] ?? ''); } catch (\Throwable $e) { return ''; }
