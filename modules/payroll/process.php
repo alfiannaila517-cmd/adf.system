@@ -1510,7 +1510,7 @@ include '../../includes/header.php';
     }
 
     .ps-total-net {
-        font-size: 1.5rem;
+        font-size: 1.1rem;
         font-weight: 700;
         background: var(--ps-gradient-2);
         -webkit-background-clip: text;
@@ -1598,6 +1598,8 @@ include '../../includes/header.php';
         fill: none !important;
     }
 
+    .ps-btn-menu { background: linear-gradient(135deg, #475569, #334155); color: #ffffff !important; border: 1px solid rgba(255,255,255,.12); }
+    .ps-btn-menu:hover { background: linear-gradient(135deg, #334155, #1e293b); }
     /* Dropdown "Menu" aksi lain */
     .ps-more { position: relative; display: inline-block; }
     .ps-more-menu {
@@ -2574,7 +2576,7 @@ include '../../includes/header.php';
                     </form>
                 <?php endif; ?>
                 <div class="ps-more" id="psMore">
-                    <button type="button" class="ps-btn ps-btn-outline" onclick="psToggleMore(event)" aria-haspopup="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg> Menu <span style="font-size:.7rem;">&#9662;</span></button>
+                    <button type="button" class="ps-btn ps-btn-menu" onclick="psToggleMore(event)" aria-haspopup="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg> Menu <span style="font-size:.7rem;">&#9662;</span></button>
                     <div class="ps-more-menu">
                         <form method="POST" title="Sync jam kerja dari data absensi GPS">
                             <input type="hidden" name="sync_attendance" value="1">
