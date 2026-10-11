@@ -204,8 +204,8 @@ function langTranslateText(string $s, array $map): ?string
 function langTranslateOutput(string $html): string
 {
     $code = getCurrentLanguage();
-    if ($code === 'id' || $html === '' || stripos($html, '<html') === false) {
-        return $html; // bahasa dasar, atau bukan halaman HTML penuh (JSON/potongan)
+    if ($html === '' || stripos($html, '<html') === false) {
+        return $html; // bukan halaman HTML penuh (JSON/potongan)
     }
     $map = langPhraseMap($code);
     if (!$map['text'] && !$map['js']) {
