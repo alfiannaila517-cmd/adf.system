@@ -3108,8 +3108,61 @@ include '../../includes/header.php';
         .av-x { width: 30px; height: 30px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 1.2rem; line-height: 1; cursor: pointer; }
         .av-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; padding: 14px 16px 10px; flex-shrink: 0; }
         .av-field span { display: block; margin-bottom: 4px; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
-        .av-field input { width: 100%; height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.86rem; font-weight: 600; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
-        .av-field input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+        /* Tombol tanggal (membuka kalender kustom, bukan kalender bawaan Windows) */
+        .av-dp { width: 100%; height: 40px; padding: 0 12px; display: flex; align-items: center; gap: 9px; border-radius: 11px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; text-align: left; transition: border-color .15s, box-shadow .15s; }
+        .av-dp svg { width: 16px; height: 16px; flex-shrink: 0; color: #2563eb; }
+        .av-dp b { flex: 1; font-size: 0.84rem; font-weight: 700; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; white-space: nowrap; }
+        .av-dp:hover { border-color: #93c5fd; }
+        .av-dp:focus-visible, .av-dp.on { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+
+        /* Kalender kecil (dropdown di bawah kolom tanggal) */
+        .avc-pop { position: fixed; z-index: 10040; width: 304px; padding: 14px 14px 12px; border-radius: 18px; background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 24px 54px -16px rgba(15, 23, 42, 0.45), 0 2px 6px rgba(15, 23, 42, 0.06); display: none; user-select: none; }
+        .avc-pop.open { display: block; animation: avcIn 0.14s ease-out; }
+        @keyframes avcIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        .avc-pop, .avc-pop * { box-sizing: border-box; font-family: inherit; }
+        .avc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+        .avc-title { font-size: 0.9rem; font-weight: 800; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+        .avc-nav { width: 30px; height: 30px; border: 0; border-radius: 9px; background: transparent; font-size: 1.25rem; line-height: 1; color: #475569; cursor: pointer; }
+        .avc-nav:hover { background: #f1f5f9; color: #0f172a; }
+        .avc-hint { margin: 0 0 8px; text-align: center; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.02em; color: #2563eb !important; -webkit-text-fill-color: #2563eb !important; }
+        .avc-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+        .avc-dow span { text-align: center; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+        .avc-grid { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; }
+        .avc-c { height: 36px; }
+        .avc-c.mid { background: #dbeafe; }
+        .avc-c.band-r { background: linear-gradient(to right, transparent 50%, #dbeafe 50%); }
+        .avc-c.band-l { background: linear-gradient(to left, transparent 50%, #dbeafe 50%); }
+        .avc-d { position: relative; display: block; width: 36px; height: 36px; margin: 0 auto; border: 0; background: transparent; font-size: 0.8rem; font-weight: 600; color: #1e293b; cursor: pointer; border-radius: 999px; }
+        .avc-d:not(.off):not(.s-in):not(.s-out):hover { background: #eff6ff; color: #1d4ed8; }
+        .avc-d.today:not(.s-in):not(.s-out)::after { content: ''; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: #2563eb; }
+        .avc-d.off { color: #cbd5e1; cursor: not-allowed; }
+        .avc-d.s-in, .avc-d.s-out { background: #1d4ed8; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; font-weight: 800; }
+        .avc-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eef2f7; }
+        .avc-foot span { font-size: 0.7rem; font-weight: 700; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+        .avc-today { border: 0; background: transparent; font-size: 0.72rem; font-weight: 800; color: #2563eb; cursor: pointer; padding: 5px 6px; border-radius: 8px; }
+        .avc-today:hover { background: #eff6ff; }
+        body[data-theme="dark"] .av-dp { background: #0f172a; border-color: rgba(148, 163, 184, 0.3); }
+        body[data-theme="dark"] .av-dp b { color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+        body[data-theme="dark"] .av-dp svg { color: #60a5fa; }
+        body[data-theme="dark"] .av-dp:hover { border-color: #3b82f6; }
+        body[data-theme="dark"] .avc-pop { background: #111a2e; border-color: rgba(148, 163, 184, 0.24); box-shadow: 0 24px 54px -16px rgba(0, 0, 0, 0.8); }
+        body[data-theme="dark"] .avc-title { color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+        body[data-theme="dark"] .avc-nav { color: #94a3b8; }
+        body[data-theme="dark"] .avc-nav:hover { background: rgba(255, 255, 255, 0.08); color: #e2e8f0; }
+        body[data-theme="dark"] .avc-hint { color: #93c5fd !important; -webkit-text-fill-color: #93c5fd !important; }
+        body[data-theme="dark"] .avc-dow span { color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+        body[data-theme="dark"] .avc-d { color: #e2e8f0; }
+        body[data-theme="dark"] .avc-d:not(.off):not(.s-in):not(.s-out):hover { background: rgba(59, 130, 246, 0.18); color: #bfdbfe; }
+        body[data-theme="dark"] .avc-d.off { color: #475569; }
+        body[data-theme="dark"] .avc-c.mid { background: rgba(59, 130, 246, 0.22); }
+        body[data-theme="dark"] .avc-c.band-r { background: linear-gradient(to right, transparent 50%, rgba(59, 130, 246, 0.22) 50%); }
+        body[data-theme="dark"] .avc-c.band-l { background: linear-gradient(to left, transparent 50%, rgba(59, 130, 246, 0.22) 50%); }
+        body[data-theme="dark"] .avc-d.s-in, body[data-theme="dark"] .avc-d.s-out { background: #2563eb; }
+        body[data-theme="dark"] .avc-d.today:not(.s-in):not(.s-out)::after { background: #60a5fa; }
+        body[data-theme="dark"] .avc-foot { border-color: rgba(148, 163, 184, 0.14); }
+        body[data-theme="dark"] .avc-foot span { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+        body[data-theme="dark"] .avc-today { color: #93c5fd; }
+        body[data-theme="dark"] .avc-today:hover { background: rgba(59, 130, 246, 0.16); }
         .av-go { height: 38px; padding: 0 16px; border: 0; border-radius: 10px; background: #1e3a8a; color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
         .av-go:hover { background: #1d4ed8; }
         .av-go[disabled] { opacity: 0.6; cursor: wait; }
@@ -5055,19 +5108,161 @@ include '../../includes/header.php';
         if (!m) return;
         const inEl = document.getElementById('avIn');
         const outEl = document.getElementById('avOut');
-        if (!inEl.value) {
-            const t = window.fdLocalYmd(new Date());
-            inEl.value = t;
-            outEl.value = calAddDays(t, 1);
-        }
+        const t = window.fdLocalYmd(new Date());
+        const ci = calYmd(inEl.value) ? inEl.value : t;
+        const co = calYmd(outEl.value) && outEl.value > ci ? outEl.value : calAddDays(ci, 1);
+        avSetDates(ci, co);
         m.classList.add('active');
-        setTimeout(() => inEl.focus(), 50);
     };
 
     window.closeAvailModal = function closeAvailModal() {
+        avCalClose();
         const m = document.getElementById('availModal');
         if (m) m.classList.remove('active');
     };
+
+    // ----- Date picker kustom (pengganti kalender bawaan browser/Windows) -----
+    const AV_MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const AV_MON_S = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const AV_DOW_S = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const avCal = { open: false, mode: 'in', y: 0, m: 0, anchor: null, el: null };
+
+    const avFmt = (ymd) => {
+        const p = String(ymd).split('-').map(Number);
+        const dow = new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
+        return AV_DOW_S[dow] + ', ' + p[2] + ' ' + AV_MON_S[p[1] - 1] + ' ' + p[0];
+    };
+
+    function avSetDates(ci, co) {
+        const inEl = document.getElementById('avIn');
+        const outEl = document.getElementById('avOut');
+        if (calYmd(ci)) inEl.value = ci;
+        if (calYmd(co)) outEl.value = co;
+        document.getElementById('avInTxt').textContent = calYmd(inEl.value) ? avFmt(inEl.value) : 'Pilih tanggal';
+        document.getElementById('avOutTxt').textContent = calYmd(outEl.value) ? avFmt(outEl.value) : 'Pilih tanggal';
+    }
+
+    function avCalClose() {
+        avCal.open = false;
+        if (avCal.el) avCal.el.classList.remove('open');
+        ['avInBtn', 'avOutBtn'].forEach(id => { const b = document.getElementById(id); if (b) b.classList.remove('on'); });
+    }
+
+    function avCalPlace() {
+        const el = avCal.el;
+        const a = avCal.anchor;
+        if (!el || !a) return;
+        const r = a.getBoundingClientRect();
+        const w = el.offsetWidth || 300;
+        const h = el.offsetHeight || 340;
+        let left = Math.min(Math.max(8, r.left), window.innerWidth - w - 8);
+        let top = r.bottom + 6;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6); // tidak muat di bawah → buka ke atas
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+    }
+
+    function avCalRender() {
+        const el = avCal.el;
+        const ci = document.getElementById('avIn').value;
+        const co = document.getElementById('avOut').value;
+        const today = window.fdLocalYmd(new Date());
+        const minD = avCal.mode === 'out' && calYmd(ci) ? calAddDays(ci, 1) : today;
+        const first = new Date(Date.UTC(avCal.y, avCal.m, 1));
+        const lead = (first.getUTCDay() + 6) % 7; // Senin = kolom pertama
+        const days = new Date(Date.UTC(avCal.y, avCal.m + 1, 0)).getUTCDate();
+        const pad = (n) => String(n).padStart(2, '0');
+        let cells = '';
+        for (let i = 0; i < lead; i++) cells += '<span class="avc-c"></span>';
+        const hasRange = calYmd(ci) && calYmd(co) && co > ci;
+        for (let d = 1; d <= days; d++) {
+            const ymd = avCal.y + '-' + pad(avCal.m + 1) + '-' + pad(d);
+            const cls = ['avc-d'];
+            if (ymd < minD) cls.push('off');
+            if (ymd === today) cls.push('today');
+            if (ymd === ci) cls.push('s-in');
+            if (ymd === co) cls.push('s-out');
+            // pita rentang ada di sel pembungkus (di belakang lingkaran tanggal terpilih)
+            let band = '';
+            if (hasRange && ymd > ci && ymd < co) band = ' mid';
+            else if (hasRange && ymd === ci) band = ' band-r';
+            else if (hasRange && ymd === co) band = ' band-l';
+            cells += '<div class="avc-c' + band + '"><button type="button" class="' + cls.join(' ') + '"' + (ymd < minD ? ' disabled' : '') + ' data-d="' + ymd + '">' + d + '</button></div>';
+        }
+        const nights = calYmd(ci) && calYmd(co) ? Math.round((Date.parse(co) - Date.parse(ci)) / 86400000) : 0;
+        el.innerHTML =
+            '<div class="avc-top"><button type="button" class="avc-nav" data-nav="-1" aria-label="Bulan sebelumnya">‹</button>' +
+            '<div class="avc-title">' + AV_MONTHS[avCal.m] + ' ' + avCal.y + '</div>' +
+            '<button type="button" class="avc-nav" data-nav="1" aria-label="Bulan berikutnya">›</button></div>' +
+            '<div class="avc-hint">' + (avCal.mode === 'in' ? 'Pilih tanggal check-in' : 'Pilih tanggal check-out') + '</div>' +
+            '<div class="avc-dow">' + ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map(x => '<span>' + x + '</span>').join('') + '</div>' +
+            '<div class="avc-grid">' + cells + '</div>' +
+            '<div class="avc-foot"><button type="button" class="avc-today" data-today="1">Hari ini</button><span>' + (nights ? nights + ' malam' : '') + '</span></div>';
+    }
+
+    window.avPick = function avPick(mode, ev) {
+        if (ev) ev.stopPropagation();
+        if (!avCal.el) {
+            avCal.el = document.createElement('div');
+            avCal.el.className = 'avc-pop';
+            avCal.el.addEventListener('click', avCalClick);
+            document.body.appendChild(avCal.el);
+        }
+        // klik tombol yang sama saat terbuka → tutup
+        if (avCal.open && avCal.mode === mode) { avCalClose(); return; }
+        avCal.mode = mode;
+        avCal.anchor = document.getElementById(mode === 'in' ? 'avInBtn' : 'avOutBtn');
+        const cur = document.getElementById(mode === 'in' ? 'avIn' : 'avOut').value;
+        const base = calYmd(cur) ? cur : window.fdLocalYmd(new Date());
+        const p = base.split('-').map(Number);
+        avCal.y = p[0];
+        avCal.m = p[1] - 1;
+        avCalRender();
+        avCal.el.classList.add('open');
+        avCal.open = true;
+        ['avInBtn', 'avOutBtn'].forEach(id => document.getElementById(id).classList.toggle('on', id === avCal.anchor.id));
+        avCalPlace();
+    };
+
+    function avCalClick(e) {
+        e.stopPropagation();
+        const nav = e.target.closest('[data-nav]');
+        if (nav) {
+            avCal.m += parseInt(nav.dataset.nav, 10);
+            if (avCal.m < 0) { avCal.m = 11; avCal.y--; }
+            if (avCal.m > 11) { avCal.m = 0; avCal.y++; }
+            avCalRender();
+            return;
+        }
+        const pick = (ymd) => {
+            const ci = document.getElementById('avIn').value;
+            if (avCal.mode === 'in') {
+                const co = document.getElementById('avOut').value;
+                avSetDates(ymd, calYmd(co) && co > ymd ? co : calAddDays(ymd, 1));
+                // lanjut memilih check-out
+                avCal.mode = 'out';
+                avCal.anchor = document.getElementById('avOutBtn');
+                ['avInBtn', 'avOutBtn'].forEach(id => document.getElementById(id).classList.toggle('on', id === 'avOutBtn'));
+                avCalRender();
+                avCalPlace();
+            } else {
+                if (calYmd(ci) && ymd <= ci) return;
+                avSetDates(null, ymd);
+                avCalClose();
+            }
+        };
+        if (e.target.closest('[data-today]')) {
+            const t = window.fdLocalYmd(new Date());
+            if (avCal.mode === 'in') pick(t);
+            return;
+        }
+        const d = e.target.closest('.avc-d[data-d]');
+        if (d && !d.disabled) pick(d.dataset.d);
+    }
+    document.addEventListener('click', function(e) {
+        if (avCal.open && !e.target.closest('.avc-pop') && !e.target.closest('.av-dp')) avCalClose();
+    });
+    window.addEventListener('resize', () => { if (avCal.open) avCalPlace(); });
 
     window.availClearHighlight = function availClearHighlight() {
         document.querySelectorAll('.av-range, .av-free, .av-ok').forEach(el => el.classList.remove('av-range', 'av-free', 'av-ok'));
@@ -5180,15 +5375,11 @@ include '../../includes/header.php';
         openNewReservationForm({ checkIn: availState.ci, checkOut: availState.co, roomIds: Array.from(availState.sel) });
     };
 
-    // check-out otomatis minimal sehari setelah check-in
-    document.addEventListener('change', function(e) {
-        if (!e.target || e.target.id !== 'avIn') return;
-        const o = document.getElementById('avOut');
-        if (calYmd(e.target.value) && (!calYmd(o.value) || o.value <= e.target.value)) o.value = calAddDays(e.target.value, 1);
-    });
+    // Esc: tutup kalender kecil dulu; bila sudah tertutup, tutup popup
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') closeAvailModal();
-        if (e.key === 'Enter' && e.target && (e.target.id === 'avIn' || e.target.id === 'avOut')) { e.preventDefault(); runAvailCheck(); }
+        if (e.key !== 'Escape') return;
+        if (avCal.open) { avCalClose(); return; }
+        closeAvailModal();
     });
     // setelah muat ulang di tanggal di luar rentang: buka lagi popup dan ulangi pengecekan
     document.addEventListener('DOMContentLoaded', function() {
@@ -5198,8 +5389,7 @@ include '../../includes/header.php';
             sessionStorage.removeItem('calAvailPending');
             const o = JSON.parse(p);
             if (o && calYmd(o.ci) && calYmd(o.co)) {
-                document.getElementById('avIn').value = o.ci;
-                document.getElementById('avOut').value = o.co;
+                avSetDates(o.ci, o.co);
                 openAvailModal();
                 runAvailCheck();
             }
@@ -10572,8 +10762,22 @@ include '../../includes/header.php';
             <button type="button" class="av-x" onclick="closeAvailModal()" aria-label="Tutup">&times;</button>
         </div>
         <div class="av-form">
-            <label class="av-field"><span>Check-in</span><input type="date" id="avIn"></label>
-            <label class="av-field"><span>Check-out</span><input type="date" id="avOut"></label>
+            <div class="av-field">
+                <span>Check-in</span>
+                <button type="button" class="av-dp" id="avInBtn" onclick="avPick('in', event)" aria-haspopup="dialog">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    <b id="avInTxt">Pilih tanggal</b>
+                </button>
+                <input type="hidden" id="avIn">
+            </div>
+            <div class="av-field">
+                <span>Check-out</span>
+                <button type="button" class="av-dp" id="avOutBtn" onclick="avPick('out', event)" aria-haspopup="dialog">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    <b id="avOutTxt">Pilih tanggal</b>
+                </button>
+                <input type="hidden" id="avOut">
+            </div>
             <button type="button" class="av-go" id="avGo" onclick="runAvailCheck()">Cek</button>
         </div>
         <div class="av-sum" id="avSum"></div>
