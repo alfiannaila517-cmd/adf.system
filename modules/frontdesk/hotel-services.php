@@ -4217,6 +4217,23 @@ include '../../includes/header.php';
         #hsx .hs-top-actions { width: 100%; }
         #hsx .hs-top-actions .btn-hs { flex: 1; justify-content: center; }
     }
+    /* Tema gelap: teks daftar invoice (total, telepon, pill layanan, status bayar) tetap terbaca */
+    body[data-theme="dark"] #hsx table.hs-v2 tbody td { color: #e2e8f0 !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 tbody td.hs-phone { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 tbody td.hs-date { color: #94a3b8 !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 tbody .hs-guest-name { color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 tbody td.hs-num,
+    body[data-theme="dark"] #hsx table.hs-v2 tbody td .hs-num:not(.hs-due) { color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 tbody td.hs-paid { color: #4ade80 !important; -webkit-text-fill-color: #4ade80 !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 tbody .hs-due { color: #f87171 !important; -webkit-text-fill-color: #f87171 !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 tbody .hs-dash { color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 .hs-svc-one { background: rgba(99, 102, 241, 0.18) !important; border-color: rgba(129, 140, 248, 0.4) !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 .hs-svc-txt { color: #c7d2fe !important; -webkit-text-fill-color: #c7d2fe !important; }
+    body[data-theme="dark"] #hsx .hsp-ok { background: rgba(34, 197, 94, 0.18); color: #86efac !important; -webkit-text-fill-color: #86efac !important; }
+    body[data-theme="dark"] #hsx .hsp-no { background: rgba(239, 68, 68, 0.2); color: #fca5a5 !important; -webkit-text-fill-color: #fca5a5 !important; }
+    body[data-theme="dark"] #hsx .hsp-part { background: rgba(245, 158, 11, 0.2); color: #fcd34d !important; -webkit-text-fill-color: #fcd34d !important; }
+    body[data-theme="dark"] #hsx .hsp-x { background: rgba(148, 163, 184, 0.2); color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1 !important; }
+    body[data-theme="dark"] #hsx table.hs-v2 .hs-lunas { background: rgba(34, 197, 94, 0.18) !important; color: #86efac !important; -webkit-text-fill-color: #86efac !important; }
 </style>
 
 <div class="hs-page" id="hsx">
