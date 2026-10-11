@@ -60,7 +60,7 @@ return [
         'Ubah staff pada kartu kamar bila perlu, lalu simpan.' => 'Change the staff on the room card if needed, then save.', 'Tidak ada task kamar untuk tanggal ini.' => 'No room tasks for this date.',
         'Ambil ulang daftar staff Housekeeping dari Payroll' => 'Reload the housekeeping staff list from Payroll', 'Tidak hadir' => 'Absent',
         // ---- lain-lain ----
-        'Laundry' => 'Laundry', 'Transfer dari Owner' => 'Transfer from Owner', 'hari ini' => 'today', 'malam lagi' => 'more nights', 'Tamu' => 'Guest',
+        'Laundry' => 'Laundry', 'LUNAS' => 'PAID', 'CICIL' => 'PARTIAL', 'Tamu Menginap' => 'Guests Staying', 'Transfer dari Owner' => 'Transfer from Owner', 'hari ini' => 'today', 'malam lagi' => 'more nights', 'Tamu' => 'Guest',
         '0 dipilih' => '0 selected', 'dipilih' => 'selected', '· tamu' => '· guests',
     ],
     'js' => [
@@ -86,6 +86,9 @@ return [
         'Tambahan Per Room (Extra Bed, Laundry, dll)' => 'Extras Per Room (Extra Bed, Laundry, etc.)',
     ],
     'patterns' => [
+        '/Daftar tamu yang sedang menginap •/u' => 'List of guests currently staying •',
+        '/Tamu Menginap \((\d+)\)/u' => 'Guests Staying ($1)',
+        '/\b(\d+) mlm\b/u' => '$1 nts',
         '/^Tamu in-house: ?(\d+)$/u' => 'In-house guests: $1',
         '/^Sisa Rp /u' => 'Remaining Rp ',
         '/^· (\d+) tamu$/u' => '· $1 guests',
