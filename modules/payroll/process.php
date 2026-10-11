@@ -1660,26 +1660,26 @@ include '../../includes/header.php';
     /* Setup Service */
     .svc-modal { max-width: 720px; width: 94vw; padding: 0 !important; overflow: hidden; max-height: 92vh; display: flex; flex-direction: column; }
     .svc-modal form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-    .svc-head { display: flex; align-items: center; gap: 14px; padding: 18px 22px; color: #fff; background: linear-gradient(135deg, #1e3a8a, #6d28d9); position: relative; }
-    .svc-head-ic { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,.16); display: grid; place-items: center; flex-shrink: 0; }
+    .svc-head { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: #fff; background: linear-gradient(135deg, #1e3a8a, #6d28d9); position: relative; }
+    .svc-head-ic { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,.16); display: grid; place-items: center; flex-shrink: 0; }
     .svc-head-ic svg { stroke: #fff !important; fill: none !important; }
     .svc-head h4 { margin: 0; font-size: 1.05rem; font-weight: 800; color: #fff !important; -webkit-text-fill-color: #fff !important; }
     .svc-head p { margin: 2px 0 0; font-size: .76rem; color: rgba(255,255,255,.88) !important; -webkit-text-fill-color: rgba(255,255,255,.88) !important; }
     .svc-x { margin-left: auto; width: 32px; height: 32px; border-radius: 9px; border: 0; background: rgba(255,255,255,.16); color: #fff !important; -webkit-text-fill-color: #fff !important; font-size: 1.3rem; line-height: 1; cursor: pointer; }
     .svc-x:hover { background: rgba(255,255,255,.28); }
-    .svc-body { padding: 18px 22px 6px; overflow-y: auto; min-height: 0; }
-    .svc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-    .svc-stats > div { border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 14px; background: rgba(99,102,241,.06); }
+    .svc-body { padding: 14px 20px 4px; overflow-y: auto; min-height: 0; }
+    .svc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+    .svc-stats > div { border: 1px solid var(--border-color); border-radius: 10px; padding: 6px 12px; background: rgba(99,102,241,.06); }
     .svc-stats > div.accent { background: linear-gradient(135deg, rgba(34,197,94,.14), rgba(16,185,129,.08)); border-color: rgba(34,197,94,.35); }
-    .svc-stats small { display: block; font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
-    .svc-stats b { display: block; margin-top: 2px; font-size: 1.05rem; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+    .svc-stats small { display: block; font-size: .58rem; white-space: nowrap; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
+    .svc-stats b { display: block; margin-top: 0; font-size: .9rem; color: var(--text-primary); font-variant-numeric: tabular-nums; }
     .svc-stats .accent b { color: #16a34a; }
-    .svc-fields { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; margin-bottom: 16px; }
+    .svc-fields { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-bottom: 12px; }
     .svc-field label { display: block; font-size: .74rem; font-weight: 700; color: var(--text-secondary, var(--text-primary)); margin-bottom: 5px; }
     .svc-input { position: relative; }
-    .svc-input input { width: 100%; box-sizing: border-box; padding: 10px 40px 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; font-size: .9rem; background: var(--bg-primary); color: var(--text-primary); }
+    .svc-input input { width: 100%; box-sizing: border-box; padding: 7px 36px 7px 11px; border: 1px solid var(--border-color); border-radius: 10px; font-size: .9rem; background: var(--bg-primary); color: var(--text-primary); }
     .svc-input input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
-    .svc-input.pre input { padding: 10px 12px 10px 40px; }
+    .svc-input.pre input { padding: 7px 11px 7px 36px; }
     .svc-input i { position: absolute; top: 50%; transform: translateY(-50%); font-style: normal; font-size: .78rem; font-weight: 700; color: var(--text-tertiary); }
     .svc-input:not(.pre) i { right: 14px; }
     .svc-input.pre i { left: 13px; }
@@ -1689,20 +1689,20 @@ include '../../includes/header.php';
     .svc-search { margin-left: auto; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 9px; font-size: .78rem; background: var(--bg-primary); color: var(--text-primary); width: 150px; }
     .svc-all { font-size: .76rem; font-weight: 700; color: #6366f1; text-decoration: none; }
     .svc-emp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 250px; overflow-y: auto; padding: 2px; }
-    .svc-emp { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; min-width: 0; transition: background .15s, border-color .15s; }
+    .svc-emp { display: flex; align-items: center; gap: 8px; padding: 5px 9px; border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; min-width: 0; transition: background .15s, border-color .15s; }
     .svc-emp:hover { background: rgba(99,102,241,.07); }
     .svc-emp:has(input:checked) { border-color: rgba(99,102,241,.55); background: rgba(99,102,241,.1); }
     .svc-emp input { accent-color: #6366f1; width: 16px; height: 16px; flex-shrink: 0; }
-    .svc-av { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff !important; -webkit-text-fill-color: #fff !important; display: grid; place-items: center; font-size: .72rem; font-weight: 800; flex-shrink: 0; }
+    .svc-av { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff !important; -webkit-text-fill-color: #fff !important; display: grid; place-items: center; font-size: .72rem; font-weight: 800; flex-shrink: 0; }
     .svc-emp span.t { display: block; min-width: 0; }
     .svc-emp span.t b { display: block; font-size: .82rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .svc-emp span.t small { display: block; font-size: .68rem; color: var(--text-tertiary); }
-    .svc-auto { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(34,197,94,.35); background: rgba(34,197,94,.08); cursor: pointer; }
+    .svc-auto { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 0; padding: 8px 12px; border-radius: 12px; border: 1px solid rgba(34,197,94,.35); background: rgba(34,197,94,.08); cursor: pointer; }
     .svc-auto input { margin-top: 3px; accent-color: #16a34a; width: 16px; height: 16px; }
     .svc-auto b { display: block; font-size: .82rem; color: var(--text-primary); }
     .svc-auto small { display: block; margin-top: 2px; font-size: .72rem; line-height: 1.45; color: var(--text-tertiary); }
     .svc-note { font-size: .72rem; color: var(--text-tertiary); margin: 10px 0 0; line-height: 1.5; }
-    .svc-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--border-color); background: rgba(99,102,241,.04); flex-wrap: wrap; }
+    .svc-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 20px; border-top: 1px solid var(--border-color); background: rgba(99,102,241,.04); flex-wrap: wrap; }
     .svc-foot .ps-btn { padding: .55rem 1.1rem; color: #fff !important; -webkit-text-fill-color: #fff !important; text-shadow: none; }
     .svc-foot .ps-btn svg { stroke: #fff !important; }
     .ps-btn-cancel { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff !important; }
@@ -2915,7 +2915,7 @@ include '../../includes/header.php';
             <input type="hidden" name="save_service_config" value="1">
             <div class="svc-body">
                 <div class="svc-stats">
-                    <div><small>Income bulan ini</small><b>Rp <?php echo number_format($svcIncome, 0, ',', '.'); ?></b></div>
+                    <div><small>Income</small><b>Rp <?php echo number_format($svcIncome, 0, ',', '.'); ?></b></div>
                     <div><small>Total service</small><b id="svcPool">Rp 0</b></div>
                     <div class="accent"><small>Per orang</small><b id="svcShare">Rp 0</b></div>
                 </div>
