@@ -2881,7 +2881,7 @@ include '../../includes/header.php';
         <div class="cal-tb-top">
             <div class="cal-tb-title">
                 <div class="cal-tb-h1row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1>Calendar Booking</h1><span data-cbs-slot></span></div>
-                <small><?php echo date('d M', strtotime($startDate)); ?> – <?php echo date('d M Y', strtotime($startDate . ' +29 days')); ?></small>
+                <small id="calRangeLabel"><?php echo date('d M', strtotime($startDate)); ?> – <?php echo date('d M Y', strtotime($startDate . ' +29 days')); ?></small>
             </div>
             <div class="cal-tb-links">
                 <a href="<?php echo BASE_URL; ?>/modules/frontdesk/reservasi.php">List View</a>
@@ -2908,6 +2908,7 @@ include '../../includes/header.php';
                 </div>
                 <div class="search-results-dropdown" id="searchResults" style="display:none;"></div>
             </div>
+            <button class="nav-btn" id="checkAvailBtn" type="button" onclick="openAvailModal()" title="Cek room yang tersedia untuk rentang tanggal">Cek Ketersediaan</button>
             <button class="nav-btn" id="newReservationBtn" type="button" onclick="openNewReservationForm()">+ New Reservation</button>
         </div>
     </div>
@@ -3074,6 +3075,84 @@ include '../../includes/header.php';
         }
     </style>
 
+    <style>
+        /* ===== Cek Ketersediaan: tombol toolbar, sorotan kalender, popup ===== */
+        body[data-theme] .main-content .cal-tb-bar #checkAvailBtn {
+            flex-shrink: 0;
+            height: 30px !important;
+            padding: 0 0.8rem !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(37, 99, 235, 0.3) !important;
+            background: var(--fd-accent-soft) !important;
+            color: var(--fd-accent-text) !important;
+            -webkit-text-fill-color: var(--fd-accent-text) !important;
+            font-size: 0.7rem !important;
+            font-weight: 700 !important;
+            white-space: nowrap;
+            box-shadow: none !important;
+        }
+
+        /* Sorotan: kolom tanggal rentang (biru) & sel kamar yang kosong (hijau) */
+        .calendar-grid .grid-date-cell.av-range { box-shadow: inset 0 0 0 999px rgba(37, 99, 235, 0.10); }
+        .calendar-grid .grid-date-cell.av-free { box-shadow: inset 0 0 0 999px rgba(34, 197, 94, 0.20); }
+        .calendar-grid .grid-header-date.av-range { box-shadow: inset 0 3px 0 #2563eb; }
+        .calendar-grid .grid-footer-date.av-range { box-shadow: inset 0 -3px 0 #2563eb; }
+        .calendar-grid .grid-room-label.av-ok { box-shadow: inset 3px 0 0 #22c55e; }
+
+        .av-ov { position: fixed; inset: 0; z-index: 10020; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, 0.55); }
+        .av-ov.active { display: flex; }
+        .av-ov, .av-ov * { box-sizing: border-box; font-family: inherit; }
+        .av-box { width: min(560px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; background: #ffffff; color: #0f172a; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4); }
+        .av-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: linear-gradient(135deg, #1e3a8a, #2563eb); flex-shrink: 0; }
+        .av-head b { flex: 1; font-size: 0.98rem; font-weight: 800; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+        .av-x { width: 30px; height: 30px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 1.2rem; line-height: 1; cursor: pointer; }
+        .av-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; padding: 14px 16px 10px; flex-shrink: 0; }
+        .av-field span { display: block; margin-bottom: 4px; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+        .av-field input { width: 100%; height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; font-size: 0.86rem; font-weight: 600; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+        .av-field input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+        .av-go { height: 38px; padding: 0 16px; border: 0; border-radius: 10px; background: #1e3a8a; color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+        .av-go:hover { background: #1d4ed8; }
+        .av-go[disabled] { opacity: 0.6; cursor: wait; }
+        .av-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 16px 8px; flex-shrink: 0; }
+        .av-chip { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; background: #f1f5f9; color: #475569 !important; -webkit-text-fill-color: #475569 !important; }
+        .av-chip.ok { background: #dcfce7; color: #15803d !important; -webkit-text-fill-color: #15803d !important; }
+        .av-chip.bad { background: #fee2e2; color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
+        .av-body { flex: 1; min-height: 120px; overflow-y: auto; padding: 4px 16px 12px; }
+        .av-empty { padding: 26px 8px; text-align: center; font-size: 0.8rem; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+        .av-type { margin-top: 10px; }
+        .av-type-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+        .av-type-h b { font-size: 0.8rem; font-weight: 800; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+        .av-type-h small { font-size: 0.68rem; font-weight: 700; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+        .av-rooms { display: flex; flex-wrap: wrap; gap: 6px; }
+        .av-room { min-width: 64px; padding: 6px 10px; border-radius: 10px; border: 1px solid #bbf7d0; background: #f0fdf4; cursor: pointer; text-align: center; font-size: 0.8rem; font-weight: 800; color: #166534 !important; -webkit-text-fill-color: #166534 !important; }
+        .av-room small { display: block; font-size: 0.58rem; font-weight: 600; color: #15803d !important; -webkit-text-fill-color: #15803d !important; }
+        .av-room:hover { border-color: #22c55e; }
+        .av-room.sel { background: #16a34a; border-color: #16a34a; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+        .av-room.sel small { color: #dcfce7 !important; -webkit-text-fill-color: #dcfce7 !important; }
+        .av-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid #eef2f7; flex-shrink: 0; }
+        .av-link { border: 0; background: transparent; font-size: 0.72rem; font-weight: 700; color: #64748b; cursor: pointer; padding: 6px 4px; }
+        .av-link:hover { color: #1d4ed8; }
+        .av-book { height: 38px; padding: 0 18px; border: 0; border-radius: 10px; background: #1e3a8a; color: #fff; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+        .av-book[disabled] { opacity: 0.45; cursor: not-allowed; }
+        body[data-theme="dark"] .av-box { background: #111a2e; color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.22); }
+        body[data-theme="dark"] .av-field span, body[data-theme="dark"] .av-empty, body[data-theme="dark"] .av-type-h small { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+        body[data-theme="dark"] .av-field input { background: #0f172a; border-color: rgba(148, 163, 184, 0.3); color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; color-scheme: dark; }
+        body[data-theme="dark"] .av-type-h b { color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+        body[data-theme="dark"] .av-chip { background: rgba(255, 255, 255, 0.08); color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1 !important; }
+        body[data-theme="dark"] .av-chip.ok { background: rgba(34, 197, 94, 0.16); color: #86efac !important; -webkit-text-fill-color: #86efac !important; }
+        body[data-theme="dark"] .av-chip.bad { background: rgba(239, 68, 68, 0.16); color: #fca5a5 !important; -webkit-text-fill-color: #fca5a5 !important; }
+        body[data-theme="dark"] .av-room { background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3); color: #86efac !important; -webkit-text-fill-color: #86efac !important; }
+        body[data-theme="dark"] .av-room small { color: #4ade80 !important; -webkit-text-fill-color: #4ade80 !important; }
+        body[data-theme="dark"] .av-room.sel { background: #16a34a; border-color: #16a34a; color: #fff !important; -webkit-text-fill-color: #fff !important; }
+        body[data-theme="dark"] .av-foot { border-color: rgba(148, 163, 184, 0.14); }
+        body[data-theme="dark"] .av-link { color: #94a3b8; }
+        body[data-theme="dark"] .av-book { background: #2563eb; }
+        @media (max-width: 520px) { .av-form { grid-template-columns: 1fr 1fr; } .av-go { grid-column: 1 / -1; } }
+        /* kedip singkat pada bar hasil pencarian */
+        @keyframes barFlash { 0%, 100% { filter: none; } 25%, 75% { filter: brightness(1.6) drop-shadow(0 0 6px #fbbf24); } }
+        .booking-bar-container.bar-flash .booking-bar { animation: barFlash 0.9s ease 2; }
+    </style>
+
     <!-- Calendar Grid - WRAPPED IN SCROLL CONTAINER -->
     <div class="calendar-scroll-wrapper" id="drag-container" style="overflow-x: auto; cursor: grab; user-select: none;">
         <div class="calendar-wrapper">
@@ -3117,7 +3196,7 @@ include '../../includes/header.php';
                         $occPct = $totalRoomCount > 0 ? round((($totalRoomCount - $avail) / $totalRoomCount) * 100, 1) : 0;
                     ?>
                         <?php $isWeekend = in_array(date('N', strtotime($date)), ['6', '7'], true); ?>
-                        <div class="grid-header-date cal-h<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?><?php echo $isWeekend ? ' weekend' : ''; ?>">
+                        <div class="grid-header-date cal-h<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?><?php echo $isWeekend ? ' weekend' : ''; ?>" data-hdate="<?php echo $date; ?>">
                             <span class="cal-h-dow"><?php echo strtoupper(date('D', strtotime($date))); ?></span>
                             <span class="cal-h-day"><?php echo date('d', strtotime($date)); ?></span>
                             <span class="cal-h-meta">
@@ -3350,7 +3429,7 @@ include '../../includes/header.php';
                         $occPct = $totalRoomCount > 0 ? round((($totalRoomCount - $avail) / $totalRoomCount) * 100, 0) : 0;
                     ?>
                         <?php $isWeekend = in_array(date('N', strtotime($date)), ['6', '7'], true); ?>
-                        <div class="grid-footer-date cal-h<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?><?php echo $isWeekend ? ' weekend' : ''; ?>">
+                        <div class="grid-footer-date cal-h<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?><?php echo $isWeekend ? ' weekend' : ''; ?>" data-hdate="<?php echo $date; ?>">
                             <span class="cal-h-dow"><?php echo strtoupper(date('D', strtotime($date))); ?></span>
                             <span class="cal-h-day"><?php echo date('d', strtotime($date)); ?></span>
                             <span class="cal-h-meta">
@@ -4914,14 +4993,221 @@ include '../../includes/header.php';
             });
     }
 
+    // ===== Navigasi tanggal kalender (kotak tanggal, ‹ ›, Today, Cek Ketersediaan, hasil pencarian) =====
+    const CAL_START_GIVEN = <?php echo isset($_GET['start']) && (string)$_GET['start'] === $startDate ? 'true' : 'false'; ?>;
+    const CAL_START = '<?php echo $startDate; ?>';
+    const calYmd = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+    // Tambah hari tanpa pengaruh zona waktu / DST (hitung dalam UTC)
+    const calAddDays = (ymd, n) => {
+        const p = String(ymd).split('-').map(Number);
+        return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10);
+    };
+    const calScroller = () => document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
+    const calCell = (ymd) => {
+        const s = calScroller();
+        return s ? s.querySelector('.grid-date-cell[data-date="' + ymd + '"]') : null;
+    };
+    // Tanggal di tepi kiri area kalender sekarang (sel tanggal berurutan satu hari per kolom)
+    const calVisibleLeftDate = () => {
+        const s = calScroller();
+        const first = s ? s.querySelector('.grid-date-cell[data-date]') : null;
+        if (!first || !first.offsetWidth) return null;
+        const idx = Math.round(Math.max(0, s.scrollLeft) / first.offsetWidth);
+        return calAddDays(first.dataset.date, idx);
+    };
+    const calUpdateRangeLabel = (ymd) => {
+        const el = document.getElementById('calRangeLabel');
+        if (!el || !calYmd(ymd)) return;
+        const f = (d, o) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', o);
+        el.textContent = f(ymd, { day: '2-digit', month: 'short' }) + ' – ' + f(calAddDays(ymd, 29), { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+    // Tampilkan tanggal tertentu di kolom ke-3 (seperti saat "Today"): bila ada di grid cukup digeser, bila tidak muat ulang dengan start=
+    const calGoTo = (ymd, opts) => {
+        if (!calYmd(ymd)) return false;
+        const target = calAddDays(ymd, -2);
+        const dateInput = document.getElementById('dateInput');
+        if (dateInput) dateInput.value = ymd;
+        if (calCell(ymd)) {
+            scrollCalendarToDate(calCell(target) ? target : ymd);
+            calUpdateRangeLabel(ymd);
+            return true;
+        }
+        if (opts && opts.pending) sessionStorage.setItem('calAvailPending', JSON.stringify(opts.pending));
+        sessionStorage.setItem('calendarScrollToDate', target);
+        sessionStorage.setItem('calendarScrollTs', String(Date.now()));
+        window.location.search = '?start=' + ymd;
+        return false;
+    };
+
     window.changeDate = function changeDate() {
         const dateInput = document.getElementById('dateInput');
-        if (!dateInput) return;
-        window.location.search = '?start=' + dateInput.value;
+        if (!dateInput || !calYmd(dateInput.value)) return; // kotak tanggal dikosongkan / tidak valid
+        calGoTo(dateInput.value);
     }
 
-    window.openNewReservationForm = function openNewReservationForm() {
-        // Open reservation modal with today's date
+    // ===== CEK KETERSEDIAAN ROOM (tanggal A → B) =====
+    // Popup daftar room kosong (dari api/get-available-rooms.php: booking aktif & blok sudah diperhitungkan),
+    // kalender digeser ke tanggal check-in dan kolom rentang disorot (biru), sel kamar kosong hijau.
+    const availState = { ci: '', co: '', rooms: [], sel: new Set() };
+
+    window.openAvailModal = function openAvailModal() {
+        const m = document.getElementById('availModal');
+        if (!m) return;
+        const inEl = document.getElementById('avIn');
+        const outEl = document.getElementById('avOut');
+        if (!inEl.value) {
+            const t = window.fdLocalYmd(new Date());
+            inEl.value = t;
+            outEl.value = calAddDays(t, 1);
+        }
+        m.classList.add('active');
+        setTimeout(() => inEl.focus(), 50);
+    };
+
+    window.closeAvailModal = function closeAvailModal() {
+        const m = document.getElementById('availModal');
+        if (m) m.classList.remove('active');
+    };
+
+    window.availClearHighlight = function availClearHighlight() {
+        document.querySelectorAll('.av-range, .av-free, .av-ok').forEach(el => el.classList.remove('av-range', 'av-free', 'av-ok'));
+    };
+
+    function availHighlight() {
+        availClearHighlight();
+        const dates = new Set();
+        for (let d = availState.ci; d < availState.co; d = calAddDays(d, 1)) dates.add(d);
+        const free = new Set(availState.rooms.map(r => String(r.id)));
+        document.querySelectorAll('.grid-date-cell[data-date]').forEach(c => {
+            if (!dates.has(c.dataset.date)) return;
+            c.classList.add('av-range');
+            if (free.has(String(c.dataset.roomId))) c.classList.add('av-free');
+        });
+        document.querySelectorAll('.grid-header-date[data-hdate], .grid-footer-date[data-hdate]').forEach(c => {
+            if (dates.has(c.dataset.hdate)) c.classList.add('av-range');
+        });
+        document.querySelectorAll('.grid-room-label[data-room-id]').forEach(l => {
+            if (free.has(String(l.dataset.roomId))) l.classList.add('av-ok');
+        });
+    }
+
+    function availUpdateBook() {
+        const btn = document.getElementById('avBook');
+        if (!btn) return;
+        const n = availState.sel.size;
+        btn.disabled = n === 0;
+        btn.textContent = n ? 'Buat Reservasi (' + n + ' room)' : 'Buat Reservasi';
+    }
+
+    window.availToggleRoom = function availToggleRoom(el) {
+        const id = String(el.dataset.id);
+        if (availState.sel.has(id)) availState.sel.delete(id); else availState.sel.add(id);
+        el.classList.toggle('sel', availState.sel.has(id));
+        availUpdateBook();
+    };
+
+    window.runAvailCheck = async function runAvailCheck() {
+        const ci = document.getElementById('avIn').value;
+        const co = document.getElementById('avOut').value;
+        const body = document.getElementById('avBody');
+        const sum = document.getElementById('avSum');
+        const go = document.getElementById('avGo');
+        if (!calYmd(ci) || !calYmd(co)) {
+            body.innerHTML = '<div class="av-empty">Isi tanggal check-in dan check-out terlebih dahulu.</div>';
+            return;
+        }
+        if (co <= ci) {
+            body.innerHTML = '<div class="av-empty">Check-out harus setelah check-in.</div>';
+            return;
+        }
+        go.disabled = true;
+        sum.innerHTML = '';
+        body.innerHTML = '<div class="av-empty">Memeriksa ketersediaan…</div>';
+        try {
+            const res = await fetch('../../api/get-available-rooms.php?check_in=' + encodeURIComponent(ci) + '&check_out=' + encodeURIComponent(co) + '&mode=reservation');
+            const data = await res.json();
+            if (!data || !data.success) throw new Error((data && data.message) || 'Gagal memuat data');
+            availState.ci = ci;
+            availState.co = co;
+            availState.rooms = data.rooms || [];
+            availState.sel = new Set();
+            const nights = Math.round((Date.parse(co) - Date.parse(ci)) / 86400000);
+            const total = parseInt(data.total_rooms || 0, 10);
+            const avail = availState.rooms.length;
+            const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+            sum.innerHTML =
+                '<span class="av-chip ' + (avail ? 'ok' : 'bad') + '">' + avail + ' dari ' + total + ' room tersedia</span>' +
+                '<span class="av-chip">' + fmt(ci) + ' → ' + fmt(co) + ' · ' + nights + ' malam</span>' +
+                (data.booked_rooms ? '<span class="av-chip">' + parseInt(data.booked_rooms, 10) + ' terisi</span>' : '') +
+                (data.blocked_rooms ? '<span class="av-chip">' + parseInt(data.blocked_rooms, 10) + ' diblok</span>' : '');
+            if (!avail) {
+                body.innerHTML = '<div class="av-empty">Tidak ada room yang kosong pada tanggal ini (semua sudah terisi atau diblok).</div>';
+            } else {
+                const groups = {};
+                availState.rooms.forEach(r => { (groups[r.type_name || 'Lainnya'] = groups[r.type_name || 'Lainnya'] || []).push(r); });
+                let html = '';
+                Object.keys(groups).forEach(t => {
+                    const list = groups[t];
+                    const price = (!IS_STAFF_VIEW && list[0].base_price) ? 'Rp ' + parseInt(list[0].base_price, 10).toLocaleString('id-ID') + ' /malam' : '';
+                    html += '<div class="av-type"><div class="av-type-h"><b>' + escHtml(t) + ' · ' + list.length + ' room</b><small>' + price + '</small></div><div class="av-rooms">';
+                    list.forEach(r => {
+                        html += '<button type="button" class="av-room" data-id="' + parseInt(r.id, 10) + '" onclick="availToggleRoom(this)">' + escHtml(r.room_number) +
+                            (r.status === 'cleaning' ? '<small>kotor</small>' : '<small>' + (r.floor_number ? 'Lt ' + escHtml(r.floor_number) : 'siap') + '</small>') + '</button>';
+                    });
+                    html += '</div></div>';
+                });
+                body.innerHTML = html;
+            }
+            availUpdateBook();
+            // Kalender: sorot rentang & tampilkan tanggal check-in
+            if (calCell(ci)) {
+                availHighlight();
+                calGoTo(ci);
+            } else {
+                // di luar rentang kalender yang dimuat → muat ulang di tanggal itu, lalu ulangi pengecekan
+                calGoTo(ci, { pending: { ci: ci, co: co } });
+            }
+        } catch (e) {
+            body.innerHTML = '<div class="av-empty">Gagal memeriksa: ' + escHtml(e.message || 'kesalahan jaringan') + '</div>';
+        } finally {
+            go.disabled = false;
+        }
+    };
+
+    window.availBook = function availBook() {
+        if (!availState.sel.size) return;
+        closeAvailModal();
+        openNewReservationForm({ checkIn: availState.ci, checkOut: availState.co, roomIds: Array.from(availState.sel) });
+    };
+
+    // check-out otomatis minimal sehari setelah check-in
+    document.addEventListener('change', function(e) {
+        if (!e.target || e.target.id !== 'avIn') return;
+        const o = document.getElementById('avOut');
+        if (calYmd(e.target.value) && (!calYmd(o.value) || o.value <= e.target.value)) o.value = calAddDays(e.target.value, 1);
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeAvailModal();
+        if (e.key === 'Enter' && e.target && (e.target.id === 'avIn' || e.target.id === 'avOut')) { e.preventDefault(); runAvailCheck(); }
+    });
+    // setelah muat ulang di tanggal di luar rentang: buka lagi popup dan ulangi pengecekan
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const p = sessionStorage.getItem('calAvailPending');
+            if (!p) return;
+            sessionStorage.removeItem('calAvailPending');
+            const o = JSON.parse(p);
+            if (o && calYmd(o.ci) && calYmd(o.co)) {
+                document.getElementById('avIn').value = o.ci;
+                document.getElementById('avOut').value = o.co;
+                openAvailModal();
+                runAvailCheck();
+            }
+        } catch (e) {}
+    });
+
+    window.openNewReservationForm = function openNewReservationForm(opts) {
+        // Open reservation modal with today's date (atau tanggal & room dari Cek Ketersediaan)
         const modal = document.getElementById('reservationModal');
 
         // Reset Form First
@@ -4936,15 +5222,29 @@ include '../../includes/header.php';
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        if (checkInInput) checkInInput.value = window.fdLocalYmd(today);
-        if (checkOutInput) checkOutInput.value = window.fdLocalYmd(tomorrow);
+        if (checkInInput) checkInInput.value = (opts && opts.checkIn) || window.fdLocalYmd(today);
+        if (checkOutInput) checkOutInput.value = (opts && opts.checkOut) || window.fdLocalYmd(tomorrow);
 
         const modeEl = document.getElementById('reservationMode');
         if (modeEl) modeEl.value = 'reservation';
         setReservationMode('reservation');
 
         // Load available rooms for default dates
-        loadAvailableRoomsCalendar();
+        const roomsLoaded = loadAvailableRoomsCalendar();
+        // Dari Cek Ketersediaan: centang room yang dipilih setelah daftar room selesai dimuat
+        if (opts && Array.isArray(opts.roomIds) && opts.roomIds.length) {
+            Promise.resolve(roomsLoaded).then(() => {
+                opts.roomIds.forEach(id => {
+                    const cb = document.querySelector('#reservationModal input[name="rooms[]"][value="' + id + '"]');
+                    if (cb) {
+                        cb.checked = true;
+                        const item = cb.closest('.room-checkbox-item');
+                        if (item) item.style.background = '#dcfce7';
+                    }
+                });
+                calculateMultiRoomTotalCalendar();
+            });
+        }
 
         // Reset payment method class
         document.querySelectorAll('#reservationModal .pm-item').forEach(d => d.classList.remove('active'));
@@ -5897,10 +6197,9 @@ include '../../includes/header.php';
     const shiftCalendarDays = (days) => {
         const dateInput = document.getElementById('dateInput');
         if (!dateInput) return;
-        const currentDate = new Date(dateInput.value);
-        currentDate.setDate(currentDate.getDate() + days);
-        dateInput.value = currentDate.toISOString().split('T')[0];
-        changeDate();
+        // Geser dari posisi yang sedang terlihat (bukan dari nilai kotak tanggal yang bisa sudah usang)
+        const base = calVisibleLeftDate() || (calYmd(dateInput.value) ? calAddDays(dateInput.value, -2) : window.fdLocalYmd(new Date()));
+        calGoTo(calAddDays(base, days + 2));
     };
 
     window.prevMonth = function prevMonth() {
@@ -6241,6 +6540,9 @@ include '../../includes/header.php';
             back.setDate(back.getDate() - 2);
             const backStr = window.fdLocalYmd(back);
             scrollCalendarToDate(scroller.querySelector(`.grid-date-cell[data-date="${backStr}"]`) ? backStr : todayStr, scroller);
+            const di = document.getElementById('dateInput');
+            if (di) di.value = todayStr;
+            calUpdateRangeLabel(todayStr);
         } else {
             // Today is outside the current range — reload with today as start
             window.location.search = '?start=' + todayStr;
@@ -6290,11 +6592,11 @@ include '../../includes/header.php';
                                     month: 'short',
                                     year: 'numeric'
                                 });
-                                html += '<div class="search-result-item" onclick="openBookingFromSearch(' + r.id + ')">' +
-                                    '<div class="sr-avatar">' + initials + '</div>' +
-                                    '<div class="sr-info"><div class="sr-name">' + r.guest_name + '</div>' +
-                                    '<div class="sr-meta">Room ' + (r.room_number || '-') + ' • ' + checkin + ' - ' + checkout + ' • ' + (r.booking_code || '') + '</div></div>' +
-                                    '<span class="sr-status ' + r.status + '">' + r.status.replace('_', ' ') + '</span>' +
+                                html += '<div class="search-result-item" onclick="openBookingFromSearch(' + parseInt(r.id, 10) + ', \'' + escHtml(String(r.check_in_date || '').slice(0, 10)) + '\')">' +
+                                    '<div class="sr-avatar">' + escHtml(initials) + '</div>' +
+                                    '<div class="sr-info"><div class="sr-name">' + escHtml(r.guest_name) + '</div>' +
+                                    '<div class="sr-meta">Room ' + escHtml(r.room_number || '-') + ' • ' + checkin + ' - ' + checkout + ' • ' + escHtml(r.booking_code || '') + '</div></div>' +
+                                    '<span class="sr-status ' + escHtml(r.status) + '">' + escHtml(String(r.status || '').replace('_', ' ')) + '</span>' +
                                     '</div>';
                             });
                             searchResults.innerHTML = html;
@@ -6314,10 +6616,21 @@ include '../../includes/header.php';
             });
         }
 
-        window.openBookingFromSearch = function(bookingId) {
+        window.openBookingFromSearch = function(bookingId, checkInDate) {
             searchResults.style.display = 'none';
             searchInput.value = '';
             searchClearBtn.style.display = 'none';
+            // Tampilkan booking itu di kalender (bila tanggalnya ada di grid) dan kedipkan balok-nya
+            try {
+                if (calYmd(checkInDate) && calCell(checkInDate)) {
+                    calGoTo(checkInDate);
+                    const bar = document.querySelector('.booking-bar-container[data-booking-id="' + bookingId + '"]');
+                    if (bar) {
+                        bar.classList.add('bar-flash');
+                        setTimeout(() => bar.classList.remove('bar-flash'), 2200);
+                    }
+                }
+            } catch (e) {}
             viewBooking(bookingId, new Event('click'));
         };
 
@@ -6432,12 +6745,19 @@ include '../../includes/header.php';
                         sessionStorage.removeItem('calendarScrollLeft');
                         console.log('✅ Restored scroll position:', savedScroll);
                     } else {
-                        // Pertama dibuka: hari ini di kolom ke-3 (2 hari sebelumnya tetap terlihat di kiri)
-                        const twoDaysAgo = new Date();
-                        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-                        const todayStr = window.fdLocalYmd(new Date());
-                        scrollCalendarToDate(window.fdLocalYmd(twoDaysAgo), scroller);
-                        console.log('✅ Auto-scrolled to today:', todayStr);
+                        // Pertama dibuka: hari ini di kolom ke-3 (2 hari sebelumnya tetap terlihat di kiri).
+                        // Dibuka dengan ?start=TANGGAL (mis. dari kotak tanggal) → tanggal itulah yang ditampilkan.
+                        if (CAL_START_GIVEN) {
+                            const s2 = calAddDays(CAL_START, -2);
+                            scrollCalendarToDate(calCell(s2) ? s2 : CAL_START, scroller);
+                            console.log('✅ Auto-scrolled to start date:', CAL_START);
+                        } else {
+                            const twoDaysAgo = new Date();
+                            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+                            const todayStr = window.fdLocalYmd(new Date());
+                            scrollCalendarToDate(window.fdLocalYmd(twoDaysAgo), scroller);
+                            console.log('✅ Auto-scrolled to today:', todayStr);
+                        }
                     }
                 };
                 // Ingat target sekali, lalu terapkan lagi setelah halaman selesai dimuat (browser bisa
@@ -10244,6 +10564,27 @@ include '../../includes/header.php';
     body[data-theme="dark"] .sp-print-menu b { color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important; }
 </style>
 <!-- PINDAH KAMAR / UPGRADE / DOWNGRADE -->
+<!-- Cek Ketersediaan Room (tanggal A → B) -->
+<div id="availModal" class="av-ov" onclick="if(event.target===this)closeAvailModal()">
+    <div class="av-box" role="dialog" aria-modal="true" aria-label="Cek ketersediaan room">
+        <div class="av-head">
+            <b>Cek Ketersediaan Room</b>
+            <button type="button" class="av-x" onclick="closeAvailModal()" aria-label="Tutup">&times;</button>
+        </div>
+        <div class="av-form">
+            <label class="av-field"><span>Check-in</span><input type="date" id="avIn"></label>
+            <label class="av-field"><span>Check-out</span><input type="date" id="avOut"></label>
+            <button type="button" class="av-go" id="avGo" onclick="runAvailCheck()">Cek</button>
+        </div>
+        <div class="av-sum" id="avSum"></div>
+        <div class="av-body" id="avBody"><div class="av-empty">Pilih tanggal check-in dan check-out, lalu klik Cek.</div></div>
+        <div class="av-foot">
+            <button type="button" class="av-link" onclick="availClearHighlight()">Hapus sorotan kalender</button>
+            <button type="button" class="av-book" id="avBook" onclick="availBook()" disabled>Buat Reservasi</button>
+        </div>
+    </div>
+</div>
+
 <div id="moveRoomModal" class="mv-overlay" onclick="if(event.target===this)closeMoveModal()">
     <div class="mv-modal">
         <div class="mv-head">

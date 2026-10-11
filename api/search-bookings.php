@@ -37,13 +37,13 @@ try {
         LEFT JOIN guests g ON b.guest_id = g.id
         LEFT JOIN rooms r ON b.room_id = r.id
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
-        WHERE (g.guest_name LIKE ? OR g.phone LIKE ? OR b.booking_code LIKE ?)
+        WHERE (g.guest_name LIKE ? OR g.phone LIKE ? OR b.booking_code LIKE ? OR r.room_number LIKE ?)
         ORDER BY 
             FIELD(b.status, 'checked_in', 'confirmed', 'pending', 'checked_out', 'cancelled'),
             b.check_in_date DESC
         LIMIT 15
     ");
-    $stmt->execute([$searchParam, $searchParam, $searchParam]);
+    $stmt->execute([$searchParam, $searchParam, $searchParam, $searchParam]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode(['success' => true, 'results' => $results], JSON_UNESCAPED_UNICODE);
