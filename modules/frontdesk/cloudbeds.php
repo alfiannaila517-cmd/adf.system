@@ -1301,7 +1301,8 @@ include '../../includes/header.php';
         nav.appendChild(b);
         if (!first) first = t[0];
     });
-    head.insertAdjacentElement('afterend', nav);
+    // Menu ikon pengaturan (settings-nav.php) tetap di atas; tab Cloudbeds di bawahnya.
+    (root.querySelector('.sx-menu') || head).insertAdjacentElement('afterend', nav);
     var anchor = nav;
     tabs.forEach(function (t) { anchor.insertAdjacentElement('afterend', panes[t[0]]); anchor = panes[t[0]]; });
 
