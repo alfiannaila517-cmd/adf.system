@@ -1315,26 +1315,26 @@ if (isset($_GET['biz'])) {
             /* latar polos gelap: saat intro memudar, gambar login di belakangnya terungkap */
             background: radial-gradient(ellipse 70% 55% at 50% 38%, rgba(30, 58, 138, 0.28) 0%, transparent 70%), radial-gradient(ellipse 45% 40% at 50% 90%, rgba(245, 158, 11, 0.10) 0%, transparent 70%), #030510;
             overflow: hidden;
-            transition: opacity .9s ease .15s, visibility .9s ease .15s;
+            transition: opacity 1.2s cubic-bezier(.4, 0, .2, 1) .1s, visibility 1.2s linear .1s;
         }
         .no-intro #bootSplash { display: none !important; }
-        .bs-stage { display: flex; flex-direction: column; align-items: center; gap: .85rem; text-align: center; padding: 1rem; transition: transform 1.05s cubic-bezier(.55, 0, .2, 1), filter 1s ease, opacity .85s ease; }
-        #bootSplash.bootSplash-hide .bs-stage { transform: scale(1.7); filter: blur(12px); opacity: 0; }
-        .bs-logo { position: relative; width: 104px; height: 78px; clip-path: inset(-600px -600px 0 -600px); animation: bsLogoIn .95s cubic-bezier(.2, .8, .2, 1) both; }
+        .bs-stage { display: flex; flex-direction: column; align-items: center; gap: .85rem; text-align: center; padding: 1rem; transition: transform 1.5s cubic-bezier(.4, 0, .2, 1), filter 1.3s ease, opacity 1.2s ease; }
+        #bootSplash.bootSplash-hide .bs-stage { transform: scale(1.45); filter: blur(10px); opacity: 0; }
+        .bs-logo { position: relative; width: 104px; height: 78px; clip-path: inset(-600px -600px 0 -600px); animation: bsLogoIn 1.4s cubic-bezier(.22, 1, .36, 1) both; }
         .bs-logo img { display: block; width: 104px; height: 104px; filter: brightness(0) invert(1) drop-shadow(0 0 14px rgba(125, 211, 252, .3)); }
         .bs-dot {
             position: absolute; left: 50%; top: 7px; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: #fbbf24;
             box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 18px 6px rgba(251, 191, 36, .8), 0 0 46px 14px rgba(245, 158, 11, .4);
-            animation: bsDot .7s cubic-bezier(.2, .9, .3, 1.4) .55s both;
+            animation: bsDot 1s cubic-bezier(.22, 1, .36, 1) .9s both;
         }
-        .bs-ring { position: absolute; left: 50%; top: 7px; width: 12px; height: 12px; margin: -6px 0 0 -6px; border: 1px solid rgba(251, 191, 36, .65); border-radius: 50%; opacity: 0; animation: bsRing 2.6s ease-out infinite; animation-delay: calc(.8s + var(--r) * .85s); }
-        .bs-welcome { font-size: .72rem; letter-spacing: .55em; text-transform: uppercase; color: rgba(148, 178, 220, .9); margin-top: .5rem; padding-left: .55em; animation: bsUp .9s ease .55s both; }
+        .bs-ring { position: absolute; left: 50%; top: 7px; width: 12px; height: 12px; margin: -6px 0 0 -6px; border: 1px solid rgba(251, 191, 36, .65); border-radius: 50%; opacity: 0; animation: bsRing 3.2s cubic-bezier(.2, .6, .3, 1) infinite; animation-delay: calc(1.2s + var(--r) * 1.05s); }
+        .bs-welcome { font-size: .72rem; letter-spacing: .55em; text-transform: uppercase; color: rgba(148, 178, 220, .9); margin-top: .5rem; padding-left: .55em; animation: bsUp 1.3s cubic-bezier(.22, 1, .36, 1) 1.1s both; }
         .bs-brand { display: flex; justify-content: center; font-size: clamp(2rem, 6vw, 3.1rem); font-weight: 800; letter-spacing: .16em; color: #fff; line-height: 1.1; text-shadow: 0 0 28px rgba(125, 211, 252, .35); }
-        .bs-brand span { display: inline-block; opacity: 0; transform: translateY(18px) scale(.9); filter: blur(8px); animation: bsLetter .75s cubic-bezier(.2, .8, .2, 1) forwards; animation-delay: calc(.95s + var(--i) * .075s); }
+        .bs-brand span { display: inline-block; opacity: 0; transform: translateY(18px) scale(.9); filter: blur(8px); animation: bsLetter 1.1s cubic-bezier(.22, 1, .36, 1) forwards; animation-delay: calc(1.6s + var(--i) * .09s); }
         .bs-brand .sp { width: .45em; }
-        .bs-line { width: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, #fbbf24, transparent); animation: bsLine 1s ease 1.9s forwards; }
-        .bs-tag { font-size: .74rem; letter-spacing: .22em; text-transform: uppercase; color: rgba(199, 210, 232, .75); animation: bsUp .9s ease 2.15s both; }
-        .bs-skip { position: absolute; bottom: 1.6rem; left: 0; right: 0; text-align: center; font-size: .62rem; letter-spacing: .2em; text-transform: uppercase; color: rgba(148, 178, 220, .5); animation: bsUp 1s ease 1.6s both; }
+        .bs-line { width: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, #fbbf24, transparent); animation: bsLine 1.3s cubic-bezier(.22, 1, .36, 1) 3s forwards; }
+        .bs-tag { font-size: .74rem; letter-spacing: .22em; text-transform: uppercase; color: rgba(199, 210, 232, .75); animation: bsUp 1.2s cubic-bezier(.22, 1, .36, 1) 3.3s both; }
+        .bs-skip { position: absolute; bottom: 1.6rem; left: 0; right: 0; text-align: center; font-size: .62rem; letter-spacing: .2em; text-transform: uppercase; color: rgba(148, 178, 220, .5); animation: bsUp 1.2s ease 2.2s both; }
         @keyframes bsLogoIn { from { opacity: 0; transform: scale(.55); filter: blur(10px); } to { opacity: 1; transform: scale(1); filter: blur(0); } }
         @keyframes bsDot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
         @keyframes bsRing { 0% { opacity: .85; transform: scale(1); } 100% { opacity: 0; transform: scale(16); } }
@@ -1346,12 +1346,12 @@ if (isset($_GET['biz'])) {
         body:not(.intro-enter) .login-shell, body:not(.intro-enter) .dev-contact-out { opacity: 0; animation: none; }
         .no-intro .login-shell { opacity: 1 !important; animation: riseIn 0.45s ease !important; }
         .no-intro .dev-contact-out { opacity: 1 !important; }
-        body.intro-enter .login-shell { opacity: 1; animation: formEmerge 1.25s cubic-bezier(.16, 1, .3, 1) both; }
-        body.intro-enter .dev-contact-out { animation: bsUp .9s ease .8s both; }
-        body.intro-enter .login-box { animation: boxFlash 1.8s ease-out both; }
+        body.intro-enter .login-shell { opacity: 1; animation: formEmerge 1.8s cubic-bezier(.22, 1, .36, 1) both; }
+        body.intro-enter .dev-contact-out { animation: bsUp 1.2s cubic-bezier(.22, 1, .36, 1) 1s both; }
+        body.intro-enter .login-box { animation: boxFlash 2.4s ease-out both; }
         @keyframes formEmerge {
-            0% { opacity: 0; transform: perspective(900px) translateZ(-520px) scale(.8); }
-            60% { opacity: 1; }
+            0% { opacity: 0; transform: perspective(900px) translateZ(-420px) scale(.86); }
+            50% { opacity: 1; }
             100% { opacity: 1; transform: perspective(900px) translateZ(0) scale(1); }
         }
         @keyframes boxFlash { 0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0), 0 30px 80px rgba(0, 2, 12, .6); } 35% { box-shadow: 0 0 70px 6px rgba(251, 191, 36, .28), 0 30px 80px rgba(0, 2, 12, .6); } 100% { box-shadow: 0 30px 80px rgba(0, 2, 12, .6), inset 0 1px 0 rgba(255, 255, 255, .06); } }
@@ -1534,7 +1534,7 @@ if (isset($_GET['biz'])) {
                 return;
             }
             try { sessionStorage.setItem('adfIntroSeen', '1'); } catch (e) {}
-            const minDelay = 3400; // lama tampil intro
+            const minDelay = 5400; // lama tampil intro
             const start = Date.now();
             let hidden = false;
             const hide = (now) => {
@@ -1543,8 +1543,8 @@ if (isset($_GET['biz'])) {
                 const wait = now ? 0 : Math.max(0, minDelay - (Date.now() - start));
                 setTimeout(() => {
                     splash.classList.add('bootSplash-hide');
-                    setTimeout(() => document.body.classList.add('intro-enter'), 380); // form mulai muncul saat intro memudar
-                    setTimeout(() => splash.remove(), 1300);
+                    setTimeout(() => document.body.classList.add('intro-enter'), 600); // form mulai muncul saat intro memudar
+                    setTimeout(() => splash.remove(), 1800);
                 }, wait);
             };
             const ready = () => hide(false);
@@ -1555,7 +1555,7 @@ if (isset($_GET['biz'])) {
             }
             splash.addEventListener('click', () => hide(true)); // ketuk untuk melewati
             document.addEventListener('keydown', () => hide(true), { once: true });
-            setTimeout(() => hide(true), 7000); // pengaman
+            setTimeout(() => hide(true), 9000); // pengaman
         })();
     </script>
 </body>
