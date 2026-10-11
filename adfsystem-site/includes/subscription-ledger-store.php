@@ -84,7 +84,10 @@ function adf_ledger_due(array $client, string $period, bool $topup): string
         return date('Y-m-t', strtotime($period . '-01'));
     }
     $dim = (int) date('t', strtotime($period . '-01'));
-    return sprintf('%s-%02d', $period, min((int) date('j', strtotime($start)), $dim));
+    $due = sprintf('%s-%02d', $period, min((int) date('j', strtotime($start)), $dim));
+    // Invoice yang baru dibuat setelah tanggal jatuh temponya lewat: beri tenggang 7 hari
+    // (kalau tidak, klien langsung terkunci sebelum sempat membayar).
+    return $due < date('Y-m-d') ? date('Y-m-d', strtotime('+7 days')) : $due;
 }
 
 /**
