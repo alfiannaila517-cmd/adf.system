@@ -1288,6 +1288,11 @@ if (isset($_GET['biz'])) {
         }
         .btn-google:hover { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .3); transform: translateY(-1px); }
         .btn-google .g-ic { width: 16px; height: 16px; flex-shrink: 0; }
+        .dev-contact { display: flex; align-items: center; justify-content: center; gap: .55rem; margin-top: .5rem; letter-spacing: .04em; }
+        .dev-contact a { display: inline-flex; align-items: center; gap: .3rem; color: rgba(148, 178, 220, .75) !important; text-decoration: none; font-size: .62rem; transition: color .2s; }
+        .dev-contact a svg { width: 11px; height: 11px; flex-shrink: 0; }
+        .dev-contact a:hover { color: #fde68a !important; }
+        .dev-contact .dot { color: rgba(251, 191, 36, .5); font-size: .5rem; }
         .login-footer { margin-top: .9rem; padding-top: .7rem; font-size: .56rem; letter-spacing: .08em; }
     </style>
 </head>
@@ -1357,6 +1362,11 @@ if (isset($_GET['biz'])) {
 
                 <div class="login-footer">
                     &copy; <?php echo APP_YEAR; ?> <?php echo APP_NAME; ?>
+                    <div class="dev-contact">
+                        <a href="https://adfsystem.store" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg> adfsystem.store</a>
+                        <span class="dot">&bull;</span>
+                        <a href="https://wa.me/628214400664" target="_blank" rel="noopener" title="Hubungi admin developer via WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.9 7L4 20l1.5-4A8 8 0 1 1 20 11.5z"/><path d="M9 8.8c.3 2.2 2 4 4.2 4.600l1.200-1.100-1.500-.9-.7.6a3.700 3.700 0 0 1-1.600-1.600l.6-.7-.9-1.500z" fill="currentColor" stroke="none"/></svg> 0821-4400-664</a>
+                    </div>
                 </div>
             </div>
         </div>
