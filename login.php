@@ -1294,19 +1294,90 @@ if (isset($_GET['biz'])) {
         .dev-contact a:hover { color: #fde68a !important; }
         .dev-contact .dot { color: rgba(251, 191, 36, .5); font-size: .5rem; }
         .login-footer { margin-top: .9rem; padding-top: .7rem; font-size: .56rem; letter-spacing: .08em; }
+        /* ═══ Kontak developer (di luar kartu) ═══ */
+        .dev-contact-out {
+            width: min(320px, 90vw);
+            display: flex; align-items: center; justify-content: center; gap: .6rem;
+            margin-top: .85rem; position: relative; z-index: 1;
+        }
+        .dev-contact-out a {
+            display: inline-flex; align-items: center; gap: .4rem; padding: .38rem .8rem; border-radius: 999px;
+            background: rgba(8, 16, 40, .5); border: 1px solid rgba(125, 211, 252, .16);
+            -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+            color: rgba(226, 232, 240, .88) !important; text-decoration: none; font-size: .74rem; font-weight: 600; letter-spacing: .02em;
+            transition: color .2s, border-color .2s, background .2s, transform .2s;
+        }
+        .dev-contact-out a svg { width: 14px; height: 14px; flex-shrink: 0; color: #fbbf24; }
+        .dev-contact-out a:hover { color: #fde68a !important; border-color: rgba(251, 191, 36, .5); background: rgba(251, 191, 36, .08); transform: translateY(-1px); }
+
+        /* ═══ Intro "Welcome to ADF System" ═══ */
+        #bootSplash {
+            /* latar polos gelap: saat intro memudar, gambar login di belakangnya terungkap */
+            background: radial-gradient(ellipse 70% 55% at 50% 38%, rgba(30, 58, 138, 0.28) 0%, transparent 70%), radial-gradient(ellipse 45% 40% at 50% 90%, rgba(245, 158, 11, 0.10) 0%, transparent 70%), #030510;
+            overflow: hidden;
+            transition: opacity .9s ease .15s, visibility .9s ease .15s;
+        }
+        .no-intro #bootSplash { display: none !important; }
+        .bs-stage { display: flex; flex-direction: column; align-items: center; gap: .85rem; text-align: center; padding: 1rem; transition: transform 1.05s cubic-bezier(.55, 0, .2, 1), filter 1s ease, opacity .85s ease; }
+        #bootSplash.bootSplash-hide .bs-stage { transform: scale(1.7); filter: blur(12px); opacity: 0; }
+        .bs-logo { position: relative; width: 104px; height: 78px; clip-path: inset(-600px -600px 0 -600px); animation: bsLogoIn .95s cubic-bezier(.2, .8, .2, 1) both; }
+        .bs-logo img { display: block; width: 104px; height: 104px; filter: brightness(0) invert(1) drop-shadow(0 0 14px rgba(125, 211, 252, .3)); }
+        .bs-dot {
+            position: absolute; left: 50%; top: 7px; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: #fbbf24;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, .95), 0 0 18px 6px rgba(251, 191, 36, .8), 0 0 46px 14px rgba(245, 158, 11, .4);
+            animation: bsDot .7s cubic-bezier(.2, .9, .3, 1.4) .55s both;
+        }
+        .bs-ring { position: absolute; left: 50%; top: 7px; width: 12px; height: 12px; margin: -6px 0 0 -6px; border: 1px solid rgba(251, 191, 36, .65); border-radius: 50%; opacity: 0; animation: bsRing 2.6s ease-out infinite; animation-delay: calc(.8s + var(--r) * .85s); }
+        .bs-welcome { font-size: .72rem; letter-spacing: .55em; text-transform: uppercase; color: rgba(148, 178, 220, .9); margin-top: .5rem; padding-left: .55em; animation: bsUp .9s ease .55s both; }
+        .bs-brand { display: flex; justify-content: center; font-size: clamp(2rem, 6vw, 3.1rem); font-weight: 800; letter-spacing: .16em; color: #fff; line-height: 1.1; text-shadow: 0 0 28px rgba(125, 211, 252, .35); }
+        .bs-brand span { display: inline-block; opacity: 0; transform: translateY(18px) scale(.9); filter: blur(8px); animation: bsLetter .75s cubic-bezier(.2, .8, .2, 1) forwards; animation-delay: calc(.95s + var(--i) * .075s); }
+        .bs-brand .sp { width: .45em; }
+        .bs-line { width: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, #fbbf24, transparent); animation: bsLine 1s ease 1.9s forwards; }
+        .bs-tag { font-size: .74rem; letter-spacing: .22em; text-transform: uppercase; color: rgba(199, 210, 232, .75); animation: bsUp .9s ease 2.15s both; }
+        .bs-skip { position: absolute; bottom: 1.6rem; left: 0; right: 0; text-align: center; font-size: .62rem; letter-spacing: .2em; text-transform: uppercase; color: rgba(148, 178, 220, .5); animation: bsUp 1s ease 1.6s both; }
+        @keyframes bsLogoIn { from { opacity: 0; transform: scale(.55); filter: blur(10px); } to { opacity: 1; transform: scale(1); filter: blur(0); } }
+        @keyframes bsDot { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+        @keyframes bsRing { 0% { opacity: .85; transform: scale(1); } 100% { opacity: 0; transform: scale(16); } }
+        @keyframes bsUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bsLetter { to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
+        @keyframes bsLine { to { width: 200px; } }
+
+        /* Form login muncul "dari dalam": mendekat dari kedalaman, blur -> tajam */
+        body:not(.intro-enter) .login-shell, body:not(.intro-enter) .dev-contact-out { opacity: 0; animation: none; }
+        .no-intro .login-shell { opacity: 1 !important; animation: riseIn 0.45s ease !important; }
+        .no-intro .dev-contact-out { opacity: 1 !important; }
+        body.intro-enter .login-shell { opacity: 1; animation: formEmerge 1.25s cubic-bezier(.16, 1, .3, 1) both; }
+        body.intro-enter .dev-contact-out { animation: bsUp .9s ease .8s both; }
+        body.intro-enter .login-box { animation: boxFlash 1.8s ease-out both; }
+        @keyframes formEmerge {
+            0% { opacity: 0; transform: perspective(900px) translateZ(-520px) scale(.8); }
+            60% { opacity: 1; }
+            100% { opacity: 1; transform: perspective(900px) translateZ(0) scale(1); }
+        }
+        @keyframes boxFlash { 0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0), 0 30px 80px rgba(0, 2, 12, .6); } 35% { box-shadow: 0 0 70px 6px rgba(251, 191, 36, .28), 0 30px 80px rgba(0, 2, 12, .6); } 100% { box-shadow: 0 30px 80px rgba(0, 2, 12, .6), inset 0 1px 0 rgba(255, 255, 255, .06); } }
+        @media (max-width: 860px) { .dev-contact-out { width: min(320px, 90vw); } }
+        @media (prefers-reduced-motion: reduce) { .bs-logo, .bs-dot, .bs-ring, .bs-welcome, .bs-brand span, .bs-line, .bs-tag, .bs-skip { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; } .bs-line { width: 200px; } }
     </style>
 </head>
 
 <body>
-    <div id="bootSplash">
-        <div class="bootSplash-inner">
-            <div class="bootSplash-ring">
-                <img class="bootSplash-logo" src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo time(); ?>" alt="ADF System">
+    <script>
+        // Intro hanya sekali per sesi (login gagal / kembali dari Google langsung tampil form) dan dilewati bila gerak dikurangi
+        try { if (sessionStorage.getItem('adfIntroSeen') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) document.documentElement.classList.add('no-intro'); } catch (e) {}
+    </script>
+    <div id="bootSplash" role="presentation">
+        <div class="bs-stage">
+            <div class="bs-logo">
+                <img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="">
+                <i class="bs-ring" style="--r:0"></i><i class="bs-ring" style="--r:1"></i><i class="bs-ring" style="--r:2"></i>
+                <span class="bs-dot"></span>
             </div>
-            <div class="bootSplash-brand">ADF System</div>
-            <div class="bootSplash-tagline">Memuat sistem</div>
-            <div class="bootSplash-dots"><span></span><span></span><span></span></div>
+            <div class="bs-welcome">Welcome to</div>
+            <div class="bs-brand" aria-label="ADF System"><span style="--i:0">A</span><span style="--i:1">D</span><span style="--i:2">F</span><span class="sp" style="--i:3">&nbsp;</span><span style="--i:4">S</span><span style="--i:5">Y</span><span style="--i:6">S</span><span style="--i:7">T</span><span style="--i:8">E</span><span style="--i:9">M</span></div>
+            <div class="bs-line"></div>
+            <div class="bs-tag">Business Management System</div>
         </div>
+        <div class="bs-skip">Ketuk untuk melanjutkan</div>
     </div>
     <div class="login-container">
         <div class="login-shell">
@@ -1362,13 +1433,12 @@ if (isset($_GET['biz'])) {
 
                 <div class="login-footer">
                     &copy; <?php echo APP_YEAR; ?> <?php echo APP_NAME; ?>
-                    <div class="dev-contact">
-                        <a href="https://adfsystem.store" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg> adfsystem.store</a>
-                        <span class="dot">&bull;</span>
-                        <a href="https://wa.me/628214400664" target="_blank" rel="noopener" title="Hubungi admin developer via WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.9 7L4 20l1.5-4A8 8 0 1 1 20 11.5z"/><path d="M9 8.8c.3 2.2 2 4 4.2 4.600l1.200-1.100-1.500-.9-.7.6a3.700 3.700 0 0 1-1.600-1.600l.6-.7-.9-1.500z" fill="currentColor" stroke="none"/></svg> 0821-4400-664</a>
-                    </div>
                 </div>
             </div>
+        </div>
+        <div class="dev-contact-out">
+            <a href="https://adfsystem.store" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>adfsystem.store</span></a>
+            <a href="https://wa.me/628214400664" target="_blank" rel="noopener" title="Hubungi admin developer via WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.9 7L4 20l1.5-4A8 8 0 1 1 20 11.5z"/><path d="M9 8.8c.3 2.2 2 4 4.2 4.6l1.2-1.1-1.5-.9-.7.6a3.700 3.700 0 0 1-1.600-1.600l.6-.7-.9-1.500z" fill="currentColor" stroke="none"/></svg><span>0821-4400-664</span></a>
         </div>
     </div>
 
@@ -1455,30 +1525,37 @@ if (isset($_GET['biz'])) {
             } catch (e) {}
         });
 
-        // Fade out the boot splash once the page is ready (min display time avoids a jarring flash)
+        // Intro "Welcome to ADF System": tampil sekali per sesi, lalu form login muncul dari kedalaman
         (function() {
             const splash = document.getElementById('bootSplash');
-            if (!splash) return;
-            const minDelay = 650;
+            const noIntro = document.documentElement.classList.contains('no-intro');
+            if (!splash || noIntro) {
+                if (splash) splash.remove();
+                return;
+            }
+            try { sessionStorage.setItem('adfIntroSeen', '1'); } catch (e) {}
+            const minDelay = 3400; // lama tampil intro
             const start = Date.now();
             let hidden = false;
-            const hide = () => {
+            const hide = (now) => {
                 if (hidden) return;
                 hidden = true;
-                const wait = Math.max(0, minDelay - (Date.now() - start));
+                const wait = now ? 0 : Math.max(0, minDelay - (Date.now() - start));
                 setTimeout(() => {
                     splash.classList.add('bootSplash-hide');
-                    setTimeout(() => splash.remove(), 550);
+                    setTimeout(() => document.body.classList.add('intro-enter'), 380); // form mulai muncul saat intro memudar
+                    setTimeout(() => splash.remove(), 1300);
                 }, wait);
             };
+            const ready = () => hide(false);
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', hide, {
-                    once: true
-                });
+                document.addEventListener('DOMContentLoaded', ready, { once: true });
             } else {
-                hide();
+                ready();
             }
-            setTimeout(hide, 2500); // safety net in case the above never fires
+            splash.addEventListener('click', () => hide(true)); // ketuk untuk melewati
+            document.addEventListener('keydown', () => hide(true), { once: true });
+            setTimeout(() => hide(true), 7000); // pengaman
         })();
     </script>
 </body>
