@@ -115,14 +115,26 @@ function langPhraseMap(string $code): array
     if (isset($cache[$code])) {
         return $cache[$code];
     }
-    $file = __DIR__ . '/languages/phrases.' . $code . '.php';
-    $map = is_file($file) ? (require $file) : [];
-    $map += ['text' => [], 'js' => [], 'patterns' => []];
+    // Kamus dasar + semua berkas modul languages/phrases/<kode>/*.php (digabung; yang belakangan menimpa)
+    $files = [__DIR__ . '/languages/phrases.' . $code . '.php'];
+    foreach (glob(__DIR__ . '/languages/phrases/' . $code . '/*.php') ?: [] as $extra) {
+        $files[] = $extra;
+    }
+    $map = ['text' => [], 'js' => [], 'patterns' => []];
+    foreach ($files as $file) {
+        if (!is_file($file)) {
+            continue;
+        }
+        $part = require $file;
+        $map['text'] = array_merge($map['text'], $part['text'] ?? []);
+        $map['js'] = array_merge($map['js'], $part['js'] ?? []);
+        $map['patterns'] = array_merge($map['patterns'], $part['patterns'] ?? []);
+    }
 
     // indeks teks: kunci dinormalisasi (spasi dirapatkan)
     $text = [];
     foreach ($map['text'] as $k => $v) {
-        $text[preg_replace('/\s+/u', ' ', trim((string)$k))] = (string)$v;
+        $text[langNorm((string)$k)] = (string)$v;
     }
     // pasangan literal JS: setiap frasa dicoba dengan/tanpa spasi pinggir & kedua jenis kutip
     $jsPairs = [];
@@ -139,15 +151,33 @@ function langPhraseMap(string $code): array
     return $cache[$code] = ['text' => $text, 'js' => $jsPairs, 'patterns' => $map['patterns']];
 }
 
-/** Terjemahkan satu potong teks (sudah di-decode). Return null bila tidak ada padanan. */
+/** Normalisasi kunci/teks: spasi dirapatkan, penanda varian emoji dibuang. */
+function langNorm(string $s): string
+{
+    $s = preg_replace('/[\x{FE0E}\x{FE0F}\x{200D}]/u', '', $s);
+    return preg_replace('/\s+/u', ' ', trim($s));
+}
+
+/**
+ * Terjemahkan satu potong teks (sudah di-decode). Urutan: kecocokan persis -> tanpa simbol/tanda di awal & akhir
+ * (mis. "✅ Berhasil!", "Divisi *", "Tanggal:") -> pola regex. Return null bila tidak ada padanan.
+ */
 function langTranslateText(string $s, array $map): ?string
 {
-    $key = preg_replace('/\s+/u', ' ', trim($s));
+    $key = langNorm($s);
     if ($key === '') {
         return null;
     }
     if (isset($map['text'][$key])) {
         return $map['text'][$key];
+    }
+    // awalan (emoji, simbol, "+", "←") dan akhiran (":", "*", "→", "...") dipisahkan
+    $raw = trim(preg_replace('/\s+/u', ' ', $s)); // awalan asli (termasuk penanda emoji) dipertahankan
+    if (preg_match('/^([^\p{L}\p{N}]*)(.*?)([\s:*→…\.!?]*)$/us', $raw, $m) && $m[2] !== '' && ($m[1] !== '' || $m[3] !== '')) {
+        $m[2] = langNorm($m[2]);
+        if (isset($map['text'][$m[2]])) {
+            return $m[1] . $map['text'][$m[2]] . $m[3];
+        }
     }
     if ($map['patterns'] && preg_match('/[\d%]|\p{L}{3}/u', $key)) {
         $out = $key;
