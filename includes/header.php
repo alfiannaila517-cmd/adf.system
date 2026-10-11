@@ -5,6 +5,12 @@ require_once __DIR__ . '/functions.php';
 // Load language system
 require_once __DIR__ . '/language.php';
 
+// Bahasa selain Indonesia: terjemahkan keluaran halaman lewat kamus frasa (lihat langTranslateOutput).
+if (function_exists('getCurrentLanguage') && getCurrentLanguage() !== 'id' && !defined('LANG_FILTER_ON')) {
+    define('LANG_FILTER_ON', true);
+    ob_start('langTranslateOutput');
+}
+
 // Load motor notification system
 require_once __DIR__ . '/MotorNotificationHelper.php';
 

@@ -97,8 +97,9 @@ function fdt_data($db): array
  */
 function fdt_render(array $d, array $opt = []): void
 {
-    $hari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    $bulan = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    // Nama hari & bulan mengikuti bahasa aktif (includes/languages/*.php: 'date')
+    $hari = $GLOBALS['lang']['date']['days'] ?? ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    $bulan = array_merge([''], $GLOBALS['lang']['date']['months_short'] ?? ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']);
     $date = function ($v) use ($bulan) {
         $t = strtotime((string)$v);
         return $t ? date('j', $t) . ' ' . $bulan[(int)date('n', $t)] : '-';
