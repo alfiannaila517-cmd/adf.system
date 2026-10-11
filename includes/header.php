@@ -2291,7 +2291,7 @@ if ($userTheme === 'system') {
                         <?php endif; ?>
 
                         <!-- Project Menu -->
-                        <?php if ($auth->hasPermission('project')): ?>
+                        <?php if ($auth->hasPermission('project') && ACTIVE_BUSINESS_ID !== 'narayana-hotel'): // Narayana Hotel tidak memakai modul Project ?>
                             <li class="nav-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/project/" class="nav-link <?php echo activeMenu('project'); ?>">
                                     <i data-feather="folder" class="nav-icon"></i>
@@ -2396,7 +2396,7 @@ if ($userTheme === 'system') {
                         <?php
                         $activeBizRaw = (string)($_SESSION['active_business_id'] ?? (defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ''));
                         $activeBizNorm = strtolower((string)preg_replace('/[^a-z0-9]/', '', $activeBizRaw));
-                        $menuBookBizNorm = ['narayanahotel', 'benscafe', 'eaatmeet', 'eatmeet'];
+                        $menuBookBizNorm = ['benscafe', 'eaatmeet', 'eatmeet'];
                         $isMenuBookBiz = in_array($activeBizNorm, $menuBookBizNorm, true);
                         $isDeveloperRole = (($_SESSION['role'] ?? '') === 'developer');
                         if ($isMenuBookBiz && ($isDeveloperRole || $auth->hasPermission('menu_book'))):
