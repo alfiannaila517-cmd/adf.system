@@ -1200,7 +1200,15 @@ if (isset($_GET['biz'])) {
             border-radius: 2px;
             background: linear-gradient(90deg, transparent, #fbbf24, transparent);
         }
-        .lg-mark { display: block; width: 44px; height: 44px; margin: 0 auto .5rem; overflow: visible; }
+        /* Logo asli (putih) — hanya lambang A; titik lampu emas menyala di puncaknya */
+        .lg-logo { position: relative; width: 64px; height: 46px; margin: 0 auto .5rem; clip-path: inset(-16px -16px 0 -16px); }
+        .lg-logo img { display: block; width: 64px; height: 64px; filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(125, 211, 252, .25)); }
+        .lg-dot {
+            position: absolute; left: 50%; top: 4px; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+            background: #fbbf24; box-shadow: 0 0 0 2px rgba(255, 255, 255, .9), 0 0 12px 4px rgba(251, 191, 36, .75), 0 0 28px 8px rgba(245, 158, 11, .35);
+            animation: lgDotPulse 2.6s ease-in-out infinite;
+        }
+        @keyframes lgDotPulse { 0%, 100% { box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 12px 4px rgba(251,191,36,.75), 0 0 28px 8px rgba(245,158,11,.35); } 50% { box-shadow: 0 0 0 2px rgba(255,255,255,.9), 0 0 16px 6px rgba(251,191,36,.95), 0 0 36px 12px rgba(245,158,11,.5); } }
         .login-header { margin-bottom: .95rem; }
         .login-logo {
             font-size: 1.02rem;
@@ -1299,7 +1307,7 @@ if (isset($_GET['biz'])) {
         <div class="login-shell">
             <div class="login-box">
                 <div class="login-header">
-                    <svg class="lg-mark" viewBox="0 0 44 44" fill="none" aria-hidden="true"><defs><radialGradient id="lgHalo" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fbbf24" stop-opacity=".65"/><stop offset="1" stop-color="#fbbf24" stop-opacity="0"/></radialGradient><linearGradient id="lgLine" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset=".55" stop-color="#7dd3fc"/><stop offset="1" stop-color="#c4b5fd"/></linearGradient></defs><circle cx="22" cy="8" r="13" fill="url(#lgHalo)"/><path d="M22 8 L8 38 M22 8 L36 38 M14.5 24 H29.5" stroke="url(#lgLine)" stroke-width="2" stroke-linecap="round"/><circle cx="8" cy="38" r="2.2" fill="#7dd3fc"/><circle cx="36" cy="38" r="2.2" fill="#7dd3fc"/><circle cx="14.5" cy="24" r="1.8" fill="#c4b5fd"/><circle cx="29.5" cy="24" r="1.8" fill="#c4b5fd"/><circle cx="22" cy="8" r="3.4" fill="#fbbf24" stroke="#fff" stroke-width="1"/></svg>
+                    <div class="lg-logo"><img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="ADF System"><span class="lg-dot"></span></div>
                     <h2 class="login-logo">Sign in to Dashboard</h2>
                     <p class="login-subtitle"><?php echo $displayInfo['subtitle']; ?><?php if (isset($_GET['biz'])): ?> • Hotel System<?php endif; ?></p>
                 </div>
