@@ -32,12 +32,16 @@ function adfGoogleB64Url(string $s): string
     return rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
 }
 
-/** URL callback yang harus didaftarkan di Google Cloud (Authorized redirect URI). */
+/** URL callback yang harus didaftarkan di Google Cloud (Authorized redirect URI). Di produksi selalu https + domain utama (tidak bergantung header proxy/www). */
 function adfGoogleRedirectUri(): string
 {
-    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-    $dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/google-login.php')), '/');
-    return ($https ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . $dir . '/google-callback.php';
+    $host = (string)($_SERVER['HTTP_HOST'] ?? '');
+    if ($host === '' || strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false) {
+        $dir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/google-login.php')), '/');
+        return 'http://' . ($host ?: 'localhost') . $dir . '/google-callback.php';
+    }
+    $domain = defined('MASTER_DOMAIN') ? MASTER_DOMAIN : 'adfsystem.online';
+    return 'https://' . $domain . '/google-callback.php';
 }
 
 /** Buat URL login Google + simpan state/nonce/PKCE di sesi. */
