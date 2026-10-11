@@ -789,6 +789,8 @@ if ($period) {
             autoAddMissingPayrollEmployees($db, $period['id'], $month, $year);
             // Step 2: Sync attendance totals into salary slips (skips manually-edited slips where hours_locked=1)
             syncSlipsWithAttendance($db, $period['id'], $month, $year);
+            // Service otomatis (Setup Service): ikut bertambah saat ada pemasukan baru
+            psAutoApplyService($db, $period['id'], $month, $year);
             // Refresh period data after sync
             $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
         } catch (\Throwable $e) {
@@ -914,10 +916,39 @@ if ($period) {
     }
 }
 
+/**
+ * Sinkron otomatis Service: dipanggil tiap halaman dibuka (periode aktif, belum dibekukan).
+ * Hitung ulang total service dari income bulan itu lalu isi kolom Service tiap slip bila berbeda.
+ * Net & total periode dihitung ulang oleh blok re-hitung di bawah.
+ */
+function psAutoApplyService($db, $periodId, $month, $year)
+{
+    $cfg = psServiceConfig($db);
+    if (!$cfg['configured'] || !$cfg['auto_apply']) {
+        return;
+    }
+    $recipients = $cfg['recipients'];
+    $pool = $cfg['override_total'] !== null && $cfg['override_total'] > 0
+        ? $cfg['override_total']
+        : round(psMonthIncome($db, $month, $year) * $cfg['percent'] / 100);
+    $slipRows = $db->fetchAll("SELECT id, employee_id, incentive FROM payroll_slips WHERE period_id = ?", [$periodId]) ?: [];
+    $n = 0;
+    foreach ($slipRows as $r) {
+        if (in_array((int)$r['employee_id'], $recipients, true)) $n++;
+    }
+    $share = $n > 0 ? floor($pool / $n) : 0;
+    foreach ($slipRows as $r) {
+        $want = in_array((int)$r['employee_id'], $recipients, true) ? $share : 0;
+        if (abs((float)$r['incentive'] - $want) > 0.5) {
+            dbExec($db, "UPDATE payroll_slips SET incentive = ? WHERE id = ?", [$want, $r['id']]);
+        }
+    }
+}
+
 // ===== Setup Service: service = % dari total income bulan itu, dibagi rata ke penerima terpilih =====
 function psServiceConfig($db)
 {
-    $cfg = ['percent' => 1.0, 'override_total' => null, 'configured' => 0, 'recipients' => []];
+    $cfg = ['percent' => 1.0, 'override_total' => null, 'configured' => 0, 'auto_apply' => 0, 'recipients' => []];
     try {
         $pdo = $db->getConnection();
         $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_service_config` (
@@ -929,12 +960,18 @@ function psServiceConfig($db)
         $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_service_recipients` (
             `employee_id` INT PRIMARY KEY
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        try {
+            $pdo->query("SELECT auto_apply FROM payroll_service_config LIMIT 0");
+        } catch (PDOException $e) {
+            $pdo->exec("ALTER TABLE payroll_service_config ADD COLUMN `auto_apply` TINYINT NOT NULL DEFAULT 0");
+        }
         $pdo->exec("INSERT IGNORE INTO `payroll_service_config` (`id`) VALUES (1)");
-        $row = $db->fetchOne("SELECT percent, override_total, configured FROM payroll_service_config WHERE id = 1");
+        $row = $db->fetchOne("SELECT percent, override_total, configured, auto_apply FROM payroll_service_config WHERE id = 1");
         if ($row) {
             $cfg['percent'] = (float)$row['percent'];
             $cfg['override_total'] = $row['override_total'] !== null ? (float)$row['override_total'] : null;
             $cfg['configured'] = (int)$row['configured'];
+            $cfg['auto_apply'] = (int)$row['auto_apply'];
         }
         $cfg['recipients'] = array_map('intval', array_column($db->fetchAll("SELECT employee_id FROM payroll_service_recipients") ?: [], 'employee_id'));
     } catch (Throwable $e) {
@@ -970,7 +1007,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_service_config']
     $ovRaw = preg_replace('/[^0-9]/', '', (string)($_POST['svc_override'] ?? ''));
     $override = $ovRaw !== '' && (float)$ovRaw > 0 ? (float)$ovRaw : null;
     $recipients = array_values(array_unique(array_map('intval', (array)($_POST['svc_emp'] ?? []))));
-    dbExec($db, "UPDATE payroll_service_config SET percent = ?, override_total = ?, configured = 1 WHERE id = 1", [$pct, $override]);
+    $autoFlag = !empty($_POST['svc_auto']) ? 1 : 0;
+    dbExec($db, "UPDATE payroll_service_config SET percent = ?, override_total = ?, configured = 1, auto_apply = ? WHERE id = 1", [$pct, $override, $autoFlag]);
     dbExec($db, "DELETE FROM payroll_service_recipients");
     foreach ($recipients as $rid) {
         if ($rid > 0) dbExec($db, "INSERT IGNORE INTO payroll_service_recipients (employee_id) VALUES (?)", [$rid]);
@@ -983,7 +1021,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_service_config']
             dbExec($db, "UPDATE payroll_slips SET incentive = ? WHERE id = ?", [$amt, $sl['id']]);
         }
         $_POST['save_proses'] = 1; // hitung ulang net semua slip lewat blok Save/Proses di bawah
-        $_POST['__svc_msg'] = 'Service diterapkan: Rp ' . number_format($pool, 0, ',', '.') . ' dibagi ' . count($recipients) . ' penerima (Rp ' . number_format($share, 0, ',', '.') . ' per orang).';
+        $_POST['__svc_msg'] = 'Service diterapkan: Rp ' . number_format($pool, 0, ',', '.') . ' dibagi ' . count($recipients) . ' penerima (Rp ' . number_format($share, 0, ',', '.') . ' per orang)' . ($autoFlag ? ' — otomatis diperbarui saat ada pemasukan baru.' : '.');
     } else {
         setFlash('success', 'Pengaturan service tersimpan.');
         header("Location: process.php?month=$month&year=$year");
@@ -1620,19 +1658,55 @@ include '../../includes/header.php';
     .ps-more-item.danger:hover { background: rgba(220, 38, 38, 0.12); }
     .ps-more-sep { height: 1px; background: var(--border-color); margin: 5px 4px; }
     /* Setup Service */
-    .svc-modal { max-width: 560px; width: 94vw; }
-    .svc-stat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 12px; }
-    .svc-stat div { background: rgba(99, 102, 241, 0.08); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; }
-    .svc-stat small { display: block; font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-tertiary); }
-    .svc-stat b { font-size: .95rem; color: var(--text-primary); }
-    .svc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-    .svc-emp-box { border: 1px solid var(--border-color); border-radius: 10px; max-height: 240px; overflow-y: auto; padding: 4px; }
-    .svc-emp { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: .84rem; color: var(--text-primary); }
-    .svc-emp:hover { background: rgba(99, 102, 241, 0.08); }
-    .svc-emp small { color: var(--text-tertiary); margin-left: auto; }
-    .svc-row .ps-form-input { width: 100%; box-sizing: border-box; min-width: 0; }
-    .svc-note { font-size: .74rem; color: var(--text-tertiary); margin: 8px 0 0; line-height: 1.45; }
-    @media (max-width: 520px) { .svc-stat, .svc-row { grid-template-columns: 1fr; } }
+    .svc-modal { max-width: 720px; width: 94vw; padding: 0 !important; overflow: hidden; max-height: 92vh; display: flex; flex-direction: column; }
+    .svc-modal form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+    .svc-head { display: flex; align-items: center; gap: 14px; padding: 18px 22px; color: #fff; background: linear-gradient(135deg, #1e3a8a, #6d28d9); position: relative; }
+    .svc-head-ic { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,.16); display: grid; place-items: center; flex-shrink: 0; }
+    .svc-head-ic svg { stroke: #fff; }
+    .svc-head h4 { margin: 0; font-size: 1.05rem; font-weight: 800; color: #fff; }
+    .svc-head p { margin: 2px 0 0; font-size: .76rem; color: rgba(255,255,255,.8); }
+    .svc-x { margin-left: auto; width: 32px; height: 32px; border-radius: 9px; border: 0; background: rgba(255,255,255,.16); color: #fff; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+    .svc-x:hover { background: rgba(255,255,255,.28); }
+    .svc-body { padding: 18px 22px 6px; overflow-y: auto; min-height: 0; }
+    .svc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .svc-stats > div { border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 14px; background: rgba(99,102,241,.06); }
+    .svc-stats > div.accent { background: linear-gradient(135deg, rgba(34,197,94,.14), rgba(16,185,129,.08)); border-color: rgba(34,197,94,.35); }
+    .svc-stats small { display: block; font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
+    .svc-stats b { display: block; margin-top: 2px; font-size: 1.05rem; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+    .svc-stats .accent b { color: #16a34a; }
+    .svc-fields { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; margin-bottom: 16px; }
+    .svc-field label { display: block; font-size: .74rem; font-weight: 700; color: var(--text-secondary, var(--text-primary)); margin-bottom: 5px; }
+    .svc-input { position: relative; }
+    .svc-input input { width: 100%; box-sizing: border-box; padding: 10px 40px 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; font-size: .9rem; background: var(--bg-primary); color: var(--text-primary); }
+    .svc-input input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
+    .svc-input.pre input { padding: 10px 12px 10px 40px; }
+    .svc-input i { position: absolute; top: 50%; transform: translateY(-50%); font-style: normal; font-size: .78rem; font-weight: 700; color: var(--text-tertiary); }
+    .svc-input:not(.pre) i { right: 14px; }
+    .svc-input.pre i { left: 13px; }
+    .svc-sec { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+    .svc-sec strong { font-size: .86rem; color: var(--text-primary); }
+    .svc-pill { padding: 2px 10px; border-radius: 999px; background: rgba(99,102,241,.14); color: #6366f1; font-size: .72rem; font-weight: 700; }
+    .svc-search { margin-left: auto; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 9px; font-size: .78rem; background: var(--bg-primary); color: var(--text-primary); width: 150px; }
+    .svc-all { font-size: .76rem; font-weight: 700; color: #6366f1; text-decoration: none; }
+    .svc-emp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 250px; overflow-y: auto; padding: 2px; }
+    .svc-emp { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; min-width: 0; transition: background .15s, border-color .15s; }
+    .svc-emp:hover { background: rgba(99,102,241,.07); }
+    .svc-emp:has(input:checked) { border-color: rgba(99,102,241,.55); background: rgba(99,102,241,.1); }
+    .svc-emp input { accent-color: #6366f1; width: 16px; height: 16px; flex-shrink: 0; }
+    .svc-av { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; display: grid; place-items: center; font-size: .72rem; font-weight: 800; flex-shrink: 0; }
+    .svc-emp span.t { display: block; min-width: 0; }
+    .svc-emp span.t b { display: block; font-size: .82rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .svc-emp span.t small { display: block; font-size: .68rem; color: var(--text-tertiary); }
+    .svc-auto { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(34,197,94,.35); background: rgba(34,197,94,.08); cursor: pointer; }
+    .svc-auto input { margin-top: 3px; accent-color: #16a34a; width: 16px; height: 16px; }
+    .svc-auto b { display: block; font-size: .82rem; color: var(--text-primary); }
+    .svc-auto small { display: block; margin-top: 2px; font-size: .72rem; line-height: 1.45; color: var(--text-tertiary); }
+    .svc-note { font-size: .72rem; color: var(--text-tertiary); margin: 10px 0 0; line-height: 1.5; }
+    .svc-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--border-color); background: rgba(99,102,241,.04); flex-wrap: wrap; }
+    .svc-foot .ps-btn { padding: .55rem 1.1rem; }
+    .ps-btn-cancel { background: linear-gradient(135deg, #94a3b8, #64748b); color: #fff !important; }
+    .ps-btn-cancel:hover { background: linear-gradient(135deg, #64748b, #475569); }
+    @media (max-width: 600px) { .svc-stats, .svc-fields, .svc-emp-grid { grid-template-columns: 1fr; } .svc-search { width: 100%; margin-left: 0; } }
 
     /* Table Card */
     .ps-card {
@@ -2826,49 +2900,62 @@ include '../../includes/header.php';
 
 <!-- Deduction Modal -->
 <?php if ($period): ?>
-<div class="ps-modal-overlay" id="serviceModal">
+<div class="ps-modal-overlay" id="serviceModal" onclick="if (event.target === this) closeServiceModal()">
     <div class="ps-modal svc-modal">
-        <div class="ps-modal-header">
-            <h4 class="ps-modal-title">Setup Service — <?php echo $months[$month] . ' ' . $year; ?></h4>
-            <button type="button" class="ps-modal-close" onclick="closeServiceModal()">&times;</button>
+        <div class="svc-head">
+            <div class="svc-head-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg></div>
+            <div>
+                <h4>Service Setup — <?php echo $months[$month] . ' ' . $year; ?></h4>
+                <p>Bagi service dari pendapatan hotel ke karyawan terpilih</p>
+            </div>
+            <button type="button" class="svc-x" onclick="closeServiceModal()" aria-label="Tutup">&times;</button>
         </div>
         <form method="POST" id="serviceForm">
             <input type="hidden" name="save_service_config" value="1">
-            <div class="svc-stat">
-                <div><small>Income bulan ini</small><b>Rp <?php echo number_format($svcIncome, 0, ',', '.'); ?></b></div>
-                <div><small>Total service</small><b id="svcPool">Rp 0</b></div>
-                <div><small>Per orang</small><b id="svcShare">Rp 0</b></div>
-            </div>
-            <div class="svc-row">
-                <div class="ps-form-group">
-                    <label class="ps-form-label">Persentase dari income (%)</label>
-                    <input type="number" step="0.1" min="0" max="100" class="ps-form-input" name="svc_percent" id="svcPercent" value="<?php echo htmlspecialchars((string)$svcCfg['percent']); ?>" oninput="svcRecalc()">
+            <div class="svc-body">
+                <div class="svc-stats">
+                    <div><small>Income bulan ini</small><b>Rp <?php echo number_format($svcIncome, 0, ',', '.'); ?></b></div>
+                    <div><small>Total service</small><b id="svcPool">Rp 0</b></div>
+                    <div class="accent"><small>Per orang</small><b id="svcShare">Rp 0</b></div>
                 </div>
-                <div class="ps-form-group">
-                    <label class="ps-form-label">Atur total manual (opsional, Rp)</label>
-                    <input type="text" inputmode="numeric" class="ps-form-input" name="svc_override" id="svcOverride" placeholder="Kosong = otomatis dari %" value="<?php echo $svcCfg['override_total'] !== null ? number_format($svcCfg['override_total'], 0, ',', '.') : ''; ?>" oninput="svcFmt(this); svcRecalc()">
+                <div class="svc-fields">
+                    <div class="svc-field">
+                        <label for="svcPercent">Persentase dari income</label>
+                        <div class="svc-input"><input type="number" step="0.1" min="0" max="100" name="svc_percent" id="svcPercent" value="<?php echo htmlspecialchars((string)$svcCfg['percent']); ?>" oninput="svcRecalc()"><i>%</i></div>
+                    </div>
+                    <div class="svc-field">
+                        <label for="svcOverride">Atur total manual (opsional)</label>
+                        <div class="svc-input pre"><i>Rp</i><input type="text" inputmode="numeric" name="svc_override" id="svcOverride" placeholder="Kosong = otomatis dari %" value="<?php echo $svcCfg['override_total'] !== null ? number_format($svcCfg['override_total'], 0, ',', '.') : ''; ?>" oninput="svcFmt(this); svcRecalc()"></div>
+                    </div>
                 </div>
+                <div class="svc-sec">
+                    <strong>Penerima service</strong>
+                    <span class="svc-pill"><b id="svcCount">0</b> <span>dipilih</span></span>
+                    <input type="text" class="svc-search" id="svcSearch" placeholder="Cari karyawan..." oninput="svcFilter()">
+                    <a href="#" class="svc-all" onclick="svcToggleAll(event)">Pilih / kosongkan semua</a>
+                </div>
+                <div class="svc-emp-grid" id="svcGrid">
+                    <?php foreach ($slips as $sl):
+                        $checked = $svcCfg['configured'] ? in_array((int)$sl['employee_id'], $svcCfg['recipients'], true) : true;
+                        $ini = strtoupper(mb_substr(trim((string)$sl['employee_name']), 0, 1)); ?>
+                        <label class="svc-emp" data-name="<?php echo htmlspecialchars(mb_strtolower((string)$sl['employee_name'])); ?>">
+                            <input type="checkbox" name="svc_emp[]" value="<?php echo (int)$sl['employee_id']; ?>" <?php echo $checked ? 'checked' : ''; ?> onchange="svcRecalc()">
+                            <span class="svc-av"><?php echo htmlspecialchars($ini); ?></span>
+                            <span class="t"><b><?php echo htmlspecialchars($sl['employee_name']); ?></b><small><?php echo htmlspecialchars($sl['department'] ?? ''); ?></small></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <label class="svc-auto">
+                    <input type="checkbox" name="svc_auto" value="1" <?php echo (!$svcCfg['configured'] || $svcCfg['auto_apply']) ? 'checked' : ''; ?>>
+                    <span><b>Otomatis sinkron dengan pemasukan</b><small>Service di Process Salary diperbarui sendiri setiap ada pemasukan baru di bulan ini. Selama opsi ini aktif, edit manual kolom Service akan tertimpa.</small></span>
+                </label>
+                <p class="svc-note">Dihitung dari total income buku kas bulan ini (tidak termasuk modal pemilik), dibagi rata ke penerima terpilih. Karyawan yang tidak dipilih mendapat Service 0.</p>
             </div>
-            <label class="ps-form-label" style="display:flex;justify-content:space-between;align-items:center;">
-                <span>Penerima service (<span id="svcCount">0</span> dipilih)</span>
-                <a href="#" onclick="svcToggleAll(event)" style="font-size:.74rem;">Pilih / kosongkan semua</a>
-            </label>
-            <div class="svc-emp-box">
-                <?php foreach ($slips as $sl):
-                    $checked = $svcCfg['configured'] ? in_array((int)$sl['employee_id'], $svcCfg['recipients'], true) : true; ?>
-                    <label class="svc-emp">
-                        <input type="checkbox" name="svc_emp[]" value="<?php echo (int)$sl['employee_id']; ?>" <?php echo $checked ? 'checked' : ''; ?> onchange="svcRecalc()">
-                        <span><?php echo htmlspecialchars($sl['employee_name']); ?></span>
-                        <small><?php echo htmlspecialchars($sl['department'] ?? ''); ?></small>
-                    </label>
-                <?php endforeach; ?>
-            </div>
-            <p class="svc-note">Service = persentase dari total income (buku kas, tidak termasuk modal pemilik) bulan ini, dibagi rata ke penerima terpilih. Saat <strong>Terapkan</strong>, kolom Service penerima diisi nominal per orang dan karyawan yang tidak dipilih menjadi 0. Setelah itu Anda masih bisa mengubah angka per karyawan secara manual.</p>
-            <div class="ps-modal-actions" style="margin-top:14px;">
-                <button type="button" class="ps-btn ps-btn-outline" onclick="closeServiceModal()">Batal</button>
+            <div class="svc-foot">
+                <button type="button" class="ps-btn ps-btn-cancel" onclick="closeServiceModal()">Batal</button>
                 <button type="submit" class="ps-btn ps-btn-secondary">Simpan Pengaturan</button>
                 <?php if (in_array($period['status'], ['draft', 'submitted', 'approved'])): ?>
-                    <button type="submit" name="svc_apply" value="1" class="ps-btn ps-btn-primary" onclick="return confirm('Terapkan service ke semua slip bulan ini? Nilai Service yang ada akan ditimpa.')">Simpan &amp; Terapkan ke Slip</button>
+                    <button type="submit" name="svc_apply" value="1" class="ps-btn ps-btn-success" onclick="return confirm('Terapkan service ke semua slip bulan ini? Nilai Service yang ada akan ditimpa.')">Simpan &amp; Terapkan ke Slip</button>
                 <?php endif; ?>
             </div>
         </form>
@@ -2894,6 +2981,12 @@ include '../../includes/header.php';
             var all = Array.prototype.every.call(boxes, function (b) { return b.checked; });
             boxes.forEach(function (b) { b.checked = !all; });
             svcRecalc();
+        };
+        window.svcFilter = function () {
+            var q = (document.getElementById('svcSearch').value || '').toLowerCase().trim();
+            document.querySelectorAll('#svcGrid .svc-emp').forEach(function (el) {
+                el.style.display = !q || (el.getAttribute('data-name') || '').indexOf(q) !== -1 ? '' : 'none';
+            });
         };
         window.openServiceModal = function () { document.getElementById('serviceModal').classList.add('active'); svcRecalc(); };
         window.closeServiceModal = function () { document.getElementById('serviceModal').classList.remove('active'); };
