@@ -37,6 +37,9 @@ if (!$client || !hash_equals((string) $client['client_token'], $clientToken)) {
 }
 
 $orderId = adf_subscription_payment_record($client, $payload);
+// Tandai juga di buku tagihan ADF (kalau invoice ini berasal dari sana).
+require_once __DIR__ . '/../includes/subscription-ledger-store.php';
+adf_ledger_mark_paid((string) $client['client_key'], $period, (string) ($payload['paid_at'] ?? date('c')));
 
 http_response_code(200);
 echo json_encode(['ok' => true, 'recorded' => $orderId]);

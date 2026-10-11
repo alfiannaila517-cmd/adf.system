@@ -47,6 +47,9 @@ $clientName = (string) ($client['client_name'] ?? $clientKey);
 // Catat pembayaran ini di halaman Transaksi admin, supaya uang langganan klien
 // yang masuk lewat Pakasir ikut terlihat (bukan cuma checkout website).
 $paymentOrderId = adf_subscription_payment_record($client, $payload);
+// Tandai juga di buku tagihan ADF (kalau invoice ini berasal dari sana).
+require_once __DIR__ . '/../includes/subscription-ledger-store.php';
+adf_ledger_mark_paid((string) $client['client_key'], $period, (string) ($payload['paid_at'] ?? date('c')));
 
 $notifyEmail = trim((string) ($client['notify_email'] ?? ''));
 if ($notifyEmail === '' || !filter_var($notifyEmail, FILTER_VALIDATE_EMAIL)) {

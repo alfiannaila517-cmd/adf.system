@@ -209,6 +209,7 @@ require __DIR__ . '/../includes/admin-header.php';
                         </td>
                         <td class="sc-actions">
                             <a href="subscription-clients.php?edit=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="sc-btn">Edit</a>
+                            <a href="subscription-invoices.php?client=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="sc-btn sc-btn-green">Tagihan</a>
                             <a href="subscription-manual-invoice.php?client=<?php echo urlencode($c['client_key'] ?? ''); ?>" class="sc-btn">Tagih</a>
                             <form method="POST" onsubmit="return confirm('<?php echo $locked ? 'Buka kunci' : 'Kunci'; ?> sistem <?php echo $jsName; ?>?');">
                                 <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($csrf); ?>">
