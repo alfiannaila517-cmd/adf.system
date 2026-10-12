@@ -2034,19 +2034,128 @@ echo getPrintCSS();
 <div id="screenSection">
 
     <?php if (isset($_SESSION['success'])): ?>
-        <div style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-left: 4px solid #10b981; padding: 1.25rem 1.5rem; border-radius: 0.75rem; margin-bottom: 1.5rem; box-shadow: 0 4px 12px rgba(16,185,129,0.15); animation: slideInDown 0.5s ease-out;">
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <div style="width: 48px; height: 48px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <i data-feather="check-circle" style="width: 24px; height: 24px; color: white;"></i>
-                </div>
-                <div style="flex: 1;">
-                    <div style="font-weight: 700; color: #065f46; font-size: 1.125rem; margin-bottom: 0.25rem;">✅ Berhasil!</div>
-                    <div style="color: #047857; font-size: 0.95rem;"><?php echo $_SESSION['success'];
-                                                                        unset($_SESSION['success']); ?></div>
-                </div>
-                <button onclick="this.parentElement.parentElement.style.display='none'" style="background: none; border: none; color: #059669; font-size: 1.5rem; cursor: pointer; padding: 0; width: 32px; height: 32px;">&times;</button>
+        <?php
+        // Pesan sukses: tanda centang di tengah layar lalu hilang sendiri (tanpa kotak yang mendorong konten)
+        $cbOkMsg = preg_replace('/^\s*(?:✅|✔️?)\s*/u', '', (string)$_SESSION['success']);
+        unset($_SESSION['success']);
+        ?>
+        <style>
+            #cbToastOk {
+                position: fixed;
+                inset: 0;
+                z-index: 99999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                pointer-events: none;
+                animation: cbOkFade 2.2s cubic-bezier(.4, 0, .2, 1) forwards;
+            }
+
+            #cbToastOk .cb-ok-card {
+                min-width: 220px;
+                max-width: min(88vw, 360px);
+                padding: 1.6rem 1.75rem 1.4rem;
+                text-align: center;
+                background: rgba(255, 255, 255, .96);
+                border-radius: 20px;
+                box-shadow: 0 24px 60px rgba(15, 23, 42, .22), 0 2px 8px rgba(15, 23, 42, .08);
+                animation: cbOkPop .45s cubic-bezier(.2, .9, .3, 1.2) both;
+            }
+
+            #cbToastOk .cb-ok-ring {
+                width: 68px;
+                height: 68px;
+                margin: 0 auto .9rem;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #34d399, #059669);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 8px 20px rgba(5, 150, 105, .35);
+            }
+
+            #cbToastOk .cb-ok-ring svg {
+                width: 34px;
+                height: 34px;
+                fill: none;
+                stroke: #fff;
+                stroke-width: 3.2;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+
+            #cbToastOk .cb-ok-ring path {
+                stroke-dasharray: 30;
+                stroke-dashoffset: 30;
+                animation: cbOkDraw .4s .25s ease-out forwards;
+            }
+
+            #cbToastOk .cb-ok-title {
+                font-weight: 700;
+                font-size: 1.05rem;
+                color: #0f172a;
+            }
+
+            #cbToastOk .cb-ok-msg {
+                margin-top: .2rem;
+                font-size: .88rem;
+                color: #475569;
+                line-height: 1.4;
+            }
+
+            @keyframes cbOkPop {
+                from {
+                    opacity: 0;
+                    transform: scale(.85) translateY(8px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: none;
+                }
+            }
+
+            @keyframes cbOkDraw {
+                to {
+                    stroke-dashoffset: 0;
+                }
+            }
+
+            @keyframes cbOkFade {
+
+                0%,
+                75% {
+                    opacity: 1;
+                }
+
+                100% {
+                    opacity: 0;
+                    visibility: hidden;
+                }
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+
+                #cbToastOk .cb-ok-card,
+                #cbToastOk .cb-ok-ring path {
+                    animation: none;
+                    stroke-dashoffset: 0;
+                }
+            }
+        </style>
+        <div id="cbToastOk" role="status" aria-live="polite">
+            <div class="cb-ok-card">
+                <div class="cb-ok-ring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
+                <div class="cb-ok-title">Berhasil</div>
+                <div class="cb-ok-msg"><?php echo $cbOkMsg; ?></div>
             </div>
         </div>
+        <script>
+            setTimeout(function() {
+                var t = document.getElementById('cbToastOk');
+                if (t) t.remove();
+            }, 2400);
+        </script>
     <?php endif; ?>
 
     <?php if (isset($_SESSION['error'])): ?>
