@@ -210,15 +210,27 @@ function adfGoogleCompleteLogin(array $user): void
         exit;
     }
 
-    // User biasa: bisnis pertama yang boleh diakses (penugasan user, atau semua bisnis aktif bila belum ada penugasan)
+    // User biasa: HANYA bisnis yang ditugaskan (user_business_assignment) — sama dengan login biasa.
+    // Dulu: tanpa penugasan jatuh ke bisnis pertama secara abjad (mis. Narayana) walau user tak punya akses.
+    $slug = null;
     try {
-        $st = $pdo->prepare('SELECT DISTINCT b.id, b.business_code FROM businesses b LEFT JOIN user_business_assignment uba ON b.id = uba.business_id AND uba.user_id = ? WHERE b.is_active = 1 ORDER BY uba.user_id DESC, b.business_name LIMIT 1');
-        $st->execute([$user['id']]);
-        if ($biz = $st->fetch(PDO::FETCH_ASSOC)) {
-            $_SESSION['business_id'] = (int)$biz['id'];
-            setActiveBusinessId(strtolower(str_replace('_', '-', $biz['business_code'])));
+        $avail = getUserAvailableBusinesses();
+        if ($avail) {
+            $slug = (string)array_key_first($avail);
+        } else {
+            // Tanpa penugasan: ikuti izin menu eksplisit (sama dengan checkOwnerBusinessAccess)
+            $st = $pdo->prepare('SELECT b.business_code FROM user_menu_permissions p JOIN businesses b ON b.id = p.business_id WHERE p.user_id = ? AND p.can_view = 1 AND b.is_active = 1 ORDER BY b.id LIMIT 1');
+            $st->execute([$user['id']]);
+            $code = $st->fetchColumn();
+            if ($code) {
+                $slug = (getBusinessCodeToSlugMap($pdo)[$code] ?? strtolower(str_replace('_', '-', $code)));
+            }
         }
     } catch (Throwable $e) {
+        error_log('adfGoogleCompleteLogin business: ' . $e->getMessage());
+    }
+    if ($slug !== null) {
+        setActiveBusinessId($slug);
     }
     header('Location: ' . BASE_URL . '/index.php');
     exit;
