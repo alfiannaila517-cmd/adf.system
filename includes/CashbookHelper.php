@@ -607,7 +607,6 @@ class CashbookHelper
             $guestName = $paymentData['guest_name'] ?? 'Guest';
             $bookingCode = $paymentData['booking_code'] ?? '';
             $roomNumber = $paymentData['room_number'] ?? '';
-            $bookingNotes = trim($paymentData['booking_notes'] ?? '');
 
             $description = "{$guestName}";
             $roomLabel = trim((string)($paymentData['room_label'] ?? ''));
@@ -619,6 +618,16 @@ class CashbookHelper
             }
             if ($bookingCode) {
                 $description .= " ({$bookingCode})";
+            }
+            // Tanggal check-in–check-out singkat (dd/mm-dd/mm). Catatan tamu sengaja TIDAK dimasukkan ke keterangan.
+            try {
+                $stayRow = !empty($paymentData['booking_id'])
+                    ? $this->db->fetchOne("SELECT DATE(check_in_date) ci, DATE(check_out_date) co FROM bookings WHERE id = ?", [(int)$paymentData['booking_id']])
+                    : null;
+                if ($stayRow && $stayRow['ci'] && $stayRow['co']) {
+                    $description .= ' ' . date('d/m', strtotime($stayRow['ci'])) . '-' . date('d/m', strtotime($stayRow['co']));
+                }
+            } catch (\Throwable $e) {
             }
 
             // Determine payment status label
@@ -640,11 +649,6 @@ class CashbookHelper
                 } else {
                     $description .= ' [CICILAN]';
                 }
-            }
-
-            // Add booking notes if available
-            if ($bookingNotes) {
-                $description .= ' - ' . $bookingNotes;
             }
 
             // Add OTA source label to description (since payment_method is mapped to 'transfer')
