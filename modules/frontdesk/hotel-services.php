@@ -2886,6 +2886,18 @@ include '../../includes/header.php';
         font-weight: 600;
     }
 
+    .hs-action-dropdown-item.hs-item-post {
+        color: #0f766e;
+        font-weight: 600;
+    }
+
+    .hs-action-dropdown-item.hs-item-posted {
+        color: #15803d;
+        font-weight: 600;
+        cursor: default;
+        display: block;
+    }
+
     .hs-action-dropdown-item.hs-item-delete {
         color: #dc2626;
     }
@@ -4440,6 +4452,14 @@ include '../../includes/header.php';
                                             $addSvcData = ['id' => (int)$inv['id'], 'no' => (string)$inv['invoice_number'], 'guest' => (string)$inv['guest_name'], 'phone' => (string)($inv['guest_phone'] ?? ''), 'room' => (string)($inv['room_number'] ?? ''), 'booking' => (int)($inv['booking_id'] ?? 0)]; ?>
                                             <button class="hs-action-dropdown-item hs-item-addsvc" onclick='openAddServiceModal(<?php echo htmlspecialchars(json_encode($addSvcData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)'>➕ Tambah Layanan</button>
                                         <?php endif; ?>
+                                        <?php if ($inv['status'] !== 'cancelled'): ?>
+                                            <?php if (!empty($inv['cashbook_synced'])): ?>
+                                                <span class="hs-action-dropdown-item hs-item-posted" title="Pembayaran invoice ini sudah tercatat di Buku Kas">✅ Sudah diposting ke Buku Kas</span>
+                                            <?php elseif ((float)$inv['paid_amount'] > 0): ?>
+                                                <button class="hs-action-dropdown-item hs-item-post"
+                                                    onclick="postInvoiceToCashbook(<?php echo (int)$inv['id']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'], ENT_QUOTES); ?>',<?php echo (float)$inv['paid_amount']; ?>)">📒 Post ke Buku Kas</button>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
                                         <a href="hotel-service-invoice.php?id=<?php echo $inv['id']; ?>" target="_blank" class="hs-action-dropdown-item">🖨️ Invoice</a>
                                         <?php if ($auth->canEdit('frontdesk')): ?>
                                             <button class="hs-action-dropdown-item" onclick="openEditModal(<?php echo $inv['id']; ?>)">✏️ Edit</button>
@@ -5052,7 +5072,7 @@ include '../../includes/header.php';
         document.getElementById('invoiceDetailOverlay').classList.remove('open');
     }
 </script>
-<script src="../../assets/js/hotel-services-fn.js?v=20261011"></script>
+<script src="../../assets/js/hotel-services-fn.js?v=20261012"></script>
 <script>
     // Dari Monitoring Rental: ?new=motor[&motor=ID] → form Invoice Baru terbuka dengan layanan Motor Rental (+ motor terpilih)
     (function() {

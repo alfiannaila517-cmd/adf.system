@@ -989,6 +989,23 @@ async function deleteInvoice (id, code) {
     })
 }
 
+// ── Post ke Buku Kas (dari menu Aksi) ─────────────────────────────────────────
+async function postInvoiceToCashbook (id, code, paid) {
+  const msg = 'Post invoice ' + code + ' ke Buku Kas? Pembayaran Rp ' + Math.round(paid).toLocaleString('id-ID') +
+    ' akan dicatat. Setelah diposting, layanan tidak bisa ditambah lagi ke invoice ini.'
+  if (!(await hsConfirm(msg))) return
+  const fd = new FormData()
+  fd.append('action', 'process_invoice')
+  fd.append('id', id)
+  fetch('hotel-services.php', { method: 'POST', body: fd, credentials: 'include' })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success && (res.cashbook || res.already)) location.reload()
+      else hsAlert(res.success ? 'Gagal mencatat ke Buku Kas. Coba lagi atau hubungi admin.' : 'Error: ' + (res.message || 'Tidak diketahui'))
+    })
+    .catch(() => hsAlert('Kesalahan jaringan'))
+}
+
 // ── Pay modal ─────────────────────────────────────────────────────────────────
 function openPayModal (id, remaining, invNo) {
   document.getElementById('pInvId').value = id
