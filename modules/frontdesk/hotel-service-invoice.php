@@ -254,7 +254,7 @@ if (!function_exists('invAmountWords')) {
 
         /* Kop */
         .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; }
-        .brand { display: flex; gap: 14px; align-items: center; }
+        .brand { display: flex; gap: 18px; align-items: center; }
         .brand img, .brand .mono {
             width: 92px; height: 92px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
             box-shadow: 0 0 0 1px var(--line), 0 0 0 4px var(--gold-soft);
@@ -271,8 +271,8 @@ if (!function_exists('invAmountWords')) {
         .brand .tag { font-style: italic; color: var(--gold); font-size: 11px; margin-top: 2px; }
         .brand .addr { color: var(--muted); font-size: 9.8px; margin-top: 5px; line-height: 1.45; }
         /* Letterhead text block centred, address lines balanced instead of a ragged wrap. */
-        .brand .co { text-align: center; max-width: 340px; }
-        .brand .addr { text-wrap: balance; }
+        .brand .co { text-align: left; max-width: 400px; }
+        .brand .addr { text-wrap: pretty; }
 
         .doc { text-align: right; min-width: 220px; }
         .doc .title {
@@ -324,6 +324,16 @@ if (!function_exists('invAmountWords')) {
         .stay .d b { display: block; font-size: 11px; color: var(--navy); }
         .stay .n { font-size: 9.5px; font-weight: 700; color: var(--gold); white-space: nowrap; }
 
+        /* Ringkasan layanan: label kiri, nilai rata kanan, garis tipis antar baris */
+        .sum { display: flex; flex-direction: column; font-size: 11.5px; }
+        .sum .r { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+        .sum .r:last-child { border-bottom: 0; padding-bottom: 0; }
+        .sum .r span:first-child { color: var(--muted); }
+        .sum .r span:last-child { color: var(--ink); font-weight: 600; text-align: right; }
+        .sum .r.bal span:last-child { font-size: 13px; font-weight: 700; color: var(--navy); }
+        .sum .r.bal.due span:last-child { color: #b91c1c; }
+        .sum .r.bal.ok span:last-child { color: #047857; }
+
         /* Tabel rincian */
         table.items { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
         table.items thead th {
@@ -333,7 +343,8 @@ if (!function_exists('invAmountWords')) {
         table.items thead th:first-child { border-radius: 8px 0 0 8px; }
         table.items thead th:last-child { border-radius: 0 8px 8px 0; }
         table.items td { padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: 10.8px; vertical-align: top; }
-        table.items td .desc { font-weight: 600; color: var(--ink); }
+        table.items td .desc { font-weight: 500; color: var(--ink); font-size: 10.8px; }
+        table.items td.typ { white-space: nowrap; }
         table.items td .sub { color: var(--muted); font-size: 9.5px; margin-top: 1px; }
         table.items .r { text-align: right; white-space: nowrap; }
         table.items .c { text-align: center; }
@@ -425,7 +436,7 @@ if (!function_exists('invAmountWords')) {
         html.pm body { background: #fff; padding: 0; color: #111827; }
         html.pm .page { box-shadow: none; max-width: none; width: 210mm; margin: 0; }
         html.pm .brand .addr, html.pm .box p, html.pm .note, html.pm .words { font-size: 10.5px; }
-        html.pm .kv, html.pm table.items td, html.pm table.pay td, html.pm .totals .row, html.pm .sign .line { font-size: 11.5px; }
+        html.pm .sum, html.pm .kv, html.pm table.items td, html.pm table.pay td, html.pm .totals .row, html.pm .sign .line { font-size: 11.5px; }
         html.pm table.items td .sub, html.pm .sign .place, html.pm .sign .role, html.pm .legal, html.pm .foot .ci { font-size: 10px; }
         html.pm .meta small, html.pm .party h3, html.pm .box h5, html.pm .words small, html.pm table.items th, html.pm table.pay th, html.pm .stay .d small { font-size: 9.5px; }
         html.pm .meta b, html.pm .stay .d b { font-size: 12px; }
@@ -446,10 +457,11 @@ if (!function_exists('invAmountWords')) {
             .doc { text-align: left; margin-top: 14px; }
             .meta { grid-template-columns: 1fr 1fr; }
             .party, .box { margin-bottom: 10px; }
+            table.items td.typ { white-space: normal; }
         }
     </style>
     <style>
-        .svc { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--gold-soft); color: #7a5b2e; font-size: 9.5px; font-weight: 600; margin-bottom: 2px; }
+        .svc { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--gold-soft); color: #7a5b2e; font-size: 9.5px; font-weight: 600; }
         .actions .proc { background: #059669; color: #fff; }
         .actions .done { align-self: center; font-size: 11px; font-weight: 600; color: #047857; padding: 0 6px; }
         .actions .back { background: #eef2f7; color: var(--navy); }
@@ -506,11 +518,11 @@ if (!function_exists('invAmountWords')) {
                 </div>
                 <div class="party">
                     <h3>Service Summary</h3>
-                    <div class="kv">
-                        <span>Items</span><span><?php echo count($items); ?> service<?php echo count($items) === 1 ? '' : 's'; ?></span>
-                        <span>Total</span><span><?php echo $rp($inv['total']); ?></span>
-                        <span>Amount paid</span><span><?php echo $rp($inv['paid_amount']); ?></span>
-                        <span>Balance</span><span><?php echo $balance > 0 ? $rp($balance) : 'Paid in full'; ?></span>
+                    <div class="sum">
+                        <div class="r"><span>Items</span><span><?php echo count($items); ?> service<?php echo count($items) === 1 ? '' : 's'; ?></span></div>
+                        <div class="r"><span>Total</span><span><?php echo $rp($inv['total']); ?></span></div>
+                        <div class="r"><span>Amount paid</span><span><?php echo $rp($inv['paid_amount']); ?></span></div>
+                        <div class="r bal <?php echo $balance > 0 ? 'due' : 'ok'; ?>"><span>Balance</span><span><?php echo $balance > 0 ? $rp($balance) : 'Paid in full'; ?></span></div>
                     </div>
                 </div>
             </div>
@@ -519,7 +531,8 @@ if (!function_exists('invAmountWords')) {
                 <thead>
                     <tr>
                         <th style="width:34px">#</th>
-                        <th>Service</th>
+                        <th style="width:150px">Type</th>
+                        <th>Description</th>
                         <th class="c" style="width:60px">Qty</th>
                         <th class="r" style="width:120px">Unit Price</th>
                         <th class="r" style="width:130px">Amount</th>
@@ -531,10 +544,8 @@ if (!function_exists('invAmountWords')) {
                         $svcInfo = $serviceLabels[$item['service_type']] ?? ['label' => $item['service_type'], 'icon' => '']; ?>
                         <tr>
                             <td><?php echo $no; ?></td>
-                            <td>
-                                <span class="svc"><?php echo htmlspecialchars($svcInfo['label']); ?></span>
-                                <div class="desc"><?php echo htmlspecialchars($item['description'] ?: $svcInfo['label']); ?></div>
-                            </td>
+                            <td class="typ"><span class="svc"><?php echo htmlspecialchars($svcInfo['label']); ?></span></td>
+                            <td><div class="desc"><?php echo htmlspecialchars($item['description'] ?: $svcInfo['label']); ?></div></td>
                             <td class="c"><?php echo rtrim(rtrim(number_format($item['quantity'], 2), '0'), '.'); ?></td>
                             <td class="r"><?php echo $rp($item['unit_price']); ?></td>
                             <td class="r"><?php echo $rp($item['total_price']); ?></td>
