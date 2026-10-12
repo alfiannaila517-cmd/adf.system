@@ -503,29 +503,29 @@ if (!function_exists('invAmountWords')) {
 
         /* Baris meta dokumen */
         .meta {
-            display: grid; grid-template-columns: repeat(4, 1fr);
-            margin: 22px 0 18px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            margin: 0 0 20px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
         }
-        .meta div { padding: 9px 12px; }
+        .meta div { padding: 11px 16px; }
         .meta div + div { border-left: 1px solid var(--line); }
         .meta small {
-            display: block; font-size: 8.5px; font-weight: 700; letter-spacing: 0.12em;
+            display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em;
             text-transform: uppercase; color: var(--muted);
         }
-        .meta b { display: block; margin-top: 2px; font-size: 11px; color: var(--ink); font-weight: 600; }
+        .meta b { display: block; margin-top: 3px; font-size: 13px; color: var(--ink); font-weight: 600; }
 
         /* Kartu tamu & menginap */
-        .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+        .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 20px 0 14px; }
         .party { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
         .party h3 {
             font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
             color: var(--gold); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--gold-soft);
         }
         .party .name {
-            font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 700;
+            font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700;
             color: var(--navy); line-height: 1.3; margin-bottom: 6px;
         }
-        .kv { display: grid; grid-template-columns: 82px 1fr; gap: 2px 8px; font-size: 10.5px; }
+        .kv { display: grid; grid-template-columns: 88px 1fr; gap: 3px 8px; font-size: 12px; }
         .kv span:nth-child(odd) { color: var(--muted); }
         .kv span:nth-child(even) { color: var(--ink); font-weight: 500; }
         .stay {
@@ -533,20 +533,21 @@ if (!function_exists('invAmountWords')) {
         }
         .stay .d { flex: 1; text-align: center; background: #f8fafc; border-radius: 8px; padding: 6px 4px; }
         .stay .d small { display: block; font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-        .stay .d b { display: block; font-size: 11px; color: var(--navy); }
+        .stay .d b { display: block; font-size: 12.5px; color: var(--navy); }
         .stay .n { font-size: 9.5px; font-weight: 700; color: var(--gold); white-space: nowrap; }
 
         /* Tabel rincian */
         table.items { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
         table.items thead th {
-            background: var(--navy); color: #fff; font-size: 8.8px; font-weight: 600;
+            background: var(--navy); color: #fff; font-size: 10px; font-weight: 600;
             letter-spacing: 0.12em; text-transform: uppercase; padding: 9px 10px; text-align: left;
         }
         table.items thead th:first-child { border-radius: 8px 0 0 8px; }
         table.items thead th:last-child { border-radius: 0 8px 8px 0; }
-        table.items td { padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: 10.8px; vertical-align: top; }
-        table.items td .desc { font-weight: 600; color: var(--ink); }
-        table.items td .sub { color: var(--muted); font-size: 9.5px; margin-top: 1px; }
+        table.items td { padding: 10px 10px; border-bottom: 1px solid var(--line); font-size: 12.5px; vertical-align: top; }
+        table.items td .desc { font-weight: 600; color: var(--ink); font-size: 13px; }
+        table.items td.ref { color: var(--muted); font-size: 11px; letter-spacing: 0.02em; white-space: nowrap; }
+        table.items td .sub { color: var(--muted); font-size: 10.8px; margin-top: 2px; }
         table.items .r { text-align: right; white-space: nowrap; }
         table.items .c { text-align: center; }
         table.items tbody tr:nth-child(even) td { background: #fbfaf7; }
@@ -560,7 +561,7 @@ if (!function_exists('invAmountWords')) {
         .words small { display: block; font-size: 8.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); font-weight: 700; margin-bottom: 2px; }
         .words i { text-transform: capitalize; }
         .totals { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-        .totals .row { display: flex; justify-content: space-between; padding: 7px 14px; font-size: 10.8px; }
+        .totals .row { display: flex; justify-content: space-between; padding: 8px 14px; font-size: 12px; }
         .totals .row + .row { border-top: 1px solid var(--line); }
         .totals .row span:first-child { color: var(--muted); }
         .totals .row span:last-child { font-weight: 600; white-space: nowrap; }
@@ -641,14 +642,15 @@ if (!function_exists('invAmountWords')) {
         html.pm body { background: #fff; padding: 0; color: #111827; }
         html.pm .page { box-shadow: none; max-width: none; width: 210mm; margin: 0; }
         html.pm .brand .addr, html.pm .box p, html.pm .note, html.pm .words { font-size: 10.5px; }
-        html.pm .kv, html.pm table.items td, html.pm table.pay td, html.pm .totals .row, html.pm .sign .line { font-size: 11.5px; }
+        html.pm .kv, html.pm table.items td, html.pm table.pay td, html.pm .totals .row, html.pm .sign .line { font-size: 12.5px; }
+        html.pm table.items td .desc { font-size: 13px; } html.pm table.items td.ref { font-size: 11px; }
         html.pm table.items td .sub, html.pm .sign .place, html.pm .sign .role, html.pm .legal, html.pm .foot .ci { font-size: 10px; }
         html.pm .meta small, html.pm .party h3, html.pm .box h5, html.pm .words small, html.pm table.items th, html.pm table.pay th, html.pm .stay .d small { font-size: 9.5px; }
-        html.pm .meta b, html.pm .stay .d b { font-size: 12px; }
+        html.pm .meta b, html.pm .stay .d b { font-size: 13px; }
         html.pm .terms-line { font-size: 9.5px; }
         html.pm .stamp { opacity: 0.07; }
         html.pm .inner { padding: 24px 40px 0; }
-        html.pm .meta { margin: 16px 0 12px; }
+        html.pm .meta { margin: 0 0 12px; }
         html.pm .parties { margin-bottom: 12px; }
         html.pm table.items td { padding: 7px 10px; }
         html.pm .totals-wrap { margin-top: 10px; }
@@ -661,6 +663,7 @@ if (!function_exists('invAmountWords')) {
             .head, .parties, .totals-wrap, .bottom { display: block; }
             .doc { text-align: left; margin-top: 14px; }
             .meta { grid-template-columns: 1fr 1fr; }
+            table.items td.ref { white-space: normal; }
             .party, .box { margin-bottom: 10px; }
         }
     </style>
@@ -697,14 +700,6 @@ if (!function_exists('invAmountWords')) {
                 </div>
             </div>
 
-            <!-- Meta dokumen -->
-            <div class="meta">
-                <div><small>Invoice No.</small><b><?php echo htmlspecialchars($invoiceNo); ?></b></div>
-                <div><small>Issue Date</small><b><?php echo $issueDate; ?></b></div>
-                <div><small>Due Date</small><b><?php echo $dueDate; ?></b></div>
-                <div><small>Booking Code</small><b><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?><?php echo $isMultiRoom ? ' +' . (count($allBookings) - 1) : ''; ?></b></div>
-            </div>
-
             <!-- Tamu & menginap -->
             <div class="parties">
                 <div class="party">
@@ -734,12 +729,19 @@ if (!function_exists('invAmountWords')) {
                 </div>
             </div>
 
+            <!-- Nomor dokumen (di bawah Bill To / Stay Details) -->
+            <div class="meta">
+                <div><small>Invoice No.</small><b><?php echo htmlspecialchars($invoiceNo); ?></b></div>
+                <div><small>Booking Code</small><b><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?><?php echo $isMultiRoom ? ' +' . (count($allBookings) - 1) : ''; ?></b></div>
+            </div>
+
             <!-- Rincian -->
             <table class="items">
                 <thead>
                     <tr>
                         <th style="width:34px">#</th>
                         <th>Description</th>
+                        <th style="width:118px">Ref.</th>
                         <th class="c" style="width:70px">Qty</th>
                         <th class="r" style="width:120px">Unit Price</th>
                         <th class="r" style="width:130px">Amount</th>
@@ -754,6 +756,7 @@ if (!function_exists('invAmountWords')) {
                                 <div class="desc">Room <?php echo htmlspecialchars($bk['room_number']); ?> — <?php echo htmlspecialchars($bk['room_type'] ?? 'Room'); ?></div>
                                 <div class="sub"><?php echo date('d M', strtotime($bk['check_in_date'])); ?> – <?php echo date('d M Y', strtotime($bk['check_out_date'])); ?> · Room charge</div>
                             </td>
+                            <td class="ref">—</td>
                             <td class="c"><?php echo (int)$bk['total_nights']; ?> night<?php echo (int)$bk['total_nights'] === 1 ? '' : 's'; ?></td>
                             <td class="r"><?php echo $rp($bk['room_price']); ?></td>
                             <td class="r"><?php echo $rp($bk['total_price']); ?></td>
@@ -766,6 +769,7 @@ if (!function_exists('invAmountWords')) {
                                 <div class="desc"><?php echo htmlspecialchars($ex['item_name']); ?></div>
                                 <div class="sub">Additional service<?php echo $isMultiRoom && !empty($ex['room_number']) ? ' · Room ' . htmlspecialchars($ex['room_number']) : ''; ?></div>
                             </td>
+                            <td class="ref">—</td>
                             <td class="c"><?php echo (int)$ex['quantity']; ?></td>
                             <td class="r"><?php echo $rp($ex['unit_price']); ?></td>
                             <td class="r"><?php echo $rp($ex['total_price']); ?></td>
@@ -778,8 +782,9 @@ if (!function_exists('invAmountWords')) {
                             <td><?php echo $no; ?></td>
                             <td>
                                 <div class="desc"><?php echo htmlspecialchars($siTitle); ?></div>
-                                <div class="sub">Hotel service · <?php echo htmlspecialchars($si['invoice_number']); ?></div>
+                                <div class="sub">Hotel service</div>
                             </td>
+                            <td class="ref"><?php echo htmlspecialchars($si['invoice_number']); ?></td>
                             <td class="c"><?php echo rtrim(rtrim(number_format($siQty, 2, '.', ''), '0'), '.'); ?></td>
                             <td class="r"><?php echo $rp($si['unit_price']); ?></td>
                             <td class="r"><?php echo $rp($si['total_price']); ?></td>
