@@ -416,10 +416,10 @@ class CloudbedsSync
                             'msg' => 'Samakan harga dengan Cloudbeds: Rp ' . number_format($localTotal, 0, ',', '.') . ' → Rp ' . number_format((float)$cbTotal, 0, ',', '.') . ' (' . implode(', ', array_column($live, 'booking_code')) . ')'];
                     }
                 }
-                // Reservasi buatan SISTEM: harga sistem (mis. diskon) tetap berlaku, KECUALI harga diubah langsung di Cloudbeds.
-                // Dikenali dari total Cloudbeds yang berbeda dari patokan terakhir; bila belum ada patokan dan tanpa diskon,
-                // selisih terhadap sistem dianggap ubahan di Cloudbeds. Tidak saat menunggu edit dari sistem / sudah ada pembayaran.
-                if (!$this->pushOnlyPlan && !$isOtaRes && !$isHit && !self::isCancelled($it['status']) && $live
+                // Reservasi buatan SISTEM (termasuk booking website): sistem ADF adalah patokan — harga TIDAK ditarik dari
+                // Cloudbeds (ditegaskan 2026-10-12: hanya reservasi OTA yang mengikuti Cloudbeds; sisanya Cloudbeds mengikuti sistem).
+                // Blok lama (tarik ubahan harga dari Cloudbeds) dimatikan; dibiarkan sebagai `false &&` seperti taxfix di atas.
+                if (false && !$this->pushOnlyPlan && !$isOtaRes && !$isHit && !self::isCancelled($it['status']) && $live
                     && count($live) === count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))
                     && !array_filter($live, fn($b) => isset($pendingEditIds[(int)$b['id']]))
                     && max(array_column($live, 'co')) >= date('Y-m-d')) {
