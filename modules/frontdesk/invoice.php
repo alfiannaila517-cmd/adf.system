@@ -796,14 +796,16 @@ if (!function_exists('invAmountWords')) {
                 </div>
                 <div class="totals">
                     <div class="row"><span>Room subtotal</span><span><?php echo $rp($combinedTotalPrice); ?></span></div>
+                    <?php if ($combinedDiscount > 0): ?>
+                        <?php // Diskon HANYA untuk tagihan kamar: ditaruh tepat di bawah subtotal kamar, sebelum layanan lain ?>
+                        <div class="row disc"><span>Room discount</span><span>- <?php echo $rp($combinedDiscount); ?></span></div>
+                        <div class="row"><span>Room total</span><span><?php echo $rp(max(0, $combinedTotalPrice - $combinedDiscount)); ?></span></div>
+                    <?php endif; ?>
                     <?php if ($combinedExtrasTotal > 0): ?>
                         <div class="row"><span>Additional services</span><span><?php echo $rp($combinedExtrasTotal); ?></span></div>
                     <?php endif; ?>
                     <?php if ($serviceTotal > 0): ?>
                         <div class="row"><span>Hotel services</span><span><?php echo $rp($serviceTotal); ?></span></div>
-                    <?php endif; ?>
-                    <?php if ($combinedDiscount > 0): ?>
-                        <div class="row disc"><span>Discount</span><span>- <?php echo $rp($combinedDiscount); ?></span></div>
                     <?php endif; ?>
                     <div class="row grand"><span>TOTAL</span><span><?php echo $rp($combinedFinalPrice); ?></span></div>
                     <div class="row paid"><span>Amount paid</span><span><?php echo $rp($totalPaid); ?></span></div>
