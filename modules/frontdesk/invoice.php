@@ -546,6 +546,7 @@ if (!function_exists('invAmountWords')) {
         table.items thead th:last-child { border-radius: 0 8px 8px 0; }
         table.items td { padding: 10px 10px; border-bottom: 1px solid var(--line); font-size: 12.5px; vertical-align: top; }
         table.items td .desc { font-weight: 600; color: var(--ink); font-size: 13px; }
+        table.items td.type { font-size: 12px; color: var(--ink); white-space: nowrap; }
         table.items td.ref { color: var(--muted); font-size: 11px; letter-spacing: 0.02em; white-space: nowrap; }
         table.items td .sub { color: var(--muted); font-size: 10.8px; margin-top: 2px; }
         table.items .r { text-align: right; white-space: nowrap; }
@@ -643,7 +644,7 @@ if (!function_exists('invAmountWords')) {
         html.pm .page { box-shadow: none; max-width: none; width: 210mm; margin: 0; }
         html.pm .brand .addr, html.pm .box p, html.pm .note, html.pm .words { font-size: 10.5px; }
         html.pm .kv, html.pm table.items td, html.pm table.pay td, html.pm .totals .row, html.pm .sign .line { font-size: 12.5px; }
-        html.pm table.items td .desc { font-size: 13px; } html.pm table.items td.ref { font-size: 11px; }
+        html.pm table.items td .desc { font-size: 13px; } html.pm table.items td.ref { font-size: 11px; } html.pm table.items td.type { font-size: 12px; }
         html.pm table.items td .sub, html.pm .sign .place, html.pm .sign .role, html.pm .legal, html.pm .foot .ci { font-size: 10px; }
         html.pm .meta small, html.pm .party h3, html.pm .box h5, html.pm .words small, html.pm table.items th, html.pm table.pay th, html.pm .stay .d small { font-size: 9.5px; }
         html.pm .meta b, html.pm .stay .d b { font-size: 13px; }
@@ -664,6 +665,7 @@ if (!function_exists('invAmountWords')) {
             .doc { text-align: left; margin-top: 14px; }
             .meta { grid-template-columns: 1fr 1fr; }
             table.items td.ref { white-space: normal; }
+            table.items td.type { white-space: normal; }
             .party, .box { margin-bottom: 10px; }
         }
     </style>
@@ -741,6 +743,7 @@ if (!function_exists('invAmountWords')) {
                     <tr>
                         <th style="width:34px">#</th>
                         <th>Description</th>
+                        <th style="width:100px">Type</th>
                         <th style="width:118px">Ref.</th>
                         <th class="c" style="width:70px">Qty</th>
                         <th class="r" style="width:120px">Unit Price</th>
@@ -754,8 +757,9 @@ if (!function_exists('invAmountWords')) {
                             <td><?php echo $no; ?></td>
                             <td>
                                 <div class="desc">Room <?php echo htmlspecialchars($bk['room_number']); ?> — <?php echo htmlspecialchars($bk['room_type'] ?? 'Room'); ?></div>
-                                <div class="sub"><?php echo date('d M', strtotime($bk['check_in_date'])); ?> – <?php echo date('d M Y', strtotime($bk['check_out_date'])); ?> · Room charge</div>
+                                <div class="sub"><?php echo date('d M', strtotime($bk['check_in_date'])); ?> – <?php echo date('d M Y', strtotime($bk['check_out_date'])); ?></div>
                             </td>
+                            <td class="type">Room</td>
                             <td class="ref">—</td>
                             <td class="c"><?php echo (int)$bk['total_nights']; ?> night<?php echo (int)$bk['total_nights'] === 1 ? '' : 's'; ?></td>
                             <td class="r"><?php echo $rp($bk['room_price']); ?></td>
@@ -767,8 +771,9 @@ if (!function_exists('invAmountWords')) {
                             <td><?php echo $no; ?></td>
                             <td>
                                 <div class="desc"><?php echo htmlspecialchars($ex['item_name']); ?></div>
-                                <div class="sub">Additional service<?php echo $isMultiRoom && !empty($ex['room_number']) ? ' · Room ' . htmlspecialchars($ex['room_number']) : ''; ?></div>
+                                <?php if ($isMultiRoom && !empty($ex['room_number'])): ?><div class="sub">Room <?php echo htmlspecialchars($ex['room_number']); ?></div><?php endif; ?>
                             </td>
+                            <td class="type">Additional service</td>
                             <td class="ref">—</td>
                             <td class="c"><?php echo (int)$ex['quantity']; ?></td>
                             <td class="r"><?php echo $rp($ex['unit_price']); ?></td>
@@ -782,8 +787,8 @@ if (!function_exists('invAmountWords')) {
                             <td><?php echo $no; ?></td>
                             <td>
                                 <div class="desc"><?php echo htmlspecialchars($siTitle); ?></div>
-                                <div class="sub">Hotel service</div>
                             </td>
+                            <td class="type">Hotel service</td>
                             <td class="ref"><?php echo htmlspecialchars($si['invoice_number']); ?></td>
                             <td class="c"><?php echo rtrim(rtrim(number_format($siQty, 2, '.', ''), '0'), '.'); ?></td>
                             <td class="r"><?php echo $rp($si['unit_price']); ?></td>
