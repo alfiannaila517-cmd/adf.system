@@ -990,9 +990,12 @@ async function deleteInvoice (id, code) {
 }
 
 // ── Post ke Buku Kas (dari menu Aksi) ─────────────────────────────────────────
+// Teks tampilan diambil dari window.HS_I18N (diisi inline di hotel-services.php, ikut bahasa terpilih) —
+// berkas .js eksternal tidak lewat penerjemah halaman.
 async function postInvoiceToCashbook (id, code, paid) {
-  const msg = 'Post invoice ' + code + ' ke Buku Kas? Pembayaran Rp ' + Math.round(paid).toLocaleString('id-ID') +
-    ' akan dicatat. Setelah diposting, layanan tidak bisa ditambah lagi ke invoice ini.'
+  const T = window.HS_I18N || {}
+  const msg = (T.postConfirm || 'Post invoice {code} ke Buku Kas? Pembayaran Rp {amount} akan dicatat. Setelah diposting, layanan tidak bisa ditambah lagi ke invoice ini.')
+    .replace('{code}', code).replace('{amount}', Math.round(paid).toLocaleString('id-ID'))
   if (!(await hsConfirm(msg))) return
   const fd = new FormData()
   fd.append('action', 'process_invoice')
@@ -1001,9 +1004,9 @@ async function postInvoiceToCashbook (id, code, paid) {
     .then(r => r.json())
     .then(res => {
       if (res.success && (res.cashbook || res.already)) location.reload()
-      else hsAlert(res.success ? 'Gagal mencatat ke Buku Kas. Coba lagi atau hubungi admin.' : 'Error: ' + (res.message || 'Tidak diketahui'))
+      else hsAlert(res.message || T.postFailed || 'Gagal mencatat ke Buku Kas. Coba lagi atau hubungi admin.')
     })
-    .catch(() => hsAlert('Kesalahan jaringan'))
+    .catch(() => hsAlert(T.network || 'Kesalahan jaringan'))
 }
 
 // ── Pay modal ─────────────────────────────────────────────────────────────────

@@ -5072,6 +5072,14 @@ include '../../includes/header.php';
         document.getElementById('invoiceDetailOverlay').classList.remove('open');
     }
 </script>
+<script>
+    // Teks untuk hotel-services-fn.js; literal di bawah diterjemahkan penerjemah halaman (kamus 'js' frontdesk-services.php)
+    window.HS_I18N = {
+        postConfirm: 'Post invoice {code} ke Buku Kas? Pembayaran Rp {amount} akan dicatat. Setelah diposting, layanan tidak bisa ditambah lagi ke invoice ini.',
+        postFailed: 'Gagal mencatat ke Buku Kas. Coba lagi atau hubungi admin.',
+        network: 'Kesalahan jaringan'
+    };
+</script>
 <script src="../../assets/js/hotel-services-fn.js?v=20261012"></script>
 <script>
     // Dari Monitoring Rental: ?new=motor[&motor=ID] → form Invoice Baru terbuka dengan layanan Motor Rental (+ motor terpilih)
