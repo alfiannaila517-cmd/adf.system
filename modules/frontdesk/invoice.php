@@ -217,13 +217,15 @@ foreach ($allBookings as $bk) {
 
 // Hotel Service invoices (not recorded in Cloudbeds) are merged into this one invoice:
 // their items are listed, and their total / paid amount are added to TOTAL / Amount paid.
+// ?services=0 → tagihan room saja (tanpa invoice Hotel Service); selain itu room + Hotel Service digabung
+$includeServices = (string)($_GET['services'] ?? '1') !== '0';
 $serviceItems = [];
 $serviceTotal = 0.0;
 $servicePaid = 0.0;
 try {
     $stayFrom = substr((string)$booking['check_in_date'], 0, 10);
     $stayTo = date('Y-m-d', strtotime(substr((string)$booking['check_out_date'], 0, 10) . ' +1 day'));
-    $svcInvoices = $db->fetchAll("
+    $svcInvoices = !$includeServices ? [] : ($db->fetchAll("
         SELECT id, invoice_number, total, paid_amount, created_at
         FROM hotel_invoices
         WHERE status <> 'cancelled'
@@ -233,7 +235,7 @@ try {
                  AND DATE(created_at) >= ? AND DATE(created_at) <= ?)
           )
         ORDER BY created_at ASC
-    ", array_merge($allBookingIds, [$booking['guest_name'] ?? '', $booking['room_number'] ?? '', $stayFrom, $stayTo])) ?: [];
+    ", array_merge($allBookingIds, [$booking['guest_name'] ?? '', $booking['room_number'] ?? '', $stayFrom, $stayTo])) ?: []);
     foreach ($svcInvoices as $svcInv) {
         $rows = $db->fetchAll(
             "SELECT service_type, description, quantity, unit_price, total_price FROM hotel_invoice_items WHERE invoice_id = ? ORDER BY id ASC",
@@ -255,6 +257,8 @@ $totalPaid += $servicePaid;
 
 $remaining = $combinedFinalPrice - $totalPaid;
 $isPdf = isset($_GET['pdf']);
+$autoPrint = isset($_GET['autoprint']);
+$downloadPdf = isset($_GET['download']);
 
 // Determine payment status
 $overallStatus = 'unpaid';
@@ -904,7 +908,7 @@ if (!function_exists('invAmountWords')) {
             document.title = 'Invoice_<?php echo preg_replace('/[^a-zA-Z0-9]/', '_', $allBookings[0]['booking_code']); ?>_<?php echo date('Ymd'); ?>';
             window.print();
         }
-        <?php if ($isPdf): ?>
+        <?php if ($isPdf || $autoPrint): ?>
             window.onload = function() {
                 setTimeout(function() { window.print(); }, 500);
             };
@@ -957,6 +961,45 @@ if (!function_exists('invAmountWords')) {
             window.invoiceFitPrint = fitPrint;
         })();
     </script>
+    <?php if ($downloadPdf): ?>
+        <!-- Simpan PDF: tangkap halaman invoice lalu langsung unduh .pdf (tanpa dialog cetak), lalu tutup jendela -->
+        <div id="pdfBusy" style="position:fixed;inset:0;background:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;font:600 15px/1.4 system-ui,sans-serif;color:#0f2744;text-align:center;padding:24px;">Preparing PDF…</div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <script>
+            (async function() {
+                var busy = document.getElementById('pdfBusy');
+                try {
+                    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+                    var page = document.querySelector('.page');
+                    // Tata letak cetak (teks lebih tegas) pada lebar A4 (794px), tanpa zoom: zoom CSS tidak ditangkap benar oleh html2canvas
+                    document.documentElement.classList.add('pm');
+                    page.style.width = '794px';
+                    page.style.maxWidth = 'none';
+                    var canvas = await html2canvas(page, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, windowWidth: 794 });
+                    var pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+                    var w = 210,
+                        h = canvas.height * w / canvas.width;
+                    if (h > 297) { // invoice panjang: kecilkan agar tetap satu lembar A4
+                        var k = 297 / h;
+                        w *= k;
+                        h = 297;
+                    }
+                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', (210 - w) / 2, 0, w, h);
+                    if (window.__pdfTest) {
+                        document.title = 'PDF_OK:' + pdf.output('blob').size + ':' + canvas.width + 'x' + canvas.height;
+                        return;
+                    }
+                    pdf.save('Invoice_<?php echo preg_replace('/[^a-zA-Z0-9]/', '_', $allBookings[0]['booking_code']); ?>_<?php echo date('Ymd'); ?>.pdf');
+                    busy.textContent = 'PDF downloaded';
+                    setTimeout(function() { window.close(); }, 700);
+                } catch (e) {
+                    document.title = 'PDF_ERR:' + e.message;
+                    busy.textContent = 'Could not create the PDF (' + e.message + '). Please use Print instead.';
+                }
+            })();
+        </script>
+    <?php endif; ?>
 </body>
 
 </html>

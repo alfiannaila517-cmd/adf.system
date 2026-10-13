@@ -11,7 +11,7 @@ return [
         'Lunasi' => 'Settle', 'Muat' => 'Load', 'Kode' => 'Code', 'Malam' => 'Nights', 'malam' => 'nights', 'Okupansi' => 'Occupancy', 'Diskon' => 'Discount',
         'Diskon (Rp)' => 'Discount (Rp)', 'Subtotal' => 'Subtotal', 'Total' => 'Total', 'Pending' => 'Pending', 'Dibayar' => 'Paid', 'Sudah dibayar' => 'Already paid',
         'Belum Bayar' => 'Unpaid', 'Bayar penuh' => 'Pay in full', 'Pilih Semua' => 'Select All', 'Cetak semua registration card' => 'Print all registration cards',
-        'Cetak registration card' => 'Print registration card', 'Simpan PDF' => 'Save PDF', 'Simpan Perubahan' => 'Save Changes', 'Simpan Reservasi' => 'Save Reservation',
+        'Cetak registration card' => 'Print registration card', 'Simpan PDF' => 'Save PDF', 'Print' => 'Print', 'Tagihan Room saja' => 'Room bill only', 'Room + Hotel Service' => 'Room + Hotel Services', 'Simpan Perubahan' => 'Save Changes', 'Simpan Reservasi' => 'Save Reservation',
         'Simpan Pembayaran' => 'Save Payment', 'Hapus Terpilih' => 'Delete Selected', 'Rooms' => 'Rooms',
         // ---- dashboard front desk ----
         'Check-in, check-out, tamu menginap, dan reservasi berikutnya' => 'Check-ins, check-outs, in-house guests, and upcoming reservations',

@@ -654,6 +654,13 @@ include '../../includes/header.php';
         background: rgba(99, 102, 241, 0.08);
     }
 
+    /* Print ▾ : dua pilihan terbuka di bawahnya (tagihan room saja / room + hotel service) */
+    .action-dropdown-item .print-chev { margin-left: auto; font-size: 0.7rem; transition: transform .15s; }
+    .action-dropdown-item.item-print[aria-expanded="true"] .print-chev { transform: rotate(180deg); }
+    .print-sub { display: none; background: rgba(99, 102, 241, 0.06); border-top: 1px solid rgba(99, 102, 241, 0.1); border-bottom: 1px solid rgba(99, 102, 241, 0.1); }
+    .print-sub.open { display: block; }
+    .action-dropdown-item.sub { padding-left: 1.6rem; font-size: 0.7rem; }
+
     .action-dropdown-item.item-checkin {
         color: #16a34a;
         font-weight: 600;
@@ -1180,6 +1187,11 @@ include '../../includes/header.php';
                                             <span class="action-dropdown-item item-wa is-off" title="Nomor telepon tamu belum ada">WhatsApp (no. kosong)</span>
                                         <?php endif; ?>
                                         <button class="action-dropdown-item item-pdf" onclick="savePDF(<?php echo $booking['id']; ?>)">Simpan PDF</button>
+                                        <button class="action-dropdown-item item-print" onclick="togglePrintSub(event, this)" aria-expanded="false">Print <span class="print-chev">▾</span></button>
+                                        <div class="print-sub">
+                                            <button class="action-dropdown-item sub" onclick="printInvoice(<?php echo $booking['id']; ?>, 'room')">Tagihan Room saja</button>
+                                            <button class="action-dropdown-item sub" onclick="printInvoice(<?php echo $booking['id']; ?>, 'all')">Room + Hotel Service</button>
+                                        </div>
                                         <button class="action-dropdown-item item-edit" onclick="editBooking(<?php echo $booking['id']; ?>)">Edit Booking</button>
                                         <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
                                             <div class="action-dropdown-divider"></div>
@@ -2916,17 +2928,47 @@ include '../../includes/header.php';
         window.open('invoice.php?booking_id=' + id, '_blank', 'width=800,height=900');
     }
 
+    function closeActionMenus() {
+        document.querySelectorAll('.action-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+    }
+
+    // Simpan PDF: invoice dibuat lalu LANGSUNG terunduh sebagai file .pdf (jendela kecil menutup sendiri)
     function savePDF(id) {
-        // Open invoice page and trigger PDF save
-        window.open('invoice.php?booking_id=' + id + '&pdf=1', '_blank', 'width=800,height=900');
+        closeActionMenus();
+        window.open('invoice.php?booking_id=' + id + '&download=1', '_blank', 'width=520,height=360');
+    }
+
+    // Print ▾ : buka / tutup dua pilihan di bawah tombol (menu tetap terbuka, posisinya dihitung ulang)
+    function togglePrintSub(e, btn) {
+        e.stopPropagation();
+        e.preventDefault();
+        var sub = btn.nextElementSibling;
+        var open = !sub.classList.contains('open');
+        sub.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        var dropdown = btn.closest('.action-dropdown');
+        var menu = dropdown.querySelector('.action-dropdown-menu');
+        var trigger = dropdown.querySelector('.action-dropdown-btn');
+        var rect = trigger.getBoundingClientRect();
+        var mh = menu.offsetHeight;
+        var top = rect.bottom + 6;
+        if (top + mh > window.innerHeight - 8 && rect.top - mh - 6 > 8) {
+            top = rect.top - mh - 6;
+            menu.classList.add('up');
+        } else {
+            menu.classList.remove('up');
+        }
+        menu.style.top = top + 'px';
     }
 
     function editBooking(id) {
         window.location.href = 'edit-booking.php?id=' + id;
     }
 
-    function printInvoice(id) {
-        window.open('invoice.php?booking_id=' + id, '_blank', 'width=800,height=900');
+    // mode: 'room' = tagihan room saja; 'all' = room + hotel service (digabung). Dialog cetak terbuka otomatis.
+    function printInvoice(id, mode) {
+        closeActionMenus();
+        window.open('invoice.php?booking_id=' + id + '&services=' + (mode === 'room' ? '0' : '1') + '&autoprint=1', '_blank', 'width=800,height=900');
     }
 
     function addPayment(bookingId, bookingCode, remainingAmount, bookingSource, otaFeePercent, otaSourceName) {
