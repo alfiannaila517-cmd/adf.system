@@ -6,14 +6,19 @@
  */
 if (!defined('APP_ACCESS')) { http_response_code(403); exit; }
 
-/** Bahasa pesan: tamu Indonesia → id; lainnya → en (kebangsaan, atau awalan nomor 62 bila kebangsaan tidak diketahui). */
+/** Bahasa pesan: nomor luar negeri → en; nomor Indonesia → id (kecuali kebangsaan jelas asing). */
 function hsInvWaLang(string $nationality, string $phone): string
 {
+    // Nomor luar negeri → selalu Inggris (kebangsaan di data tamu sering masih bawaan 'Indonesia').
+    // Nomor Indonesia → Indonesia, kecuali kebangsaan jelas asing. Tanpa nomor → ikut kebangsaan.
+    $t = WhatsAppHelper::normalizeTarget($phone);
     $n = strtolower(trim($nationality));
-    if ($n !== '') {
-        return (strpos($n, 'indonesia') !== false || $n === 'id' || $n === 'wni') ? 'id' : 'en';
+    $indoNat = $n === '' || strpos($n, 'indonesia') !== false || $n === 'id' || $n === 'wni';
+    if ($t !== '') {
+        if (strpos($t, '62') !== 0) return 'en';
+        return $indoNat ? 'id' : 'en';
     }
-    return strpos(WhatsAppHelper::normalizeTarget($phone), '62') === 0 ? 'id' : 'en';
+    return ($n !== '' && !$indoNat) ? 'en' : 'id';
 }
 
 /** Isi pesan: invoice terbaru + pengingat sopan bila masih ada sisa tagihan. */

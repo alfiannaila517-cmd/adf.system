@@ -50,16 +50,20 @@ function bf_rm_set_auto($db, bool $on): void
     }
 }
 
-/** Bahasa pesan: tamu Indonesia → id; lainnya → en (kebangsaan, atau awalan nomor 62 bila kebangsaan kosong). */
+/** Bahasa pesan: nomor luar negeri → en; nomor Indonesia → id (kecuali kebangsaan jelas asing). */
 function bf_rm_lang(string $nationality, string $phone): string
 {
+    // Nomor luar negeri → selalu Inggris (kebangsaan di data tamu sering masih bawaan 'Indonesia').
+    // Nomor Indonesia → Indonesia, kecuali kebangsaan jelas asing. Tanpa nomor → ikut kebangsaan.
+    $t = WhatsAppHelper::normalizeTarget($phone);
     $n = strtolower(trim($nationality));
-    if ($n !== '') {
-        return (strpos($n, 'indonesia') !== false || $n === 'id' || $n === 'wni') ? 'id' : 'en';
+    $indoNat = $n === '' || strpos($n, 'indonesia') !== false || $n === 'id' || $n === 'wni';
+    if ($t !== '') {
+        if (strpos($t, '62') !== 0) return 'en';
+        return $indoNat ? 'id' : 'en';
     }
-    return strpos(WhatsAppHelper::normalizeTarget($phone), '62') === 0 ? 'id' : 'en';
+    return ($n !== '' && !$indoNat) ? 'en' : 'id';
 }
-
 function bf_rm_hotel_name($db): string
 {
     try {
