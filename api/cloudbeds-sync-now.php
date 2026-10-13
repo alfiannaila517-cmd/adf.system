@@ -55,6 +55,15 @@ try {
     $cb->saveSetting('cloudbeds_last_auto_sync', json_encode(['at' => date('Y-m-d H:i:s'), 'ok' => true, 'summary' => 'sedang berjalan…'], JSON_UNESCAPED_UNICODE));
     set_time_limit(120);
 
+    // Reservasi baru dulu (impor cepat): OTA baru langsung terlihat di sistem walau sinkron penuh di bawah ini memakan waktu
+    $quickCreated = 0;
+    try {
+        $quick = (new CloudbedsSync($db, $cb))->importNewOnly(date('Y-m-d', strtotime('-1 day')), date('Y-m-d', strtotime('+120 days')), $userId);
+        $quickCreated = (int)($quick['done']['create'] ?? 0);
+    } catch (\Throwable $e) {
+        error_log('cloudbeds-sync-now impor cepat: ' . $e->getMessage());
+    }
+
     $syncRun = new CloudbedsSync($db, $cb);
     $syncRun->setRoomCheckMode(30, 20); // klik sinkron: baca kamar reservasi aktif sekarang juga
     $res = $syncRun->apply(date('Y-m-d', strtotime('-14 days')), date('Y-m-d', strtotime('+120 days')), $userId);
@@ -73,7 +82,7 @@ try {
 
     echo json_encode([
         'ok' => (bool)$res['ok'],
-        'created' => (int)($d['create'] ?? 0),
+        'created' => (int)($d['create'] ?? 0) + $quickCreated,
         'cancelled' => (int)($d['cancel'] ?? 0),
         'blocked' => (int)($d['block'] ?? 0),
         'unblocked' => (int)($d['unblock'] ?? 0),

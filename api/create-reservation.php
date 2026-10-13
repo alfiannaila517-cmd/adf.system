@@ -128,6 +128,15 @@ try {
     $finalPrice = $totalPrice - $discount;
     $paidAmount = max(0, $paidAmount);
 
+    // Pengaman Cloudbeds: reservasi OTA yang belum sempat masuk ke sistem tidak boleh tertimpa reservasi baru.
+    // Dijalankan SEBELUM cek ketersediaan lokal agar booking yang baru terimpor ikut terhitung.
+    require_once dirname(__DIR__) . '/includes/CloudbedsGuard.php';
+    $cbOverride = (string)($_POST['cb_override'] ?? '') === '1' && in_array((string)($_SESSION['role'] ?? ''), ['developer', 'admin', 'owner'], true);
+    $cbGuard = cloudbedsGuardCheck($db, $checkInDate, $checkOutDate, $cbOverride);
+    if (!$cbGuard['ok']) {
+        throw new Exception($cbGuard['message']);
+    }
+
     // Check room availability
     $conflicts = $db->fetchAll("
         SELECT id FROM bookings 

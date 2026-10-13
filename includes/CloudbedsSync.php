@@ -23,6 +23,8 @@ class CloudbedsSync
     private $learnedBlockType = '';
     /** pushFor: rencana ringan — tanpa panggilan detail reservasi (booking baru & cek harga diurus sinkron berkala) */
     private $pushOnlyPlan = false;
+    /** Mode cepat: hanya reservasi Cloudbeds yang BELUM tertaut (booking baru / tautan) — tanpa cek harga, kamar, saldo, pembayaran, blok */
+    private $newOnlyPlan = false;
     /** Reservasi Cloudbeds yang totalnya diubah (adjustment) oleh penyamaan saldo di putaran ini */
     private $adjustedThisRun = [];
     /** Pindah kamar di Cloudbeds → sistem: berapa reservasi dibaca per sinkron & jeda minimal antar pembacaan (detik) */
@@ -258,7 +260,7 @@ class CloudbedsSync
         } catch (\Throwable $e) {
         }
         // Detail reservasi yang akan dibaca (kamar / saldo berubah) diambil PARALEL dulu → sinkron jauh lebih cepat
-        if (!$this->pushOnlyPlan) {
+        if (!$this->pushOnlyPlan && !$this->newOnlyPlan) {
             $needRoom = [];
             $needBal = [];
             foreach ($list['items'] as $pit) {
@@ -277,6 +279,7 @@ class CloudbedsSync
 
             // Sudah tertaut
             if (isset($links[$cbId])) {
+                if ($this->newOnlyPlan) continue; // mode cepat: yang sudah tertaut diurus sinkron penuh
                 $bks = $this->db->fetchAll(
                     "SELECT id, booking_code, status, paid_amount, final_price, DATE(check_in_date) ci, DATE(check_out_date) co,
                         (COALESCE(notes,'') LIKE '%saldo disamakan%' AND COALESCE(notes,'') NOT LIKE '%[Cloudbeds: dibersihkan%') AS hit FROM bookings WHERE id IN (" .
@@ -584,17 +587,21 @@ class CloudbedsSync
         }
 
         // ---- Booking direct baru di sistem → reservasi Cloudbeds ----
-        if ($push) {
+        if ($this->newOnlyPlan) {
+            // mode cepat: berhenti di sini (hanya booking baru dari Cloudbeds)
+        } elseif ($push) {
             $this->planPushCreate($from, $to, $linkedBookingIds, $actions);
         }
 
         // ---- Pembayaran di sistem → folio reservasi Cloudbeds ----
-        if ($this->payEnabled()) {
+        if (!$this->newOnlyPlan && $this->payEnabled()) {
             $this->planPayments($actions);
         }
 
         // ---- Blok kamar Cloudbeds → room_blocks (kode CB-<blockID>-<roomID>) ----
-        $this->planRoomBlocks($from, $to, $roomByNo, $actions);
+        if (!$this->newOnlyPlan) {
+            $this->planRoomBlocks($from, $to, $roomByNo, $actions);
+        }
 
         $counts = ['room' => 0, 'link' => 0, 'create' => 0, 'price' => 0, 'cancel' => 0, 'block' => 0, 'unblock' => 0, 'push_status' => 0, 'push_create' => 0, 'push_block' => 0, 'push_pay' => 0, 'warn' => 0];
         foreach ($actions as $a) {
@@ -3051,6 +3058,75 @@ class CloudbedsSync
     }
 
     /** Hitung ulang rencana lalu jalankan link / create / cancel / block / unblock. Peringatan tidak dieksekusi. */
+    /**
+     * Impor CEPAT reservasi Cloudbeds baru (OTA / booking engine) yang belum ada di sistem: hanya membuat booking baru
+     * dan menautkan yang sudah ada. Tidak mengecek harga, kamar, saldo, pembayaran atau blok, jadi jauh lebih cepat daripada
+     * apply() dan aman dijalankan tiap menit (cron/cloudbeds-quick.php) maupun sesaat sebelum membuat reservasi.
+     * @return array{ok:bool, detail?:string, done:array, plan_warns:array}
+     */
+    public function importNewOnly(string $from, string $to, int $userId = 0): array
+    {
+        $this->newOnlyPlan = true;
+        try {
+            $plan = $this->plan($from, $to);
+        } finally {
+            $this->newOnlyPlan = false;
+        }
+        if (!$plan['ok']) {
+            return ['ok' => false, 'detail' => $plan['detail'], 'done' => [], 'plan_warns' => []];
+        }
+        $acts = array_values(array_filter($plan['actions'], fn($a) => in_array($a['type'], ['create', 'link'], true)));
+        $done = $acts ? $this->executeActions($acts, $userId) : ['create' => 0, 'link' => 0, 'errors' => []];
+        $warns = array_values(array_filter($plan['actions'], fn($a) => $a['type'] === 'warn'));
+        return ['ok' => true, 'done' => $done, 'plan_warns' => $warns];
+    }
+
+    /**
+     * Reservasi Cloudbeds AKTIF yang bertumpuk dengan rentang [ci, co) tetapi BELUM ada di sistem (belum tertaut dan tidak
+     * cocok dengan booking lokal mana pun). Dipakai sebagai pengaman sebelum membuat reservasi baru di sistem.
+     * @return array{ok:bool, detail:string, items:array<int,array{id:string,guest:string,source:string,checkin:string,checkout:string,status:string}>}
+     */
+    public function liveConflicts(string $ci, string $co): array
+    {
+        $this->ensureTables();
+        $list = $this->cb->previewReservations(date('Y-m-d', strtotime($ci . ' -45 days')), date('Y-m-d', strtotime($co . ' -1 day')));
+        if (!$list['ok']) {
+            return ['ok' => false, 'detail' => (string)$list['detail'], 'items' => []];
+        }
+        $linked = [];
+        foreach ($this->db->fetchAll("SELECT cb_reservation_id FROM cloudbeds_booking_links") ?: [] as $l) {
+            $linked[(string)$l['cb_reservation_id']] = true;
+        }
+        $local = $this->db->fetchAll(
+            "SELECT DATE(b.check_in_date) ci, DATE(b.check_out_date) co, g.guest_name
+             FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id
+             WHERE b.status <> 'cancelled' AND DATE(b.check_in_date) BETWEEN ? AND ?",
+            [date('Y-m-d', strtotime($ci . ' -45 days')), date('Y-m-d', strtotime($co . ' -1 day'))]
+        ) ?: [];
+        $out = [];
+        foreach ($list['items'] as $it) {
+            $st = strtolower((string)$it['status']);
+            if (!in_array($st, ['confirmed', 'not_confirmed', 'checked_in'], true)) continue; // batal / sudah check-out / no-show tidak menahan kamar
+            if (!($it['checkin'] < $co && $it['checkout'] > $ci)) continue;                   // tidak bertumpuk
+            if (isset($linked[(string)$it['id']])) continue;                                   // sudah masuk sistem (kamarnya terisi di sistem)
+            $k = self::nameKey((string)$it['guest']);
+            $matched = false;
+            foreach ($local as $lb) {
+                // Pencocokan nama KETAT (satu daftar kata harus termuat seluruhnya di yang lain): satu kata sama saja
+                // (mis. "Dan") tidak cukup, karena akan menyembunyikan reservasi OTA tamu lain di tanggal yang sama
+                $lk = self::nameKey((string)$lb['guest_name']);
+                if ($lb['ci'] === $it['checkin'] && $lb['co'] === $it['checkout'] && $k && $lk && (!array_diff($k, $lk) || !array_diff($lk, $k))) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if ($matched) continue;                                                            // sudah ada booking lokalnya (akan ditautkan)
+            $out[] = ['id' => (string)$it['id'], 'guest' => (string)$it['guest'], 'source' => (string)$it['source'],
+                'checkin' => (string)$it['checkin'], 'checkout' => (string)$it['checkout'], 'status' => $st];
+        }
+        return ['ok' => true, 'detail' => 'OK', 'items' => $out];
+    }
+
     public function apply(string $from, string $to, int $userId): array
     {
         $plan = $this->plan($from, $to);
