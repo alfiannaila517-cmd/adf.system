@@ -74,28 +74,30 @@ function bf_rm_hotel_name($db): string
     return defined('BUSINESS_NAME') ? (string)BUSINESS_NAME : 'Hotel';
 }
 
-/** Isi pesan pengingat — singkat, sopan, natural. */
+/** Isi pesan pengingat — singkat, ramah, profesional. Sarapan disajikan 07.00–10.00; on the spot di restoran = mohon menunggu lebih lama. */
 function bf_rm_message(string $guestName, array $rooms, string $link, string $lang, string $hotel): string
 {
     $name = trim($guestName);
     if ($lang === 'id') {
-        return implode("\n", [
+        return implode('
+', [
             'Selamat malam, ' . ($name !== '' ? $name : 'Bapak/Ibu') . '.',
             '',
             'Menu sarapan untuk besok pagi belum dipilih. Berkenan memilih sebelum pukul 05.00 melalui:',
             $link,
             '',
-            'Jika belum sempat, Anda tetap bisa memesan langsung di restoran. Terima kasih.',
+            'Sarapan disajikan pukul 07.00–10.00. Jika memesan langsung di restoran, mohon kesediaannya menunggu sedikit lebih lama. Terima kasih.',
             $hotel,
         ]);
     }
-    return implode("\n", [
+    return implode('
+', [
         'Good evening, ' . ($name !== '' ? $name : 'Guest') . '.',
         '',
         'Your breakfast menu for tomorrow has not been selected yet. Please choose before 5:00 AM here:',
         $link,
         '',
-        'If you miss it, you are welcome to order at the restaurant. Thank you.',
+        'Breakfast is served from 7:00 to 10:00 AM. If you order at the restaurant instead, we kindly ask for your patience as it may take a little longer. Thank you.',
         $hotel,
     ]);
 }
