@@ -2891,6 +2891,11 @@ include '../../includes/header.php';
         font-weight: 600;
     }
 
+    .hs-action-dropdown-item.hs-item-send {
+        color: #1d4ed8;
+        font-weight: 600;
+    }
+
     .hs-action-dropdown-item.hs-item-posted {
         color: #15803d;
         font-weight: 600;
@@ -4460,6 +4465,9 @@ include '../../includes/header.php';
                                                     onclick="postInvoiceToCashbook(<?php echo (int)$inv['id']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'], ENT_QUOTES); ?>',<?php echo (float)$inv['paid_amount']; ?>)">📒 Post ke Buku Kas</button>
                                             <?php endif; ?>
                                         <?php endif; ?>
+                                        <?php if ($inv['status'] !== 'cancelled'): ?>
+                                            <button class="hs-action-dropdown-item hs-item-send" onclick="sendInvoiceToGuest(<?php echo (int)$inv['id']; ?>, this)">📤 Kirim Invoice & Tagihan</button>
+                                        <?php endif; ?>
                                         <a href="hotel-service-invoice.php?id=<?php echo $inv['id']; ?>" target="_blank" class="hs-action-dropdown-item">🖨️ Invoice</a>
                                         <?php if ($auth->canEdit('frontdesk')): ?>
                                             <button class="hs-action-dropdown-item" onclick="openEditModal(<?php echo $inv['id']; ?>)">✏️ Edit</button>
@@ -5077,10 +5085,15 @@ include '../../includes/header.php';
     window.HS_I18N = {
         postConfirm: 'Post invoice {code} ke Buku Kas? Pembayaran Rp {amount} akan dicatat. Setelah diposting, layanan tidak bisa ditambah lagi ke invoice ini.',
         postFailed: 'Gagal mencatat ke Buku Kas. Coba lagi atau hubungi admin.',
-        network: 'Kesalahan jaringan'
+        network: 'Kesalahan jaringan',
+        sendOk: 'Invoice & pengingat tagihan terkirim ke {phone}',
+        sendManual: 'Pesan disiapkan. Kirim lewat WhatsApp yang terbuka.',
+        sendNoPhone: 'Tamu belum punya nomor WhatsApp, pilih kontaknya di WhatsApp yang terbuka.',
+        sendNoGateway: 'WhatsApp gateway belum aktif, kirim manual lewat WhatsApp yang terbuka.',
+        sendFailed: 'Gagal mengirim invoice'
     };
 </script>
-<script src="../../assets/js/hotel-services-fn.js?v=20261012"></script>
+<script src="../../assets/js/hotel-services-fn.js?v=20261013"></script>
 <script>
     // Dari Monitoring Rental: ?new=motor[&motor=ID] → form Invoice Baru terbuka dengan layanan Motor Rental (+ motor terpilih)
     (function() {

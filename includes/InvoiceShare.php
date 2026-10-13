@@ -36,3 +36,25 @@ function invoiceShareUrl($db, int $bookingId): string
     return rtrim(BASE_URL, '/') . '/modules/frontdesk/invoice.php?booking_id=' . $bookingId
         . '&b=' . rawurlencode((string)ACTIVE_BUSINESS_ID) . '&t=' . invoiceShareToken($db, $bookingId);
 }
+
+/* ---- Invoice Hotel Service (hotel_invoices.id): token terpisah dari invoice booking ---- */
+function hsInvoiceShareToken($db, int $invoiceId): string
+{
+    return substr(hash_hmac('sha256', 'hsinvoice|' . $invoiceId, invoiceShareSecret($db)), 0, 24);
+}
+
+function hsInvoiceShareValid($db, int $invoiceId, string $token): bool
+{
+    if ($invoiceId <= 0 || strlen($token) < 20) return false;
+    try {
+        return hash_equals(hsInvoiceShareToken($db, $invoiceId), $token);
+    } catch (\Throwable $e) {
+        return false;
+    }
+}
+
+function hsInvoiceShareUrl($db, int $invoiceId): string
+{
+    return rtrim(BASE_URL, '/') . '/modules/frontdesk/hotel-service-invoice.php?id=' . $invoiceId
+        . '&b=' . rawurlencode((string)ACTIVE_BUSINESS_ID) . '&t=' . hsInvoiceShareToken($db, $invoiceId);
+}

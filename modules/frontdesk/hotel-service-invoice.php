@@ -6,16 +6,29 @@
  */
 
 define('APP_ACCESS', true);
+// Tautan publik untuk tamu (dikirim lewat WhatsApp): id + t (token) + b (bisnis), tanpa login.
+$__pubToken = (string)($_GET['t'] ?? '');
+$__pubBiz = preg_replace('/[^a-z0-9\-_]/', '', strtolower((string)($_GET['b'] ?? '')));
+if ($__pubToken !== '' && $__pubBiz !== '' && is_file(__DIR__ . '/../../config/businesses/' . $__pubBiz . '.php')) {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    if (empty($_SESSION['user_id'])) $_SESSION['active_business_id'] = $__pubBiz;
+}
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
-
-$auth = new Auth();
-$auth->requireLogin();
+require_once '../../includes/InvoiceShare.php';
 
 $db  = Database::getInstance();
 $pdo = $db->getConnection();
 $id  = (int)($_GET['id'] ?? 0);
+$publicView = $__pubToken !== '' && hsInvoiceShareValid($db, $id, $__pubToken);
+if ($publicView) {
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: no-store');
+} else {
+    $auth = new Auth();
+    $auth->requireLogin();
+}
 if (!$id) {
     die('Invalid invoice ID');
 }
@@ -623,12 +636,16 @@ if (!function_exists('invAmountWords')) {
     </div>
 
     <div class="actions">
+        <?php if ($publicView): ?>
+            <button class="pri" onclick="window.print()">Print / PDF</button>
+        <?php else: ?>
         <button class="back" onclick="window.history.length > 1 ? history.back() : window.location.href='hotel-services.php'">← Back</button>
         <button class="pri" onclick="window.print()">Print / PDF</button>
         <?php if (!$isProcessed): ?>
             <button class="proc" id="btnProcess" onclick="processInvoice(<?php echo (int)$inv['id']; ?>)">Post to Cash Book</button>
         <?php else: ?>
             <span class="done">✓ Posted to Cash Book</span>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 

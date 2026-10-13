@@ -1009,6 +1009,32 @@ async function postInvoiceToCashbook (id, code, paid) {
     .catch(() => hsAlert(T.network || 'Kesalahan jaringan'))
 }
 
+// ── Kirim invoice + pengingat tagihan ke tamu (WhatsApp, satu klik dari menu Aksi) ──────────────
+function sendInvoiceToGuest (id, btn) {
+  const T = window.HS_I18N || {}
+  const fd = new FormData()
+  fd.append('id', id)
+  if (btn) btn.disabled = true
+  // Tab dibuka sekarang (klik pengguna) supaya tidak diblokir popup-blocker bila perlu kirim manual
+  const w = window.open('', '_blank')
+  fetch('../../api/hotel-service-send-invoice.php', { method: 'POST', body: fd, credentials: 'include' })
+    .then(r => r.json())
+    .then(res => {
+      if (!res.ok) { if (w) w.close(); hsAlert(res.message || T.sendFailed || 'Gagal mengirim invoice'); return }
+      if (res.sent) {
+        if (w) w.close()
+        hsAlert((T.sendOk || 'Invoice & pengingat tagihan terkirim ke {phone}').replace('{phone}', '+' + (res.target || '')), 'success')
+        return
+      }
+      // Gateway belum aktif / tamu tanpa nomor: buka WhatsApp Web dengan pesan terisi
+      if (w && res.wa_url) w.location.href = res.wa_url; else if (res.wa_url) window.open(res.wa_url, '_blank')
+      hsAlert(res.reason === 'no_phone' ? (T.sendNoPhone || 'Tamu belum punya nomor WhatsApp, pilih kontaknya di WhatsApp yang terbuka.')
+        : (T.sendNoGateway || 'WhatsApp gateway belum aktif, kirim manual lewat WhatsApp yang terbuka.'), 'warning')
+    })
+    .catch(() => { if (w) w.close(); hsAlert(T.network || 'Kesalahan jaringan') })
+    .finally(() => { if (btn) btn.disabled = false })
+}
+
 // ── Pay modal ─────────────────────────────────────────────────────────────────
 function openPayModal (id, remaining, invNo) {
   document.getElementById('pInvId').value = id
