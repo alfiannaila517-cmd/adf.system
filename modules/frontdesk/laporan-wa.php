@@ -60,8 +60,7 @@ if ($linkOnly) {
     $respond(['ok' => true, 'url' => $pub['url'], 'text' => rtrim($waText) . "
 
 📄 *PDF Laporan:*
-" . $pub['url'] . "
-_(link berlaku 2 hari)_"]);
+" . $pub['url']]);
 }
 @set_time_limit(30 + 60 * count($targets));
 
@@ -69,8 +68,7 @@ _(link berlaku 2 hari)_"]);
 $waText = rtrim($waText) . "
 
 📄 *PDF Laporan:*
-" . $pub['url'] . "
-_(link berlaku 2 hari)_";
+" . $pub['url'];
 
 $results = [];
 foreach ($targets as $t) {
