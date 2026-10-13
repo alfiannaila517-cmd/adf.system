@@ -19,6 +19,8 @@ if (!$auth->hasPermission('frontdesk')) {
 
 $db = Database::getInstance();
 $pdo = $db->getConnection();
+require_once '../../includes/BreakfastReminder.php';
+$bfRemindAuto = bf_rm_auto_enabled($db);
 // Breakfast hotel date rolls over at 10:00, so last night's picks stay visible until 10 AM.
 $today = ((int)date('H') < 10) ? date('Y-m-d', strtotime('-1 day')) : date('Y-m-d');
 
@@ -1400,6 +1402,27 @@ include '../../includes/header.php';
         text-align: left;
     }
 
+    /* Pengingat pilih sarapan */
+    .bfrm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 10px; }
+    .bfrm-btn { height: 32px; padding: 0 13px; border-radius: 9px; border: 1px solid rgba(37, 99, 235, .35); background: rgba(37, 99, 235, .08); color: var(--text-primary); font-size: 0.74rem; font-weight: 700; cursor: pointer; }
+    .bfrm-btn:hover { background: rgba(37, 99, 235, .16); }
+    .bfrm-auto { display: inline-flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--text-muted, #64748b); cursor: pointer; user-select: none; }
+    .bfrm-sw { width: 34px; height: 19px; border-radius: 99px; background: #94a3b8; position: relative; transition: background .2s; flex-shrink: 0; }
+    .bfrm-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; transition: left .2s; }
+    .bfrm-auto.on .bfrm-sw { background: #10b981; }
+    .bfrm-auto.on .bfrm-sw::after { left: 17px; }
+    .bfrm-auto b { font-size: 0.66rem; letter-spacing: .06em; }
+    .bfrm-auto.on b { color: #059669; }
+    .bfrm-early { margin: 10px 0 0; padding: 7px 10px; border-radius: 8px; background: rgba(245, 158, 11, .12); color: #b45309; font-size: 0.7rem; line-height: 1.45; }
+    .bfrm-list { margin-top: 10px; max-height: 46vh; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+    .bfrm-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--bg-tertiary); font-size: 0.74rem; }
+    .bfrm-row b { display: block; color: var(--text-primary); font-size: 0.78rem; }
+    .bfrm-row small { color: var(--text-muted, #64748b); font-size: 0.66rem; }
+    .bfrm-st { font-size: 0.66rem; font-weight: 700; padding: 2px 9px; border-radius: 99px; white-space: nowrap; background: rgba(100, 116, 139, .15); color: #64748b; }
+    .bfrm-ready .bfrm-st { background: rgba(37, 99, 235, .12); color: #2563eb; }
+    .bfrm-sent .bfrm-st { background: rgba(16, 185, 129, .15); color: #059669; }
+    .bfrm-fail .bfrm-st { background: rgba(239, 68, 68, .12); color: #dc2626; }
+    .bfrm-empty { text-align: center; padding: 18px 8px; color: var(--text-muted, #64748b); font-size: 0.76rem; }
     .bfg-hint {
         margin: 10px 0 0;
         font-size: 0.7rem;
@@ -1688,6 +1711,14 @@ include '../../includes/header.php';
                 <!-- Guest Selection -->
                 <div class="bf-section">
                     <div class="bf-title">👤 Tamu In-House <span class="bf-title-note">centang beberapa untuk 1 link gabungan</span></div>
+                    <?php if (!$editOrder): ?>
+                        <div class="bfrm-bar">
+                            <button type="button" class="bfrm-btn" onclick="bfRemindOpen()">🔔 Ingatkan yang belum memilih</button>
+                            <label class="bfrm-auto<?php echo $bfRemindAuto ? ' on' : ''; ?>" id="bfRemindAuto" onclick="bfRemindToggleAuto(event)" title="Kirim pengingat otomatis pukul 22.00 ke tamu yang belum memilih">
+                                <span class="bfrm-sw"></span><span>Otomatis jam 22.00</span><b id="bfRemindAutoState"><?php echo $bfRemindAuto ? 'AKTIF' : 'MATI'; ?></b>
+                            </label>
+                        </div>
+                    <?php endif; ?>
                     <?php if (count($inHouseGuests) > 0 || $editOrder): ?>
                         <div class="bf-group">
                             <?php if ($editOrder): ?>
@@ -2046,6 +2077,21 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<div class="bf-modal-backdrop" id="bfRemindModal" onclick="if(event.target===this)bfRemindClose()">
+    <div class="bf-modal bfg-modal" style="width:min(520px,100%)">
+        <div class="bf-modal-head">
+            <div class="bf-modal-title">Ingatkan pilih sarapan</div>
+            <button type="button" class="bf-modal-close" onclick="bfRemindClose()" aria-label="Tutup">✕</button>
+        </div>
+        <p class="bfg-hint" style="margin-top:0">Pesan sopan berisi link pilih menu dikirim lewat WhatsApp ke tamu yang belum memilih. Tamu tanpa nomor WhatsApp atau tanpa link tidak dikirimi.</p>
+        <div class="bfrm-early" id="bfRemindEarly" hidden></div>
+        <div class="bfrm-list" id="bfRemindList"></div>
+        <div class="bfg-modal-actions">
+            <button type="button" class="bfg-btn ghost" onclick="bfRemindClose()">Tutup</button>
+            <button type="button" class="bfg-btn green" id="bfRemindSend" onclick="bfRemindSend()" disabled>Kirim</button>
+        </div>
+    </div>
+</div>
 <div class="bfg-toast" id="bfgToast"></div>
 <div class="bfg-ok" id="bfgOk" role="status" aria-live="polite">
     <div class="bfg-ok-card">
@@ -2673,6 +2719,135 @@ include '../../includes/header.php';
         t._h = setTimeout(function() { t.className = 'bfg-toast'; }, 4500);
     }
 
+    // ═══ Pengingat pilih sarapan: daftar sasaran → kirim satu per satu (jeda) ═══
+    var BFRM_T = {
+        early: 'Masih sebelum pukul 20.00. Pengingat biasanya dikirim malam hari, sekitar pukul 22.00.',
+        loading: 'Memuat daftar tamu...',
+        loadFail: 'Gagal memuat daftar tamu',
+        none: 'Semua tamu in-house sudah memilih sarapan.',
+        room: 'Kamar',
+        ready: 'Siap dikirim',
+        reminded: 'Sudah diingatkan',
+        noPhone: 'Tanpa nomor WhatsApp',
+        noLink: 'Belum dikirimi link',
+        sending: 'Mengirim...',
+        sent: 'Terkirim',
+        failed: 'Gagal',
+        sendBtn: 'Kirim ke {n} tamu',
+        progress: 'Mengirim {i} dari {n}...',
+        doneTitle: 'Pengingat terkirim',
+        doneSub: '{ok} berhasil, {fail} gagal',
+        gatewayOff: 'WhatsApp gateway belum diatur',
+        autoOn: 'Pengingat otomatis aktif',
+        autoOnSub: 'Dikirim otomatis pukul 22.00',
+        autoOff: 'Pengingat otomatis dimatikan',
+        autoFail: 'Gagal mengubah pengaturan',
+        on: 'AKTIF',
+        off: 'MATI'
+    };
+    var bfrmTargets = [];
+    var bfrmBusy = false;
+
+    function bfrmApi(body) {
+        return fetch(linkContext.createApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            .then(function(r) { return r.json(); });
+    }
+
+    function bfrmStatusLabel(st) {
+        return { ready: BFRM_T.ready, reminded: BFRM_T.reminded, no_phone: BFRM_T.noPhone, no_link: BFRM_T.noLink }[st] || st;
+    }
+
+    function bfrmRender() {
+        var list = document.getElementById('bfRemindList');
+        var ready = bfrmTargets.filter(function(t) { return t.status === 'ready'; }).length;
+        if (!bfrmTargets.length) {
+            list.innerHTML = '<div class="bfrm-empty">' + bfgEsc(BFRM_T.none) + '</div>';
+        } else {
+            list.innerHTML = bfrmTargets.map(function(t, i) {
+                var meta = BFRM_T.room + ' ' + t.rooms.join(', ') + (t.phone ? ' · +' + t.phone : '') + ' · ' + String(t.lang || '').toUpperCase();
+                return '<div class="bfrm-row bfrm-' + (t.ui || t.status) + '" id="bfrmRow' + i + '"><div><b>' + bfgEsc(t.guest_name || '-') + '</b><small>' + bfgEsc(meta) + '</small></div>' +
+                    '<span class="bfrm-st">' + bfgEsc(t.uiLabel || bfrmStatusLabel(t.status)) + '</span></div>';
+            }).join('');
+        }
+        var btn = document.getElementById('bfRemindSend');
+        btn.textContent = BFRM_T.sendBtn.replace('{n}', ready);
+        btn.disabled = ready === 0 || bfrmBusy;
+    }
+
+    async function bfRemindOpen() {
+        var h = new Date().getHours();
+        var early = document.getElementById('bfRemindEarly');
+        early.textContent = BFRM_T.early;
+        early.hidden = !(h >= 10 && h < 20);
+        document.getElementById('bfRemindModal').classList.add('show');
+        document.getElementById('bfRemindList').innerHTML = '<div class="bfrm-empty">' + bfgEsc(BFRM_T.loading) + '</div>';
+        document.getElementById('bfRemindSend').disabled = true;
+        try {
+            var d = await bfrmApi({ action: 'reminder_preview' });
+            if (!d.success) throw new Error(d.message || BFRM_T.loadFail);
+            bfrmTargets = d.targets || [];
+            bfrmRender();
+        } catch (e) {
+            document.getElementById('bfRemindList').innerHTML = '<div class="bfrm-empty">' + bfgEsc(BFRM_T.loadFail) + '</div>';
+        }
+    }
+
+    function bfRemindClose() {
+        if (bfrmBusy) return;
+        document.getElementById('bfRemindModal').classList.remove('show');
+    }
+
+    async function bfRemindSend() {
+        if (bfrmBusy) return;
+        var queue = [];
+        bfrmTargets.forEach(function(t, i) { if (t.status === 'ready') queue.push(i); });
+        if (!queue.length) return;
+        bfrmBusy = true;
+        var btn = document.getElementById('bfRemindSend');
+        btn.disabled = true;
+        var ok = 0, fail = 0, stop = false;
+        for (var q = 0; q < queue.length && !stop; q++) {
+            var i = queue[q], t = bfrmTargets[i];
+            btn.textContent = BFRM_T.progress.replace('{i}', q + 1).replace('{n}', queue.length);
+            t.ui = 'ready'; t.uiLabel = BFRM_T.sending; bfrmPatchRow(i);
+            try {
+                var r = await bfrmApi({ action: 'reminder_send', booking_ids: t.booking_ids });
+                if (r.success) { ok++; t.ui = 'sent'; t.uiLabel = BFRM_T.sent; t.status = 'reminded'; }
+                else {
+                    fail++; t.ui = 'fail'; t.uiLabel = BFRM_T.failed;
+                    if (r.gateway === false) { stop = true; bfgToast(BFRM_T.gatewayOff, 'err'); }
+                }
+            } catch (e) { fail++; t.ui = 'fail'; t.uiLabel = BFRM_T.failed; }
+            bfrmPatchRow(i);
+            if (!stop && q < queue.length - 1) await new Promise(function(res) { setTimeout(res, 2500); });
+        }
+        bfrmBusy = false;
+        bfrmRender();
+        bfgOk(BFRM_T.doneTitle, BFRM_T.doneSub.replace('{ok}', ok).replace('{fail}', fail));
+    }
+
+    function bfrmPatchRow(i) {
+        var row = document.getElementById('bfrmRow' + i);
+        if (!row) return;
+        var t = bfrmTargets[i];
+        row.className = 'bfrm-row bfrm-' + (t.ui || t.status);
+        row.querySelector('.bfrm-st').textContent = t.uiLabel || bfrmStatusLabel(t.status);
+    }
+
+    async function bfRemindToggleAuto(evt) {
+        evt.preventDefault();
+        var el = document.getElementById('bfRemindAuto');
+        var want = !el.classList.contains('on');
+        try {
+            var r = await bfrmApi({ action: 'reminder_auto', enabled: want ? 1 : 0 });
+            if (!r.success) throw new Error('x');
+            el.classList.toggle('on', !!r.enabled);
+            document.getElementById('bfRemindAutoState').textContent = r.enabled ? BFRM_T.on : BFRM_T.off;
+            if (r.enabled) bfgOk(BFRM_T.autoOn, BFRM_T.autoOnSub); else bfgToast(BFRM_T.autoOff, 'ok');
+        } catch (e) {
+            bfgToast(BFRM_T.autoFail, 'err');
+        }
+    }
     function bfgRowOf(cb) {
         return cb.closest('.bf-guest-item');
     }

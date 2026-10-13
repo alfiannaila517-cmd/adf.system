@@ -2,6 +2,11 @@
 /** Kamus EN: Sarapan Front Desk (modules/frontdesk/breakfast.php). Portal tamu (breakfast-guest.php) memakai bahasa tamu. */
 return [
     'text' => [
+        // Pengingat pilih sarapan
+        'Ingatkan yang belum memilih' => 'Remind guests who have not chosen', 'Otomatis jam 22.00' => 'Automatic at 10:00 PM', 'AKTIF' => 'ON', 'MATI' => 'OFF',
+        'Kirim pengingat otomatis pukul 22.00 ke tamu yang belum memilih' => 'Automatically send a reminder at 10:00 PM to guests who have not chosen',
+        'Ingatkan pilih sarapan' => 'Breakfast selection reminder',
+        'Pesan sopan berisi link pilih menu dikirim lewat WhatsApp ke tamu yang belum memilih. Tamu tanpa nomor WhatsApp atau tanpa link tidak dikirimi.' => 'A polite message with the menu link is sent via WhatsApp to guests who have not chosen yet. Guests without a WhatsApp number or link are skipped.',
         '(invoice Hotel Service)' => '(Hotel Service invoice)', '(untuk kitchen)' => '(for the kitchen)', 'Belum ada order hari ini' => 'No orders today yet', 'Buka WhatsApp' => 'Open WhatsApp',
         'Grup · kamar' => 'Group · rooms', 'Jam *' => 'Time *', 'Jatah sarapan (pax)' => 'Breakfast allowance (pax)', 'Jumlah Pax *' => 'Number of Pax *', 'Kids di bawah 7 tahun · gratis' => 'Kids under 7 years · free',
         'Kirim' => 'Send', 'Kirim 1 link gabungan' => 'Send 1 combined link', 'Kirim lagi' => 'Resend', 'Link sarapan sudah dikirim' => 'Breakfast link already sent', 'Link terkirim' => 'Link sent', 'Lokasi *' => 'Location *',
@@ -18,6 +23,17 @@ return [
         'Kurangi' => 'Decrease', 'Nama item, cth: Extra Nasi' => 'Item name, e.g. Extra Rice', 'Pilih menu' => 'Select menu', 'Salin link sarapan tamu' => 'Copy the guest breakfast link',
     ],
     'js' => [
+        'Masih sebelum pukul 20.00. Pengingat biasanya dikirim malam hari, sekitar pukul 22.00.' => 'It is still before 8:00 PM. Reminders are usually sent in the evening, around 10:00 PM.',
+        'Memuat daftar tamu...' => 'Loading guest list...', 'Gagal memuat daftar tamu' => 'Failed to load the guest list',
+        'Semua tamu in-house sudah memilih sarapan.' => 'All in-house guests have already chosen their breakfast.',
+        'Kamar' => 'Room', 'Siap dikirim' => 'Ready to send', 'Sudah diingatkan' => 'Already reminded', 'Tanpa nomor WhatsApp' => 'No WhatsApp number', 'Belum dikirimi link' => 'Link not sent yet',
+        'Mengirim...' => 'Sending...', 'Terkirim' => 'Sent', 'Gagal' => 'Failed',
+        'Kirim ke {n} tamu' => 'Send to {n} guests', 'Mengirim {i} dari {n}...' => 'Sending {i} of {n}...',
+        'Pengingat terkirim' => 'Reminders sent', '{ok} berhasil, {fail} gagal' => '{ok} succeeded, {fail} failed',
+        'WhatsApp gateway belum diatur' => 'WhatsApp gateway is not set up',
+        'Pengingat otomatis aktif' => 'Automatic reminder is on', 'Dikirim otomatis pukul 22.00' => 'Sent automatically at 10:00 PM',
+        'Pengingat otomatis dimatikan' => 'Automatic reminder turned off', 'Gagal mengubah pengaturan' => 'Failed to change the setting',
+        'AKTIF' => 'ON', 'MATI' => 'OFF',
         '<br>Kirim lagi ke tamu?' => '<br>Send again to the guest?', '<br>Nomor tujuan:' => '<br>Destination number:', 'Error koneksi' => 'Connection error', 'Gagal membuat link' => 'Failed to create the link',
         'Gagal menyimpan nomor' => 'Failed to save the number', 'Gateway belum aktif' => 'Gateway is not active yet', 'Gateway menolak' => 'Gateway rejected', 'Hapus order sarapan "' => 'Delete breakfast order "',
         'Isi jam sarapan!' => 'Enter the breakfast time!', 'Jatah tersimpan' => 'Allowance saved', 'Kids (< 7 th) gratis: 1 pancake/waffle + 1 minuman per anak — jangan dihitung juga di pax.' => 'Kids (< 7 yrs) are free: 1 pancake/waffle + 1 drink per child — do not count them in the pax too.',

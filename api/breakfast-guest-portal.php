@@ -394,7 +394,7 @@ try {
 }
 
 // ═══ Front desk: simpan jatah pax (Setup) & kirim link lewat WhatsApp gateway ═══
-if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone' || $action === 'current_link') {
+if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone' || $action === 'current_link' || $action === 'reminder_preview' || $action === 'reminder_send' || $action === 'reminder_auto') {
     require_once '../includes/auth.php';
     $auth = new Auth();
     $auth->requireLogin();
@@ -491,6 +491,38 @@ if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone
         exit;
     }
 
+    // ═══ Pengingat pilih sarapan (tamu yang belum memilih): daftar sasaran, kirim satu grup, saklar otomatis 22:00 ═══
+    if ($action === 'reminder_preview' || $action === 'reminder_send' || $action === 'reminder_auto') {
+        require_once '../includes/BreakfastReminder.php';
+        if ($action === 'reminder_auto') {
+            if (array_key_exists('enabled', $body)) {
+                bf_rm_set_auto($db, !empty($body['enabled']));
+            }
+            echo json_encode(['success' => true, 'enabled' => bf_rm_auto_enabled($db)]);
+            exit;
+        }
+        $rmDate = bf_rm_date();
+        if ($action === 'reminder_preview') {
+            echo json_encode(['success' => true, 'date' => $rmDate, 'auto' => bf_rm_auto_enabled($db), 'targets' => bf_rm_targets($db, $rmDate)]);
+            exit;
+        }
+        // reminder_send: SATU grup per panggilan (jeda antar pesan diatur browser). Data dihitung ulang di server:
+        // tamu yang sudah memilih / sudah diingatkan / tanpa link tidak dikirim.
+        $rmIds = array_values(array_unique(array_filter(array_map('intval', (array)($body['booking_ids'] ?? [])))));
+        $rmTargets = $rmIds ? bf_rm_targets($db, $rmDate, $rmIds) : [];
+        if (!$rmTargets) {
+            echo json_encode(['success' => false, 'status' => 'gone', 'message' => 'Tamu sudah memilih atau tidak lagi in-house']);
+            exit;
+        }
+        $rmWa = new WhatsAppHelper($db);
+        if (!$rmWa->isConfigured()) {
+            echo json_encode(['success' => false, 'gateway' => false, 'status' => 'gateway', 'message' => 'WhatsApp gateway belum diatur']);
+            exit;
+        }
+        $rmRes = bf_rm_send_one($rmWa, $db, $rmTargets[0]);
+        echo json_encode(['success' => $rmRes['ok'], 'status' => $rmTargets[0]['status'], 'message' => $rmRes['detail']]);
+        exit;
+    }
     // send_wa: kirim pesan berisi link lewat Fonnte; simpan nomor ke data tamu bila sebelumnya kosong.
     require_once '../includes/WhatsAppHelper.php';
     $wa = new WhatsAppHelper($db);
