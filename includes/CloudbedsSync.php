@@ -115,6 +115,50 @@ class CloudbedsSync
             created_by INT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Reservasi Cloudbeds aktif yang BELUM ditempatkan nomor kamar (seperti baris "Unassigned" di kalender Cloudbeds):
+        // diisi/dibersihkan tiap sinkron, ditampilkan di Dashboard & Kalender Front Desk agar kamar tidak terjual dua kali.
+        $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS cloudbeds_unassigned (
+            cb_reservation_id VARCHAR(40) NOT NULL PRIMARY KEY,
+            guest VARCHAR(200) NULL,
+            source VARCHAR(100) NULL,
+            check_in DATE NULL,
+            check_out DATE NULL,
+            room_type VARCHAR(120) NULL,
+            rooms_needed INT NOT NULL DEFAULT 1,
+            total DECIMAL(15,2) NULL,
+            first_seen DATETIME NOT NULL,
+            last_seen DATETIME NOT NULL,
+            KEY idx_dates (check_in, check_out)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+
+    /** @var array<string,array> reservasi yang terbaca BELUM ditempatkan pada plan() ini */
+    private $unassignedSeen = [];
+    /** @var array<string,bool> reservasi aktif belum tertaut yang detailnya sudah dibaca pada plan() ini */
+    private $unassignedExamined = [];
+
+    /** Samakan tabel cloudbeds_unassigned dengan hasil plan(): tambah yang baru, hapus yang sudah ditempatkan/tertaut/lewat. */
+    private function persistUnassigned(): void
+    {
+        try {
+            foreach ($this->unassignedSeen as $id => $u) {
+                $this->db->query("INSERT INTO cloudbeds_unassigned (cb_reservation_id, guest, source, check_in, check_out, room_type, rooms_needed, total, first_seen, last_seen)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                    ON DUPLICATE KEY UPDATE guest = VALUES(guest), source = VALUES(source), check_in = VALUES(check_in), check_out = VALUES(check_out),
+                        room_type = VALUES(room_type), rooms_needed = VALUES(rooms_needed), total = VALUES(total), last_seen = NOW()",
+                    [(string)$id, mb_substr((string)$u['guest'], 0, 200), mb_substr((string)$u['source'], 0, 100), $u['ci'] ?: null, $u['co'] ?: null,
+                        mb_substr((string)$u['type'], 0, 120), max(1, (int)$u['rooms']), $u['total']]);
+            }
+            // sudah dibaca dan ternyata TIDAK lagi belum-ditempatkan → hapus
+            $gone = array_values(array_diff(array_keys($this->unassignedExamined), array_keys($this->unassignedSeen)));
+            if ($gone) {
+                $this->db->query("DELETE FROM cloudbeds_unassigned WHERE cb_reservation_id IN (" . implode(',', array_fill(0, count($gone), '?')) . ")", array_map('strval', $gone));
+            }
+            // sudah tertaut ke booking sistem, atau tanggal sudah lewat
+            $this->db->query("DELETE FROM cloudbeds_unassigned WHERE cb_reservation_id IN (SELECT cb_reservation_id FROM cloudbeds_booking_links) OR check_out < CURDATE()");
+        } catch (\Throwable $e) {
+            error_log('Cloudbeds persistUnassigned: ' . $e->getMessage());
+        }
     }
 
     private static function nameKey(string $s): array
@@ -215,6 +259,8 @@ class CloudbedsSync
         ) ?: [];
 
         $actions = [];
+        $this->unassignedSeen = [];
+        $this->unassignedExamined = [];
         $nDetail = 0;
         $nPriceDetail = 0;
         $nBalDetail = 0; // pengecekan karena saldo berubah (batas lebih longgar: harga OTA harus cepat ikut)
@@ -463,6 +509,7 @@ class CloudbedsSync
                 continue;
             }
             if (self::isCancelled($it['status'])) {
+                $this->unassignedExamined[$cbId] = true; // dibatalkan → tidak lagi "belum ditempatkan"
                 continue;
             }
 
@@ -491,6 +538,7 @@ class CloudbedsSync
 
             // Belum ada → booking baru. Tamu yang sudah check-out (riwayat) tidak dibuat & tidak diperingatkan.
             if (strtolower($it['status']) === 'checked_out') {
+                $this->unassignedExamined[$cbId] = true;
                 continue;
             }
             if (!in_array(strtolower($it['status']), ['confirmed', 'not_confirmed', 'checked_in'], true)) {
@@ -509,6 +557,14 @@ class CloudbedsSync
             if (!$det['ok']) {
                 $actions[] = ['type' => 'warn', 'cb' => $cbId, 'label' => $label, 'msg' => 'Gagal ambil detail: ' . $det['detail']];
                 continue;
+            }
+            // Catat apakah reservasi ini belum ditempatkan nomor kamar (untuk tampilan "belum ditempatkan" di Dashboard & Kalender)
+            $this->unassignedExamined[$cbId] = true;
+            $unRooms = array_values(array_filter($det['rooms'], fn($x) => empty($x['assigned'])));
+            if ($unRooms) {
+                $this->unassignedSeen[$cbId] = ['guest' => $it['guest'], 'source' => $it['source'], 'ci' => $it['checkin'], 'co' => $it['checkout'],
+                    'type' => implode(', ', array_unique(array_filter(array_map(fn($x) => (string)($typeMap[$x['type_id']] ?? $x['type_name']), $unRooms)))),
+                    'rooms' => count($unRooms), 'total' => $det['total']];
             }
 
             // Sumber & jenis collect
@@ -613,6 +669,9 @@ class CloudbedsSync
             $t = in_array($a['type'], ['push_delblock', 'push_putblock', 'push_newblock'], true) ? 'push_block' : (in_array($a['type'], ['push_payment', 'settle', 'taxfix', 'pull_payment'], true) ? 'push_pay' : ($a['type'] === 'adopt_block' ? 'link' : ($a['type'] === 'push_convert_block' ? 'push_create' : $a['type'])));
             if ($t === 'room_move') $t = 'room';
             $counts[$t]++;
+        }
+        if ($this->onlyIds === null && !$this->pushOnlyPlan) {
+            $this->persistUnassigned();
         }
         return ['ok' => true, 'detail' => 'OK', 'actions' => $actions, 'counts' => $counts];
     }

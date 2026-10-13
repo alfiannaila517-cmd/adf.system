@@ -3,6 +3,10 @@
 return [
     'text' => [
         // Alat Cek reservasi
+        'reservasi Cloudbeds belum ditempatkan kamar' => 'Cloudbeds reservation(s) not yet assigned a room',
+        'Belum masuk ADF — kamarnya bisa terjual dua kali. Tempatkan nomor kamar di Cloudbeds, lalu reservasi otomatis masuk.' => 'Not in ADF yet — the room could be sold twice. Assign a room number in Cloudbeds and the reservation is imported automatically.',
+        'Pratinjau Cloudbeds' => 'Cloudbeds Preview',
+        'Lihat reservasi Cloudbeds dan apakah sudah masuk ke sistem' => 'See the Cloudbeds reservations and whether they are in the system yet',
         'Cek reservasi Cloudbeds' => 'Check Cloudbeds reservation',
         'Reservasi baru di Cloudbeds belum muncul di sistem? Ketik nama tamu (atau ID reservasi) untuk melihat penyebab pastinya, lalu masukkan sekarang bila sudah siap.' => 'A new Cloudbeds reservation not showing up in the system yet? Type the guest name (or reservation ID) to see the exact reason, then import it right away when it is ready.',
         'mis. Faisal Akbar' => 'e.g. Faisal Akbar', 'Cek' => 'Check',

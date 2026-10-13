@@ -640,6 +640,13 @@ include '../../includes/header.php';
     }
 </style>
 
+<?php
+// Reservasi Cloudbeds yang belum ditempatkan kamar (strip peringatan + lencana pada tombol Pratinjau Cloudbeds)
+require_once '../../includes/cloudbeds_unassigned.php';
+$cbuConfigured = cbIsConfigured($db);
+$cbuCount = $cbuConfigured ? cbUnassignedCount($db) : 0;
+$cbuStrip = $cbuConfigured ? cbUnassignedStrip($db) : '';
+?>
 <div id="fd2">
     <!-- Header -->
     <div class="fd-head">
@@ -655,9 +662,13 @@ include '../../includes/header.php';
             </a>
             <a href="calendar.php" class="fd-btn">Kalender</a>
             <a href="in-house.php" class="fd-btn">In-House</a>
+            <?php if ($cbuConfigured): ?>
+                <a href="cloudbeds.php?preview=1" class="fd-btn" title="Lihat reservasi Cloudbeds dan apakah sudah masuk ke sistem">Pratinjau Cloudbeds<?php if ($cbuCount > 0): ?><span class="cbu-badge"><?php echo (int)$cbuCount; ?></span><?php endif; ?></a>
+            <?php endif; ?>
             <a href="settings.php" class="fd-btn">Pengaturan</a>
         </div>
     </div>
+    <?php echo $cbuStrip; ?>
 
     <!-- Aktivitas hari ini -->
     <div class="fd-kpis">

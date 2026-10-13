@@ -2912,6 +2912,11 @@ include '../../includes/header.php';
             <button class="nav-btn" id="newReservationBtn" type="button" onclick="openNewReservationForm()">+ New Reservation</button>
         </div>
     </div>
+    <?php
+    // Reservasi Cloudbeds yang belum ditempatkan kamar (baris "Unassigned" ala Cloudbeds)
+    require_once '../../includes/cloudbeds_unassigned.php';
+    echo cbUnassignedStrip($db);
+    ?>
     <style>
         body[data-theme] .cal-toolbar {
             margin-bottom: 0.65rem;
