@@ -479,6 +479,13 @@ $faviconUrl = BASE_URL . '/assets/img/developer-logo.png';
         .um-modal.open { display: flex; }
         .um-head-av img, .um-photo-av img { width: 100%; height: 100%; object-fit: cover; }
         .um-head-av, .um-photo-av { width: 42px; height: 42px; overflow: hidden; }
+        /* Sama alasannya: modal konfirmasi, panel notifikasi & badge lonceng markup-nya muncul lebih dulu daripada CSS-nya,
+           sehingga teks/ikonnya sempat tampil mentah ("seperti gagal render") beberapa milidetik saat memuat. */
+        .adf-confirm-overlay { position: fixed; inset: 0; z-index: 999999; opacity: 0; visibility: hidden; }
+        .adf-confirm-overlay.active { opacity: 1; visibility: visible; }
+        .np-panel { position: fixed; display: none; }
+        .np-panel.show { display: flex; }
+        .tb-bell-badge, .np-count { display: none; }
     </style>
 </head>
 <?php
