@@ -1,0 +1,139 @@
+/* ==========================================================================
+   PAYROLL — penyempurnaan bersama (dimuat header.php hanya di /modules/payroll/)
+   Tujuan: teks & tombol SELALU terbaca di tema terang maupun gelap, dan kontrol lebih ringkas.
+
+   Akar masalah yang diperbaiki: style.css (tema terang) memaksa div/span/p/td/th/label/a menjadi
+   abu-abu atau ungu dengan !important. Akibatnya teks putih di atas latar berwarna (tombol berupa
+   link, inisial avatar, banner gradien) menjadi pudar atau hilang. Aturan di bawah memakai
+   "html body" (spesifisitas lebih tinggi daripada <style> milik tiap halaman) dan !important.
+   ========================================================================== */
+
+/* ---- 1) Teks putih di atas latar berwarna -------------------------------- */
+html body .payroll-hero a.btn-hero,
+html body .payroll-hero a.btn-hero *,
+html body .btn-add-emp,
+html body .btn-add-emp *,
+html body .emp-btn-save,
+html body .emp-btn-save *,
+html body .emp-avatar,
+html body .sl-avatar,
+html body .svc-av,
+html body .pr-period-icon,
+html body .ps-btn,
+html body .ps-btn *,
+html body .emp-modal-header h3,
+html body .att-modal-header,
+html body .att-modal-header *,
+html body .svc-head,
+html body .svc-head * {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+}
+
+/* Judul banner gradien halaman Slip Gaji */
+html body .sl-header h1 { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+html body .sl-header p { color: rgba(255, 255, 255, .9) !important; -webkit-text-fill-color: rgba(255, 255, 255, .9) !important; }
+
+/* Tombol berupa link tidak bergaris bawah */
+html body a.btn-hero, html body a.ps-btn, html body a.btn-add-emp { text-decoration: none !important; }
+
+/* ---- 2) Tombol lebih ringkas -------------------------------------------- */
+html body .ps-btn {
+    padding: .34rem .72rem;
+    font-size: .74rem;
+    font-weight: 600;
+    border-radius: 8px;
+    gap: .35rem;
+    line-height: 1.2;
+    text-shadow: none;
+}
+html body .ps-btn svg,
+html body .ps-btn i { width: 14px; height: 14px; }
+html body .ps-actions { gap: .4rem; }
+
+html body .btn-add-emp {
+    padding: .36rem .85rem;
+    font-size: .78rem;
+    font-weight: 600;
+    border-radius: 8px;
+    gap: .4rem;
+}
+html body .btn-add-emp svg { width: 14px; height: 14px; }
+
+html body .payroll-hero .btn-hero {
+    padding: .45rem 1rem;
+    font-size: .8rem;
+    font-weight: 600;
+    gap: .4rem;
+}
+html body .payroll-hero .btn-hero svg { width: 14px; height: 14px; }
+
+html body .emp-btn-save,
+html body .sl-btn-print,
+html body .pr-btn-detail {
+    padding: .3rem .75rem;
+    font-size: .74rem;
+    font-weight: 600;
+    border-radius: 8px;
+}
+html body .sl-btn-print svg { width: 13px; height: 13px; }
+
+/* ---- 3) Kolom isian & placeholder terbaca ------------------------------- */
+html body ::placeholder { color: #64748b !important; opacity: 1 !important; }
+html body[data-theme="dark"] ::placeholder { color: #94a3b8 !important; }
+html body .emp-search input,
+html body .ps-input,
+html body .ps-filter select,
+html body .sl-filter select { font-size: .8rem; }
+
+/* ---- 4) Teks pendukung (kode, departemen, rekening, badge) tidak terlalu kecil/pudar ---- */
+html body .emp-code,
+html body .emp-dept,
+html body .emp-bank span,
+html body .emp-badge-empty,
+html body .ps-emp-pos {
+    font-size: .72rem !important;
+    color: #64748b !important;
+    -webkit-text-fill-color: #64748b !important;
+}
+html body[data-theme="dark"] .emp-code,
+html body[data-theme="dark"] .emp-dept,
+html body[data-theme="dark"] .emp-bank span,
+html body[data-theme="dark"] .emp-badge-empty,
+html body[data-theme="dark"] .ps-emp-pos {
+    color: #94a3b8 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+}
+
+/* ---- 5) Halaman Proses Gaji ---------------------------------------------- */
+/* Total net: dulu teks gradien oranye (kontras rendah) → warna solid */
+html body .ps-total-net {
+    background: none !important;
+    -webkit-text-fill-color: #b45309 !important;
+    color: #b45309 !important;
+    font-size: 1rem;
+}
+html body[data-theme="dark"] .ps-total-net {
+    -webkit-text-fill-color: #fbbf24 !important;
+    color: #fbbf24 !important;
+}
+
+/* Badge status: teks lebih tegas */
+html body .ps-status-badge { padding: .28rem .7rem; font-size: .68rem; }
+html body .ps-status-badge.draft { background: rgba(100, 116, 139, .16); color: #475569 !important; }
+html body .ps-status-badge.submitted { background: rgba(245, 158, 11, .2); color: #b45309 !important; }
+html body .ps-status-badge.approved { background: rgba(34, 197, 94, .18); color: #15803d !important; }
+html body .ps-status-badge.paid { background: rgba(139, 92, 246, .18); color: #6d28d9 !important; }
+html body[data-theme="dark"] .ps-status-badge.draft { color: #cbd5e1 !important; }
+html body[data-theme="dark"] .ps-status-badge.submitted { color: #fcd34d !important; }
+html body[data-theme="dark"] .ps-status-badge.approved { color: #86efac !important; }
+html body[data-theme="dark"] .ps-status-badge.paid { color: #c4b5fd !important; }
+
+/* Banner keterangan (Auto-Save / OT / Extra): lebih ringkas, tetap terbaca */
+html body div[style*="rgba(59,130,246,0.1)"] {
+    padding: .5rem .85rem !important;
+    font-size: .74rem !important;
+    line-height: 1.55;
+    border-radius: 9px !important;
+}
+html body div[style*="rgba(59,130,246,0.1)"] strong { font-weight: 700; }
