@@ -2359,37 +2359,11 @@ if ($userTheme === 'system') {
                         <?php endif; ?>
 
                         <?php if ($auth->hasPermission('settings')): ?>
-                            <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/settings/') !== false) ? 'open' : ''; ?>" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
-                                <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('settings'); ?>">
+                            <li class="nav-item" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
+                                <a href="<?php echo BASE_URL; ?>/modules/settings/" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/settings/') !== false) ? 'active' : ''; ?>">
                                     <i data-feather="settings" class="nav-icon"></i>
                                     <span><?php echo __('settings.title'); ?></span>
                                 </a>
-                                <ul class="submenu">
-                                    <li class="submenu-item">
-                                        <a href="<?php echo BASE_URL; ?>/modules/settings/" class="submenu-link <?php echo activeMenu('settings-index'); ?>">
-                                            <i data-feather="home" class="submenu-icon"></i>
-                                            <span><?php echo __('nav.homepage_settings'); ?></span>
-                                        </a>
-                                    </li>
-                                    <li class="submenu-item">
-                                        <a href="<?php echo BASE_URL; ?>/modules/settings/change-password.php" class="submenu-link <?php echo activeMenu('change-password.php'); ?>">
-                                            <i data-feather="lock" class="submenu-icon"></i>
-                                            <span><?php echo __('nav.change_password'); ?></span>
-                                        </a>
-                                    </li>
-                                    <li class="submenu-item">
-                                        <a href="<?php echo BASE_URL; ?>/modules/settings/company.php" class="submenu-link <?php echo activeMenu('company.php'); ?>">
-                                            <i data-feather="briefcase" class="submenu-icon"></i>
-                                            <span><?php echo __('nav.company_setup'); ?></span>
-                                        </a>
-                                    </li>
-                                    <li class="submenu-item">
-                                        <a href="<?php echo BASE_URL; ?>/modules/settings/display.php" class="submenu-link <?php echo activeMenu('display.php'); ?>">
-                                            <i data-feather="eye" class="submenu-icon"></i>
-                                            <span><?php echo __('nav.display_theme'); ?></span>
-                                        </a>
-                                    </li>
-                                </ul>
                             </li>
                         <?php endif; ?>
 
