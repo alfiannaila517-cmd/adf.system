@@ -81,23 +81,27 @@ function bf_rm_message(string $guestName, array $rooms, string $link, string $la
     if ($lang === 'id') {
         return implode('
 ', [
-            'Selamat malam, ' . ($name !== '' ? $name : 'Bapak/Ibu') . '.',
+            'Selamat malam, ' . ($name !== '' ? $name : 'Bapak/Ibu') . ' 🌙',
             '',
-            'Menu sarapan untuk besok pagi belum dipilih. Berkenan memilih sebelum pukul 05.00 melalui:',
+            'Menu sarapan untuk besok pagi belum dipilih. Berkenan memilih sebelum pukul 05.00 melalui: 🍳',
             $link,
             '',
-            'Sarapan disajikan pukul 07.00–10.00. Jika memesan langsung di restoran, mohon kesediaannya menunggu sedikit lebih lama. Terima kasih.',
+            'Sarapan disajikan pukul 07.00–10.00 ☕. Jika memesan langsung di restoran, mohon kesediaannya menunggu sedikit lebih lama. Terima kasih 🙏',
+            '',
+            'Selamat beristirahat 😊',
             $hotel,
         ]);
     }
     return implode('
 ', [
-        'Good evening, ' . ($name !== '' ? $name : 'Guest') . '.',
+        'Good evening, ' . ($name !== '' ? $name : 'Guest') . ' 🌙',
         '',
-        'Your breakfast menu for tomorrow has not been selected yet. Please choose before 5:00 AM here:',
+        'Your breakfast menu for tomorrow has not been selected yet. Please choose before 5:00 AM here: 🍳',
         $link,
         '',
-        'Breakfast is served from 7:00 to 10:00 AM. If you order at the restaurant instead, we kindly ask for your patience as it may take a little longer. Thank you.',
+        'Breakfast is served from 7:00 to 10:00 AM ☕. If you order at the restaurant instead, we kindly ask for your patience as it may take a little longer. Thank you 🙏',
+        '',
+        'Have a restful night 😊',
         $hotel,
     ]);
 }
