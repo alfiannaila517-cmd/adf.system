@@ -191,9 +191,10 @@ function bf_rm_targets($db, string $date, array $onlyBookingIds = []): array
 }
 
 /** Kirim satu pengingat. @return array{ok:bool, detail:string} */
-function bf_rm_send_one(WhatsAppHelper $wa, $db, array $t): array
+function bf_rm_send_one(WhatsAppHelper $wa, $db, array $t, bool $force = false): array
 {
-    if ($t['status'] !== 'ready') {
+    // force (hanya pilihan manual petugas): tamu yang sudah diingatkan malam ini boleh dikirimi lagi; cron tidak pernah memakai force
+    if ($t['status'] !== 'ready' && !($force && $t['status'] === 'reminded')) {
         return ['ok' => false, 'detail' => 'Dilewati: ' . $t['status']];
     }
     $msg = bf_rm_message($t['guest_name'], $t['rooms'], $t['link'], $t['lang'], bf_rm_hotel_name($db));

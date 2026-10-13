@@ -1422,6 +1422,11 @@ include '../../includes/header.php';
     .bfrm-ready .bfrm-st { background: rgba(37, 99, 235, .12); color: #2563eb; }
     .bfrm-sent .bfrm-st { background: rgba(16, 185, 129, .15); color: #059669; }
     .bfrm-fail .bfrm-st { background: rgba(239, 68, 68, .12); color: #dc2626; }
+    .bfrm-tools { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 0.7rem; color: var(--text-muted, #64748b); }
+    .bfrm-link { border: 0; background: none; padding: 0; color: #2563eb; font-weight: 700; font-size: 0.7rem; cursor: pointer; }
+    .bfrm-row input[type="checkbox"] { flex: none; width: 16px; height: 16px; cursor: pointer; }
+    .bfrm-row .bfrm-info { flex: 1; min-width: 0; }
+    .bfrm-row.is-off { opacity: .6; }
     .bfrm-empty { text-align: center; padding: 18px 8px; color: var(--text-muted, #64748b); font-size: 0.76rem; }
     .bfg-hint {
         margin: 10px 0 0;
@@ -1713,7 +1718,7 @@ include '../../includes/header.php';
                     <div class="bf-title">👤 Tamu In-House <span class="bf-title-note">centang beberapa untuk 1 link gabungan</span></div>
                     <?php if (!$editOrder): ?>
                         <div class="bfrm-bar">
-                            <button type="button" class="bfrm-btn" onclick="bfRemindOpen()">🔔 Ingatkan yang belum memilih</button>
+                            <button type="button" class="bfrm-btn" onclick="bfRemindOpen()">🔔 <span id="bfRemindBtnLbl">Ingatkan yang belum memilih</span></button>
                             <label class="bfrm-auto<?php echo $bfRemindAuto ? ' on' : ''; ?>" id="bfRemindAuto" onclick="bfRemindToggleAuto(event)" title="Kirim pengingat otomatis pukul 22.00 ke tamu yang belum memilih">
                                 <span class="bfrm-sw"></span><span>Otomatis jam 22.00</span><b id="bfRemindAutoState"><?php echo $bfRemindAuto ? 'AKTIF' : 'MATI'; ?></b>
                             </label>
@@ -2083,8 +2088,9 @@ include '../../includes/header.php';
             <div class="bf-modal-title">Ingatkan pilih sarapan</div>
             <button type="button" class="bf-modal-close" onclick="bfRemindClose()" aria-label="Tutup">✕</button>
         </div>
-        <p class="bfg-hint" style="margin-top:0">Pesan sopan berisi link pilih menu dikirim lewat WhatsApp ke tamu yang belum memilih. Tamu tanpa nomor WhatsApp atau tanpa link tidak dikirimi.</p>
+        <p class="bfg-hint" style="margin-top:0">Centang tamu yang akan diingatkan lewat WhatsApp (tanpa centang di daftar = semua yang belum memilih). Tamu tanpa nomor WhatsApp atau tanpa link tidak bisa dikirimi.</p>
         <div class="bfrm-early" id="bfRemindEarly" hidden></div>
+        <div class="bfrm-tools"><button type="button" class="bfrm-link" onclick="bfrmPickAll(true)">Pilih semua</button><span>·</span><button type="button" class="bfrm-link" onclick="bfrmPickAll(false)">Kosongkan</button></div>
         <div class="bfrm-list" id="bfRemindList"></div>
         <div class="bfg-modal-actions">
             <button type="button" class="bfg-btn ghost" onclick="bfRemindClose()">Tutup</button>
@@ -2743,7 +2749,8 @@ include '../../includes/header.php';
         autoOff: 'Pengingat otomatis dimatikan',
         autoFail: 'Gagal mengubah pengaturan',
         on: 'AKTIF',
-        off: 'MATI'
+        off: 'MATI',
+        btnSel: 'Ingatkan {n} tamu terpilih'
     };
     var bfrmTargets = [];
     var bfrmBusy = false;
@@ -2757,22 +2764,57 @@ include '../../includes/header.php';
         return { ready: BFRM_T.ready, reminded: BFRM_T.reminded, no_phone: BFRM_T.noPhone, no_link: BFRM_T.noLink }[st] || st;
     }
 
+    // Yang bisa dikirimi: siap, atau sudah diingatkan (boleh diulang bila petugas memilihnya sendiri)
+    function bfrmSelectable(t) { return t.status === 'ready' || t.status === 'reminded'; }
+    function bfrmSelCount() { return bfrmTargets.filter(function(t) { return t.sel && bfrmSelectable(t); }).length; }
+
+    function bfrmUpdateSendBtn() {
+        var n = bfrmSelCount();
+        var btn = document.getElementById('bfRemindSend');
+        btn.textContent = BFRM_T.sendBtn.replace('{n}', n);
+        btn.disabled = n === 0 || bfrmBusy;
+    }
+
+    function bfrmToggle(i, on) {
+        bfrmTargets[i].sel = !!on;
+        bfrmUpdateSendBtn();
+    }
+
+    function bfrmPickAll(on) {
+        if (bfrmBusy) return;
+        // "Pilih semua" = semua yang siap dikirim (yang sudah diingatkan hanya bila dicentang sendiri)
+        bfrmTargets.forEach(function(t) { t.sel = on && t.status === 'ready'; });
+        bfrmRender();
+    }
+
     function bfrmRender() {
         var list = document.getElementById('bfRemindList');
-        var ready = bfrmTargets.filter(function(t) { return t.status === 'ready'; }).length;
         if (!bfrmTargets.length) {
             list.innerHTML = '<div class="bfrm-empty">' + bfgEsc(BFRM_T.none) + '</div>';
         } else {
             list.innerHTML = bfrmTargets.map(function(t, i) {
                 var meta = BFRM_T.room + ' ' + t.rooms.join(', ') + (t.phone ? ' · +' + t.phone : '') + ' · ' + String(t.lang || '').toUpperCase();
-                return '<div class="bfrm-row bfrm-' + (t.ui || t.status) + '" id="bfrmRow' + i + '"><div><b>' + bfgEsc(t.guest_name || '-') + '</b><small>' + bfgEsc(meta) + '</small></div>' +
+                var can = bfrmSelectable(t);
+                return '<div class="bfrm-row bfrm-' + (t.ui || t.status) + (can ? '' : ' is-off') + '" id="bfrmRow' + i + '">' +
+                    '<input type="checkbox"' + (t.sel && can ? ' checked' : '') + (can && !bfrmBusy ? '' : ' disabled') + ' onchange="bfrmToggle(' + i + ', this.checked)">' +
+                    '<div class="bfrm-info"><b>' + bfgEsc(t.guest_name || '-') + '</b><small>' + bfgEsc(meta) + '</small></div>' +
                     '<span class="bfrm-st">' + bfgEsc(t.uiLabel || bfrmStatusLabel(t.status)) + '</span></div>';
             }).join('');
         }
-        var btn = document.getElementById('bfRemindSend');
-        btn.textContent = BFRM_T.sendBtn.replace('{n}', ready);
-        btn.disabled = ready === 0 || bfrmBusy;
+        bfrmUpdateSendBtn();
     }
+
+    // Tombol di daftar tamu menampilkan jumlah tamu yang dicentang (centang = penerima pengingat)
+    function bfrmUpdatePageBtn() {
+        var lbl = document.getElementById('bfRemindBtnLbl');
+        if (!lbl) return;
+        if (!lbl.dataset.orig) lbl.dataset.orig = lbl.textContent;
+        var n = document.querySelectorAll('input[name="guest_checks[]"]:checked').length;
+        lbl.textContent = n > 0 ? BFRM_T.btnSel.replace('{n}', n) : lbl.dataset.orig;
+    }
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.name === 'guest_checks[]') bfrmUpdatePageBtn();
+    });
 
     async function bfRemindOpen() {
         var h = new Date().getHours();
@@ -2786,6 +2828,15 @@ include '../../includes/header.php';
             var d = await bfrmApi({ action: 'reminder_preview' });
             if (!d.success) throw new Error(d.message || BFRM_T.loadFail);
             bfrmTargets = d.targets || [];
+            // Pilihan awal: tamu yang dicentang di daftar; bila tidak ada yang dicentang → semua yang siap dikirim
+            var pageSel = {};
+            document.querySelectorAll('input[name="guest_checks[]"]:checked').forEach(function(cb) {
+                try { JSON.parse(cb.dataset.bookingIds || '[]').forEach(function(id) { pageSel[id] = true; }); } catch (e) {}
+            });
+            var hasPageSel = Object.keys(pageSel).length > 0;
+            bfrmTargets.forEach(function(t) {
+                t.sel = hasPageSel ? (bfrmSelectable(t) && t.booking_ids.some(function(id) { return pageSel[id]; })) : (t.status === 'ready');
+            });
             bfrmRender();
         } catch (e) {
             document.getElementById('bfRemindList').innerHTML = '<div class="bfrm-empty">' + bfgEsc(BFRM_T.loadFail) + '</div>';
@@ -2800,7 +2851,7 @@ include '../../includes/header.php';
     async function bfRemindSend() {
         if (bfrmBusy) return;
         var queue = [];
-        bfrmTargets.forEach(function(t, i) { if (t.status === 'ready') queue.push(i); });
+        bfrmTargets.forEach(function(t, i) { if (t.sel && bfrmSelectable(t)) queue.push(i); });
         if (!queue.length) return;
         bfrmBusy = true;
         var btn = document.getElementById('bfRemindSend');
@@ -2811,8 +2862,8 @@ include '../../includes/header.php';
             btn.textContent = BFRM_T.progress.replace('{i}', q + 1).replace('{n}', queue.length);
             t.ui = 'ready'; t.uiLabel = BFRM_T.sending; bfrmPatchRow(i);
             try {
-                var r = await bfrmApi({ action: 'reminder_send', booking_ids: t.booking_ids });
-                if (r.success) { ok++; t.ui = 'sent'; t.uiLabel = BFRM_T.sent; t.status = 'reminded'; }
+                var r = await bfrmApi({ action: 'reminder_send', booking_ids: t.booking_ids, force: t.status === 'reminded' ? 1 : 0 });
+                if (r.success) { ok++; t.ui = 'sent'; t.uiLabel = BFRM_T.sent; t.status = 'reminded'; t.sel = false; }
                 else {
                     fail++; t.ui = 'fail'; t.uiLabel = BFRM_T.failed;
                     if (r.gateway === false) { stop = true; bfgToast(BFRM_T.gatewayOff, 'err'); }

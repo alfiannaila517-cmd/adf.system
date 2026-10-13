@@ -519,7 +519,7 @@ if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone
             echo json_encode(['success' => false, 'gateway' => false, 'status' => 'gateway', 'message' => 'WhatsApp gateway belum diatur']);
             exit;
         }
-        $rmRes = bf_rm_send_one($rmWa, $db, $rmTargets[0]);
+        $rmRes = bf_rm_send_one($rmWa, $db, $rmTargets[0], !empty($body['force']));
         echo json_encode(['success' => $rmRes['ok'], 'status' => $rmTargets[0]['status'], 'message' => $rmRes['detail']]);
         exit;
     }
