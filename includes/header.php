@@ -470,6 +470,15 @@ $faviconUrl = BASE_URL . '/assets/img/developer-logo.png';
                 transform: rotate(0)
             }
         }
+
+        /* KRITIS (anti-kedip): panel menu user & modal Pengaturan akun berisi foto profil dan markup-nya ada di tengah <body>,
+           sedangkan CSS lengkapnya baru dibaca setelah markup. Tanpa aturan ini di <head>, foto profil sempat tampil besar
+           sesaat (satu kedipan) ketika halaman sedang dimuat. */
+        .um-panel, .um-modal { display: none; }
+        .um-panel.open { display: block; }
+        .um-modal.open { display: flex; }
+        .um-head-av img, .um-photo-av img { width: 100%; height: 100%; object-fit: cover; }
+        .um-head-av, .um-photo-av { width: 42px; height: 42px; overflow: hidden; }
     </style>
 </head>
 <?php
