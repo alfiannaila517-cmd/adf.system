@@ -93,4 +93,15 @@ foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
     }
 }
 
+// Pengingat pilih sarapan otomatis (jam 22 WIB, hanya bila saklar di halaman Breakfast menyala): ikut cron ini
+// supaya tidak perlu cron terpisah dan tidak bergantung zona waktu cron.
+try {
+    require_once dirname(__DIR__) . '/includes/BreakfastReminder.php';
+    foreach (bf_rm_run_all() as $bfLine) {
+        echo $bfLine . "\n";
+    }
+} catch (\Throwable $e) {
+    echo date('Y-m-d H:i:s') . ' pengingat sarapan error: ' . $e->getMessage() . "\n";
+}
+
 flock($lock, LOCK_UN);

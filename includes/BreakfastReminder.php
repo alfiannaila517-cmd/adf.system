@@ -14,6 +14,9 @@ require_once __DIR__ . '/WhatsAppHelper.php';
 
 const BF_RM_TYPE = 'breakfast_reminder';
 const BF_RM_AUTO_KEY = 'breakfast_reminder_auto';
+const BF_RM_LAST_KEY = 'breakfast_reminder_last';
+/** Jam (WIB) pengingat otomatis dikirim */
+const BF_RM_AUTO_HOUR = 22;
 
 /** Tanggal sarapan yang berlaku sekarang (sama dengan halaman Breakfast). */
 function bf_rm_date(): string
@@ -207,4 +210,112 @@ function bf_rm_send_one(WhatsAppHelper $wa, $db, array $t, bool $force = false):
     $ref = mb_substr('bf-remind ' . implode(',', $t['rooms']), 0, 80);
     $res = $wa->send($t['phone'], $msg, null, null, BF_RM_TYPE, $ref);
     return ['ok' => (bool)$res['ok'], 'detail' => (string)$res['detail']];
+}
+
+/** Simpan / ubah satu setting (tabel settings). */
+function bf_rm_setting_set($db, string $key, string $val): void
+{
+    if ($db->fetchOne("SELECT setting_key FROM settings WHERE setting_key = ?", [$key])) {
+        $db->query("UPDATE settings SET setting_value = ? WHERE setting_key = ?", [$val, $key]);
+    } else {
+        $db->query("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)", [$key, $val]);
+    }
+}
+
+/** Hasil terakhir pengiriman OTOMATIS: ['at' => 'Y-m-d H:i:s', 'sent' => n, 'failed' => n, 'note' => ''] atau null bila belum pernah. */
+function bf_rm_last($db): ?array
+{
+    try {
+        $r = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [BF_RM_LAST_KEY]);
+        $j = json_decode((string)($r['setting_value'] ?? ''), true);
+        return is_array($j) && !empty($j['at']) ? $j : null;
+    } catch (\Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * Jalankan pengingat OTOMATIS untuk satu bisnis. Hanya bila saklar menyala dan jam sekarang = 22.xx (zona waktu PHP, WIB di cron).
+ * Aman dipanggil berkali-kali di jam itu: tamu yang sudah diingatkan malam ini dilewati (log WA).
+ * @param WhatsAppHelper|null $wa untuk pengujian
+ * @return array{ran:bool, sent:int, failed:int, skipped:int, lines:string[]}
+ */
+function bf_rm_run_business($db, string $label = '', bool $force = false, ?WhatsAppHelper $wa = null, int $pauseSeconds = 3): array
+{
+    $res = ['ran' => false, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'lines' => []];
+    if (!bf_rm_auto_enabled($db)) {
+        return $res; // saklar mati
+    }
+    if (!$force && (int)date('G') !== BF_RM_AUTO_HOUR) {
+        return $res; // di luar jendela 22.00–22.59
+    }
+    $res['ran'] = true;
+    $wa = $wa ?: new WhatsAppHelper($db);
+    $tag = '[' . ($label !== '' ? $label : 'bisnis') . '] ';
+    $note = '';
+    if (!$wa->isConfigured()) {
+        $note = 'WhatsApp gateway belum diatur';
+        $res['lines'][] = date('Y-m-d H:i:s') . ' ' . $tag . 'pengingat sarapan: ' . $note;
+    } else {
+        $targets = bf_rm_targets($db, bf_rm_date());
+        $queue = array_values(array_filter($targets, fn($t) => $t['status'] === 'ready'));
+        $res['skipped'] = count($targets) - count($queue);
+        foreach ($queue as $i => $t) {
+            $r = bf_rm_send_one($wa, $db, $t);
+            if ($r['ok']) $res['sent']++; else $res['failed']++;
+            $res['lines'][] = date('Y-m-d H:i:s') . ' ' . $tag . 'pengingat sarapan kamar ' . implode(',', $t['rooms']) . ' ' . ($r['ok'] ? 'terkirim' : 'GAGAL: ' . $r['detail']);
+            if ($i < count($queue) - 1 && $pauseSeconds > 0) sleep($pauseSeconds); // jeda agar nomor WA tidak dianggap spam
+        }
+    }
+    // Catat hasilnya agar terlihat di halaman Breakfast. Putaran berikutnya di jam yang sama yang tidak mengirim apa pun
+    // tidak menimpa catatan "terkirim" dari putaran sebelumnya.
+    $last = bf_rm_last($db);
+    $lastToday = $last && substr((string)$last['at'], 0, 10) === date('Y-m-d');
+    if ($res['sent'] > 0 || $res['failed'] > 0 || $note !== '' || !$lastToday) {
+        try {
+            bf_rm_setting_set($db, BF_RM_LAST_KEY, json_encode(['at' => date('Y-m-d H:i:s'), 'sent' => $res['sent'], 'failed' => $res['failed'], 'note' => $note], JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable $e) {
+            error_log('bf_rm_run_business save last: ' . $e->getMessage());
+        }
+    }
+    return $res;
+}
+
+/**
+ * Jalankan pengingat otomatis untuk SEMUA bisnis hotel (dipanggil dari cron). Mengembalikan baris log yang perlu dicetak.
+ * @return string[]
+ */
+function bf_rm_run_all(bool $force = false): array
+{
+    $lines = [];
+    foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
+        $slug = basename($bf, '.php');
+        try {
+            $cfg = require $bf;
+            if (empty($cfg['database']) || ($cfg['business_type'] ?? '') !== 'hotel') {
+                continue;
+            }
+            $dbName = $cfg['database'];
+            if (strpos($dbName, 'adfb2574_') !== 0 && strpos($dbName, 'adf_') === 0 && defined('DB_NAME') && strpos((string)DB_NAME, 'adfb2574_') === 0) {
+                $dbName = 'adfb2574_' . substr($dbName, 4);
+            }
+            try {
+                new PDO('mysql:host=' . DB_HOST . ';dbname=' . $dbName . ';charset=' . DB_CHARSET, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 5]);
+            } catch (PDOException $pe) {
+                continue;
+            }
+            $bdb = Database::switchDatabase($cfg['database']);
+            if (!$bdb->fetchOne("SHOW TABLES LIKE 'breakfast_guest_links'")) {
+                continue;
+            }
+            $r = bf_rm_run_business($bdb, $slug, $force);
+            foreach ($r['lines'] as $l) $lines[] = $l;
+            if ($r['ran'] && !$r['lines']) {
+                $lines[] = date('Y-m-d H:i:s') . " [{$slug}] pengingat sarapan: tidak ada yang perlu dikirim (dilewati {$r['skipped']})";
+            }
+        } catch (\Throwable $e) {
+            $lines[] = date('Y-m-d H:i:s') . " [{$slug}] pengingat sarapan error: " . $e->getMessage();
+        }
+    }
+    return $lines;
 }

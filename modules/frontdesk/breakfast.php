@@ -21,6 +21,7 @@ $db = Database::getInstance();
 $pdo = $db->getConnection();
 require_once '../../includes/BreakfastReminder.php';
 $bfRemindAuto = bf_rm_auto_enabled($db);
+$bfRemindLast = bf_rm_last($db);
 // Breakfast hotel date rolls over at 10:00, so last night's picks stay visible until 10 AM.
 $today = ((int)date('H') < 10) ? date('Y-m-d', strtotime('-1 day')) : date('Y-m-d');
 
@@ -1413,6 +1414,8 @@ include '../../includes/header.php';
     .bfrm-auto.on .bfrm-sw::after { left: 17px; }
     .bfrm-auto b { font-size: 0.66rem; letter-spacing: .06em; }
     .bfrm-auto.on b { color: #059669; }
+    .bfrm-last { font-size: 0.68rem; color: var(--text-muted, #64748b); }
+    .bfrm-last b { color: var(--text-primary); font-weight: 700; }
     .bfrm-early { margin: 10px 0 0; padding: 7px 10px; border-radius: 8px; background: rgba(245, 158, 11, .12); color: #b45309; font-size: 0.7rem; line-height: 1.45; }
     .bfrm-list { margin-top: 10px; max-height: 46vh; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
     .bfrm-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--bg-tertiary); font-size: 0.74rem; }
@@ -1722,6 +1725,15 @@ include '../../includes/header.php';
                             <label class="bfrm-auto<?php echo $bfRemindAuto ? ' on' : ''; ?>" id="bfRemindAuto" onclick="bfRemindToggleAuto(event)" title="Kirim pengingat otomatis pukul 22.00 ke tamu yang belum memilih">
                                 <span class="bfrm-sw"></span><span>Otomatis jam 22.00</span><b id="bfRemindAutoState"><?php echo $bfRemindAuto ? 'AKTIF' : 'MATI'; ?></b>
                             </label>
+                            <?php if ($bfRemindAuto): ?>
+                                <small class="bfrm-last">
+                                    <?php if ($bfRemindLast): ?>
+                                        <span>Terakhir otomatis:</span> <b><?php echo htmlspecialchars(date('d M H:i', strtotime((string)$bfRemindLast['at']))); ?></b> · <b><?php echo (int)$bfRemindLast['sent']; ?></b> <span>terkirim</span><?php echo !empty($bfRemindLast['failed']) ? ' · <b>' . (int)$bfRemindLast['failed'] . '</b> <span>gagal</span>' : ''; ?><?php echo !empty($bfRemindLast['note']) ? ' · ' . htmlspecialchars((string)$bfRemindLast['note']) : ''; ?>
+                                    <?php else: ?>
+                                        <span>Belum pernah berjalan otomatis (jadwal 22.00 WIB)</span>
+                                    <?php endif; ?>
+                                </small>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                     <?php if (count($inHouseGuests) > 0 || $editOrder): ?>

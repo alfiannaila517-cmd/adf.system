@@ -8,6 +8,8 @@ return [
         'Ingatkan pilih sarapan' => 'Breakfast selection reminder',
         'Centang tamu yang akan diingatkan lewat WhatsApp (tanpa centang di daftar = semua yang belum memilih). Tamu tanpa nomor WhatsApp atau tanpa link tidak bisa dikirimi.' => 'Tick the guests to remind via WhatsApp (nothing ticked in the list = everyone who has not chosen yet). Guests without a WhatsApp number or link cannot be sent to.',
         'Pilih semua' => 'Select all', 'Kosongkan' => 'Clear',
+        'Terakhir otomatis:' => 'Last automatic run:', 'terkirim' => 'sent', 'gagal' => 'failed',
+        'Belum pernah berjalan otomatis (jadwal 22.00 WIB)' => 'Has not run automatically yet (scheduled 10:00 PM WIB)',
         '(invoice Hotel Service)' => '(Hotel Service invoice)', '(untuk kitchen)' => '(for the kitchen)', 'Belum ada order hari ini' => 'No orders today yet', 'Buka WhatsApp' => 'Open WhatsApp',
         'Grup · kamar' => 'Group · rooms', 'Jam *' => 'Time *', 'Jatah sarapan (pax)' => 'Breakfast allowance (pax)', 'Jumlah Pax *' => 'Number of Pax *', 'Kids di bawah 7 tahun · gratis' => 'Kids under 7 years · free',
         'Kirim' => 'Send', 'Kirim 1 link gabungan' => 'Send 1 combined link', 'Kirim lagi' => 'Resend', 'Link sarapan sudah dikirim' => 'Breakfast link already sent', 'Link terkirim' => 'Link sent', 'Lokasi *' => 'Location *',
