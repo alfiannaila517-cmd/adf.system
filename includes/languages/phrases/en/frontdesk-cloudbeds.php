@@ -2,6 +2,10 @@
 /** Kamus EN: Integrasi Cloudbeds (modules/frontdesk/cloudbeds.php, cloudbeds-autosync-include.php). */
 return [
     'text' => [
+        // Alat Cek reservasi
+        'Cek reservasi Cloudbeds' => 'Check Cloudbeds reservation',
+        'Reservasi baru di Cloudbeds belum muncul di sistem? Ketik nama tamu (atau ID reservasi) untuk melihat penyebab pastinya, lalu masukkan sekarang bila sudah siap.' => 'A new Cloudbeds reservation not showing up in the system yet? Type the guest name (or reservation ID) to see the exact reason, then import it right away when it is ready.',
+        'mis. Faisal Akbar' => 'e.g. Faisal Akbar', 'Cek' => 'Check',
         '"Perlu dicek" tidak dijalankan — selesaikan manual.' => '"Needs review" items are not processed — resolve them manually.',
         '(Channel Collect): uang dari OTA, masuk kas bersih setelah fee saat check-in. Sumber yang tidak dipasangkan dicatat sebagai sumber lain.' => '(Channel Collect): money comes from the OTA, recorded in the cash book net of fees at check-in. Unmapped sources are recorded as other sources.',
         '(Hotel Collect): tamu membayar di hotel, dicatat seperti booking langsung.' => '(Hotel Collect): the guest pays at the hotel, recorded like a direct booking.',
@@ -37,6 +41,10 @@ return [
         'Check-in dari' => 'Check-in from', 'Check-in/out, booking direct baru, blok kamar & pembatalan dari sistem.' => 'Check-in/out, new direct bookings, room blocks & cancellations from the system.',
         'Antrean kirim' => 'Send queue', 'Sistem' => 'System', 'sistem' => 'system',
     ],
-    'js' => [],
+    'js' => [
+        'Memeriksa ke Cloudbeds…' => 'Checking with Cloudbeds…', 'Gagal menghubungi server' => 'Could not reach the server',
+        'Masukkan ke sistem sekarang' => 'Import into the system now', 'Memasukkan…' => 'Importing…', 'Berhasil masuk ✓' => 'Imported ✓',
+        'Belum bisa dimasukkan — lihat alasan di atas.' => 'Could not be imported yet — see the reason above.',
+    ],
     'patterns' => [],
 ];

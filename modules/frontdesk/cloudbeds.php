@@ -753,6 +753,55 @@ include '../../includes/header.php';
                 </table></div>
             <?php endif; ?>
         </div>
+        <div class="cbx-card" id="cekreservasi">
+            <h3>Cek reservasi Cloudbeds</h3>
+            <p class="cbx-sub">Reservasi baru di Cloudbeds belum muncul di sistem? Ketik nama tamu (atau ID reservasi) untuk melihat penyebab pastinya, lalu masukkan sekarang bila sudah siap.</p>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+                <input type="text" class="cbx-input" id="cbxDiagQ" placeholder="mis. Faisal Akbar" style="max-width:320px" autocomplete="off">
+                <button type="button" class="cbx-btn" id="cbxDiagGo">Cek</button>
+            </div>
+            <div id="cbxDiagOut" style="margin-top:.75rem"></div>
+        </div>
+        <script>
+            (function() {
+                var q = document.getElementById('cbxDiagQ'), go = document.getElementById('cbxDiagGo'), out = document.getElementById('cbxDiagOut');
+                if (!q || !go || !out) return;
+                function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
+                function post(body) {
+                    return fetch('../../api/cloudbeds-diagnose.php', { method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: body, credentials: 'include' }).then(function(r) { return r.json(); });
+                }
+                function render(d) {
+                    if (!d.ok) { out.innerHTML = '<div class="cbx-hint" style="color:#b91c1c!important"><b>' + esc(d.detail || 'Gagal') + '</b></div>'; return; }
+                    if (!d.items || !d.items.length) { out.innerHTML = '<div class="cbx-hint">' + esc(d.note || 'Tidak ditemukan.') + '</div>'; return; }
+                    out.innerHTML = d.items.map(function(it) {
+                        return '<div style="border:1px solid var(--border-color,#e2e8f0);border-radius:12px;padding:.7rem .85rem;margin-bottom:.6rem">' +
+                            '<div><b>' + esc(it.guest) + '</b> · #' + esc(it.id) + ' · ' + esc(it.status) + ' · ' + esc(it.source) + '</div>' +
+                            '<div class="cbx-hint">' + esc(it.checkin) + ' → ' + esc(it.checkout) + (it.rooms && it.rooms.length ? ' · ' + esc(it.rooms.join('; ')) : '') + '</div>' +
+                            '<ul style="margin:.4rem 0 .2rem 1.1rem;padding:0;font-size:.82rem;line-height:1.5">' + it.notes.map(function(n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>' +
+                            (it.can_import ? '<button type="button" class="cbx-btn" data-imp="' + esc(it.id) + '">Masukkan ke sistem sekarang</button>' : '') +
+                            '</div>';
+                    }).join('') + (d.note ? '<div class="cbx-hint">' + esc(d.note) + '</div>' : '');
+                }
+                function run() {
+                    var v = q.value.trim();
+                    if (!v) return;
+                    out.innerHTML = '<div class="cbx-hint">Memeriksa ke Cloudbeds…</div>';
+                    post('q=' + encodeURIComponent(v)).then(render).catch(function() { out.innerHTML = '<div class="cbx-hint" style="color:#b91c1c!important">Gagal menghubungi server</div>'; });
+                }
+                go.addEventListener('click', run);
+                q.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); run(); } });
+                out.addEventListener('click', function(e) {
+                    var b = e.target.closest ? e.target.closest('[data-imp]') : null;
+                    if (!b) return;
+                    b.disabled = true;
+                    b.textContent = 'Memasukkan…';
+                    post('import_id=' + encodeURIComponent(b.getAttribute('data-imp'))).then(function(r) {
+                        if (r.ok && (r.created || r.linked)) { b.textContent = 'Berhasil masuk ✓'; run(); }
+                        else { b.disabled = false; b.textContent = 'Masukkan ke sistem sekarang'; alert((r.errors && r.errors.length ? r.errors.join('\n') : r.detail) || 'Belum bisa dimasukkan — lihat alasan di atas.'); }
+                    }).catch(function() { b.disabled = false; b.textContent = 'Masukkan ke sistem sekarang'; alert('Gagal menghubungi server'); });
+                });
+            })();
+        </script>
         <div class="cbx-card" id="cekbayar">
             <h3>Cek pembayaran booking</h3>
             <p class="cbx-sub">Sudah bayar di sistem tetapi di Cloudbeds masih merah? Ketik kode booking untuk melihat penyebabnya dan mengirim ulang.</p>
@@ -1260,7 +1309,7 @@ include '../../includes/header.php';
         ['API Key', 'koneksi'],
         ['Pemetaan tipe', 'pemetaan'], ['Pemetaan nomor', 'pemetaan'],
         ['Sinkron Cloudbeds', 'sinkron'],
-        ['Cek blok kamar', 'alat'], ['Cek pembayaran', 'alat'], ['Pratinjau reservasi', 'alat'],
+        ['Cek blok kamar', 'alat'], ['Cek reservasi', 'alat'], ['Cek pembayaran', 'alat'], ['Pratinjau reservasi', 'alat'],
         ['Harga', 'harga']
     ];
     var tabs = [
@@ -1314,7 +1363,7 @@ include '../../includes/header.php';
         if (push && history.replaceState) history.replaceState(null, '', location.pathname + location.search + '#' + name);
     }
     // tab awal: anchor di URL → parameter → tab terakhir → ringkasan
-    var hashMap = { cekblok: 'alat', cekbayar: 'alat', tarikan: 'alat', pulihlunas: 'alat', rates: 'harga' };
+    var hashMap = { cekblok: 'alat', cekreservasi: 'alat', cekbayar: 'alat', tarikan: 'alat', pulihlunas: 'alat', rates: 'harga' };
     var q = location.search, h = location.hash.replace('#', ''), start = null;
     if (h && (panes[h] || hashMap[h])) start = panes[h] ? h : hashMap[h];
     else if (/[?&](plan|auto)=/.test(q)) start = 'sinkron';

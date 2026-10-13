@@ -25,6 +25,8 @@ class CloudbedsSync
     private $pushOnlyPlan = false;
     /** Mode cepat: hanya reservasi Cloudbeds yang BELUM tertaut (booking baru / tautan) — tanpa cek harga, kamar, saldo, pembayaran, blok */
     private $newOnlyPlan = false;
+    /** Bila diisi: plan() hanya memproses reservasi Cloudbeds dengan ID ini (alat "Cek reservasi" / impor satu reservasi) */
+    private $onlyIds = null;
     /** Reservasi Cloudbeds yang totalnya diubah (adjustment) oleh penyamaan saldo di putaran ini */
     private $adjustedThisRun = [];
     /** Pindah kamar di Cloudbeds → sistem: berapa reservasi dibaca per sinkron & jeda minimal antar pembacaan (detik) */
@@ -156,6 +158,9 @@ class CloudbedsSync
         $list = $this->cb->previewReservations($from, $to);
         if (!$list['ok']) {
             return ['ok' => false, 'detail' => $list['detail'], 'actions' => [], 'counts' => []];
+        }
+        if ($this->onlyIds !== null) {
+            $list['items'] = array_values(array_filter($list['items'], fn($x) => in_array((string)$x['id'], $this->onlyIds, true)));
         }
 
         // Sumber Cloudbeds (nama & jenis collect) + pemetaan
@@ -3064,13 +3069,15 @@ class CloudbedsSync
      * apply() dan aman dijalankan tiap menit (cron/cloudbeds-quick.php) maupun sesaat sebelum membuat reservasi.
      * @return array{ok:bool, detail?:string, done:array, plan_warns:array}
      */
-    public function importNewOnly(string $from, string $to, int $userId = 0): array
+    public function importNewOnly(string $from, string $to, int $userId = 0, ?array $onlyIds = null): array
     {
         $this->newOnlyPlan = true;
+        $this->onlyIds = $onlyIds !== null ? array_map('strval', $onlyIds) : null;
         try {
             $plan = $this->plan($from, $to);
         } finally {
             $this->newOnlyPlan = false;
+            $this->onlyIds = null;
         }
         if (!$plan['ok']) {
             return ['ok' => false, 'detail' => $plan['detail'], 'done' => [], 'plan_warns' => []];
@@ -3125,6 +3132,98 @@ class CloudbedsSync
                 'checkin' => (string)$it['checkin'], 'checkout' => (string)$it['checkout'], 'status' => $st];
         }
         return ['ok' => true, 'detail' => 'OK', 'items' => $out];
+    }
+
+    /**
+     * Alat "Cek reservasi": cari reservasi Cloudbeds menurut nama tamu / ID, lalu jelaskan KENAPA belum masuk sistem
+     * (dibatalkan, sudah check-out, sumber belum dipetakan, belum ditempatkan kamar, kamar bentrok, di luar rentang sinkron…).
+     * @return array{ok:bool, detail?:string, items?:array, note?:string}
+     */
+    public function diagnose(string $q): array
+    {
+        $q = trim($q);
+        if ($q === '') return ['ok' => false, 'detail' => 'Ketik nama tamu atau ID reservasi Cloudbeds'];
+        $this->ensureTables();
+        $from = date('Y-m-d', strtotime('-60 days'));
+        $to = date('Y-m-d', strtotime('+400 days'));
+        $list = $this->cb->previewReservations($from, $to);
+        if (!$list['ok']) return ['ok' => false, 'detail' => (string)$list['detail']];
+
+        $needle = self::nameKey($q);
+        $matches = [];
+        foreach ($list['items'] as $it) {
+            if ((string)$it['id'] === $q || ($needle && !array_diff($needle, self::nameKey((string)$it['guest'])))) $matches[] = $it;
+        }
+        $note = count($list['items']) >= 500 ? 'Daftar Cloudbeds yang dibaca dipotong 500 reservasi; bila tamu tidak ketemu, cari dengan ID reservasi.' : '';
+        if (!$matches) {
+            return ['ok' => true, 'items' => [], 'note' => 'Tidak ada reservasi Cloudbeds bernama/ber-ID "' . $q . '" pada check-in ' . $from . ' s/d ' . $to . '. ' . $note . ' Pastikan tulisan namanya sama seperti di Cloudbeds.'];
+        }
+        $matches = array_slice($matches, 0, 5);
+        $ids = array_map(fn($m) => (string)$m['id'], $matches);
+
+        // rencana sinkron penuh khusus reservasi-reservasi ini (alasan peringatan = alasan sebenarnya)
+        $this->onlyIds = $ids;
+        try {
+            $plan = $this->plan($from, $to);
+        } finally {
+            $this->onlyIds = null;
+        }
+        $byCb = [];
+        foreach ($plan['actions'] ?? [] as $a) {
+            if (isset($a['cb']) && in_array((string)$a['cb'], $ids, true)) $byCb[(string)$a['cb']][] = $a;
+        }
+        $linkRows = [];
+        foreach ($this->db->fetchAll("SELECT l.cb_reservation_id, l.how, b.booking_code, b.status FROM cloudbeds_booking_links l JOIN bookings b ON b.id = l.booking_id") ?: [] as $l) {
+            $linkRows[(string)$l['cb_reservation_id']][] = $l['booking_code'] . ' (' . $l['status'] . ')';
+        }
+
+        $items = [];
+        foreach ($matches as $m) {
+            $id = (string)$m['id'];
+            $st = strtolower((string)$m['status']);
+            $notes = [];
+            $canImport = false;
+            if (!empty($linkRows[$id])) {
+                $notes[] = 'SUDAH masuk sistem: ' . implode(', ', $linkRows[$id]) . '.';
+            }
+            if (self::isCancelled($st)) {
+                $notes[] = 'Status Cloudbeds "' . $st . '" (dibatalkan) — tidak dimasukkan ke sistem.';
+            } elseif ($st === 'checked_out') {
+                $notes[] = 'Sudah check-out di Cloudbeds — riwayat, tidak dibuat di sistem.';
+            }
+            if ($m['checkin'] !== '' && ($m['checkin'] < date('Y-m-d', strtotime('-14 days')) || $m['checkin'] > date('Y-m-d', strtotime('+120 days')))) {
+                $notes[] = 'Check-in ' . $m['checkin'] . ' di luar rentang sinkron otomatis (14 hari lalu s/d 120 hari ke depan).';
+            }
+            foreach ($byCb[$id] ?? [] as $a) {
+                if ($a['type'] === 'create') {
+                    $notes[] = 'Siap dibuat otomatis: ' . $a['msg'];
+                    $canImport = true;
+                } elseif ($a['type'] === 'link') {
+                    $notes[] = 'Siap ditautkan: ' . $a['msg'];
+                    $canImport = true;
+                } elseif ($a['type'] === 'warn') {
+                    $notes[] = 'TIDAK masuk karena: ' . $a['msg'];
+                } else {
+                    $notes[] = 'Aksi sinkron: ' . ($a['msg'] ?? $a['type']);
+                }
+            }
+            if (!$notes) {
+                $notes[] = 'Tidak ada tindakan sinkron untuk reservasi ini (status "' . $st . '").';
+            }
+            // kamar di Cloudbeds
+            $rooms = [];
+            if (!self::isCancelled($st) && $st !== 'checked_out') {
+                $det = $this->cb->reservationDetail($id);
+                if ($det['ok']) {
+                    foreach ($det['rooms'] as $r) {
+                        $rooms[] = $r['assigned'] ? (($r['room_name'] ?: '?') . ' (sudah ditempatkan)') : ('belum ditempatkan: ' . ($r['type_name'] ?: 'tipe kamar'));
+                    }
+                }
+            }
+            $items[] = ['id' => $id, 'guest' => (string)$m['guest'], 'status' => $st, 'source' => (string)$m['source'], 'checkin' => (string)$m['checkin'],
+                'checkout' => (string)$m['checkout'], 'rooms' => $rooms, 'notes' => $notes, 'can_import' => $canImport];
+        }
+        return ['ok' => true, 'items' => $items, 'note' => $note];
     }
 
     public function apply(string $from, string $to, int $userId): array
