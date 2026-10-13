@@ -686,6 +686,46 @@ foreach ($transactions as $trans) {
 }
 $balance = $totalIncome - $totalExpense;
 
+/**
+ * Ringkas baris buku kas Hotel Service untuk TAMPILAN SAJA: baris per tipe layanan dari satu pembayaran invoice
+ * (deskripsi "[HSV-…] tamu - tipe | …", tanggal, jam, metode & akun kas sama) digabung menjadi satu baris total.
+ * Data di database tidak diubah, jadi pemisahan divisi, laporan, dan tagihan mitra tetap; rincian bisa dibuka
+ * lewat tombol di baris gabungan (tiap rincian tetap bisa diedit / dihapus sendiri).
+ * @return array<int,array> baris tampil; baris gabungan punya kunci 'merged' berisi baris-baris aslinya
+ */
+function cbMergeHotelServiceRows(array $rows): array
+{
+    $out = [];
+    $idx = [];
+    foreach ($rows as $r) {
+        if (($r['transaction_type'] ?? '') === 'income' && preg_match('/^\[(HSV-[^\]]+)\]\s*(.*?)\s+-\s+(.*?)\s*(\|.*)?$/su', (string)($r['description'] ?? ''), $m)) {
+            $key = $m[1] . '|' . ($r['transaction_date'] ?? '') . '|' . ($r['transaction_time'] ?? '') . '|' . ($r['payment_method'] ?? '') . '|' . ($r['cash_account_id'] ?? '');
+            $r['_hs'] = ['inv' => $m[1], 'guest' => $m[2], 'label' => $m[3], 'tail' => $m[4] ?? ''];
+            if (isset($idx[$key])) {
+                $out[$idx[$key]]['merged'][] = $r;
+                continue;
+            }
+            $idx[$key] = count($out);
+            $r['merged'] = [$r];
+        }
+        $out[] = $r;
+    }
+    foreach ($out as $i => $r) {
+        if (!isset($r['merged'])) continue;
+        if (count($r['merged']) < 2) {
+            unset($out[$i]['merged']);
+            continue;
+        }
+        $hs = $r['merged'][0]['_hs'];
+        $out[$i]['amount'] = array_sum(array_map(fn($x) => (float)$x['amount'], $r['merged']));
+        $out[$i]['description'] = '[' . $hs['inv'] . '] ' . $hs['guest'] . ' - Hotel Service × ' . count($r['merged']) . ($hs['tail'] !== '' ? ' ' . $hs['tail'] : '');
+        $out[$i]['division_name'] = 'Hotel Service';
+        $out[$i]['division_code'] = implode(', ', array_unique(array_map(fn($x) => (string)($x['division_code'] ?? '-'), $r['merged'])));
+    }
+    return array_values($out);
+}
+$listRows = cbMergeHotelServiceRows($transactions);
+
 // Calculate CASH AVAILABLE — same logic as dashboard Daily Cash widget
 $cashAvailable = 0;
 $startKas = 0;
@@ -1963,7 +2003,7 @@ echo getPrintCSS();
         </thead>
         <tbody>
             <?php $no = 1;
-            foreach ($transactions as $trans): ?>
+            foreach ($listRows as $trans): ?>
                 <tr>
                     <td style="text-align: center; color: #94a3b8; font-size: 0.75rem;"><?php echo $no++; ?></td>
                     <td><?php echo date('d/m/Y', strtotime($trans['transaction_date'])); ?></td>
@@ -2157,6 +2197,17 @@ echo getPrintCSS();
             }, 2400);
         </script>
     <?php endif; ?>
+
+    <script>
+        // Buka / tutup rincian baris Hotel Service yang digabung di daftar Buku Kas
+        function cbToggleGrp(id, btn) {
+            var rows = document.querySelectorAll('.cb-sub-' + id);
+            var open = rows.length && rows[0].style.display === 'none';
+            rows.forEach(function(r) { r.style.display = open ? '' : 'none'; });
+            btn.textContent = open ? '▴' : '▾';
+            if (window.feather) feather.replace();
+        }
+    </script>
 
     <?php if (isset($_SESSION['error'])): ?>
         <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-left: 4px solid #ef4444; padding: 1.25rem 1.5rem; border-radius: 0.75rem; margin-bottom: 1.5rem; box-shadow: 0 4px 12px rgba(239,68,68,0.15); animation: slideInDown 0.5s ease-out;">
@@ -2971,7 +3022,7 @@ echo getPrintCSS();
                         }
 
                         $previousDate = null;
-                        foreach ($transactions as $trans):
+                        foreach ($listRows as $trans):
                             // Date Separator Logic
                             $currentDate = date('Y-m-d', strtotime($trans['transaction_date']));
                             // Show separator for first item OR when date changes
@@ -3114,6 +3165,11 @@ echo getPrintCSS();
                                     </span>
                                 </td>
                                 <td>
+                                    <?php if (!empty($trans['merged'])): ?>
+                                        <div class="cb-actions">
+                                            <button type="button" class="cb-action-btn" style="background:#e2e8f0;color:#334155;font-size:.8rem" title="Lihat rincian" onclick="cbToggleGrp('<?php echo (int)$trans['id']; ?>', this)">▾</button>
+                                        </div>
+                                    <?php else: ?>
                                     <div class="cb-actions">
                                         <?php if ($auth->canEdit('cashbook')): ?>
                                             <?php if (isset($trans['is_editable']) && $trans['is_editable'] == 1): ?>
@@ -3135,8 +3191,32 @@ echo getPrintCSS();
                                             </a>
                                         <?php endif; ?>
                                     </div>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
+                            <?php if (!empty($trans['merged'])): foreach ($trans['merged'] as $sub): ?>
+                                <tr class="cb-sub cb-sub-<?php echo (int)$trans['id']; ?>" style="display:none; background: rgba(100,116,139,.07);">
+                                    <td></td>
+                                    <td></td>
+                                    <td style="font-size: 0.74rem;"><strong><?php echo htmlspecialchars((string)$sub['division_name']); ?></strong></td>
+                                    <td style="font-size: 0.74rem;"><?php echo htmlspecialchars((string)$sub['category_name']); ?></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="cb-amt is-in" style="text-align: right; white-space: nowrap; font-size: 0.78rem;"><?php echo formatCurrency($sub['amount']); ?></td>
+                                    <td style="font-size: 0.74rem; color: var(--text-muted);">↳ <?php echo htmlspecialchars($sub['_hs']['label']); ?></td>
+                                    <td></td>
+                                    <td>
+                                        <div class="cb-actions">
+                                            <?php if ($auth->canEdit('cashbook') && !empty($sub['is_editable'])): ?>
+                                                <a href="edit.php?id=<?php echo (int)$sub['id']; ?>" class="cb-action-btn edit" title="Edit"><i data-feather="edit-2"></i></a>
+                                            <?php endif; ?>
+                                            <?php if ($auth->canDelete('cashbook')): ?>
+                                                <a href="delete.php?id=<?php echo (int)$sub['id']; ?>" onclick="return confirm('Yakin ingin menghapus transaksi ini?')" class="cb-action-btn delete" title="Hapus"><i data-feather="trash-2"></i></a>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; endif; ?>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>

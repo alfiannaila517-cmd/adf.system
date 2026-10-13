@@ -17,7 +17,7 @@ return [
         'transaksi ditemukan' => 'transactions found', 'transaksi' => 'transactions', 'total transaksi' => 'total transactions',
         'Dicetak oleh' => 'Printed by', 'Tanggal cetak' => 'Print date', 'Transaksi tanggal' => 'Transactions on', 'User input' => 'Input by',
         'Total Pemasukan' => 'Total Income', 'Total Pengeluaran' => 'Total Expenses', 'Pemasukan' => 'Income', 'Pengeluaran' => 'Expenses',
-        'Berhasil' => 'Success', 'Transaksi berhasil diupdate' => 'Transaction updated successfully', 'Transaksi berhasil dihapus. Log penghapusan telah dicatat.' => 'Transaction deleted successfully. The deletion log has been recorded.', 'Tanggal' => 'Date', 'Dari Tanggal' => 'From Date', 'Sampai Tanggal' => 'To Date',
+        'Berhasil' => 'Success', 'Lihat rincian' => 'Show details', 'Transaksi berhasil diupdate' => 'Transaction updated successfully', 'Transaksi berhasil dihapus. Log penghapusan telah dicatat.' => 'Transaction deleted successfully. The deletion log has been recorded.', 'Tanggal' => 'Date', 'Dari Tanggal' => 'From Date', 'Sampai Tanggal' => 'To Date',
         '(bukan pengeluaran, hanya pindah ke bank)' => '(not an expense, just moved to the bank)',
         'Kas operasional untuk office & proyek • Dompet terpisah dari kas invoice' => 'Operational cash for office & projects • Wallet separate from invoice cash',
         'Office & proyek (sumber: petty cash)' => 'Office & projects (source: petty cash)', 'Operasional Kantor' => 'Office Operations',
