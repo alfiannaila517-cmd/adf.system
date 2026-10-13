@@ -2568,6 +2568,36 @@ include '../../includes/header.php';
             justify-content: center;
         }
     }
+
+    /* ───── Tabel Proses Gaji: tata rapi & elegan (ukuran teks tidak diubah) ───── */
+    /* Kolom nama lebih ramping → kolom Base lebih dekat ke nama; tombol absensi tetap sejajar di tepi kanan sel nama */
+    .ps-table th.col-employee { width: 1%; min-width: 0; }
+    .ps-table td.col-employee { padding-right: 0.45rem; }
+    .ps-emp-row { gap: 0.4rem; }
+    .ps-emp-info { flex: 1 1 auto; min-width: max-content; max-width: 168px; }
+    .ps-emp-name, .ps-emp-pos { max-width: 168px; }
+
+    /* Header & garis baris lebih halus */
+    .ps-table thead th { border-bottom: 2px solid var(--border-color); }
+    .ps-table tbody td { border-bottom: 1px solid var(--border-light); }
+
+    /* Kotak isian tampil jelas tapi lembut */
+    .ps-table .ps-input {
+        border: 1px solid var(--border-color);
+        border-radius: 7px;
+        background: var(--bg-primary);
+        padding-top: 0.36rem;
+        padding-bottom: 0.36rem;
+    }
+    .ps-table .ps-input:hover { border-color: rgba(102, 126, 234, 0.55); background: var(--bg-primary); }
+    .ps-table .ps-input:focus { border-color: var(--primary-color); background: var(--bg-primary); }
+    .ps-table .ps-input[readonly] { border-color: transparent; background: var(--bg-secondary) !important; color: var(--text-secondary); }
+    .ps-table .ps-input.highlight-hours { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.35); }
+    .ps-table .ps-input[data-field="overtime_hours"] { text-align: center; font-weight: 600; }
+
+    /* Kolom Net tegas, tanda tersimpan kecil di sampingnya */
+    .ps-cell-net { letter-spacing: 0.1px; }
+    .ps-saved-mark { margin-left: 4px; font-size: 0.78rem; font-weight: 800; color: #10b981; }
 </style>
 
 <div class="ps-page-wrapper">
@@ -2709,7 +2739,7 @@ include '../../includes/header.php';
                             </th>
                             <th style="width: 98px; padding: 0.52rem 0.28rem; font-size: 0.74rem;">Actual<div class="ps-info" style="font-size: 0.62rem; margin-top: 2px;">Calc</div>
                             </th>
-                            <th style="width: 54px; background: rgba(59,130,246,0.1); padding: 0.52rem 0.28rem; font-size: 0.74rem;">OT</th>
+                            <th style="width: 60px; background: rgba(59,130,246,0.1); padding: 0.52rem 0.28rem; font-size: 0.74rem;">OT</th>
                             <th style="width: 82px; background: rgba(220,38,38,0.08); padding: 0.52rem 0.28rem; font-size: 0.72rem; color:#b91c1c;" title="Tambahan dari hari kerja melebihi 26 hari/bulan (auto, dibayar pakai rate jam-OT)">Extra<div class="ps-info" style="font-size:0.58rem;color:#b91c1c;margin-top:2px;">&gt;26hr</div>
                             </th>
                             <th style="width: 84px;" title="Uang lembur harian (OT approved) × rate jam (base÷<?php echo (int)$monthlyTargetHours; ?>)">OT Rp Harian</th>
@@ -2719,7 +2749,6 @@ include '../../includes/header.php';
                             <th style="width: 68px;">Bonus</th>
                             <th style="width: 74px; color: #ef4444;">Deduct</th>
                             <th style="width: 88px;">Net</th>
-                            <th style="width: 55px;">Save</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2796,7 +2825,7 @@ include '../../includes/header.php';
 
                                 <td>
                                     <input type="number" class="ps-input" style="background: rgba(59,130,246,0.1);"
-                                        value="<?php echo $slip['overtime_hours']; ?>" step="1" min="0"
+                                        value="<?php echo rtrim(rtrim(number_format((float)$slip['overtime_hours'], 2, '.', ''), '0'), '.'); ?>" step="1" min="0"
                                         data-field="overtime_hours" data-id="<?php echo $slip['id']; ?>"
                                         title="OT yang disetujui / dimasukkan manual (jam penuh, kelipatan 1 jam dgn threshold <?php echo (int)$otRoundMinutes; ?> menit)"
                                         oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
@@ -2880,14 +2909,7 @@ include '../../includes/header.php';
                                         <?php echo number_format($slip['net_salary'], 0, ',', '.'); ?>
                                     </span>
                                     <span id="save-indicator-<?php echo $slip['id']; ?>" class="save-indicator"></span>
-                                </td>
-
-                                <td style="text-align:center;">
-                                    <button type="button" class="ps-btn-save-row" id="save-btn-<?php echo $slip['id']; ?>" title="Simpan baris ini"
-                                        onclick="saveRow(<?php echo $slip['id']; ?>)" style="display:none;background:#10b981;color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.72rem;font-weight:600;white-space:nowrap;">
-                                        💾
-                                    </button>
-                                    <span id="saved-label-<?php echo $slip['id']; ?>" style="color:#6b7280;font-size:0.65rem;">—</span>
+                                    <span id="saved-label-<?php echo $slip['id']; ?>" class="ps-saved-mark" style="display:none;" title="Tersimpan otomatis"></span>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -3307,15 +3329,14 @@ body:not([data-theme="light"]) span[style*="color:#6b7280"] { color: #94a3b8 !im
                     }
                     if (savedLabel) {
                         savedLabel.style.display = 'inline';
-                        savedLabel.textContent = '✅';
-                        savedLabel.style.color = '#10b981';
+                        savedLabel.textContent = '✓';
                     }
                     setTimeout(() => {
                         if (savedLabel) {
-                            savedLabel.textContent = '—';
-                            savedLabel.style.color = '#6b7280';
+                            savedLabel.style.display = 'none';
+                            savedLabel.textContent = '';
                         }
-                    }, 3000);
+                    }, 2500);
                     // Mark as hours_locked and swap icon to 🔒
                     if (res.hours_locked) {
                         const row = document.getElementById(`row-${id}`);
