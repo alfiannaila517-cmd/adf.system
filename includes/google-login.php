@@ -216,7 +216,9 @@ function adfGoogleCompleteLogin(array $user): void
     try {
         $avail = getUserAvailableBusinesses();
         if ($avail) {
-            $slug = (string)array_key_first($avail);
+            // Sama dengan login biasa/owner: utamakan Narayana Hotel bila user punya aksesnya, selain itu bisnis pertama.
+            // (Tanpa ini, user yang juga ditugaskan ke Gudang bisa mendarat di Gudang.)
+            $slug = (string)getPreferredDefaultBusiness($avail);
         } else {
             // Tanpa penugasan: ikuti izin menu eksplisit (sama dengan checkOwnerBusinessAccess)
             $st = $pdo->prepare('SELECT b.business_code FROM user_menu_permissions p JOIN businesses b ON b.id = p.business_id WHERE p.user_id = ? AND p.can_view = 1 AND b.is_active = 1 ORDER BY b.id LIMIT 1');
