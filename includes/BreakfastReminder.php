@@ -70,51 +70,30 @@ function bf_rm_hotel_name($db): string
     return defined('BUSINESS_NAME') ? (string)BUSINESS_NAME : 'Hotel';
 }
 
-/** Isi pesan pengingat — ramah, sopan, singkat. */
+/** Isi pesan pengingat — singkat, sopan, natural. */
 function bf_rm_message(string $guestName, array $rooms, string $link, string $lang, string $hotel): string
 {
-    $name = trim($guestName) !== '' ? trim($guestName) : ($lang === 'id' ? 'Bapak/Ibu' : 'Guest');
-    $roomLine = $rooms ? implode(', ', $rooms) : '';
+    $name = trim($guestName);
     if ($lang === 'id') {
-        $lines = [
-            'Yth. ' . $name . ',',
+        return implode("\n", [
+            'Selamat malam, ' . ($name !== '' ? $name : 'Bapak/Ibu') . '.',
             '',
-            'Selamat malam dari ' . $hotel . ' 🌙',
-            '',
-            'Agar sarapan Anda besok pagi dapat kami siapkan sesuai selera, berkenan memilih menu melalui tautan berikut:',
+            'Menu sarapan untuk besok pagi belum dipilih. Berkenan memilih sebelum pukul 05.00 melalui:',
             $link,
-        ];
-        if ($roomLine !== '') $lines[] = 'Kamar: ' . $roomLine;
-        array_push(
-            $lines,
             '',
-            'Mohon dipilih sebelum pukul 05.00 pagi. Apabila belum sempat, Bapak/Ibu tetap dapat memesan langsung di restoran kami.',
-            '',
-            'Selamat beristirahat, semoga malam Anda menyenangkan.',
-            'Hormat kami,',
-            $hotel
-        );
-    } else {
-        $lines = [
-            'Dear ' . $name . ',',
-            '',
-            'Good evening from ' . $hotel . ' 🌙',
-            '',
-            'We would love to prepare your breakfast just the way you like it. Whenever convenient, please choose your menu for tomorrow morning through the link below:',
-            $link,
-        ];
-        if ($roomLine !== '') $lines[] = 'Room: ' . $roomLine;
-        array_push(
-            $lines,
-            '',
-            'Kindly make your selection before 5:00 AM. If you are unable to, you are most welcome to order directly at our restaurant.',
-            '',
-            'We wish you a restful night.',
-            'Warm regards,',
-            $hotel
-        );
+            'Jika belum sempat, Anda tetap bisa memesan langsung di restoran. Terima kasih.',
+            $hotel,
+        ]);
     }
-    return implode("\n", $lines);
+    return implode("\n", [
+        'Good evening, ' . ($name !== '' ? $name : 'Guest') . '.',
+        '',
+        'Your breakfast menu for tomorrow has not been selected yet. Please choose before 5:00 AM here:',
+        $link,
+        '',
+        'If you miss it, you are welcome to order at the restaurant. Thank you.',
+        $hotel,
+    ]);
 }
 
 /**
@@ -179,7 +158,7 @@ function bf_rm_targets($db, string $date, array $onlyBookingIds = []): array
                     ORDER BY id DESC LIMIT 1", array_merge([$date], $bookingIds));
                 if ($lk) {
                     $link = !empty($lk['short_code'])
-                        ? bf_rm_base_url() . '/go-breakfast.php?k=' . urlencode((string)$lk['short_code'])
+                        ? bf_rm_base_url() . '/go-breakfast.php?k=' . urlencode((string)$lk['short_code']) . '&np=1'
                         : bf_rm_base_url() . '/modules/frontdesk/breakfast-guest.php?t=' . urlencode((string)$lk['token']);
                 }
             } catch (\Throwable $e) {
