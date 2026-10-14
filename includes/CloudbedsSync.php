@@ -161,6 +161,42 @@ class CloudbedsSync
         }
     }
 
+    /** @var array<string,string>|null source_key => source_type (tabel booking_sources) */
+    private $srcTypeMap = null;
+
+    private function sourceTypeMap(): array
+    {
+        if ($this->srcTypeMap === null) {
+            $this->srcTypeMap = [];
+            try {
+                foreach ($this->db->fetchAll("SELECT source_key, source_type FROM booking_sources") ?: [] as $r) {
+                    $this->srcTypeMap[(string)$r['source_key']] = (string)$r['source_type'];
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        return $this->srcTypeMap;
+    }
+
+    /**
+     * Semua booking ini bersumber LANGSUNG (walk-in, telepon, website / booking engine, …)? Harga booking langsung dipegang
+     * ADF (bukan Cloudbeds) walau reservasinya masuk lewat Cloudbeds (mis. booking engine website). Hanya sumber OTA yang
+     * harganya mengikuti Cloudbeds.
+     * @param array<int,array{booking_source?:?string}> $rows
+     */
+    private function allDirectSources(array $rows): bool
+    {
+        if (!$rows) return false;
+        $map = $this->sourceTypeMap();
+        foreach ($rows as $r) {
+            $key = (string)($r['booking_source'] ?? '');
+            $type = $map[$key] ?? null;
+            $direct = $type === 'direct' || ($type === null && in_array($key, ['walk_in', 'phone', 'online', 'direct', 'website', 'email'], true));
+            if (!$direct) return false;
+        }
+        return true;
+    }
+
     private static function nameKey(string $s): array
     {
         $w = preg_split('/\s+/', strtolower(preg_replace('/[^a-zA-Z ]/', ' ', $s)));
@@ -332,7 +368,7 @@ class CloudbedsSync
             if (isset($links[$cbId])) {
                 if ($this->newOnlyPlan) continue; // mode cepat: yang sudah tertaut diurus sinkron penuh
                 $bks = $this->db->fetchAll(
-                    "SELECT id, booking_code, status, paid_amount, final_price, DATE(check_in_date) ci, DATE(check_out_date) co,
+                    "SELECT id, booking_code, booking_source, status, paid_amount, final_price, DATE(check_in_date) ci, DATE(check_out_date) co,
                         (COALESCE(notes,'') LIKE '%saldo disamakan%' AND COALESCE(notes,'') NOT LIKE '%[Cloudbeds: dibersihkan%') AS hit FROM bookings WHERE id IN (" .
                         implode(',', array_map('intval', $links[$cbId])) . ")"
                 ) ?: [];
@@ -356,6 +392,8 @@ class CloudbedsSync
                 // kecil) → disamakan otomatis: kirim pembayaran yang belum terkirim, lalu adjustment sisa selisih
                 // Reservasi OTA (masuk dari Cloudbeds) → Cloudbeds patokan harga; reservasi buatan sistem → sistem patokan
                 $isOtaRes = (bool)array_filter($linkHow[$cbId] ?? [], fn($h) => $h !== 'push');
+                // Harga mengikuti Cloudbeds HANYA untuk sumber OTA; booking langsung (walk-in/telepon/website) harganya dipegang ADF
+                $priceFromCb = $isOtaRes && !$this->allDirectSources($bks);
                 // Selisih pajak dari bug lama: total Cloudbeds = total sistem + pajak/biaya PERSIS, pada reservasi yang dulu
                 // disesuaikan sistem → kembalikan (sekali per reservasi)
                 if (false && !$this->pushOnlyPlan && isset($legacyAdjusted[$cbId]) && !isset($taxfixChecked[$cbId]) && !self::isCancelled($it['status'])
@@ -441,7 +479,7 @@ class CloudbedsSync
                 // Cloudbeds); booking buatan sistem TIDAK (harga sistem, mis. diskon, yang berlaku). Tidak saat menunggu edit dari sistem.
                 $live = array_values(array_filter($bks, fn($b) => in_array($b['status'], ['confirmed', 'pending', 'checked_in'], true)));
                 if (!$this->pushOnlyPlan && !self::isCancelled($it['status']) && $live && count($live) === count(array_filter($bks, fn($b) => $b['status'] !== 'cancelled'))
-                    && $isOtaRes && !array_filter($live, fn($b) => isset($pendingEditIds[(int)$b['id']]))) {
+                    && $priceFromCb && !array_filter($live, fn($b) => isset($pendingEditIds[(int)$b['id']]))) {
                     $liveIn = implode(',', array_map(fn($b) => (int)$b['id'], $live));
                     $hasPay = !$isOtaRes && $this->db->fetchOne("SELECT id FROM booking_payments WHERE booking_id IN ($liveIn) AND amount > 0 LIMIT 1");
                     $cbTotal = $it['total'] ?? null;
@@ -450,7 +488,7 @@ class CloudbedsSync
                     // Harga OTA harus cepat mengikuti Cloudbeds: bila saldo reservasi di daftar Cloudbeds berubah sejak
                     // pengecekan terakhir (mis. harga diubah di Cloudbeds), cek detail sekarang — tidak menunggu 3 jam.
                     $listBalP = isset($it['balance']) && is_numeric($it['balance']) ? (float)$it['balance'] : null;
-                    $balChanged = $isOtaRes && $listBalP !== null && (!array_key_exists($cbId, $lastPriceBal) || $lastPriceBal[$cbId] === null || abs($listBalP - $lastPriceBal[$cbId]) >= 1);
+                    $balChanged = $priceFromCb && $listBalP !== null && (!array_key_exists($cbId, $lastPriceBal) || $lastPriceBal[$cbId] === null || abs($listBalP - $lastPriceBal[$cbId]) >= 1);
                     if (!$hasPay && $cbTotal === null && ($nPriceDetail < self::MAX_PRICE_DETAIL || ($balChanged && $nBalDetail < 20)) && max(array_column($live, 'co')) >= date('Y-m-d')
                         && (!isset($recentPriceChecks[$cbId]) || $balChanged)) {
                         if ($nPriceDetail < self::MAX_PRICE_DETAIL && !$balChanged) $nPriceDetail++; else $nBalDetail++;
@@ -2239,6 +2277,8 @@ class CloudbedsSync
         $isOta = (bool)$this->db->fetchOne("SELECT booking_id FROM cloudbeds_booking_links WHERE cb_reservation_id = ? AND how <> 'push' LIMIT 1", [$cbId]);
         // Buatan sistem: harga sistem yang berlaku (mis. diskon di sistem) — tidak ditimpa harga Cloudbeds
         if (!$isOta) return null;
+        // Booking langsung (walk-in/telepon/website-booking engine) yang masuk lewat Cloudbeds: harga tetap dari ADF
+        if ($this->allDirectSources($this->db->fetchAll("SELECT booking_source FROM bookings WHERE id IN ($in)") ?: [])) return null;
         if ($this->db->fetchOne("SELECT booking_id FROM cloudbeds_pending_edits WHERE booking_id IN ($in) LIMIT 1")) return null;
         $old = (float)($this->db->fetchOne("SELECT COALESCE(SUM(final_price), 0) s FROM bookings WHERE id IN ($in)")['s'] ?? 0);
         $det = $this->cb->reservationDetail($cbId);
