@@ -64,6 +64,8 @@ try {
         $db->query("INSERT INTO user_preferences (user_id, branch_id, theme, language) VALUES (?, '', 'dark', ?)", [$userId, $code]);
     }
     $_SESSION['user_language'] = $code;
+    require_once '../includes/user_lang_pref.php';
+    userLangSave($userId, $code); // permanen di database utama: dipakai lagi saat login berikutnya
 
     echo json_encode(['success' => true, 'language' => $code]);
 } catch (Exception $e) {

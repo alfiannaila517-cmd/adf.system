@@ -15,6 +15,16 @@ function langSupported(): array
 }
 
 $userLang = $_SESSION['user_language'] ?? 'id';
+
+// Pengguna yang sudah memilih bahasa sebelum fitur "bahasa permanen" belum punya catatan di database utama:
+// simpan bahasa sesi saat ini sekali saja, supaya pilihan itu bertahan setelah logout/login.
+if (!empty($_SESSION['user_id']) && empty($_SESSION['_lang_pref_synced']) && defined('DB_HOST')) {
+    $_SESSION['_lang_pref_synced'] = 1;
+    require_once __DIR__ . '/user_lang_pref.php';
+    if (userLangLoad((int)$_SESSION['user_id']) === null && !empty($_SESSION['user_language'])) {
+        userLangSave((int)$_SESSION['user_id'], (string)$_SESSION['user_language']);
+    }
+}
 if (!isset(langSupported()[$userLang])) {
     $userLang = 'id';
 }

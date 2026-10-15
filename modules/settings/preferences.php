@@ -73,6 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // IMPORTANT: Update session immediately for changes to take effect
         $_SESSION['user_theme'] = $theme;
         $_SESSION['user_language'] = $language;
+        require_once __DIR__ . '/../../includes/user_lang_pref.php';
+        userLangSave((int)($_SESSION['user_id'] ?? 0), (string)$language);
         
         setFlashMessage('success', 'Preferensi berhasil disimpan! Halaman akan dimuat ulang...');
         

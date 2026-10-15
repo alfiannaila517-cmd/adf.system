@@ -187,6 +187,8 @@ function adfGoogleCompleteLogin(array $user): void
         }
     } catch (Throwable $e) {
     }
+    require_once __DIR__ . '/user_lang_pref.php';
+    userLangRestore((int)$user['id']); // bahasa terakhir (permanen)
     try {
         $pdo->prepare("INSERT INTO audit_logs (user_id, action_type, table_name, record_id, ip_address, created_at) VALUES (?, 'login', 'users', ?, ?, NOW())")
             ->execute([$user['id'], $user['id'], $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1']);

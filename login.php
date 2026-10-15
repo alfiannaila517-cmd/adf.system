@@ -129,6 +129,8 @@ if ($allowRememberTokenAutoLogin && !empty($_COOKIE['adf_remember_token']) && !$
                 $_SESSION['login_time'] = time();
                 $_SESSION['user_theme'] = 'dark';
                 $_SESSION['user_language'] = 'id';
+                require_once __DIR__ . '/includes/user_lang_pref.php';
+                userLangRestore((int)$tokenUser['id']); // login "ingat saya": pakai bahasa terakhir
 
                 // Refresh token (extend expiry)
                 $newToken = generateRememberToken($tokenUser['id'], $rememberSecret);

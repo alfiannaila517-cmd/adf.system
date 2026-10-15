@@ -198,6 +198,10 @@ class Auth
                     $_SESSION['user_language'] = 'id';
                 }
 
+                // Bahasa terakhir yang dipilih pengguna (permanen, database utama) mengalahkan nilai bawaan
+                require_once __DIR__ . '/user_lang_pref.php';
+                userLangRestore((int)$user['id']);
+
                 $this->updateUserActivity($user['id'], $pdo);
 
                 // Log to audit_logs
@@ -345,6 +349,8 @@ class Auth
                 $_SESSION['user_theme'] = 'dark';
                 $_SESSION['user_language'] = 'id';
             }
+            require_once __DIR__ . '/user_lang_pref.php';
+            userLangRestore((int)$_SESSION['user_id']); // bahasa terakhir (permanen)
         }
     }
 

@@ -125,6 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Update session language immediately so it takes effect
         $_SESSION['user_language'] = $language;
+        require_once __DIR__ . '/../../includes/user_lang_pref.php';
+        userLangSave((int)($_SESSION['user_id'] ?? 0), (string)$language);
         
         $db->getConnection()->commit();
         
