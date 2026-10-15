@@ -4547,7 +4547,7 @@ include '../../includes/header.php';
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
                         credentials: 'include',
-                        body: 'booking_id=' + bookingId + '&pay_now=0&create_invoice=0&guest_phone=' + encodeURIComponent(_gOta.phone)
+                        body: 'booking_id=' + bookingId + '&pay_now=0&create_invoice=0&guest_phone=' + encodeURIComponent(_gOta.phone) + '&guest_name=' + encodeURIComponent(_gOta.name)
                     })
                     .then(response => response.json())
                     .then(data => {
@@ -4593,7 +4593,7 @@ include '../../includes/header.php';
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
                     credentials: 'include', // Important: Send session cookies
-                    body: 'booking_id=' + bookingId + '&create_invoice=' + createInvoice + '&guest_phone=' + encodeURIComponent(_gNorm.phone)
+                    body: 'booking_id=' + bookingId + '&create_invoice=' + createInvoice + '&guest_phone=' + encodeURIComponent(_gNorm.phone) + '&guest_name=' + encodeURIComponent(_gNorm.name)
                 })
                 .then(response => {
                     // Check if response is JSON
@@ -4748,7 +4748,7 @@ include '../../includes/header.php';
             }
             const _gq1 = await adfCheckinGate(b.id, `🏨 Booking via OTA ${sourceLabel}${feeInfo}`);
             if (!_gq1) return;
-            performCheckin(0, null, false, _gq1.phone);
+            performCheckin(0, null, false, _gq1);
             return;
         }
 
@@ -4756,7 +4756,7 @@ include '../../includes/header.php';
         if (remaining <= 0) {
             const _gq2 = await adfCheckinGate(b.id, '💳 Tagihan LUNAS');
             if (!_gq2) return;
-            performCheckin(0, null, false, _gq2.phone);
+            performCheckin(0, null, false, _gq2);
             return;
         }
 
@@ -4764,10 +4764,10 @@ include '../../includes/header.php';
         // status belum lunas otomatis muncul di banner notifikasi & badge sidebar Front Desk.
         const _gq3 = await adfCheckinGate(b.id);
         if (!_gq3) return;
-        performCheckin(0, null, false, _gq3.phone);
+        performCheckin(0, null, false, _gq3);
     }
 
-    function performCheckin(payAmount, payMethod, payNow, guestPhone) {
+    function performCheckin(payAmount, payMethod, payNow, gate) {
         const booking = currentPaymentBooking;
         const btn = document.querySelector('.qv-checkin-btn');
         if (btn) {
@@ -4775,7 +4775,7 @@ include '../../includes/header.php';
             btn.disabled = true;
         }
 
-        let body = 'booking_id=' + booking.id + '&create_invoice=0' + (guestPhone ? '&guest_phone=' + encodeURIComponent(guestPhone) : '');
+        let body = 'booking_id=' + booking.id + '&create_invoice=0' + (gate ? '&guest_phone=' + encodeURIComponent(gate.phone) + '&guest_name=' + encodeURIComponent(gate.name) : '');
         if (payNow && payAmount > 0) {
             body += '&pay_now=1&pay_amount=' + payAmount + '&pay_method=' + encodeURIComponent(payMethod);
         } else {

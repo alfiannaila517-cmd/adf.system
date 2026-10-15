@@ -106,14 +106,16 @@ try {
         throw new Exception('Booking status tidak valid untuk check-in');
     }
 
-    // Nomor telepon tamu yang dikoreksi di popup konfirmasi check-in: simpan agar pesan welcome terkirim ke nomor yang benar
+    // Nama / nomor tamu yang dikoreksi di popup konfirmasi check-in: diterapkan ke semua data booking ini
+    // (tamu, invoice, sarapan, buku kas) sebelum pesan welcome dikirim ke nomor yang benar.
+    $fixName = trim((string)($_POST['guest_name'] ?? ''));
     $fixPhone = trim((string)($_POST['guest_phone'] ?? ''));
-    if ($fixPhone !== '' && !empty($booking['guest_id']) && $fixPhone !== (string)($booking['guest_phone'] ?? '')) {
+    if ($fixName !== '' || $fixPhone !== '') {
         require_once '../includes/WhatsAppHelper.php';
-        if (WhatsAppHelper::normalizeTarget($fixPhone) !== '') {
-            $db->query("UPDATE guests SET phone = ? WHERE id = ?", [$fixPhone, $booking['guest_id']]);
-            $booking['guest_phone'] = $fixPhone;
-        }
+        require_once '../includes/GuestBookingEdit.php';
+        $edit = GuestBookingEdit::apply($db, (int)$bookingId, $fixName, $fixPhone);
+        if ($edit['name']) $booking['guest_name'] = preg_replace('/\s+/', ' ', $fixName);
+        if ($edit['phone']) $booking['guest_phone'] = $fixPhone;
     }
 
     // Booking untuk tanggal yang akan datang tidak bisa di-check-in hari ini (pendapatan OTA ikut

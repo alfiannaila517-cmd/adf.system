@@ -3158,7 +3158,8 @@ include '../../includes/header.php';
                 },
                 body: JSON.stringify({
                     booking_id: id,
-                    guest_phone: gate.phone
+                    guest_phone: gate.phone,
+                    guest_name: gate.name
                 })
             })
             .then(response => response.json())

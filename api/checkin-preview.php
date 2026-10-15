@@ -55,6 +55,14 @@ try {
     elseif ($phoneNorm === '') $wcState = 'no_phone';
     elseif ($wa->recentlySent('checkin', $phoneNorm)) $wcState = 'already_sent';
 
+    // Nama sumber booking yang rapi (booking_sources) — kalau tidak ada: walk_in -> Walk in
+    $sourceName = '';
+    try {
+        $sourceName = (string)($db->fetchOne("SELECT source_name FROM booking_sources WHERE source_key = ? LIMIT 1", [$b['booking_source']])['source_name'] ?? '');
+    } catch (\Throwable $e) {
+    }
+    if ($sourceName === '') $sourceName = ucfirst(str_replace('_', ' ', (string)$b['booking_source']));
+
     $total = (float)$b['final_price'];
     $paid = (float)$b['paid_amount'];
     echo json_encode([
@@ -69,7 +77,7 @@ try {
             'check_in' => $b['check_in_date'],
             'check_out' => $b['check_out_date'],
             'nights' => (int)$b['total_nights'],
-            'source' => (string)$b['booking_source'],
+            'source' => $sourceName,
             'total' => $total,
             'paid' => $paid,
             'remaining' => max(0, $total - $paid),
