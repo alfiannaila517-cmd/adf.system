@@ -49,6 +49,10 @@ return [
         'Terkirim' => 'Sent', 'Gagal' => 'Failed', 'Sisa kredit' => 'Remaining credit', 'Simpan Pengaturan' => 'Save Settings', '— Tidak ada' => '— None',
         'Nomor tujuan, mis. 0812…' => 'Recipient number, e.g. 0812…',
         // ---- Layanan Tamu (guest-services.php) ----
+        'Judul (English)' => 'Title (English)', 'Label singkat (English)' => 'Short labels (English)',
+        'Teks English tampil untuk tamu berbahasa Inggris; bila kosong dipakai teks Indonesia di atas.' => 'The English text is shown to English-speaking guests; if empty, the Indonesian text above is used.',
+        'Syarat & info — English (opsional)' => 'Requirements & info — English (optional)',
+        'Tampil untuk tamu berbahasa Inggris; kosong = pakai teks Indonesia.' => 'Shown to English-speaking guests; empty = use the Indonesian text.',
         'Flyer, WiFi & layanan' => 'Flyers, WiFi & services', 'Umum' => 'General', 'Tampil di halaman tamu' => 'Show on guest page', 'Lihat contoh · ID' => 'View example · ID',
         'Link di pesan welcome' => 'Link in welcome message', 'Sertakan link layanan tamu' => 'Include the guest services link',
         'Bila mati, pesan welcome dikirim tanpa link. Isi pesan diatur di' => 'When off, the welcome message is sent without the link. The message text is set in',

@@ -25,7 +25,8 @@ class GuestServices
     public const KEYS = ['gs_enabled', 'gs_fo_wa', 'gs_fo_hours', 'gs_trip_title', 'gs_trip_chips', 'gs_flyers',
         'gs_motor_enabled', 'gs_motor_photo', 'gs_motor_price', 'gs_motor_unit', 'gs_motor_notes', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note',
         'gs_car_enabled', 'gs_car_price', 'gs_car_unit', 'gs_car_notes',
-        'gs_taxi_enabled', 'gs_taxi_price', 'gs_taxi_unit', 'gs_taxi_notes'];
+        'gs_taxi_enabled', 'gs_taxi_price', 'gs_taxi_unit', 'gs_taxi_notes',
+        'gs_trip_title_en', 'gs_trip_chips_en', 'gs_motor_notes_en', 'gs_car_notes_en', 'gs_taxi_notes_en'];
 
     public static function ensureTables($db): void
     {
@@ -62,7 +63,8 @@ class GuestServices
         $s = ['gs_enabled' => '0', 'gs_fo_wa' => '', 'gs_fo_hours' => '07.00–22.00', 'gs_trip_title' => '', 'gs_trip_chips' => '',
             'gs_flyers' => '[]', 'gs_motor_enabled' => '1', 'gs_motor_photo' => '', 'gs_motor_price' => '', 'gs_motor_unit' => '', 'gs_motor_notes' => '', 'gs_wifi_ssid' => '', 'gs_wifi_pass' => '', 'gs_wifi_note' => '',
             'gs_car_enabled' => '0', 'gs_car_price' => '', 'gs_car_unit' => '', 'gs_car_notes' => '',
-            'gs_taxi_enabled' => '0', 'gs_taxi_price' => '', 'gs_taxi_unit' => '', 'gs_taxi_notes' => ''];
+            'gs_taxi_enabled' => '0', 'gs_taxi_price' => '', 'gs_taxi_unit' => '', 'gs_taxi_notes' => '',
+            'gs_trip_title_en' => '', 'gs_trip_chips_en' => '', 'gs_motor_notes_en' => '', 'gs_car_notes_en' => '', 'gs_taxi_notes_en' => ''];
         try {
             $in = "'" . implode("','", self::KEYS) . "'";
             foreach ($db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ($in)") ?: [] as $r) {
@@ -91,9 +93,21 @@ class GuestServices
         $list = json_decode($s['gs_flyers'] ?? '[]', true);
         $out = [];
         foreach (is_array($list) ? $list : [] as $f) {
-            if (!empty($f['path'])) $out[] = ['path' => (string)$f['path'], 'title' => (string)($f['title'] ?? ''), 'cat' => isset(self::FLYER_CATS[$f['cat'] ?? '']) ? $f['cat'] : 'trip'];
+            if (!empty($f['path'])) $out[] = ['path' => (string)$f['path'], 'title' => (string)($f['title'] ?? ''), 'title_en' => (string)($f['title_en'] ?? ''), 'cat' => isset(self::FLYER_CATS[$f['cat'] ?? '']) ? $f['cat'] : 'trip'];
         }
         return $out;
+    }
+
+    /** Satuan harga mengikuti bahasa halaman (katalog biasanya berbahasa Indonesia: hari, jam, …). */
+    public static function unitLabel(string $unit, string $lang): string
+    {
+        $u = strtolower(trim($unit));
+        if ($u === '' || $u === 'unit') return '';
+        $map = ['hari' => 'day', 'day' => 'day', 'jam' => 'hour', 'hour' => 'hour', 'malam' => 'night', 'night' => 'night', 'orang' => 'person', 'person' => 'person',
+            'pax' => 'person', 'trip' => 'trip', 'kali' => 'trip', 'perjalanan' => 'trip', 'minggu' => 'week', 'week' => 'week'];
+        $id = ['day' => 'hari', 'hour' => 'jam', 'night' => 'malam', 'person' => 'orang', 'trip' => 'trip', 'week' => 'minggu'];
+        if (!isset($map[$u])) return trim($unit); // satuan bebas: tampilkan apa adanya
+        return $lang === 'en' ? $map[$u] : $id[$map[$u]];
     }
 
     public static function baseUrl(): string

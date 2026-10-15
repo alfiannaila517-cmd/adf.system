@@ -35,7 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $uploaded = 0;
     try {
         $text = ['gs_fo_wa', 'gs_fo_hours', 'gs_trip_title', 'gs_trip_chips', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note',
-            'gs_motor_unit', 'gs_motor_notes', 'gs_car_unit', 'gs_car_notes', 'gs_taxi_unit', 'gs_taxi_notes'];
+            'gs_motor_unit', 'gs_motor_notes', 'gs_car_unit', 'gs_car_notes', 'gs_taxi_unit', 'gs_taxi_notes',
+            'gs_trip_title_en', 'gs_trip_chips_en', 'gs_motor_notes_en', 'gs_car_notes_en', 'gs_taxi_notes_en'];
         foreach ($text as $k) GuestServices::save($db, $k, trim((string)($_POST[$k] ?? '')));
         foreach (['gs_motor_price', 'gs_car_price', 'gs_taxi_price'] as $k) GuestServices::save($db, $k, preg_replace('/[^\d]/', '', (string)($_POST[$k] ?? '')));
         foreach (['gs_enabled', 'gs_motor_enabled', 'gs_car_enabled', 'gs_taxi_enabled'] as $k) GuestServices::save($db, $k, !empty($_POST[$k]) ? '1' : '0');
@@ -57,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Judul flyer yang sudah ada
         foreach ($flyers as $i => &$f) {
             if (isset($_POST['flyer_title'][$i])) $f['title'] = trim((string)$_POST['flyer_title'][$i]);
+            if (isset($_POST['flyer_title_en'][$i])) $f['title_en'] = trim((string)$_POST['flyer_title_en'][$i]);
         }
         unset($f);
 
@@ -84,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $file = ['name' => $nm, 'type' => $_FILES['flyer_up']['type'][$cat][$k], 'tmp_name' => $_FILES['flyer_up']['tmp_name'][$cat][$k],
                     'error' => $_FILES['flyer_up']['error'][$cat][$k], 'size' => $_FILES['flyer_up']['size'][$cat][$k]];
                 try {
-                    $flyers[] = ['path' => GuestServices::saveImage($file), 'title' => '', 'cat' => $cat];
+                    $flyers[] = ['path' => GuestServices::saveImage($file), 'title' => '', 'title_en' => '', 'cat' => $cat];
                     $uploaded++;
                 } catch (\RuntimeException $e) {
                     $errors[] = $nm . ': ' . $e->getMessage();
@@ -148,7 +150,10 @@ function gsFlyerBox(array $flyers, string $cat): void
         $n++; ?>
         <div class="gs-fl">
             <img src="<?php echo htmlspecialchars(GuestServices::fileUrl($f['path'])); ?>" alt="">
-            <input class="gs-in" name="flyer_title[<?php echo $i; ?>]" value="<?php echo htmlspecialchars($f['title']); ?>" maxlength="80" placeholder="Judul flyer (opsional)">
+            <span class="gs-2t">
+                <input class="gs-in" name="flyer_title[<?php echo $i; ?>]" value="<?php echo htmlspecialchars($f['title']); ?>" maxlength="80" placeholder="Judul (Indonesia, opsional)">
+                <input class="gs-in" name="flyer_title_en[<?php echo $i; ?>]" value="<?php echo htmlspecialchars($f['title_en']); ?>" maxlength="80" placeholder="Title (English, optional)">
+            </span>
             <button type="submit" name="flyer_op" value="up:<?php echo $i; ?>" class="gs-ic" title="Naikkan" formnovalidate>↑</button>
             <button type="submit" name="flyer_op" value="del:<?php echo $i; ?>" class="gs-ic bad" title="Hapus flyer" formnovalidate onclick="return confirm('Hapus flyer ini?')">✕</button>
         </div>
@@ -204,7 +209,8 @@ include '../../includes/header.php';
     /* flyer */
     .gs-fl { display: flex; align-items: center; gap: .45rem; padding: .35rem; margin-bottom: .35rem; border: 1px solid var(--fd-line); border-radius: 10px; background: var(--fd-tile); }
     .gs-fl img { width: 36px; height: 48px; object-fit: cover; border-radius: 5px; flex: none; }
-    .gs-fl .gs-in { flex: 1; min-width: 0; }
+    .gs-2t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .gs-fl .gs-in { min-width: 0; }
     .gs-ic { flex: none; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--fd-line); border-radius: 7px; background: var(--fd-card); cursor: pointer; font-size: .72rem; color: var(--fd-text) !important; -webkit-text-fill-color: var(--fd-text) !important; }
     .gs-ic.bad { color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
     .gs-empty { padding: .6rem; text-align: center; font-size: .66rem; color: var(--fd-muted); border: 1px dashed var(--fd-line); border-radius: 10px; margin-bottom: .4rem; }
@@ -305,9 +311,14 @@ include '../../includes/header.php';
                     <div class="gs-sec-h">Teks</div>
                     <div class="gs-f"><label class="l" for="gsTitle">Judul</label>
                         <input class="gs-in" id="gsTitle" name="gs_trip_title" value="<?php echo htmlspecialchars($s['gs_trip_title']); ?>" maxlength="80" placeholder="Paket Trip Karimunjawa"></div>
+                    <div class="gs-f"><label class="l" for="gsTitleEn">Judul (English)</label>
+                        <input class="gs-in" id="gsTitleEn" name="gs_trip_title_en" value="<?php echo htmlspecialchars($s['gs_trip_title_en']); ?>" maxlength="80" placeholder="Karimunjawa Trip Packages"></div>
                     <div class="gs-f"><label class="l" for="gsChips">Label singkat</label>
                         <input class="gs-in" id="gsChips" name="gs_trip_chips" value="<?php echo htmlspecialchars($s['gs_trip_chips']); ?>" placeholder="Island Hopping, Snorkeling, Sunset">
                         <span class="gs-hint">Pisahkan dengan koma. Tab Trip tampil otomatis setelah ada flyer.</span></div>
+                    <div class="gs-f"><label class="l" for="gsChipsEn">Label singkat (English)</label>
+                        <input class="gs-in" id="gsChipsEn" name="gs_trip_chips_en" value="<?php echo htmlspecialchars($s['gs_trip_chips_en']); ?>" placeholder="Island Hopping, Snorkeling, Sunset">
+                        <span class="gs-hint">Teks English tampil untuk tamu berbahasa Inggris; bila kosong dipakai teks Indonesia di atas.</span></div>
                 </div>
                 <div class="gs-card"><?php gsFlyerBox($flyers, 'trip'); ?></div>
             </div>
@@ -330,6 +341,9 @@ include '../../includes/header.php';
                         <span class="gs-hint" style="margin:-.25rem 0 .55rem">Harga kosong = otomatis dari harga terendah katalog Hotel Service bertipe <?php echo $v['word']; ?><?php echo $prices[$vk]['price'] > 0 && $s["{$p}_price"] === '' ? ' (sekarang: Rp ' . number_format($prices[$vk]['price'], 0, ',', '.') . ')' : ''; ?>; bila tidak ada, harga tidak ditampilkan.</span>
                         <div class="gs-f"><label class="l" for="<?php echo $p; ?>N">Syarat &amp; info (satu per baris)</label>
                             <textarea class="gs-in" id="<?php echo $p; ?>N" name="<?php echo $p; ?>_notes" placeholder="<?php echo htmlspecialchars($v['notes_ph']); ?>"><?php echo htmlspecialchars($s["{$p}_notes"]); ?></textarea></div>
+                        <div class="gs-f"><label class="l" for="<?php echo $p; ?>NE">Syarat &amp; info — English (opsional)</label>
+                            <textarea class="gs-in" id="<?php echo $p; ?>NE" name="<?php echo $p; ?>_notes_en" placeholder="Helmet provided&#10;Bring ID / passport as deposit"><?php echo htmlspecialchars($s["{$p}_notes_en"]); ?></textarea>
+                            <span class="gs-hint">Tampil untuk tamu berbahasa Inggris; kosong = pakai teks Indonesia.</span></div>
                         <?php if ($vk === 'motor'): ?>
                             <div class="gs-f"><label class="l">Foto (dipakai bila belum ada flyer motor)</label>
                                 <?php if ($s['gs_motor_photo'] !== ''): ?>

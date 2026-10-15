@@ -99,19 +99,22 @@ $fo = GuestServices::foNumber($db, $s);
 $wa = fn(string $tpl) => $fo === '' ? '#' : 'https://wa.me/' . $fo . '?text=' . rawurlencode(sprintf($T[$tpl], $name !== '' ? $name : 'guest', $link['room_number'] ?: '-', $link['booking_code'] ?: '-'));
 
 $flyers = GuestServices::flyers($s);
-$tripTitle = trim($s['gs_trip_title']) !== '' ? $s['gs_trip_title'] : $T['trip'];
-$chips = array_filter(array_map('trim', explode(',', $s['gs_trip_chips'])));
+// Teks buatan admin: versi English dipakai di halaman English bila diisi, kalau kosong jatuh ke teks Indonesia
+$pick = fn(string $id, string $en) => ($lang === 'en' && trim($en) !== '') ? $en : $id;
+$tripTitleRaw = $pick($s['gs_trip_title'], $s['gs_trip_title_en']);
+$tripTitle = trim($tripTitleRaw) !== '' ? $tripTitleRaw : $T['trip'];
+$chips = array_filter(array_map('trim', explode(',', $pick($s['gs_trip_chips'], $s['gs_trip_chips_en']))));
 $showMotor = $s['gs_motor_enabled'] === '1';
 $mp = GuestServices::motorPrice($db, $s);
-$notes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_motor_notes'])));
+$notes = array_filter(array_map('trim', preg_split('/\R/', $pick($s['gs_motor_notes'], $s['gs_motor_notes_en']))));
 $flyersBy = ['trip' => [], 'motor' => [], 'car' => [], 'taxi' => []];
 foreach ($flyers as $fl) $flyersBy[$fl['cat']][] = $fl;
 $showCar = $s['gs_car_enabled'] === '1';
 $showTaxi = $s['gs_taxi_enabled'] === '1';
 $xp = GuestServices::taxiPrice($db, $s);
-$taxiNotes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_taxi_notes'])));
+$taxiNotes = array_filter(array_map('trim', preg_split('/\R/', $pick($s['gs_taxi_notes'], $s['gs_taxi_notes_en']))));
 $cp = GuestServices::carPrice($db, $s);
-$carNotes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_car_notes'])));
+$carNotes = array_filter(array_map('trim', preg_split('/\R/', $pick($s['gs_car_notes'], $s['gs_car_notes_en']))));
 // Tab yang tampil: Trip (bila ada flyer), Sewa Motor, Sewa Mobil
 $tabs = [];
 if ($flyersBy['trip']) $tabs['trip'] = '🏝️ ' . $T['tab_trip'];
@@ -240,15 +243,15 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
 
   <?php
   // Slide flyer (geser kiri/kanan); satu kartu per kategori
-  $carousel = function (array $list, string $ev, string $waKey, string $waLabel, string $extra = '') use ($h, $T, $wa, $tripTitle, $waIcon) {
+  $carousel = function (array $list, string $ev, string $waKey, string $waLabel, string $extra = '') use ($h, $T, $wa, $tripTitle, $waIcon, $pick) {
       $n = count($list); $u0 = GuestServices::fileUrl($list[0]['path']);
       ob_start(); ?>
       <div class="card" data-car data-n="<?= $n ?>">
         <div class="cwrap">
           <div class="track">
             <?php foreach ($list as $i => $f): $u = GuestServices::fileUrl($f['path']); ?>
-              <button type="button" class="fly" data-zoom="<?= $h($u) ?>" data-title="<?= $h($f['title']) ?>" aria-label="<?= $h($T['zoom']) ?>">
-                <img src="<?= $h($u) ?>" alt="<?= $h($f['title'] ?: $tripTitle) ?>"<?= $i > 0 ? ' loading="lazy"' : '' ?>>
+              <button type="button" class="fly" data-zoom="<?= $h($u) ?>" data-title="<?= $h($pick($f['title'], $f['title_en'])) ?>" aria-label="<?= $h($T['zoom']) ?>">
+                <img src="<?= $h($u) ?>" alt="<?= $h($pick($f['title'], $f['title_en']) ?: $tripTitle) ?>"<?= $i > 0 ? ' loading="lazy"' : '' ?>>
                 <span class="zoom">🔍 <?= $h($T['zoom']) ?></span>
               </button>
             <?php endforeach; ?>
@@ -260,7 +263,7 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
           <div class="swipe">↔ <?= $h($T['swipe']) ?></div>
         <?php endif; ?>
         <div class="body">
-          <div class="ftitle" data-ftitle><?= $h($list[0]['title']) ?></div>
+          <div class="ftitle" data-ftitle><?= $h($pick($list[0]['title'], $list[0]['title_en'])) ?></div>
           <?= $extra ?>
           <a class="btn wa" data-ev="<?= $ev ?>" href="<?= $h($wa($waKey)) ?>"><?= $waIcon ?> <?= $h($waLabel) ?></a>
           <a class="btn ghost" data-ev="save_flyer" data-save href="<?= $h($u0) ?>" download>⬇️ <?= $h($T['save']) ?></a>
@@ -268,9 +271,9 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
       </div>
       <?php return ob_get_clean();
   };
-  $priceHtml = function (array $p) use ($h, $T) {
+  $priceHtml = function (array $p) use ($h, $T, $lang) {
       if ($p['price'] <= 0) return '';
-      return '<div class="price"><b>Rp ' . number_format($p['price'], 0, ',', '.') . '</b><span>/ ' . $h($p['unit'] !== '' && strtolower($p['unit']) !== 'unit' ? $p['unit'] : $T['per']) . ' · ' . $h($T['from']) . '</span></div>';
+      return '<div class="price"><b>Rp ' . number_format($p['price'], 0, ',', '.') . '</b><span>/ ' . $h(GuestServices::unitLabel($p['unit'], $lang) ?: $T['per']) . ' · ' . $h($T['from']) . '</span></div>';
   };
   $notesHtml = fn(array $l) => $l ? '<ul class="req">' . implode('', array_map(fn($n) => '<li>' . $h($n) . '</li>', $l)) . '</ul>' : '';
   ?>
