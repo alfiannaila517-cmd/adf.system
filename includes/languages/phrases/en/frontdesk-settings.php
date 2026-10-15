@@ -49,6 +49,8 @@ return [
         'Terkirim' => 'Sent', 'Gagal' => 'Failed', 'Sisa kredit' => 'Remaining credit', 'Simpan Pengaturan' => 'Save Settings', '— Tidak ada' => '— None',
         'Nomor tujuan, mis. 0812…' => 'Recipient number, e.g. 0812…',
         // ---- Layanan Tamu (guest-services.php) ----
+        'Tes kirim pesan welcome' => 'Send welcome message test', 'Nomor WhatsApp Anda, mis. 0812…' => 'Your WhatsApp number, e.g. 0812…', 'Kirim tes welcome' => 'Send welcome test',
+        'Memakai isi kotak di atas (tanpa perlu Simpan) dan link contoh. Bila dua bahasa dipilih, dikirim dua pesan berurutan. Teks kustom yang Anda ubah dipakai sama untuk kedua bahasa.' => 'Uses the text in the box above (no need to save) and a sample link. If both languages are selected, two messages are sent in sequence. A custom text you edited is used the same for both languages.',
         'Pakai teks bawaan singkat (Indonesia)' => 'Use short default text (Indonesian)', 'Pakai teks bawaan singkat (English)' => 'Use short default text (English)',
         'Sewa Mobil' => 'Car Rental', 'WA Mobil' => 'WA Car', 'Tab ketiga di halaman tamu. Unggah flyer mobil di bagian Flyer dengan kategori Sewa Mobil.' => 'Third tab on the guest page. Upload car flyers in the Flyers section with the Car Rental category.',
         'Tampilkan sewa mobil' => 'Show car rental', 'Matikan bila tidak menawarkan sewa mobil.' => 'Turn off if you do not offer car rental.',
@@ -80,6 +82,7 @@ return [
         'Pengaturan → Layanan Tamu' => 'Settings → Guest Services',
     ],
     'js' => [
+        'Pilih minimal satu bahasa.' => 'Select at least one language.', 'Terkirim ✓' => 'Sent ✓', 'Gagal —' => 'Failed —', 'Indonesia' => 'Indonesian',
         '(token yang diketik — klik Simpan Pengaturan untuk memakainya)' => '(typed token — click Save Settings to use it)', 'Aktif s/d' => 'Active until',
         'Gagal memeriksa koneksi' => 'Failed to check the connection', 'Gagal menghubungi server.' => 'Could not reach the server.', 'Gagal:' => 'Failed:', 'Gagal' => 'Failed',
         'Hapus QRIS saat ini?' => 'Remove the current QRIS?', 'Isi nomor tujuan dulu.' => 'Enter the recipient number first.', 'Kuota' => 'Quota', 'Memeriksa koneksi…' => 'Checking connection…',

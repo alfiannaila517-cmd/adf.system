@@ -322,7 +322,7 @@ class WhatsAppHelper
     }
 
     /** Isi pesan welcome check-in (template dari pengaturan WhatsApp) untuk satu booking. */
-    public function checkinMessage(array $booking): string
+    public function checkinMessage(array $booking, array $opts = []): string
     {
         $s = $this->settings();
         $type = '';
@@ -349,11 +349,12 @@ class WhatsAppHelper
             $nat = (string)($g['nationality'] ?? '');
         } catch (\Throwable $e) {
         }
-        $lang = GuestServices::langFor($nat, (string)($booking['guest_phone'] ?? ''));
-        $template = trim($s['wa_checkin_template']) !== ''
-            ? $s['wa_checkin_template']
+        $lang = $opts['lang'] ?? GuestServices::langFor($nat, (string)($booking['guest_phone'] ?? ''));
+        $tplSetting = isset($opts['template']) ? (string)$opts['template'] : $s['wa_checkin_template'];
+        $template = trim($tplSetting) !== ''
+            ? $tplSetting
             : ($lang === 'id' ? self::DEFAULT_CHECKIN_TEMPLATE_ID : self::DEFAULT_CHECKIN_TEMPLATE);
-        $servicesLink = GuestServices::linkFor($this->db, $booking, $lang);
+        $servicesLink = $opts['link'] ?? GuestServices::linkFor($this->db, $booking, $lang);
         if ($servicesLink === '') {
             // Fitur mati / gagal: buang seluruh paragraf yang memuat link agar tidak tersisa teks pengantar menggantung
             $paras = array_filter(explode("\n\n", $template), fn($p) => strpos($p, '{services_link}') === false);

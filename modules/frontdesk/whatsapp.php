@@ -46,6 +46,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax'])) {
         ]);
     } elseif ($act === 'groups') {
         echo json_encode($wa->groups(true));
+    } elseif ($act === 'test_welcome') {
+        // Uji pesan welcome: nomor sendiri, bahasa ID dan/atau EN, memakai isi kotak (belum perlu disimpan), link contoh
+        $target = (string)($_POST['target'] ?? '');
+        $langs = array_values(array_intersect(['id', 'en'], (array)json_decode((string)($_POST['langs'] ?? '[]'), true)));
+        if (WhatsAppHelper::normalizeTarget($target) === '' || !$langs) {
+            echo json_encode(['ok' => false, 'detail' => 'Isi nomor dan pilih minimal satu bahasa.']);
+            exit;
+        }
+        $booking = ['id' => 0, 'booking_code' => 'BK-TES', 'guest_name' => 'Tamu Uji', 'guest_phone' => $target, 'room_number' => '105',
+            'room_id' => 0, 'check_in_date' => date('Y-m-d'), 'check_out_date' => date('Y-m-d', strtotime('+2 day'))];
+        $tpl = (string)($_POST['template'] ?? '');
+        $res = [];
+        foreach ($langs as $i => $lg) {
+            if ($i > 0) sleep(2); // jeda agar urutan pesan tidak tertukar
+            $link = GuestServices::baseUrl() . '/guest-services.php?k=preview&l=' . $lg;
+            $msg = $wa->checkinMessage($booking, ['lang' => $lg, 'link' => $link, 'template' => $tpl]);
+            $r = $wa->send($target, $msg, null, null, 'test', 'tes welcome ' . strtoupper($lg));
+            $res[] = ['lang' => $lg, 'ok' => !empty($r['ok']), 'detail' => $r['detail'] ?? ''];
+        }
+        echo json_encode(['ok' => !in_array(false, array_column($res, 'ok'), true), 'results' => $res]);
     } elseif ($act === 'test') {
         $target = (string)($_POST['target'] ?? '');
         $msg = trim((string)($_POST['message'] ?? '')) ?: 'Tes pesan dari ADF System ✅';
@@ -235,7 +255,16 @@ include '../../includes/header.php';
                         <button type="button" class="wa-btn ghost" id="waTplId">Pakai teks bawaan singkat (Indonesia)</button>
                         <button type="button" class="wa-btn ghost" id="waTplEn">Pakai teks bawaan singkat (English)</button>
                     </div>
-                    <label class="wa-label">Pratinjau</label>
+                    <label class="wa-label">Tes kirim pesan welcome</label>
+                    <div class="wa-row">
+                        <input type="text" class="wa-input" id="waWelTo" placeholder="Nomor WhatsApp Anda, mis. 0812…" style="flex:1;min-width:180px">
+                        <label class="wa-hint" style="margin:0"><input type="checkbox" id="waWelId" checked> Indonesia</label>
+                        <label class="wa-hint" style="margin:0"><input type="checkbox" id="waWelEn" checked> English</label>
+                        <button type="button" class="wa-btn green" id="waWelBtn">Kirim tes welcome</button>
+                    </div>
+                    <span class="wa-hint">Memakai isi kotak di atas (tanpa perlu Simpan) dan link contoh. Bila dua bahasa dipilih, dikirim dua pesan berurutan. Teks kustom yang Anda ubah dipakai sama untuk kedua bahasa.</span>
+                    <div class="wa-msg" id="waWelMsg"></div>
+                    <label class="wa-label" style="margin-top:.7rem">Pratinjau</label>
                     <div class="wa-preview" id="waPreview"></div>
                 </div>
             </div>
@@ -359,6 +388,26 @@ include '../../includes/header.php';
             post({ ajax: 'test', target: to }).then(r => {
                 msg.className = 'wa-msg ' + (r.ok ? 'ok' : 'err');
                 msg.textContent = r.ok ? 'Terkirim ✓ — cek WhatsApp tujuan.' : 'Gagal: ' + (r.detail || '');
+            }).catch(() => { msg.className = 'wa-msg err'; msg.textContent = 'Gagal menghubungi server.'; })
+              .finally(() => { btn.disabled = false; });
+        });
+
+        // Tes kirim pesan welcome (ID / EN / keduanya)
+        document.getElementById('waWelBtn').addEventListener('click', function() {
+            const btn = this, msg = document.getElementById('waWelMsg');
+            const to = document.getElementById('waWelTo').value.trim();
+            const langs = [];
+            if (document.getElementById('waWelId').checked) langs.push('id');
+            if (document.getElementById('waWelEn').checked) langs.push('en');
+            if (!to) { msg.className = 'wa-msg err'; msg.textContent = 'Isi nomor tujuan dulu.'; return; }
+            if (!langs.length) { msg.className = 'wa-msg err'; msg.textContent = 'Pilih minimal satu bahasa.'; return; }
+            btn.disabled = true;
+            msg.className = 'wa-msg';
+            msg.textContent = 'Mengirim…';
+            post({ ajax: 'test_welcome', target: to, langs: JSON.stringify(langs), template: document.getElementById('waTpl').value }).then(r => {
+                if (!r.results) { msg.className = 'wa-msg err'; msg.textContent = 'Gagal: ' + (r.detail || ''); return; }
+                msg.className = 'wa-msg ' + (r.ok ? 'ok' : 'err');
+                msg.textContent = r.results.map(x => (x.lang === 'id' ? 'Indonesia' : 'English') + ': ' + (x.ok ? 'Terkirim ✓' : 'Gagal — ' + x.detail)).join('  ·  ');
             }).catch(() => { msg.className = 'wa-msg err'; msg.textContent = 'Gagal menghubungi server.'; })
               .finally(() => { btn.disabled = false; });
         });
