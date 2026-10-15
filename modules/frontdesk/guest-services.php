@@ -42,6 +42,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             GuestServices::save($db, 'gs_car_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_car_price'] ?? '')));
             GuestServices::save($db, 'gs_car_unit', trim((string)($_POST['gs_car_unit'] ?? '')));
             GuestServices::save($db, 'gs_car_notes', trim((string)($_POST['gs_car_notes'] ?? '')));
+            GuestServices::save($db, 'gs_taxi_enabled', !empty($_POST['gs_taxi_enabled']) ? '1' : '0');
+            GuestServices::save($db, 'gs_taxi_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_taxi_price'] ?? '')));
+            GuestServices::save($db, 'gs_taxi_unit', trim((string)($_POST['gs_taxi_unit'] ?? '')));
+            GuestServices::save($db, 'gs_taxi_notes', trim((string)($_POST['gs_taxi_notes'] ?? '')));
             GuestServices::save($db, 'gs_motor_enabled', !empty($_POST['gs_motor_enabled']) ? '1' : '0');
             GuestServices::save($db, 'gs_motor_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_motor_price'] ?? '')));
             GuestServices::save($db, 'gs_motor_unit', trim((string)($_POST['gs_motor_unit'] ?? '')));
@@ -92,9 +96,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $mp = GuestServices::motorPrice($db, $s);
 $cp = GuestServices::carPrice($db, $s);
+$xp = GuestServices::taxiPrice($db, $s);
 $foNumber = GuestServices::foNumber($db, $s);
 // Statistik 30 hari terakhir
-$stat = ['links' => 0, 'open' => 0, 'wa_trip' => 0, 'wa_motor' => 0, 'wa_car' => 0, 'wa_fo' => 0, 'save_flyer' => 0];
+$stat = ['links' => 0, 'open' => 0, 'wa_trip' => 0, 'wa_motor' => 0, 'wa_car' => 0, 'wa_taxi' => 0, 'wa_fo' => 0, 'save_flyer' => 0];
 try {
     $stat['links'] = (int)($db->fetchOne("SELECT COUNT(*) c FROM guest_service_links WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")['c'] ?? 0);
     foreach ($db->fetchAll("SELECT event, COUNT(*) c FROM guest_service_events WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY event") ?: [] as $r) {
@@ -153,6 +158,7 @@ include '../../includes/header.php';
             <div><b><?php echo $stat['wa_trip']; ?></b><span>WA Trip</span></div>
             <div><b><?php echo $stat['wa_motor']; ?></b><span>WA Motor</span></div>
             <div><b><?php echo $stat['wa_car']; ?></b><span>WA Mobil</span></div>
+            <div><b><?php echo $stat['wa_taxi']; ?></b><span>WA Taxi</span></div>
             <div><b><?php echo $stat['wa_fo']; ?></b><span>WA Front Office</span></div>
             <div><b><?php echo $stat['save_flyer']; ?></b><span>Simpan flyer</span></div>
         </div>
@@ -161,7 +167,7 @@ include '../../includes/header.php';
     <!-- Tambah flyer (form sendiri agar unggah tidak bercampur dengan pengaturan lain) -->
     <div class="gs-card">
         <h3>Flyer Trip</h3>
-        <p class="gs-sub">JPG / PNG / WEBP, maks 6 MB. Otomatis diperkecil agar ringan di sinyal lemah. Pilih kategori (Trip / Sewa Motor / Sewa Mobil); beberapa flyer dalam satu kategori tampil sebagai slide yang bisa digeser. Urutan di sini = urutan slide.</p>
+        <p class="gs-sub">JPG / PNG / WEBP, maks 6 MB. Otomatis diperkecil agar ringan di sinyal lemah. Pilih kategori (Trip / Sewa Motor / Sewa Mobil / Sewa Taxi); beberapa flyer dalam satu kategori tampil sebagai slide yang bisa digeser. Urutan di sini = urutan slide.</p>
         <?php foreach ($flyers as $i => $f): ?>
             <div class="gs-flyer">
                 <img src="<?php echo htmlspecialchars(GuestServices::fileUrl($f['path'])); ?>" alt="">
@@ -294,6 +300,27 @@ include '../../includes/header.php';
                 <div class="gs-field">
                     <label class="gs-label" for="gsCarNotes">Syarat &amp; info (satu per baris)</label>
                     <textarea class="gs-input" id="gsCarNotes" name="gs_car_notes" placeholder="Dengan atau tanpa sopir&#10;Bisa antar-jemput pelabuhan"><?php echo htmlspecialchars($s['gs_car_notes']); ?></textarea>
+                </div>
+            </div>
+            <div class="gs-card">
+                <h3>Sewa Taxi</h3>
+                <p class="gs-sub">Tab keempat di halaman tamu. Unggah flyer taxi di bagian Flyer dengan kategori Sewa Taxi.</p>
+                <label class="gs-switch">
+                    <input type="checkbox" name="gs_taxi_enabled" value="1" <?php echo $s['gs_taxi_enabled'] === '1' ? 'checked' : ''; ?>>
+                    <span><b>Tampilkan sewa taxi</b><small>Matikan bila tidak menawarkan taxi / antar-jemput.</small></span>
+                </label>
+                <div class="gs-field">
+                    <label class="gs-label" for="gsTaxiPrice">Harga mulai dari (Rp)</label>
+                    <input class="gs-input" id="gsTaxiPrice" name="gs_taxi_price" inputmode="numeric" value="<?php echo htmlspecialchars($s['gs_taxi_price']); ?>" placeholder="otomatis / kosongkan">
+                    <span class="gs-hint">Kosong = otomatis dari harga terendah katalog Hotel Service bertipe taxi<?php echo $xp['price'] > 0 && $s['gs_taxi_price'] === '' ? ' (sekarang: Rp ' . number_format($xp['price'], 0, ',', '.') . ')' : ''; ?>; bila tidak ada, harga tidak ditampilkan.</span>
+                </div>
+                <div class="gs-field">
+                    <label class="gs-label" for="gsTaxiUnit">Satuan</label>
+                    <input class="gs-input" id="gsTaxiUnit" name="gs_taxi_unit" value="<?php echo htmlspecialchars($s['gs_taxi_unit']); ?>" maxlength="20" placeholder="trip">
+                </div>
+                <div class="gs-field">
+                    <label class="gs-label" for="gsTaxiNotes">Syarat &amp; info (satu per baris)</label>
+                    <textarea class="gs-input" id="gsTaxiNotes" name="gs_taxi_notes" placeholder="Antar-jemput pelabuhan / bandara&#10;Pesan sehari sebelumnya"><?php echo htmlspecialchars($s['gs_taxi_notes']); ?></textarea>
                 </div>
             </div>
         </div>

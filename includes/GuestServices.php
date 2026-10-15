@@ -24,7 +24,8 @@ class GuestServices
 {
     public const KEYS = ['gs_enabled', 'gs_fo_wa', 'gs_fo_hours', 'gs_trip_title', 'gs_trip_chips', 'gs_flyers',
         'gs_motor_enabled', 'gs_motor_photo', 'gs_motor_price', 'gs_motor_unit', 'gs_motor_notes', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note',
-        'gs_car_enabled', 'gs_car_price', 'gs_car_unit', 'gs_car_notes'];
+        'gs_car_enabled', 'gs_car_price', 'gs_car_unit', 'gs_car_notes',
+        'gs_taxi_enabled', 'gs_taxi_price', 'gs_taxi_unit', 'gs_taxi_notes'];
 
     public static function ensureTables($db): void
     {
@@ -60,7 +61,8 @@ class GuestServices
     {
         $s = ['gs_enabled' => '0', 'gs_fo_wa' => '', 'gs_fo_hours' => '07.00–22.00', 'gs_trip_title' => '', 'gs_trip_chips' => '',
             'gs_flyers' => '[]', 'gs_motor_enabled' => '1', 'gs_motor_photo' => '', 'gs_motor_price' => '', 'gs_motor_unit' => '', 'gs_motor_notes' => '', 'gs_wifi_ssid' => '', 'gs_wifi_pass' => '', 'gs_wifi_note' => '',
-            'gs_car_enabled' => '0', 'gs_car_price' => '', 'gs_car_unit' => '', 'gs_car_notes' => ''];
+            'gs_car_enabled' => '0', 'gs_car_price' => '', 'gs_car_unit' => '', 'gs_car_notes' => '',
+            'gs_taxi_enabled' => '0', 'gs_taxi_price' => '', 'gs_taxi_unit' => '', 'gs_taxi_notes' => ''];
         try {
             $in = "'" . implode("','", self::KEYS) . "'";
             foreach ($db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ($in)") ?: [] as $r) {
@@ -81,7 +83,7 @@ class GuestServices
         }
     }
 
-    public const FLYER_CATS = ['trip' => 'Trip', 'motor' => 'Sewa Motor', 'car' => 'Sewa Mobil'];
+    public const FLYER_CATS = ['trip' => 'Trip', 'motor' => 'Sewa Motor', 'car' => 'Sewa Mobil', 'taxi' => 'Sewa Taxi'];
 
     /** @return array<int,array{path:string,title:string,cat:string}> */
     public static function flyers(array $s): array
@@ -121,6 +123,11 @@ class GuestServices
     public static function motorPrice($db, array $s): array
     {
         return self::vehiclePrice($db, $s, 'motor', 'motor');
+    }
+
+    public static function taxiPrice($db, array $s): array
+    {
+        return self::vehiclePrice($db, $s, 'taxi', 'taxi');
     }
 
     public static function carPrice($db, array $s): array

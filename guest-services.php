@@ -30,7 +30,7 @@ if (!$link) {
 // Catat klik tombol (sendBeacon dari halaman)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ev = (string)($_POST['e'] ?? '');
-    if (!$preview && in_array($ev, ['wa_trip', 'wa_motor', 'wa_car', 'wa_fo', 'save_flyer'], true)) {
+    if (!$preview && in_array($ev, ['wa_trip', 'wa_motor', 'wa_car', 'wa_taxi', 'wa_fo', 'save_flyer'], true)) {
         $db->query("INSERT INTO guest_service_events (link_id, event) VALUES (?, ?)", [(int)$link['id'], $ev]);
     }
     http_response_code(204);
@@ -50,7 +50,7 @@ if (!$preview) {
 $T = [
     'id' => [
         'hello' => 'Halo', 'room' => 'Kamar', 'intro' => 'Semoga nyaman menginap. Ini pilihan seru selama di Karimunjawa.',
-        'tab_trip' => 'Trip', 'tab_motor' => 'Sewa Motor', 'tab_car' => 'Sewa Mobil', 'car' => 'Sewa Mobil', 'swipe' => 'Geser untuk melihat flyer lainnya',
+        'tab_trip' => 'Trip', 'tab_motor' => 'Sewa Motor', 'tab_car' => 'Sewa Mobil', 'tab_taxi' => 'Taxi', 'taxi' => 'Sewa Taxi', 'wa_taxi' => 'Pesan taxi via WhatsApp', 'm_taxi' => 'Halo Front Office, saya %s (kamar %s, booking %s). Saya ingin memesan taxi / antar-jemput, apakah tersedia?', 'car' => 'Sewa Mobil', 'swipe' => 'Geser untuk melihat flyer lainnya',
         'wa_car' => 'Cek ketersediaan mobil via WhatsApp', 'm_car' => 'Halo Front Office, saya %s (kamar %s, booking %s). Saya ingin menyewa mobil, apakah tersedia?', 'trip' => 'Paket Trip Karimunjawa', 'zoom' => 'Perbesar', 'save' => 'Simpan flyer',
         'wa_trip' => 'Tanya & Pesan Trip via WhatsApp', 'motor' => 'Sewa Motor', 'from' => 'mulai dari', 'per' => 'hari',
         'wa_motor' => 'Cek ketersediaan via WhatsApp', 'bar_fo' => 'Front Office', 'reply' => 'Balas cepat', 'chat' => 'Chat Front Office',
@@ -63,7 +63,7 @@ $T = [
     ],
     'en' => [
         'hello' => 'Hello', 'room' => 'Room', 'intro' => 'We hope you are enjoying your stay. Here are some great things to do in Karimunjawa.',
-        'tab_trip' => 'Trips', 'tab_motor' => 'Motorbike', 'tab_car' => 'Car Rental', 'car' => 'Car Rental', 'swipe' => 'Swipe to see more flyers',
+        'tab_trip' => 'Trips', 'tab_motor' => 'Motorbike', 'tab_car' => 'Car Rental', 'tab_taxi' => 'Taxi', 'taxi' => 'Taxi Service', 'wa_taxi' => 'Book a taxi on WhatsApp', 'm_taxi' => 'Hello Front Office, this is %s (room %s, booking %s). I would like to book a taxi / transfer. Is one available?', 'car' => 'Car Rental', 'swipe' => 'Swipe to see more flyers',
         'wa_car' => 'Check car availability on WhatsApp', 'm_car' => 'Hello Front Office, this is %s (room %s, booking %s). I would like to rent a car. Is one available?', 'trip' => 'Karimunjawa Trip Packages', 'zoom' => 'Enlarge', 'save' => 'Save flyer',
         'wa_trip' => 'Ask & Book a Trip on WhatsApp', 'motor' => 'Motorbike Rental', 'from' => 'from', 'per' => 'day',
         'wa_motor' => 'Check availability on WhatsApp', 'bar_fo' => 'Front Office', 'reply' => 'Quick replies', 'chat' => 'Chat Front Office',
@@ -88,7 +88,9 @@ $waIcon = '<svg class="wai" viewBox="0 0 24 24" width="20" height="20" aria-hidd
 $logoUrl = '';
 try {
     if (!function_exists('getBusinessLogo') && is_file(__DIR__ . '/includes/business_helper.php')) require_once __DIR__ . '/includes/business_helper.php';
-    if (function_exists('getBusinessLogo')) $logoUrl = (string)getBusinessLogo();
+    $pl = trim((string)($db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'breakfast_portal_logo_path'")['setting_value'] ?? ''));
+    if ($pl !== '') $logoUrl = strpos($pl, 'http') === 0 ? $pl : GuestServices::baseUrl() . '/' . ltrim($pl, '/');
+    elseif (function_exists('getBusinessLogo')) $logoUrl = (string)getBusinessLogo();
 } catch (\Throwable $e) {
 }
 $name = trim((string)$link['guest_name']);
@@ -102,9 +104,12 @@ $chips = array_filter(array_map('trim', explode(',', $s['gs_trip_chips'])));
 $showMotor = $s['gs_motor_enabled'] === '1';
 $mp = GuestServices::motorPrice($db, $s);
 $notes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_motor_notes'])));
-$flyersBy = ['trip' => [], 'motor' => [], 'car' => []];
+$flyersBy = ['trip' => [], 'motor' => [], 'car' => [], 'taxi' => []];
 foreach ($flyers as $fl) $flyersBy[$fl['cat']][] = $fl;
 $showCar = $s['gs_car_enabled'] === '1';
+$showTaxi = $s['gs_taxi_enabled'] === '1';
+$xp = GuestServices::taxiPrice($db, $s);
+$taxiNotes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_taxi_notes'])));
 $cp = GuestServices::carPrice($db, $s);
 $carNotes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_car_notes'])));
 // Tab yang tampil: Trip (bila ada flyer), Sewa Motor, Sewa Mobil
@@ -112,6 +117,7 @@ $tabs = [];
 if ($flyersBy['trip']) $tabs['trip'] = '🏝️ ' . $T['tab_trip'];
 if ($showMotor) $tabs['motor'] = '🏍️ ' . $T['tab_motor'];
 if ($showCar) $tabs['car'] = '🚗 ' . $T['tab_car'];
+if ($showTaxi) $tabs['taxi'] = '🚕 ' . $T['tab_taxi'];
 $firstTab = (string)array_key_first($tabs);$ogImg = $flyers ? GuestServices::fileUrl($flyers[0]['path']) : '';
 $wifiSsid = trim($s['gs_wifi_ssid']);
 $wifiPass = trim($s['gs_wifi_pass']);
@@ -138,13 +144,15 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   header { background:linear-gradient(160deg,var(--navy),#1d4e89); color:#fff; padding:18px 18px 54px; border-radius:0 0 26px 26px; }
   .top { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; }
   .brand { display:flex; align-items:center; gap:10px; }
-  .logo { width:42px; height:42px; border-radius:50%; background:#fff; color:var(--navy); display:inline-grid; place-items:center; font-weight:800; font-size:16px; object-fit:contain; padding:2px; flex:none; }
+  .logo { width:52px; height:52px; border-radius:50%; background:#fff; color:var(--navy); display:inline-grid; place-items:center; font-weight:800; font-size:18px; object-fit:cover; flex:none; border:2px solid #d9c39c; box-shadow:0 0 0 3px rgba(255,255,255,.16), 0 8px 18px -8px rgba(0,0,0,.55); }
   .lang a { color:#fff; text-decoration:none; font-size:11px; padding:4px 9px; border:1px solid rgba(255,255,255,.4); border-radius:999px; margin-left:4px; opacity:.75; }
   .lang a.on { background:#fff; color:var(--navy); opacity:1; font-weight:700; }
   h1 { font-size:21px; margin-top:16px; font-weight:800; }
   .sub { font-size:13px; opacity:.92; margin-top:4px; line-height:1.45; }
   .tabs { margin:-26px 14px 0; background:#fff; border-radius:16px; padding:5px; display:flex; gap:4px; box-shadow:0 8px 24px rgba(15,39,68,.15); position:relative; }
-  .tab { flex:1; text-align:center; padding:10px 4px; border:0; background:none; border-radius:12px; font:inherit; font-size:13px; font-weight:700; color:var(--mut); cursor:pointer; }
+  .tabs { overflow-x:auto; scrollbar-width:none; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab { flex:1 0 auto; white-space:nowrap; padding-left:10px !important; padding-right:10px !important; text-align:center; padding:10px 4px; border:0; background:none; border-radius:12px; font:inherit; font-size:13px; font-weight:700; color:var(--mut); cursor:pointer; }
   .tab.on { background:var(--navy); color:#fff; }
   section { padding:18px 14px 4px; display:none; }
   section.on { display:block; }
@@ -308,6 +316,21 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   </section>
   <?php endif; ?>
 
+  <?php if ($showTaxi): ?>
+  <section id="s-taxi" class="<?= $firstTab === 'taxi' ? 'on' : '' ?>">
+    <h2>🚕 <?= $h($T['taxi']) ?></h2>
+    <?php $taxiExtra = $priceHtml($xp) . $notesHtml($taxiNotes); ?>
+    <?php if ($flyersBy['taxi']): ?>
+      <?= $carousel($flyersBy['taxi'], 'wa_taxi', 'm_taxi', $T['wa_taxi'], $taxiExtra) ?>
+    <?php else: ?>
+    <div class="card"><div class="body">
+      <?= $taxiExtra ?>
+      <a class="btn wa" data-ev="wa_taxi" href="<?= $h($wa('m_taxi')) ?>"><?= $waIcon ?> <?= $h($T['wa_taxi']) ?></a>
+    </div></div>
+    <?php endif; ?>
+  </section>
+  <?php endif; ?>
+
   <?php if (!$tabs): ?><div class="empty"><?= $h($T['empty']) ?></div><?php endif; ?>
   <p class="note"><?= $h($T['note']) ?></p>
 </div>
@@ -338,6 +361,32 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   });
   function closeLb() { lb.classList.remove('on'); lbImg.removeAttribute('src'); }
   document.getElementById('lbClose').addEventListener('click', closeLb);
+  // Logo: dipangkas ke isi logonya lalu dipusatkan di lingkaran (margin putih rata) — sama seperti portal sarapan
+  (function () {
+    var img = document.querySelector('img.logo');
+    if (!img) return;
+    function center() {
+      try {
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h || img.dataset.centered) return;
+        var k = Math.min(1, 600 / Math.max(w, h)), cw = Math.round(w * k), ch = Math.round(h * k);
+        var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+        var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, cw, ch);
+        var d = ctx.getImageData(0, 0, cw, ch).data, x0 = cw, y0 = ch, x1 = -1, y1 = -1;
+        for (var y = 0; y < ch; y++) for (var x = 0; x < cw; x++) {
+          var i = (y * cw + x) * 4;
+          if (d[i + 3] > 40 && (d[i] < 235 || d[i + 1] < 235 || d[i + 2] < 235)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        }
+        if (x1 < 0) return;
+        var bw = x1 - x0 + 1, bh = y1 - y0 + 1, side = Math.round(Math.max(bw, bh) * 1.16);
+        var o = document.createElement('canvas'); o.width = side; o.height = side;
+        var octx = o.getContext('2d'); octx.fillStyle = '#fff'; octx.fillRect(0, 0, side, side);
+        octx.drawImage(c, x0, y0, bw, bh, Math.round((side - bw) / 2), Math.round((side - bh) / 2), bw, bh);
+        img.dataset.centered = '1'; img.src = o.toDataURL('image/png');
+      } catch (e) { /* gambar lintas domain: biarkan apa adanya */ }
+    }
+    if (img.complete && img.naturalWidth) center(); else img.addEventListener('load', center, { once: true });
+  })();
   // WiFi: salin, pengaturan (Android), QR
   var copied = <?= json_encode($T['copied']) ?>;
   document.querySelectorAll('[data-copy]').forEach(function (b) {
