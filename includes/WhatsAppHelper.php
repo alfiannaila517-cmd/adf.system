@@ -15,20 +15,16 @@ require_once __DIR__ . '/GuestServices.php';
 
 class WhatsAppHelper
 {
-    public const DEFAULT_CHECKIN_TEMPLATE = "Hello {guest_name}, welcome to {hotel_name}! 🌴\n\n"
-        . "You are checked in to room {room} ({room_type}) until {check_out}.\n"
-        . "Breakfast is served every morning — just let us know your preferred time.\n\n"
-        . "Trips, motorbike rental & more — see what's on offer:\n{services_link}\n\n"
-        . "Need anything during your stay? Simply reply to this message.\n\n"
-        . "Enjoy your stay!\n— Front Office, {hotel_name}";
+    public const DEFAULT_CHECKIN_TEMPLATE = "Hello {guest_name}, welcome to {hotel_name}! 🌴\n"
+        . "Room {room} is ready for you.\n\n"
+        . "📶 WiFi · 🏝️ Trips · 🏍️ Motorbike & 🚗 Car rental — all here:\n{services_link}\n\n"
+        . "Need anything? Just reply here 🙏\n— Front Office";
 
     /** Bawaan untuk tamu berbahasa Indonesia (dipakai bila template belum diubah di pengaturan). */
-    public const DEFAULT_CHECKIN_TEMPLATE_ID = "Halo {guest_name}, selamat datang di {hotel_name}! 🌴\n\n"
-        . "Anda sudah check-in di kamar {room} ({room_type}) hingga {check_out}.\n"
-        . "Sarapan disajikan setiap pagi — silakan kabari kami bila ingin waktu tertentu.\n\n"
-        . "Trip, sewa motor & layanan lainnya — lihat pilihannya di sini:\n{services_link}\n\n"
-        . "Butuh bantuan selama menginap? Cukup balas pesan ini.\n\n"
-        . "Selamat menikmati masa menginap Anda!\n— Front Office, {hotel_name}";
+    public const DEFAULT_CHECKIN_TEMPLATE_ID = "Halo {guest_name}, selamat datang di {hotel_name}! 🌴\n"
+        . "Kamar {room} sudah siap untuk Anda.\n\n"
+        . "📶 WiFi · 🏝️ Trip · 🏍️ Sewa motor & 🚗 mobil — semua ada di sini:\n{services_link}\n\n"
+        . "Butuh bantuan? Balas pesan ini ya 🙏\n— Front Office";
 
     public const CHECKIN_PLACEHOLDERS = ['{guest_name}', '{hotel_name}', '{room}', '{room_type}', '{check_in}', '{check_out}', '{nights}', '{booking_code}', '{services_link}'];
 
