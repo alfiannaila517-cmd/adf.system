@@ -122,7 +122,7 @@ if ($showMotor) $tabs['motor'] = '🏍️ ' . $T['tab_motor'];
 if ($showCar) $tabs['car'] = '🚗 ' . $T['tab_car'];
 if ($showTaxi) $tabs['taxi'] = '🚕 ' . $T['tab_taxi'];
 $firstTab = (string)array_key_first($tabs);// Pratinjau link WhatsApp: kartu sambutan hotel (bukan flyer), bahasa mengikuti bahasa tamu di link
-$ogLang = $link['lang'] === 'en' ? 'en' : 'id';
+$ogLang = 'en'; // kartu pratinjau selalu berbahasa Inggris
 $ogImg = GuestServices::baseUrl() . '/guest-services-og.php?l=' . $ogLang;
 $ogTitle = ($ogLang === 'en' ? 'Hotel Services · ' : 'Layanan Hotel · ') . $hotel;
 $ogDesc = implode(' · ', array_values(array_map(fn($t) => trim(preg_replace('/^\S+\s/u', '', $t)), $tabs ?? [])));

@@ -10,7 +10,7 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/WhatsAppHelper.php';
 require_once __DIR__ . '/includes/GuestServices.php';
 
-$lang = ($_GET['l'] ?? '') === 'en' ? 'en' : 'id';
+$lang = 'en'; // gambar pratinjau selalu berbahasa Inggris (dipahami semua tamu)
 $db = Database::getInstance();
 $s = GuestServices::settings($db);
 
@@ -45,7 +45,7 @@ try {
 }
 
 $dir = __DIR__ . '/uploads/guest-services';
-$key = md5(json_encode([$lang, $hotel, $logoSrc, $pills, 'v3']));
+$key = md5(json_encode([$lang, $hotel, $logoSrc, $pills, 'v5']));
 $cache = "$dir/og_$key.png";
 header('Content-Type: image/png');
 header('Cache-Control: public, max-age=86400');
@@ -91,29 +91,55 @@ $spaced = function (string $text, int $x, int $y, int $size, $color, string $fon
     }
 };
 
-// Logo bulat: cincin emas + isi putih, logo di-contain di tengah
-$cx = 168;
-$cy = 168;
-$r = 76;
-imagefilledellipse($im, $cx, $cy, ($r + 8) * 2, ($r + 8) * 2, $gold);
+// Logo bulat: dipangkas ke isi logonya (tanpa tepi putih) lalu memenuhi lingkaran; cincin emas di luar
+$cx = 190;
+$cy = 170;
+$r = 98;
+imagefilledellipse($im, $cx, $cy, ($r + 9) * 2, ($r + 9) * 2, $gold);
 imagefilledellipse($im, $cx, $cy, $r * 2, $r * 2, $white);
+$lg = false;
 if ($logoSrc !== '') {
     $ctx = stream_context_create(['http' => ['timeout' => 4], 'ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
     $raw = @file_get_contents($logoSrc, false, $ctx);
     $lg = $raw ? @imagecreatefromstring($raw) : false;
-    if ($lg) {
-        $lw = imagesx($lg);
-        $lh = imagesy($lg);
-        $box = (int)($r * 2 * 0.80);
-        $k = min($box / $lw, $box / $lh);
-        $nw = max(1, (int)round($lw * $k));
-        $nh = max(1, (int)round($lh * $k));
-        imagecopyresampled($im, $lg, $cx - (int)($nw / 2), $cy - (int)($nh / 2), 0, 0, $nw, $nh, $lw, $lh);
-        imagedestroy($lg);
+}
+if ($lg) {
+    $lw = imagesx($lg);
+    $lh = imagesy($lg);
+    // kotak isi logo: piksel yang bukan putih / transparan
+    $x0 = $lw; $y0 = $lh; $x1 = -1; $y1 = -1;
+    $step = max(1, (int)floor(max($lw, $lh) / 400));
+    for ($yy = 0; $yy < $lh; $yy += $step) {
+        for ($xx = 0; $xx < $lw; $xx += $step) {
+            $p = imagecolorat($lg, $xx, $yy);
+            $alpha = ($p >> 24) & 127;
+            $rr = ($p >> 16) & 255; $gg = ($p >> 8) & 255; $bb2 = $p & 255;
+            if ($alpha < 100 && ($rr < 235 || $gg < 235 || $bb2 < 235)) {
+                if ($xx < $x0) $x0 = $xx; if ($xx > $x1) $x1 = $xx; if ($yy < $y0) $y0 = $yy; if ($yy > $y1) $y1 = $yy;
+            }
+        }
     }
+    if ($x1 < 0) { $x0 = 0; $y0 = 0; $x1 = $lw - 1; $y1 = $lh - 1; }
+    $side = max($x1 - $x0 + 1, $y1 - $y0 + 1);
+    $sx = (int)round(($x0 + $x1) / 2 - $side / 2);
+    $sy = (int)round(($y0 + $y1) / 2 - $side / 2);
+    $d = $r * 2;
+    $sq = imagecreatetruecolor($d, $d);
+    imagefill($sq, 0, 0, $white);
+    imagecopyresampled($sq, $lg, 0, 0, $sx, $sy, $d, $d, $side, $side);
+    // salin hanya piksel di dalam lingkaran
+    for ($yy = 0; $yy < $d; $yy++) {
+        for ($xx = 0; $xx < $d; $xx++) {
+            $dx = $xx - $r + .5; $dy = $yy - $r + .5;
+            if ($dx * $dx + $dy * $dy <= $r * $r - 1) imagesetpixel($im, $cx - $r + $xx, $cy - $r + $yy, imagecolorat($sq, $xx, $yy));
+        }
+    }
+    imagedestroy($sq);
+    imagedestroy($lg);
 } else {
-    $bb = imagettfbbox(54, 0, $semi, mb_strtoupper(mb_substr($hotel, 0, 1)));
-    imagettftext($im, 54, 0, $cx - (int)(($bb[2] - $bb[0]) / 2), $cy + 20, imagecolorallocate($im, 15, 39, 68), $semi, mb_strtoupper(mb_substr($hotel, 0, 1)));
+    $ini = mb_strtoupper(mb_substr($hotel, 0, 1));
+    $bb = imagettfbbox(60, 0, $semi, $ini);
+    imagettftext($im, 60, 0, $cx - (int)(($bb[2] - $bb[0]) / 2), $cy + 22, imagecolorallocate($im, 15, 39, 68), $semi, $ini);
 }
 
 // Teks
