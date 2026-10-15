@@ -30,7 +30,7 @@ if (!$link) {
 // Catat klik tombol (sendBeacon dari halaman)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ev = (string)($_POST['e'] ?? '');
-    if (!$preview && in_array($ev, ['wa_trip', 'wa_motor', 'wa_fo', 'save_flyer'], true)) {
+    if (!$preview && in_array($ev, ['wa_trip', 'wa_motor', 'wa_car', 'wa_fo', 'save_flyer'], true)) {
         $db->query("INSERT INTO guest_service_events (link_id, event) VALUES (?, ?)", [(int)$link['id'], $ev]);
     }
     http_response_code(204);
@@ -46,7 +46,8 @@ if (!$preview) {
 $T = [
     'id' => [
         'hello' => 'Halo', 'room' => 'Kamar', 'intro' => 'Semoga nyaman menginap. Ini pilihan seru selama di Karimunjawa.',
-        'tab_trip' => 'Trip', 'tab_motor' => 'Sewa Motor', 'trip' => 'Paket Trip Karimunjawa', 'zoom' => 'Perbesar', 'save' => 'Simpan flyer',
+        'tab_trip' => 'Trip', 'tab_motor' => 'Sewa Motor', 'tab_car' => 'Sewa Mobil', 'car' => 'Sewa Mobil', 'swipe' => 'Geser untuk melihat flyer lainnya',
+        'wa_car' => 'Cek ketersediaan mobil via WhatsApp', 'm_car' => 'Halo Front Office, saya %s (kamar %s, booking %s). Saya ingin menyewa mobil, apakah tersedia?', 'trip' => 'Paket Trip Karimunjawa', 'zoom' => 'Perbesar', 'save' => 'Simpan flyer',
         'wa_trip' => 'Tanya & Pesan Trip via WhatsApp', 'motor' => 'Sewa Motor', 'from' => 'mulai dari', 'per' => 'hari',
         'wa_motor' => 'Cek ketersediaan via WhatsApp', 'bar_fo' => 'Front Office', 'reply' => 'Balas cepat', 'chat' => 'Chat Front Office',
         'note' => 'Harga langsung dari hotel · pemesanan dikonfirmasi oleh Front Office.', 'close' => 'Tutup', 'empty' => 'Informasi layanan segera hadir.',
@@ -58,7 +59,8 @@ $T = [
     ],
     'en' => [
         'hello' => 'Hello', 'room' => 'Room', 'intro' => 'We hope you are enjoying your stay. Here are some great things to do in Karimunjawa.',
-        'tab_trip' => 'Trips', 'tab_motor' => 'Motorbike Rental', 'trip' => 'Karimunjawa Trip Packages', 'zoom' => 'Enlarge', 'save' => 'Save flyer',
+        'tab_trip' => 'Trips', 'tab_motor' => 'Motorbike Rental', 'tab_car' => 'Car Rental', 'car' => 'Car Rental', 'swipe' => 'Swipe to see more flyers',
+        'wa_car' => 'Check car availability on WhatsApp', 'm_car' => 'Hello Front Office, this is %s (room %s, booking %s). I would like to rent a car. Is one available?', 'trip' => 'Karimunjawa Trip Packages', 'zoom' => 'Enlarge', 'save' => 'Save flyer',
         'wa_trip' => 'Ask & Book a Trip on WhatsApp', 'motor' => 'Motorbike Rental', 'from' => 'from', 'per' => 'day',
         'wa_motor' => 'Check availability on WhatsApp', 'bar_fo' => 'Front Office', 'reply' => 'Quick replies', 'chat' => 'Chat Front Office',
         'note' => 'Prices direct from the hotel · bookings are confirmed by the Front Office.', 'close' => 'Close', 'empty' => 'Service information is coming soon.',
@@ -89,8 +91,17 @@ $chips = array_filter(array_map('trim', explode(',', $s['gs_trip_chips'])));
 $showMotor = $s['gs_motor_enabled'] === '1';
 $mp = GuestServices::motorPrice($db, $s);
 $notes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_motor_notes'])));
-$hasTrip = (bool)$flyers;
-$ogImg = $flyers ? GuestServices::fileUrl($flyers[0]['path']) : '';
+$flyersBy = ['trip' => [], 'motor' => [], 'car' => []];
+foreach ($flyers as $fl) $flyersBy[$fl['cat']][] = $fl;
+$showCar = $s['gs_car_enabled'] === '1';
+$cp = GuestServices::carPrice($db, $s);
+$carNotes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_car_notes'])));
+// Tab yang tampil: Trip (bila ada flyer), Sewa Motor, Sewa Mobil
+$tabs = [];
+if ($flyersBy['trip']) $tabs['trip'] = '🏝️ ' . $T['tab_trip'];
+if ($showMotor) $tabs['motor'] = '🏍️ ' . $T['tab_motor'];
+if ($showCar) $tabs['car'] = '🚗 ' . $T['tab_car'];
+$firstTab = (string)array_key_first($tabs);$ogImg = $flyers ? GuestServices::fileUrl($flyers[0]['path']) : '';
 $wifiSsid = trim($s['gs_wifi_ssid']);
 $wifiPass = trim($s['gs_wifi_pass']);
 $wifiEsc = fn(string $v) => preg_replace('/([\\;,":])/', '\\\\$1', $v); // escape format QR "WIFI:"
@@ -129,6 +140,15 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   .card { background:#fff; border-radius:18px; overflow:hidden; box-shadow:0 4px 18px rgba(15,39,68,.08); margin-bottom:14px; }
   .fly { position:relative; display:block; width:100%; border:0; padding:0; background:#e2e8f0; cursor:zoom-in; }
   .fly img { display:block; width:100%; height:auto; }
+  .track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; background:#e2e8f0; }
+  .track::-webkit-scrollbar { display:none; }
+  .track .fly { flex:0 0 100%; scroll-snap-align:center; align-self:center; }
+  .cwrap { position:relative; }
+  .cnt { position:absolute; left:10px; top:10px; background:rgba(0,0,0,.55); color:#fff; font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; pointer-events:none; }
+  .dots { display:flex; justify-content:center; gap:6px; padding:10px 0 0; }
+  .dot { width:7px; height:7px; border-radius:50%; background:#cbd5e1; border:0; padding:0; transition:all .2s; }
+  .dot.on { background:var(--navy); width:18px; border-radius:4px; }
+  .swipe { text-align:center; font-size:11px; color:var(--mut); padding-top:6px; }
   .fly .zoom { position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.55); color:#fff; font-size:11px; padding:5px 10px; border-radius:999px; }
   .body { padding:14px 16px 16px; }
   .ftitle { font-weight:700; font-size:14px; margin-bottom:8px; }
@@ -193,50 +213,89 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   </div>
   <?php endif; ?>
 
-  <?php if ($hasTrip && $showMotor): ?>
-  <div class="tabs" <?= $wifiSsid !== '' ? 'style="margin-top:14px"' : '' ?>>
-    <button type="button" class="tab on" data-tab="trip">🏝️ <?= $h($T['tab_trip']) ?></button>
-    <button type="button" class="tab" data-tab="motor">🏍️ <?= $h($T['tab_motor']) ?></button>
-  </div>
-  <?php else: ?><div style="height:6px"></div><?php endif; ?>
-
-  <?php if ($hasTrip): ?>
-  <section id="s-trip" class="on">
-    <h2>🏝️ <?= $h($tripTitle) ?></h2>
-    <?php foreach ($flyers as $i => $f): $u = GuestServices::fileUrl($f['path']); ?>
-    <div class="card">
-      <button type="button" class="fly" data-zoom="<?= $h($u) ?>" aria-label="<?= $h($T['zoom']) ?>">
-        <img src="<?= $h($u) ?>" alt="<?= $h($f['title'] ?: $tripTitle) ?>"<?= $i > 0 ? ' loading="lazy"' : '' ?>>
-        <span class="zoom">🔍 <?= $h($T['zoom']) ?></span>
-      </button>
-      <div class="body">
-        <?php if ($f['title'] !== ''): ?><div class="ftitle"><?= $h($f['title']) ?></div><?php endif; ?>
-        <?php if ($i === 0 && $chips): ?><div class="chips"><?php foreach ($chips as $c): ?><span class="chip"><?= $h($c) ?></span><?php endforeach; ?></div><?php endif; ?>
-        <a class="btn wa" data-ev="wa_trip" href="<?= $h($wa('m_trip')) ?>">💬 <?= $h($T['wa_trip']) ?></a>
-        <a class="btn ghost" data-ev="save_flyer" href="<?= $h($u) ?>" download>⬇️ <?= $h($T['save']) ?></a>
+  <?php
+  // Slide flyer (geser kiri/kanan); satu kartu per kategori
+  $carousel = function (array $list, string $ev, string $waKey, string $waLabel, string $extra = '') use ($h, $T, $wa, $tripTitle) {
+      $n = count($list); $u0 = GuestServices::fileUrl($list[0]['path']);
+      ob_start(); ?>
+      <div class="card" data-car data-n="<?= $n ?>">
+        <div class="cwrap">
+          <div class="track">
+            <?php foreach ($list as $i => $f): $u = GuestServices::fileUrl($f['path']); ?>
+              <button type="button" class="fly" data-zoom="<?= $h($u) ?>" data-title="<?= $h($f['title']) ?>" aria-label="<?= $h($T['zoom']) ?>">
+                <img src="<?= $h($u) ?>" alt="<?= $h($f['title'] ?: $tripTitle) ?>"<?= $i > 0 ? ' loading="lazy"' : '' ?>>
+                <span class="zoom">🔍 <?= $h($T['zoom']) ?></span>
+              </button>
+            <?php endforeach; ?>
+          </div>
+          <?php if ($n > 1): ?><span class="cnt" data-cnt>1 / <?= $n ?></span><?php endif; ?>
+        </div>
+        <?php if ($n > 1): ?>
+          <div class="dots"><?php for ($i = 0; $i < $n; $i++): ?><button type="button" class="dot<?= $i === 0 ? ' on' : '' ?>" aria-label="<?= $i + 1 ?>"></button><?php endfor; ?></div>
+          <div class="swipe">↔ <?= $h($T['swipe']) ?></div>
+        <?php endif; ?>
+        <div class="body">
+          <div class="ftitle" data-ftitle><?= $h($list[0]['title']) ?></div>
+          <?= $extra ?>
+          <a class="btn wa" data-ev="<?= $ev ?>" href="<?= $h($wa($waKey)) ?>">💬 <?= $h($waLabel) ?></a>
+          <a class="btn ghost" data-ev="save_flyer" data-save href="<?= $h($u0) ?>" download>⬇️ <?= $h($T['save']) ?></a>
+        </div>
       </div>
-    </div>
-    <?php endforeach; ?>
+      <?php return ob_get_clean();
+  };
+  $priceHtml = function (array $p) use ($h, $T) {
+      if ($p['price'] <= 0) return '';
+      return '<div class="price"><b>Rp ' . number_format($p['price'], 0, ',', '.') . '</b><span>/ ' . $h($p['unit'] !== '' && strtolower($p['unit']) !== 'unit' ? $p['unit'] : $T['per']) . ' · ' . $h($T['from']) . '</span></div>';
+  };
+  $notesHtml = fn(array $l) => $l ? '<ul class="req">' . implode('', array_map(fn($n) => '<li>' . $h($n) . '</li>', $l)) . '</ul>' : '';
+  ?>
+  <?php if (count($tabs) > 1): ?>
+  <div class="tabs" <?= $wifiSsid !== '' ? 'style="margin-top:14px"' : '' ?>>
+    <?php foreach ($tabs as $tk => $tl): ?><button type="button" class="tab<?= $tk === $firstTab ? ' on' : '' ?>" data-tab="<?= $tk ?>"><?= $h($tl) ?></button><?php endforeach; ?>
+  </div>
+  <?php endif; ?>
+
+  <?php if (isset($tabs['trip'])): ?>
+  <section id="s-trip" class="<?= $firstTab === 'trip' ? 'on' : '' ?>">
+    <h2>🏝️ <?= $h($tripTitle) ?></h2>
+    <?= $carousel($flyersBy['trip'], 'wa_trip', 'm_trip', $T['wa_trip'], $chips ? '<div class="chips">' . implode('', array_map(fn($c) => '<span class="chip">' . $h($c) . '</span>', $chips)) . '</div>' : '') ?>
   </section>
   <?php endif; ?>
 
   <?php if ($showMotor): ?>
-  <section id="s-motor" class="<?= $hasTrip ? '' : 'on' ?>">
+  <section id="s-motor" class="<?= $firstTab === 'motor' ? 'on' : '' ?>">
     <h2>🏍️ <?= $h($T['motor']) ?></h2>
+    <?php $motorExtra = $priceHtml($mp) . $notesHtml($notes); ?>
+    <?php if ($flyersBy['motor']): ?>
+      <?= $carousel($flyersBy['motor'], 'wa_motor', 'm_motor', $T['wa_motor'], $motorExtra) ?>
+    <?php else: ?>
     <div class="card">
       <?php if ($s['gs_motor_photo'] !== ''): ?><div class="moto"><img src="<?= $h(GuestServices::fileUrl($s['gs_motor_photo'])) ?>" alt="<?= $h($T['motor']) ?>"></div><?php endif; ?>
       <div class="body">
-        <?php if ($mp['price'] > 0): ?>
-        <div class="price"><b>Rp <?= number_format($mp['price'], 0, ',', '.') ?></b><span>/ <?= $h($mp['unit'] !== '' && strtolower($mp['unit']) !== 'unit' ? $mp['unit'] : $T['per']) ?> · <?= $h($T['from']) ?></span></div>
-        <?php endif; ?>
-        <?php if ($notes): ?><ul class="req"><?php foreach ($notes as $n): ?><li><?= $h($n) ?></li><?php endforeach; ?></ul><?php endif; ?>
+        <?= $motorExtra ?>
         <a class="btn wa" data-ev="wa_motor" href="<?= $h($wa('m_motor')) ?>">💬 <?= $h($T['wa_motor']) ?></a>
       </div>
     </div>
+    <?php endif; ?>
   </section>
   <?php endif; ?>
 
-  <?php if (!$hasTrip && !$showMotor): ?><div class="empty"><?= $h($T['empty']) ?></div><?php endif; ?>
+  <?php if ($showCar): ?>
+  <section id="s-car" class="<?= $firstTab === 'car' ? 'on' : '' ?>">
+    <h2>🚗 <?= $h($T['car']) ?></h2>
+    <?php $carExtra = $priceHtml($cp) . $notesHtml($carNotes); ?>
+    <?php if ($flyersBy['car']): ?>
+      <?= $carousel($flyersBy['car'], 'wa_car', 'm_car', $T['wa_car'], $carExtra) ?>
+    <?php else: ?>
+    <div class="card"><div class="body">
+      <?= $carExtra ?>
+      <a class="btn wa" data-ev="wa_car" href="<?= $h($wa('m_car')) ?>">💬 <?= $h($T['wa_car']) ?></a>
+    </div></div>
+    <?php endif; ?>
+  </section>
+  <?php endif; ?>
+
+  <?php if (!$tabs): ?><div class="empty"><?= $h($T['empty']) ?></div><?php endif; ?>
   <p class="note"><?= $h($T['note']) ?></p>
 </div>
 
@@ -288,6 +347,21 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
     sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
     sc.onload = function () { new QRCode(document.getElementById('qrCanvas'), { text: <?= json_encode($wifiQr) ?>, width: 200, height: 200 }); };
     document.head.appendChild(sc);
+  });
+  // Slide flyer: titik, penghitung, judul & tombol simpan mengikuti slide yang tampil
+  document.querySelectorAll('[data-car]').forEach(function (c) {
+    var track = c.querySelector('.track'), slides = c.querySelectorAll('.fly'), dots = c.querySelectorAll('.dot');
+    var cnt = c.querySelector('[data-cnt]'), ttl = c.querySelector('[data-ftitle]'), sv = c.querySelector('[data-save]'), cur = -1;
+    function sync() {
+      var i = Math.max(0, Math.min(slides.length - 1, Math.round(track.scrollLeft / track.clientWidth)));
+      if (i === cur) return; cur = i;
+      dots.forEach(function (d, k) { d.classList.toggle('on', k === i); });
+      if (cnt) cnt.textContent = (i + 1) + ' / ' + slides.length;
+      ttl.textContent = slides[i].dataset.title || '';
+      sv.href = slides[i].dataset.zoom;
+    }
+    track.addEventListener('scroll', function () { window.requestAnimationFrame(sync); }, { passive: true });
+    dots.forEach(function (d, k) { d.addEventListener('click', function () { track.scrollTo({ left: k * track.clientWidth, behavior: 'smooth' }); }); });
   });
   // Hitung klik tombol (tidak menghalangi navigasi)
   document.querySelectorAll('[data-ev]').forEach(function (a) {

@@ -49,6 +49,11 @@ return [
         'Terkirim' => 'Sent', 'Gagal' => 'Failed', 'Sisa kredit' => 'Remaining credit', 'Simpan Pengaturan' => 'Save Settings', '— Tidak ada' => '— None',
         'Nomor tujuan, mis. 0812…' => 'Recipient number, e.g. 0812…',
         // ---- Layanan Tamu (guest-services.php) ----
+        'Sewa Mobil' => 'Car Rental', 'WA Mobil' => 'WA Car', 'Tab ketiga di halaman tamu. Unggah flyer mobil di bagian Flyer dengan kategori Sewa Mobil.' => 'Third tab on the guest page. Upload car flyers in the Flyers section with the Car Rental category.',
+        'Tampilkan sewa mobil' => 'Show car rental', 'Matikan bila tidak menawarkan sewa mobil.' => 'Turn off if you do not offer car rental.',
+        'Kosong = otomatis dari harga terendah katalog Hotel Service bertipe mobil' => 'Empty = automatic from the lowest Hotel Service catalog price for cars',
+        'bila tidak ada, harga tidak ditampilkan.' => 'if none, no price is shown.',
+        'JPG / PNG / WEBP, maks 6 MB. Otomatis diperkecil agar ringan di sinyal lemah. Pilih kategori (Trip / Sewa Motor / Sewa Mobil); beberapa flyer dalam satu kategori tampil sebagai slide yang bisa digeser. Urutan di sini = urutan slide.' => 'JPG / PNG / WEBP, max 6 MB. Automatically resized to stay light on weak signal. Pick a category (Trips / Motorbike Rental / Car Rental); several flyers in one category appear as a swipeable slideshow. Order here = slide order.',
         'WiFi Tamu' => 'Guest WiFi', 'Kartu WiFi di bagian atas halaman tamu (salin password, buka pengaturan WiFi, QR). Kosongkan nama WiFi bila tidak ingin ditampilkan.' => 'WiFi card at the top of the guest page (copy password, open WiFi settings, QR). Leave the network name empty to hide it.',
         'Nama WiFi (SSID)' => 'WiFi name (SSID)', 'Password terlihat oleh pemegang link tamu (link unik per tamu). Kosong = WiFi terbuka tanpa password.' => 'The password is visible to the holder of the guest link (unique per guest). Empty = open WiFi without password.',
         'Catatan (opsional)' => 'Note (optional)', 'Kuat di lobi & area kamar' => 'Strong in the lobby & room area',

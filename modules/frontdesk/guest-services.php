@@ -38,6 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             GuestServices::save($db, 'gs_wifi_ssid', trim((string)($_POST['gs_wifi_ssid'] ?? '')));
             GuestServices::save($db, 'gs_wifi_pass', trim((string)($_POST['gs_wifi_pass'] ?? '')));
             GuestServices::save($db, 'gs_wifi_note', trim((string)($_POST['gs_wifi_note'] ?? '')));
+            GuestServices::save($db, 'gs_car_enabled', !empty($_POST['gs_car_enabled']) ? '1' : '0');
+            GuestServices::save($db, 'gs_car_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_car_price'] ?? '')));
+            GuestServices::save($db, 'gs_car_unit', trim((string)($_POST['gs_car_unit'] ?? '')));
+            GuestServices::save($db, 'gs_car_notes', trim((string)($_POST['gs_car_notes'] ?? '')));
             GuestServices::save($db, 'gs_motor_enabled', !empty($_POST['gs_motor_enabled']) ? '1' : '0');
             GuestServices::save($db, 'gs_motor_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_motor_price'] ?? '')));
             GuestServices::save($db, 'gs_motor_unit', trim((string)($_POST['gs_motor_unit'] ?? '')));
@@ -60,7 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setFlash('success', 'Pengaturan Layanan Tamu tersimpan.');
         } elseif ($act === 'add_flyer') {
             $path = GuestServices::saveImage($_FILES['flyer'] ?? []);
-            $flyers[] = ['path' => $path, 'title' => trim((string)($_POST['new_title'] ?? ''))];
+            $cat = isset(GuestServices::FLYER_CATS[$_POST['new_cat'] ?? '']) ? $_POST['new_cat'] : 'trip';
+            $flyers[] = ['path' => $path, 'title' => trim((string)($_POST['new_title'] ?? '')), 'cat' => $cat];
             GuestServices::save($db, 'gs_flyers', json_encode($flyers, JSON_UNESCAPED_UNICODE));
             setFlash('success', 'Flyer ditambahkan.');
         } elseif ($act === 'del_flyer') {
@@ -86,9 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $mp = GuestServices::motorPrice($db, $s);
+$cp = GuestServices::carPrice($db, $s);
 $foNumber = GuestServices::foNumber($db, $s);
 // Statistik 30 hari terakhir
-$stat = ['links' => 0, 'open' => 0, 'wa_trip' => 0, 'wa_motor' => 0, 'wa_fo' => 0, 'save_flyer' => 0];
+$stat = ['links' => 0, 'open' => 0, 'wa_trip' => 0, 'wa_motor' => 0, 'wa_car' => 0, 'wa_fo' => 0, 'save_flyer' => 0];
 try {
     $stat['links'] = (int)($db->fetchOne("SELECT COUNT(*) c FROM guest_service_links WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")['c'] ?? 0);
     foreach ($db->fetchAll("SELECT event, COUNT(*) c FROM guest_service_events WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY event") ?: [] as $r) {
@@ -146,6 +152,7 @@ include '../../includes/header.php';
             <div><b><?php echo $stat['open']; ?></b><span>Dibuka</span></div>
             <div><b><?php echo $stat['wa_trip']; ?></b><span>WA Trip</span></div>
             <div><b><?php echo $stat['wa_motor']; ?></b><span>WA Motor</span></div>
+            <div><b><?php echo $stat['wa_car']; ?></b><span>WA Mobil</span></div>
             <div><b><?php echo $stat['wa_fo']; ?></b><span>WA Front Office</span></div>
             <div><b><?php echo $stat['save_flyer']; ?></b><span>Simpan flyer</span></div>
         </div>
@@ -154,11 +161,11 @@ include '../../includes/header.php';
     <!-- Tambah flyer (form sendiri agar unggah tidak bercampur dengan pengaturan lain) -->
     <div class="gs-card">
         <h3>Flyer Trip</h3>
-        <p class="gs-sub">JPG / PNG / WEBP, maks 6 MB. Otomatis diperkecil agar ringan di sinyal lemah. Urutan di sini = urutan di halaman tamu.</p>
+        <p class="gs-sub">JPG / PNG / WEBP, maks 6 MB. Otomatis diperkecil agar ringan di sinyal lemah. Pilih kategori (Trip / Sewa Motor / Sewa Mobil); beberapa flyer dalam satu kategori tampil sebagai slide yang bisa digeser. Urutan di sini = urutan slide.</p>
         <?php foreach ($flyers as $i => $f): ?>
             <div class="gs-flyer">
                 <img src="<?php echo htmlspecialchars(GuestServices::fileUrl($f['path'])); ?>" alt="">
-                <span style="flex:1;min-width:0;font-size:.7rem;color:var(--fd-text)"><?php echo htmlspecialchars($f['title'] !== '' ? $f['title'] : basename($f['path'])); ?></span>
+                <span style="flex:1;min-width:0;font-size:.7rem;color:var(--fd-text)"><?php echo htmlspecialchars($f['title'] !== '' ? $f['title'] : basename($f['path'])); ?> <em style="font-style:normal;font-size:.6rem;font-weight:700;padding:.05rem .45rem;border-radius:999px;background:var(--fd-accent-soft);color:var(--fd-accent-text)"><?php echo htmlspecialchars(GuestServices::FLYER_CATS[$f['cat']]); ?></em></span>
                 <?php if ($i > 0): ?>
                     <form method="post"><input type="hidden" name="act" value="move_flyer"><input type="hidden" name="idx" value="<?php echo $i; ?>"><button class="gs-btn ghost" title="Naikkan">↑</button></form>
                 <?php endif; ?>
@@ -168,6 +175,9 @@ include '../../includes/header.php';
         <?php if (!$flyers): ?><span class="gs-hint" style="margin-bottom:.5rem">Belum ada flyer. Halaman tamu akan menampilkan tab Trip setelah flyer pertama diunggah.</span><?php endif; ?>
         <form method="post" enctype="multipart/form-data" class="gs-row" style="margin-top:.5rem">
             <input type="hidden" name="act" value="add_flyer">
+            <select name="new_cat" class="gs-input" style="max-width:150px">
+                <?php foreach (GuestServices::FLYER_CATS as $ck => $cl): ?><option value="<?php echo $ck; ?>"><?php echo $cl; ?></option><?php endforeach; ?>
+            </select>
             <input type="file" name="flyer" accept="image/jpeg,image/png,image/webp" required class="gs-input" style="max-width:260px">
             <input type="text" name="new_title" class="gs-input" style="max-width:240px" maxlength="80" placeholder="Judul flyer (opsional)">
             <button class="gs-btn">Unggah flyer</button>
@@ -263,6 +273,27 @@ include '../../includes/header.php';
                         <label class="gs-hint"><input type="checkbox" name="remove_motor_photo" value="1"> Hapus foto ini</label>
                     <?php endif; ?>
                     <input type="file" name="motor_photo" accept="image/jpeg,image/png,image/webp" class="gs-input">
+                </div>
+            </div>
+            <div class="gs-card">
+                <h3>Sewa Mobil</h3>
+                <p class="gs-sub">Tab ketiga di halaman tamu. Unggah flyer mobil di bagian Flyer dengan kategori Sewa Mobil.</p>
+                <label class="gs-switch">
+                    <input type="checkbox" name="gs_car_enabled" value="1" <?php echo $s['gs_car_enabled'] === '1' ? 'checked' : ''; ?>>
+                    <span><b>Tampilkan sewa mobil</b><small>Matikan bila tidak menawarkan sewa mobil.</small></span>
+                </label>
+                <div class="gs-field">
+                    <label class="gs-label" for="gsCarPrice">Harga mulai dari (Rp)</label>
+                    <input class="gs-input" id="gsCarPrice" name="gs_car_price" inputmode="numeric" value="<?php echo htmlspecialchars($s['gs_car_price']); ?>" placeholder="otomatis / kosongkan">
+                    <span class="gs-hint">Kosong = otomatis dari harga terendah katalog Hotel Service bertipe mobil<?php echo $cp['price'] > 0 && $s['gs_car_price'] === '' ? ' (sekarang: Rp ' . number_format($cp['price'], 0, ',', '.') . ')' : ''; ?>; bila tidak ada, harga tidak ditampilkan.</span>
+                </div>
+                <div class="gs-field">
+                    <label class="gs-label" for="gsCarUnit">Satuan</label>
+                    <input class="gs-input" id="gsCarUnit" name="gs_car_unit" value="<?php echo htmlspecialchars($s['gs_car_unit']); ?>" maxlength="20" placeholder="hari">
+                </div>
+                <div class="gs-field">
+                    <label class="gs-label" for="gsCarNotes">Syarat &amp; info (satu per baris)</label>
+                    <textarea class="gs-input" id="gsCarNotes" name="gs_car_notes" placeholder="Dengan atau tanpa sopir&#10;Bisa antar-jemput pelabuhan"><?php echo htmlspecialchars($s['gs_car_notes']); ?></textarea>
                 </div>
             </div>
         </div>

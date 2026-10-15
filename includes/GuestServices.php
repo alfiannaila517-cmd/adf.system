@@ -16,12 +16,15 @@
  *   gs_motor_price   harga manual (kosong = harga terendah katalog hotel service bertipe motor)
  *   gs_motor_unit    satuan (default "hari")
  *   gs_motor_notes   syarat / info, satu per baris
+ *   gs_car_enabled/price/unit/notes  tab sewa mobil (sama seperti motor; harga kosong = harga terendah katalog bertipe mobil)
+ *   gs_flyers        JSON [{path,title,cat}] cat = trip | motor | car (bawaan trip)
  *   gs_wifi_ssid / gs_wifi_pass / gs_wifi_note  kartu WiFi (tampil bila SSID diisi; password kosong = jaringan terbuka)
  */
 class GuestServices
 {
     public const KEYS = ['gs_enabled', 'gs_fo_wa', 'gs_fo_hours', 'gs_trip_title', 'gs_trip_chips', 'gs_flyers',
-        'gs_motor_enabled', 'gs_motor_photo', 'gs_motor_price', 'gs_motor_unit', 'gs_motor_notes', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note'];
+        'gs_motor_enabled', 'gs_motor_photo', 'gs_motor_price', 'gs_motor_unit', 'gs_motor_notes', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note',
+        'gs_car_enabled', 'gs_car_price', 'gs_car_unit', 'gs_car_notes'];
 
     public static function ensureTables($db): void
     {
@@ -56,7 +59,8 @@ class GuestServices
     public static function settings($db): array
     {
         $s = ['gs_enabled' => '0', 'gs_fo_wa' => '', 'gs_fo_hours' => '07.00–22.00', 'gs_trip_title' => '', 'gs_trip_chips' => '',
-            'gs_flyers' => '[]', 'gs_motor_enabled' => '1', 'gs_motor_photo' => '', 'gs_motor_price' => '', 'gs_motor_unit' => '', 'gs_motor_notes' => '', 'gs_wifi_ssid' => '', 'gs_wifi_pass' => '', 'gs_wifi_note' => ''];
+            'gs_flyers' => '[]', 'gs_motor_enabled' => '1', 'gs_motor_photo' => '', 'gs_motor_price' => '', 'gs_motor_unit' => '', 'gs_motor_notes' => '', 'gs_wifi_ssid' => '', 'gs_wifi_pass' => '', 'gs_wifi_note' => '',
+            'gs_car_enabled' => '0', 'gs_car_price' => '', 'gs_car_unit' => '', 'gs_car_notes' => ''];
         try {
             $in = "'" . implode("','", self::KEYS) . "'";
             foreach ($db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ($in)") ?: [] as $r) {
@@ -77,13 +81,15 @@ class GuestServices
         }
     }
 
-    /** @return array<int,array{path:string,title:string}> */
+    public const FLYER_CATS = ['trip' => 'Trip', 'motor' => 'Sewa Motor', 'car' => 'Sewa Mobil'];
+
+    /** @return array<int,array{path:string,title:string,cat:string}> */
     public static function flyers(array $s): array
     {
         $list = json_decode($s['gs_flyers'] ?? '[]', true);
         $out = [];
         foreach (is_array($list) ? $list : [] as $f) {
-            if (!empty($f['path'])) $out[] = ['path' => (string)$f['path'], 'title' => (string)($f['title'] ?? '')];
+            if (!empty($f['path'])) $out[] = ['path' => (string)$f['path'], 'title' => (string)($f['title'] ?? ''), 'cat' => isset(self::FLYER_CATS[$f['cat'] ?? '']) ? $f['cat'] : 'trip'];
         }
         return $out;
     }
@@ -112,19 +118,30 @@ class GuestServices
         return $n;
     }
 
-    /** Harga motor: manual bila diisi, kalau tidak harga terendah dari katalog hotel service (tipe/nama berisi "motor"). */
     public static function motorPrice($db, array $s): array
     {
-        $manual = (float)preg_replace('/[^\d]/', '', $s['gs_motor_price']);
-        if ($manual > 0) return ['price' => $manual, 'unit' => $s['gs_motor_unit']];
+        return self::vehiclePrice($db, $s, 'motor', 'motor');
+    }
+
+    public static function carPrice($db, array $s): array
+    {
+        return self::vehiclePrice($db, $s, 'car', 'mobil');
+    }
+
+    /** Harga kendaraan: manual (gs_<prefix>_price) bila diisi, kalau tidak harga terendah katalog hotel service (tipe/nama memuat $word). */
+    private static function vehiclePrice($db, array $s, string $prefix, string $word): array
+    {
+        $manual = (float)preg_replace('/[^\d]/', '', $s["gs_{$prefix}_price"]);
+        $unitSet = $s["gs_{$prefix}_unit"];
+        if ($manual > 0) return ['price' => $manual, 'unit' => $unitSet];
         try {
             $r = $db->fetchOne("SELECT default_price, unit FROM hotel_service_catalog
-                WHERE is_active = 1 AND default_price > 0 AND (LOWER(item_name) LIKE '%motor%' OR LOWER(service_type) LIKE '%motor%')
-                ORDER BY default_price ASC LIMIT 1");
-            if ($r) return ['price' => (float)$r['default_price'], 'unit' => $s['gs_motor_unit'] !== '' ? $s['gs_motor_unit'] : (string)$r['unit']];
+                WHERE is_active = 1 AND default_price > 0 AND (LOWER(item_name) LIKE ? OR LOWER(service_type) LIKE ?)
+                ORDER BY default_price ASC LIMIT 1", ["%$word%", "%$word%"]);
+            if ($r) return ['price' => (float)$r['default_price'], 'unit' => $unitSet !== '' ? $unitSet : (string)$r['unit']];
         } catch (\Throwable $e) {
         }
-        return ['price' => 0.0, 'unit' => $s['gs_motor_unit']];
+        return ['price' => 0.0, 'unit' => $unitSet];
     }
 
     /** Bahasa tamu: nomor luar negeri → en; nomor Indonesia → id kecuali kebangsaan jelas asing. */
