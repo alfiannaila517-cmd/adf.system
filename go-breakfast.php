@@ -28,6 +28,8 @@ try {
 
     // ?np=1 (pengingat): pratinjau link WhatsApp dibuat sekecil mungkin (tanpa gambar & deskripsi)
     $noPreview = (string)($_GET['np'] ?? '') === '1';
+    // Pratinjau WhatsApp: kartu bertema pemilihan menu sarapan (go-breakfast-og.php), sama temanya dengan kartu Layanan Tamu
+    $previewLogoUrl = rtrim(BASE_URL, '/') . '/go-breakfast-og.php';
     if ($noPreview) $previewLogoUrl = '';
 
     $shortUrl = rtrim(BASE_URL, '/') . '/go-breakfast.php?k=' . urlencode($code);
@@ -50,6 +52,8 @@ try {
     <meta property="og:url" content="<?php echo htmlspecialchars($shortUrl, ENT_QUOTES, 'UTF-8'); ?>">
     <?php if ($previewLogoUrl !== ''): ?>
     <meta property="og:image" content="<?php echo htmlspecialchars($previewLogoUrl, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="<?php echo htmlspecialchars($previewLogoUrl, ENT_QUOTES, 'UTF-8'); ?>">
     <?php else: ?>
