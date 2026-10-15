@@ -16,17 +16,16 @@
  *   gs_motor_price   harga manual (kosong = harga terendah katalog hotel service bertipe motor)
  *   gs_motor_unit    satuan (default "hari")
  *   gs_motor_notes   syarat / info, satu per baris
- *   gs_car_enabled/price/unit/notes  tab sewa mobil (sama seperti motor; harga kosong = harga terendah katalog bertipe mobil)
- *   gs_flyers        JSON [{path,title,cat}] cat = trip | motor | car (bawaan trip)
+ *   gs_custom        JSON layanan tambahan [{id,name,name_en,icon,enabled,price,unit,notes,notes_en}] (mis. Laundry); flyer-nya cat = x_<id>
+ *   gs_flyers        JSON [{path,title,title_en,cat}] cat = trip | motor | taxi | x_<id> (bawaan trip)
  *   gs_wifi_ssid / gs_wifi_pass / gs_wifi_note  kartu WiFi (tampil bila SSID diisi; password kosong = jaringan terbuka)
  */
 class GuestServices
 {
     public const KEYS = ['gs_enabled', 'gs_fo_wa', 'gs_fo_hours', 'gs_trip_title', 'gs_trip_chips', 'gs_flyers',
         'gs_motor_enabled', 'gs_motor_photo', 'gs_motor_price', 'gs_motor_unit', 'gs_motor_notes', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note',
-        'gs_car_enabled', 'gs_car_price', 'gs_car_unit', 'gs_car_notes',
         'gs_taxi_enabled', 'gs_taxi_price', 'gs_taxi_unit', 'gs_taxi_notes',
-        'gs_trip_title_en', 'gs_trip_chips_en', 'gs_motor_notes_en', 'gs_car_notes_en', 'gs_taxi_notes_en'];
+        'gs_trip_title_en', 'gs_trip_chips_en', 'gs_motor_notes_en', 'gs_taxi_notes_en', 'gs_custom'];
 
     public static function ensureTables($db): void
     {
@@ -62,9 +61,8 @@ class GuestServices
     {
         $s = ['gs_enabled' => '0', 'gs_fo_wa' => '', 'gs_fo_hours' => '07.00–22.00', 'gs_trip_title' => '', 'gs_trip_chips' => '',
             'gs_flyers' => '[]', 'gs_motor_enabled' => '1', 'gs_motor_photo' => '', 'gs_motor_price' => '', 'gs_motor_unit' => '', 'gs_motor_notes' => '', 'gs_wifi_ssid' => '', 'gs_wifi_pass' => '', 'gs_wifi_note' => '',
-            'gs_car_enabled' => '0', 'gs_car_price' => '', 'gs_car_unit' => '', 'gs_car_notes' => '',
             'gs_taxi_enabled' => '0', 'gs_taxi_price' => '', 'gs_taxi_unit' => '', 'gs_taxi_notes' => '',
-            'gs_trip_title_en' => '', 'gs_trip_chips_en' => '', 'gs_motor_notes_en' => '', 'gs_car_notes_en' => '', 'gs_taxi_notes_en' => ''];
+            'gs_trip_title_en' => '', 'gs_trip_chips_en' => '', 'gs_motor_notes_en' => '', 'gs_taxi_notes_en' => '', 'gs_custom' => '[]'];
         try {
             $in = "'" . implode("','", self::KEYS) . "'";
             foreach ($db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ($in)") ?: [] as $r) {
@@ -85,7 +83,7 @@ class GuestServices
         }
     }
 
-    public const FLYER_CATS = ['trip' => 'Trip', 'motor' => 'Sewa Motor', 'car' => 'Sewa Mobil', 'taxi' => 'Sewa Taxi'];
+    public const FLYER_CATS = ['trip' => 'Trip', 'motor' => 'Sewa Motor', 'taxi' => 'Sewa Taxi'];
 
     /** @return array<int,array{path:string,title:string,cat:string}> */
     public static function flyers(array $s): array
@@ -93,7 +91,26 @@ class GuestServices
         $list = json_decode($s['gs_flyers'] ?? '[]', true);
         $out = [];
         foreach (is_array($list) ? $list : [] as $f) {
-            if (!empty($f['path'])) $out[] = ['path' => (string)$f['path'], 'title' => (string)($f['title'] ?? ''), 'title_en' => (string)($f['title_en'] ?? ''), 'cat' => isset(self::FLYER_CATS[$f['cat'] ?? '']) ? $f['cat'] : 'trip'];
+            $cat = (string)($f['cat'] ?? 'trip');
+            if (!isset(self::FLYER_CATS[$cat]) && !preg_match('/^x_[a-z0-9]+$/', $cat)) continue; // kategori sudah dihapus (mis. sewa mobil)
+            if (!empty($f['path'])) $out[] = ['path' => (string)$f['path'], 'title' => (string)($f['title'] ?? ''), 'title_en' => (string)($f['title_en'] ?? ''), 'cat' => (string)($f['cat'] ?? 'trip')];
+        }
+        return $out;
+    }
+
+    /** Ikon (emoji) yang boleh dipilih untuk layanan tambahan. */
+    public const CUSTOM_ICONS = ['🧺', '🍽️', '💆', '🚤', '🎁', '🛎️', '🧴', '🏊', '🎣', '🛒', '⭐'];
+
+    /** @return array<int,array{id:string,name:string,name_en:string,icon:string,enabled:string,price:string,unit:string,notes:string,notes_en:string}> */
+    public static function customs(array $s): array
+    {
+        $out = [];
+        $list = json_decode($s['gs_custom'] ?? '[]', true);
+        foreach (is_array($list) ? $list : [] as $c) {
+            if (empty($c['id']) || !preg_match('/^[a-z0-9]+$/', (string)$c['id'])) continue;
+            $out[] = ['id' => (string)$c['id'], 'name' => (string)($c['name'] ?? ''), 'name_en' => (string)($c['name_en'] ?? ''),
+                'icon' => in_array($c['icon'] ?? '', self::CUSTOM_ICONS, true) ? $c['icon'] : '⭐', 'enabled' => ($c['enabled'] ?? '1') === '1' ? '1' : '0',
+                'price' => (string)($c['price'] ?? ''), 'unit' => (string)($c['unit'] ?? ''), 'notes' => (string)($c['notes'] ?? ''), 'notes_en' => (string)($c['notes_en'] ?? '')];
         }
         return $out;
     }
@@ -142,11 +159,6 @@ class GuestServices
     public static function taxiPrice($db, array $s): array
     {
         return self::vehiclePrice($db, $s, 'taxi', 'taxi');
-    }
-
-    public static function carPrice($db, array $s): array
-    {
-        return self::vehiclePrice($db, $s, 'car', 'mobil');
     }
 
     /** Harga kendaraan: manual (gs_<prefix>_price) bila diisi, kalau tidak harga terendah katalog hotel service (tipe/nama memuat $word). */

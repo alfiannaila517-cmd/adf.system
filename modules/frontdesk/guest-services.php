@@ -26,7 +26,8 @@ $db = Database::getInstance();
 GuestServices::ensureTables($db);
 $s = GuestServices::settings($db);
 $flyers = GuestServices::flyers($s);
-$tabKeys = ['general', 'wifi', 'trip', 'motor', 'car', 'taxi'];
+$customs = GuestServices::customs($s);
+$tabKeys = array_merge(['general', 'wifi', 'trip', 'motor', 'taxi'], array_map(fn($c) => 'x_' . $c['id'], $customs), ['add']);
 
 // ---- Simpan (PRG): semua kolom + operasi flyer + unggahan dalam satu kiriman ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -35,11 +36,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $uploaded = 0;
     try {
         $text = ['gs_fo_wa', 'gs_fo_hours', 'gs_trip_title', 'gs_trip_chips', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note',
-            'gs_motor_unit', 'gs_motor_notes', 'gs_car_unit', 'gs_car_notes', 'gs_taxi_unit', 'gs_taxi_notes',
-            'gs_trip_title_en', 'gs_trip_chips_en', 'gs_motor_notes_en', 'gs_car_notes_en', 'gs_taxi_notes_en'];
+            'gs_motor_unit', 'gs_motor_notes', 'gs_taxi_unit', 'gs_taxi_notes',
+            'gs_trip_title_en', 'gs_trip_chips_en', 'gs_motor_notes_en', 'gs_taxi_notes_en'];
         foreach ($text as $k) GuestServices::save($db, $k, trim((string)($_POST[$k] ?? '')));
-        foreach (['gs_motor_price', 'gs_car_price', 'gs_taxi_price'] as $k) GuestServices::save($db, $k, preg_replace('/[^\d]/', '', (string)($_POST[$k] ?? '')));
-        foreach (['gs_enabled', 'gs_motor_enabled', 'gs_car_enabled', 'gs_taxi_enabled'] as $k) GuestServices::save($db, $k, !empty($_POST[$k]) ? '1' : '0');
+        foreach (['gs_motor_price', 'gs_taxi_price'] as $k) GuestServices::save($db, $k, preg_replace('/[^\d]/', '', (string)($_POST[$k] ?? '')));
+        foreach (['gs_enabled', 'gs_motor_enabled', 'gs_taxi_enabled'] as $k) GuestServices::save($db, $k, !empty($_POST[$k]) ? '1' : '0');
 
         // Foto motor
         if (!empty($_FILES['motor_photo']['name'])) {
@@ -80,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Unggahan baru: flyer_up[<kategori>][] (boleh banyak sekaligus)
         foreach ($_FILES['flyer_up']['name'] ?? [] as $cat => $names) {
-            if (!isset(GuestServices::FLYER_CATS[$cat])) continue;
+            if (!isset(GuestServices::FLYER_CATS[$cat]) && !in_array($cat, array_map(fn($c) => 'x_' . $c['id'], $customs), true)) continue;
             foreach ($names as $k => $nm) {
                 if ($nm === '') continue;
                 $file = ['name' => $nm, 'type' => $_FILES['flyer_up']['type'][$cat][$k], 'tmp_name' => $_FILES['flyer_up']['tmp_name'][$cat][$k],
@@ -93,6 +94,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+        // Layanan tambahan: ubah, hapus, tambah
+        foreach ($customs as &$c) {
+            $in = $_POST['custom'][$c['id']] ?? null;
+            if (!is_array($in)) continue;
+            $c['name'] = trim((string)($in['name'] ?? $c['name']));
+            $c['name_en'] = trim((string)($in['name_en'] ?? ''));
+            $c['icon'] = in_array($in['icon'] ?? '', GuestServices::CUSTOM_ICONS, true) ? $in['icon'] : $c['icon'];
+            $c['enabled'] = !empty($in['enabled']) ? '1' : '0';
+            $c['price'] = preg_replace('/[^\d]/', '', (string)($in['price'] ?? ''));
+            $c['unit'] = trim((string)($in['unit'] ?? ''));
+            $c['notes'] = trim((string)($in['notes'] ?? ''));
+            $c['notes_en'] = trim((string)($in['notes_en'] ?? ''));
+        }
+        unset($c);
+        if (preg_match('/^del:([a-z0-9]+)$/', (string)($_POST['custom_op'] ?? ''), $m)) {
+            $customs = array_values(array_filter($customs, fn($c) => $c['id'] !== $m[1]));
+            foreach ($flyers as $fl) {
+                if ($fl['cat'] === 'x_' . $m[1]) GuestServices::deleteImage($fl['path']);
+            }
+            $flyers = array_values(array_filter($flyers, fn($fl) => $fl['cat'] !== 'x_' . $m[1]));
+            $tab = 'general';
+        }
+        $newName = trim((string)($_POST['new_custom_name'] ?? ''));
+        if ($newName !== '') {
+            $nid = 's' . base_convert((string)time(), 10, 36) . substr(bin2hex(random_bytes(2)), 0, 3);
+            $icon = in_array($_POST['new_custom_icon'] ?? '', GuestServices::CUSTOM_ICONS, true) ? $_POST['new_custom_icon'] : '⭐';
+            $customs[] = ['id' => $nid, 'name' => $newName, 'name_en' => trim((string)($_POST['new_custom_name_en'] ?? '')), 'icon' => $icon, 'enabled' => '1',
+                'price' => '', 'unit' => '', 'notes' => '', 'notes_en' => ''];
+            $tab = 'x_' . $nid;
+        }
+        GuestServices::save($db, 'gs_custom', json_encode($customs, JSON_UNESCAPED_UNICODE));
         GuestServices::save($db, 'gs_flyers', json_encode($flyers, JSON_UNESCAPED_UNICODE));
     } catch (\Throwable $e) {
         $errors[] = 'Gagal menyimpan: ' . $e->getMessage();
@@ -104,11 +136,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $activeTab = in_array($_GET['tab'] ?? '', $tabKeys, true) ? $_GET['tab'] : 'general';
-$prices = ['motor' => GuestServices::motorPrice($db, $s), 'car' => GuestServices::carPrice($db, $s), 'taxi' => GuestServices::taxiPrice($db, $s)];
+$prices = ['motor' => GuestServices::motorPrice($db, $s), 'taxi' => GuestServices::taxiPrice($db, $s)];
 $foNumber = GuestServices::foNumber($db, $s);
 
 // Statistik 30 hari terakhir
-$stat = ['links' => 0, 'open' => 0, 'wa_trip' => 0, 'wa_motor' => 0, 'wa_car' => 0, 'wa_taxi' => 0, 'wa_fo' => 0, 'save_flyer' => 0];
+$stat = ['links' => 0, 'open' => 0, 'wa_trip' => 0, 'wa_motor' => 0, 'wa_taxi' => 0, 'wa_svc' => 0, 'wa_fo' => 0, 'save_flyer' => 0];
 try {
     $stat['links'] = (int)($db->fetchOne("SELECT COUNT(*) c FROM guest_service_links WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)")['c'] ?? 0);
     foreach ($db->fetchAll("SELECT event, COUNT(*) c FROM guest_service_events WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY event") ?: [] as $r) {
@@ -123,7 +155,6 @@ $ic = [
     'wifi' => '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
     'trip' => '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
     'motor' => '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M12 17.5 9 9h4l2 4h3.5"/><path d="M9 9H7"/>',
-    'car' => '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
     'taxi' => '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M10 4h4"/>',
 ];
 $tabs = [
@@ -131,12 +162,10 @@ $tabs = [
     'wifi' => ['WiFi', $s['gs_wifi_ssid'] !== ''],
     'trip' => ['Trip', (bool)array_filter($flyers, fn($f) => $f['cat'] === 'trip')],
     'motor' => ['Sewa Motor', $s['gs_motor_enabled'] === '1'],
-    'car' => ['Sewa Mobil', $s['gs_car_enabled'] === '1'],
     'taxi' => ['Sewa Taxi', $s['gs_taxi_enabled'] === '1'],
 ];
 $vehicle = [
     'motor' => ['unit_ph' => 'hari', 'notes_ph' => "Helm disediakan\nBawa KTP / paspor untuk jaminan\nBisa diantar ke hotel", 'word' => 'motor', 'off' => 'Matikan bila tidak menawarkan sewa motor.'],
-    'car' => ['unit_ph' => 'hari', 'notes_ph' => "Dengan atau tanpa sopir\nBisa antar-jemput pelabuhan", 'word' => 'mobil', 'off' => 'Matikan bila tidak menawarkan sewa mobil.'],
     'taxi' => ['unit_ph' => 'trip', 'notes_ph' => "Antar-jemput pelabuhan / bandara\nPesan sehari sebelumnya", 'word' => 'taxi', 'off' => 'Matikan bila tidak menawarkan taxi / antar-jemput.'],
 ];
 
@@ -249,6 +278,12 @@ include '../../includes/header.php';
                     <svg viewBox="0 0 24 24" aria-hidden="true"><?php echo $ic[$k]; ?></svg><?php echo $label; ?><?php echo $on ? '<i title="Aktif"></i>' : ''; ?>
                 </button>
             <?php endforeach; ?>
+            <?php foreach ($customs as $c): ?>
+                <button type="button" class="gs-tab<?php echo $activeTab === 'x_' . $c['id'] ? ' on' : ''; ?>" data-tab="x_<?php echo $c['id']; ?>" role="tab">
+                    <span style="font-size:.8rem"><?php echo $c['icon']; ?></span><?php echo htmlspecialchars($c['name'] !== '' ? $c['name'] : 'Layanan'); ?><?php echo $c['enabled'] === '1' ? '<i title="Aktif"></i>' : ''; ?>
+                </button>
+            <?php endforeach; ?>
+            <button type="button" class="gs-tab<?php echo $activeTab === 'add' ? ' on' : ''; ?>" data-tab="add" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Layanan</button>
         </nav>
 
         <!-- UMUM -->
@@ -278,8 +313,8 @@ include '../../includes/header.php';
                         <span class="gs-chip"><b><?php echo $stat['open']; ?></b>Dibuka</span>
                         <span class="gs-chip"><b><?php echo $stat['wa_trip']; ?></b>WA Trip</span>
                         <span class="gs-chip"><b><?php echo $stat['wa_motor']; ?></b>WA Motor</span>
-                        <span class="gs-chip"><b><?php echo $stat['wa_car']; ?></b>WA Mobil</span>
                         <span class="gs-chip"><b><?php echo $stat['wa_taxi']; ?></b>WA Taxi</span>
+                        <span class="gs-chip"><b><?php echo $stat['wa_svc']; ?></b>WA Layanan lain</span>
                         <span class="gs-chip"><b><?php echo $stat['wa_fo']; ?></b>WA Front Office</span>
                         <span class="gs-chip"><b><?php echo $stat['save_flyer']; ?></b>Simpan flyer</span>
                     </div>
@@ -358,6 +393,61 @@ include '../../includes/header.php';
                 </div>
             </div>
         <?php endforeach; ?>
+
+        <!-- LAYANAN TAMBAHAN -->
+        <?php foreach ($customs as $c): $cid = $c['id']; $cn = "custom[$cid]"; ?>
+            <div class="gs-pane<?php echo $activeTab === 'x_' . $cid ? ' on' : ''; ?>" data-pane="x_<?php echo $cid; ?>">
+                <div class="gs-cols">
+                    <div class="gs-card">
+                        <label class="gs-sw"><span><b>Tampil di halaman tamu</b><small>Matikan sementara tanpa menghapus layanan.</small></span>
+                            <input type="checkbox" name="<?php echo $cn; ?>[enabled]" value="1" <?php echo $c['enabled'] === '1' ? 'checked' : ''; ?>><span class="t"></span></label>
+                        <div class="gs-r2">
+                            <div class="gs-f"><label class="l">Nama layanan</label>
+                                <input class="gs-in" name="<?php echo $cn; ?>[name]" value="<?php echo htmlspecialchars($c['name']); ?>" maxlength="40" placeholder="Laundry"></div>
+                            <div class="gs-f"><label class="l">Nama (English)</label>
+                                <input class="gs-in" name="<?php echo $cn; ?>[name_en]" value="<?php echo htmlspecialchars($c['name_en']); ?>" maxlength="40" placeholder="Laundry Service"></div>
+                        </div>
+                        <div class="gs-f"><label class="l">Ikon</label>
+                            <select class="gs-in" name="<?php echo $cn; ?>[icon]" style="max-width:120px">
+                                <?php foreach (GuestServices::CUSTOM_ICONS as $ico): ?><option value="<?php echo $ico; ?>" <?php echo $ico === $c['icon'] ? 'selected' : ''; ?>><?php echo $ico; ?></option><?php endforeach; ?>
+                            </select></div>
+                        <div class="gs-r2">
+                            <div class="gs-f"><label class="l">Harga mulai dari (Rp, opsional)</label>
+                                <input class="gs-in" name="<?php echo $cn; ?>[price]" inputmode="numeric" value="<?php echo htmlspecialchars($c['price']); ?>" placeholder="mis. 10000"></div>
+                            <div class="gs-f"><label class="l">Satuan</label>
+                                <input class="gs-in" name="<?php echo $cn; ?>[unit]" value="<?php echo htmlspecialchars($c['unit']); ?>" maxlength="20" placeholder="kg"></div>
+                        </div>
+                        <div class="gs-f"><label class="l">Syarat &amp; info (satu per baris)</label>
+                            <textarea class="gs-in" name="<?php echo $cn; ?>[notes]" placeholder="Selesai dalam 1 hari&#10;Titip di Front Office"><?php echo htmlspecialchars($c['notes']); ?></textarea></div>
+                        <div class="gs-f"><label class="l">Syarat &amp; info — English (opsional)</label>
+                            <textarea class="gs-in" name="<?php echo $cn; ?>[notes_en]" placeholder="Ready within 1 day&#10;Leave at the Front Office"><?php echo htmlspecialchars($c['notes_en']); ?></textarea>
+                            <span class="gs-hint">Tampil untuk tamu berbahasa Inggris; kosong = pakai teks Indonesia.</span></div>
+                        <button type="submit" name="custom_op" value="del:<?php echo $cid; ?>" class="gs-btn" formnovalidate onclick="return confirm('Hapus layanan ini beserta flyernya?')" style="color:#b91c1c !important;-webkit-text-fill-color:#b91c1c !important">Hapus layanan ini</button>
+                    </div>
+                    <div class="gs-card"><?php gsFlyerBox($flyers, 'x_' . $cid); ?></div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+
+        <!-- TAMBAH LAYANAN -->
+        <div class="gs-pane<?php echo $activeTab === 'add' ? ' on' : ''; ?>" data-pane="add">
+            <div class="gs-card" style="max-width:520px">
+                <div class="gs-sec-h">Tambah layanan baru</div>
+                <div class="gs-note" style="margin:-.2rem 0 .6rem">Mis. Laundry, Restoran, Spa, Sewa Perahu. Layanan baru muncul sebagai tab di halaman tamu, lengkap dengan flyer, harga, dan tombol WhatsApp.</div>
+                <div class="gs-r2">
+                    <div class="gs-f"><label class="l" for="gsNewName">Nama layanan</label>
+                        <input class="gs-in" id="gsNewName" name="new_custom_name" maxlength="40" placeholder="Laundry"></div>
+                    <div class="gs-f"><label class="l" for="gsNewNameEn">Nama (English)</label>
+                        <input class="gs-in" id="gsNewNameEn" name="new_custom_name_en" maxlength="40" placeholder="Laundry Service"></div>
+                </div>
+                <div class="gs-f"><label class="l" for="gsNewIcon">Ikon</label>
+                    <select class="gs-in" id="gsNewIcon" name="new_custom_icon" style="max-width:120px">
+                        <?php foreach (GuestServices::CUSTOM_ICONS as $ico): ?><option value="<?php echo $ico; ?>"><?php echo $ico; ?></option><?php endforeach; ?>
+                    </select></div>
+                <button type="submit" class="gs-btn pri">Tambah layanan</button>
+                <div class="gs-note">Setelah ditambah, atur harga, syarat, dan flyer-nya di tab layanan tersebut.</div>
+            </div>
+        </div>
 
         <div class="gs-save">
             <span>Satu tombol menyimpan semua tab.</span>

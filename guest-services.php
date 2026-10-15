@@ -30,7 +30,7 @@ if (!$link) {
 // Catat klik tombol (sendBeacon dari halaman)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ev = (string)($_POST['e'] ?? '');
-    if (!$preview && in_array($ev, ['wa_trip', 'wa_motor', 'wa_car', 'wa_taxi', 'wa_fo', 'save_flyer'], true)) {
+    if (!$preview && in_array($ev, ['wa_trip', 'wa_motor', 'wa_taxi', 'wa_svc', 'wa_fo', 'save_flyer'], true)) {
         $db->query("INSERT INTO guest_service_events (link_id, event) VALUES (?, ?)", [(int)$link['id'], $ev]);
     }
     http_response_code(204);
@@ -76,6 +76,15 @@ $T = [
     ],
 ][$lang];
 
+// Layanan tambahan (mis. Laundry): hanya yang aktif dan punya nama
+$customs = array_values(array_filter(GuestServices::customs($s), fn($c) => $c['enabled'] === '1' && trim($c['name']) !== ''));
+foreach ($customs as $c) {
+    $cn = ($lang === 'en' && trim($c['name_en']) !== '') ? $c['name_en'] : $c['name'];
+    $T['m_x_' . $c['id']] = $lang === 'en'
+        ? 'Hello Front Office, this is %s (room %s, booking %s). I would like to ask about ' . str_replace('%', '%%', $cn) . '.'
+        : 'Halo Front Office, saya %s (kamar %s, booking %s). Saya ingin menanyakan layanan ' . str_replace('%', '%%', $cn) . '.';
+    $T['wa_x_' . $c['id']] = $lang === 'en' ? 'Ask about ' . $cn . ' on WhatsApp' : 'Tanya ' . $cn . ' via WhatsApp';
+}
 $h = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
 $hotel = '';
 try {
@@ -107,20 +116,17 @@ $chips = array_filter(array_map('trim', explode(',', $pick($s['gs_trip_chips'], 
 $showMotor = $s['gs_motor_enabled'] === '1';
 $mp = GuestServices::motorPrice($db, $s);
 $notes = array_filter(array_map('trim', preg_split('/\R/', $pick($s['gs_motor_notes'], $s['gs_motor_notes_en']))));
-$flyersBy = ['trip' => [], 'motor' => [], 'car' => [], 'taxi' => []];
+$flyersBy = ['trip' => [], 'motor' => [], 'taxi' => []];
 foreach ($flyers as $fl) $flyersBy[$fl['cat']][] = $fl;
-$showCar = $s['gs_car_enabled'] === '1';
 $showTaxi = $s['gs_taxi_enabled'] === '1';
 $xp = GuestServices::taxiPrice($db, $s);
 $taxiNotes = array_filter(array_map('trim', preg_split('/\R/', $pick($s['gs_taxi_notes'], $s['gs_taxi_notes_en']))));
-$cp = GuestServices::carPrice($db, $s);
-$carNotes = array_filter(array_map('trim', preg_split('/\R/', $pick($s['gs_car_notes'], $s['gs_car_notes_en']))));
 // Tab yang tampil: Trip (bila ada flyer), Sewa Motor, Sewa Mobil
 $tabs = [];
 if ($flyersBy['trip']) $tabs['trip'] = '🏝️ ' . $T['tab_trip'];
 if ($showMotor) $tabs['motor'] = '🏍️ ' . $T['tab_motor'];
-if ($showCar) $tabs['car'] = '🚗 ' . $T['tab_car'];
 if ($showTaxi) $tabs['taxi'] = '🚕 ' . $T['tab_taxi'];
+foreach ($customs as $c) $tabs['x_' . $c['id']] = $c['icon'] . ' ' . $pick($c['name'], $c['name_en']);
 $firstTab = (string)array_key_first($tabs);// Pratinjau link WhatsApp: kartu sambutan hotel (bukan flyer), bahasa mengikuti bahasa tamu di link
 $ogLang = 'en'; // kartu pratinjau selalu berbahasa Inggris
 $ogImg = GuestServices::baseUrl() . '/guest-services-og.php?l=' . $ogLang;
@@ -280,7 +286,8 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   };
   $priceHtml = function (array $p) use ($h, $T, $lang) {
       if ($p['price'] <= 0) return '';
-      return '<div class="price"><b>Rp ' . number_format($p['price'], 0, ',', '.') . '</b><span>/ ' . $h(GuestServices::unitLabel($p['unit'], $lang) ?: $T['per']) . ' · ' . $h($T['from']) . '</span></div>';
+      $u = GuestServices::unitLabel($p['unit'], $lang) ?: (empty($p['nounit']) ? $T['per'] : '');
+      return '<div class="price"><b>Rp ' . number_format($p['price'], 0, ',', '.') . '</b><span>' . ($u !== '' ? '/ ' . $h($u) . ' · ' : '') . $h($T['from']) . '</span></div>';
   };
   $notesHtml = fn(array $l) => $l ? '<ul class="req">' . implode('', array_map(fn($n) => '<li>' . $h($n) . '</li>', $l)) . '</ul>' : '';
   ?>
@@ -315,21 +322,6 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   </section>
   <?php endif; ?>
 
-  <?php if ($showCar): ?>
-  <section id="s-car" class="<?= $firstTab === 'car' ? 'on' : '' ?>">
-    <h2>🚗 <?= $h($T['car']) ?></h2>
-    <?php $carExtra = $priceHtml($cp) . $notesHtml($carNotes); ?>
-    <?php if ($flyersBy['car']): ?>
-      <?= $carousel($flyersBy['car'], 'wa_car', 'm_car', $T['wa_car'], $carExtra) ?>
-    <?php else: ?>
-    <div class="card"><div class="body">
-      <?= $carExtra ?>
-      <a class="btn wa" data-ev="wa_car" href="<?= $h($wa('m_car')) ?>"><?= $waIcon ?> <?= $h($T['wa_car']) ?></a>
-    </div></div>
-    <?php endif; ?>
-  </section>
-  <?php endif; ?>
-
   <?php if ($showTaxi): ?>
   <section id="s-taxi" class="<?= $firstTab === 'taxi' ? 'on' : '' ?>">
     <h2>🚕 <?= $h($T['taxi']) ?></h2>
@@ -344,6 +336,24 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
     <?php endif; ?>
   </section>
   <?php endif; ?>
+
+  <?php foreach ($customs as $c): $cid = 'x_' . $c['id'];
+      $cName = $pick($c['name'], $c['name_en']);
+      $cNotes = array_filter(array_map('trim', preg_split('/\R/', $pick($c['notes'], $c['notes_en']))));
+      $cPrice = ['price' => (float)preg_replace('/[^\d]/', '', $c['price']), 'unit' => $c['unit'], 'nounit' => true];
+      $cExtra = $priceHtml($cPrice) . $notesHtml($cNotes); ?>
+  <section id="s-<?= $h($cid) ?>" class="<?= $firstTab === $cid ? 'on' : '' ?>">
+    <h2><?= $c['icon'] ?> <?= $h($cName) ?></h2>
+    <?php if (!empty($flyersBy[$cid])): ?>
+      <?= $carousel($flyersBy[$cid], 'wa_svc', 'm_' . $cid, $T['wa_' . $cid], $cExtra) ?>
+    <?php else: ?>
+    <div class="card"><div class="body">
+      <?= $cExtra ?>
+      <a class="btn wa" data-ev="wa_svc" href="<?= $h($wa('m_' . $cid)) ?>"><?= $waIcon ?> <?= $h($T['wa_' . $cid]) ?></a>
+    </div></div>
+    <?php endif; ?>
+  </section>
+  <?php endforeach; ?>
 
   <?php if (!$tabs): ?><div class="empty"><?= $h($T['empty']) ?></div><?php endif; ?>
   <p class="note"><?= $h($T['note']) ?></p>

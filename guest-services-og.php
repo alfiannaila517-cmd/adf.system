@@ -29,8 +29,11 @@ $pills = [];
 if (trim($s['gs_wifi_ssid']) !== '') $pills[] = $L['wifi'];
 if (array_filter(GuestServices::flyers($s), fn($f) => $f['cat'] === 'trip')) $pills[] = $L['trip'];
 if ($s['gs_motor_enabled'] === '1') $pills[] = $L['motor'];
-if ($s['gs_car_enabled'] === '1') $pills[] = $L['car'];
 if ($s['gs_taxi_enabled'] === '1') $pills[] = $L['taxi'];
+foreach (GuestServices::customs($s) as $c) {
+    $nm = trim($c['name_en']) !== '' ? $c['name_en'] : $c['name']; // gambar berbahasa Inggris
+    if ($c['enabled'] === '1' && trim($nm) !== '') $pills[] = $nm;
+}
 
 // Logo (logo portal sarapan bila ada, kalau tidak logo bisnis)
 $logoSrc = '';
@@ -45,7 +48,7 @@ try {
 }
 
 $dir = __DIR__ . '/uploads/guest-services';
-$key = md5(json_encode([$lang, $hotel, $logoSrc, $pills, 'v5']));
+$key = md5(json_encode([$lang, $hotel, $logoSrc, $pills, 'v6']));
 $cache = "$dir/og_$key.png";
 header('Content-Type: image/png');
 header('Cache-Control: public, max-age=86400');

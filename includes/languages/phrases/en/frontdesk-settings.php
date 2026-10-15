@@ -49,6 +49,12 @@ return [
         'Terkirim' => 'Sent', 'Gagal' => 'Failed', 'Sisa kredit' => 'Remaining credit', 'Simpan Pengaturan' => 'Save Settings', '— Tidak ada' => '— None',
         'Nomor tujuan, mis. 0812…' => 'Recipient number, e.g. 0812…',
         // ---- Layanan Tamu (guest-services.php) ----
+        'Layanan' => 'Service', 'WA Layanan lain' => 'WA Other services', 'Matikan sementara tanpa menghapus layanan.' => 'Turn off temporarily without deleting the service.',
+        'Nama layanan' => 'Service name', 'Nama (English)' => 'Name (English)', 'Ikon' => 'Icon', 'Harga mulai dari (Rp, opsional)' => 'Starting price (Rp, optional)',
+        'Hapus layanan ini' => 'Delete this service', 'Hapus layanan ini beserta flyernya?' => 'Delete this service along with its flyers?',
+        'Tambah layanan baru' => 'Add a new service', 'Tambah layanan' => 'Add service',
+        'Mis. Laundry, Restoran, Spa, Sewa Perahu. Layanan baru muncul sebagai tab di halaman tamu, lengkap dengan flyer, harga, dan tombol WhatsApp.' => 'E.g. Laundry, Restaurant, Spa, Boat Rental. A new service appears as a tab on the guest page, with flyers, price and a WhatsApp button.',
+        'Setelah ditambah, atur harga, syarat, dan flyer-nya di tab layanan tersebut.' => 'After adding, set its price, requirements and flyers in that service\'s tab.',
         'Judul (English)' => 'Title (English)', 'Label singkat (English)' => 'Short labels (English)',
         'Teks English tampil untuk tamu berbahasa Inggris; bila kosong dipakai teks Indonesia di atas.' => 'The English text is shown to English-speaking guests; if empty, the Indonesian text above is used.',
         'Syarat & info — English (opsional)' => 'Requirements & info — English (optional)',
