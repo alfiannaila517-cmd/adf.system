@@ -49,6 +49,7 @@ return [
         'Terkirim' => 'Sent', 'Gagal' => 'Failed', 'Sisa kredit' => 'Remaining credit', 'Simpan Pengaturan' => 'Save Settings', '— Tidak ada' => '— None',
         'Nomor tujuan, mis. 0812…' => 'Recipient number, e.g. 0812…',
         // ---- Layanan Tamu (guest-services.php) ----
+        'Pakai teks bawaan singkat (Indonesia)' => 'Use short default text (Indonesian)', 'Pakai teks bawaan singkat (English)' => 'Use short default text (English)',
         'Sewa Mobil' => 'Car Rental', 'WA Mobil' => 'WA Car', 'Tab ketiga di halaman tamu. Unggah flyer mobil di bagian Flyer dengan kategori Sewa Mobil.' => 'Third tab on the guest page. Upload car flyers in the Flyers section with the Car Rental category.',
         'Tampilkan sewa mobil' => 'Show car rental', 'Matikan bila tidak menawarkan sewa mobil.' => 'Turn off if you do not offer car rental.',
         'Kosong = otomatis dari harga terendah katalog Hotel Service bertipe mobil' => 'Empty = automatic from the lowest Hotel Service catalog price for cars',

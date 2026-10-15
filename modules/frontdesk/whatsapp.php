@@ -231,6 +231,10 @@ include '../../includes/header.php';
                             <?php foreach (WhatsAppHelper::CHECKIN_PLACEHOLDERS as $ph): ?><code data-ph="<?php echo $ph; ?>"><?php echo $ph; ?></code> <?php endforeach; ?>
                         </span>
                     </div>
+                    <div class="wa-row" style="margin-bottom:.7rem">
+                        <button type="button" class="wa-btn ghost" id="waTplId">Pakai teks bawaan singkat (Indonesia)</button>
+                        <button type="button" class="wa-btn ghost" id="waTplEn">Pakai teks bawaan singkat (English)</button>
+                    </div>
                     <label class="wa-label">Pratinjau</label>
                     <div class="wa-preview" id="waPreview"></div>
                 </div>
@@ -373,6 +377,9 @@ include '../../includes/header.php';
             Object.entries(sample).forEach(([k, v]) => { t = t.split(k).join(v); });
             preview.textContent = t;
         }
+        // Isi kotak dengan teks bawaan singkat (tetap perlu klik Simpan Pengaturan)
+        const defaults = { id: <?php echo json_encode(WhatsAppHelper::DEFAULT_CHECKIN_TEMPLATE_ID); ?>, en: <?php echo json_encode(WhatsAppHelper::DEFAULT_CHECKIN_TEMPLATE); ?> };
+        [['waTplId', 'id'], ['waTplEn', 'en']].forEach(([id, k]) => document.getElementById(id).addEventListener('click', () => { tpl.value = defaults[k]; render(); }));
         tpl.addEventListener('input', render);
         document.querySelectorAll('[data-ph]').forEach(c => c.addEventListener('click', () => {
             const ph = c.dataset.ph, s = tpl.selectionStart, e = tpl.selectionEnd;
