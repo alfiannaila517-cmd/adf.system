@@ -2,6 +2,9 @@
 /** Kamus EN: Sarapan Front Desk (modules/frontdesk/breakfast.php). Portal tamu (breakfast-guest.php) memakai bahasa tamu. */
 return [
     'text' => [
+        'Uji kirim ke nomor Anda' => 'Test send to your number', 'Nomor WhatsApp Anda, mis. 0812…' => 'Your WhatsApp number, e.g. 0812…', 'Kirim tes' => 'Send test', 'Indonesia' => 'Indonesian',
+        'Dengan pratinjau gambar' => 'With image preview',
+        'Memakai link sarapan terbaru sebagai contoh. Tanpa centang "pratinjau gambar" = tampilan pengingat (link tanpa gambar).' => 'Uses the latest breakfast link as a sample. Without "image preview" = the reminder look (link without image).',
         // Pengingat pilih sarapan
         'Ingatkan yang belum memilih' => 'Remind guests who have not chosen', 'Otomatis jam 22.00' => 'Automatic at 10:00 PM', 'AKTIF' => 'ON', 'MATI' => 'OFF',
         'Kirim pengingat otomatis pukul 22.00 ke tamu yang belum memilih' => 'Automatically send a reminder at 10:00 PM to guests who have not chosen',
@@ -26,6 +29,8 @@ return [
         'Kurangi' => 'Decrease', 'Nama item, cth: Extra Nasi' => 'Item name, e.g. Extra Rice', 'Pilih menu' => 'Select menu', 'Salin link sarapan tamu' => 'Copy the guest breakfast link',
     ],
     'js' => [
+        'Isi nomor tujuan dulu.' => 'Enter the recipient number first.', 'Pilih minimal satu bahasa.' => 'Select at least one language.', 'Mengirim…' => 'Sending…',
+        'Gagal:' => 'Failed:', 'Terkirim ✓' => 'Sent ✓', 'Gagal —' => 'Failed —', 'Gagal menghubungi server.' => 'Could not reach the server.', 'Indonesia' => 'Indonesian',
         'Masih sebelum pukul 20.00. Pengingat biasanya dikirim malam hari, sekitar pukul 22.00.' => 'It is still before 8:00 PM. Reminders are usually sent in the evening, around 10:00 PM.',
         'Memuat daftar tamu...' => 'Loading guest list...', 'Gagal memuat daftar tamu' => 'Failed to load the guest list',
         'Semua tamu in-house sudah memilih sarapan.' => 'All in-house guests have already chosen their breakfast.',

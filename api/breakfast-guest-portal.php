@@ -394,7 +394,7 @@ try {
 }
 
 // ═══ Front desk: simpan jatah pax (Setup) & kirim link lewat WhatsApp gateway ═══
-if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone' || $action === 'current_link' || $action === 'reminder_preview' || $action === 'reminder_send' || $action === 'reminder_auto') {
+if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone' || $action === 'current_link' || $action === 'reminder_preview' || $action === 'reminder_send' || $action === 'reminder_auto' || $action === 'reminder_test') {
     require_once '../includes/auth.php';
     $auth = new Auth();
     $auth->requireLogin();
@@ -492,6 +492,38 @@ if ($action === 'save_setup' || $action === 'send_wa' || $action === 'save_phone
     }
 
     // ═══ Pengingat pilih sarapan (tamu yang belum memilih): daftar sasaran, kirim satu grup, saklar otomatis 22:00 ═══
+    // ═══ Uji kirim pesan sarapan ke nomor sendiri (ID / EN / keduanya; dengan atau tanpa pratinjau gambar) ═══
+    if ($action === 'reminder_test') {
+        require_once '../includes/BreakfastReminder.php';
+        $tTarget = WhatsAppHelper::normalizeTarget((string)($body['target'] ?? ''));
+        $tLangs = array_values(array_intersect(['id', 'en'], (array)($body['langs'] ?? [])));
+        if ($tTarget === '' || !$tLangs) {
+            echo json_encode(['success' => false, 'message' => 'Isi nomor dan pilih minimal satu bahasa.']);
+            exit;
+        }
+        $tWa = new WhatsAppHelper($db);
+        if (!$tWa->isConfigured()) {
+            echo json_encode(['success' => false, 'message' => 'WhatsApp gateway belum diatur']);
+            exit;
+        }
+        // Link contoh: link sarapan terbaru yang ada (hanya untuk melihat tampilan pesan & pratinjau)
+        $tLink = $db->fetchOne("SELECT short_code FROM breakfast_guest_links WHERE short_code IS NOT NULL AND short_code <> '' ORDER BY id DESC LIMIT 1");
+        if (!$tLink) {
+            echo json_encode(['success' => false, 'message' => 'Belum ada link sarapan untuk dijadikan contoh. Kirim satu link sarapan ke tamu dulu.']);
+            exit;
+        }
+        $tUrl = bf_rm_base_url() . '/go-breakfast.php?k=' . urlencode((string)$tLink['short_code']) . (!empty($body['preview']) ? '' : '&np=1');
+        $tHotel = bf_rm_hotel_name($db);
+        $tResults = [];
+        foreach ($tLangs as $i => $tl) {
+            if ($i > 0) sleep(2); // jeda agar urutan pesan tidak tertukar
+            $tMsg = bf_rm_message('Tamu Uji', ['105'], $tUrl, $tl, $tHotel);
+            $tr = $tWa->send($tTarget, $tMsg, null, null, 'test', 'tes sarapan ' . strtoupper($tl));
+            $tResults[] = ['lang' => $tl, 'ok' => !empty($tr['ok']), 'detail' => (string)($tr['detail'] ?? '')];
+        }
+        echo json_encode(['success' => !in_array(false, array_column($tResults, 'ok'), true), 'results' => $tResults]);
+        exit;
+    }
     if ($action === 'reminder_preview' || $action === 'reminder_send' || $action === 'reminder_auto') {
         require_once '../includes/BreakfastReminder.php';
         if ($action === 'reminder_auto') {

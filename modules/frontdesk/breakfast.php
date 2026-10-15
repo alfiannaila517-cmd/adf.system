@@ -2104,6 +2104,27 @@ include '../../includes/header.php';
         <div class="bfrm-early" id="bfRemindEarly" hidden></div>
         <div class="bfrm-tools"><button type="button" class="bfrm-link" onclick="bfrmPickAll(true)">Pilih semua</button><span>·</span><button type="button" class="bfrm-link" onclick="bfrmPickAll(false)">Kosongkan</button></div>
         <div class="bfrm-list" id="bfRemindList"></div>
+        <style>
+        .bfrm-test { margin: .7rem 0 .2rem; padding: .6rem .7rem; border-radius: 12px; border: 1px dashed rgba(148, 163, 184, .5); }
+        .bfrm-test-t { margin-bottom: .4rem; font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; opacity: .7; }
+        .bfrm-test-row { display: flex; gap: .4rem; align-items: center; }
+        .bfrm-test-row .bfg-input { flex: 1; min-width: 0; }
+        .bfrm-test-opts { display: flex; gap: .9rem; flex-wrap: wrap; margin-top: .45rem; font-size: .72rem; }
+        .bfrm-test-opts label { display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; }
+        </style>
+        <div class="bfrm-test">
+            <div class="bfrm-test-t">Uji kirim ke nomor Anda</div>
+            <div class="bfrm-test-row">
+                <input type="tel" class="bfg-input" id="bfTestTo" placeholder="Nomor WhatsApp Anda, mis. 0812…">
+                <button type="button" class="bfg-btn green" id="bfTestBtn" onclick="bfrmTestSend()">Kirim tes</button>
+            </div>
+            <div class="bfrm-test-opts">
+                <label><input type="checkbox" id="bfTestId" checked> Indonesia</label>
+                <label><input type="checkbox" id="bfTestEn" checked> English</label>
+                <label><input type="checkbox" id="bfTestPrev"> Dengan pratinjau gambar</label>
+            </div>
+            <div class="bfg-hint" id="bfTestMsg" style="margin:.3rem 0 0">Memakai link sarapan terbaru sebagai contoh. Tanpa centang "pratinjau gambar" = tampilan pengingat (link tanpa gambar).</div>
+        </div>
         <div class="bfg-modal-actions">
             <button type="button" class="bfg-btn ghost" onclick="bfRemindClose()">Tutup</button>
             <button type="button" class="bfg-btn green" id="bfRemindSend" onclick="bfRemindSend()" disabled>Kirim</button>
@@ -2766,6 +2787,26 @@ include '../../includes/header.php';
     };
     var bfrmTargets = [];
     var bfrmBusy = false;
+
+    // Uji kirim pesan sarapan ke nomor sendiri (Indonesia / English / keduanya)
+    async function bfrmTestSend() {
+        var to = document.getElementById('bfTestTo').value.trim(), msg = document.getElementById('bfTestMsg'), btn = document.getElementById('bfTestBtn');
+        var langs = [];
+        if (document.getElementById('bfTestId').checked) langs.push('id');
+        if (document.getElementById('bfTestEn').checked) langs.push('en');
+        if (!to) { msg.textContent = 'Isi nomor tujuan dulu.'; return; }
+        if (!langs.length) { msg.textContent = 'Pilih minimal satu bahasa.'; return; }
+        btn.disabled = true;
+        msg.textContent = 'Mengirim…';
+        try {
+            var r = await bfrmApi({ action: 'reminder_test', target: to, langs: langs, preview: document.getElementById('bfTestPrev').checked ? 1 : 0 });
+            if (!r.results) { msg.textContent = 'Gagal: ' + (r.message || ''); }
+            else msg.textContent = r.results.map(function(x) { return (x.lang === 'id' ? 'Indonesia' : 'English') + ': ' + (x.ok ? 'Terkirim ✓' : 'Gagal — ' + x.detail); }).join('  ·  ');
+        } catch (e) {
+            msg.textContent = 'Gagal menghubungi server.';
+        }
+        btn.disabled = false;
+    }
 
     function bfrmApi(body) {
         return fetch(linkContext.createApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
