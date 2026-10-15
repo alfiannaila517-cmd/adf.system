@@ -53,6 +53,8 @@ $T = [
         'm_trip' => 'Halo Front Office, saya %s (kamar %s, booking %s). Saya tertarik dengan paket trip, boleh minta info & jadwalnya?',
         'm_motor' => 'Halo Front Office, saya %s (kamar %s, booking %s). Saya ingin menyewa motor, apakah tersedia?',
         'm_fo' => 'Halo Front Office, saya %s (kamar %s, booking %s).',
+        'wifi' => 'WiFi Hotel', 'w_name' => 'Nama WiFi', 'w_pass' => 'Password', 'w_open' => 'Tanpa password (terbuka)', 'copy' => 'Salin', 'copied' => 'Tersalin ✓',
+        'w_settings' => 'Buka pengaturan WiFi', 'w_qr' => 'Tampilkan QR WiFi', 'w_qr_hint' => 'Pindai dengan kamera HP lain untuk tersambung otomatis.', 'w_tip' => 'Salin password, lalu pilih jaringan ini di pengaturan WiFi HP Anda.',
     ],
     'en' => [
         'hello' => 'Hello', 'room' => 'Room', 'intro' => 'We hope you are enjoying your stay. Here are some great things to do in Karimunjawa.',
@@ -63,6 +65,8 @@ $T = [
         'm_trip' => 'Hello Front Office, this is %s (room %s, booking %s). I am interested in a trip package. Could you share the details and schedule?',
         'm_motor' => 'Hello Front Office, this is %s (room %s, booking %s). I would like to rent a motorbike. Is one available?',
         'm_fo' => 'Hello Front Office, this is %s (room %s, booking %s).',
+        'wifi' => 'Hotel WiFi', 'w_name' => 'Network', 'w_pass' => 'Password', 'w_open' => 'No password (open network)', 'copy' => 'Copy', 'copied' => 'Copied ✓',
+        'w_settings' => 'Open WiFi settings', 'w_qr' => 'Show WiFi QR', 'w_qr_hint' => 'Scan with another phone camera to connect automatically.', 'w_tip' => "Copy the password, then pick this network in your phone's WiFi settings.",
     ],
 ][$lang];
 
@@ -87,6 +91,10 @@ $mp = GuestServices::motorPrice($db, $s);
 $notes = array_filter(array_map('trim', preg_split('/\R/', $s['gs_motor_notes'])));
 $hasTrip = (bool)$flyers;
 $ogImg = $flyers ? GuestServices::fileUrl($flyers[0]['path']) : '';
+$wifiSsid = trim($s['gs_wifi_ssid']);
+$wifiPass = trim($s['gs_wifi_pass']);
+$wifiEsc = fn(string $v) => preg_replace('/([\\;,":])/', '\\\\$1', $v); // escape format QR "WIFI:"
+$wifiQr = $wifiSsid === '' ? '' : 'WIFI:T:' . ($wifiPass === '' ? 'nopass' : 'WPA') . ';S:' . $wifiEsc($wifiSsid) . ';' . ($wifiPass === '' ? '' : 'P:' . $wifiEsc($wifiPass) . ';') . ';';
 $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
 ?>
 <!DOCTYPE html>
@@ -141,6 +149,18 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   .bar .in { max-width:440px; margin:0 auto; display:flex; align-items:center; gap:10px; }
   .bar small { font-size:11px; color:var(--mut); line-height:1.3; flex:1; }
   .bar .btn { width:auto; padding:12px 18px; white-space:nowrap; }
+  .wifi { margin:16px 14px 0; background:#fff; border-radius:18px; padding:14px 16px; box-shadow:0 4px 18px rgba(15,39,68,.08); }
+  .wifi h2 { margin-bottom:8px; }
+  .wrow { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid #eef2f7; }
+  .wrow small { display:block; font-size:11px; color:var(--mut); }
+  .wrow b { font-size:15px; word-break:break-all; }
+  .wrow > div { flex:1; min-width:0; }
+  .cp { border:0; background:#eef2f7; color:var(--navy); font:inherit; font-size:12px; font-weight:700; padding:8px 12px; border-radius:10px; cursor:pointer; }
+  .wacts { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .wacts .ghost { margin-top:0; flex:1; padding:10px; font-size:13px; width:auto; cursor:pointer; font-family:inherit; }
+  .wtip { font-size:12px; color:var(--mut); margin-top:8px; line-height:1.4; }
+  #qrBox { display:none; text-align:center; padding-top:12px; }
+  #qrCanvas { display:flex; justify-content:center; }
   .lb { position:fixed; inset:0; background:rgba(0,0,0,.92); display:none; z-index:50; overflow:auto; -webkit-overflow-scrolling:touch; }
   .lb.on { display:block; }
   .lb img { display:block; width:100%; height:auto; touch-action:pinch-zoom; }
@@ -158,8 +178,23 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
     <div class="sub"><?= $link['room_number'] ? $h($T['room']) . ' ' . $h($link['room_number']) . ' · ' : '' ?><?= $h($T['intro']) ?></div>
   </header>
 
+  <?php if ($wifiSsid !== ''): ?>
+  <div class="wifi" style="margin-top:-26px;position:relative">
+    <h2>📶 <?= $h($T['wifi']) ?></h2>
+    <div class="wrow"><div><small><?= $h($T['w_name']) ?></small><b><?= $h($wifiSsid) ?></b></div><button type="button" class="cp" data-copy="<?= $h($wifiSsid) ?>"><?= $h($T['copy']) ?></button></div>
+    <div class="wrow"><div><small><?= $h($T['w_pass']) ?></small><b><?= $wifiPass !== '' ? $h($wifiPass) : $h($T['w_open']) ?></b></div><?php if ($wifiPass !== ''): ?><button type="button" class="cp" data-copy="<?= $h($wifiPass) ?>"><?= $h($T['copy']) ?></button><?php endif; ?></div>
+    <?php if (trim($s['gs_wifi_note']) !== ''): ?><div class="wtip"><?= $h($s['gs_wifi_note']) ?></div><?php endif; ?>
+    <div class="wtip"><?= $h($T['w_tip']) ?></div>
+    <div class="wacts">
+      <a class="btn ghost" id="wsetBtn" style="display:none" href="intent:#Intent;action=android.settings.WIFI_SETTINGS;end">⚙️ <?= $h($T['w_settings']) ?></a>
+      <button type="button" class="btn ghost" id="qrBtn">▦ <?= $h($T['w_qr']) ?></button>
+    </div>
+    <div id="qrBox"><div id="qrCanvas"></div><div class="wtip"><?= $h($T['w_qr_hint']) ?></div></div>
+  </div>
+  <?php endif; ?>
+
   <?php if ($hasTrip && $showMotor): ?>
-  <div class="tabs">
+  <div class="tabs" <?= $wifiSsid !== '' ? 'style="margin-top:14px"' : '' ?>>
     <button type="button" class="tab on" data-tab="trip">🏝️ <?= $h($T['tab_trip']) ?></button>
     <button type="button" class="tab" data-tab="motor">🏍️ <?= $h($T['tab_motor']) ?></button>
   </div>
@@ -231,6 +266,29 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   });
   function closeLb() { lb.classList.remove('on'); lbImg.removeAttribute('src'); }
   document.getElementById('lbClose').addEventListener('click', closeLb);
+  // WiFi: salin, pengaturan (Android), QR
+  var copied = <?= json_encode($T['copied']) ?>;
+  document.querySelectorAll('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var v = b.dataset.copy, old = b.textContent;
+      function done() { b.textContent = copied; setTimeout(function () { b.textContent = old; }, 1600); }
+      function fallback() { var t = document.createElement('textarea'); t.value = v; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove(); done(); }
+      if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(v).then(done, fallback); } else { fallback(); }
+    });
+  });
+  var wset = document.getElementById('wsetBtn');
+  if (wset && /Android/i.test(navigator.userAgent)) wset.style.display = '';
+  var qrBtn = document.getElementById('qrBtn'), qrLoaded = false;
+  if (qrBtn) qrBtn.addEventListener('click', function () {
+    var box = document.getElementById('qrBox');
+    box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    if (qrLoaded || box.style.display !== 'block') return;
+    qrLoaded = true;
+    var sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    sc.onload = function () { new QRCode(document.getElementById('qrCanvas'), { text: <?= json_encode($wifiQr) ?>, width: 200, height: 200 }); };
+    document.head.appendChild(sc);
+  });
   // Hitung klik tombol (tidak menghalangi navigasi)
   document.querySelectorAll('[data-ev]').forEach(function (a) {
     a.addEventListener('click', function () {

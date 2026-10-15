@@ -35,6 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             GuestServices::save($db, 'gs_fo_hours', trim((string)($_POST['gs_fo_hours'] ?? '')));
             GuestServices::save($db, 'gs_trip_title', trim((string)($_POST['gs_trip_title'] ?? '')));
             GuestServices::save($db, 'gs_trip_chips', trim((string)($_POST['gs_trip_chips'] ?? '')));
+            GuestServices::save($db, 'gs_wifi_ssid', trim((string)($_POST['gs_wifi_ssid'] ?? '')));
+            GuestServices::save($db, 'gs_wifi_pass', trim((string)($_POST['gs_wifi_pass'] ?? '')));
+            GuestServices::save($db, 'gs_wifi_note', trim((string)($_POST['gs_wifi_note'] ?? '')));
             GuestServices::save($db, 'gs_motor_enabled', !empty($_POST['gs_motor_enabled']) ? '1' : '0');
             GuestServices::save($db, 'gs_motor_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_motor_price'] ?? '')));
             GuestServices::save($db, 'gs_motor_unit', trim((string)($_POST['gs_motor_unit'] ?? '')));
@@ -194,6 +197,23 @@ include '../../includes/header.php';
                     <div class="gs-row">
                         <a class="gs-btn ghost" href="<?php echo BASE_URL; ?>/guest-services.php?k=preview" target="_blank" rel="noopener">Lihat contoh halaman tamu</a>
                         <a class="gs-btn ghost" href="<?php echo BASE_URL; ?>/guest-services.php?k=preview&l=en" target="_blank" rel="noopener">English</a>
+                    </div>
+                </div>
+                <div class="gs-card" style="margin-top:.75rem">
+                    <h3>WiFi Tamu</h3>
+                    <p class="gs-sub">Kartu WiFi di bagian atas halaman tamu (salin password, buka pengaturan WiFi, QR). Kosongkan nama WiFi bila tidak ingin ditampilkan.</p>
+                    <div class="gs-field">
+                        <label class="gs-label" for="gsSsid">Nama WiFi (SSID)</label>
+                        <input class="gs-input" id="gsSsid" name="gs_wifi_ssid" value="<?php echo htmlspecialchars($s['gs_wifi_ssid']); ?>" maxlength="60" autocomplete="off">
+                    </div>
+                    <div class="gs-field">
+                        <label class="gs-label" for="gsWpass">Password</label>
+                        <input class="gs-input" id="gsWpass" name="gs_wifi_pass" value="<?php echo htmlspecialchars($s['gs_wifi_pass']); ?>" maxlength="63" autocomplete="off">
+                        <span class="gs-hint">Password terlihat oleh pemegang link tamu (link unik per tamu). Kosong = WiFi terbuka tanpa password.</span>
+                    </div>
+                    <div class="gs-field">
+                        <label class="gs-label" for="gsWnote">Catatan (opsional)</label>
+                        <input class="gs-input" id="gsWnote" name="gs_wifi_note" value="<?php echo htmlspecialchars($s['gs_wifi_note']); ?>" maxlength="100" placeholder="Kuat di lobi &amp; area kamar">
                     </div>
                 </div>
                 <div class="gs-card" style="margin-top:.75rem">

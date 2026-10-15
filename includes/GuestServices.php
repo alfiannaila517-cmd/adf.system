@@ -16,11 +16,12 @@
  *   gs_motor_price   harga manual (kosong = harga terendah katalog hotel service bertipe motor)
  *   gs_motor_unit    satuan (default "hari")
  *   gs_motor_notes   syarat / info, satu per baris
+ *   gs_wifi_ssid / gs_wifi_pass / gs_wifi_note  kartu WiFi (tampil bila SSID diisi; password kosong = jaringan terbuka)
  */
 class GuestServices
 {
     public const KEYS = ['gs_enabled', 'gs_fo_wa', 'gs_fo_hours', 'gs_trip_title', 'gs_trip_chips', 'gs_flyers',
-        'gs_motor_enabled', 'gs_motor_photo', 'gs_motor_price', 'gs_motor_unit', 'gs_motor_notes'];
+        'gs_motor_enabled', 'gs_motor_photo', 'gs_motor_price', 'gs_motor_unit', 'gs_motor_notes', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note'];
 
     public static function ensureTables($db): void
     {
@@ -55,7 +56,7 @@ class GuestServices
     public static function settings($db): array
     {
         $s = ['gs_enabled' => '0', 'gs_fo_wa' => '', 'gs_fo_hours' => '07.00–22.00', 'gs_trip_title' => '', 'gs_trip_chips' => '',
-            'gs_flyers' => '[]', 'gs_motor_enabled' => '1', 'gs_motor_photo' => '', 'gs_motor_price' => '', 'gs_motor_unit' => '', 'gs_motor_notes' => ''];
+            'gs_flyers' => '[]', 'gs_motor_enabled' => '1', 'gs_motor_photo' => '', 'gs_motor_price' => '', 'gs_motor_unit' => '', 'gs_motor_notes' => '', 'gs_wifi_ssid' => '', 'gs_wifi_pass' => '', 'gs_wifi_note' => ''];
         try {
             $in = "'" . implode("','", self::KEYS) . "'";
             foreach ($db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ($in)") ?: [] as $r) {

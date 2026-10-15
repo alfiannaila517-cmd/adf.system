@@ -49,6 +49,9 @@ return [
         'Terkirim' => 'Sent', 'Gagal' => 'Failed', 'Sisa kredit' => 'Remaining credit', 'Simpan Pengaturan' => 'Save Settings', '— Tidak ada' => '— None',
         'Nomor tujuan, mis. 0812…' => 'Recipient number, e.g. 0812…',
         // ---- Layanan Tamu (guest-services.php) ----
+        'WiFi Tamu' => 'Guest WiFi', 'Kartu WiFi di bagian atas halaman tamu (salin password, buka pengaturan WiFi, QR). Kosongkan nama WiFi bila tidak ingin ditampilkan.' => 'WiFi card at the top of the guest page (copy password, open WiFi settings, QR). Leave the network name empty to hide it.',
+        'Nama WiFi (SSID)' => 'WiFi name (SSID)', 'Password terlihat oleh pemegang link tamu (link unik per tamu). Kosong = WiFi terbuka tanpa password.' => 'The password is visible to the holder of the guest link (unique per guest). Empty = open WiFi without password.',
+        'Catatan (opsional)' => 'Note (optional)', 'Kuat di lobi & area kamar' => 'Strong in the lobby & room area',
         'Layanan Tamu' => 'Guest Services', 'Flyer trip & sewa motor' => 'Trip flyers & motorbike rental',
         'Halaman yang dibuka tamu dari link di pesan welcome check-in: flyer trip & sewa motor. Semua tombol membuka WhatsApp ke Front Office.' => 'The page guests open from the link in the check-in welcome message: trip flyers & motorbike rental. Every button opens WhatsApp to the Front Office.',
         'Statistik 30 hari terakhir' => 'Last 30 days statistics', 'Seberapa sering tamu membuka halaman dan menekan tombol.' => 'How often guests open the page and tap the buttons.',
