@@ -205,6 +205,8 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   ul.req { list-style:none; font-size:13px; color:var(--mut); line-height:1.7; margin:0 0 12px; }
   ul.req li::before { content:"✓ "; color:#16a34a; font-weight:800; }
   .note { font-size:12px; color:var(--mut); text-align:center; padding:6px 20px 14px; }
+  .credit { text-align:center; font-size:11px; color:#94a3b8; padding:0 20px 18px; letter-spacing:.02em; }
+  .credit a { color:#64748b; text-decoration:none; font-weight:600; }
   .empty { text-align:center; color:var(--mut); padding:40px 20px; font-size:14px; }
   .bar { position:fixed; left:0; right:0; bottom:0; padding:10px 14px calc(10px + env(safe-area-inset-bottom)); background:rgba(255,255,255,.96); backdrop-filter:blur(8px); border-top:1px solid #e2e8f0; }
   .bar .in { max-width:440px; margin:0 auto; display:flex; align-items:center; gap:10px; }
@@ -357,6 +359,7 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
 
   <?php if (!$tabs): ?><div class="empty"><?= $h($T['empty']) ?></div><?php endif; ?>
   <p class="note"><?= $h($T['note']) ?></p>
+  <p class="credit">Designed by <a href="https://adfsystem.store" target="_blank" rel="noopener">ADF System</a> · © <?= date('Y') ?> · <a href="https://adfsystem.store" target="_blank" rel="noopener">adfsystem.store</a></p>
 </div>
 
 <?php if ($fo !== ''): ?>
