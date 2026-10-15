@@ -49,7 +49,7 @@ if (!$preview) {
 
 $T = [
     'id' => [
-        'hello' => 'Selamat datang', 'welcome_to' => 'Selamat datang di', 'room' => 'Kamar', 'intro' => 'Semoga nyaman menginap. Ini pilihan seru selama di Karimunjawa.',
+        'hello' => 'Halo', 'welcome_to' => 'Selamat datang di', 'room' => 'Kamar', 'intro' => 'Semoga nyaman menginap. Ini pilihan seru selama di Karimunjawa.',
         'tab_trip' => 'Trip', 'tab_motor' => 'Sewa Motor', 'tab_car' => 'Sewa Mobil', 'tab_taxi' => 'Taxi', 'taxi' => 'Sewa Taxi', 'wa_taxi' => 'Pesan taxi via WhatsApp', 'm_taxi' => 'Halo Front Office, saya %s (kamar %s, booking %s). Saya ingin memesan taxi / antar-jemput, apakah tersedia?', 'car' => 'Sewa Mobil', 'swipe' => 'Geser untuk melihat flyer lainnya',
         'wa_car' => 'Cek ketersediaan mobil via WhatsApp', 'm_car' => 'Halo Front Office, saya %s (kamar %s, booking %s). Saya ingin menyewa mobil, apakah tersedia?', 'trip' => 'Paket Trip Karimunjawa', 'zoom' => 'Perbesar', 'save' => 'Simpan flyer',
         'wa_trip' => 'Tanya & Pesan Trip via WhatsApp', 'motor' => 'Sewa Motor', 'from' => 'mulai dari', 'per' => 'hari',
@@ -62,7 +62,7 @@ $T = [
         'w_settings' => 'Buka pengaturan WiFi', 'w_qr' => 'Tampilkan QR WiFi', 'w_qr_hint' => 'Pindai dengan kamera HP lain untuk tersambung otomatis.', 'w_tip' => 'Salin password, lalu pilih jaringan ini di pengaturan WiFi HP Anda.',
     ],
     'en' => [
-        'hello' => 'Welcome', 'welcome_to' => 'Welcome to', 'room' => 'Room', 'intro' => 'We hope you are enjoying your stay. Here are some great things to do in Karimunjawa.',
+        'hello' => 'Hello', 'welcome_to' => 'Welcome to', 'room' => 'Room', 'intro' => 'We hope you are enjoying your stay. Here are some great things to do in Karimunjawa.',
         'tab_trip' => 'Trips', 'tab_motor' => 'Motorbike', 'tab_car' => 'Car Rental', 'tab_taxi' => 'Taxi', 'taxi' => 'Taxi Service', 'wa_taxi' => 'Book a taxi on WhatsApp', 'm_taxi' => 'Hello Front Office, this is %s (room %s, booking %s). I would like to book a taxi / transfer. Is one available?', 'car' => 'Car Rental', 'swipe' => 'Swipe to see more flyers',
         'wa_car' => 'Check car availability on WhatsApp', 'm_car' => 'Hello Front Office, this is %s (room %s, booking %s). I would like to rent a car. Is one available?', 'trip' => 'Karimunjawa Trip Packages', 'zoom' => 'Enlarge', 'save' => 'Save flyer',
         'wa_trip' => 'Ask & Book a Trip on WhatsApp', 'motor' => 'Motorbike Rental', 'from' => 'from', 'per' => 'day',
@@ -144,6 +144,8 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   header { background:linear-gradient(160deg,var(--navy),#1d4e89); color:#fff; padding:18px 18px 54px; border-radius:0 0 26px 26px; }
   .top { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; }
   .brand { display:flex; align-items:center; gap:10px; }
+  .bn { display:block; line-height:1.25; font-size:14px; font-weight:700; }
+  .bn small { display:block; font-size:10.5px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:#e3c68f; }
   .logo { width:52px; height:52px; border-radius:50%; background:#fff; color:var(--navy); display:inline-grid; place-items:center; font-weight:800; font-size:18px; object-fit:cover; flex:none; border:2px solid #d9c39c; box-shadow:0 0 0 3px rgba(255,255,255,.16), 0 8px 18px -8px rgba(0,0,0,.55); }
   .lang a { color:#fff; text-decoration:none; font-size:11px; padding:4px 9px; border:1px solid rgba(255,255,255,.4); border-radius:999px; margin-left:4px; opacity:.75; }
   .lang a.on { background:#fff; color:var(--navy); opacity:1; font-weight:700; }
@@ -214,11 +216,10 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
 <div class="wrap">
   <header>
     <div class="top">
-      <span class="brand"><?php if ($logoUrl !== ''): ?><img class="logo" src="<?= $h($logoUrl) ?>" alt=""><?php else: ?><span class="logo"><?= $h(mb_strtoupper(mb_substr($hotel, 0, 1))) ?></span><?php endif; ?><?= $h($hotel) ?></span>
+      <span class="brand"><?php if ($logoUrl !== ''): ?><img class="logo" src="<?= $h($logoUrl) ?>" alt=""><?php else: ?><span class="logo"><?= $h(mb_strtoupper(mb_substr($hotel, 0, 1))) ?></span><?php endif; ?><span class="bn"><small><?= $h($T['welcome_to']) ?></small><?= $h($hotel) ?></span></span>
       <span class="lang"><a href="?k=<?= $h($code) ?>&l=id" class="<?= $lang === 'id' ? 'on' : '' ?>">ID</a><a href="?k=<?= $h($code) ?>&l=en" class="<?= $lang === 'en' ? 'on' : '' ?>">EN</a></span>
     </div>
-    <div class="eyebrow"><?= $h($T['welcome_to']) ?> <?= $h($hotel) ?></div>
-    <h1><?= $h($T['hello']) ?><?= $first !== '' ? ', ' . $h($first) : '' ?> 🌴</h1>
+    <h1><?= $h($T['hello']) ?><?= $first !== '' ? ', ' . $h($first) : '' ?> 👋</h1>
     <div class="sub"><?= $link['room_number'] ? $h($T['room']) . ' ' . $h($link['room_number']) . ' · ' : '' ?><?= $h($T['intro']) ?></div>
   </header>
 
