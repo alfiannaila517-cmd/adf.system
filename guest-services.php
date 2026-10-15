@@ -37,7 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-$lang = in_array($_GET['l'] ?? '', ['id', 'en'], true) ? $_GET['l'] : ($link['lang'] === 'en' ? 'en' : 'id');
+// Bahasa: pilihan tamu (?l=) > bahasa HP tamu (Accept-Language: id → Indonesia, lainnya → English) > bahasa tersimpan di link
+$lang = $link['lang'] === 'en' ? 'en' : 'id';
+$accept = strtolower((string)($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''));
+if (preg_match('/^\s*([a-z]{2,3})/', $accept, $am)) $lang = in_array($am[1], ['id', 'in'], true) ? 'id' : 'en';
+if (in_array($_GET['l'] ?? '', ['id', 'en'], true)) $lang = $_GET['l'];
 if (!$preview) {
     $db->query("UPDATE guest_service_links SET opens = opens + 1, last_open = NOW() WHERE id = ?", [(int)$link['id']]);
     $db->query("INSERT INTO guest_service_events (link_id, event) VALUES (?, 'open')", [(int)$link['id']]);
@@ -59,7 +63,7 @@ $T = [
     ],
     'en' => [
         'hello' => 'Hello', 'room' => 'Room', 'intro' => 'We hope you are enjoying your stay. Here are some great things to do in Karimunjawa.',
-        'tab_trip' => 'Trips', 'tab_motor' => 'Motorbike Rental', 'tab_car' => 'Car Rental', 'car' => 'Car Rental', 'swipe' => 'Swipe to see more flyers',
+        'tab_trip' => 'Trips', 'tab_motor' => 'Motorbike', 'tab_car' => 'Car Rental', 'car' => 'Car Rental', 'swipe' => 'Swipe to see more flyers',
         'wa_car' => 'Check car availability on WhatsApp', 'm_car' => 'Hello Front Office, this is %s (room %s, booking %s). I would like to rent a car. Is one available?', 'trip' => 'Karimunjawa Trip Packages', 'zoom' => 'Enlarge', 'save' => 'Save flyer',
         'wa_trip' => 'Ask & Book a Trip on WhatsApp', 'motor' => 'Motorbike Rental', 'from' => 'from', 'per' => 'day',
         'wa_motor' => 'Check availability on WhatsApp', 'bar_fo' => 'Front Office', 'reply' => 'Quick replies', 'chat' => 'Chat Front Office',
@@ -80,6 +84,12 @@ try {
 }
 if ($hotel === '' && defined('BUSINESS_NAME')) $hotel = BUSINESS_NAME;
 
+$logoUrl = '';
+try {
+    if (!function_exists('getBusinessLogo') && is_file(__DIR__ . '/includes/business_helper.php')) require_once __DIR__ . '/includes/business_helper.php';
+    if (function_exists('getBusinessLogo')) $logoUrl = (string)getBusinessLogo();
+} catch (\Throwable $e) {
+}
 $name = trim((string)$link['guest_name']);
 $first = $name !== '' ? preg_split('/\s+/', $name)[0] : '';
 $fo = GuestServices::foNumber($db, $s);
@@ -126,7 +136,8 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   .wrap { max-width:440px; margin:0 auto; }
   header { background:linear-gradient(160deg,var(--navy),#1d4e89); color:#fff; padding:18px 18px 54px; border-radius:0 0 26px 26px; }
   .top { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; }
-  .logo { width:34px; height:34px; border-radius:50%; background:#fff; color:var(--navy); display:inline-grid; place-items:center; font-weight:800; font-size:14px; margin-right:8px; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .logo { width:42px; height:42px; border-radius:50%; background:#fff; color:var(--navy); display:inline-grid; place-items:center; font-weight:800; font-size:16px; object-fit:contain; padding:2px; flex:none; }
   .lang a { color:#fff; text-decoration:none; font-size:11px; padding:4px 9px; border:1px solid rgba(255,255,255,.4); border-radius:999px; margin-left:4px; opacity:.75; }
   .lang a.on { background:#fff; color:var(--navy); opacity:1; font-weight:700; }
   h1 { font-size:21px; margin-top:16px; font-weight:800; }
@@ -169,16 +180,16 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
   .bar .in { max-width:440px; margin:0 auto; display:flex; align-items:center; gap:10px; }
   .bar small { font-size:11px; color:var(--mut); line-height:1.3; flex:1; }
   .bar .btn { width:auto; padding:12px 18px; white-space:nowrap; }
-  .wifi { margin:16px 14px 0; background:#fff; border-radius:18px; padding:14px 16px; box-shadow:0 4px 18px rgba(15,39,68,.08); }
-  .wifi h2 { margin-bottom:8px; }
-  .wrow { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid #eef2f7; }
-  .wrow small { display:block; font-size:11px; color:var(--mut); }
-  .wrow b { font-size:15px; word-break:break-all; }
+  .wifi { margin:16px 14px 0; background:#fff; border-radius:14px; padding:9px 12px; box-shadow:0 4px 14px rgba(15,39,68,.08); }
+  .wifi h2 { margin-bottom:2px; font-size:13px; }
+  .wrow { display:flex; align-items:center; gap:8px; padding:5px 0; border-top:1px solid #eef2f7; }
+  .wrow small { display:block; font-size:10px; color:var(--mut); line-height:1.2; }
+  .wrow b { font-size:13.5px; word-break:break-all; line-height:1.25; }
   .wrow > div { flex:1; min-width:0; }
-  .cp { border:0; background:#eef2f7; color:var(--navy); font:inherit; font-size:12px; font-weight:700; padding:8px 12px; border-radius:10px; cursor:pointer; }
-  .wacts { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-  .wacts .ghost { margin-top:0; flex:1; padding:10px; font-size:13px; width:auto; cursor:pointer; font-family:inherit; }
-  .wtip { font-size:12px; color:var(--mut); margin-top:8px; line-height:1.4; }
+  .cp { border:0; background:#eef2f7; color:var(--navy); font:inherit; font-size:11px; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer; }
+  .wacts { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .wacts .ghost { margin-top:0; flex:1; padding:7px; font-size:12px; border-radius:10px; border-width:1px; width:auto; cursor:pointer; font-family:inherit; }
+  .wtip { font-size:11px; color:var(--mut); margin-top:5px; line-height:1.35; }
   #qrBox { display:none; text-align:center; padding-top:12px; }
   #qrCanvas { display:flex; justify-content:center; }
   .lb { position:fixed; inset:0; background:rgba(0,0,0,.92); display:none; z-index:50; overflow:auto; -webkit-overflow-scrolling:touch; }
@@ -191,7 +202,7 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
 <div class="wrap">
   <header>
     <div class="top">
-      <span><span class="logo"><?= $h(mb_strtoupper(mb_substr($hotel, 0, 1))) ?></span><?= $h($hotel) ?></span>
+      <span class="brand"><?php if ($logoUrl !== ''): ?><img class="logo" src="<?= $h($logoUrl) ?>" alt=""><?php else: ?><span class="logo"><?= $h(mb_strtoupper(mb_substr($hotel, 0, 1))) ?></span><?php endif; ?><?= $h($hotel) ?></span>
       <span class="lang"><a href="?k=<?= $h($code) ?>&l=id" class="<?= $lang === 'id' ? 'on' : '' ?>">ID</a><a href="?k=<?= $h($code) ?>&l=en" class="<?= $lang === 'en' ? 'on' : '' ?>">EN</a></span>
     </div>
     <h1><?= $h($T['hello']) ?><?= $first !== '' ? ', ' . $h($first) : '' ?> 👋</h1>
