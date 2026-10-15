@@ -66,6 +66,33 @@ $ciText = [
     .ciw-f button.go { border-color: transparent; background: linear-gradient(180deg, #6366f1, #4f46e5); color: #fff; box-shadow: 0 4px 12px rgba(79, 70, 229, .3); }
     .ciw-f button.go:hover { filter: brightness(1.06); }
     .ciw-load { padding: 34px 14px; text-align: center; color: #64748b; font-size: 12px; }
+    /* Warna ditetapkan eksplisit (!important) agar tidak tertimpa CSS tema halaman; mode gelap mengikuti body[data-theme="dark"] */
+    .ciw { --bg: #fff; --bd: #eef2f7; --tx: #0f172a; --mu: #64748b; --lb: #94a3b8; --in: #fff; --inb: #dbe3ee; --tile: #f8fafc; --chip: #eef2ff; --chipt: #4338ca; --code: #f1f5f9; --codet: #475569; background: var(--bg) !important; color: var(--tx) !important; }
+    body[data-theme="dark"] .ciw { --bg: #111a2e; --bd: #22304a; --tx: #e6edf7; --mu: #9fb0c8; --lb: #7f92ad; --in: #0b1324; --inb: #2f4062; --tile: #16213a; --chip: #25305a; --chipt: #b4bdfc; --code: #1d2a45; --codet: #b6c4da; box-shadow: 0 22px 54px rgba(0, 0, 0, .6); }
+    .ciw .ciw-h { border-bottom-color: var(--bd) !important; }
+    .ciw .ciw-h b, .ciw .ciw-sum strong { color: var(--tx) !important; }
+    .ciw .ciw-code { background: var(--code) !important; color: var(--codet) !important; }
+    .ciw .ciw-src { background: var(--chip) !important; color: var(--chipt) !important; }
+    .ciw .ciw-dt, .ciw .ciw-load { color: var(--mu) !important; }
+    .ciw .ciw-money div { background: var(--tile) !important; border-color: var(--bd) !important; }
+    .ciw .ciw-money small { color: var(--lb) !important; }
+    .ciw .ciw-money b { color: var(--tx) !important; }
+    .ciw .ciw-money .due { background: rgba(239, 68, 68, .12) !important; border-color: rgba(239, 68, 68, .35) !important; }
+    .ciw .ciw-money .due b { color: #ef4444 !important; }
+    .ciw .ciw-money .ok { background: rgba(34, 197, 94, .12) !important; border-color: rgba(34, 197, 94, .35) !important; }
+    .ciw .ciw-money .ok b { color: #22c55e !important; }
+    .ciw .ciw-fld label { color: var(--lb) !important; }
+    .ciw .ciw-fld input { background: var(--in) !important; color: var(--tx) !important; border-color: var(--inb) !important; -webkit-text-fill-color: var(--tx) !important; }
+    .ciw .ciw-fld input::placeholder { color: var(--lb) !important; -webkit-text-fill-color: var(--lb) !important; opacity: 1; }
+    .ciw .ciw-fld input:focus { border-color: #6366f1 !important; }
+    .ciw .ciw-fld input.chg { border-color: #f59e0b !important; }
+    .ciw .ciw-st.ok { color: #22c55e !important; } .ciw .ciw-st.warn { color: #f59e0b !important; } .ciw .ciw-st.bad { color: #ef4444 !important; }
+    .ciw .ciw-hint, .ciw .ciw-grp { background: rgba(245, 158, 11, .12) !important; color: #d97706 !important; }
+    body[data-theme="dark"] .ciw .ciw-hint, body[data-theme="dark"] .ciw .ciw-grp { color: #fbbf24 !important; }
+    .ciw .ciw-note { background: var(--tile) !important; border-color: var(--bd) !important; color: var(--mu) !important; }
+    .ciw .ciw-f button { background: var(--bg) !important; color: var(--tx) !important; border-color: var(--inb) !important; }
+    .ciw .ciw-f button:hover { background: var(--tile) !important; }
+    .ciw .ciw-f button.go { background: linear-gradient(180deg, #6366f1, #4f46e5) !important; color: #fff !important; border-color: transparent !important; }
 </style>
 <div class="ciw-ov" id="ciwOv" role="dialog" aria-modal="true"><div class="ciw" id="ciwBox"></div></div>
 <script>
@@ -74,6 +101,19 @@ $ciText = [
         const EN = <?php echo $ciEn ? 'true' : 'false'; ?> || (document.documentElement.lang || '').toLowerCase() === 'en';
         const TX = <?php echo json_encode($ciText, JSON_UNESCAPED_UNICODE); ?>;
         const t = s => (EN && TX[s]) ? TX[s] : s;
+        // Catatan dari halaman pemanggil (info OTA / pembayaran) dibuat dalam bahasa Indonesia: di mode English diterjemahkan per frasa,
+        // dan baris "Tamu:" / "Room:" dibuang karena sudah tampil di popup.
+        const NOTE_EN = [
+            [/Net masuk Kas Bank/g, 'Net into Bank Cash'], [/Masuk Kas Bank/g, 'Into Bank Cash'], [/akan otomatis masuk ke Kas Bank\./g, 'will automatically go into Bank Cash.'],
+            [/Status otomatis LUNAS\. Uang masuk ke Kas Bank\./g, 'Status automatically PAID. The money goes into Bank Cash.'], [/Booking via OTA/g, 'Booking via OTA']
+        ];
+        const tn = s => {
+            let x = String(s).split('\n').filter(l => !/^\s*(Tamu|Room|Guest)\s*:/i.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+            if (!EN) return x;
+            if (TX[x]) return TX[x];
+            NOTE_EN.forEach(([re, to]) => { x = x.replace(re, to); });
+            return x;
+        };
         const ov = document.getElementById('ciwOv'), box = document.getElementById('ciwBox');
         const rp = n => 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
         const loc = EN ? 'en-GB' : 'id-ID';
@@ -168,7 +208,7 @@ $ciText = [
                     fn.input.addEventListener('input', changed);
                     status();
 
-                    if (note) body.appendChild(el('div', 'ciw-note', t(String(note).trim())));
+                    const nt = note ? tn(note) : ''; if (nt) body.appendChild(el('div', 'ciw-note', nt));
                     box.appendChild(body);
 
                     const f = el('div', 'ciw-f');
