@@ -3016,6 +3016,62 @@ class CloudbedsSync
         return ['ok' => true, 'msg' => 'Kamar sudah sama dengan Cloudbeds (tidak ada yang dipindah).'];
     }
 
+    /**
+     * Samakan TOTAL harga booking di sistem (semua kamar bila grup) dengan total reservasi Cloudbeds. Tindakan SENGAJA petugas
+     * (mis. harga diturunkan langsung di Cloudbeds dan sistem harus sama persis); Cloudbeds tidak diubah. Tidak dijalankan bila
+     * pembayaran yang sudah tercatat melebihi total baru. Dasar sinkron harga ikut disamakan agar tidak dianggap edit.
+     * @return array{ok:bool,msg:string}
+     */
+    public function adoptCloudbedsPrice(string $code): array
+    {
+        $this->ensureTables();
+        $b = $this->db->fetchOne("SELECT id, group_id FROM bookings WHERE booking_code = ?", [$code]);
+        if (!$b) return ['ok' => false, 'msg' => 'Booking tidak ditemukan'];
+        $rows = !empty($b['group_id'])
+            ? $this->db->fetchAll("SELECT id, final_price, COALESCE(discount, 0) discount, total_nights FROM bookings WHERE group_id = ? AND status <> 'cancelled' ORDER BY id", [$b['group_id']])
+            : $this->db->fetchAll("SELECT id, final_price, COALESCE(discount, 0) discount, total_nights FROM bookings WHERE id = ?", [(int)$b['id']]);
+        $rows = $rows ?: [];
+        if (!$rows) return ['ok' => false, 'msg' => 'Booking tidak ditemukan'];
+        $ids = array_map(fn($r) => (int)$r['id'], $rows);
+        $in = implode(',', $ids);
+        $link = $this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id IN ($in) LIMIT 1");
+        if (!$link) return ['ok' => false, 'msg' => 'Booking ini belum tertaut ke reservasi Cloudbeds'];
+        $cbId = (string)$link['cb_reservation_id'];
+        $det = $this->cb->reservationDetail($cbId);
+        if (!$det['ok'] || $det['total'] === null || (float)$det['total'] <= 0) return ['ok' => false, 'msg' => 'Total Cloudbeds tidak terbaca'];
+        $new = round((float)$det['total'], 2);
+        $old = round(array_sum(array_map(fn($r) => (float)$r['final_price'], $rows)), 2);
+        if (abs($new - $old) < 1) return ['ok' => false, 'msg' => 'Total sudah sama dengan Cloudbeds (Rp ' . number_format($new, 0, ',', '.') . ')'];
+        $paid = (float)($this->db->fetchOne("SELECT COALESCE(SUM(amount), 0) s FROM booking_payments WHERE booking_id IN ($in)")['s'] ?? 0);
+        if ($paid > $new + 1) {
+            return ['ok' => false, 'msg' => 'Pembayaran tercatat Rp ' . number_format($paid, 0, ',', '.') . ' lebih besar dari total Cloudbeds Rp ' . number_format($new, 0, ',', '.') . ' — sesuaikan pembayarannya dulu'];
+        }
+        $conn = $this->db->getConnection();
+        $conn->beginTransaction();
+        try {
+            $left = $new;
+            foreach (array_values($rows) as $i => $r) {
+                // Dibagi menurut porsi harga lama; kamar terakhir menerima sisanya agar jumlahnya persis sama dengan Cloudbeds
+                $share = $i === count($rows) - 1 ? $left : round($new * ($old > 0 ? (float)$r['final_price'] / $old : 1 / count($rows)), 2);
+                $left = round($left - $share, 2);
+                $gross = $share + (float)$r['discount'];
+                $this->db->query("UPDATE bookings SET final_price = ?, total_price = ?, room_price = ?, updated_at = NOW() WHERE id = ?",
+                    [$share, $gross, round($gross / max(1, (int)$r['total_nights']), 2), (int)$r['id']]);
+                $this->db->query("UPDATE bookings SET notes = TRIM(CONCAT(COALESCE(notes,''), ?)) WHERE id = ?",
+                    ["\n[Harga disamakan dengan Cloudbeds " . date('d/m H:i') . ': Rp ' . number_format((float)$r['final_price'], 0, ',', '.') . ' → Rp ' . number_format($share, 0, ',', '.') . ']', (int)$r['id']]);
+            }
+            $this->resetPaidFromPayments($ids);
+            $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, $new]);
+            $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at, cb_total) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE checked_at = NOW(), cb_total = VALUES(cb_total)", [$cbId, $new]);
+            $this->db->query("DELETE FROM cloudbeds_pending_edits WHERE booking_id IN ($in)");
+            $conn->commit();
+        } catch (\Throwable $e) {
+            if ($conn->inTransaction()) $conn->rollBack();
+            return ['ok' => false, 'msg' => 'Gagal: ' . $e->getMessage()];
+        }
+        return ['ok' => true, 'msg' => 'Total ' . $code . ' disamakan dengan Cloudbeds: Rp ' . number_format($old, 0, ',', '.') . ' → Rp ' . number_format($new, 0, ',', '.') . (count($rows) > 1 ? ' (dibagi ke ' . count($rows) . ' kamar)' : '') . '.'];
+    }
+
     /** Atur harga booking (satu kamar) ke nominal yang benar — dipakai untuk membereskan harga yang ikut membengkak. */
     public function setBookingPrice(string $code, float $price): array
     {

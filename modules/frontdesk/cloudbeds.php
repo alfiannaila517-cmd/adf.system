@@ -119,6 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
         header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
         exit;
+    } elseif ($act === 'adopt_cb_price') {
+        $code = trim((string)($_POST['code'] ?? ''));
+        $res = (new CloudbedsSync($db, $cb))->adoptCloudbedsPrice($code);
+        setFlash($res['ok'] ? 'success' : 'error', htmlspecialchars($res['msg']));
+        header('Location: cloudbeds.php?cek=' . urlencode($code) . '#cekbayar');
+        exit;
     } elseif ($act === 'set_price') {
         $code = trim((string)($_POST['code'] ?? ''));
         $price = (float)preg_replace('/[^\d]/', '', (string)($_POST['price'] ?? ''));
@@ -1022,6 +1028,14 @@ include '../../includes/header.php';
                             </form>
                         <?php endif; ?>
                     </div>
+                <?php endif; ?>
+                <?php if (!empty($diag['cb']) && $diag['cb']['total'] !== null && abs((float)$diag['cb']['total'] - (float)$diag['local_total']) >= 1): ?>
+                    <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Samakan TOTAL harga di sistem dengan Cloudbeds (Rp <?php echo number_format((float)$diag['cb']['total'], 0, ',', '.'); ?>)? Cloudbeds tidak diubah.')">
+                        <input type="hidden" name="act" value="adopt_cb_price">
+                        <input type="hidden" name="code" value="<?php echo htmlspecialchars($bk['booking_code']); ?>">
+                        <button type="submit" class="cbx-btn">Samakan harga sistem dengan Cloudbeds (Rp <?php echo number_format((float)$diag['cb']['total'], 0, ',', '.'); ?>)</button>
+                        <span class="cbx-hint" style="display:inline;margin-left:.4rem">Dipakai bila harga sudah diubah di Cloudbeds dan total sistem harus sama persis (grup dibagi ke tiap kamar).</span>
+                    </form>
                 <?php endif; ?>
                 <form method="post" style="margin-top:.6rem" onsubmit="return confirm('Potong diskon dari harga booking ini (semua kamar bila grup)? Dipakai bila harga di sistem naik lagi mengikuti harga Cloudbeds padahal ada diskon. Cloudbeds tidak diubah.')">
                     <input type="hidden" name="act" value="apply_disc">
