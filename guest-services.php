@@ -121,7 +121,11 @@ if ($flyersBy['trip']) $tabs['trip'] = '🏝️ ' . $T['tab_trip'];
 if ($showMotor) $tabs['motor'] = '🏍️ ' . $T['tab_motor'];
 if ($showCar) $tabs['car'] = '🚗 ' . $T['tab_car'];
 if ($showTaxi) $tabs['taxi'] = '🚕 ' . $T['tab_taxi'];
-$firstTab = (string)array_key_first($tabs);$ogImg = $flyers ? GuestServices::fileUrl($flyers[0]['path']) : '';
+$firstTab = (string)array_key_first($tabs);// Pratinjau link WhatsApp: kartu sambutan hotel (bukan flyer), bahasa mengikuti bahasa tamu di link
+$ogLang = $link['lang'] === 'en' ? 'en' : 'id';
+$ogImg = GuestServices::baseUrl() . '/guest-services-og.php?l=' . $ogLang;
+$ogTitle = ($ogLang === 'en' ? 'Hotel Services · ' : 'Layanan Hotel · ') . $hotel;
+$ogDesc = implode(' · ', array_values(array_map(fn($t) => trim(preg_replace('/^\S+\s/u', '', $t)), $tabs ?? [])));
 $wifiSsid = trim($s['gs_wifi_ssid']);
 $wifiPass = trim($s['gs_wifi_pass']);
 $wifiEsc = fn(string $v) => preg_replace('/([\\;,":])/', '\\\\$1', $v); // escape format QR "WIFI:"
@@ -136,9 +140,12 @@ $self = GuestServices::baseUrl() . '/guest-services.php?k=' . urlencode($code);
 <meta name="robots" content="noindex">
 <title><?= $h($hotel) ?></title>
 <meta property="og:type" content="website">
-<meta property="og:title" content="<?= $h($hotel) ?>">
-<meta property="og:description" content="<?= $h($T['intro']) ?>">
-<?php if ($ogImg !== ''): ?><meta property="og:image" content="<?= $h($ogImg) ?>"><?php endif; ?>
+<meta property="og:title" content="<?= $h($ogTitle) ?>">
+<meta property="og:description" content="<?= $h($ogDesc !== '' ? $ogDesc : $T['intro']) ?>">
+<meta property="og:image" content="<?= $h($ogImg) ?>">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <style>
   :root { --navy:#0f2744; --gold:#b8893b; --sand:#faf6ef; --ink:#1f2937; --mut:#64748b; --wa:#25d366; }
   * { box-sizing:border-box; margin:0; padding:0; }
