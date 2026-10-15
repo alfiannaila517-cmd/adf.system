@@ -11,15 +11,26 @@
  *
  * Sengaja satu kelas: bila nanti pindah ke WAHA / API resmi Meta, cukup ganti isi request().
  */
+require_once __DIR__ . '/GuestServices.php';
+
 class WhatsAppHelper
 {
     public const DEFAULT_CHECKIN_TEMPLATE = "Hello {guest_name}, welcome to {hotel_name}! 🌴\n\n"
         . "You are checked in to room {room} ({room_type}) until {check_out}.\n"
         . "Breakfast is served every morning — just let us know your preferred time.\n\n"
+        . "Trips, motorbike rental & more — see what's on offer:\n{services_link}\n\n"
         . "Need anything during your stay? Simply reply to this message.\n\n"
         . "Enjoy your stay!\n— Front Office, {hotel_name}";
 
-    public const CHECKIN_PLACEHOLDERS = ['{guest_name}', '{hotel_name}', '{room}', '{room_type}', '{check_in}', '{check_out}', '{nights}', '{booking_code}'];
+    /** Bawaan untuk tamu berbahasa Indonesia (dipakai bila template belum diubah di pengaturan). */
+    public const DEFAULT_CHECKIN_TEMPLATE_ID = "Halo {guest_name}, selamat datang di {hotel_name}! 🌴\n\n"
+        . "Anda sudah check-in di kamar {room} ({room_type}) hingga {check_out}.\n"
+        . "Sarapan disajikan setiap pagi — silakan kabari kami bila ingin waktu tertentu.\n\n"
+        . "Trip, sewa motor & layanan lainnya — lihat pilihannya di sini:\n{services_link}\n\n"
+        . "Butuh bantuan selama menginap? Cukup balas pesan ini.\n\n"
+        . "Selamat menikmati masa menginap Anda!\n— Front Office, {hotel_name}";
+
+    public const CHECKIN_PLACEHOLDERS = ['{guest_name}', '{hotel_name}', '{room}', '{room_type}', '{check_in}', '{check_out}', '{nights}', '{booking_code}', '{services_link}'];
 
     private $db;
     private $settings = null;
@@ -335,8 +346,27 @@ class WhatsAppHelper
         $in = $booking['check_in_date'] ?? null;
         $out = $booking['check_out_date'] ?? null;
         $nights = ($in && $out) ? max(1, (int)round((strtotime($out) - strtotime($in)) / 86400)) : '';
-        $template = trim($s['wa_checkin_template']) !== '' ? $s['wa_checkin_template'] : self::DEFAULT_CHECKIN_TEMPLATE;
+        // Bahasa mengikuti nomor tamu (luar negeri → Inggris). Template kustom dipakai apa adanya untuk semua tamu.
+        $nat = '';
+        try {
+            $g = $this->db->fetchOne("SELECT nationality FROM guests WHERE id = ?", [$booking['guest_id'] ?? 0]);
+            $nat = (string)($g['nationality'] ?? '');
+        } catch (\Throwable $e) {
+        }
+        $lang = GuestServices::langFor($nat, (string)($booking['guest_phone'] ?? ''));
+        $template = trim($s['wa_checkin_template']) !== ''
+            ? $s['wa_checkin_template']
+            : ($lang === 'id' ? self::DEFAULT_CHECKIN_TEMPLATE_ID : self::DEFAULT_CHECKIN_TEMPLATE);
+        $servicesLink = GuestServices::linkFor($this->db, $booking, $lang);
+        if ($servicesLink === '') {
+            // Fitur mati / gagal: buang seluruh paragraf yang memuat link agar tidak tersisa teks pengantar menggantung
+            $paras = array_filter(explode("\n\n", $template), fn($p) => strpos($p, '{services_link}') === false);
+            $template = implode("\n\n", $paras);
+        } elseif (strpos($template, '{services_link}') === false) {
+            $template = rtrim($template) . "\n\n" . ($lang === 'id' ? 'Layanan & penawaran untuk Anda:' : 'Services & offers for you:') . "\n{services_link}";
+        }
         $message = self::render($template, [
+            '{services_link}' => $servicesLink,
             '{guest_name}'   => trim((string)($booking['guest_name'] ?? 'Guest')),
             '{hotel_name}'   => $hotel,
             '{room}'         => (string)($booking['room_number'] ?? ''),

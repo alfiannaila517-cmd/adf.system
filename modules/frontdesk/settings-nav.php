@@ -1,7 +1,7 @@
 <?php
 /**
  * Menu ikon Pengaturan Front Desk (dipakai settings.php, whatsapp.php, cloudbeds.php).
- * Set $sxActiveKey sebelum include: rooms | breakfast_menu | ota_fees | invoice_settings | whatsapp | cloudbeds
+ * Set $sxActiveKey sebelum include: rooms | breakfast_menu | ota_fees | invoice_settings | whatsapp | guest_services | cloudbeds
  */
 $sxActiveKey = $sxActiveKey ?? '';
 $sxItems = [
@@ -15,6 +15,8 @@ $sxItems = [
         'icon' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'],
     ['key' => 'whatsapp', 'link' => 'whatsapp.php', 'title' => 'WhatsApp', 'sub' => 'Pesan otomatis ke tamu', 'a' => '#22c55e', 'b' => '#15803d',
         'icon' => '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>'],
+    ['key' => 'guest_services', 'link' => 'guest-services.php', 'title' => 'Layanan Tamu', 'sub' => 'Flyer trip & sewa motor', 'a' => '#0ea5e9', 'b' => '#0369a1',
+        'icon' => '<path d="M3 11l18-8-8 18-2-8-8-2z"/>'],
     ['key' => 'cloudbeds', 'link' => 'cloudbeds.php', 'title' => 'Cloudbeds', 'sub' => 'Sinkron channel manager', 'a' => '#8b5cf6', 'b' => '#6d28d9',
         'icon' => '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'],
 ];

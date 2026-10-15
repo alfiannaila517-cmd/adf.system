@@ -68,7 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $wa->saveSetting('wa_report_targets', implode("\n", array_unique($targets)));
     $wa->saveSetting('wa_checkin_enabled', !empty($_POST['wa_checkin_enabled']) ? '1' : '0');
     $tpl = trim((string)($_POST['wa_checkin_template'] ?? ''));
-    $wa->saveSetting('wa_checkin_template', $tpl === trim(WhatsAppHelper::DEFAULT_CHECKIN_TEMPLATE) ? '' : $tpl);
+    $isDefaultTpl = in_array($tpl, [trim(WhatsAppHelper::DEFAULT_CHECKIN_TEMPLATE), trim(WhatsAppHelper::DEFAULT_CHECKIN_TEMPLATE_ID)], true);
+    $wa->saveSetting('wa_checkin_template', $isDefaultTpl ? '' : $tpl);
     // Pastikan token benar-benar tersimpan (INSERT bisa gagal diam-diam bila struktur tabel settings berbeda).
     if ($token !== '' && !$wa->isConfigured()) {
         setFlash('error', 'Token gagal disimpan ke database. Hubungi admin sistem (tabel settings).');
@@ -225,7 +226,8 @@ include '../../includes/header.php';
                     <div class="wa-field">
                         <label class="wa-label" for="waTpl">Isi pesan</label>
                         <textarea class="wa-input" id="waTpl" name="wa_checkin_template" rows="10"><?php echo htmlspecialchars($template); ?></textarea>
-                        <span class="wa-hint">Klik untuk menyisipkan:
+                        <span class="wa-hint">Teks bawaan otomatis berbahasa Indonesia untuk nomor Indonesia dan Inggris untuk nomor luar negeri; setelah diubah, teks Anda dipakai untuk semua tamu. <code data-ph="{services_link}">{services_link}</code> = link halaman layanan tamu (trip &amp; sewa motor) — atur flyernya di <a href="guest-services.php">Pengaturan → Layanan Tamu</a>.<br>
+                            Klik untuk menyisipkan:
                             <?php foreach (WhatsAppHelper::CHECKIN_PLACEHOLDERS as $ph): ?><code data-ph="<?php echo $ph; ?>"><?php echo $ph; ?></code> <?php endforeach; ?>
                         </span>
                     </div>
@@ -363,7 +365,8 @@ include '../../includes/header.php';
         const sample = {
             '{guest_name}': 'Mr. John Smith', '{hotel_name}': <?php echo json_encode((string)(($db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_name'")['setting_value'] ?? '') ?: (defined('BUSINESS_NAME') ? BUSINESS_NAME : 'Hotel'))); ?>,
             '{room}': '204', '{room_type}': 'Deluxe Queen', '{check_in}': '<?php echo date('d M Y'); ?>',
-            '{check_out}': '<?php echo date('d M Y', strtotime('+2 day')); ?>', '{nights}': '2', '{booking_code}': 'BK-20261006-1234'
+            '{check_out}': '<?php echo date('d M Y', strtotime('+2 day')); ?>', '{nights}': '2', '{booking_code}': 'BK-20261006-1234',
+            '{services_link}': <?php echo json_encode(GuestServices::baseUrl() . '/guest-services.php?k=abc1234'); ?>
         };
         function render() {
             let t = tpl.value;
