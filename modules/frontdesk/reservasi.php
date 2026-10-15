@@ -3103,10 +3103,9 @@ include '../../includes/header.php';
                         otaMsg += `\n📉 Fee OTA (${feePercent}%): -Rp ${feeAmount.toLocaleString('id-ID')}`;
                         otaMsg += `\n✅ Net masuk Kas Bank: Rp ${netAmount.toLocaleString('id-ID')}`;
                     }
-                    otaMsg += `\n\nStatus otomatis LUNAS. Uang masuk ke Kas Bank.\nLanjutkan Check-in?`;
+                    otaMsg += `\n\nStatus otomatis LUNAS. Uang masuk ke Kas Bank.`;
 
-                    if (!confirm(otaMsg)) return;
-                    proceedCheckin(id, bookingCode);
+                    proceedCheckin(id, bookingCode, otaMsg);
                     return;
                 }
 
@@ -3135,28 +3134,31 @@ include '../../includes/header.php';
                     }
                 } else {
                     // Fully paid, just confirm check-in
-                    if (confirm(`Konfirmasi Check-in untuk booking ${bookingCode}?\n\n- Status akan berubah menjadi CHECKED IN\n- Kamar akan ditandai TERISI`)) {
-                        proceedCheckin(id, bookingCode);
-                    }
+                    proceedCheckin(id, bookingCode);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 // Fallback - just proceed with check-in
-                if (confirm(`Konfirmasi Check-in untuk booking ${bookingCode}?\n\n- Status akan berubah menjadi CHECKED IN\n- Kamar akan ditandai TERISI`)) {
-                    proceedCheckin(id, bookingCode);
-                }
+                proceedCheckin(id, bookingCode);
             });
     }
 
-    function proceedCheckin(id, bookingCode) {
+    async function proceedCheckin(id, bookingCode, note, onCancel) {
+        // Popup konfirmasi: periksa nama, nomor WhatsApp, dan tagihan sebelum check-in
+        const gate = await adfCheckinGate(id, note);
+        if (!gate) {
+            if (onCancel) onCancel();
+            return;
+        }
         fetch('../../api/checkin-guest.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    booking_id: id
+                    booking_id: id,
+                    guest_phone: gate.phone
                 })
             })
             .then(response => response.json())
@@ -3226,11 +3228,7 @@ include '../../includes/header.php';
                     alert('✅ Pembayaran berhasil!\n\n' + (data.message || ''));
 
                     // Now proceed with check-in
-                    if (confirm(`Lanjutkan Check-in untuk booking ${bookingCode}?`)) {
-                        proceedCheckin(bookingId, bookingCode);
-                    } else {
-                        location.reload();
-                    }
+                    proceedCheckin(bookingId, bookingCode, '✅ Pembayaran sudah tercatat.', () => location.reload());
                 } else {
                     alert('❌ Error: ' + data.message);
                 }
@@ -3413,4 +3411,5 @@ include '../../includes/header.php';
 </script>
 
 <?php include __DIR__ . '/cloudbeds-autosync-include.php'; ?>
+<?php include '../../includes/checkin-gate.php'; ?>
 <?php include '../../includes/footer.php'; ?>

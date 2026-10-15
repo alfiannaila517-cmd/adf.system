@@ -4500,7 +4500,7 @@ include '../../includes/header.php';
         }
     }
 
-    function doCheckIn() {
+    async function doCheckIn() {
         const modal = document.getElementById('bookingDetailsModal');
         const bookingId = modal.dataset.bookingId;
         const guestName = document.getElementById('detailGuestName').textContent;
@@ -4532,7 +4532,8 @@ include '../../includes/header.php';
                 } else {
                     feeInfo = `\n\nRp ${total.toLocaleString('id-ID')} akan otomatis masuk ke Kas.`;
                 }
-                if (!confirm(`🏨 Booking via OTA ${sourceLabel}\n\nTamu: ${guestName}\nRoom: ${roomNumber}${feeInfo}\n\nLanjutkan Check-in?`)) return;
+                const _gOta = await adfCheckinGate(bookingId, `🏨 Booking via OTA ${sourceLabel}${feeInfo}`);
+                if (!_gOta) return;
 
                 // OTA: langsung check-in tanpa payment, cashbook otomatis di backend
                 const checkInBtn = document.getElementById('btnCheckIn');
@@ -4546,7 +4547,7 @@ include '../../includes/header.php';
                             'Content-Type': 'application/x-www-form-urlencoded'
                         },
                         credentials: 'include',
-                        body: 'booking_id=' + bookingId + '&pay_now=0&create_invoice=0'
+                        body: 'booking_id=' + bookingId + '&pay_now=0&create_invoice=0&guest_phone=' + encodeURIComponent(_gOta.phone)
                     })
                     .then(response => response.json())
                     .then(data => {
@@ -4576,7 +4577,8 @@ include '../../includes/header.php';
             }
         }
 
-        if (confirm(`Check-in ${guestName} ke Room ${roomNumber} sekarang?`)) {
+        const _gNorm = await adfCheckinGate(bookingId);
+        if (_gNorm) {
             // Show loading state
             const checkInBtn = document.getElementById('btnCheckIn');
             const originalText = checkInBtn.innerHTML;
@@ -4591,7 +4593,7 @@ include '../../includes/header.php';
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
                     credentials: 'include', // Important: Send session cookies
-                    body: 'booking_id=' + bookingId + '&create_invoice=' + createInvoice
+                    body: 'booking_id=' + bookingId + '&create_invoice=' + createInvoice + '&guest_phone=' + encodeURIComponent(_gNorm.phone)
                 })
                 .then(response => {
                     // Check if response is JSON
@@ -4699,7 +4701,7 @@ include '../../includes/header.php';
         openBookingPaymentModal();
     }
 
-    window.quickViewCheckIn = function quickViewCheckIn() {
+    window.quickViewCheckIn = async function quickViewCheckIn() {
         if (!currentPaymentBooking) {
             alert('Booking data not found');
             return;
@@ -4744,25 +4746,28 @@ include '../../includes/header.php';
             } else {
                 feeInfo = `\n\nRp ${total.toLocaleString('id-ID')} akan otomatis masuk ke Kas Bank.`;
             }
-            if (!confirm(`🏨 Booking via OTA ${sourceLabel}\n\nTamu: ${b.guest_name}\nRoom: ${b.room_number}${feeInfo}\n\nLanjutkan Check-in?`)) return;
-            performCheckin(0, null, false);
+            const _gq1 = await adfCheckinGate(b.id, `🏨 Booking via OTA ${sourceLabel}${feeInfo}`);
+            if (!_gq1) return;
+            performCheckin(0, null, false, _gq1.phone);
             return;
         }
 
         // Jika sudah lunas, langsung konfirmasi check-in
         if (remaining <= 0) {
-            if (!confirm(`💳 Tagihan LUNAS\n\nCheck-in ${b.guest_name} ke Room ${b.room_number}?`)) return;
-            performCheckin(0, null, false);
+            const _gq2 = await adfCheckinGate(b.id, '💳 Tagihan LUNAS');
+            if (!_gq2) return;
+            performCheckin(0, null, false, _gq2.phone);
             return;
         }
 
         // Belum lunas tetap boleh check-in langsung, tanpa modal/reminder pembayaran di sini —
         // status belum lunas otomatis muncul di banner notifikasi & badge sidebar Front Desk.
-        if (!confirm(`Check-in ${b.guest_name} ke Room ${b.room_number}?`)) return;
-        performCheckin(0, null, false);
+        const _gq3 = await adfCheckinGate(b.id);
+        if (!_gq3) return;
+        performCheckin(0, null, false, _gq3.phone);
     }
 
-    function performCheckin(payAmount, payMethod, payNow) {
+    function performCheckin(payAmount, payMethod, payNow, guestPhone) {
         const booking = currentPaymentBooking;
         const btn = document.querySelector('.qv-checkin-btn');
         if (btn) {
@@ -4770,7 +4775,7 @@ include '../../includes/header.php';
             btn.disabled = true;
         }
 
-        let body = 'booking_id=' + booking.id + '&create_invoice=0';
+        let body = 'booking_id=' + booking.id + '&create_invoice=0' + (guestPhone ? '&guest_phone=' + encodeURIComponent(guestPhone) : '');
         if (payNow && payAmount > 0) {
             body += '&pay_now=1&pay_amount=' + payAmount + '&pay_method=' + encodeURIComponent(payMethod);
         } else {
@@ -12231,4 +12236,5 @@ include '../../includes/header.php';
 </script>
 
 <?php include __DIR__ . '/cloudbeds-autosync-include.php'; ?>
+<?php include '../../includes/checkin-gate.php'; ?>
 <?php include '../../includes/footer.php'; ?>
