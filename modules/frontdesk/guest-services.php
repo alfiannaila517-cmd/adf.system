@@ -2,7 +2,9 @@
 
 /**
  * FRONT DESK - PENGATURAN LAYANAN TAMU
- * Flyer trip, info sewa motor, nomor Front Office untuk halaman yang dibuka dari link di pesan welcome check-in.
+ * Halaman yang dibuka tamu dari link di pesan welcome check-in. Satu formulir, beberapa tab:
+ * Umum (link, Front Office, statistik) · WiFi · Trip · Sewa Motor · Sewa Mobil · Sewa Taxi.
+ * Flyer tiap layanan dikelola di tab layanannya; satu tombol Simpan menyimpan semuanya.
  */
 
 define('APP_ACCESS', true);
@@ -24,80 +26,85 @@ $db = Database::getInstance();
 GuestServices::ensureTables($db);
 $s = GuestServices::settings($db);
 $flyers = GuestServices::flyers($s);
+$tabKeys = ['general', 'wifi', 'trip', 'motor', 'car', 'taxi'];
 
-// ---- Simpan (PRG) ----
+// ---- Simpan (PRG): semua kolom + operasi flyer + unggahan dalam satu kiriman ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $act = (string)($_POST['act'] ?? 'save');
+    $tab = in_array($_POST['tab'] ?? '', $tabKeys, true) ? $_POST['tab'] : 'general';
+    $errors = [];
+    $uploaded = 0;
     try {
-        if ($act === 'save') {
-            GuestServices::save($db, 'gs_enabled', !empty($_POST['gs_enabled']) ? '1' : '0');
-            GuestServices::save($db, 'gs_fo_wa', trim((string)($_POST['gs_fo_wa'] ?? '')));
-            GuestServices::save($db, 'gs_fo_hours', trim((string)($_POST['gs_fo_hours'] ?? '')));
-            GuestServices::save($db, 'gs_trip_title', trim((string)($_POST['gs_trip_title'] ?? '')));
-            GuestServices::save($db, 'gs_trip_chips', trim((string)($_POST['gs_trip_chips'] ?? '')));
-            GuestServices::save($db, 'gs_wifi_ssid', trim((string)($_POST['gs_wifi_ssid'] ?? '')));
-            GuestServices::save($db, 'gs_wifi_pass', trim((string)($_POST['gs_wifi_pass'] ?? '')));
-            GuestServices::save($db, 'gs_wifi_note', trim((string)($_POST['gs_wifi_note'] ?? '')));
-            GuestServices::save($db, 'gs_car_enabled', !empty($_POST['gs_car_enabled']) ? '1' : '0');
-            GuestServices::save($db, 'gs_car_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_car_price'] ?? '')));
-            GuestServices::save($db, 'gs_car_unit', trim((string)($_POST['gs_car_unit'] ?? '')));
-            GuestServices::save($db, 'gs_car_notes', trim((string)($_POST['gs_car_notes'] ?? '')));
-            GuestServices::save($db, 'gs_taxi_enabled', !empty($_POST['gs_taxi_enabled']) ? '1' : '0');
-            GuestServices::save($db, 'gs_taxi_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_taxi_price'] ?? '')));
-            GuestServices::save($db, 'gs_taxi_unit', trim((string)($_POST['gs_taxi_unit'] ?? '')));
-            GuestServices::save($db, 'gs_taxi_notes', trim((string)($_POST['gs_taxi_notes'] ?? '')));
-            GuestServices::save($db, 'gs_motor_enabled', !empty($_POST['gs_motor_enabled']) ? '1' : '0');
-            GuestServices::save($db, 'gs_motor_price', preg_replace('/[^\d]/', '', (string)($_POST['gs_motor_price'] ?? '')));
-            GuestServices::save($db, 'gs_motor_unit', trim((string)($_POST['gs_motor_unit'] ?? '')));
-            GuestServices::save($db, 'gs_motor_notes', trim((string)($_POST['gs_motor_notes'] ?? '')));
-            // Judul flyer yang ada
-            foreach ($flyers as $i => &$f) {
-                if (isset($_POST['flyer_title'][$i])) $f['title'] = trim((string)$_POST['flyer_title'][$i]);
-            }
-            unset($f);
-            GuestServices::save($db, 'gs_flyers', json_encode($flyers, JSON_UNESCAPED_UNICODE));
-            // Foto motor (opsional) di form yang sama
-            if (!empty($_FILES['motor_photo']['name'])) {
+        $text = ['gs_fo_wa', 'gs_fo_hours', 'gs_trip_title', 'gs_trip_chips', 'gs_wifi_ssid', 'gs_wifi_pass', 'gs_wifi_note',
+            'gs_motor_unit', 'gs_motor_notes', 'gs_car_unit', 'gs_car_notes', 'gs_taxi_unit', 'gs_taxi_notes'];
+        foreach ($text as $k) GuestServices::save($db, $k, trim((string)($_POST[$k] ?? '')));
+        foreach (['gs_motor_price', 'gs_car_price', 'gs_taxi_price'] as $k) GuestServices::save($db, $k, preg_replace('/[^\d]/', '', (string)($_POST[$k] ?? '')));
+        foreach (['gs_enabled', 'gs_motor_enabled', 'gs_car_enabled', 'gs_taxi_enabled'] as $k) GuestServices::save($db, $k, !empty($_POST[$k]) ? '1' : '0');
+
+        // Foto motor
+        if (!empty($_FILES['motor_photo']['name'])) {
+            try {
                 $new = GuestServices::saveImage($_FILES['motor_photo'], 1000);
                 GuestServices::deleteImage($s['gs_motor_photo']);
                 GuestServices::save($db, 'gs_motor_photo', $new);
-            } elseif (!empty($_POST['remove_motor_photo'])) {
-                GuestServices::deleteImage($s['gs_motor_photo']);
-                GuestServices::save($db, 'gs_motor_photo', '');
+            } catch (\RuntimeException $e) {
+                $errors[] = $e->getMessage();
             }
-            setFlash('success', 'Pengaturan Layanan Tamu tersimpan.');
-        } elseif ($act === 'add_flyer') {
-            $path = GuestServices::saveImage($_FILES['flyer'] ?? []);
-            $cat = isset(GuestServices::FLYER_CATS[$_POST['new_cat'] ?? '']) ? $_POST['new_cat'] : 'trip';
-            $flyers[] = ['path' => $path, 'title' => trim((string)($_POST['new_title'] ?? '')), 'cat' => $cat];
-            GuestServices::save($db, 'gs_flyers', json_encode($flyers, JSON_UNESCAPED_UNICODE));
-            setFlash('success', 'Flyer ditambahkan.');
-        } elseif ($act === 'del_flyer') {
-            $i = (int)($_POST['idx'] ?? -1);
-            if (isset($flyers[$i])) {
+        } elseif (!empty($_POST['remove_motor_photo'])) {
+            GuestServices::deleteImage($s['gs_motor_photo']);
+            GuestServices::save($db, 'gs_motor_photo', '');
+        }
+
+        // Judul flyer yang sudah ada
+        foreach ($flyers as $i => &$f) {
+            if (isset($_POST['flyer_title'][$i])) $f['title'] = trim((string)$_POST['flyer_title'][$i]);
+        }
+        unset($f);
+
+        // Hapus / naikkan (di dalam kategori yang sama)
+        if (preg_match('/^(del|up):(\d+)$/', (string)($_POST['flyer_op'] ?? ''), $m) && isset($flyers[(int)$m[2]])) {
+            $i = (int)$m[2];
+            if ($m[1] === 'del') {
                 GuestServices::deleteImage($flyers[$i]['path']);
                 array_splice($flyers, $i, 1);
-                GuestServices::save($db, 'gs_flyers', json_encode($flyers, JSON_UNESCAPED_UNICODE));
-                setFlash('success', 'Flyer dihapus.');
-            }
-        } elseif ($act === 'move_flyer') {
-            $i = (int)($_POST['idx'] ?? -1);
-            if ($i > 0 && isset($flyers[$i])) {
-                [$flyers[$i - 1], $flyers[$i]] = [$flyers[$i], $flyers[$i - 1]];
-                GuestServices::save($db, 'gs_flyers', json_encode($flyers, JSON_UNESCAPED_UNICODE));
+            } else {
+                for ($j = $i - 1; $j >= 0; $j--) {
+                    if ($flyers[$j]['cat'] === $flyers[$i]['cat']) {
+                        [$flyers[$j], $flyers[$i]] = [$flyers[$i], $flyers[$j]];
+                        break;
+                    }
+                }
             }
         }
-    } catch (\RuntimeException $e) {
-        setFlash('error', $e->getMessage());
+
+        // Unggahan baru: flyer_up[<kategori>][] (boleh banyak sekaligus)
+        foreach ($_FILES['flyer_up']['name'] ?? [] as $cat => $names) {
+            if (!isset(GuestServices::FLYER_CATS[$cat])) continue;
+            foreach ($names as $k => $nm) {
+                if ($nm === '') continue;
+                $file = ['name' => $nm, 'type' => $_FILES['flyer_up']['type'][$cat][$k], 'tmp_name' => $_FILES['flyer_up']['tmp_name'][$cat][$k],
+                    'error' => $_FILES['flyer_up']['error'][$cat][$k], 'size' => $_FILES['flyer_up']['size'][$cat][$k]];
+                try {
+                    $flyers[] = ['path' => GuestServices::saveImage($file), 'title' => '', 'cat' => $cat];
+                    $uploaded++;
+                } catch (\RuntimeException $e) {
+                    $errors[] = $nm . ': ' . $e->getMessage();
+                }
+            }
+        }
+        GuestServices::save($db, 'gs_flyers', json_encode($flyers, JSON_UNESCAPED_UNICODE));
+    } catch (\Throwable $e) {
+        $errors[] = 'Gagal menyimpan: ' . $e->getMessage();
     }
-    header('Location: guest-services.php');
+    if ($errors) setFlash('error', implode(' · ', $errors));
+    else setFlash('success', 'Pengaturan Layanan Tamu tersimpan.' . ($uploaded ? ' (' . $uploaded . ' flyer diunggah)' : ''));
+    header('Location: guest-services.php?tab=' . $tab);
     exit;
 }
 
-$mp = GuestServices::motorPrice($db, $s);
-$cp = GuestServices::carPrice($db, $s);
-$xp = GuestServices::taxiPrice($db, $s);
+$activeTab = in_array($_GET['tab'] ?? '', $tabKeys, true) ? $_GET['tab'] : 'general';
+$prices = ['motor' => GuestServices::motorPrice($db, $s), 'car' => GuestServices::carPrice($db, $s), 'taxi' => GuestServices::taxiPrice($db, $s)];
 $foNumber = GuestServices::foNumber($db, $s);
+
 // Statistik 30 hari terakhir
 $stat = ['links' => 0, 'open' => 0, 'wa_trip' => 0, 'wa_motor' => 0, 'wa_car' => 0, 'wa_taxi' => 0, 'wa_fo' => 0, 'save_flyer' => 0];
 try {
@@ -107,227 +114,260 @@ try {
     }
 } catch (\Throwable $e) {
 }
+
+// Definisi tab (ikon garis 24px)
+$ic = [
+    'general' => '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+    'wifi' => '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+    'trip' => '<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>',
+    'motor' => '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M12 17.5 9 9h4l2 4h3.5"/><path d="M9 9H7"/>',
+    'car' => '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+    'taxi' => '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M10 4h4"/>',
+];
+$tabs = [
+    'general' => ['Umum', null],
+    'wifi' => ['WiFi', $s['gs_wifi_ssid'] !== ''],
+    'trip' => ['Trip', (bool)array_filter($flyers, fn($f) => $f['cat'] === 'trip')],
+    'motor' => ['Sewa Motor', $s['gs_motor_enabled'] === '1'],
+    'car' => ['Sewa Mobil', $s['gs_car_enabled'] === '1'],
+    'taxi' => ['Sewa Taxi', $s['gs_taxi_enabled'] === '1'],
+];
+$vehicle = [
+    'motor' => ['unit_ph' => 'hari', 'notes_ph' => "Helm disediakan\nBawa KTP / paspor untuk jaminan\nBisa diantar ke hotel", 'word' => 'motor', 'off' => 'Matikan bila tidak menawarkan sewa motor.'],
+    'car' => ['unit_ph' => 'hari', 'notes_ph' => "Dengan atau tanpa sopir\nBisa antar-jemput pelabuhan", 'word' => 'mobil', 'off' => 'Matikan bila tidak menawarkan sewa mobil.'],
+    'taxi' => ['unit_ph' => 'trip', 'notes_ph' => "Antar-jemput pelabuhan / bandara\nPesan sehari sebelumnya", 'word' => 'taxi', 'off' => 'Matikan bila tidak menawarkan taxi / antar-jemput.'],
+];
+
+/** Daftar flyer + tombol unggah untuk satu kategori. */
+function gsFlyerBox(array $flyers, string $cat): void
+{
+    $n = 0;
+    echo '<div class="gs-sec-h">Flyer</div>';
+    foreach ($flyers as $i => $f) {
+        if ($f['cat'] !== $cat) continue;
+        $n++; ?>
+        <div class="gs-fl">
+            <img src="<?php echo htmlspecialchars(GuestServices::fileUrl($f['path'])); ?>" alt="">
+            <input class="gs-in" name="flyer_title[<?php echo $i; ?>]" value="<?php echo htmlspecialchars($f['title']); ?>" maxlength="80" placeholder="Judul flyer (opsional)">
+            <button type="submit" name="flyer_op" value="up:<?php echo $i; ?>" class="gs-ic" title="Naikkan" formnovalidate>↑</button>
+            <button type="submit" name="flyer_op" value="del:<?php echo $i; ?>" class="gs-ic bad" title="Hapus flyer" formnovalidate onclick="return confirm('Hapus flyer ini?')">✕</button>
+        </div>
+    <?php }
+    if (!$n) echo '<div class="gs-empty">Belum ada flyer.</div>';
+    ?>
+    <label class="gs-up">
+        <input type="file" name="flyer_up[<?php echo $cat; ?>][]" accept="image/jpeg,image/png,image/webp" multiple data-autosubmit>
+        <span>+ Pilih flyer…</span>
+    </label>
+    <div class="gs-note">JPG / PNG / WEBP, maks 6 MB. Boleh banyak sekaligus; otomatis diperkecil dan langsung diunggah. Beberapa flyer tampil sebagai slide.</div>
+    <?php
+}
+
 $pageTitle = 'Layanan Tamu';
 include '../../includes/header.php';
 ?>
 
 <style>
-    body[data-theme] .main-content .gs-wrap { max-width: 1200px; margin: 0 auto; padding-bottom: 1.5rem; }
-    body[data-theme] .main-content .gs-wrap .gs-head h1 { margin: 0 0 .75rem; font-size: .95rem !important; font-weight: 700; color: var(--fd-text) !important; }
-    body[data-theme] .main-content .gs-wrap .gs-head h1 small { display: block; font-size: .68rem !important; font-weight: 500; color: var(--fd-muted) !important; }
-    body[data-theme] .main-content .gs-wrap .gs-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .75rem; align-items: start; margin-bottom: .75rem; }
-    body[data-theme] .main-content .gs-wrap .gs-card { border-radius: 14px; background: var(--fd-card); border: 1px solid var(--fd-edge); box-shadow: var(--fd-shadow); padding: .85rem 1rem; margin-bottom: .75rem; }
-    body[data-theme] .main-content .gs-wrap .gs-grid .gs-card { margin-bottom: 0; }
-    body[data-theme] .main-content .gs-wrap .gs-card h3 { margin: 0 0 .15rem; font-size: .82rem !important; font-weight: 700; color: var(--fd-text) !important; }
-    body[data-theme] .main-content .gs-wrap .gs-card > p.gs-sub { margin: 0 0 .7rem; padding-bottom: .55rem; border-bottom: 1px solid var(--fd-line); font-size: .68rem !important; color: var(--fd-muted) !important; }
-    body[data-theme] .main-content .gs-wrap label.gs-label { display: block; margin: 0 0 .3rem; font-size: .6rem !important; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fd-muted) !important; }
-    body[data-theme] .main-content .gs-wrap .gs-input, body[data-theme] .main-content .gs-wrap textarea.gs-input { width: 100%; padding: .45rem .65rem; border-radius: 9px; border: 1px solid var(--fd-input-border); background: var(--fd-input-bg) !important; color: var(--fd-text) !important; font-size: .74rem !important; }
-    body[data-theme] .main-content .gs-wrap textarea.gs-input { min-height: 80px; resize: vertical; line-height: 1.5; }
-    body[data-theme] .main-content .gs-wrap .gs-field { margin-bottom: .7rem; }
-    body[data-theme] .main-content .gs-wrap .gs-hint { display: block; margin-top: .3rem; font-size: .64rem !important; color: var(--fd-muted) !important; line-height: 1.5; }
-    body[data-theme] .main-content .gs-wrap .gs-row { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
-    body[data-theme] .main-content .gs-wrap .gs-btn { display: inline-flex; align-items: center; gap: .35rem; height: 30px; padding: 0 .8rem; border-radius: 8px; border: 1px solid transparent; cursor: pointer; font-size: .7rem !important; font-weight: 600; text-decoration: none; background: var(--fd-accent); color: #fff !important; -webkit-text-fill-color: #fff !important; }
-    body[data-theme] .main-content .gs-wrap .gs-btn.ghost { background: var(--fd-tile); border-color: var(--fd-line); color: var(--fd-text) !important; -webkit-text-fill-color: var(--fd-text) !important; }
-    body[data-theme] .main-content .gs-wrap .gs-btn.danger { background: rgba(220, 38, 38, .1); color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
-    body[data-theme] .main-content .gs-wrap label.gs-switch { display: flex; gap: .55rem; align-items: flex-start; padding: .55rem .65rem; border-radius: 10px; background: var(--fd-tile); border: 1px solid var(--fd-line); cursor: pointer; margin-bottom: .7rem; }
-    body[data-theme] .main-content .gs-wrap .gs-switch input { width: 16px; height: 16px; margin-top: 1px; accent-color: #0ea5e9; }
-    body[data-theme] .main-content .gs-wrap .gs-switch b { display: block; font-size: .74rem; color: var(--fd-text) !important; }
-    body[data-theme] .main-content .gs-wrap .gs-switch small { font-size: .64rem !important; color: var(--fd-muted) !important; }
-    body[data-theme] .main-content .gs-wrap .gs-flyer { display: flex; gap: .6rem; align-items: center; padding: .5rem; border: 1px solid var(--fd-line); border-radius: 10px; background: var(--fd-tile); margin-bottom: .5rem; }
-    body[data-theme] .main-content .gs-wrap .gs-flyer img { width: 56px; height: 72px; object-fit: cover; border-radius: 6px; flex: none; }
-    body[data-theme] .main-content .gs-wrap .gs-flyer .gs-input { flex: 1; min-width: 0; }
-    body[data-theme] .main-content .gs-wrap .gs-stats { display: flex; gap: 6px; flex-wrap: wrap; }
-    body[data-theme] .main-content .gs-wrap .gs-stats > div { min-width: 82px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--fd-line); background: var(--fd-tile); text-align: center; }
-    body[data-theme] .main-content .gs-wrap .gs-stats b { display: block; font-size: 1rem !important; font-weight: 800; color: var(--fd-text) !important; }
-    body[data-theme] .main-content .gs-wrap .gs-stats span { font-size: .58rem !important; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fd-muted) !important; }
-    @media (max-width: 960px) { body[data-theme] .main-content .gs-wrap .gs-grid { grid-template-columns: 1fr; } }
+    body[data-theme] .main-content .gs-wrap { max-width: 1100px; margin: 0 auto; padding-bottom: 1rem; }
+    body[data-theme] .main-content .gs-wrap * { box-sizing: border-box; }
+    .gs-top { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; margin-bottom: .6rem; }
+    body[data-theme] .main-content .gs-wrap h1 { margin: 0; font-size: .92rem !important; font-weight: 700; color: var(--fd-text) !important; }
+    body[data-theme] .main-content .gs-wrap h1 small { display: block; font-size: .64rem !important; font-weight: 500; color: var(--fd-muted) !important; }
+    .gs-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--fd-tile); border: 1px solid var(--fd-line); overflow-x: auto; scrollbar-width: none; margin-bottom: .6rem; }
+    .gs-tabs::-webkit-scrollbar { display: none; }
+    .gs-tab { display: inline-flex; align-items: center; gap: 6px; padding: 0 .75rem; height: 30px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; white-space: nowrap; font-size: .7rem; font-weight: 600; color: var(--fd-muted) !important; -webkit-text-fill-color: var(--fd-muted) !important; }
+    .gs-tab svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .gs-tab.on { background: var(--fd-card); box-shadow: 0 1px 4px rgba(0, 0, 0, .15); color: var(--fd-text) !important; -webkit-text-fill-color: var(--fd-text) !important; }
+    .gs-tab i { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+    .gs-pane { display: none; }
+    .gs-pane.on { display: block; }
+    .gs-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .6rem; align-items: start; }
+    body[data-theme] .main-content .gs-wrap .gs-card { border-radius: 14px; background: var(--fd-card); border: 1px solid var(--fd-edge); box-shadow: var(--fd-shadow); padding: .75rem .9rem; }
+    .gs-sec + .gs-sec { margin-top: .75rem; padding-top: .7rem; border-top: 1px solid var(--fd-line); }
+    .gs-sec-h { margin-bottom: .45rem; font-size: .6rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--fd-muted); }
+    .gs-f { margin-bottom: .55rem; }
+    .gs-f label.l { display: block; margin-bottom: .2rem; font-size: .64rem; font-weight: 600; color: var(--fd-text-2, var(--fd-text)); }
+    body[data-theme] .main-content .gs-wrap .gs-in, body[data-theme] .main-content .gs-wrap select.gs-in { width: 100%; height: 28px; padding: 0 .55rem; border-radius: 8px; border: 1px solid var(--fd-input-border); background: var(--fd-input-bg) !important; color: var(--fd-text) !important; font-size: .7rem !important; }
+    body[data-theme] .main-content .gs-wrap textarea.gs-in { height: auto; min-height: 70px; padding: .4rem .55rem; resize: vertical; line-height: 1.5; }
+    .gs-r2 { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    .gs-hint { display: block; margin-top: .2rem; font-size: .6rem; color: var(--fd-muted); line-height: 1.45; }
+    .gs-note { margin-top: .4rem; font-size: .6rem; color: var(--fd-muted); line-height: 1.45; }
+    /* sakelar */
+    .gs-sw { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .45rem .6rem; margin-bottom: .6rem; border-radius: 10px; background: var(--fd-tile); border: 1px solid var(--fd-line); cursor: pointer; }
+    .gs-sw b { display: block; font-size: .7rem; color: var(--fd-text); }
+    .gs-sw small { font-size: .6rem; color: var(--fd-muted); }
+    .gs-sw input { position: absolute; opacity: 0; pointer-events: none; }
+    .gs-sw .t { position: relative; flex: none; width: 32px; height: 18px; border-radius: 999px; background: #94a3b8; transition: background .18s; }
+    .gs-sw .t::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .18s; }
+    .gs-sw input:checked + .t { background: #22c55e; }
+    .gs-sw input:checked + .t::after { transform: translateX(14px); }
+    /* flyer */
+    .gs-fl { display: flex; align-items: center; gap: .45rem; padding: .35rem; margin-bottom: .35rem; border: 1px solid var(--fd-line); border-radius: 10px; background: var(--fd-tile); }
+    .gs-fl img { width: 36px; height: 48px; object-fit: cover; border-radius: 5px; flex: none; }
+    .gs-fl .gs-in { flex: 1; min-width: 0; }
+    .gs-ic { flex: none; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--fd-line); border-radius: 7px; background: var(--fd-card); cursor: pointer; font-size: .72rem; color: var(--fd-text) !important; -webkit-text-fill-color: var(--fd-text) !important; }
+    .gs-ic.bad { color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; }
+    .gs-empty { padding: .6rem; text-align: center; font-size: .66rem; color: var(--fd-muted); border: 1px dashed var(--fd-line); border-radius: 10px; margin-bottom: .4rem; }
+    .gs-up { display: flex; align-items: center; justify-content: center; height: 32px; border: 1px dashed var(--fd-accent); border-radius: 10px; cursor: pointer; font-size: .7rem; font-weight: 600; color: var(--fd-accent-text) !important; background: var(--fd-accent-soft); }
+    .gs-up input { display: none; }
+    .gs-ph { max-width: 150px; border-radius: 8px; display: block; margin-bottom: .35rem; }
+    /* chip & tombol */
+    .gs-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .gs-chip { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--fd-line); background: var(--fd-tile); font-size: .62rem; color: var(--fd-muted); }
+    .gs-chip b { color: var(--fd-text); font-size: .72rem; margin-right: 3px; }
+    body[data-theme] .main-content .gs-wrap .gs-btn { display: inline-flex; align-items: center; gap: .3rem; height: 28px; padding: 0 .7rem; border-radius: 8px; border: 1px solid var(--fd-line); cursor: pointer; font-size: .66rem !important; font-weight: 600; text-decoration: none; background: var(--fd-tile); color: var(--fd-text) !important; -webkit-text-fill-color: var(--fd-text) !important; }
+    body[data-theme] .main-content .gs-wrap .gs-btn.pri { background: var(--fd-accent); border-color: transparent; color: #fff !important; -webkit-text-fill-color: #fff !important; height: 30px; padding: 0 1rem; }
+    .gs-save { position: sticky; bottom: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-top: .75rem; padding: .5rem .75rem; border-radius: 12px; background: var(--fd-card); border: 1px solid var(--fd-edge); box-shadow: 0 -4px 16px rgba(0, 0, 0, .12); }
+    .gs-save span { font-size: .62rem; color: var(--fd-muted); }
+    @media (max-width: 860px) { .gs-cols { grid-template-columns: 1fr; } }
 </style>
 
 <div class="gs-wrap">
-    <div class="gs-head">
-        <h1>Layanan Tamu <small>Halaman yang dibuka tamu dari link di pesan welcome check-in: flyer trip &amp; sewa motor. Semua tombol membuka WhatsApp ke Front Office.</small></h1>
-    </div>
     <?php $sxActiveKey = 'guest_services'; include __DIR__ . '/settings-nav.php'; ?>
 
-    <div class="gs-card">
-        <h3>Statistik 30 hari terakhir</h3>
-        <p class="gs-sub">Seberapa sering tamu membuka halaman dan menekan tombol.</p>
-        <div class="gs-stats">
-            <div><b><?php echo $stat['links']; ?></b><span>Link dikirim</span></div>
-            <div><b><?php echo $stat['open']; ?></b><span>Dibuka</span></div>
-            <div><b><?php echo $stat['wa_trip']; ?></b><span>WA Trip</span></div>
-            <div><b><?php echo $stat['wa_motor']; ?></b><span>WA Motor</span></div>
-            <div><b><?php echo $stat['wa_car']; ?></b><span>WA Mobil</span></div>
-            <div><b><?php echo $stat['wa_taxi']; ?></b><span>WA Taxi</span></div>
-            <div><b><?php echo $stat['wa_fo']; ?></b><span>WA Front Office</span></div>
-            <div><b><?php echo $stat['save_flyer']; ?></b><span>Simpan flyer</span></div>
+    <div class="gs-top">
+        <h1>Layanan Tamu <small>Halaman yang dibuka tamu dari link di pesan welcome check-in. Semua tombol membuka WhatsApp ke Front Office.</small></h1>
+        <div style="display:flex;gap:.35rem">
+            <a class="gs-btn" href="<?php echo BASE_URL; ?>/guest-services.php?k=preview&l=id" target="_blank" rel="noopener">Lihat contoh · ID</a>
+            <a class="gs-btn" href="<?php echo BASE_URL; ?>/guest-services.php?k=preview&l=en" target="_blank" rel="noopener">EN</a>
         </div>
     </div>
 
-    <!-- Tambah flyer (form sendiri agar unggah tidak bercampur dengan pengaturan lain) -->
-    <div class="gs-card">
-        <h3>Flyer Trip</h3>
-        <p class="gs-sub">JPG / PNG / WEBP, maks 6 MB. Otomatis diperkecil agar ringan di sinyal lemah. Pilih kategori (Trip / Sewa Motor / Sewa Mobil / Sewa Taxi); beberapa flyer dalam satu kategori tampil sebagai slide yang bisa digeser. Urutan di sini = urutan slide.</p>
-        <?php foreach ($flyers as $i => $f): ?>
-            <div class="gs-flyer">
-                <img src="<?php echo htmlspecialchars(GuestServices::fileUrl($f['path'])); ?>" alt="">
-                <span style="flex:1;min-width:0;font-size:.7rem;color:var(--fd-text)"><?php echo htmlspecialchars($f['title'] !== '' ? $f['title'] : basename($f['path'])); ?> <em style="font-style:normal;font-size:.6rem;font-weight:700;padding:.05rem .45rem;border-radius:999px;background:var(--fd-accent-soft);color:var(--fd-accent-text)"><?php echo htmlspecialchars(GuestServices::FLYER_CATS[$f['cat']]); ?></em></span>
-                <?php if ($i > 0): ?>
-                    <form method="post"><input type="hidden" name="act" value="move_flyer"><input type="hidden" name="idx" value="<?php echo $i; ?>"><button class="gs-btn ghost" title="Naikkan">↑</button></form>
-                <?php endif; ?>
-                <form method="post" onsubmit="return confirm('Hapus flyer ini?')"><input type="hidden" name="act" value="del_flyer"><input type="hidden" name="idx" value="<?php echo $i; ?>"><button class="gs-btn danger">Hapus</button></form>
-            </div>
-        <?php endforeach; ?>
-        <?php if (!$flyers): ?><span class="gs-hint" style="margin-bottom:.5rem">Belum ada flyer. Halaman tamu akan menampilkan tab Trip setelah flyer pertama diunggah.</span><?php endif; ?>
-        <form method="post" enctype="multipart/form-data" class="gs-row" style="margin-top:.5rem">
-            <input type="hidden" name="act" value="add_flyer">
-            <select name="new_cat" class="gs-input" style="max-width:150px">
-                <?php foreach (GuestServices::FLYER_CATS as $ck => $cl): ?><option value="<?php echo $ck; ?>"><?php echo $cl; ?></option><?php endforeach; ?>
-            </select>
-            <input type="file" name="flyer" accept="image/jpeg,image/png,image/webp" required class="gs-input" style="max-width:260px">
-            <input type="text" name="new_title" class="gs-input" style="max-width:240px" maxlength="80" placeholder="Judul flyer (opsional)">
-            <button class="gs-btn">Unggah flyer</button>
-        </form>
-    </div>
+    <form method="post" enctype="multipart/form-data" id="gsForm">
+        <input type="hidden" name="tab" id="gsTab" value="<?php echo $activeTab; ?>">
+        <button type="submit" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">Simpan</button>
 
-    <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="act" value="save">
-        <div class="gs-grid">
-            <div>
+        <nav class="gs-tabs" role="tablist">
+            <?php foreach ($tabs as $k => [$label, $on]): ?>
+                <button type="button" class="gs-tab<?php echo $k === $activeTab ? ' on' : ''; ?>" data-tab="<?php echo $k; ?>" role="tab">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><?php echo $ic[$k]; ?></svg><?php echo $label; ?><?php echo $on ? '<i title="Aktif"></i>' : ''; ?>
+                </button>
+            <?php endforeach; ?>
+        </nav>
+
+        <!-- UMUM -->
+        <div class="gs-pane<?php echo $activeTab === 'general' ? ' on' : ''; ?>" data-pane="general">
+            <div class="gs-cols">
                 <div class="gs-card">
-                    <h3>Link di Pesan Welcome</h3>
-                    <p class="gs-sub">Link otomatis dibuat per tamu saat check-in. Isi pesannya diatur di <a href="whatsapp.php">Pengaturan WhatsApp</a> (placeholder <code>{services_link}</code>).</p>
-                    <label class="gs-switch">
-                        <input type="checkbox" name="gs_enabled" value="1" <?php echo $s['gs_enabled'] === '1' ? 'checked' : ''; ?>>
-                        <span><b>Sertakan link layanan tamu di pesan welcome</b><small>Bila mati, pesan welcome dikirim tanpa link.</small></span>
-                    </label>
-                    <div class="gs-field">
-                        <label class="gs-label" for="gsFo">WhatsApp Front Office</label>
-                        <input class="gs-input" id="gsFo" name="gs_fo_wa" value="<?php echo htmlspecialchars($s['gs_fo_wa']); ?>" placeholder="0812xxxxxxx">
+                    <div class="gs-sec">
+                        <div class="gs-sec-h">Link di pesan welcome</div>
+                        <label class="gs-sw"><span><b>Sertakan link layanan tamu</b><small>Bila mati, pesan welcome dikirim tanpa link. Isi pesan diatur di <a href="whatsapp.php">Pengaturan WhatsApp</a>.</small></span>
+                            <input type="checkbox" name="gs_enabled" value="1" <?php echo $s['gs_enabled'] === '1' ? 'checked' : ''; ?>><span class="t"></span></label>
+                    </div>
+                    <div class="gs-sec">
+                        <div class="gs-sec-h">Front Office</div>
+                        <div class="gs-r2">
+                            <div class="gs-f"><label class="l" for="gsFo">WhatsApp Front Office</label>
+                                <input class="gs-in" id="gsFo" name="gs_fo_wa" value="<?php echo htmlspecialchars($s['gs_fo_wa']); ?>" placeholder="0812xxxxxxx"></div>
+                            <div class="gs-f"><label class="l" for="gsHours">Jam balas</label>
+                                <input class="gs-in" id="gsHours" name="gs_fo_hours" value="<?php echo htmlspecialchars($s['gs_fo_hours']); ?>" placeholder="07.00–22.00"></div>
+                        </div>
                         <span class="gs-hint">Tujuan semua tombol WhatsApp. Kosong = nomor telepon hotel<?php echo $foNumber !== '' ? ' (sekarang: ' . htmlspecialchars($foNumber) . ')' : ' — belum ada, tombol WhatsApp tidak tampil'; ?>.</span>
                     </div>
-                    <div class="gs-field">
-                        <label class="gs-label" for="gsHours">Jam balas</label>
-                        <input class="gs-input" id="gsHours" name="gs_fo_hours" value="<?php echo htmlspecialchars($s['gs_fo_hours']); ?>" placeholder="07.00–22.00">
+                </div>
+                <div class="gs-card">
+                    <div class="gs-sec-h">Statistik 30 hari terakhir</div>
+                    <div class="gs-chips">
+                        <span class="gs-chip"><b><?php echo $stat['links']; ?></b>Link dikirim</span>
+                        <span class="gs-chip"><b><?php echo $stat['open']; ?></b>Dibuka</span>
+                        <span class="gs-chip"><b><?php echo $stat['wa_trip']; ?></b>WA Trip</span>
+                        <span class="gs-chip"><b><?php echo $stat['wa_motor']; ?></b>WA Motor</span>
+                        <span class="gs-chip"><b><?php echo $stat['wa_car']; ?></b>WA Mobil</span>
+                        <span class="gs-chip"><b><?php echo $stat['wa_taxi']; ?></b>WA Taxi</span>
+                        <span class="gs-chip"><b><?php echo $stat['wa_fo']; ?></b>WA Front Office</span>
+                        <span class="gs-chip"><b><?php echo $stat['save_flyer']; ?></b>Simpan flyer</span>
                     </div>
-                    <div class="gs-row">
-                        <a class="gs-btn ghost" href="<?php echo BASE_URL; ?>/guest-services.php?k=preview" target="_blank" rel="noopener">Lihat contoh halaman tamu</a>
-                        <a class="gs-btn ghost" href="<?php echo BASE_URL; ?>/guest-services.php?k=preview&l=en" target="_blank" rel="noopener">English</a>
-                    </div>
-                </div>
-                <div class="gs-card" style="margin-top:.75rem">
-                    <h3>WiFi Tamu</h3>
-                    <p class="gs-sub">Kartu WiFi di bagian atas halaman tamu (salin password, buka pengaturan WiFi, QR). Kosongkan nama WiFi bila tidak ingin ditampilkan.</p>
-                    <div class="gs-field">
-                        <label class="gs-label" for="gsSsid">Nama WiFi (SSID)</label>
-                        <input class="gs-input" id="gsSsid" name="gs_wifi_ssid" value="<?php echo htmlspecialchars($s['gs_wifi_ssid']); ?>" maxlength="60" autocomplete="off">
-                    </div>
-                    <div class="gs-field">
-                        <label class="gs-label" for="gsWpass">Password</label>
-                        <input class="gs-input" id="gsWpass" name="gs_wifi_pass" value="<?php echo htmlspecialchars($s['gs_wifi_pass']); ?>" maxlength="63" autocomplete="off">
-                        <span class="gs-hint">Password terlihat oleh pemegang link tamu (link unik per tamu). Kosong = WiFi terbuka tanpa password.</span>
-                    </div>
-                    <div class="gs-field">
-                        <label class="gs-label" for="gsWnote">Catatan (opsional)</label>
-                        <input class="gs-input" id="gsWnote" name="gs_wifi_note" value="<?php echo htmlspecialchars($s['gs_wifi_note']); ?>" maxlength="100" placeholder="Kuat di lobi &amp; area kamar">
-                    </div>
-                </div>
-                <div class="gs-card" style="margin-top:.75rem">
-                    <h3>Tab Trip</h3>
-                    <p class="gs-sub">Teks di sekitar flyer.</p>
-                    <div class="gs-field">
-                        <label class="gs-label" for="gsTitle">Judul</label>
-                        <input class="gs-input" id="gsTitle" name="gs_trip_title" value="<?php echo htmlspecialchars($s['gs_trip_title']); ?>" maxlength="80" placeholder="Paket Trip Karimunjawa">
-                    </div>
-                    <div class="gs-field">
-                        <label class="gs-label" for="gsChips">Label singkat</label>
-                        <input class="gs-input" id="gsChips" name="gs_trip_chips" value="<?php echo htmlspecialchars($s['gs_trip_chips']); ?>" placeholder="Island Hopping, Snorkeling, Sunset, Private Trip">
-                        <span class="gs-hint">Pisahkan dengan koma.</span>
-                    </div>
-                    <?php foreach ($flyers as $i => $f): ?>
-                        <div class="gs-field">
-                            <label class="gs-label">Judul flyer <?php echo $i + 1; ?></label>
-                            <input class="gs-input" name="flyer_title[<?php echo $i; ?>]" value="<?php echo htmlspecialchars($f['title']); ?>" maxlength="80">
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <div class="gs-card">
-                <h3>Sewa Motor</h3>
-                <p class="gs-sub">Tab kedua di halaman tamu.</p>
-                <label class="gs-switch">
-                    <input type="checkbox" name="gs_motor_enabled" value="1" <?php echo $s['gs_motor_enabled'] === '1' ? 'checked' : ''; ?>>
-                    <span><b>Tampilkan sewa motor</b><small>Matikan bila tidak menawarkan sewa motor.</small></span>
-                </label>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsPrice">Harga mulai dari (Rp)</label>
-                    <input class="gs-input" id="gsPrice" name="gs_motor_price" inputmode="numeric" value="<?php echo htmlspecialchars($s['gs_motor_price']); ?>" placeholder="otomatis">
-                    <span class="gs-hint">Kosong = otomatis dari harga terendah katalog Hotel Service bertipe motor<?php echo $mp['price'] > 0 && $s['gs_motor_price'] === '' ? ' (sekarang: Rp ' . number_format($mp['price'], 0, ',', '.') . ')' : ''; ?>.</span>
-                </div>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsUnit">Satuan</label>
-                    <input class="gs-input" id="gsUnit" name="gs_motor_unit" value="<?php echo htmlspecialchars($s['gs_motor_unit']); ?>" maxlength="20" placeholder="hari">
-                </div>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsNotes">Syarat &amp; info (satu per baris)</label>
-                    <textarea class="gs-input" id="gsNotes" name="gs_motor_notes" placeholder="Helm disediakan&#10;Bawa KTP / paspor untuk jaminan&#10;Bisa diantar ke hotel"><?php echo htmlspecialchars($s['gs_motor_notes']); ?></textarea>
-                </div>
-                <div class="gs-field">
-                    <label class="gs-label">Foto motor</label>
-                    <?php if ($s['gs_motor_photo'] !== ''): ?>
-                        <img src="<?php echo htmlspecialchars(GuestServices::fileUrl($s['gs_motor_photo'])); ?>" alt="" style="max-width:200px;border-radius:8px;display:block;margin-bottom:.4rem">
-                        <label class="gs-hint"><input type="checkbox" name="remove_motor_photo" value="1"> Hapus foto ini</label>
-                    <?php endif; ?>
-                    <input type="file" name="motor_photo" accept="image/jpeg,image/png,image/webp" class="gs-input">
-                </div>
-            </div>
-            <div class="gs-card">
-                <h3>Sewa Mobil</h3>
-                <p class="gs-sub">Tab ketiga di halaman tamu. Unggah flyer mobil di bagian Flyer dengan kategori Sewa Mobil.</p>
-                <label class="gs-switch">
-                    <input type="checkbox" name="gs_car_enabled" value="1" <?php echo $s['gs_car_enabled'] === '1' ? 'checked' : ''; ?>>
-                    <span><b>Tampilkan sewa mobil</b><small>Matikan bila tidak menawarkan sewa mobil.</small></span>
-                </label>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsCarPrice">Harga mulai dari (Rp)</label>
-                    <input class="gs-input" id="gsCarPrice" name="gs_car_price" inputmode="numeric" value="<?php echo htmlspecialchars($s['gs_car_price']); ?>" placeholder="otomatis / kosongkan">
-                    <span class="gs-hint">Kosong = otomatis dari harga terendah katalog Hotel Service bertipe mobil<?php echo $cp['price'] > 0 && $s['gs_car_price'] === '' ? ' (sekarang: Rp ' . number_format($cp['price'], 0, ',', '.') . ')' : ''; ?>; bila tidak ada, harga tidak ditampilkan.</span>
-                </div>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsCarUnit">Satuan</label>
-                    <input class="gs-input" id="gsCarUnit" name="gs_car_unit" value="<?php echo htmlspecialchars($s['gs_car_unit']); ?>" maxlength="20" placeholder="hari">
-                </div>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsCarNotes">Syarat &amp; info (satu per baris)</label>
-                    <textarea class="gs-input" id="gsCarNotes" name="gs_car_notes" placeholder="Dengan atau tanpa sopir&#10;Bisa antar-jemput pelabuhan"><?php echo htmlspecialchars($s['gs_car_notes']); ?></textarea>
-                </div>
-            </div>
-            <div class="gs-card">
-                <h3>Sewa Taxi</h3>
-                <p class="gs-sub">Tab keempat di halaman tamu. Unggah flyer taxi di bagian Flyer dengan kategori Sewa Taxi.</p>
-                <label class="gs-switch">
-                    <input type="checkbox" name="gs_taxi_enabled" value="1" <?php echo $s['gs_taxi_enabled'] === '1' ? 'checked' : ''; ?>>
-                    <span><b>Tampilkan sewa taxi</b><small>Matikan bila tidak menawarkan taxi / antar-jemput.</small></span>
-                </label>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsTaxiPrice">Harga mulai dari (Rp)</label>
-                    <input class="gs-input" id="gsTaxiPrice" name="gs_taxi_price" inputmode="numeric" value="<?php echo htmlspecialchars($s['gs_taxi_price']); ?>" placeholder="otomatis / kosongkan">
-                    <span class="gs-hint">Kosong = otomatis dari harga terendah katalog Hotel Service bertipe taxi<?php echo $xp['price'] > 0 && $s['gs_taxi_price'] === '' ? ' (sekarang: Rp ' . number_format($xp['price'], 0, ',', '.') . ')' : ''; ?>; bila tidak ada, harga tidak ditampilkan.</span>
-                </div>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsTaxiUnit">Satuan</label>
-                    <input class="gs-input" id="gsTaxiUnit" name="gs_taxi_unit" value="<?php echo htmlspecialchars($s['gs_taxi_unit']); ?>" maxlength="20" placeholder="trip">
-                </div>
-                <div class="gs-field">
-                    <label class="gs-label" for="gsTaxiNotes">Syarat &amp; info (satu per baris)</label>
-                    <textarea class="gs-input" id="gsTaxiNotes" name="gs_taxi_notes" placeholder="Antar-jemput pelabuhan / bandara&#10;Pesan sehari sebelumnya"><?php echo htmlspecialchars($s['gs_taxi_notes']); ?></textarea>
+                    <div class="gs-note">Seberapa sering tamu membuka halaman dan menekan tombol.</div>
                 </div>
             </div>
         </div>
-        <div class="gs-row" style="justify-content:flex-end">
-            <button type="submit" class="gs-btn">Simpan Pengaturan</button>
+
+        <!-- WIFI -->
+        <div class="gs-pane<?php echo $activeTab === 'wifi' ? ' on' : ''; ?>" data-pane="wifi">
+            <div class="gs-card" style="max-width:520px">
+                <div class="gs-sec-h">WiFi tamu</div>
+                <div class="gs-r2">
+                    <div class="gs-f"><label class="l" for="gsSsid">Nama WiFi (SSID)</label>
+                        <input class="gs-in" id="gsSsid" name="gs_wifi_ssid" value="<?php echo htmlspecialchars($s['gs_wifi_ssid']); ?>" maxlength="60" autocomplete="off"></div>
+                    <div class="gs-f"><label class="l" for="gsWpass">Password</label>
+                        <input class="gs-in" id="gsWpass" name="gs_wifi_pass" value="<?php echo htmlspecialchars($s['gs_wifi_pass']); ?>" maxlength="63" autocomplete="off"></div>
+                </div>
+                <div class="gs-f"><label class="l" for="gsWnote">Catatan (opsional)</label>
+                    <input class="gs-in" id="gsWnote" name="gs_wifi_note" value="<?php echo htmlspecialchars($s['gs_wifi_note']); ?>" maxlength="100" placeholder="Kuat di lobi &amp; area kamar"></div>
+                <div class="gs-note">Kartu WiFi tampil di atas halaman tamu (salin password, buka pengaturan WiFi, QR). Kosongkan nama WiFi bila tidak ingin ditampilkan. Password terlihat oleh pemegang link tamu (link unik per tamu); kosong = WiFi terbuka tanpa password.</div>
+            </div>
+        </div>
+
+        <!-- TRIP -->
+        <div class="gs-pane<?php echo $activeTab === 'trip' ? ' on' : ''; ?>" data-pane="trip">
+            <div class="gs-cols">
+                <div class="gs-card">
+                    <div class="gs-sec-h">Teks</div>
+                    <div class="gs-f"><label class="l" for="gsTitle">Judul</label>
+                        <input class="gs-in" id="gsTitle" name="gs_trip_title" value="<?php echo htmlspecialchars($s['gs_trip_title']); ?>" maxlength="80" placeholder="Paket Trip Karimunjawa"></div>
+                    <div class="gs-f"><label class="l" for="gsChips">Label singkat</label>
+                        <input class="gs-in" id="gsChips" name="gs_trip_chips" value="<?php echo htmlspecialchars($s['gs_trip_chips']); ?>" placeholder="Island Hopping, Snorkeling, Sunset">
+                        <span class="gs-hint">Pisahkan dengan koma. Tab Trip tampil otomatis setelah ada flyer.</span></div>
+                </div>
+                <div class="gs-card"><?php gsFlyerBox($flyers, 'trip'); ?></div>
+            </div>
+        </div>
+
+        <!-- MOTOR / MOBIL / TAXI -->
+        <?php foreach ($vehicle as $vk => $v):
+            $p = "gs_{$vk}"; ?>
+            <div class="gs-pane<?php echo $activeTab === $vk ? ' on' : ''; ?>" data-pane="<?php echo $vk; ?>">
+                <div class="gs-cols">
+                    <div class="gs-card">
+                        <label class="gs-sw"><span><b>Tampil di halaman tamu</b><small><?php echo $v['off']; ?></small></span>
+                            <input type="checkbox" name="<?php echo $p; ?>_enabled" value="1" <?php echo $s["{$p}_enabled"] === '1' ? 'checked' : ''; ?>><span class="t"></span></label>
+                        <div class="gs-r2">
+                            <div class="gs-f"><label class="l" for="<?php echo $p; ?>P">Harga mulai dari (Rp)</label>
+                                <input class="gs-in" id="<?php echo $p; ?>P" name="<?php echo $p; ?>_price" inputmode="numeric" value="<?php echo htmlspecialchars($s["{$p}_price"]); ?>" placeholder="otomatis"></div>
+                            <div class="gs-f"><label class="l" for="<?php echo $p; ?>U">Satuan</label>
+                                <input class="gs-in" id="<?php echo $p; ?>U" name="<?php echo $p; ?>_unit" value="<?php echo htmlspecialchars($s["{$p}_unit"]); ?>" maxlength="20" placeholder="<?php echo $v['unit_ph']; ?>"></div>
+                        </div>
+                        <span class="gs-hint" style="margin:-.25rem 0 .55rem">Harga kosong = otomatis dari harga terendah katalog Hotel Service bertipe <?php echo $v['word']; ?><?php echo $prices[$vk]['price'] > 0 && $s["{$p}_price"] === '' ? ' (sekarang: Rp ' . number_format($prices[$vk]['price'], 0, ',', '.') . ')' : ''; ?>; bila tidak ada, harga tidak ditampilkan.</span>
+                        <div class="gs-f"><label class="l" for="<?php echo $p; ?>N">Syarat &amp; info (satu per baris)</label>
+                            <textarea class="gs-in" id="<?php echo $p; ?>N" name="<?php echo $p; ?>_notes" placeholder="<?php echo htmlspecialchars($v['notes_ph']); ?>"><?php echo htmlspecialchars($s["{$p}_notes"]); ?></textarea></div>
+                        <?php if ($vk === 'motor'): ?>
+                            <div class="gs-f"><label class="l">Foto (dipakai bila belum ada flyer motor)</label>
+                                <?php if ($s['gs_motor_photo'] !== ''): ?>
+                                    <img class="gs-ph" src="<?php echo htmlspecialchars(GuestServices::fileUrl($s['gs_motor_photo'])); ?>" alt="">
+                                    <label class="gs-hint"><input type="checkbox" name="remove_motor_photo" value="1"> Hapus foto ini</label>
+                                <?php endif; ?>
+                                <input type="file" name="motor_photo" accept="image/jpeg,image/png,image/webp" class="gs-in" style="height:auto;padding:.25rem .4rem">
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="gs-card"><?php gsFlyerBox($flyers, $vk); ?></div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+
+        <div class="gs-save">
+            <span>Satu tombol menyimpan semua tab.</span>
+            <button type="submit" class="gs-btn pri">Simpan Pengaturan</button>
         </div>
     </form>
 </div>
+
+<script>
+    (function() {
+        const tabs = document.querySelectorAll('.gs-tab'), panes = document.querySelectorAll('.gs-pane'), hid = document.getElementById('gsTab');
+        tabs.forEach(t => t.addEventListener('click', () => {
+            tabs.forEach(x => x.classList.toggle('on', x === t));
+            panes.forEach(p => p.classList.toggle('on', p.dataset.pane === t.dataset.tab));
+            hid.value = t.dataset.tab;
+            history.replaceState(null, '', '?tab=' + t.dataset.tab);
+        }));
+        // Pilih flyer → langsung unggah (sekaligus menyimpan isian lain)
+        document.querySelectorAll('[data-autosubmit]').forEach(i => i.addEventListener('change', () => {
+            if (!i.files.length) return;
+            i.parentElement.querySelector('span').textContent = 'Mengunggah…';
+            document.getElementById('gsForm').submit();
+        }));
+    })();
+</script>
 
 <?php include '../../includes/footer.php'; ?>
