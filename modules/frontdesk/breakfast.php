@@ -1929,11 +1929,8 @@ include '../../includes/header.php';
                     </div>
                 </div>
 
-                <!-- Notes -->
-                <div class="bf-section">
-                    <div class="bf-title">📝 Catatan</div>
-                    <textarea name="special_requests" class="bf-textarea" placeholder="Alergi, permintaan khusus, dll"><?php echo $editOrder ? htmlspecialchars($editOrder['special_requests'] ?? '') : ''; ?></textarea>
-                </div>
+                <!-- Catatan dihapus dari form; nilai lama tetap dibawa saat edit -->
+                <input type="hidden" name="special_requests" value="<?php echo $editOrder ? htmlspecialchars($editOrder['special_requests'] ?? '') : ''; ?>">
 
                 <div class="bf-actions">
                     <button type="submit" class="bf-btn-submit" id="btnSubmit"><?php echo $editOrder ? '✓ Update Order' : '✓ Simpan Order'; ?></button>
@@ -2275,7 +2272,7 @@ include '../../includes/header.php';
             location: (document.querySelector('input[name="location"]:checked') || {
                 value: 'restaurant'
             }).value,
-            special_requests: document.querySelector('textarea[name="special_requests"]').value.trim(),
+            special_requests: document.querySelector('[name="special_requests"]').value.trim(),
             menu_items: menuItems,
             menu_qty: menuQty,
             menu_note: menuNote,
