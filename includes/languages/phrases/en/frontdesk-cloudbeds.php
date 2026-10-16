@@ -2,6 +2,10 @@
 /** Kamus EN: Integrasi Cloudbeds (modules/frontdesk/cloudbeds.php, cloudbeds-autosync-include.php). */
 return [
     'text' => [
+        'Koreksi kas OTA (data lama)' => 'OTA cash correction (old data)', 'booking' => 'bookings',
+        'Pulihkan status lunas (data lama)' => 'Restore paid status (old data)', 'sudah check-out, uang sudah di kas' => 'checked out, money already in cash book',
+        'Dulu kas OTA dicatat setelah dipotong komisi OTA. Aturan sekarang: nominal kas = nominal di Cloudbeds. Baris di bawah masih memakai nominal lama yang lebih kecil. Ini perbaikan sekali jalan — tidak ada yang berubah sampai Anda menekan Koreksi. Ragu? Cocokkan dulu 1–2 baris dengan uang yang benar-benar masuk dari OTA.' => 'OTA cash used to be recorded after the OTA commission was deducted. The current rule: cash amount = the amount in Cloudbeds. The rows below still use the old, smaller amount. This is a one-time fix — nothing changes until you press Correct. Not sure? First compare 1–2 rows with the money actually received from the OTA.',
+        'Booking ini sudah check-out dan uangnya sudah ada di buku kas, tetapi statusnya masih "Belum Bayar". Pulihkan lunas hanya mengubah status booking; buku kas tidak ditambah dan tidak ada yang dikirim ke Cloudbeds. Pastikan kolom "Di buku kas" memang uang booking itu.' => 'These bookings are checked out and the money is already in the cash book, but the status is still "Unpaid". Restore paid only changes the booking status; the cash book is not increased and nothing is sent to Cloudbeds. Make sure the "In cash book" column really is that booking\'s money.',
         // Alat Cek reservasi
         'reservasi Cloudbeds belum ditempatkan kamar' => 'Cloudbeds reservation(s) not yet assigned a room',
         'Belum masuk ADF — kamarnya bisa terjual dua kali. Tempatkan nomor kamar di Cloudbeds, lalu reservasi otomatis masuk.' => 'Not in ADF yet — the room could be sold twice. Assign a room number in Cloudbeds and the reservation is imported automatically.',

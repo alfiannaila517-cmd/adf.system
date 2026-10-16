@@ -260,6 +260,17 @@ include '../../includes/header.php';
     body[data-theme] .main-content .cbx-head h1 small { display: block; font-size: .68rem !important; font-weight: 500; color: var(--fd-muted) !important; }
     body[data-theme] .main-content .cbx-card { border-radius: 14px; background: var(--fd-card); border: 1px solid var(--fd-edge); box-shadow: var(--fd-shadow); padding: .85rem 1rem; margin-bottom: .75rem; }
     body[data-theme] .main-content .cbx-card h3 { margin: 0 0 .15rem; font-size: .82rem !important; font-weight: 700; color: var(--fd-text) !important; }
+    /* Perbaikan data lama: ringkas, terbuka hanya bila diklik */
+    .cbx-fix { margin: .3rem 0 .6rem; border: 1px solid var(--fd-line); border-radius: 11px; background: var(--fd-tile); }
+    .cbx-fix > summary { display: flex; align-items: center; gap: .5rem; padding: .5rem .7rem; cursor: pointer; list-style: none; font-size: .76rem; }
+    .cbx-fix > summary::-webkit-details-marker { display: none; }
+    .cbx-fix > summary::before { content: '▸'; font-size: .7rem; color: var(--fd-muted); transition: transform .15s; }
+    .cbx-fix[open] > summary::before { transform: rotate(90deg); }
+    body[data-theme] .main-content .cbx-fix .t { font-weight: 700; color: var(--fd-text) !important; }
+    body[data-theme] .main-content .cbx-fix .s { margin-left: auto; font-size: .68rem; font-weight: 600; color: var(--fd-muted) !important; }
+    .cbx-fix-b { padding: 0 .7rem .65rem; }
+    .cbx-fix-scroll { max-height: 260px; overflow: auto; border: 1px solid var(--fd-line); border-radius: 9px; }
+    .cbx-fix-scroll th { position: sticky; top: 0; z-index: 1; }
     body[data-theme] .main-content .cbx-card > p.cbx-sub { margin: 0 0 .7rem; padding-bottom: .55rem; border-bottom: 1px solid var(--fd-line); font-size: .68rem !important; color: var(--fd-muted) !important; }
     body[data-theme] .main-content .cbx-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .75rem; align-items: start; }
     body[data-theme] .main-content .cbx label.cbx-label { display: block; margin: 0 0 .3rem; font-size: .6rem !important; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fd-muted) !important; }
@@ -876,12 +887,18 @@ include '../../includes/header.php';
                 echo '<p class="cbx-hint" style="color:#b91c1c!important">Daftar koreksi fee OTA gagal dibaca: ' . htmlspecialchars($e->getMessage()) . '</p>';
             }
             if ($feeCut): ?>
-                <div id="feecut" style="margin:.2rem 0 .8rem;padding:.6rem .7rem;border-radius:9px;background:rgba(37,99,235,.07)">
-                    <b style="color:#1e3a8a!important">Buku kas terpotong fee OTA (padahal Cloudbeds sudah memotong)</b>
-                    <p class="cbx-hint" style="margin:.2rem 0 .45rem">Nominal di buku kas lebih kecil dari pembayaran booking yang tertaut Cloudbeds. Centang lalu <b>Koreksi</b>: baris kas dikembalikan ke nominal penuh dan saldo akun kas ikut disesuaikan.</p>
+                <?php $fcDiff = array_sum(array_map(fn($x) => (float)$x['pay_sum'] - (float)$x['cash_amount'], $feeCut)); ?>
+                <details id="feecut" class="cbx-fix">
+                    <summary>
+                        <span class="t">Koreksi kas OTA (data lama)</span>
+                        <span class="cbx-pill warn"><?php echo count($feeCut); ?> booking</span>
+                        <span class="s">selisih <?php echo $rpx($fcDiff); ?></span>
+                    </summary>
+                    <div class="cbx-fix-b">
+                    <p class="cbx-hint" style="margin:.1rem 0 .5rem">Dulu kas OTA dicatat setelah dipotong komisi OTA. Aturan sekarang: <b>nominal kas = nominal di Cloudbeds</b>. Baris di bawah masih memakai nominal lama yang lebih kecil. Ini perbaikan <b>sekali jalan</b> — tidak ada yang berubah sampai Anda menekan <b>Koreksi</b>. Ragu? Cocokkan dulu 1–2 baris dengan uang yang benar-benar masuk dari OTA.</p>
                     <form method="post" onsubmit="return confirm('Koreksi baris kas yang dicentang ke nominal penuh? Saldo akun kas ikut bertambah.')">
                         <input type="hidden" name="act" value="fix_feecut">
-                        <div style="overflow-x:auto"><table class="cbx-tbl" style="width:100%;font-size:.8rem">
+                        <div class="cbx-fix-scroll"><table class="cbx-tbl" style="width:100%;font-size:.8rem">
                             <tr><th><input type="checkbox" checked onclick="this.closest('table').querySelectorAll('input[name=&quot;ids[]&quot;]').forEach(c=>c.checked=this.checked)"></th><th>Tanggal</th><th>Tamu / booking</th><th>Sumber</th><th style="text-align:right">Tercatat di kas</th><th style="text-align:right">Seharusnya</th><th style="text-align:right">Selisih</th></tr>
                             <?php foreach ($feeCut as $fc): ?>
                                 <tr>
@@ -897,7 +914,8 @@ include '../../includes/header.php';
                         </table></div>
                         <button type="submit" class="cbx-btn" style="margin-top:.45rem">Koreksi ke nominal penuh</button>
                     </form>
-                </div>
+                    </div>
+                </details>
             <?php endif; ?>
             <?php
             $backfill = [];
@@ -907,12 +925,17 @@ include '../../includes/header.php';
                 echo '<p class="cbx-hint" style="color:#b91c1c!important">Daftar pemulihan lunas gagal dibaca: ' . htmlspecialchars($e->getMessage()) . '</p>';
             }
             if ($backfill): ?>
-                <div id="pulihlunas" style="margin:.2rem 0 .8rem;padding:.6rem .7rem;border-radius:9px;background:rgba(5,150,105,.08)">
-                    <b style="color:#047857!important">Sudah check-out, uang sudah di buku kas, tapi status masih "Belum Bayar"</b>
-                    <p class="cbx-hint" style="margin:.2rem 0 .45rem">Centang lalu <b>Pulihkan lunas</b>: status booking jadi lunas. Buku kas tidak ditambah dan tidak ada yang dikirim ke Cloudbeds. Pastikan kolom "Di buku kas" memang uang booking itu.</p>
+                <details id="pulihlunas" class="cbx-fix">
+                    <summary>
+                        <span class="t">Pulihkan status lunas (data lama)</span>
+                        <span class="cbx-pill warn"><?php echo count($backfill); ?> booking</span>
+                        <span class="s">sudah check-out, uang sudah di kas</span>
+                    </summary>
+                    <div class="cbx-fix-b">
+                    <p class="cbx-hint" style="margin:.1rem 0 .5rem">Booking ini sudah check-out dan uangnya sudah ada di buku kas, tetapi statusnya masih "Belum Bayar". <b>Pulihkan lunas</b> hanya mengubah status booking; buku kas tidak ditambah dan tidak ada yang dikirim ke Cloudbeds. Pastikan kolom "Di buku kas" memang uang booking itu.</p>
                     <form method="post" onsubmit="return confirm('Pulihkan status lunas untuk booking yang dicentang? Buku kas tidak berubah.')">
                         <input type="hidden" name="act" value="restore_paid">
-                        <div style="overflow-x:auto"><table class="cbx-tbl" style="width:100%;font-size:.8rem">
+                        <div class="cbx-fix-scroll"><table class="cbx-tbl" style="width:100%;font-size:.8rem">
                             <tr><th><input type="checkbox" checked onclick="this.closest('table').querySelectorAll('input[name=&quot;ids[]&quot;]').forEach(c=>c.checked=this.checked)"></th><th>Tamu / booking</th><th style="text-align:right">Harga</th><th style="text-align:right">Dibayar di sistem</th><th style="text-align:right">Di buku kas</th></tr>
                             <?php foreach ($backfill as $r): ?>
                                 <tr>
@@ -926,7 +949,8 @@ include '../../includes/header.php';
                         </table></div>
                         <button type="submit" class="cbx-btn" style="margin-top:.45rem">Pulihkan lunas</button>
                     </form>
-                </div>
+                    </div>
+                </details>
             <?php endif; ?>
             <form method="get" action="cloudbeds.php#cekbayar" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
                 <input class="cbx-input" name="cek" value="<?php echo htmlspecialchars($cekCode); ?>" placeholder="Kode booking, mis. BK-20261008-1234" style="max-width:280px">
