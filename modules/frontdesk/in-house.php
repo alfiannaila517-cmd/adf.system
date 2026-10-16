@@ -193,9 +193,46 @@ $totalRevenue = array_sum(array_column($inHouseGuests, 'final_price'));
 $paidCount = count(array_filter($inHouseGuests, fn($g) => $g['payment_status'] === 'paid'));
 $unpaidCount = $totalInHouse - $paidCount;
 
+// Riwayat pesan WhatsApp terkirim per tamu in-house (hilang otomatis saat check-out)
+$waHist = [];
+try {
+    require_once '../../includes/WhatsAppHelper.php';
+    $waHist = (new WhatsAppHelper($db))->historyForBookings(array_map(fn($g) => (int)$g['booking_id'], $inHouseGuests));
+} catch (Throwable $e) {
+    error_log('In-house WA history: ' . $e->getMessage());
+}
+
 include '../../includes/header.php';
+
+// Teks riwayat pesan mengikuti bahasa akun (ID/EN)
+$ihEn = function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en';
+$ihT = fn(string $id, string $en) => $ihEn ? $en : $id;
 ?>
 
+<style>
+    body[data-theme] .ih-card .ih-actions .ih-btn.ih-btn-hist { box-sizing: border-box; position: relative; display: inline-flex; align-items: center; justify-content: center; width: 28px !important; min-width: 28px; padding: 0 !important; background: rgba(99, 102, 241, .13) !important; color: #4f46e5 !important; border: 1px solid rgba(99, 102, 241, .3) !important; cursor: pointer; }
+    body[data-theme="dark"] .ih-card .ih-btn-hist { color: #a5b4fc !important; background: rgba(99, 102, 241, .2) !important; }
+    .ih-btn-hist svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .ih-hist-n { position: absolute; top: -5px; right: -5px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 999px; background: #4f46e5; color: #fff !important; font-size: .5rem; font-weight: 800; line-height: 14px; text-align: center; }
+    .ihh-ov { position: fixed; inset: 0; z-index: 100000; display: none; align-items: center; justify-content: center; padding: 14px; background: rgba(2, 6, 23, .55); backdrop-filter: blur(3px); }
+    .ihh-ov.on { display: flex; }
+    .ihh { --bg: #fff; --bd: #eef2f7; --tx: #0f172a; --mu: #64748b; --tile: #f8fafc; width: 100%; max-width: 440px; max-height: 84vh; display: flex; flex-direction: column; border-radius: 14px; background: var(--bg) !important; color: var(--tx) !important; box-shadow: 0 22px 54px rgba(0, 0, 0, .32); font-family: system-ui, 'Segoe UI', sans-serif; font-size: 12.5px; }
+    body[data-theme="dark"] .ihh { --bg: #111a2e; --bd: #22304a; --tx: #e6edf7; --mu: #9fb0c8; --tile: #16213a; }
+    .ihh * { box-sizing: border-box; }
+    .ihh-h { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--bd); }
+    .ihh .ihh-h b { flex: 1; font-size: 13.5px; color: var(--tx) !important; } .ihh .ihh-h small { display: block; font-weight: 500; font-size: 11px; color: var(--mu) !important; }
+    .ihh .ihh-x { border: 0; background: var(--tile) !important; color: var(--mu) !important; width: 26px; height: 26px; border-radius: 8px; cursor: pointer; }
+    .ihh-list { overflow-y: auto; padding: 10px 12px 4px; }
+    .ihh-it { padding: 8px 10px; margin-bottom: 7px; border: 1px solid var(--bd); border-radius: 10px; background: var(--tile) !important; }
+    .ihh-top { display: flex; align-items: center; gap: 7px; }
+    .ihh .ihh-ty { font-weight: 700; color: var(--tx) !important; }
+    .ihh .ihh-tm { margin-left: auto; font-size: 10.5px; color: var(--mu) !important; }
+    .ihh .ihh-st { font-size: .58rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; text-transform: uppercase; }
+    .ihh .ihh-st.sent { background: rgba(34, 197, 94, .15); color: #16a34a !important; } .ihh .ihh-st.failed { background: rgba(239, 68, 68, .15); color: #dc2626 !important; }
+    .ihh .ihh-tx { margin-top: 4px; color: var(--mu) !important; line-height: 1.45; word-break: break-word; }
+    .ihh .ihh-empty { padding: 26px 10px; text-align: center; color: var(--mu) !important; }
+    .ihh .ihh-note { padding: 6px 14px 12px; font-size: 10.5px; color: var(--mu) !important; }
+</style>
 <style>
     .ih-container {
         max-width: 1400px;
@@ -1046,6 +1083,13 @@ include '../../includes/header.php';
                             <?php else: ?>
                                 <span class="ih-btn ih-btn-wa is-off" title="Nomor WhatsApp tamu belum ada" aria-label="Nomor WhatsApp belum ada"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z"/></svg></span>
                             <?php endif; ?>
+                            <?php $ihN = isset($waHist[(int)$guest['booking_id']]) ? count($waHist[(int)$guest['booking_id']]) : 0; ?>
+                            <?php if ($ihN > 0): ?>
+                                <button type="button" class="ih-btn ih-btn-hist" onclick="ihWaHist(<?php echo (int)$guest['booking_id']; ?>)" title="<?php echo htmlspecialchars($ihT('Riwayat pesan terkirim', 'Sent message history')); ?>" aria-label="<?php echo htmlspecialchars($ihT('Riwayat pesan terkirim', 'Sent message history')); ?>">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
+                                    <span class="ih-hist-n"><?php echo $ihN; ?></span>
+                                </button>
+                            <?php endif; ?>
                             <button class="ih-btn ih-btn-breakfast" onclick="selectBreakfast(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
                                 <svg class="ih-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M7 2v3M11 2v3"/></svg><span>Breakfast</span>
                             </button>
@@ -1801,6 +1845,71 @@ include '../../includes/header.php';
         card.classList.add('ih-focus');
         const btn = card.querySelector('.ih-btn-pay');
         if (btn) btn.click();
+    })();
+</script>
+
+<?php
+// Data popup riwayat: tamu + daftar pesan (terbaru dulu)
+$ihTypeLbl = [
+    'checkin' => $ihT('Pesan welcome', 'Welcome message'), 'checkin_manual' => $ihT('Welcome (manual)', 'Welcome (manual)'),
+    'breakfast' => $ihT('Link sarapan', 'Breakfast link'), 'breakfast_reminder' => $ihT('Pengingat sarapan', 'Breakfast reminder'),
+    'hs_invoice' => $ihT('Invoice Hotel Service', 'Hotel Service invoice'), 'test' => $ihT('Tes', 'Test'),
+];
+$ihHistJs = [];
+foreach ($inHouseGuests as $ihG) {
+    $bid = (int)$ihG['booking_id'];
+    if (empty($waHist[$bid])) continue;
+    $rows = [];
+    foreach ($waHist[$bid] as $h) {
+        $ts = strtotime($h['created_at']);
+        $rows[] = [
+            'time' => date('Y-m-d', $ts) === date('Y-m-d') ? $ihT('Hari ini', 'Today') . ' ' . date('H:i', $ts) : langDate($ts, 'd M') . ' ' . date('H:i', $ts),
+            'type' => $ihTypeLbl[$h['type']] ?? $h['type'],
+            'ok' => $h['status'] === 'sent',
+            'text' => $h['preview'],
+        ];
+    }
+    $ihHistJs[$bid] = ['name' => (string)$ihG['guest_name'], 'room' => (string)$ihG['room_number'], 'rows' => $rows];
+}
+?>
+<div class="ihh-ov" id="ihhOv" role="dialog" aria-modal="true"><div class="ihh" id="ihhBox"></div></div>
+<script>
+    (function() {
+        const DATA = <?php echo json_encode($ihHistJs, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG); ?>;
+        const TX = <?php echo json_encode([
+            'title' => $ihT('Pesan terkirim', 'Sent messages'), 'room' => $ihT('Kamar', 'Room'), 'sent' => $ihT('Terkirim', 'Sent'), 'failed' => $ihT('Gagal', 'Failed'),
+            'empty' => $ihT('Belum ada pesan terkirim.', 'No messages sent yet.'), 'close' => $ihT('Tutup', 'Close'),
+            'note' => $ihT('Riwayat ini otomatis dihapus saat tamu check-out.', 'This history is deleted automatically when the guest checks out.'),
+        ], JSON_UNESCAPED_UNICODE); ?>;
+        const ov = document.getElementById('ihhOv'), box = document.getElementById('ihhBox');
+        function el(t, c, x) { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; }
+        window.ihWaHist = function(id) {
+            const d = DATA[id];
+            if (!d) return;
+            box.innerHTML = '';
+            const h = el('div', 'ihh-h'), t = el('b', '', TX.title);
+            t.appendChild(el('small', '', d.name + ' · ' + TX.room + ' ' + d.room));
+            const x = el('button', 'ihh-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', TX.close);
+            h.appendChild(t); h.appendChild(x); box.appendChild(h);
+            const list = el('div', 'ihh-list');
+            if (!d.rows.length) list.appendChild(el('div', 'ihh-empty', TX.empty));
+            d.rows.forEach(r => {
+                const it = el('div', 'ihh-it'), top = el('div', 'ihh-top');
+                top.appendChild(el('span', 'ihh-ty', r.type));
+                top.appendChild(el('span', 'ihh-st ' + (r.ok ? 'sent' : 'failed'), r.ok ? TX.sent : TX.failed));
+                top.appendChild(el('span', 'ihh-tm', r.time));
+                it.appendChild(top);
+                if (r.text) it.appendChild(el('div', 'ihh-tx', r.text));
+                list.appendChild(it);
+            });
+            box.appendChild(list);
+            box.appendChild(el('div', 'ihh-note', TX.note));
+            const close = () => { ov.classList.remove('on'); document.removeEventListener('keydown', onKey); };
+            const onKey = e => { if (e.key === 'Escape') close(); };
+            x.onclick = close; ov.onclick = e => { if (e.target === ov) close(); };
+            document.addEventListener('keydown', onKey);
+            ov.classList.add('on');
+        };
     })();
 </script>
 

@@ -159,7 +159,7 @@ class WhatsAppHelper
         $target = self::normalizeTarget($target);
         if ($target === '') {
             $res = ['ok' => false, 'detail' => 'Nomor / grup tujuan tidak valid'];
-            $this->log($type, '', $ref, 'failed', $res['detail']);
+            $this->log($type, '', $ref, 'failed', $res['detail'], $message);
             return $res;
         }
         // normalizeTarget sudah menghasilkan format internasional (0812… → 62812…, +31 6… → 316…).
@@ -177,7 +177,7 @@ class WhatsAppHelper
             $fields['filename'] = $fileName ?: basename($filePath);
         }
         $res = $this->request('/send', $fields, ($filePath !== null || $fileUrl !== null) ? 60 : 25);
-        $this->log($type, $target, $ref, $res['ok'] ? 'sent' : 'failed', $res['detail']);
+        $this->log($type, $target, $ref, $res['ok'] ? 'sent' : 'failed', $res['detail'], $message);
         return $res;
     }
 
@@ -248,6 +248,21 @@ class WhatsAppHelper
             INDEX idx_type_target (type, target),
             INDEX idx_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Riwayat pesan per tamu in-house (tampil di halaman In-House): hanya selama tamu check-in, hilang setelah check-out.
+        $this->db->getConnection()->exec("CREATE TABLE IF NOT EXISTS wa_guest_history (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            booking_id INT NOT NULL,
+            type VARCHAR(20) NOT NULL,
+            status VARCHAR(10) NOT NULL,
+            preview VARCHAR(255) NOT NULL DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_booking (booking_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        try {
+            // Booking yang sudah check-out (atau sudah tidak ada) → riwayatnya dihapus
+            $this->db->getConnection()->exec("DELETE h FROM wa_guest_history h LEFT JOIN bookings b ON b.id = h.booking_id WHERE b.id IS NULL OR b.status <> 'checked_in'");
+        } catch (\Throwable $e) {
+        }
         // Riwayat direset harian: hanya pengiriman hari ini yang disimpan agar tabel tidak menumpuk.
         try {
             $this->db->getConnection()->exec("DELETE FROM wa_message_log WHERE created_at < CURDATE()");
@@ -256,7 +271,7 @@ class WhatsAppHelper
         $done = true;
     }
 
-    public function log(string $type, string $target, string $ref, string $status, string $detail): void
+    public function log(string $type, string $target, string $ref, string $status, string $detail, ?string $message = null): void
     {
         try {
             $this->ensureLogTable();
@@ -264,6 +279,69 @@ class WhatsAppHelper
                 ->execute([$type, $target, $ref, $status, mb_substr($detail, 0, 255), $_SESSION['user_id'] ?? null]);
         } catch (\Throwable $e) {
             error_log('WA log: ' . $e->getMessage());
+        }
+        // Salinan per tamu in-house (untuk riwayat di halaman In-House)
+        try {
+            if ($status === 'skipped') return;
+            $preview = mb_substr(trim(preg_replace('/\s+/u', ' ', (string)$message)), 0, 240);
+            $ins = $this->db->getConnection()->prepare("INSERT INTO wa_guest_history (booking_id, type, status, preview) VALUES (?, ?, ?, ?)");
+            foreach ($this->inHouseBookingIdsFor($target, $ref) as $bid) {
+                $ins->execute([$bid, $type, $status, $preview]);
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * Booking IN-HOUSE yang terkait pesan ini: dari referensi ("booking:<id>", "breakfast 204", "bf-remind 105,106")
+     * ditambah booking in-house lain yang nomor telepon tamunya sama dengan tujuan pesan (mis. kamar lain satu grup).
+     * @return int[]
+     */
+    private function inHouseBookingIdsFor(string $target, string $ref): array
+    {
+        $ids = [];
+        if (preg_match('/^booking:(\d+)/', $ref, $m)) {
+            $ids[(int)$m[1]] = true;
+        }
+        $rooms = [];
+        if (preg_match('/^(?:breakfast|bf-remind)\s+([\w\-, ]+)$/i', $ref, $m)) {
+            $rooms = array_values(array_filter(preg_split('/\s*,\s*/', trim($m[1]))));
+        }
+        $norm = self::normalizeTarget($target);
+        $rows = $this->db->fetchAll("SELECT b.id, r.room_number, g.phone FROM bookings b LEFT JOIN rooms r ON r.id = b.room_id LEFT JOIN guests g ON g.id = b.guest_id WHERE b.status = 'checked_in'") ?: [];
+        $inHouse = [];
+        foreach ($rows as $r) {
+            $inHouse[(int)$r['id']] = true;
+            if ($rooms && in_array((string)$r['room_number'], $rooms, true)) $ids[(int)$r['id']] = true;
+            if ($norm !== '' && self::normalizeTarget((string)$r['phone']) === $norm) $ids[(int)$r['id']] = true;
+        }
+        return array_values(array_filter(array_keys($ids), fn($id) => isset($inHouse[$id])));
+    }
+
+    /** Riwayat pesan untuk booking in-house: [booking_id => [ [created_at,type,status,preview], … terbaru dulu ]]. */
+    public function historyForBookings(array $bookingIds): array
+    {
+        $bookingIds = array_values(array_filter(array_map('intval', $bookingIds)));
+        if (!$bookingIds) return [];
+        try {
+            $this->ensureLogTable(); // sekaligus membersihkan riwayat tamu yang sudah check-out
+            $out = [];
+            foreach ($this->db->fetchAll("SELECT booking_id, type, status, preview, created_at FROM wa_guest_history WHERE booking_id IN (" . implode(',', $bookingIds) . ") ORDER BY id DESC") ?: [] as $r) {
+                $out[(int)$r['booking_id']][] = $r;
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /** Hapus riwayat pesan satu booking (dipanggil saat check-out). */
+    public function purgeGuestHistory(int $bookingId): void
+    {
+        try {
+            $this->ensureLogTable();
+            $this->db->query("DELETE FROM wa_guest_history WHERE booking_id = ?", [$bookingId]);
+        } catch (\Throwable $e) {
         }
     }
 

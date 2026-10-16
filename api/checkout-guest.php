@@ -185,6 +185,12 @@ try {
     ]);
 
     $db->commit();
+    // Riwayat pesan WhatsApp tamu ini (tampil di In-House) dihapus saat check-out
+    try {
+        require_once '../includes/WhatsAppHelper.php';
+        (new WhatsAppHelper($db))->purgeGuestHistory((int)$bookingId);
+    } catch (\Throwable $e) {
+    }
 
     // ==========================================
     // AUTO-SYNC UNSYNC'D PAYMENTS TO CASHBOOK
