@@ -210,6 +210,41 @@ $ihT = fn(string $id, string $en) => $ihEn ? $en : $id;
 ?>
 
 <style>
+    body[data-theme] .ih-card .ih-actions { align-items: stretch; }
+    body[data-theme] .ih-card .ih-actions .ih-btn.ih-btn-act { position: relative; flex: 1 1 0 !important; display: inline-flex; align-items: center; justify-content: center; gap: .3rem; background: rgba(99, 102, 241, .1) !important; color: #4338ca !important; border: 1px solid rgba(99, 102, 241, .28) !important; cursor: pointer; }
+    body[data-theme="dark"] .ih-card .ih-actions .ih-btn.ih-btn-act { background: rgba(99, 102, 241, .18) !important; color: #c7d2fe !important; border-color: rgba(129, 140, 248, .4) !important; }
+    body[data-theme] .ih-card .ih-actions .ih-btn.ih-btn-act:hover { background: rgba(99, 102, 241, .2) !important; }
+    body[data-theme] .ih-card .ih-actions .ih-btn.ih-btn-checkout { flex: 1 1 0 !important; }
+    .ih-btn-act .ih-ic { width: 13px; height: 13px; } .ih-btn-act .ih-chev { width: 11px; height: 11px; opacity: .8; }
+    .ih-act-dot { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: #ef4444; border: 1.5px solid #fff; }
+    #ihAct { position: fixed; z-index: 1200; display: none; width: 268px; padding: 6px; border-radius: 14px; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 18px 44px -10px rgba(15, 23, 42, .35); }
+    #ihAct.open { display: block; animation: ihWaIn .16s ease-out; }
+    #ihAct .am-head { padding: 7px 10px 8px; border-bottom: 1px solid #f1f5f9; margin-bottom: 4px; }
+    body[data-theme] #ihAct .am-head b { display: block; font-size: .76rem !important; color: #0f172a !important; }
+    body[data-theme] #ihAct .am-head small { display: block; font-size: .64rem !important; color: #64748b !important; }
+    #ihAct .am-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border: 0; background: transparent; border-radius: 10px; text-align: left; cursor: pointer; text-decoration: none; }
+    #ihAct .am-item:hover { background: #f1f5f9; }
+    #ihAct .am-item[disabled] { opacity: .55; cursor: wait; }
+    #ihAct .am-ic { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center; background: #eef2ff; }
+    #ihAct .am-ic svg { width: 16px; height: 16px; fill: none; stroke: #4f46e5; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    #ihAct .am-item.wa .am-ic { background: #dcfce7; } #ihAct .am-item.wa .am-ic svg { stroke: #16a34a; }
+    #ihAct .am-item.pay .am-ic { background: #fee2e2; } #ihAct .am-item.pay .am-ic svg { stroke: #dc2626; }
+    #ihAct .am-item.bf .am-ic { background: #ffedd5; } #ihAct .am-item.bf .am-ic svg { stroke: #ea580c; }
+    body[data-theme] #ihAct .am-txt b { display: block; font-size: .74rem !important; color: #0f172a !important; }
+    body[data-theme] #ihAct .am-txt small { display: block; font-size: .63rem !important; color: #64748b !important; }
+    body[data-theme] #ihAct .am-item.pay .am-txt small { color: #dc2626 !important; font-weight: 700; }
+    #ihAct .am-n { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #4f46e5; color: #fff !important; font-size: .6rem; font-weight: 800; line-height: 18px; text-align: center; }
+    #ihAct .am-sep { height: 1px; margin: 4px 6px; background: #f1f5f9; }
+    body[data-theme="dark"] #ihAct { background: #1e293b; border-color: rgba(148, 163, 184, .2); }
+    body[data-theme="dark"] #ihAct .am-head { border-color: rgba(148, 163, 184, .14); }
+    body[data-theme="dark"] #ihAct .am-head b, body[data-theme="dark"] #ihAct .am-txt b { color: #f1f5f9 !important; }
+    body[data-theme="dark"] #ihAct .am-head small, body[data-theme="dark"] #ihAct .am-txt small { color: #94a3b8 !important; }
+    body[data-theme="dark"] #ihAct .am-item:hover { background: rgba(255, 255, 255, .06); }
+    body[data-theme="dark"] #ihAct .am-sep { background: rgba(148, 163, 184, .14); }
+    body[data-theme="dark"] #ihAct .am-ic { background: rgba(99, 102, 241, .2); } body[data-theme="dark"] #ihAct .am-ic svg { stroke: #a5b4fc; }
+    body[data-theme="dark"] #ihAct .am-item.wa .am-ic { background: rgba(34, 197, 94, .18); } body[data-theme="dark"] #ihAct .am-item.wa .am-ic svg { stroke: #4ade80; }
+    body[data-theme="dark"] #ihAct .am-item.pay .am-ic { background: rgba(239, 68, 68, .18); } body[data-theme="dark"] #ihAct .am-item.pay .am-ic svg { stroke: #f87171; }
+    body[data-theme="dark"] #ihAct .am-item.bf .am-ic { background: rgba(249, 115, 22, .18); } body[data-theme="dark"] #ihAct .am-item.bf .am-ic svg { stroke: #fb923c; }
     body[data-theme] .ih-card .ih-actions .ih-btn.ih-btn-hist { box-sizing: border-box; position: relative; display: inline-flex; align-items: center; justify-content: center; width: 28px !important; min-width: 28px; padding: 0 !important; background: rgba(99, 102, 241, .13) !important; color: #4f46e5 !important; border: 1px solid rgba(99, 102, 241, .3) !important; cursor: pointer; }
     body[data-theme="dark"] .ih-card .ih-btn-hist { color: #a5b4fc !important; background: rgba(99, 102, 241, .2) !important; }
     .ih-btn-hist svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -1057,7 +1092,10 @@ $ihT = fn(string $id, string $en) => $ihEn ? $en : $id;
                             <?php if ($billRest > 0): ?><span class="ih-rest">Sisa Rp <?php echo number_format($billRest, 0, ',', '.'); ?></span><?php endif; ?>
                         </div>
                         <div class="ih-actions">
-                            <?php if ($billRest > 0):
+                            <?php
+                            // Data untuk menu Aksi (pembayaran, WhatsApp, riwayat pesan, sarapan)
+                            $payData = null;
+                            if ($billRest > 0) {
                                 $payData = [
                                     'id'    => (int)$guest['booking_id'],
                                     'name'  => (string)$guest['guest_name'],
@@ -1067,31 +1105,28 @@ $ihT = fn(string $id, string $en) => $ihEn ? $en : $id;
                                     'paid'  => (float)$guest['bill_paid'],
                                     'rest'  => $billRest,
                                     'group' => !empty($guest['is_group']),
-                                ]; ?>
-                                <button class="ih-btn ih-btn-pay" onclick='openPayModal(<?php echo htmlspecialchars(json_encode($payData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)'>
-                                    <svg class="ih-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span>Payment</span>
-                                </button>
-                            <?php endif; ?>
-                            <?php
-                            // WhatsApp langsung ke tamu (wa.me): 08xx / +62 / 8xx -> 62xx.
+                                ];
+                            }
                             $waDigits = preg_replace('/\D+/', '', (string)($guest['phone'] ?? ''));
                             if ($waDigits !== '' && $waDigits[0] === '0') $waDigits = '62' . substr($waDigits, 1);
                             elseif ($waDigits !== '' && $waDigits[0] === '8') $waDigits = '62' . $waDigits;
-                            if (strlen($waDigits) >= 9):
-                                $waMsg = 'Hello ' . $guest['guest_name'] . ', this is Front Office ' . (defined('BUSINESS_NAME') ? BUSINESS_NAME : '') . ' (Room ' . $guest['room_number'] . ').'; ?>
-                                <button type="button" class="ih-btn ih-btn-wa" data-wa-url="https://wa.me/<?php echo $waDigits; ?>?text=<?php echo rawurlencode($waMsg); ?>" data-booking="<?php echo (int)$guest['booking_id']; ?>" data-guest="<?php echo htmlspecialchars((string)$guest['guest_name']); ?>" data-phone="<?php echo htmlspecialchars((string)$guest['phone']); ?>" onclick="ihWaMenu(this, event)" title="WhatsApp <?php echo htmlspecialchars((string)$guest['phone']); ?>" aria-label="WhatsApp tamu" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z"/></svg></button>
-                            <?php else: ?>
-                                <span class="ih-btn ih-btn-wa is-off" title="Nomor WhatsApp tamu belum ada" aria-label="Nomor WhatsApp belum ada"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z"/></svg></span>
-                            <?php endif; ?>
-                            <?php $ihN = isset($waHist[(int)$guest['booking_id']]) ? count($waHist[(int)$guest['booking_id']]) : 0; ?>
-                            <?php if (true): ?>
-                                <button type="button" class="ih-btn ih-btn-hist" onclick="ihWaHist(<?php echo (int)$guest['booking_id']; ?>)" title="<?php echo htmlspecialchars($ihT('Riwayat pesan terkirim', 'Sent message history')); ?>" aria-label="<?php echo htmlspecialchars($ihT('Riwayat pesan terkirim', 'Sent message history')); ?>">
-                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
-                                    <?php if ($ihN > 0): ?><span class="ih-hist-n"><?php echo $ihN; ?></span><?php endif; ?>
-                                </button>
-                            <?php endif; ?>
-                            <button class="ih-btn ih-btn-breakfast" onclick="selectBreakfast(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
-                                <svg class="ih-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M7 2v3M11 2v3"/></svg><span>Breakfast</span>
+                            $waMsg = 'Hello ' . $guest['guest_name'] . ', this is Front Office ' . (defined('BUSINESS_NAME') ? BUSINESS_NAME : '') . ' (Room ' . $guest['room_number'] . ').';
+                            $waUrl = strlen($waDigits) >= 9 ? 'https://wa.me/' . $waDigits . '?text=' . rawurlencode($waMsg) : '';
+                            $ihN = isset($waHist[(int)$guest['booking_id']]) ? count($waHist[(int)$guest['booking_id']]) : 0;
+                            ?>
+                            <button type="button" class="ih-btn ih-btn-act" onclick="ihAct(this, event)" aria-haspopup="menu"
+                                data-id="<?php echo (int)$guest['booking_id']; ?>"
+                                data-name="<?php echo htmlspecialchars((string)$guest['guest_name']); ?>"
+                                data-room="<?php echo htmlspecialchars((string)$guest['room_number']); ?>"
+                                data-phone="<?php echo htmlspecialchars((string)($guest['phone'] ?? '')); ?>"
+                                data-wa="<?php echo htmlspecialchars($waUrl); ?>"
+                                data-rest="<?php echo (float)$billRest; ?>"
+                                data-pay="<?php echo $payData ? htmlspecialchars(json_encode($payData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES) : ''; ?>"
+                                data-hist="<?php echo $ihN; ?>">
+                                <svg class="ih-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg>
+                                <span><?php echo htmlspecialchars($ihT('Aksi', 'Actions')); ?></span>
+                                <svg class="ih-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                                <?php if ($billRest > 0): ?><i class="ih-act-dot" title="<?php echo htmlspecialchars($ihT('Ada tagihan', 'Balance due')); ?>"></i><?php endif; ?>
                             </button>
                             <button class="ih-btn ih-btn-checkout" onclick="doCheckOutGuest(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>, <?php echo htmlspecialchars(json_encode((string)$guest['room_number'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
                                 <svg class="ih-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></svg><span>Check-out</span>
@@ -1685,25 +1720,51 @@ $ihT = fn(string $id, string $en) => $ihEn ? $en : $id;
     </div>
 </div>
 
-<div id="ihWaMenu" role="menu">
-    <div class="wm-head"><b id="ihWaName">Tamu</b><small id="ihWaPhone"></small></div>
-    <button type="button" class="wm-item" id="ihWaWelcome" role="menuitem">
-        <span class="wm-ic"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><circle cx="9" cy="7" r="4"/><path d="m16 19 2 2 4-4"/></svg></span>
-        <span class="wm-txt"><b>Kirim pesan Welcome</b><small>Template yang sama dengan WA otomatis saat check-in</small></span>
+<div id="ihAct" role="menu">
+    <div class="am-head"><b id="amName"></b><small id="amSub"></small></div>
+    <button type="button" class="am-item pay" id="amPay" role="menuitem">
+        <span class="am-ic"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>
+        <span class="am-txt"><b id="amPayT"></b><small id="amPayS"></small></span>
     </button>
-    <a class="wm-item" id="ihWaChat" href="#" target="_blank" rel="noopener" role="menuitem">
-        <span class="wm-ic"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
-        <span class="wm-txt"><b>Kirim pesan biasa</b><small>Buka chat WhatsApp dengan tamu</small></span>
+    <div class="am-sep" id="amSep1"></div>
+    <button type="button" class="am-item wa" id="amWelcome" role="menuitem">
+        <span class="am-ic"><svg viewBox="0 0 24 24"><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><circle cx="9" cy="7" r="4"/><path d="m16 19 2 2 4-4"/></svg></span>
+        <span class="am-txt"><b id="amWelT"></b><small id="amWelS"></small></span>
+    </button>
+    <a class="am-item wa" id="amChat" href="#" target="_blank" rel="noopener" role="menuitem">
+        <span class="am-ic"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg></span>
+        <span class="am-txt"><b id="amChatT"></b><small id="amChatS"></small></span>
     </a>
+    <button type="button" class="am-item" id="amHist" role="menuitem">
+        <span class="am-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg></span>
+        <span class="am-txt"><b id="amHistT"></b><small id="amHistS"></small></span>
+        <span class="am-n" id="amHistN"></span>
+    </button>
+    <div class="am-sep"></div>
+    <button type="button" class="am-item bf" id="amBf" role="menuitem">
+        <span class="am-ic"><svg viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M7 2v3M11 2v3"/></svg></span>
+        <span class="am-txt"><b id="amBfT"></b><small id="amBfS"></small></span>
+    </button>
 </div>
 <div id="ihWaToast" role="status" aria-live="polite"></div>
 <script>
-    // Menu WhatsApp tamu di kartu In-House: kirim welcome (gateway WA sistem) / chat biasa (wa.me)
+    // Menu Aksi di kartu In-House: pembayaran, pesan Welcome (gateway WA sistem), chat WhatsApp biasa, riwayat pesan, sarapan
     (function() {
-        const menu = document.getElementById('ihWaMenu');
-        const toast = document.getElementById('ihWaToast');
-        let current = null;
-        let toastTimer = null;
+        const TX = <?php echo json_encode([
+            'actions' => $ihT('Aksi', 'Actions'), 'room' => $ihT('Kamar', 'Room'),
+            'pay' => $ihT('Pembayaran', 'Payment'), 'rest' => $ihT('Sisa', 'Balance'),
+            'wel' => $ihT('Kirim pesan Welcome', 'Send Welcome message'), 'welS' => $ihT('Template yang sama dengan WA otomatis saat check-in', 'Same template as the automatic check-in WhatsApp'),
+            'chat' => $ihT('Chat WhatsApp', 'WhatsApp chat'), 'chatS' => $ihT('Buka chat WhatsApp dengan tamu', 'Open a WhatsApp chat with the guest'),
+            'hist' => $ihT('Pesan terkirim', 'Sent messages'), 'histS' => $ihT('Riwayat pesan untuk tamu ini', 'Message history for this guest'),
+            'bf' => $ihT('Breakfast', 'Breakfast'), 'bfS' => $ihT('Pilih menu sarapan tamu', "Choose the guest's breakfast menu"),
+            'confirmWel' => $ihT('Kirim pesan Welcome ke {name}?', 'Send the Welcome message to {name}?'),
+            'opened' => $ihT('Pesan dibuka di WhatsApp', 'Message opened in WhatsApp'), 'sentOk' => $ihT('Terkirim', 'Sent'), 'fail' => $ihT('Gagal mengirim', 'Failed to send'),
+            'net' => $ihT('Gagal menghubungi server', 'Could not reach the server'),
+        ], JSON_UNESCAPED_UNICODE); ?>;
+        const $ = id => document.getElementById(id);
+        const menu = $('ihAct'), toast = $('ihWaToast');
+        let cur = null, toastTimer = null;
+        const rp = n => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
         function showToast(msg, isErr) {
             toast.textContent = msg;
             toast.classList.toggle('err', !!isErr);
@@ -1711,42 +1772,54 @@ $ihT = fn(string $id, string $en) => $ihEn ? $en : $id;
             clearTimeout(toastTimer);
             toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
         }
-        function close() { menu.classList.remove('open'); current = null; }
-        window.ihWaMenu = function(btn, ev) {
+        function close() { menu.classList.remove('open'); cur = null; }
+        window.ihAct = function(btn, ev) {
             ev.stopPropagation();
-            if (current === btn && menu.classList.contains('open')) { close(); return; }
-            current = btn;
-            document.getElementById('ihWaName').textContent = btn.dataset.guest || 'Tamu';
-            document.getElementById('ihWaPhone').textContent = btn.dataset.phone || '';
-            document.getElementById('ihWaChat').href = btn.dataset.waUrl;
+            if (cur === btn && menu.classList.contains('open')) { close(); return; }
+            cur = btn;
+            const d = btn.dataset, rest = parseFloat(d.rest) || 0, hist = parseInt(d.hist, 10) || 0;
+            $('amName').textContent = d.name || '';
+            $('amSub').textContent = TX.room + ' ' + (d.room || '') + (d.phone ? ' · ' + d.phone : '');
+            const hasPay = rest > 0 && d.pay;
+            $('amPay').style.display = hasPay ? '' : 'none'; $('amSep1').style.display = hasPay ? '' : 'none';
+            $('amPayT').textContent = TX.pay; $('amPayS').textContent = TX.rest + ' ' + rp(rest);
+            const hasWa = !!d.wa;
+            $('amWelcome').style.display = hasWa ? '' : 'none'; $('amChat').style.display = hasWa ? '' : 'none';
+            $('amWelT').textContent = TX.wel; $('amWelS').textContent = TX.welS;
+            $('amChatT').textContent = TX.chat; $('amChatS').textContent = TX.chatS; if (hasWa) $('amChat').href = d.wa;
+            $('amHistT').textContent = TX.hist; $('amHistS').textContent = TX.histS;
+            $('amHistN').textContent = hist; $('amHistN').style.display = hist > 0 ? '' : 'none';
+            $('amBfT').textContent = TX.bf; $('amBfS').textContent = TX.bfS;
             menu.classList.add('open');
-            const r = btn.getBoundingClientRect();
-            const w = menu.offsetWidth, h = menu.offsetHeight;
+            const r = btn.getBoundingClientRect(), w = menu.offsetWidth, h = menu.offsetHeight;
             const left = Math.min(window.innerWidth - w - 8, Math.max(8, r.right - w));
             let top = r.bottom + 8;
             if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
             menu.style.left = left + 'px';
             menu.style.top = top + 'px';
         };
-        document.getElementById('ihWaChat').addEventListener('click', () => setTimeout(close, 50));
-        document.getElementById('ihWaWelcome').addEventListener('click', function() {
-            if (!current) return;
-            const item = this, btn = current, name = btn.dataset.guest || 'tamu';
-            if (!confirm('Kirim pesan Welcome ke ' + name + '?')) return;
+        $('amPay').addEventListener('click', () => { const c = cur; close(); try { openPayModal(JSON.parse(c.dataset.pay)); } catch (e) {} });
+        $('amChat').addEventListener('click', () => setTimeout(close, 50));
+        $('amHist').addEventListener('click', () => { const id = cur.dataset.id; close(); ihWaHist(id); });
+        $('amBf').addEventListener('click', () => { const c = cur; close(); selectBreakfast(parseInt(c.dataset.id, 10), c.dataset.name); });
+        $('amWelcome').addEventListener('click', function() {
+            if (!cur) return;
+            const item = this, btn = cur, name = btn.dataset.name || '';
+            if (!confirm(TX.confirmWel.replace('{name}', name))) return;
             item.disabled = true;
             const fd = new FormData();
-            fd.append('booking_id', btn.dataset.booking);
+            fd.append('booking_id', btn.dataset.id);
             fetch('<?php echo BASE_URL; ?>/api/wa-guest-welcome.php', { method: 'POST', body: fd, credentials: 'include' })
                 .then(r => r.json())
                 .then(d => {
                     if (d.fallback && d.wa_url) {
                         window.open(d.wa_url, '_blank', 'noopener');
-                        showToast(d.message || 'Pesan dibuka di WhatsApp');
+                        showToast(d.message || TX.opened);
                     } else {
-                        showToast(d.message || (d.ok ? 'Terkirim' : 'Gagal mengirim'), !d.ok);
+                        showToast(d.message || (d.ok ? TX.sentOk : TX.fail), !d.ok);
                     }
                 })
-                .catch(() => showToast('Gagal menghubungi server', true))
+                .catch(() => showToast(TX.net, true))
                 .finally(() => { item.disabled = false; close(); });
         });
         document.addEventListener('click', e => { if (menu.classList.contains('open') && !menu.contains(e.target)) close(); });
@@ -1843,8 +1916,8 @@ $ihT = fn(string $id, string $en) => $ihEn ? $en : $id;
         if (!card) return;
         card.scrollIntoView({ block: 'center' });
         card.classList.add('ih-focus');
-        const btn = card.querySelector('.ih-btn-pay');
-        if (btn) btn.click();
+        const btn = card.querySelector('.ih-btn-act');
+        if (btn && btn.dataset.pay) { try { openPayModal(JSON.parse(btn.dataset.pay)); } catch (e) {} }
     })();
 </script>
 
