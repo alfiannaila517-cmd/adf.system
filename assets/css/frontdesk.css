@@ -2030,3 +2030,28 @@ body[data-theme] .search-reservation-bar .search-input-wrapper {
 body[data-theme] .search-reservation-bar .search-icon {
     color: var(--fd-muted) !important;
 }
+
+/* ── Pilihan menu sarapan: ringkas & rapi (satu baris nama + meta kecil) ── */
+body[data-theme] .main-content .bf-wrap .bf-menu-block { margin-bottom: 0.7rem; }
+body[data-theme] .main-content .bf-wrap .bf-menu-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)) !important; gap: 0.35rem !important; }
+body[data-theme] .main-content .bf-wrap .bf-menu-item { padding: 0.38rem 0.55rem !important; border-radius: 9px !important; box-shadow: none; }
+body[data-theme] .main-content .bf-wrap .bf-menu-item:hover { transform: none; }
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked) { box-shadow: none !important; column-gap: 0.4rem; }
+body[data-theme] .main-content .bf-wrap label.bf-menu-cb { gap: 0.5rem !important; min-width: 0; }
+body[data-theme] .main-content .bf-wrap .bf-menu-cb > div { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 0.4rem; row-gap: 0; }
+body[data-theme] .main-content .bf-wrap .bf-menu-cb input[type="checkbox"] { width: 16px !important; height: 16px !important; border-radius: 5px; }
+body[data-theme] .main-content .bf-wrap .bf-menu-name { flex: 0 0 100%; font-size: 0.76rem !important; margin-bottom: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Meta: kategori & suhu berupa teks kecil tanpa pil, harga di sebelahnya */
+body[data-theme] .main-content .bf-wrap .bf-menu-cat { background: transparent !important; padding: 0 !important; font-size: 0.54rem !important; font-weight: 700 !important; letter-spacing: 0.06em; }
+body[data-theme] .main-content .bf-wrap .bf-menu-price { font-size: 0.6rem !important; margin: 0 !important; order: 2; }
+body[data-theme] .main-content .bf-wrap .bf-temp { margin: 0 !important; padding: 0 !important; background: transparent !important; font-size: 0.54rem !important; font-weight: 800; letter-spacing: 0.06em; }
+body[data-theme] .main-content .bf-wrap .bf-temp::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; margin-right: 3px; vertical-align: 1px; background: currentColor; }
+body[data-theme] .main-content .bf-wrap .bf-temp.hot { color: #dc2626 !important; -webkit-text-fill-color: #dc2626 !important; background: transparent !important; }
+body[data-theme] .main-content .bf-wrap .bf-temp.ice { color: #0284c7 !important; -webkit-text-fill-color: #0284c7 !important; background: transparent !important; }
+/* Qty ringkas: tanpa label, kolom kecil di kanan */
+body[data-theme] .main-content .bf-wrap .bf-qty-label { display: none; }
+body[data-theme] .main-content .bf-wrap .bf-qty-input { height: 24px !important; width: 40px !important; font-size: 0.72rem !important; border-radius: 6px !important; }
+body[data-theme] .main-content .bf-wrap .bf-note-input { height: 24px !important; font-size: 0.68rem !important; border-radius: 6px !important; }
+body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-note { margin-top: 0.3rem !important; }
+body[data-theme] .main-content .bf-wrap .bf-menu-note { min-width: 0; }
+body[data-theme] .main-content .bf-wrap .bf-menu-note .bf-note-input { width: 100% !important; box-sizing: border-box; }
