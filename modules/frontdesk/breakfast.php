@@ -1708,7 +1708,7 @@ include '../../includes/header.php';
         <div class="bf-alert ok">✅ <?php echo htmlspecialchars($_GET['success']); ?></div>
     <?php endif; ?>
 
-    <div class="bf-grid">
+    <div class="bf-grid<?php echo empty($menuRecap) ? ' bf-grid-solo' : ''; ?>">
         <!-- FORM -->
         <div class="bf-card">
             <form id="bfForm" autocomplete="off">
@@ -1944,9 +1944,9 @@ include '../../includes/header.php';
             </form>
         </div>
 
-        <!-- SIDEBAR: Today's Orders -->
+        <!-- SIDEBAR: rekap per menu (hanya bila ada order) -->
+        <?php if (!empty($menuRecap)): ?>
         <div class="bf-side">
-            <?php if (!empty($menuRecap)): ?>
                 <div class="bf-recap-card">
                     <div class="bf-recap-head">
                         <span>📋 Rekap Total per Menu <span style="font-weight:400;color:var(--text-muted);font-size:.7rem">(untuk kitchen)</span></span>
@@ -1961,13 +1961,18 @@ include '../../includes/header.php';
                         <?php endforeach; ?>
                     </table>
                 </div>
-            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+    </div>
 
+    <!-- Today's Orders: di bawah form, kartu berjajar -->
+    <div class="bf-orders-wrap">
             <div class="bf-side-title">
                 📊 Today's Orders
                 <span class="bf-side-count"><?php echo count($todayOrders); ?></span>
             </div>
 
+            <div class="bf-orders-grid">
             <?php if (count($todayOrders) > 0): ?>
                 <?php foreach ($todayOrders as $order): ?>
                     <div class="bf-order">
@@ -2021,7 +2026,7 @@ include '../../includes/header.php';
                     <p style="font-size:.8rem">Belum ada order hari ini</p>
                 </div>
             <?php endif; ?>
-        </div>
+            </div>
     </div>
 </div>
 

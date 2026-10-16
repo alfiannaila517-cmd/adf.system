@@ -2055,3 +2055,15 @@ body[data-theme] .main-content .bf-wrap .bf-note-input { height: 24px !important
 body[data-theme] .main-content .bf-wrap .bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-note { margin-top: 0.3rem !important; }
 body[data-theme] .main-content .bf-wrap .bf-menu-note { min-width: 0; }
 body[data-theme] .main-content .bf-wrap .bf-menu-note .bf-note-input { width: 100% !important; box-sizing: border-box; }
+
+/* Sarapan: Today's Orders di bawah form (kartu berjajar), samping hanya rekap */
+body[data-theme] .main-content .bf-wrap .bf-grid { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+body[data-theme] .main-content .bf-wrap .bf-side { background: transparent !important; border: 0 !important; border-radius: 0; overflow: visible; }
+body[data-theme] .main-content .bf-wrap .bf-side .bf-recap-card { margin: 0; }
+body[data-theme] .main-content .bf-wrap .bf-orders-wrap { margin-top: 1rem; border: 1px solid var(--fd-line); border-radius: 12px; overflow: hidden; background: var(--fd-tile, transparent); }
+body[data-theme] .main-content .bf-wrap .bf-orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 0.6rem; padding: 0.7rem; }
+body[data-theme] .main-content .bf-wrap .bf-orders-grid .bf-order { border: 1px solid var(--fd-line); border-radius: 10px; padding: 0.65rem 0.8rem; background: var(--fd-tile, transparent); }
+body[data-theme] .main-content .bf-wrap .bf-orders-grid .bf-order:last-child { border-bottom: 1px solid var(--fd-line); }
+body[data-theme] .main-content .bf-wrap .bf-orders-grid .bf-empty { grid-column: 1 / -1; }
+@media (max-width: 900px) { body[data-theme] .main-content .bf-wrap .bf-grid { grid-template-columns: 1fr; } }
+body[data-theme] .main-content .bf-wrap .bf-grid.bf-grid-solo { grid-template-columns: minmax(0, 1fr); }
