@@ -1086,6 +1086,16 @@ if ($userTheme === 'system') {
         }
 
         $bpRp = fn($v) => 'Rp ' . number_format((float)$v, 0, ',', '.');
+        // Teks popup mengikuti bahasa akun (ID/EN)
+        $bpEn = function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en';
+        $bpMap = [
+            'Tagihan belum lunas' => 'Unpaid bills', 'Klik tagihan untuk langsung memproses pembayaran.' => 'Click a bill to process the payment right away.',
+            'Nanti' => 'Later', 'Tutup' => 'Close', 'Tagihan kamar' => 'Room bills', 'Buka Tamu In-House' => 'Open In-House Guests',
+            'Hotel Service' => 'Hotel Service', 'Buka Hotel Service' => 'Open Hotel Service', 'Rental motor terlambat' => 'Overdue motorbike rentals',
+            'Buka Rental Motor' => 'Open Motorbike Rental', 'Bayar' => 'Pay', 'Lihat' => 'View', 'Terlambat' => 'Overdue',
+            'Lewat tanggal check-out' => 'Past check-out date', 'Check-out hari ini' => 'Check-out today', 'Kamar ' => 'Rooms ', ' kmr' => ' rooms',
+        ];
+        $bpT = fn(string $t) => $bpEn ? ($bpMap[$t] ?? $t) : $t;
         $bpSections = [];
 
         // Kamar: satu baris per booking/grup yang masih bersisa (baris grup lain bernilai 0 dilewati).
@@ -1100,16 +1110,16 @@ if ($userTheme === 'system') {
                 $bpRooms = !empty($bpG['group_id']) ? $bpGroupRooms[$bpG['group_id']] : [$bpG['room_number']];
                 $bpOverdue = !empty($bpG['check_out_date']) && $bpG['check_out_date'] < date('Y-m-d');
                 $bpItems[] = [
-                    'tag'  => count($bpRooms) > 1 ? count($bpRooms) . ' kmr' : (string)$bpRooms[0],
+                    'tag'  => count($bpRooms) > 1 ? count($bpRooms) . $bpT(' kmr') : (string)$bpRooms[0],
                     'name' => $bpG['guest_name'] ?: '-',
-                    'sub'  => trim(($bpG['booking_code'] ?? '') . ' · ' . (count($bpRooms) > 1 ? 'Kamar ' . implode(', ', $bpRooms) . ' · ' : '') . ($bpOverdue ? 'Lewat tanggal check-out' : 'Check-out hari ini'), ' ·'),
+                    'sub'  => trim(($bpG['booking_code'] ?? '') . ' · ' . (count($bpRooms) > 1 ? $bpT('Kamar ') . implode(', ', $bpRooms) . ' · ' : '') . ($bpOverdue ? $bpT('Lewat tanggal check-out') : $bpT('Check-out hari ini')), ' ·'),
                     'amt'  => $bpRp($bpG['remaining']),
-                    'cta'  => 'Bayar',
+                    'cta'  => $bpT('Bayar'),
                     'href' => BASE_URL . '/modules/frontdesk/in-house.php?pay=' . (int)$bpG['id'],
                 ];
             }
             if ($bpItems) {
-                $bpSections[] = ['title' => 'Tagihan kamar', 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/in-house.php', 'cta' => 'Buka Tamu In-House'];
+                $bpSections[] = ['title' => $bpT('Tagihan kamar'), 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/in-house.php', 'cta' => $bpT('Buka Tamu In-House')];
             }
         }
 
@@ -1125,12 +1135,12 @@ if ($userTheme === 'system') {
                     'name' => $bpInv['guest_name'] ?: '-',
                     'sub'  => $bpInv['invoice_number'] . ' · Hotel Service',
                     'amt'  => $bpRp($bpRest),
-                    'cta'  => 'Lihat',
+                    'cta'  => $bpT('Lihat'),
                     'href' => BASE_URL . '/modules/frontdesk/hotel-service-invoice.php?id=' . (int)$bpInv['id'],
                 ];
             }
             if ($bpItems) {
-                $bpSections[] = ['title' => 'Hotel Service', 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/hotel-services.php', 'cta' => 'Buka Hotel Service'];
+                $bpSections[] = ['title' => $bpT('Hotel Service'), 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/hotel-services.php', 'cta' => $bpT('Buka Hotel Service')];
             }
         }
 
@@ -1142,12 +1152,12 @@ if ($userTheme === 'system') {
                     'tag'  => 'MTR',
                     'name' => $bpM['guest_name'] ?: '-',
                     'sub'  => $bpM['motor_name'] . ' (' . $bpM['plate_number'] . ')',
-                    'amt'  => (floor($bpH / 24) > 0 ? floor($bpH / 24) . ' hari ' . ($bpH % 24) . ' jam' : $bpH . ' jam'),
-                    'cta'  => 'Terlambat',
+                    'amt'  => (floor($bpH / 24) > 0 ? floor($bpH / 24) . ($bpEn ? ' d ' : ' hari ') . ($bpH % 24) . ($bpEn ? ' h' : ' jam') : $bpH . ($bpEn ? ' h' : ' jam')),
+                    'cta'  => $bpT('Terlambat'),
                     'href' => BASE_URL . '/modules/frontdesk/rental-motor.php',
                 ];
             }
-            $bpSections[] = ['title' => 'Rental motor terlambat', 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/rental-motor.php', 'cta' => 'Buka Rental Motor'];
+            $bpSections[] = ['title' => $bpT('Rental motor terlambat'), 'items' => $bpItems, 'href' => BASE_URL . '/modules/frontdesk/rental-motor.php', 'cta' => $bpT('Buka Rental Motor')];
         }
 
         if ($bpSections):
@@ -1224,10 +1234,10 @@ if ($userTheme === 'system') {
                     <div class="billpop-head">
                         <span class="billpop-ico">!</span>
                         <div>
-                            <h3 id="billPopTitle">Tagihan belum lunas (<?php echo $bpTotal; ?>)</h3>
-                            <p>Klik tagihan untuk langsung memproses pembayaran.</p>
+                            <h3 id="billPopTitle"><?php echo htmlspecialchars($bpT('Tagihan belum lunas')); ?> (<?php echo $bpTotal; ?>)</h3>
+                            <p><?php echo htmlspecialchars($bpT('Klik tagihan untuk langsung memproses pembayaran.')); ?></p>
                         </div>
-                        <button type="button" class="billpop-x" data-bp-close aria-label="Tutup">&times;</button>
+                        <button type="button" class="billpop-x" data-bp-close aria-label="<?php echo htmlspecialchars($bpT('Tutup')); ?>">&times;</button>
                     </div>
                     <div class="billpop-body">
                         <?php foreach ($bpSections as $bpSec): ?>
@@ -1250,7 +1260,7 @@ if ($userTheme === 'system') {
                         <?php endforeach; ?>
                     </div>
                     <div class="billpop-foot">
-                        <button type="button" class="billpop-btn ghost" data-bp-close>Nanti</button>
+                        <button type="button" class="billpop-btn ghost" data-bp-close><?php echo htmlspecialchars($bpT('Nanti')); ?></button>
                         <a class="billpop-btn pri" href="<?php echo htmlspecialchars($bpSections[0]['href']); ?>"><?php echo htmlspecialchars($bpSections[0]['cta']); ?></a>
                     </div>
                 </div>
