@@ -97,8 +97,8 @@ $qtyFmt = fn($v) => rtrim(rtrim(number_format((float)$v, 2, ',', '.'), '0'), ','
 
         /* Halaman: kop + isi + penutup (penutup menempel di dasar) */
         .page { position: relative; display: flex; flex-direction: column; width: 210mm; min-height: 296mm; margin: 14px auto; background: #fff; box-shadow: 0 12px 44px rgba(15, 39, 68, .2); overflow: hidden; }
-        .top { display: flex; align-items: center; gap: 16px; padding: 11mm 15mm 8mm; background: linear-gradient(135deg, #0b1d33, #14385f); color: #fff; }
-        .top img { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; border: 2px solid #d9c39c; background: #fff; flex: none; }
+        .top { display: flex; align-items: center; gap: 18px; padding: 10mm 15mm 8mm; background: linear-gradient(135deg, #0b1d33, #14385f); color: #fff; }
+        .top img { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; border: 3px solid #d9c39c; background: #fff; flex: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
         .top .h { flex: 1; min-width: 0; }
         .top h1 { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 21px; font-weight: 700; letter-spacing: .01em; color: #fff; }
         .top .a { margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: #c6d2e4; }
@@ -109,7 +109,7 @@ $qtyFmt = fn($v) => rtrim(rtrim(number_format((float)$v, 2, ',', '.'), '0'), ','
         .rule { height: 4px; background: linear-gradient(90deg, var(--gold), #e3c68f 55%, var(--gold)); }
         .body { position: relative; z-index: 1; flex: 1; padding: 9mm 15mm 6mm; }
         /* Watermark logo hotel di tengah kertas (di belakang isi) */
-        .wm { position: absolute; z-index: 0; top: 56%; left: 50%; width: 118mm; height: 118mm; transform: translate(-50%, -50%); border-radius: 50%; object-fit: cover; opacity: .06; filter: grayscale(1); pointer-events: none; }
+        .wm { position: absolute; z-index: 0; top: 56%; left: 50%; width: 160mm; height: 160mm; transform: translate(-50%, -50%); border-radius: 50%; object-fit: cover; opacity: .035; filter: grayscale(1) contrast(.9); pointer-events: none; }
         .state { position: absolute; top: 88mm; right: 20mm; transform: rotate(8deg); border: 3px solid #b91c1c; color: #b91c1c; padding: 3px 12px; font-weight: 900; letter-spacing: .12em; font-size: 17px; opacity: .45; border-radius: 6px; pointer-events: none; }
         .state.ok { border-color: #15803d; color: #15803d; }
 

@@ -8,7 +8,7 @@ if (!defined('APP_ACCESS')) exit;
 
 $qtEn = function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en';
 $qtText = [
-    'Buat Penawaran' => 'Create Quotation', 'Nama tamu' => 'Guest name', 'WhatsApp / telepon' => 'WhatsApp / phone', 'Email' => 'Email', 'Berlaku' => 'Valid for', '3 hari' => '3 days', '7 hari' => '7 days',
+    'Buat Penawaran' => 'Create Quotation', 'Nama tamu' => 'Guest name', 'WhatsApp / telepon' => 'WhatsApp / phone', 'Email' => 'Email', 'Berlaku' => 'Valid for', '1 hari' => '1 day', '3 hari' => '3 days', '7 hari' => '7 days',
     '14 hari' => '14 days', '30 hari' => '30 days', 'Catatan (opsional)' => 'Notes (optional)', 'Batal' => 'Cancel', 'Simpan & Cetak' => 'Save & Print', 'Menyimpan…' => 'Saving…',
     'Nama tamu wajib diisi.' => 'Guest name is required.', 'Penawaran tersimpan' => 'Quotation saved', 'Kamar ini belum diblok — masih bisa dibooking orang lain sampai Anda mengonfirmasi.' => 'These rooms are NOT blocked — others can still book them until you confirm.',
     'malam' => 'night(s)', 'kamar' => 'room(s)', 'Total' => 'Total', 'Penawaran' => 'Quotation', 'Berlaku sampai' => 'Valid until', 'Cetak' => 'Print', 'Konfirmasi (jadikan booking)' => 'Confirm (make a booking)',
@@ -137,7 +137,7 @@ $qtText = [
             const phone = el('input'); phone.type = 'tel'; phone.autocomplete = 'off'; phone.placeholder = '0812…';
             const mail = el('input'); mail.type = 'email'; mail.autocomplete = 'off';
             const valid = el('select');
-            [[3, '3 hari'], [7, '7 hari'], [14, '14 hari'], [30, '30 hari']].forEach(([d, l]) => { const o = el('option', '', t(l)); o.value = d; if (d === 7) o.selected = true; valid.appendChild(o); });
+            [[1, '1 hari'], [3, '3 hari'], [7, '7 hari'], [14, '14 hari'], [30, '30 hari']].forEach(([d, l]) => { const o = el('option', '', t(l)); o.value = d; if (d === 7) o.selected = true; valid.appendChild(o); });
             const notes = el('textarea'); notes.maxLength = 600;
             body.appendChild(field(t('Nama tamu') + ' *', name));
             const r2 = el('div', 'qt-r2'); r2.appendChild(field(t('WhatsApp / telepon'), phone)); r2.appendChild(field(t('Email'), mail)); body.appendChild(r2);
