@@ -355,6 +355,20 @@ include '../../includes/header.php';
         #rmd .r-rent .r-right { grid-column: 2; flex-direction: row; align-items: center; justify-content: flex-start; }
         #rmd .r-fleet { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
+    /* Armada: tile bersih (ikon + plat + nama, status di bawah) */
+    #rmd .r-fleet { grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 10px; }
+    #rmd .r-tile { padding: 12px 13px 11px 16px; gap: 9px; border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+    #rmd .r-tile-top { justify-content: flex-start; gap: 10px; }
+    #rmd .r-tile-ic { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; }
+    #rmd .r-tile-ic svg { width: 18px; height: 18px; }
+    #rmd .r-tile-id { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+    #rmd .r-tile-id .r-plate { font-size: .8rem !important; letter-spacing: .01em; white-space: nowrap; }
+    #rmd .r-tile-name { font-size: .66rem !important; }
+    #rmd .r-tile-chip { position: absolute; top: 11px; right: 11px; display: flex; }
+    #rmd .r-tile-id { padding-right: 58px; }
+    #rmd .r-tile-foot { font-size: .64rem !important; padding-top: 8px; }
+    #rmd .r-group-head { font-size: .72rem !important; letter-spacing: .02em; }
+    @media (max-width: 560px) { #rmd .r-fleet { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 
 <div id="rmd">
@@ -402,53 +416,6 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- Sedang disewa -->
-    <div class="r-card">
-        <div class="r-card-head">
-            <div class="r-card-title">
-                <span class="r-ic ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-                <div><b>Sedang Disewa</b><small>Urut dari yang paling dekat jadwal kembalinya</small></div>
-            </div>
-            <div class="r-legend">
-                <span class="r-chip warn"><?php echo count($rentedList); ?> aktif</span>
-                <?php if ($overdueCount): ?><span class="r-chip bad"><?php echo $overdueCount; ?> terlambat</span><?php endif; ?>
-            </div>
-        </div>
-        <?php if (!empty($rentedList)): ?>
-            <ul class="r-rent-list">
-                <?php foreach ($rentedList as $r):
-                    [$leftTxt, $isPast] = $rmLeft($r['end_datetime']);
-                    $late = $r['status'] === 'overdue';
-                ?>
-                    <li class="r-rent<?php echo $late ? ' late' : ''; ?>">
-                        <span class="r-moto"><?php echo $motorIcon; ?></span>
-                        <div>
-                            <div class="r-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
-                            <div class="r-mute"><?php echo htmlspecialchars($r['motor_name']); ?><?php echo !empty($r['motor_count']) && (int)$r['motor_count'] > 1 ? ' · ' . (int)$r['motor_count'] . ' unit' : ''; ?></div>
-                        </div>
-                        <div class="r-guest-col">
-                            <div class="r-strong"><?php echo htmlspecialchars($r['guest_name'] ?: '-'); ?><?php if (!empty($r['room_number'])): ?><span class="r-room"><?php echo htmlspecialchars($r['room_number']); ?></span><?php endif; ?></div>
-                            <div class="r-mute"><?php echo htmlspecialchars($r['guest_phone'] ?? '') ?: '&nbsp;'; ?></div>
-                        </div>
-                        <div class="r-when">
-                            <div class="r-strong" style="font-weight:600"><?php echo $rmDt($r['start_datetime']); ?> → <?php echo $rmDt($r['end_datetime']); ?></div>
-                            <div class="r-mute">Jadwal sewa</div>
-                        </div>
-                        <div class="r-right">
-                            <span class="r-chip <?php echo $late ? 'bad' : ($isPast ? 'warn' : 'ok'); ?>"><i></i><?php echo $late ? 'Terlambat · ' . $leftTxt : ucfirst($leftTxt); ?></span>
-                            <span class="r-amt"><?php echo (float)$r['total_price'] > 0 ? $rmRp($r['total_price']) : '<span style="font-weight:600;font-size:.7rem">dihitung saat kembali</span>'; ?></span>
-                        </div>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
-        <?php else: ?>
-            <div class="r-empty">
-                <?php echo $motorIcon; ?>
-                <div>Tidak ada motor yang sedang disewa.</div>
-            </div>
-        <?php endif; ?>
-    </div>
-
     <!-- Armada -->
     <?php
     $renderTiles = function (array $list) use ($motorIcon, $rmDt) {
@@ -467,9 +434,9 @@ include '../../includes/header.php';
             $chip = $isRented ? ($isLate ? '<span class="r-chip bad">Terlambat</span>' : '<span class="r-chip warn">Disewa</span>')
                 : ($state === 'maintenance' ? '<span class="r-chip gray">Perbaikan</span>' : '<span class="r-chip ok">Tersedia</span>');
             echo '<button type="button" class="r-tile ' . $cls . '" onclick="rmdShow(this)" data-motor="' . htmlspecialchars(json_encode($detail), ENT_QUOTES) . '">';
-            echo '<span class="r-tile-top"><span class="r-tile-ic">' . $motorIcon . '</span>' . $chip . '</span>';
-            echo '<span class="r-plate">' . htmlspecialchars($m['plate_number']) . '</span>';
-            echo '<span class="r-tile-name">' . htmlspecialchars($m['motor_name']) . ($m['motor_color'] ? ' · ' . htmlspecialchars($m['motor_color']) : '') . '</span>';
+            echo '<span class="r-tile-top"><span class="r-tile-ic">' . $motorIcon . '</span><span class="r-tile-id"><span class="r-plate">' . htmlspecialchars($m['plate_number']) . '</span>';
+            echo '<span class="r-tile-name">' . htmlspecialchars($m['motor_name']) . ($m['motor_color'] ? ' · ' . htmlspecialchars($m['motor_color']) : '') . '</span></span></span>';
+            echo '<span class="r-tile-chip">' . $chip . '</span>';
             if ($isRented) {
                 echo '<span class="r-tile-foot"><b>' . htmlspecialchars(mb_strimwidth((string)$m['guest_name'], 0, 18, '…')) . '</b> · kembali ' . htmlspecialchars($rmDt($m['end_datetime'])) . '</span>';
             } else {
@@ -521,6 +488,53 @@ include '../../includes/header.php';
                     <?php $renderTiles($g['motors']); ?>
                 </div>
             <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+
+    <!-- Sedang disewa -->
+    <div class="r-card">
+        <div class="r-card-head">
+            <div class="r-card-title">
+                <span class="r-ic ic-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                <div><b>Sedang Disewa</b><small>Urut dari yang paling dekat jadwal kembalinya</small></div>
+            </div>
+            <div class="r-legend">
+                <span class="r-chip warn"><?php echo count($rentedList); ?> aktif</span>
+                <?php if ($overdueCount): ?><span class="r-chip bad"><?php echo $overdueCount; ?> terlambat</span><?php endif; ?>
+            </div>
+        </div>
+        <?php if (!empty($rentedList)): ?>
+            <ul class="r-rent-list">
+                <?php foreach ($rentedList as $r):
+                    [$leftTxt, $isPast] = $rmLeft($r['end_datetime']);
+                    $late = $r['status'] === 'overdue';
+                ?>
+                    <li class="r-rent<?php echo $late ? ' late' : ''; ?>">
+                        <span class="r-moto"><?php echo $motorIcon; ?></span>
+                        <div>
+                            <div class="r-plate"><?php echo htmlspecialchars($r['plate_number']); ?></div>
+                            <div class="r-mute"><?php echo htmlspecialchars($r['motor_name']); ?><?php echo !empty($r['motor_count']) && (int)$r['motor_count'] > 1 ? ' · ' . (int)$r['motor_count'] . ' unit' : ''; ?></div>
+                        </div>
+                        <div class="r-guest-col">
+                            <div class="r-strong"><?php echo htmlspecialchars($r['guest_name'] ?: '-'); ?><?php if (!empty($r['room_number'])): ?><span class="r-room"><?php echo htmlspecialchars($r['room_number']); ?></span><?php endif; ?></div>
+                            <div class="r-mute"><?php echo htmlspecialchars($r['guest_phone'] ?? '') ?: '&nbsp;'; ?></div>
+                        </div>
+                        <div class="r-when">
+                            <div class="r-strong" style="font-weight:600"><?php echo $rmDt($r['start_datetime']); ?> → <?php echo $rmDt($r['end_datetime']); ?></div>
+                            <div class="r-mute">Jadwal sewa</div>
+                        </div>
+                        <div class="r-right">
+                            <span class="r-chip <?php echo $late ? 'bad' : ($isPast ? 'warn' : 'ok'); ?>"><i></i><?php echo $late ? 'Terlambat · ' . $leftTxt : ucfirst($leftTxt); ?></span>
+                            <span class="r-amt"><?php echo (float)$r['total_price'] > 0 ? $rmRp($r['total_price']) : '<span style="font-weight:600;font-size:.7rem">dihitung saat kembali</span>'; ?></span>
+                        </div>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        <?php else: ?>
+            <div class="r-empty">
+                <?php echo $motorIcon; ?>
+                <div>Tidak ada motor yang sedang disewa.</div>
+            </div>
         <?php endif; ?>
     </div>
 
