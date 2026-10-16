@@ -268,6 +268,17 @@ try {
 }
 
 // ============================================
+// PENAWARAN TERBUKA (bar hijau transparan; tidak memblok kamar)
+// ============================================
+$quoteMatrix = [];
+if (!$isStaffView) {
+    require_once __DIR__ . '/../../includes/Quotations.php';
+    foreach (Quotations::forCalendar($db, $actualStartDate, $actualEndDate) as $qg) {
+        $quoteMatrix[(int)$qg['room_id']][] = $qg;
+    }
+}
+
+// ============================================
 // BUILD BOOKING MATRIX
 // ============================================
 $bookingMatrix = [];
@@ -3227,6 +3238,47 @@ include '../../includes/header.php';
         body[data-theme="dark"] .av-link { color: #94a3b8; }
         body[data-theme="dark"] .av-book { background: #2563eb; }
         @media (max-width: 520px) { .av-form { grid-template-columns: 1fr 1fr; } .av-go { grid-column: 1 / -1; } }
+        /* ===== Cek Ketersediaan — tampilan kartu (av2) ===== */
+        .av-box { width: min(620px, 100%); }
+        .av-type.av2 { margin-top: 12px; padding: 12px 13px 13px; border: 1px solid #e2e8f0; border-radius: 14px; background: #f8fafc; }
+        .av2-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+        .av2-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .av2-name b { font-size: 0.92rem; font-weight: 800; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+        .av2-cnt { padding: 1px 9px; border-radius: 999px; background: #e0f2fe; font-size: 0.64rem; font-weight: 800; color: #0369a1 !important; -webkit-text-fill-color: #0369a1 !important; white-space: nowrap; }
+        .av2-rate { text-align: right; white-space: nowrap; }
+        .av2-rate b { font-size: 1.02rem; font-weight: 800; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+        .av2-rate small { margin-left: 3px; font-size: 0.66rem; font-weight: 600; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
+        .av2-calc { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 10px; margin-bottom: 10px; border-radius: 11px; background: #fff; border: 1px dashed #cbd5e1; }
+        .av2-calc .av-net { align-items: flex-end; margin-left: auto; }
+        .av-type.av2 .av-rooms { gap: 7px; }
+        .av-type.av2 .av-room { min-width: 58px; padding: 7px 10px 6px; border-radius: 11px; border: 1.5px solid #bbf7d0; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, .05); transition: transform .12s, border-color .12s, background .12s; }
+        .av-type.av2 .av-room .n { display: block; font-size: 0.86rem; font-weight: 800; line-height: 1.1; }
+        .av-type.av2 .av-room:hover { transform: translateY(-1px); border-color: #22c55e; }
+        .av-type.av2 .av-room.sel { background: linear-gradient(180deg, #22c55e, #15803d); border-color: #15803d; box-shadow: 0 4px 10px rgba(21, 128, 61, .35); }
+        .av-type.av2 .av-room.sel .n::before { content: '✓ '; }
+        .av2-foot { flex-wrap: wrap; row-gap: 8px; }
+        .av2-total { display: flex; align-items: baseline; gap: 7px; margin-left: auto; padding: 4px 11px; border-radius: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .av2-total[hidden] { display: none; }
+        .av2-total small { font-size: 0.64rem; font-weight: 700; color: #166534 !important; -webkit-text-fill-color: #166534 !important; }
+        .av2-total b { font-size: 0.95rem; font-weight: 800; color: #14532d !important; -webkit-text-fill-color: #14532d !important; }
+        .av2-total s { font-size: 0.66rem; color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+        .av2-btns { display: flex; gap: 7px; margin-left: auto; }
+        .av-quote { height: 38px; padding: 0 14px; border: 1.5px solid #16a34a; border-radius: 10px; background: #fff; color: #15803d; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+        .av-quote:hover:not([disabled]) { background: #f0fdf4; }
+        .av-quote[disabled] { opacity: 0.45; cursor: not-allowed; }
+        body[data-theme="dark"] .av-type.av2 { background: rgba(255, 255, 255, 0.04); border-color: rgba(148, 163, 184, 0.18); }
+        body[data-theme="dark"] .av2-name b, body[data-theme="dark"] .av2-rate b { color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
+        body[data-theme="dark"] .av2-cnt { background: rgba(14, 165, 233, 0.16); color: #7dd3fc !important; -webkit-text-fill-color: #7dd3fc !important; }
+        body[data-theme="dark"] .av2-rate small { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+        body[data-theme="dark"] .av2-calc { background: rgba(15, 23, 42, 0.5); border-color: rgba(148, 163, 184, 0.25); }
+        body[data-theme="dark"] .av-type.av2 .av-room { background: rgba(34, 197, 94, 0.08); border-color: rgba(34, 197, 94, 0.35); }
+        body[data-theme="dark"] .av-type.av2 .av-room.sel { background: linear-gradient(180deg, #16a34a, #15803d); border-color: #22c55e; }
+        body[data-theme="dark"] .av2-total { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.3); }
+        body[data-theme="dark"] .av2-total small { color: #86efac !important; -webkit-text-fill-color: #86efac !important; }
+        body[data-theme="dark"] .av2-total b { color: #dcfce7 !important; -webkit-text-fill-color: #dcfce7 !important; }
+        body[data-theme="dark"] .av-quote { background: transparent; color: #86efac; border-color: #22c55e; }
+        body[data-theme="dark"] .av-quote:hover:not([disabled]) { background: rgba(34, 197, 94, 0.14); }
+        @media (max-width: 520px) { .av2-total { margin-left: 0; } .av2-btns { width: 100%; } .av2-btns button { flex: 1; } }
         /* kedip singkat pada bar hasil pencarian */
         @keyframes barFlash { 0%, 100% { filter: none; } 25%, 75% { filter: brightness(1.6) drop-shadow(0 0 6px #fbbf24); } }
         .booking-bar-container.bar-flash .booking-bar { animation: barFlash 0.9s ease 2; }
@@ -3396,6 +3448,24 @@ include '../../includes/header.php';
                                                 </div>
                                             </div>
                                         <?php
+                                        }
+                                    }
+                                }
+
+                                // Penawaran terbuka: bar hijau transparan (tidak memblok; klik sel tetap membuat booking baru)
+                                if (isset($quoteMatrix[$room['id']])) {
+                                    foreach ($quoteMatrix[$room['id']] as $qg) {
+                                        if (strtotime($date) === strtotime((string)$qg['check_in'])) {
+                                            $qgNights = max(1, (int)ceil((strtotime((string)$qg['check_out']) - strtotime((string)$qg['check_in'])) / 86400));
+                                            $qgW = ($qgNights * 110) - 6;
+                                            $qgLabel = 'Penawaran · ' . mb_substr((string)$qg['guest_name'], 0, 14);
+                                ?>
+                                            <div class="booking-bar-container qt-ghost" style="left: 50%; width: <?php echo $qgW; ?>px;" data-quote-id="<?php echo (int)$qg['id']; ?>" data-room-id="<?php echo (int)$room['id']; ?>">
+                                                <div class="booking-bar booking-quote" title="<?php echo htmlspecialchars($qg['quote_code'] . ' · ' . $qg['guest_name']); ?>">
+                                                    <button type="button" class="qt-chip" onclick="event.stopPropagation(); adfQuoteView(<?php echo (int)$qg['id']; ?>)"><?php echo htmlspecialchars($qgLabel); ?></button>
+                                                </div>
+                                            </div>
+                                <?php
                                         }
                                     }
                                 }
@@ -5318,12 +5388,40 @@ include '../../includes/header.php';
         });
     }
 
+    // Total room terpilih (harga normal & setelah diskon simulasi) × lama menginap
+    function availSelTotal() {
+        const nights = availState.nights || 1;
+        let sum = 0, base = 0;
+        availState.rooms.forEach(r => {
+            if (!availState.sel.has(String(r.id))) return;
+            const b = parseFloat(r.base_price) || 0;
+            const st = availState.disc[r.type_name || 'Lainnya'];
+            const net = !st || !(st.val > 0) ? b : Math.round(st.unit === 'pct' ? b * (1 - Math.min(100, st.val) / 100) : Math.max(0, b - st.val));
+            sum += net * nights;
+            base += b * nights;
+        });
+        return { sum: sum, base: base };
+    }
+
     function availUpdateBook() {
         const btn = document.getElementById('avBook');
         if (!btn) return;
         const n = availState.sel.size;
         btn.disabled = n === 0;
         btn.textContent = n ? 'Buat Reservasi (' + n + ' room)' : 'Buat Reservasi';
+        const qt = document.getElementById('avQuote');
+        if (qt) qt.disabled = n === 0;
+        const tot = document.getElementById('avTotal');
+        if (tot) {
+            if (n && !IS_STAFF_VIEW) {
+                const t = availSelTotal();
+                tot.innerHTML = '<small>' + n + ' room · ' + (availState.nights || 1) + ((document.documentElement.lang || '') === 'en' ? ' night(s)' : ' malam') + '</small><b>' + availRp(t.sum) + '</b>' +
+                    (t.base > t.sum ? '<s>' + availRp(t.base) + '</s>' : '');
+                tot.hidden = false;
+            } else {
+                tot.hidden = true;
+            }
+        }
     }
 
     window.availToggleRoom = function availToggleRoom(el) {
@@ -5378,15 +5476,17 @@ include '../../includes/header.php';
                 Object.keys(groups).forEach(t => {
                     const list = groups[t];
                     const base = parseFloat(list[0].base_price) || 0;
-                    // Harga + simulasi diskon (di bawah nominal): isi disc → tampil harga pas per malam & total
-                    const priceBlock = (IS_STAFF_VIEW || !base) ? '' :
-                        '<div class="av-price"><small>Rp ' + Math.round(base).toLocaleString('id-ID') + ' /malam</small>' +
-                        '<div class="av-disc"><input type="text" inputmode="decimal" class="av-disc-in" placeholder="Disc %" autocomplete="off" aria-label="Diskon ' + escHtml(t) + '">' +
-                        '<span class="av-seg"><button type="button" data-u="pct" class="on">%</button><button type="button" data-u="rp">Rp</button></span></div>' +
-                        '<div class="av-net" hidden></div></div>';
-                    html += '<div class="av-type" data-type="' + escHtml(t) + '" data-price="' + base + '"><div class="av-type-h"><b>' + escHtml(t) + ' · ' + list.length + ' room</b>' + priceBlock + '</div><div class="av-rooms">';
+                    // Kartu tipe room: nama + jumlah, harga normal, simulasi diskon (hasil di kanan), lalu pilihan room
+                    const showPrice = !(IS_STAFF_VIEW || !base);
+                    html += '<div class="av-type av2" data-type="' + escHtml(t) + '" data-price="' + base + '">' +
+                        '<div class="av2-head"><div class="av2-name"><b>' + escHtml(t) + '</b><span class="av2-cnt">' + list.length + ' room</span></div>' +
+                        (showPrice ? '<div class="av2-rate"><b>Rp ' + Math.round(base).toLocaleString('id-ID') + '</b><small>/malam</small></div>' : '') + '</div>' +
+                        (showPrice ? '<div class="av2-calc"><div class="av-disc"><input type="text" inputmode="decimal" class="av-disc-in" placeholder="Disc %" autocomplete="off" aria-label="Diskon ' + escHtml(t) + '">' +
+                            '<span class="av-seg"><button type="button" data-u="pct" class="on">%</button><button type="button" data-u="rp">Rp</button></span></div>' +
+                            '<div class="av-net" hidden></div></div>' : '') +
+                        '<div class="av-rooms">';
                     list.forEach(r => {
-                        html += '<button type="button" class="av-room" data-id="' + parseInt(r.id, 10) + '" onclick="availToggleRoom(this)">' + escHtml(r.room_number) +
+                        html += '<button type="button" class="av-room" data-id="' + parseInt(r.id, 10) + '" onclick="availToggleRoom(this)"><span class="n">' + escHtml(r.room_number) + '</span>' +
                             (r.status === 'cleaning' ? '<small>kotor</small>' : '<small>' + (r.floor_number ? 'Lt ' + escHtml(r.floor_number) : 'siap') + '</small>') + '</button>';
                     });
                     html += '</div></div>';
@@ -5457,6 +5557,7 @@ include '../../includes/header.php';
             st.val = parseInt(digits || '0', 10);
         }
         availDiscRender(section);
+        availUpdateBook();
     });
     document.addEventListener('click', function(e) {
         const b = e.target && e.target.closest ? e.target.closest('.av-seg button') : null;
@@ -5473,7 +5574,20 @@ include '../../includes/header.php';
         inp.placeholder = st.unit === 'pct' ? 'Disc %' : 'Rp /malam';
         inp.focus();
         availDiscRender(section);
+        availUpdateBook();
     });
+
+    // Buat PENAWARAN dari room terpilih (tidak memblok kamar): isi nama tamu → simpan & cetak
+    window.availQuote = function availQuote() {
+        if (!availState.sel.size || typeof window.adfQuoteCreate !== 'function') return;
+        const rooms = availState.rooms.filter(r => availState.sel.has(String(r.id))).map(r => {
+            const st = availState.disc[r.type_name || 'Lainnya'];
+            const has = st && st.val > 0;
+            return { id: parseInt(r.id, 10), number: r.room_number, type: r.type_name || 'Lainnya', base: parseFloat(r.base_price) || 0,
+                disc_type: has ? (st.unit === 'pct' ? 'percent' : 'rp') : '', disc_value: has ? st.val : 0 };
+        });
+        window.adfQuoteCreate({ ci: availState.ci, co: availState.co, nights: availState.nights || 1, rooms: rooms });
+    };
 
     window.availBook = function availBook() {
         if (!availState.sel.size) return;
@@ -5512,6 +5626,8 @@ include '../../includes/header.php';
     });
 
     window.openNewReservationForm = function openNewReservationForm(opts) {
+        // Konteks penawaran (bila form dibuka dari tombol Konfirmasi); dikosongkan setiap form dibuka biasa
+        window.__quoteCtx = (opts && opts.quote) ? opts.quote : null;
         // Open reservation modal with today's date (atau tanggal & room dari Cek Ketersediaan)
         const modal = document.getElementById('reservationModal');
 
@@ -6480,6 +6596,17 @@ include '../../includes/header.php';
         // Show results
         if (successCount > 0) {
             alert(`✅ Berhasil membuat ${successCount} booking!\n\nBooking Codes: ${bookingCodes.join(', ')}\n\n${errorCount > 0 ? `⚠️ ${errorCount} booking gagal:\n${errorMessages.join('\n')}` : ''}`);
+            // Booking dibuat dari penawaran dan semua kamar berhasil → tandai penawaran terkonfirmasi (bar hijau hilang)
+            if (window.__quoteCtx && errorCount === 0) {
+                try {
+                    const qf = new FormData();
+                    qf.append('action', 'confirm_mark');
+                    qf.append('id', window.__quoteCtx.id);
+                    qf.append('ref', bookingCodes.join(','));
+                    await fetch('<?php echo BASE_URL; ?>/api/quotation.php', { method: 'POST', body: qf, credentials: 'include' });
+                } catch (e) {}
+                window.__quoteCtx = null;
+            }
             closeReservationModal();
             // Navigate to show the new booking's check-in date
             const ciDate = document.getElementById('checkInDate')?.value;
@@ -10903,9 +11030,13 @@ include '../../includes/header.php';
         </div>
         <div class="av-sum" id="avSum"></div>
         <div class="av-body" id="avBody"><div class="av-empty">Pilih tanggal check-in dan check-out, lalu klik Cek.</div></div>
-        <div class="av-foot">
+        <div class="av-foot av2-foot">
             <button type="button" class="av-link" onclick="availClearHighlight()">Hapus sorotan kalender</button>
-            <button type="button" class="av-book" id="avBook" onclick="availBook()" disabled>Buat Reservasi</button>
+            <div class="av2-total" id="avTotal" hidden></div>
+            <div class="av2-btns">
+                <?php if (!$isStaffView): ?><button type="button" class="av-quote" id="avQuote" onclick="availQuote()" disabled>Buat Penawaran</button><?php endif; ?>
+                <button type="button" class="av-book" id="avBook" onclick="availBook()" disabled>Buat Reservasi</button>
+            </div>
         </div>
     </div>
 </div>
@@ -12250,4 +12381,5 @@ include '../../includes/header.php';
 
 <?php include __DIR__ . '/cloudbeds-autosync-include.php'; ?>
 <?php include '../../includes/checkin-gate.php'; ?>
+<?php if (!$isStaffView) include '../../includes/quotation-ui.php'; ?>
 <?php include '../../includes/footer.php'; ?>

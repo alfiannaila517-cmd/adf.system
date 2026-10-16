@@ -2,6 +2,7 @@
 /** Kamus EN: Kalender Front Desk (modules/frontdesk/calendar.php) — teks halaman + teks yang dirangkai JavaScript. */
 return [
     'text' => [
+        'Buat Penawaran' => 'Create Quotation', 'Penawaran' => 'Quotation',
         'Ada Request Tamu (Extra Bed/Trip/dll)' => 'Guest Request (Extra Bed/Trip/etc.)', 'Ada request tamu (extra bed/trip/dll)' => 'Guest request (extra bed/trip/etc.)',
         'Alasan Block' => 'Block Reason', 'Block Room: untuk maintenance, deep cleaning, owner use, dll.' => 'Block Room: for maintenance, deep cleaning, owner use, etc.',
         'Block kamar (tamu / maintenance / dll)' => 'Block room (guest / maintenance / etc.)', 'Batalkan Block' => 'Cancel Block',

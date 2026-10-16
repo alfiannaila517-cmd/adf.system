@@ -944,6 +944,92 @@ include '../../includes/header.php';
         </div>
     </div>
 
+    <!-- Penawaran terbuka (belum memblok kamar) -->
+    <?php
+    $qtOpen = [];
+    try {
+        require_once __DIR__ . '/../../includes/Quotations.php';
+        $qtOpen = Quotations::listAll($db, 'open');
+    } catch (Throwable $e) {
+        $qtOpen = [];
+    }
+    if ($qtOpen):
+        $qtEn = function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en';
+        $qtT = fn(string $id, string $en) => $qtEn ? $en : $id;
+        $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
+    ?>
+        <details class="qtp" open>
+            <summary>
+                <span class="qtp-t"><?php echo htmlspecialchars($qtT('Penawaran', 'Quotations')); ?></span>
+                <span class="qtp-n"><?php echo count($qtOpen); ?></span>
+                <span class="qtp-s"><?php echo htmlspecialchars($qtT('belum memblok kamar — tampil hijau transparan di kalender', 'rooms are not blocked — shown as transparent green in the calendar')); ?></span>
+            </summary>
+            <div class="qtp-list">
+                <?php foreach ($qtOpen as $q): ?>
+                    <div class="qtp-row<?php echo $q['expired'] ? ' is-exp' : ''; ?>">
+                        <div class="qtp-main">
+                            <b><?php echo htmlspecialchars($q['guest_name']); ?></b>
+                            <span class="qtp-code"><?php echo htmlspecialchars($q['quote_code']); ?></span>
+                            <?php if ($q['expired']): ?><span class="qtp-exp"><?php echo htmlspecialchars($qtT('Kedaluwarsa', 'Expired')); ?></span><?php endif; ?>
+                            <div class="qtp-meta">
+                                <?php echo $qtD($q['check_in']); ?> → <?php echo $qtD($q['check_out']); ?> · <?php echo (int)$q['nights']; ?> <?php echo htmlspecialchars($qtT('malam', 'night(s)')); ?>
+                                · <?php echo htmlspecialchars($qtT('Kamar', 'Room')); ?> <?php echo htmlspecialchars((string)$q['rooms']); ?>
+                                · <?php echo htmlspecialchars($qtT('berlaku s/d', 'valid until')); ?> <?php echo $qtD($q['valid_until']); ?>
+                            </div>
+                        </div>
+                        <div class="qtp-amt">Rp <?php echo number_format((float)$q['total'], 0, ',', '.'); ?></div>
+                        <div class="qtp-act">
+                            <a class="qtp-b" href="quotation-print.php?id=<?php echo (int)$q['id']; ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($qtT('Cetak', 'Print')); ?></a>
+                            <?php if (!$q['expired']): ?>
+                                <a class="qtp-b pri" href="calendar.php?quote=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Konfirmasi', 'Confirm')); ?></a>
+                            <?php endif; ?>
+                            <button type="button" class="qtp-b bad" onclick="qtpCancel(<?php echo (int)$q['id']; ?>)"><?php echo htmlspecialchars($qtT('Batalkan', 'Cancel')); ?></button>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </details>
+        <style>
+            .qtp { margin: 0 0 .8rem; border: 1px solid rgba(34, 197, 94, .35); border-radius: 14px; background: rgba(34, 197, 94, .06); }
+            .qtp > summary { display: flex; align-items: center; gap: .55rem; padding: .55rem .85rem; cursor: pointer; list-style: none; flex-wrap: wrap; }
+            .qtp > summary::-webkit-details-marker { display: none; }
+            .qtp > summary::before { content: '▸'; font-size: .7rem; color: #16a34a; transition: transform .15s; }
+            .qtp[open] > summary::before { transform: rotate(90deg); }
+            .qtp-t { font-size: .82rem; font-weight: 800; color: #15803d; }
+            .qtp-n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #16a34a; color: #fff; font-size: .68rem; font-weight: 800; line-height: 20px; text-align: center; }
+            .qtp-s { font-size: .68rem; color: #64748b; }
+            .qtp-list { padding: 0 .7rem .7rem; display: flex; flex-direction: column; gap: .4rem; }
+            .qtp-row { display: flex; align-items: center; gap: .8rem; padding: .55rem .75rem; border-radius: 11px; background: #fff; border: 1px solid #e2e8f0; flex-wrap: wrap; }
+            .qtp-row.is-exp { opacity: .6; }
+            .qtp-main { flex: 1 1 260px; min-width: 0; }
+            .qtp-main b { font-size: .86rem; color: #0f172a; }
+            .qtp-code { margin-left: .4rem; font-size: .62rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; }
+            .qtp-exp { margin-left: .3rem; font-size: .6rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: #fee2e2; color: #b91c1c; }
+            .qtp-meta { margin-top: 2px; font-size: .7rem; color: #64748b; }
+            .qtp-amt { font-size: .92rem; font-weight: 800; color: #0f172a; white-space: nowrap; }
+            .qtp-act { display: flex; gap: .35rem; }
+            .qtp-b { height: 28px; padding: 0 .75rem; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155 !important; font-size: .7rem; font-weight: 700; cursor: pointer; text-decoration: none; }
+            .qtp-b.pri { background: linear-gradient(180deg, #22c55e, #15803d); border-color: transparent; color: #fff !important; }
+            .qtp-b.bad { color: #dc2626 !important; }
+            body[data-theme="dark"] .qtp { background: rgba(34, 197, 94, .08); }
+            body[data-theme="dark"] .qtp-t { color: #86efac; } body[data-theme="dark"] .qtp-s, body[data-theme="dark"] .qtp-meta { color: #94a3b8; }
+            body[data-theme="dark"] .qtp-row { background: #16213a; border-color: rgba(148, 163, 184, .2); }
+            body[data-theme="dark"] .qtp-main b, body[data-theme="dark"] .qtp-amt { color: #e6edf7; }
+            body[data-theme="dark"] .qtp-code { background: rgba(255, 255, 255, .08); color: #cbd5e1; }
+            body[data-theme="dark"] .qtp-b { background: #111a2e; border-color: rgba(148, 163, 184, .3); color: #e6edf7 !important; }
+            body[data-theme="dark"] .qtp-b.pri { background: linear-gradient(180deg, #22c55e, #15803d); color: #fff !important; }
+            body[data-theme="dark"] .qtp-b.bad { color: #f87171 !important; }
+        </style>
+        <script>
+            function qtpCancel(id) {
+                if (!confirm(<?php echo json_encode($qtT('Batalkan penawaran ini? Bar hijau di kalender akan hilang.', 'Cancel this quotation? The green bar in the calendar will disappear.'), JSON_UNESCAPED_UNICODE); ?>)) return;
+                const fd = new FormData();
+                fd.append('action', 'cancel');
+                fd.append('id', id);
+                fetch('../../api/quotation.php', { method: 'POST', body: fd, credentials: 'include' }).then(r => r.json()).then(() => location.reload());
+            }
+        </script>
+    <?php endif; ?>
     <!-- Filter Section -->
     <div class="filter-section">
         <div class="filter-group">
