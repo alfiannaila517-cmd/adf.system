@@ -333,6 +333,40 @@ include '../../includes/header.php';
         color: #ffffff;
     }
 
+    /* Tombol header: gaya bersih (putih + garis tipis); hanya "New Booking" yang solid */
+    .reservasi-header .header-actions .btn-primary {
+        background: #ffffff !important;
+        background-image: none !important;
+        color: #334155 !important;
+        border: 1px solid #dbe2ea !important;
+        border-radius: 8px;
+        padding: 0.45rem 0.95rem;
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, .05) !important;
+    }
+    .reservasi-header .header-actions .btn-primary:hover {
+        background: #f1f5f9 !important;
+        border-color: #c3ccd9 !important;
+        color: #0f172a !important;
+        transform: none;
+    }
+    .reservasi-header .header-actions .btn-primary:first-child {
+        background: #0f2747 !important;
+        border-color: #0f2747 !important;
+        color: #fff !important;
+    }
+    .reservasi-header .header-actions .btn-primary:first-child:hover { background: #1d3f6e !important; border-color: #1d3f6e !important; color: #fff !important; }
+    .reservasi-header .header-actions .btn-primary .qtp-n { background: #0f2747; color: #fff; }
+    body[data-theme="dark"] .reservasi-header .header-actions .btn-primary:not(:first-child) {
+        background: rgba(255, 255, 255, .06) !important;
+        border-color: rgba(255, 255, 255, .16) !important;
+        color: #e2e8f0 !important;
+        box-shadow: none !important;
+    }
+    body[data-theme="dark"] .reservasi-header .header-actions .btn-primary:not(:first-child):hover { background: rgba(255, 255, 255, .12) !important; color: #fff !important; }
+    body[data-theme="dark"] .reservasi-header .header-actions .btn-primary:first-child { background: #3b5fa8 !important; border-color: #3b5fa8 !important; }
+    body[data-theme="dark"] .reservasi-header .header-actions .btn-primary .qtp-n { background: #3b5fa8; }
+
     .filter-section {
         display: flex;
         gap: 1.25rem;
@@ -996,7 +1030,6 @@ $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
         </div>
     </div>
     <style>
-        .btn-primary.btn-quote { background: linear-gradient(180deg, #22c55e, #15803d) !important; border-color: transparent !important; }
         .qtp-n { display: inline-block; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: rgba(255, 255, 255, .28); color: #fff; font-size: .66rem; font-weight: 800; line-height: 18px; text-align: center; vertical-align: middle; }
         .qtp-ov { position: fixed; inset: 0; z-index: 10070; display: none; align-items: center; justify-content: center; padding: 14px; background: rgba(2, 6, 23, .55); backdrop-filter: blur(3px); }
         .qtp-ov.on { display: flex; }
