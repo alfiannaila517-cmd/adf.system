@@ -103,7 +103,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $s = $wa->settings();
 $template = trim($s['wa_checkin_template']) !== '' ? $s['wa_checkin_template'] : WhatsAppHelper::DEFAULT_CHECKIN_TEMPLATE;
 $logRows = $wa->recentLog(300); // isi tabel = pengiriman hari ini (data lama dihapus otomatis tiap hari)
-$typeLabel = ['report' => 'Laporan', 'checkin' => 'Check-in', 'test' => 'Tes', 'breakfast' => 'Breakfast'];
+$typeLabel = ['report' => 'Laporan', 'checkin' => 'Check-in', 'checkin_manual' => 'Check-in (manual)', 'test' => 'Tes', 'breakfast' => 'Breakfast'];
+
+// Nama tamu & nomor kamar per baris riwayat, dibaca dari referensi pengiriman:
+//   "booking:<id> <kode>"  → booking itu | "breakfast 204" / "bf-remind 105,106" → tamu yang sedang in-house di kamar itu
+$logWho = [];
+try {
+    $logBookingIds = [];
+    $logRooms = [];
+    foreach ($logRows as $i => $l) {
+        $ref = (string)($l['ref'] ?? '');
+        if (preg_match('/^booking:(\d+)/', $ref, $m)) {
+            $logBookingIds[(int)$m[1]] = true;
+        } elseif (preg_match('/^(?:breakfast|bf-remind)\s+([\w\-, ]+)$/i', $ref, $m)) {
+            foreach (preg_split('/\s*,\s*/', trim($m[1])) as $rn) if ($rn !== '') $logRooms[$rn] = true;
+        }
+    }
+    $byBooking = [];
+    if ($logBookingIds) {
+        foreach ($db->fetchAll("SELECT b.id, g.guest_name, r.room_number FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id LEFT JOIN rooms r ON r.id = b.room_id
+            WHERE b.id IN (" . implode(',', array_map('intval', array_keys($logBookingIds))) . ")") ?: [] as $r) {
+            $byBooking[(int)$r['id']] = $r;
+        }
+    }
+    $byRoom = [];
+    if ($logRooms) {
+        $ph = implode(',', array_fill(0, count($logRooms), '?'));
+        foreach ($db->fetchAll("SELECT r.room_number, g.guest_name FROM bookings b JOIN rooms r ON r.id = b.room_id LEFT JOIN guests g ON g.id = b.guest_id
+            WHERE r.room_number IN ($ph) AND b.status = 'checked_in' ORDER BY b.id ASC", array_keys($logRooms)) ?: [] as $r) {
+            $byRoom[(string)$r['room_number']] = $r['guest_name']; // booking terbaru menimpa
+        }
+    }
+    foreach ($logRows as $i => $l) {
+        $ref = (string)($l['ref'] ?? '');
+        if (preg_match('/^booking:(\d+)/', $ref, $m) && isset($byBooking[(int)$m[1]])) {
+            $logWho[$i] = ['room' => (string)$byBooking[(int)$m[1]]['room_number'], 'guest' => (string)$byBooking[(int)$m[1]]['guest_name']];
+        } elseif (preg_match('/^(?:breakfast|bf-remind)\s+([\w\-, ]+)$/i', $ref, $m)) {
+            $rooms = array_values(array_filter(preg_split('/\s*,\s*/', trim($m[1]))));
+            $guests = array_values(array_unique(array_filter(array_map(fn($rn) => $byRoom[$rn] ?? '', $rooms))));
+            $logWho[$i] = ['room' => implode(', ', $rooms), 'guest' => implode(' / ', $guests)];
+        }
+    }
+} catch (\Throwable $e) {
+    // riwayat tetap tampil tanpa nama / kamar
+}
 $logSent = count(array_filter($logRows, fn($l) => $l['status'] === 'sent'));
 $logFailed = count(array_filter($logRows, fn($l) => $l['status'] === 'failed'));
 $pageTitle = 'Pengaturan WhatsApp';
@@ -294,16 +337,18 @@ include '../../includes/header.php';
         <?php else: ?>
             <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--fd-line)">
                 <table class="wa-log">
-                    <thead><tr><th style="width:42px">No</th><th>Waktu</th><th>Jenis</th><th>Tujuan</th><th>Status</th><th>Keterangan</th></tr></thead>
+                    <thead><tr><th style="width:42px">No</th><th>Waktu</th><th>Jenis</th><th>Kamar</th><th>Tamu</th><th>Tujuan</th><th>Status</th><th>Keterangan</th></tr></thead>
                     <tbody>
                         <?php foreach ($logRows as $i => $l): ?>
                             <tr>
                                 <td class="wa-no"><?php echo count($logRows) - $i; ?></td>
                                 <td><?php echo date('H:i', strtotime($l['created_at'])); ?></td>
                                 <td><?php echo htmlspecialchars($typeLabel[$l['type']] ?? $l['type']); ?></td>
+                                <td><?php echo isset($logWho[$i]) && $logWho[$i]['room'] !== '' ? '<b>' . htmlspecialchars($logWho[$i]['room']) . '</b>' : '-'; ?></td>
+                                <td><?php echo isset($logWho[$i]) && $logWho[$i]['guest'] !== '' ? htmlspecialchars($logWho[$i]['guest']) : '-'; ?></td>
                                 <td><?php echo htmlspecialchars($l['target'] ?: '-'); ?></td>
                                 <td><span class="wa-pill <?php echo htmlspecialchars($l['status']); ?>"><?php echo ['sent' => 'Terkirim', 'failed' => 'Gagal', 'skipped' => 'Dilewati'][$l['status']] ?? htmlspecialchars($l['status']); ?></span></td>
-                                <td><?php echo htmlspecialchars(trim($l['detail'] . ($l['ref'] ? ' · ' . $l['ref'] : ''))); ?></td>
+                                <td><?php echo htmlspecialchars(trim($l['detail'] . ($l['ref'] ? ' · ' . (preg_match('/^booking:\d+\s*(.*)$/', (string)$l['ref'], $bm) ? trim($bm[1]) : $l['ref']) : ''))); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
