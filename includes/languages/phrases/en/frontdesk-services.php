@@ -2,6 +2,7 @@
 /** Kamus EN: Hotel Services, Rental Motor/Mobil, Invoice layanan (modules/frontdesk/hotel-services.php, rental-*.php, invoice.php). */
 return [
     'text' => [
+        'Tahun sebelumnya' => 'Previous year', 'Tahun berikutnya' => 'Next year',
         'Bulan ini' => 'This month', 'Bulan sebelumnya' => 'Previous month', 'Bulan berikutnya' => 'Next month', 'Pilih bulan' => 'Select month', 'Pencarian di semua bulan' => 'Searching all months',
         'invoice' => 'invoice(s)', 'Terbayar' => 'Paid',
         '% Komisi Mitra' => '% Partner Commission', '% Pemilik' => '% Owner', '% komisi mitra' => '% partner commission', '% okupansi' => '% occupancy',

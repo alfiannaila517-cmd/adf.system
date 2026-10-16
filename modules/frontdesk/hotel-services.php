@@ -2620,6 +2620,33 @@ include '../../includes/header.php';
         flex-shrink: 0;
     }
 
+    /* Pemilih bulan (pengganti kalender bawaan browser) */
+    .hs-mp { position: relative; }
+    .hs-mp-btn { height: 30px; display: inline-flex; align-items: center; gap: .45rem; padding: 0 .7rem; border-radius: 9px; border: 1px solid rgba(148, 163, 184, .4); background: rgba(148, 163, 184, .1); color: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
+    .hs-mp-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .hs-mp-btn .hs-mp-chev { width: 11px; height: 11px; opacity: .7; }
+    .hs-mp-btn:hover { border-color: rgba(99, 102, 241, .6); }
+    .hs-mp-pop { display: none; position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; width: 248px; padding: 10px; border-radius: 14px; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 18px 44px -10px rgba(15, 23, 42, .35); color: #0f172a; }
+    .hs-mp-pop.open { display: block; }
+    body[data-theme="dark"] .hs-mp-pop { background: #1b2740; border-color: rgba(148, 163, 184, .25); color: #e6edf7; box-shadow: 0 18px 44px -10px rgba(0, 0, 0, .6); }
+    .hs-mp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .hs-mp-head b { font-size: .92rem; letter-spacing: .02em; }
+    .hs-mp-nav { width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, .35); background: transparent; color: inherit; font-size: 1.05rem; line-height: 1; cursor: pointer; }
+    .hs-mp-nav:hover:not(:disabled) { background: rgba(99, 102, 241, .15); } .hs-mp-nav:disabled { opacity: .3; cursor: default; }
+    .hs-mp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .hs-mp-grid button { height: 36px; border-radius: 10px; border: 1px solid transparent; background: rgba(148, 163, 184, .12); color: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+    .hs-mp-grid button:hover:not(:disabled) { background: rgba(99, 102, 241, .2); }
+    .hs-mp-grid button.cur { border-color: rgba(99, 102, 241, .6); }
+    .hs-mp-grid button.on { background: linear-gradient(180deg, #6366f1, #4f46e5); color: #fff; }
+    .hs-mp-grid button:disabled { opacity: .3; cursor: default; }
+    .hs-mp-foot { margin-top: 8px; text-align: center; }
+    .hs-mp-foot button { border: 0; background: transparent; color: #6366f1; font-size: .74rem; font-weight: 700; cursor: pointer; }
+    body[data-theme="dark"] .hs-mp-foot button { color: #a5b4fc; }
+    /* Kotak pilihan status (dropdown bawaan browser) mengikuti tema */
+    body[data-theme="dark"] #hsx .hs-filters select, body[data-theme="dark"] #hsx .hs-filters input { color-scheme: dark; }
+    body[data-theme="dark"] #hsx .hs-filters select option { background: #1b2740; color: #e6edf7; }
+    body[data-theme="light"] #hsx .hs-filters select { color-scheme: light; }
+
     /* Navigasi bulan */
     .hs-monthnav { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; margin: 0 0 .6rem; }
     .hs-mn-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgba(148, 163, 184, .4); background: rgba(148, 163, 184, .1); color: inherit; font-size: 1.1rem; line-height: 1; text-decoration: none; cursor: pointer; }
@@ -4452,10 +4479,67 @@ include '../../includes/header.php';
     ?>
     <div class="hs-monthnav">
         <a class="hs-mn-btn" href="<?php echo $hsQs($hsPrev); ?>" title="Bulan sebelumnya" aria-label="Bulan sebelumnya">‹</a>
-        <form method="GET" class="hs-mn-form">
-            <?php if ($filterStatus): ?><input type="hidden" name="status" value="<?php echo htmlspecialchars($filterStatus); ?>"><?php endif; ?>
-            <input type="month" name="m" value="<?php echo htmlspecialchars($filterMonth); ?>" max="<?php echo $hsCurMonth; ?>" onchange="this.form.submit()" aria-label="Pilih bulan">
-        </form>
+        <?php
+        $hsEn = function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en';
+        $hsMonthsLong = $hsEn
+            ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+            : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        $hsMonthsShort = $hsEn
+            ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            : ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        $hsMpY = (int)substr($filterMonth, 0, 4);
+        $hsMpM = (int)substr($filterMonth, 5, 2);
+        ?>
+        <div class="hs-mp" id="hsMp">
+            <button type="button" class="hs-mp-btn" id="hsMpBtn" aria-haspopup="dialog" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span><?php echo htmlspecialchars($hsMonthsLong[$hsMpM - 1] . ' ' . $hsMpY); ?></span>
+                <svg class="hs-mp-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="hs-mp-pop" id="hsMpPop" role="dialog" aria-label="<?php echo htmlspecialchars($hsEn ? 'Select month' : 'Pilih bulan'); ?>">
+                <div class="hs-mp-head">
+                    <button type="button" class="hs-mp-nav" id="hsMpPrev" aria-label="<?php echo htmlspecialchars($hsEn ? 'Previous year' : 'Tahun sebelumnya'); ?>">‹</button>
+                    <b id="hsMpYear"><?php echo $hsMpY; ?></b>
+                    <button type="button" class="hs-mp-nav" id="hsMpNext" aria-label="<?php echo htmlspecialchars($hsEn ? 'Next year' : 'Tahun berikutnya'); ?>">›</button>
+                </div>
+                <div class="hs-mp-grid" id="hsMpGrid"></div>
+                <div class="hs-mp-foot"><button type="button" id="hsMpToday"><?php echo htmlspecialchars($hsEn ? 'This month' : 'Bulan ini'); ?></button></div>
+            </div>
+        </div>
+        <script>
+            (function() {
+                const MONTHS = <?php echo json_encode($hsMonthsShort, JSON_UNESCAPED_UNICODE); ?>;
+                const CUR = <?php echo json_encode($hsCurMonth); ?>, SEL = <?php echo json_encode($filterMonth); ?>;
+                const STATUS = <?php echo json_encode((string)$filterStatus); ?>;
+                const curY = parseInt(CUR.slice(0, 4), 10), curM = parseInt(CUR.slice(5, 7), 10);
+                let year = parseInt(SEL.slice(0, 4), 10);
+                const btn = document.getElementById('hsMpBtn'), pop = document.getElementById('hsMpPop'), grid = document.getElementById('hsMpGrid');
+                const go = ym => { location.href = '?m=' + ym + (STATUS ? '&status=' + encodeURIComponent(STATUS) : ''); };
+                function render() {
+                    document.getElementById('hsMpYear').textContent = year;
+                    document.getElementById('hsMpNext').disabled = year >= curY;
+                    grid.innerHTML = '';
+                    MONTHS.forEach((name, i) => {
+                        const ym = year + '-' + String(i + 1).padStart(2, '0');
+                        const b = document.createElement('button');
+                        b.type = 'button'; b.textContent = name;
+                        const future = year > curY || (year === curY && i + 1 > curM);
+                        if (future) b.disabled = true;
+                        if (ym === SEL) b.classList.add('on');
+                        if (ym === CUR) b.classList.add('cur');
+                        b.onclick = () => go(ym);
+                        grid.appendChild(b);
+                    });
+                }
+                const close = () => { pop.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+                btn.onclick = e => { e.stopPropagation(); const o = !pop.classList.contains('open'); if (o) { year = parseInt(SEL.slice(0, 4), 10); render(); } pop.classList.toggle('open', o); btn.setAttribute('aria-expanded', o ? 'true' : 'false'); };
+                document.getElementById('hsMpPrev').onclick = e => { e.stopPropagation(); year--; render(); };
+                document.getElementById('hsMpNext').onclick = e => { e.stopPropagation(); if (year < curY) { year++; render(); } };
+                document.getElementById('hsMpToday').onclick = () => go(CUR);
+                document.addEventListener('click', e => { if (!pop.contains(e.target) && e.target !== btn) close(); });
+                document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+            })();
+        </script>
         <?php if ($filterMonth < $hsCurMonth): ?>
             <a class="hs-mn-btn" href="<?php echo $hsQs($hsNext); ?>" title="Bulan berikutnya" aria-label="Bulan berikutnya">›</a>
         <?php else: ?>
@@ -4483,7 +4567,6 @@ include '../../includes/header.php';
                 <option value="<?php echo $s; ?>" <?php echo $filterStatus === $s ? 'selected' : ''; ?>><?php echo ucfirst($s); ?></option>
             <?php endforeach; ?>
         </select>
-        <input type="date" name="date" value="<?php echo htmlspecialchars($filterDate); ?>">
         <button type="submit" class="btn-hs btn-hs-primary">Filter</button>
         <?php if ($filterStatus || $filterDate || $search): ?>
             <a href="<?php echo $filterMonth !== date('Y-m') && !$filterDate ? '?m=' . htmlspecialchars($filterMonth) : 'hotel-services.php'; ?>" class="btn-hs btn-hs-secondary" style="text-decoration:none">Hapus filter</a>
