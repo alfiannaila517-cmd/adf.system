@@ -3641,6 +3641,51 @@ include '../../includes/header.php';
         color: #94a3b8 !important;
     }
     #settingsModal .hss-tbl tr.saved td { background: #f0fdf4 !important; transition: background 0.3s; }
+
+    /* Seragam dengan tema sistem: kepala & tombol utama navy solid; baris tabel zebra lembut */
+    body[data-theme] #settingsModal .hss-head { background: #0f2747; }
+    body[data-theme] #settingsModal .hss-add { background: #0f2747; }
+    body[data-theme] #settingsModal .hss-add:hover { background: #1d3f6e; }
+    body[data-theme] #settingsModal .hss-tbl th { background: #0f2747 !important; }
+    body[data-theme] #settingsModal .hss-tbl tbody tr:nth-child(even) td { background: #fbfcfe; }
+    body[data-theme] #settingsModal .hss-tbl tbody tr:hover td { background: #f1f5f9; }
+
+    /* Tema gelap: modal pengaturan ikut gelap */
+    body[data-theme="dark"] #settingsModal .hss-modal { background: #111a2e !important; color: #e6edf7; border: 1px solid #22304a; }
+    body[data-theme="dark"] #settingsModal .hss-head { background: #16264a; border-bottom: 1px solid #22304a; }
+    body[data-theme="dark"] #settingsModal .hss-tabs { background: rgba(255, 255, 255, .04); border-color: #22304a !important; }
+    body[data-theme="dark"] #settingsModal .hss-tabs .hs-tab { color: #9fb0c8 !important; }
+    body[data-theme="dark"] #settingsModal .hss-tabs .hs-tab.active { background: #1d2b4a; color: #fff !important; box-shadow: none; }
+    body[data-theme="dark"] #settingsModal .hss-bar span,
+    body[data-theme="dark"] #settingsModal #pane-inv .hs-field label { color: #9fb0c8 !important; }
+    body[data-theme="dark"] #settingsModal .hss-add { background: #3b5fa8; }
+    body[data-theme="dark"] #settingsModal .hss-add:hover { background: #4a70be; }
+    body[data-theme="dark"] #settingsModal .hss-tbl-wrap { border-color: #22304a; }
+    body[data-theme="dark"] #settingsModal .hss-tbl th { background: #16264a !important; }
+    body[data-theme="dark"] #settingsModal .hss-tbl td { border-bottom-color: #1c2942 !important; color: #e6edf7 !important; background: transparent; }
+    body[data-theme="dark"] #settingsModal .hss-tbl tbody tr:nth-child(even) td { background: rgba(255, 255, 255, .025); }
+    body[data-theme="dark"] #settingsModal .hss-tbl tbody tr:hover td { background: rgba(255, 255, 255, .06); }
+    body[data-theme="dark"] #settingsModal .hss-tbl tr.saved td { background: rgba(16, 185, 129, .14) !important; }
+    body[data-theme="dark"] #settingsModal .hss-tbl td input[type="text"],
+    body[data-theme="dark"] #settingsModal .hss-tbl td input[type="number"],
+    body[data-theme="dark"] #settingsModal .hss-tbl td select,
+    body[data-theme="dark"] #settingsModal #pane-inv .hs-field input,
+    body[data-theme="dark"] #settingsModal #pane-inv .hs-field textarea,
+    body[data-theme="dark"] #settingsModal #pane-inv .hs-field select {
+        background: #0d1526 !important; border: 1px solid #2a3a58 !important; color: #e6edf7 !important; -webkit-text-fill-color: #e6edf7 !important;
+    }
+    body[data-theme="dark"] #settingsModal .hss-tbl td select option { background: #0d1526; color: #e6edf7; }
+    body[data-theme="dark"] #settingsModal .cProfit { color: #6ee7b7 !important; }
+    body[data-theme="dark"] #settingsModal .cProfit.neg { color: #fca5a5 !important; }
+    body[data-theme="dark"] #settingsModal .hss-empty { color: #7d8fab !important; }
+    body[data-theme="dark"] #settingsModal .hs-modal-footer { background: transparent; border-top-color: #22304a; }
+    body[data-theme="dark"] #settingsModal .hss-pay { border-top-color: #22304a !important; }
+    body[data-theme="dark"] #settingsModal .hss-pay-t { color: #c9d6ea !important; }
+    /* Tombol footer: Batal outline, Simpan navy solid */
+    body[data-theme] #settingsModal .hs-modal-footer .btn-hs-secondary { background: #fff !important; color: #334155 !important; -webkit-text-fill-color: #334155 !important; border: 1px solid #dbe2ea !important; box-shadow: none !important; }
+    body[data-theme] #settingsModal .hs-modal-footer .btn-hs-primary { background: #0f2747 !important; color: #fff !important; -webkit-text-fill-color: #fff !important; border: 0 !important; box-shadow: none !important; }
+    body[data-theme="dark"] #settingsModal .hs-modal-footer .btn-hs-secondary { background: rgba(255,255,255,.06) !important; color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; border-color: rgba(255,255,255,.16) !important; }
+    body[data-theme="dark"] #settingsModal .hs-modal-footer .btn-hs-primary { background: #3b5fa8 !important; }
     /* Tab Invoice & Perusahaan */
     body[data-theme] #settingsModal #pane-inv .hs-field label {
         font-size: 0.62rem !important;
@@ -4978,8 +5023,8 @@ include '../../includes/header.php';
             </div>
 
             <!-- Payment Info -->
-            <div style="margin-top:1.1rem;padding-top:0.9rem;border-top:2px solid #e2e8f0">
-                <div style="font-size:0.7rem;font-weight:700;color:#1a3457;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.65rem">🏦 Payment Details (shown on invoice)</div>
+            <div class="hss-pay" style="margin-top:1.1rem;padding-top:0.9rem;border-top:1px solid #e2e8f0">
+                <div class="hss-pay-t" style="font-size:0.7rem;font-weight:700;color:#1a3457;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.65rem">🏦 Payment Details (shown on invoice)</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
                     <div class="hs-field"><label>Bank Name</label><input type="text" id="sPayBank" placeholder="e.g. BCA / Mandiri / BNI" value="<?php echo htmlspecialchars($hsSettings['payment_info_bank'] ?? '', ENT_QUOTES); ?>"></div>
                     <div class="hs-field"><label>Account Number</label><input type="text" id="sPayAccount" placeholder="e.g. 1234567890" value="<?php echo htmlspecialchars($hsSettings['payment_info_account'] ?? '', ENT_QUOTES); ?>"></div>
