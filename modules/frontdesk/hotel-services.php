@@ -2122,8 +2122,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
 // ── Fetch list ─────────────────────────────────────────────────────────────────
 $filterStatus = $_GET['status'] ?? '';
-$filterDate   = $_GET['date']   ?? '';
+$filterDate   = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET['date'] ?? '')) ? $_GET['date'] : '';
 $search       = trim($_GET['q'] ?? '');
+// Tampilan per bulan: default bulan ini; ?m=YYYY-MM memilih bulan lain; tanggal spesifik mengalahkan bulan; pencarian (q) mencari di SEMUA bulan
+$filterMonth  = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', (string)($_GET['m'] ?? '')) ? $_GET['m'] : date('Y-m');
+if ($filterDate) $filterMonth = substr($filterDate, 0, 7);
+$searchAll    = $search !== '';
+$monthStart   = $filterMonth . '-01';
+$monthEnd     = date('Y-m-d', strtotime($monthStart . ' +1 month'));
 
 $where  = ["hi.business_id = ?"];
 $params = [$businessId];
@@ -2134,6 +2140,10 @@ if ($filterStatus) {
 if ($filterDate) {
     $where[] = 'DATE(COALESCE(hi.last_service_at, hi.created_at)) = ?';
     $params[] = $filterDate;
+} elseif (!$searchAll) {
+    $where[] = 'COALESCE(hi.last_service_at, hi.created_at) >= ? AND COALESCE(hi.last_service_at, hi.created_at) < ?';
+    $params[] = $monthStart;
+    $params[] = $monthEnd;
 }
 if ($search) {
     $where[] = '(hi.guest_name LIKE ? OR hi.invoice_number LIKE ? OR hi.room_number LIKE ?)';
@@ -2609,6 +2619,18 @@ include '../../includes/header.php';
         box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
         flex-shrink: 0;
     }
+
+    /* Navigasi bulan */
+    .hs-monthnav { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; margin: 0 0 .6rem; }
+    .hs-mn-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgba(148, 163, 184, .4); background: rgba(148, 163, 184, .1); color: inherit; font-size: 1.1rem; line-height: 1; text-decoration: none; cursor: pointer; }
+    a.hs-mn-btn:hover { background: rgba(99, 102, 241, .15); border-color: rgba(99, 102, 241, .5); }
+    .hs-mn-btn.is-off { opacity: .35; cursor: default; }
+    .hs-mn-form { margin: 0; }
+    .hs-mn-form input[type="month"] { height: 30px; padding: 0 .55rem; border-radius: 9px; border: 1px solid rgba(148, 163, 184, .4); background: transparent; color: inherit; font-size: .78rem; font-weight: 600; }
+    .hs-mn-today { height: 30px; display: inline-flex; align-items: center; padding: 0 .75rem; border-radius: 9px; background: linear-gradient(180deg, #6366f1, #4f46e5); color: #fff !important; font-size: .72rem; font-weight: 700; text-decoration: none; }
+    .hs-mn-sum { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .9rem; font-size: .74rem; opacity: .95; }
+    .hs-mn-sum b { font-weight: 800; } .hs-mn-sum b.ok { color: #22c55e; } .hs-mn-sum b.bad { color: #ef4444; }
+    .hs-mn-all { padding: 1px 9px; border-radius: 999px; background: rgba(245, 158, 11, .16); color: #d97706; font-size: .66rem; }
 
     /* Invoice detail popup */
     .hs-detail-modal {
@@ -4418,8 +4440,42 @@ include '../../includes/header.php';
         </div>
     <?php endif; ?>
 
+    <!-- Navigasi bulan -->
+    <?php
+    $hsCurMonth = date('Y-m');
+    $hsPrev = date('Y-m', strtotime($monthStart . ' -1 month'));
+    $hsNext = date('Y-m', strtotime($monthStart . ' +1 month'));
+    $hsQs = fn($m) => '?' . http_build_query(array_filter(['m' => $m, 'status' => $filterStatus], fn($v) => $v !== ''));
+    $hsSumTotal = array_sum(array_map(fn($i) => (float)$i['total'], $invoices));
+    $hsSumPaid = array_sum(array_map(fn($i) => (float)$i['paid_amount'], $invoices));
+    $hsSumRest = array_sum(array_map(fn($i) => max(0, (float)$i['total'] - (float)$i['paid_amount']), $invoices));
+    ?>
+    <div class="hs-monthnav">
+        <a class="hs-mn-btn" href="<?php echo $hsQs($hsPrev); ?>" title="Bulan sebelumnya" aria-label="Bulan sebelumnya">‹</a>
+        <form method="GET" class="hs-mn-form">
+            <?php if ($filterStatus): ?><input type="hidden" name="status" value="<?php echo htmlspecialchars($filterStatus); ?>"><?php endif; ?>
+            <input type="month" name="m" value="<?php echo htmlspecialchars($filterMonth); ?>" max="<?php echo $hsCurMonth; ?>" onchange="this.form.submit()" aria-label="Pilih bulan">
+        </form>
+        <?php if ($filterMonth < $hsCurMonth): ?>
+            <a class="hs-mn-btn" href="<?php echo $hsQs($hsNext); ?>" title="Bulan berikutnya" aria-label="Bulan berikutnya">›</a>
+        <?php else: ?>
+            <span class="hs-mn-btn is-off" aria-hidden="true">›</span>
+        <?php endif; ?>
+        <?php if ($filterMonth !== $hsCurMonth || $filterDate || $searchAll): ?>
+            <a class="hs-mn-today" href="hotel-services.php">Bulan ini</a>
+        <?php endif; ?>
+        <span class="hs-mn-sum">
+            <?php if ($searchAll): ?><b class="hs-mn-all">Pencarian di semua bulan</b><?php endif; ?>
+            <span><b><?php echo count($invoices); ?></b> invoice</span>
+            <span>Total <b>Rp <?php echo number_format($hsSumTotal, 0, ',', '.'); ?></b></span>
+            <span>Terbayar <b class="ok">Rp <?php echo number_format($hsSumPaid, 0, ',', '.'); ?></b></span>
+            <?php if ($hsSumRest > 0): ?><span>Sisa <b class="bad">Rp <?php echo number_format($hsSumRest, 0, ',', '.'); ?></b></span><?php endif; ?>
+        </span>
+    </div>
+
     <!-- Filters -->
     <form method="GET" class="hs-filters">
+        <?php if (!$searchAll && !$filterDate && $filterMonth !== date('Y-m')): ?><input type="hidden" name="m" value="<?php echo htmlspecialchars($filterMonth); ?>"><?php endif; ?>
         <input type="text" name="q" placeholder="🔍 Cari tamu / nomor invoice..." value="<?php echo htmlspecialchars($search); ?>">
         <select name="status">
             <option value="">Semua status</option>
@@ -4430,7 +4486,7 @@ include '../../includes/header.php';
         <input type="date" name="date" value="<?php echo htmlspecialchars($filterDate); ?>">
         <button type="submit" class="btn-hs btn-hs-primary">Filter</button>
         <?php if ($filterStatus || $filterDate || $search): ?>
-            <a href="hotel-services.php" class="btn-hs btn-hs-secondary" style="text-decoration:none">Hapus filter</a>
+            <a href="<?php echo $filterMonth !== date('Y-m') && !$filterDate ? '?m=' . htmlspecialchars($filterMonth) : 'hotel-services.php'; ?>" class="btn-hs btn-hs-secondary" style="text-decoration:none">Hapus filter</a>
         <?php endif; ?>
     </form>
 
