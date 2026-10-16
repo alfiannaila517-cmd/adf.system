@@ -18,6 +18,12 @@ $auth = new Auth();
 $auth->requireLogin();
 
 $db = Database::getInstance();
+// Tombol "Cek harga Cloudbeds" per tamu hanya bila Cloudbeds sudah terhubung
+$cbpOn = false;
+try {
+    $cbpOn = trim((string)($db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'cloudbeds_api_key'")['setting_value'] ?? '')) !== '';
+} catch (\Throwable $e) {
+}
 require_once __DIR__ . '/../../includes/BookingSourceHelper.php';
 bs_ensure_schema($db->getConnection());
 $currentUser = $auth->getCurrentUser();
@@ -1193,6 +1199,9 @@ include '../../includes/header.php';
                                             <button class="action-dropdown-item sub" onclick="printInvoice(<?php echo $booking['id']; ?>, 'all')">Room + Hotel Service</button>
                                         </div>
                                         <button class="action-dropdown-item item-edit" onclick="editBooking(<?php echo $booking['id']; ?>)">Edit Booking</button>
+                                        <?php if ($cbpOn): ?>
+                                            <button class="action-dropdown-item item-cbprice" onclick="adfCbPrice(<?php echo (int)$booking['id']; ?>)">Cek harga Cloudbeds</button>
+                                        <?php endif; ?>
                                         <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
                                             <div class="action-dropdown-divider"></div>
                                             <?php if ($isGrouped): ?>
@@ -3413,4 +3422,5 @@ include '../../includes/header.php';
 
 <?php include __DIR__ . '/cloudbeds-autosync-include.php'; ?>
 <?php include '../../includes/checkin-gate.php'; ?>
+<?php if ($cbpOn) include '../../includes/cloudbeds-price-modal.php'; ?>
 <?php include '../../includes/footer.php'; ?>

@@ -3072,6 +3072,64 @@ class CloudbedsSync
         return ['ok' => true, 'msg' => 'Total ' . $code . ' disamakan dengan Cloudbeds: Rp ' . number_format($old, 0, ',', '.') . ' → Rp ' . number_format($new, 0, ',', '.') . (count($rows) > 1 ? ' (dibagi ke ' . count($rows) . ' kamar)' : '') . '.'];
     }
 
+    /**
+     * Ringkasan harga satu booking (seluruh kamar bila grup) dibanding Cloudbeds — untuk tombol "Cek harga Cloudbeds" per tamu.
+     * master: 'cloudbeds' (booking OTA: harga mengikuti Cloudbeds) | 'adf' (walk-in/telepon/web & buatan sistem: harga mengikuti ADF).
+     * @return array{ok:bool,linked:bool,msg?:string}
+     */
+    public function priceStatus(int $bookingId): array
+    {
+        $this->ensureTables();
+        $b = $this->db->fetchOne("SELECT b.id, b.booking_code, b.group_id, g.guest_name FROM bookings b LEFT JOIN guests g ON g.id = b.guest_id WHERE b.id = ?", [$bookingId]);
+        if (!$b) return ['ok' => false, 'linked' => false, 'msg' => 'Booking tidak ditemukan'];
+        $rows = !empty($b['group_id'])
+            ? $this->db->fetchAll("SELECT id, final_price, paid_amount, booking_source FROM bookings WHERE group_id = ? AND status <> 'cancelled'", [$b['group_id']])
+            : $this->db->fetchAll("SELECT id, final_price, paid_amount, booking_source FROM bookings WHERE id = ?", [$bookingId]);
+        $rows = $rows ?: [];
+        $in = implode(',', array_map(fn($r) => (int)$r['id'], $rows) ?: [$bookingId]);
+        $link = $this->db->fetchOne("SELECT cb_reservation_id FROM cloudbeds_booking_links WHERE booking_id IN ($in) LIMIT 1");
+        $adf = round(array_sum(array_map(fn($r) => (float)$r['final_price'], $rows)), 2);
+        $paid = round(array_sum(array_map(fn($r) => (float)$r['paid_amount'], $rows)), 2);
+        $base = ['ok' => true, 'code' => $b['booking_code'], 'guest' => (string)$b['guest_name'], 'rooms' => count($rows), 'adf_total' => $adf, 'adf_paid' => $paid];
+        if (!$link) return $base + ['linked' => false, 'msg' => 'Booking ini belum tertaut ke reservasi Cloudbeds.'];
+        $cbId = (string)$link['cb_reservation_id'];
+        $isOtaRes = (bool)$this->db->fetchOne("SELECT booking_id FROM cloudbeds_booking_links WHERE cb_reservation_id = ? AND how <> 'push' LIMIT 1", [$cbId]);
+        $master = ($isOtaRes && !$this->allDirectSources($rows)) ? 'cloudbeds' : 'adf';
+        $det = $this->cb->reservationDetail($cbId);
+        if (!$det['ok'] || $det['total'] === null) return $base + ['linked' => true, 'cb_id' => $cbId, 'master' => $master, 'msg' => 'Total Cloudbeds tidak terbaca: ' . ($det['detail'] ?? '')];
+        $cbTotal = round((float)$det['total'], 2);
+        return $base + ['linked' => true, 'cb_id' => $cbId, 'master' => $master, 'cb_total' => $cbTotal, 'cb_balance' => $det['balance'], 'diff' => round($adf - $cbTotal, 2)];
+    }
+
+    /**
+     * Samakan harga CLOUDBEDS dengan harga ADF (booking langsung saja; booking OTA mengikuti Cloudbeds).
+     * Dihitung terhadap total Cloudbeds saat ini. Kenaikan dikirim sebagai adjustment; penurunan TIDAK bisa lewat API
+     * (Cloudbeds menganggap adjustment minus sebagai tagihan plus) sehingga harus dikurangi manual di folio Cloudbeds.
+     * @return array{ok:bool,msg:string}
+     */
+    public function pushAdfPriceToCloudbeds(int $bookingId): array
+    {
+        $st = $this->priceStatus($bookingId);
+        if (!$st['ok'] || empty($st['linked'])) return ['ok' => false, 'msg' => $st['msg'] ?? 'Booking belum tertaut ke Cloudbeds'];
+        if (!isset($st['cb_total'])) return ['ok' => false, 'msg' => $st['msg'] ?? 'Total Cloudbeds tidak terbaca'];
+        if ($st['master'] === 'cloudbeds') return ['ok' => false, 'msg' => 'Booking OTA: harga mengikuti Cloudbeds, tidak dikirim dari ADF. Gunakan "Ikuti harga Cloudbeds".'];
+        $delta = round($st['adf_total'] - $st['cb_total'], 2);
+        if (abs($delta) < 1) return ['ok' => false, 'msg' => 'Harga sudah sama (Rp ' . number_format($st['adf_total'], 0, ',', '.') . ').'];
+        if ($delta < 0) {
+            return ['ok' => false, 'manual' => true, 'msg' => 'Cloudbeds lebih tinggi Rp ' . number_format(abs($delta), 0, ',', '.') . ' dari ADF. Penurunan harga tidak bisa dikirim otomatis (batasan API Cloudbeds): kurangi manual di folio Cloudbeds #' . $st['cb_id'] . ', atau pilih "Ikuti harga Cloudbeds" agar ADF yang menyesuaikan.'];
+        }
+        $cbId = $st['cb_id'];
+        $r = $this->cb->send('POST', 'postAdjustment', [
+            'reservationID' => $cbId,
+            'type' => 'rate',
+            'amount' => $delta,
+            'notes' => mb_substr('ADF: total sistem Rp ' . number_format($st['adf_total'], 0, ',', '.') . ' (sebelumnya Rp ' . number_format($st['cb_total'], 0, ',', '.') . ')', 0, 250),
+        ]);
+        if (!$r['ok']) return ['ok' => false, 'msg' => 'Cloudbeds menolak: ' . $r['detail'] . (in_array((int)($r['http'] ?? 0), [401, 403], true) ? ' (perlu scope "Adjustment: Write")' : '')];
+        $this->db->query("INSERT INTO cloudbeds_price_sync (cb_reservation_id, synced_total) VALUES (?, ?) ON DUPLICATE KEY UPDATE synced_total = VALUES(synced_total)", [$cbId, $st['adf_total']]);
+        $this->db->query("INSERT INTO cloudbeds_price_checks (cb_reservation_id, checked_at, cb_total) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE checked_at = NOW(), cb_total = VALUES(cb_total)", [$cbId, $st['adf_total']]);
+        return ['ok' => true, 'msg' => 'Cloudbeds disamakan dengan ADF: Rp ' . number_format($st['cb_total'], 0, ',', '.') . ' → Rp ' . number_format($st['adf_total'], 0, ',', '.') . '.'];
+    }
     /** Atur harga booking (satu kamar) ke nominal yang benar — dipakai untuk membereskan harga yang ikut membengkak. */
     public function setBookingPrice(string $code, float $price): array
     {
