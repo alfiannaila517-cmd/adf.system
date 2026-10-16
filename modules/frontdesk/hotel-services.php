@@ -2253,7 +2253,7 @@ $stats = $pdo->prepare("SELECT COUNT(*) as total,
 $stats->execute([$businessId]);
 $today = $stats->fetch(PDO::FETCH_ASSOC);
 
-// Revenue per service type — this month (paid/partial invoices)
+// Revenue per service type — bulan yang dipilih di navigasi bulan (default bulan ini), invoice paid/partial
 $svcRevStmt = $pdo->prepare("
     SELECT hii.service_type,
            COUNT(DISTINCT hii.invoice_id) AS invoice_count,
@@ -2262,12 +2262,12 @@ $svcRevStmt = $pdo->prepare("
     JOIN hotel_invoices hi ON hii.invoice_id = hi.id
     WHERE hi.business_id = ?
       AND hi.payment_status IN ('paid','partial')
-      AND YEAR(hi.created_at)  = YEAR(CURDATE())
-      AND MONTH(hi.created_at) = MONTH(CURDATE())
+      AND COALESCE(hi.last_service_at, hi.created_at) >= ?
+      AND COALESCE(hi.last_service_at, hi.created_at) < ?
     GROUP BY hii.service_type
     ORDER BY total_revenue DESC
 ");
-$svcRevStmt->execute([$businessId]);
+$svcRevStmt->execute([$businessId, $monthStart, $monthEnd]);
 $svcRevStats = $svcRevStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // In-house guests
@@ -4264,7 +4264,35 @@ include '../../includes/header.php';
     #hsx .hs-stats .hs-stat { display: flex !important; flex-direction: column-reverse; justify-content: flex-end; gap: .15rem; padding: .7rem .85rem !important; border-radius: 13px !important; background: var(--soft) !important; border: 1px solid var(--line) !important; border-top: 3px solid var(--c, #2563eb) !important; box-shadow: none !important; text-align: left !important; }
     #hsx .hs-stats .hs-stat .val { font-size: 1.1rem !important; font-weight: 800 !important; letter-spacing: -.01em; color: var(--ink) !important; -webkit-text-fill-color: var(--ink) !important; }
     #hsx .hs-stats .hs-stat .lbl { font-size: .62rem !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: .06em; color: var(--mute) !important; -webkit-text-fill-color: var(--mute) !important; }
-    /* Pendapatan per layanan */
+    /* Ringkasan: KPI hari ini + donut */
+    #hsx .hsx-dash { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: .7rem; margin-bottom: .8rem; }
+    #hsx .hsx-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: .75rem .95rem .85rem; min-width: 0; }
+    #hsx .hsx-card-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: .6rem; font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--mute) !important; }
+    #hsx .hsx-card-h small { font-size: .62rem; font-weight: 600; letter-spacing: .02em; text-transform: none; color: var(--faint) !important; }
+    #hsx .hsx-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .45rem; }
+    #hsx .hsx-kpi { grid-column: span 2; padding: .5rem .65rem; border-radius: 11px; background: var(--soft); border: 1px solid var(--line); border-left: 3px solid var(--c); }
+    #hsx .hsx-kpi.big { grid-column: span 3; }
+    #hsx .hsx-kpi small { display: block; font-size: .56rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--mute) !important; }
+    #hsx .hsx-kpi b { display: block; margin-top: .1rem; font-size: .95rem; font-weight: 800; color: var(--ink) !important; letter-spacing: -.01em; }
+    #hsx .hsx-kpi.big b { font-size: 1.05rem; }
+    #hsx .hsx-pie-body { display: flex; align-items: center; gap: 1rem; }
+    #hsx .hsx-donut { position: relative; flex: none; width: 118px; height: 118px; }
+    #hsx .hsx-donut svg { display: block; transform: rotate(0deg); }
+    #hsx .hsx-donut-bg { stroke: var(--line); }
+    #hsx .hsx-donut circle { transition: stroke-width .15s; } #hsx .hsx-donut circle:hover { stroke-width: 6.2; }
+    #hsx .hsx-donut-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+    #hsx .hsx-donut-c small { font-size: .52rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--mute) !important; }
+    #hsx .hsx-donut-c b { font-size: .95rem; font-weight: 800; color: var(--ink) !important; }
+    #hsx .hsx-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .32rem; }
+    #hsx .hsx-legend li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 34px; align-items: center; gap: .45rem; font-size: .72rem; }
+    #hsx .hsx-legend li i { width: 9px; height: 9px; border-radius: 3px; background: var(--c); }
+    #hsx .hsx-legend .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink) !important; font-weight: 600; }
+    #hsx .hsx-legend .v { color: var(--mute) !important; font-weight: 600; white-space: nowrap; }
+    #hsx .hsx-legend .p { text-align: right; font-weight: 800; color: var(--ink) !important; }
+    #hsx .hsx-pie-empty { padding: 1.2rem .5rem; text-align: center; font-size: .78rem; color: var(--mute) !important; }
+    @media (max-width: 1000px) { #hsx .hsx-dash { grid-template-columns: 1fr; } }
+    @media (max-width: 520px) { #hsx .hsx-pie-body { flex-direction: column; align-items: stretch; } #hsx .hsx-donut { align-self: center; } }
+    /* Pendapatan per layanan (lama, tidak dipakai lagi) */
     #hsx .hsx-rev { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: .8rem 1rem; margin-bottom: .8rem; }
     #hsx .hsx-rev-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--mute) !important; }
     #hsx .hsx-rev-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .55rem; }
@@ -4420,52 +4448,76 @@ include '../../includes/header.php';
             })();
         </script>
 
-        <!-- Stats -->
-        <div class="hs-stats">
-            <div class="hs-stat" style="--c:#6366f1">
-                <div class="val"><?php echo $today['total']; ?></div>
-                <div class="lbl">Invoice Hari Ini</div>
-            </div>
-            <div class="hs-stat" style="--c:#10b981">
-                <div class="val">Rp <?php echo number_format($today['revenue'], 0, ',', '.'); ?></div>
-                <div class="lbl">Pendapatan Hari Ini</div>
-            </div>
-            <div class="hs-stat" style="--c:#3b82f6">
-                <div class="val">Rp <?php echo number_format($today['collected'], 0, ',', '.'); ?></div>
-                <div class="lbl">Terkumpul</div>
-            </div>
-            <div class="hs-stat" style="--c:#ef4444">
-                <div class="val"><?php echo $today['unpaid']; ?></div>
-                <div class="lbl">Belum Lunas</div>
-            </div>
-            <div class="hs-stat" style="--c:#8b5cf6">
-                <div class="val"><?php echo $today['completed']; ?></div>
-                <div class="lbl">Selesai</div>
-            </div>
-        </div>
     </div>
 
-    <!-- Revenue per Service Type (this month) -->
-    <?php if (!empty($svcRevStats)): ?>
-        <div class="hsx-rev">
-            <div class="hsx-rev-h"><span>Pendapatan per layanan · bulan ini</span></div>
-            <div class="hsx-rev-grid">
-                <?php
-                $svcColors = ['motor_rental' => '#f59e0b', 'car_rental' => '#0f766e', 'laundry' => '#3b82f6', 'service' => '#10b981', 'airport_drop' => '#8b5cf6', 'harbor_drop' => '#06b6d4', 'narayana_trip' => '#ec4899', 'lain_lain' => '#78716c'];
-                foreach ($svcRevStats as $sr):
-                    $svcKey  = $sr['service_type'];
-                    $svcInfo = $serviceTypes[$svcKey] ?? ['label' => $svcKey, 'icon' => '🔹'];
-                    $color   = $svcColors[$svcKey] ?? '#6366f1';
-                ?>
-                    <div class="hsx-rev-i" style="--c:<?php echo $color; ?>">
-                        <div class="n"><?php echo $svcInfo['icon']; ?> <?php echo htmlspecialchars($svcInfo['label']); ?></div>
-                        <div class="v">Rp <?php echo number_format($sr['total_revenue'], 0, ',', '.'); ?></div>
-                        <div class="c"><?php echo $sr['invoice_count']; ?> invoice</div>
-                    </div>
-                <?php endforeach; ?>
+    <!-- Ringkasan: KPI hari ini + donut pendapatan per layanan (bulan terpilih) -->
+    <?php
+    $dEn = function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en';
+    $dMonths = $dEn
+        ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+        : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    $dMonthLabel = $dMonths[(int)substr($filterMonth, 5, 2) - 1] . ' ' . substr($filterMonth, 0, 4);
+    $svcColors = ['motor_rental' => '#f59e0b', 'car_rental' => '#0f766e', 'laundry' => '#3b82f6', 'service' => '#10b981', 'airport_drop' => '#8b5cf6', 'harbor_drop' => '#06b6d4', 'narayana_trip' => '#ec4899', 'extra_bed' => '#6366f1', 'extra_breakfast' => '#f97316', 'charge' => '#6366f1', 'other' => '#94a3b8'];
+    $fallbackColors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#f97316', '#14b8a6', '#ef4444', '#84cc16'];
+    $dRows = [];
+    $dTotal = 0.0;
+    foreach ($svcRevStats as $i => $sr) {
+        $info = $serviceTypes[$sr['service_type']] ?? ['label' => $sr['service_type'], 'icon' => '🔹'];
+        $dRows[] = ['label' => $info['label'], 'icon' => $info['icon'] ?? '🔹', 'v' => (float)$sr['total_revenue'], 'n' => (int)$sr['invoice_count'],
+            'c' => $svcColors[$sr['service_type']] ?? $fallbackColors[$i % count($fallbackColors)]];
+        $dTotal += (float)$sr['total_revenue'];
+    }
+    // Maks. 5 irisan; sisanya digabung "Lainnya"
+    if (count($dRows) > 5) {
+        $rest = array_slice($dRows, 4);
+        $dRows = array_slice($dRows, 0, 4);
+        $dRows[] = ['label' => $dEn ? 'Others' : 'Lainnya', 'icon' => '•', 'v' => array_sum(array_column($rest, 'v')), 'n' => array_sum(array_column($rest, 'n')), 'c' => '#64748b'];
+    }
+    $dShort = function (float $v) use ($dEn): string {
+        if ($v >= 1000000) return number_format($v / 1000000, 1, $dEn ? '.' : ',', '') . ($dEn ? 'M' : ' jt');
+        if ($v >= 1000) return number_format($v / 1000, 0, ',', '.') . 'k';
+        return number_format($v, 0, ',', '.');
+    };
+    ?>
+    <div class="hsx-dash">
+        <div class="hsx-card hsx-today">
+            <div class="hsx-card-h"><span><?php echo $dEn ? 'Today' : 'Hari ini'; ?></span><small><?php echo date('d M Y'); ?></small></div>
+            <div class="hsx-kpis">
+                <div class="hsx-kpi big" style="--c:#10b981"><small>Pendapatan Hari Ini</small><b>Rp <?php echo number_format($today['revenue'], 0, ',', '.'); ?></b></div>
+                <div class="hsx-kpi big" style="--c:#3b82f6"><small>Terkumpul</small><b>Rp <?php echo number_format($today['collected'], 0, ',', '.'); ?></b></div>
+                <div class="hsx-kpi" style="--c:#6366f1"><small>Invoice Hari Ini</small><b><?php echo (int)$today['total']; ?></b></div>
+                <div class="hsx-kpi" style="--c:#ef4444"><small>Belum Lunas</small><b><?php echo (int)$today['unpaid']; ?></b></div>
+                <div class="hsx-kpi" style="--c:#8b5cf6"><small>Selesai</small><b><?php echo (int)$today['completed']; ?></b></div>
             </div>
         </div>
-    <?php endif; ?>
+        <div class="hsx-card hsx-pie">
+            <div class="hsx-card-h"><span>Pendapatan per layanan</span><small><?php echo htmlspecialchars($dMonthLabel); ?></small></div>
+            <?php if ($dRows && $dTotal > 0): ?>
+                <div class="hsx-pie-body">
+                    <div class="hsx-donut" role="img" aria-label="Pendapatan per layanan">
+                        <svg viewBox="0 0 42 42" width="118" height="118">
+                            <circle class="hsx-donut-bg" cx="21" cy="21" r="15.915" fill="none" stroke-width="5.2"/>
+                            <?php $off = 25.0; foreach ($dRows as $dr): $pct = $dr['v'] / $dTotal * 100; ?>
+                                <circle cx="21" cy="21" r="15.915" fill="none" stroke="<?php echo $dr['c']; ?>" stroke-width="5.2" stroke-dasharray="<?php echo round(max(0, $pct - 0.6), 3); ?> <?php echo round(100 - max(0, $pct - 0.6), 3); ?>" stroke-dashoffset="<?php echo round($off, 3); ?>"><title><?php echo htmlspecialchars($dr['label']); ?>: Rp <?php echo number_format($dr['v'], 0, ',', '.'); ?> (<?php echo round($pct); ?>%)</title></circle>
+                            <?php $off -= $pct; endforeach; ?>
+                        </svg>
+                        <div class="hsx-donut-c"><small>Total</small><b><?php echo $dShort($dTotal); ?></b></div>
+                    </div>
+                    <ul class="hsx-legend">
+                        <?php foreach ($dRows as $dr): ?>
+                            <li style="--c:<?php echo $dr['c']; ?>">
+                                <i></i><span class="n"><?php echo htmlspecialchars($dr['icon'] . ' ' . $dr['label']); ?></span>
+                                <span class="v">Rp <?php echo number_format($dr['v'], 0, ',', '.'); ?></span>
+                                <span class="p"><?php echo round($dr['v'] / $dTotal * 100); ?>%</span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php else: ?>
+                <div class="hsx-pie-empty">Belum ada pendapatan pada bulan ini.</div>
+            <?php endif; ?>
+        </div>
+    </div>
 
     <!-- Navigasi bulan -->
     <?php

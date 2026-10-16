@@ -2,6 +2,7 @@
 /** Kamus EN: Hotel Services, Rental Motor/Mobil, Invoice layanan (modules/frontdesk/hotel-services.php, rental-*.php, invoice.php). */
 return [
     'text' => [
+        'Hari ini' => 'Today', 'Pendapatan per layanan' => 'Revenue per service', 'Belum ada pendapatan pada bulan ini.' => 'No revenue in this month yet.', 'Lainnya' => 'Others',
         'Tahun sebelumnya' => 'Previous year', 'Tahun berikutnya' => 'Next year',
         'Bulan ini' => 'This month', 'Bulan sebelumnya' => 'Previous month', 'Bulan berikutnya' => 'Next month', 'Pilih bulan' => 'Select month', 'Pencarian di semua bulan' => 'Searching all months',
         'invoice' => 'invoice(s)', 'Terbayar' => 'Paid',
