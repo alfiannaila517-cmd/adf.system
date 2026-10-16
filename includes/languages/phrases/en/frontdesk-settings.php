@@ -49,6 +49,7 @@ return [
         'Terkirim' => 'Sent', 'Gagal' => 'Failed', 'Sisa kredit' => 'Remaining credit', 'Simpan Pengaturan' => 'Save Settings', '— Tidak ada' => '— None',
         'Nomor tujuan, mis. 0812…' => 'Recipient number, e.g. 0812…',
         // ---- Layanan Tamu (guest-services.php) ----
+        'Teks ini tidak memuat {guest_name}, jadi nama yang tertulis (mis. "John") akan sama untuk semua tamu. Sisipkan {guest_name} atau klik Pakai teks bawaan singkat di bawah.' => 'This text does not contain {guest_name}, so the name written in it (e.g. "John") will be the same for every guest. Insert {guest_name} or click Use short default text below.',
         'Kamar' => 'Room', 'Tamu' => 'Guest', 'Check-in (manual)' => 'Check-in (manual)',
         'Layanan' => 'Service', 'WA Layanan lain' => 'WA Other services', 'Matikan sementara tanpa menghapus layanan.' => 'Turn off temporarily without deleting the service.',
         'Nama layanan' => 'Service name', 'Nama (English)' => 'Name (English)', 'Ikon' => 'Icon', 'Harga mulai dari (Rp, opsional)' => 'Starting price (Rp, optional)',

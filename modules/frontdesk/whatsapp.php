@@ -294,6 +294,7 @@ include '../../includes/header.php';
                             <?php foreach (WhatsAppHelper::CHECKIN_PLACEHOLDERS as $ph): ?><code data-ph="<?php echo $ph; ?>"><?php echo $ph; ?></code> <?php endforeach; ?>
                         </span>
                     </div>
+                    <div class="wa-hint" id="waTplWarn" style="display:none;margin:0 0 .6rem;padding:.4rem .6rem;border-radius:8px;background:rgba(245,158,11,.14);color:#b45309 !important">Teks ini tidak memuat {guest_name}, jadi nama yang tertulis (mis. "John") akan sama untuk semua tamu. Sisipkan {guest_name} atau klik Pakai teks bawaan singkat di bawah.</div>
                     <div class="wa-row" style="margin-bottom:.7rem">
                         <button type="button" class="wa-btn ghost" id="waTplId">Pakai teks bawaan singkat (Indonesia)</button>
                         <button type="button" class="wa-btn ghost" id="waTplEn">Pakai teks bawaan singkat (English)</button>
@@ -467,6 +468,8 @@ include '../../includes/header.php';
             '{services_link}': <?php echo json_encode(GuestServices::baseUrl() . '/guest-services.php?k=abc1234'); ?>
         };
         function render() {
+            // Peringatan bila template tidak memakai {guest_name} (nama tamu akan tertulis tetap, sama untuk semua tamu)
+            document.getElementById('waTplWarn').style.display = tpl.value.indexOf('{guest_name}') === -1 ? 'block' : 'none';
             let t = tpl.value;
             Object.entries(sample).forEach(([k, v]) => { t = t.split(k).join(v); });
             preview.textContent = t;
