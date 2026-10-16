@@ -367,6 +367,56 @@ include '../../includes/header.php';
     body[data-theme="dark"] .hk-wrap .hk-select option { color: #f1f5f9; background: #0f172a; }
     .hk-wrap .hk-task { transition: box-shadow .15s ease, transform .15s ease; }
     .hk-wrap .hk-task:hover { box-shadow: 0 8px 18px -12px rgba(15, 23, 42, .55); transform: translateY(-1px); }
+
+    /* ── Gaya profesional & ringkas (seragam dengan tombol header Reservasi) ── */
+    .hk-wrap { font-size: .74rem; padding-top: .5rem; }
+    .hk-wrap .hk-bar, .hk-wrap .hk-sum, .hk-wrap .hk-col, .hk-wrap .hk-save { border-radius: 12px; box-shadow: 0 1px 2px rgba(15, 23, 42, .05); }
+    .hk-wrap .hk-bar { padding: .5rem .75rem; }
+    .hk-wrap .hk-bar-t b { font-size: .88rem; font-weight: 700; }
+    .hk-wrap .hk-bar-t small { font-size: .62rem; }
+    /* Tombol: putih + garis tipis; aksi utama navy solid */
+    body[data-theme] .hk-wrap .hk-btn { height: 28px; padding: 0 .8rem; border-radius: 8px; font-size: .7rem; font-weight: 600; background: #fff !important; border: 1px solid #dbe2ea; box-shadow: 0 1px 2px rgba(15, 23, 42, .05); transition: background .15s, border-color .15s; }
+    body[data-theme] .hk-wrap .hk-btn:hover { background: #f1f5f9 !important; border-color: #c3ccd9; }
+    body[data-theme] .hk-wrap .hk-btn.sm { height: 24px; padding: 0 .65rem; font-size: .64rem; }
+    body[data-theme] .hk-wrap .hk-btn.pri { background: #0f2747 !important; border-color: #0f2747; box-shadow: none; }
+    body[data-theme] .hk-wrap .hk-btn.pri:hover { background: #1d3f6e !important; border-color: #1d3f6e; }
+    body[data-theme="dark"] .hk-wrap .hk-btn:not(.pri) { background: rgba(255, 255, 255, .06) !important; border-color: rgba(255, 255, 255, .16); box-shadow: none; }
+    body[data-theme="dark"] .hk-wrap .hk-btn:not(.pri):hover { background: rgba(255, 255, 255, .12) !important; }
+    body[data-theme="dark"] .hk-wrap .hk-btn.pri { background: #3b5fa8 !important; border-color: #3b5fa8; }
+    .hk-wrap .hk-date { height: 28px; border-radius: 8px; font-size: .72rem; }
+    /* Ringkasan: chip tenang, hanya angka & titik warna kecil */
+    .hk-wrap .hk-sum { padding: .4rem .7rem; gap: .35rem; }
+    .hk-wrap .hk-chip { height: 24px; padding: 0 .6rem; font-size: .65rem; font-weight: 600; background: transparent; }
+    .hk-wrap .hk-chip b { font-size: .74rem; }
+    .hk-wrap .hk-chip.b2b, .hk-wrap .hk-chip.od, .hk-wrap .hk-chip.vd { background: transparent; border-color: var(--line); }
+    .hk-wrap .hk-chip.b2b::before, .hk-wrap .hk-chip.od::before, .hk-wrap .hk-chip.vd::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .hk-wrap .hk-chip.b2b::before { color: #16a34a; } .hk-wrap .hk-chip.od::before { color: #2563eb; } .hk-wrap .hk-chip.vd::before { color: #d97706; }
+    .hk-wrap .hk-chip.b2b b, .hk-wrap .hk-chip.od b, .hk-wrap .hk-chip.vd b { color: var(--ink) !important; }
+    /* Kolom & kartu kamar lebih kecil */
+    .hk-wrap .hk-board { grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: .5rem; }
+    .hk-wrap .hk-col-h { padding: .4rem .6rem; gap: .45rem; }
+    .hk-wrap .hk-av { width: 22px; height: 22px; border-radius: 7px; font-size: .62rem; }
+    body[data-theme] .hk-wrap .hk-av { background: #0f2747; }
+    body[data-theme] .hk-wrap .hk-col.team .hk-av { background: #64748b; }
+    body[data-theme="dark"] .hk-wrap .hk-av { background: #3b5fa8; }
+    body[data-theme="dark"] .hk-wrap .hk-col.team .hk-av { background: #64748b; }
+    .hk-wrap .hk-col-n { font-size: .74rem; font-weight: 700; }
+    .hk-wrap .hk-col-c { font-size: .58rem; font-weight: 600; padding: 1px 8px; background: transparent; }
+    .hk-wrap .hk-col-b { padding: .35rem; gap: .3rem; }
+    .hk-wrap .hk-task { padding: .3rem .45rem .35rem; border-radius: 8px; border-left-width: 3px; background: transparent; }
+    .hk-wrap .hk-task:hover { transform: none; box-shadow: 0 2px 8px -4px rgba(15, 23, 42, .3); }
+    .hk-wrap .hk-task-r b { font-size: .72rem; font-weight: 700; }
+    .hk-wrap .hk-task-r small { font-size: .6rem; }
+    .hk-wrap .hk-task-c { font-size: .58rem; margin: 1px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body[data-theme] .hk-wrap .hk-code { font-size: .54rem; font-weight: 700; padding: 1px 6px; border-radius: 5px; box-shadow: none; }
+    .hk-wrap .hk-select { height: 24px; font-size: .66rem; font-weight: 500; border-radius: 7px; }
+    body[data-theme] .hk-wrap .hk-pill { font-size: .52rem; font-weight: 700; padding: 1px 7px; }
+    body[data-theme] .hk-wrap .hk-pill.auto { background: #e8eefb; } body[data-theme] .hk-wrap .hk-pill.manual { background: #7c3aed; }
+    body[data-theme] .hk-wrap .hk-pill.auto { color: #1d3f6e !important; -webkit-text-fill-color: #1d3f6e !important; }
+    body[data-theme="dark"] .hk-wrap .hk-pill.auto { background: rgba(147, 197, 253, .16); color: #bfdbfe !important; -webkit-text-fill-color: #bfdbfe !important; }
+    .hk-wrap .hk-save { padding: .45rem .75rem; }
+    .hk-wrap .hk-save small { font-size: .62rem; }
+    .hk-wrap .hk-alert { padding: .4rem .75rem; font-size: .68rem; border-radius: 8px; }
 </style>
 
 <div class="hk-wrap">
