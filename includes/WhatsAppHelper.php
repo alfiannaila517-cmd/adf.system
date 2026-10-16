@@ -325,6 +325,7 @@ class WhatsAppHelper
         if (!$bookingIds) return [];
         try {
             $this->ensureLogTable(); // sekaligus membersihkan riwayat tamu yang sudah check-out
+            $this->backfillGuestHistory();
             $out = [];
             foreach ($this->db->fetchAll("SELECT booking_id, type, status, preview, created_at FROM wa_guest_history WHERE booking_id IN (" . implode(',', $bookingIds) . ") ORDER BY id DESC") ?: [] as $r) {
                 $out[(int)$r['booking_id']][] = $r;
@@ -332,6 +333,24 @@ class WhatsAppHelper
             return $out;
         } catch (\Throwable $e) {
             return [];
+        }
+    }
+
+    /**
+     * Sekali saja (saat tabel riwayat tamu masih kosong): salin pengiriman HARI INI dari log harian untuk tamu in-house,
+     * agar pesan yang terkirim sebelum fitur ini aktif tetap terlihat. Isi pesan tidak tersimpan di log lama, jadi hanya jenis/status/jam.
+     */
+    private function backfillGuestHistory(): void
+    {
+        try {
+            if ((int)($this->db->fetchOne("SELECT COUNT(*) c FROM wa_guest_history")['c'] ?? 0) > 0) return;
+            $ins = $this->db->getConnection()->prepare("INSERT INTO wa_guest_history (booking_id, type, status, preview, created_at) VALUES (?, ?, ?, '', ?)");
+            foreach ($this->db->fetchAll("SELECT type, target, ref, status, created_at FROM wa_message_log WHERE created_at >= CURDATE() AND status <> 'skipped' AND type NOT IN ('report','test') ORDER BY id ASC") ?: [] as $l) {
+                foreach ($this->inHouseBookingIdsFor((string)$l['target'], (string)$l['ref']) as $bid) {
+                    $ins->execute([$bid, $l['type'], $l['status'], $l['created_at']]);
+                }
+            }
+        } catch (\Throwable $e) {
         }
     }
 

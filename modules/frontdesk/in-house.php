@@ -1084,10 +1084,10 @@ $ihT = fn(string $id, string $en) => $ihEn ? $en : $id;
                                 <span class="ih-btn ih-btn-wa is-off" title="Nomor WhatsApp tamu belum ada" aria-label="Nomor WhatsApp belum ada"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z"/></svg></span>
                             <?php endif; ?>
                             <?php $ihN = isset($waHist[(int)$guest['booking_id']]) ? count($waHist[(int)$guest['booking_id']]) : 0; ?>
-                            <?php if ($ihN > 0): ?>
+                            <?php if (true): ?>
                                 <button type="button" class="ih-btn ih-btn-hist" onclick="ihWaHist(<?php echo (int)$guest['booking_id']; ?>)" title="<?php echo htmlspecialchars($ihT('Riwayat pesan terkirim', 'Sent message history')); ?>" aria-label="<?php echo htmlspecialchars($ihT('Riwayat pesan terkirim', 'Sent message history')); ?>">
                                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg>
-                                    <span class="ih-hist-n"><?php echo $ihN; ?></span>
+                                    <?php if ($ihN > 0): ?><span class="ih-hist-n"><?php echo $ihN; ?></span><?php endif; ?>
                                 </button>
                             <?php endif; ?>
                             <button class="ih-btn ih-btn-breakfast" onclick="selectBreakfast(<?php echo (int)$guest['booking_id']; ?>, <?php echo htmlspecialchars(json_encode((string)$guest['guest_name'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
@@ -1858,9 +1858,8 @@ $ihTypeLbl = [
 $ihHistJs = [];
 foreach ($inHouseGuests as $ihG) {
     $bid = (int)$ihG['booking_id'];
-    if (empty($waHist[$bid])) continue;
     $rows = [];
-    foreach ($waHist[$bid] as $h) {
+    foreach ($waHist[$bid] ?? [] as $h) {
         $ts = strtotime($h['created_at']);
         $rows[] = [
             'time' => date('Y-m-d', $ts) === date('Y-m-d') ? $ihT('Hari ini', 'Today') . ' ' . date('H:i', $ts) : langDate($ts, 'd M') . ' ' . date('H:i', $ts),
