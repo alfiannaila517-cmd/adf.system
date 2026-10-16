@@ -24,13 +24,13 @@ $db = Database::getInstance();
 
 // Endpoint ini dipolling tiap 30 detik dari header. Koneksi IMAP butuh 1-5 detik, jadi:
 // 1) kunci sesi dilepas sebelum IMAP (klik menu lain tidak ikut menunggu), dan
-// 2) hasilnya disimpan 3 menit per database bisnis agar IMAP tidak dibuka tiap 30 detik.
+// 2) hasilnya disimpan 40 detik per database bisnis agar IMAP tidak dibuka di setiap polling (sebelumnya 3 menit → titik email telat).
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
 }
 
 $cacheFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'adf_unread_' . md5((string)Database::getCurrentDatabase()) . '.json';
-$cacheTtl = 180;
+$cacheTtl = 40;
 $cached = @json_decode((string)@file_get_contents($cacheFile), true);
 if (is_array($cached) && isset($cached['unread'], $cached['at']) && (time() - (int)$cached['at']) < $cacheTtl) {
     echo json_encode(['unread' => (int)$cached['unread'], 'cached' => true]);

@@ -2420,7 +2420,7 @@ if ($userTheme === 'system') {
                                 <a href="<?php echo BASE_URL; ?>/modules/email/index.php" class="nav-link <?php echo (strpos($_SERVER['REQUEST_URI'], '/modules/email/') !== false) ? 'active' : ''; ?>" style="position:relative;">
                                     <i data-feather="mail" class="nav-icon"></i>
                                     <span><?php echo __('nav.office_email'); ?></span>
-                                    <span id="emailUnreadDot" style="display:none;position:absolute;left:26px;top:10px;width:9px;height:9px;border-radius:50%;background:#ef4444;border:1.5px solid #fff;"></span>
+                                    <span id="emailUnreadDot" class="nav-menu-dot" style="display:none" title="<?php echo htmlspecialchars(__('nav.office_email')); ?>"></span>
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -4009,12 +4009,14 @@ if ($userTheme === 'system') {
                             try {
                                 const res = await fetch('<?php echo BASE_URL; ?>/modules/email/unread-count.php');
                                 const data = await res.json();
-                                dot.style.display = (data.unread > 0) ? 'block' : 'none';
+                                dot.style.display = (data.unread > 0) ? 'inline-block' : 'none';
                             } catch (e) {
                                 /* ignore */
                             }
                         }
                         checkEmailUnread();
                         setInterval(checkEmailUnread, 30000);
+                        // Kembali ke tab ini → cek langsung (tanpa menunggu giliran 30 detik)
+                        document.addEventListener('visibilitychange', () => { if (!document.hidden) checkEmailUnread(); });
                     })();
                 </script>
