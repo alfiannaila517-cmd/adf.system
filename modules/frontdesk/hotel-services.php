@@ -2170,13 +2170,41 @@ foreach ($invoices as &$inv) {
 }
 unset($inv);
 
+// Data sewa motor per invoice → tombol "Kembalikan motor" langsung di popup detail
+$hsRentals = [];
+try {
+    $hsInvIds = array_map(fn($i) => (int)$i['id'], $invoices);
+    if ($hsInvIds) {
+        $hsRs = $pdo->query("SELECT rb.id, rb.invoice_id, rb.status, rb.start_datetime, rb.actual_return, rm.motor_name, rm.plate_number
+            FROM rental_motor_bookings rb JOIN rental_motors rm ON rm.id = rb.motor_id
+            WHERE rb.invoice_id IN (" . implode(',', $hsInvIds) . ") ORDER BY rb.id");
+        foreach ($hsRs->fetchAll(PDO::FETCH_ASSOC) as $hsR) $hsRentals[(int)$hsR['invoice_id']][] = $hsR;
+    }
+} catch (\Throwable $e) {
+    // bisnis tanpa modul rental motor
+}
+
 // Build a lightweight JSON payload (per invoice) for the row-click detail popup
 $hsDetailsForJs = [];
 foreach ($invoices as $inv) {
     $itemsForJs = [];
     foreach ($inv['items_detail'] as $it) {
         $svcInfo = $serviceTypes[$it['service_type']] ?? ['label' => $it['service_type'], 'icon' => '🔹'];
+        $rentalJs = null;
+        if ($it['service_type'] === 'motor_rental') {
+            foreach ($hsRentals[(int)$inv['id']] ?? [] as $hsR) {
+                if ((string)$hsR['plate_number'] !== '' && stripos((string)$it['description'], (string)$hsR['plate_number']) !== false) {
+                    $rentalJs = [
+                        'id' => (int)$hsR['id'], 'status' => $hsR['status'], 'motor' => $hsR['motor_name'] . ' (' . $hsR['plate_number'] . ')',
+                        'start' => $hsR['start_datetime'] ? date('d M H:i', strtotime($hsR['start_datetime'])) : '',
+                        'returned' => $hsR['actual_return'] ? date('d M H:i', strtotime($hsR['actual_return'])) : '',
+                    ];
+                    break;
+                }
+            }
+        }
         $itemsForJs[] = [
+            'rental'      => $rentalJs,
             'icon'        => $svcInfo['icon'] ?? '🔹',
             'label'       => $svcInfo['label'] ?? $it['service_type'],
             'description' => $it['description'],
@@ -2674,6 +2702,59 @@ include '../../includes/header.php';
         font-weight: 800;
         color: #1e3a8a;
     }
+
+    /* Popup detail invoice (redesign) */
+    .hs-modal.hsd { --d-bg: #fff; --d-bd: #e8edf4; --d-tx: #0f172a; --d-mu: #64748b; --d-tile: #f8fafc; max-width: 480px; padding: 0; background: var(--d-bg); color: var(--d-tx); overflow-x: hidden; }
+    body[data-theme="dark"] .hs-modal.hsd { --d-bg: #111a2e; --d-bd: #22304a; --d-tx: #e6edf7; --d-mu: #9fb0c8; --d-tile: #16213a; }
+    .hsd-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--d-bd); }
+    .hsd-hico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #4338ca); font-size: .85rem; }
+    .hsd-htxt { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .hs-modal.hsd .hsd-htxt b { font-size: .98rem; color: var(--d-tx) !important; letter-spacing: .01em; }
+    .hsd-pay { font-size: .6rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+    .hsd-pay.ok { background: rgba(34, 197, 94, .15); color: #16a34a !important; } .hsd-pay.mid { background: rgba(245, 158, 11, .16); color: #d97706 !important; } .hsd-pay.bad { background: rgba(239, 68, 68, .14); color: #dc2626 !important; }
+    .hsd-x { border: 0; background: var(--d-tile); color: var(--d-mu) !important; width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: .85rem; line-height: 1; }
+    .hsd-guest { display: flex; gap: 11px; align-items: center; padding: 12px 16px; }
+    .hsd-av { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #0ea5e9, #6366f1); flex: none; }
+    .hsd-gtxt { min-width: 0; }
+    .hs-modal.hsd .hsd-name { font-weight: 700; font-size: .92rem; color: var(--d-tx) !important; }
+    .hsd-inh { font-size: .58rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(34, 197, 94, .16); color: #16a34a !important; vertical-align: middle; }
+    .hs-modal.hsd .hsd-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin-top: 3px; font-size: .72rem; color: var(--d-mu) !important; }
+    .hs-modal.hsd .hsd-meta span { color: var(--d-mu) !important; }
+    .hs-modal.hsd .hsd-meta .hsd-chip { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #fff !important; font-weight: 700; padding: 1px 8px; border-radius: 7px; }
+    .hsd-st { text-transform: uppercase; letter-spacing: .05em; font-size: .6rem; font-weight: 700; }
+    .hs-modal.hsd .hsd-sec { padding: 4px 16px 6px; font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--d-mu) !important; }
+    .hsd-sec span { background: var(--d-tile); border-radius: 999px; padding: 0 7px; margin-left: 4px; }
+    .hsd-items { margin: 0 12px; display: flex; flex-direction: column; gap: 7px; }
+    .hsd-item { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; border: 1px solid var(--d-bd); border-radius: 12px; background: var(--d-tile); }
+    .hsd-item-ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--d-bg); border: 1px solid var(--d-bd); font-size: .95rem; flex: none; }
+    .hsd-item-main { flex: 1; min-width: 0; }
+    .hs-modal.hsd .hsd-item-name { font-weight: 700; font-size: .82rem; color: var(--d-tx) !important; }
+    .hs-modal.hsd .hsd-item-desc { font-size: .7rem; color: var(--d-mu) !important; margin-top: 1px; word-break: break-word; }
+    .hsd-item-amt { text-align: right; white-space: nowrap; }
+    .hs-modal.hsd .hsd-item-amt b { display: block; font-size: .82rem; color: var(--d-tx) !important; }
+    .hs-modal.hsd .hsd-item-amt small { font-size: .66rem; color: var(--d-mu) !important; }
+    .hs-modal.hsd .hsd-empty { padding: 14px; text-align: center; color: var(--d-mu) !important; font-size: .78rem; }
+    .hsd-motor { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .hsd-pill { font-size: .64rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+    .hsd-pill.act { background: rgba(59, 130, 246, .14); color: #2563eb !important; } .hsd-pill.late { background: rgba(239, 68, 68, .14); color: #dc2626 !important; } .hsd-pill.done { background: rgba(34, 197, 94, .15); color: #16a34a !important; }
+    .hsd-btn { height: 28px; padding: 0 11px; border-radius: 8px; border: 1px solid #c7d2fe; background: #eef2ff; color: #4338ca !important; font-size: .7rem; font-weight: 700; cursor: pointer; }
+    .hsd-btn:disabled { opacity: .6; cursor: wait; }
+    .hsd-btn.go { background: linear-gradient(180deg, #6366f1, #4f46e5); border-color: transparent; color: #fff !important; }
+    .hsd-btn.ghost { background: var(--d-bg); border-color: var(--d-bd); color: var(--d-tx) !important; }
+    body[data-theme="dark"] .hsd-btn { background: #1d2a52; border-color: #35467a; color: #c7d2fe !important; }
+    body[data-theme="dark"] .hsd-btn.go { background: linear-gradient(180deg, #6366f1, #4f46e5); color: #fff !important; }
+    body[data-theme="dark"] .hsd-btn.ghost { background: var(--d-bg); border-color: var(--d-bd); color: var(--d-tx) !important; }
+    .hs-modal.hsd .hsd-ask { width: 100%; padding: 8px 10px; border-radius: 10px; background: var(--d-bg); border: 1px solid var(--d-bd); font-size: .72rem; line-height: 1.5; color: var(--d-mu) !important; }
+    .hs-modal.hsd .hsd-ask b, .hs-modal.hsd .hsd-ask div { color: inherit !important; }
+    .hs-modal.hsd .hsd-ask.ok { border-color: rgba(34, 197, 94, .45); color: var(--d-tx) !important; } .hs-modal.hsd .hsd-ask.ok > b { color: #16a34a !important; }
+    .hs-modal.hsd .hsd-ask.bad { border-color: rgba(239, 68, 68, .45); color: #dc2626 !important; }
+    .hsd-ask-btns { display: flex; gap: 7px; justify-content: flex-end; margin-top: 7px; }
+    .hsd-totals { margin: 12px 12px 14px; padding: 10px 12px; border-radius: 12px; background: var(--d-tile); border: 1px solid var(--d-bd); }
+    .hs-modal.hsd .hsd-row { display: flex; justify-content: space-between; font-size: .78rem; padding: 2px 0; color: var(--d-mu) !important; }
+    .hs-modal.hsd .hsd-row span { color: inherit !important; }
+    .hs-modal.hsd .hsd-row.paid span:last-child { color: #16a34a !important; font-weight: 700; }
+    .hs-modal.hsd .hsd-row.grand { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--d-bd); font-size: .95rem; font-weight: 800; color: var(--d-tx) !important; }
+    .hs-modal.hsd .hsd-row.grand.due span:last-child { color: #dc2626 !important; } .hs-modal.hsd .hsd-row.grand.okk span:last-child { color: #16a34a !important; }
 
     .hs-badge {
         display: inline-flex;
@@ -5004,6 +5085,17 @@ include '../../includes/header.php';
         window.CATALOG_LIST = <?php echo json_encode(array_map(fn($r) => ['stype' => $r['service_type'], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => $r['unit'] ?? 'unit'], $catalogRows), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '[]'; ?>;
         window.ACTIVE_BIZ_ID = <?php echo (int)$businessId; ?>;
         window.HS_DETAILS = <?php echo json_encode($hsDetailsForJs, JSON_HEX_TAG | JSON_UNESCAPED_UNICODE) ?: '{}'; ?>;
+        // Teks popup detail invoice mengikuti bahasa akun (peta ID → EN; kosong = Indonesia)
+        window.HSD_TX = <?php echo json_encode((function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en') ? [
+            'Layanan' => 'Services', 'Tidak ada item' => 'No items', 'Harga Asli' => 'Original price', 'Diskon' => 'Discount', 'Service Charge' => 'Service Charge', 'PPN' => 'VAT',
+            'Sudah Dibayar' => 'Paid', 'Sisa Tagihan' => 'Balance due', 'Total (Lunas)' => 'Total (paid in full)', 'Lunas' => 'Paid', 'Sebagian' => 'Partial', 'Belum dibayar' => 'Unpaid',
+            'In-house' => 'In-house', 'Kamar' => 'Room', 'Tutup' => 'Close', 'Disewa sejak' => 'Rented since', 'Terlambat' => 'Overdue', 'Dikembalikan' => 'Returned',
+            'Kembalikan motor' => 'Return motorbike', 'Kembalikan motor ini sekarang? Harga dihitung dari lama pinjam sesungguhnya.' => 'Return this motorbike now? The price is calculated from the actual rental time.',
+            'Batal' => 'Cancel', 'Ya, kembalikan' => 'Yes, return it', 'Memproses…' => 'Processing…', 'Motor berhasil dikembalikan' => 'Motorbike returned successfully',
+            'Lama pinjam' => 'Rental time', 'hari' => 'days', 'Tarif/hari' => 'Rate/day', 'Minimum Rp 100.000 diterapkan' => 'Minimum Rp 100,000 applied', 'Total sewa' => 'Rental total', 'Selesai' => 'Done',
+            'Gagal' => 'Failed', 'Gagal menghubungi server.' => 'Could not reach the server.',
+            'confirmed' => 'Confirmed', 'completed' => 'Completed', 'cancelled' => 'Cancelled', 'pending' => 'Pending', 'draft' => 'Draft',
+        ] : new stdClass(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG); ?>;
     } catch (e) {
         console.error('[hs-data] failed:', e);
     }
@@ -5044,38 +5136,97 @@ include '../../includes/header.php';
         return 'Rp ' + Math.round(n).toLocaleString('id-ID');
     }
 
+    // ── Popup detail invoice (teks ID/EN lewat HSD_TX; tombol Kembalikan motor langsung di item sewa motor) ──
+    function hsdT(x) { return (window.HSD_TX && window.HSD_TX[x]) || x; }
+    function hsdEsc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
     function showInvoiceDetail(id) {
         var d = (window.HS_DETAILS || {})[id];
         if (!d) return;
+        window.__hsdCur = id;
         var box = document.getElementById('invoiceDetailModal');
-        var itemsHtml = (d.items || []).map(function(it) {
-            return '<div class="hs-detail-item">' +
-                '<div><div class="hs-detail-item-name">' + it.icon + ' ' + it.label + '</div>' +
-                (it.description ? '<div class="hs-detail-item-desc">' + it.description + '</div>' : '') + '</div>' +
-                '<div class="hs-detail-item-amt">' + fmtRp(it.total_price) + '<div class="hs-detail-item-qty">' + it.quantity + ' x ' + fmtRp(it.unit_price) + '</div></div>' +
+        var pay = { paid: ['Lunas', 'ok'], partial: ['Sebagian', 'mid'], unpaid: ['Belum dibayar', 'bad'] }[d.payment_status] || [d.payment_status || '', 'mid'];
+        var items = d.items || [];
+        var itemsHtml = items.map(function(it) {
+            var motor = '';
+            var r = it.rental;
+            if (r) {
+                if (r.status === 'returned') {
+                    motor = '<div class="hsd-motor"><span class="hsd-pill done">✓ ' + hsdT('Dikembalikan') + (r.returned ? ' · ' + hsdEsc(r.returned) : '') + '</span></div>';
+                } else if (r.status === 'active' || r.status === 'overdue') {
+                    motor = '<div class="hsd-motor" id="hsdM' + r.id + '">' +
+                        '<span class="hsd-pill ' + (r.status === 'overdue' ? 'late' : 'act') + '">' + (r.status === 'overdue' ? '⚠ ' + hsdT('Terlambat') : hsdT('Disewa sejak') + (r.start ? ' ' + hsdEsc(r.start) : '')) + '</span>' +
+                        '<button type="button" class="hsd-btn" onclick="hsdAskReturn(' + r.id + ')">↩ ' + hsdT('Kembalikan motor') + '</button></div>';
+                }
+            }
+            return '<div class="hsd-item">' +
+                '<div class="hsd-item-ico">' + hsdEsc(it.icon) + '</div>' +
+                '<div class="hsd-item-main"><div class="hsd-item-name">' + hsdEsc(it.label) + '</div>' +
+                (it.description ? '<div class="hsd-item-desc">' + hsdEsc(it.description) + '</div>' : '') + motor + '</div>' +
+                '<div class="hsd-item-amt"><b>' + fmtRp(it.total_price) + '</b><small>' + hsdEsc(it.quantity) + ' × ' + fmtRp(it.unit_price) + '</small></div>' +
                 '</div>';
-        }).join('') || '<div class="hs-detail-item"><span style="color:#d1d5db">No items</span></div>';
+        }).join('') || '<div class="hsd-empty">' + hsdT('Tidak ada item') + '</div>';
 
         var subtotal = d.total - d.tax_amount - d.service_charge_amount + d.discount_amount;
-        var totalsHtml = '<div class="hs-detail-total-row"><span>Harga Asli</span><span>' + fmtRp(subtotal) + '</span></div>' +
-            (d.discount_amount > 0 ? '<div class="hs-detail-total-row"><span>Diskon</span><span>-' + fmtRp(d.discount_amount) + '</span></div>' : '') +
-            (d.service_charge_amount > 0 ? '<div class="hs-detail-total-row"><span>Service Charge</span><span>' + fmtRp(d.service_charge_amount) + '</span></div>' : '') +
-            (d.tax_amount > 0 ? '<div class="hs-detail-total-row"><span>PPN</span><span>' + fmtRp(d.tax_amount) + '</span></div>' : '') +
-            '<div class="hs-detail-total-row"><span>Sudah Dibayar</span><span style="color:#10b981;font-weight:700">' + fmtRp(d.paid_amount) + '</span></div>' +
-            '<div class="hs-detail-total-row grand"><span>' + (d.balance_due > 0 ? 'Sisa Tagihan' : 'Total (Lunas)') + '</span><span>' + (d.balance_due > 0 ? fmtRp(d.balance_due) : fmtRp(d.total)) + '</span></div>';
+        var row = function(l, v, cls) { return '<div class="hsd-row ' + (cls || '') + '"><span>' + l + '</span><span>' + v + '</span></div>'; };
+        var totalsHtml = row(hsdT('Harga Asli'), fmtRp(subtotal)) +
+            (d.discount_amount > 0 ? row(hsdT('Diskon'), '−' + fmtRp(d.discount_amount)) : '') +
+            (d.service_charge_amount > 0 ? row(hsdT('Service Charge'), fmtRp(d.service_charge_amount)) : '') +
+            (d.tax_amount > 0 ? row(hsdT('PPN'), fmtRp(d.tax_amount)) : '') +
+            row(hsdT('Sudah Dibayar'), fmtRp(d.paid_amount), 'paid') +
+            row(d.balance_due > 0 ? hsdT('Sisa Tagihan') : hsdT('Total (Lunas)'), d.balance_due > 0 ? fmtRp(d.balance_due) : fmtRp(d.total), 'grand ' + (d.balance_due > 0 ? 'due' : 'okk'));
 
+        var initial = (d.guest_name || '?').trim().charAt(0).toUpperCase();
+        box.className = 'hs-modal hs-detail-modal hsd';
         box.innerHTML =
-            '<div class="hs-detail-head"><h3>🧾 ' + d.invoice_number + '</h3>' +
-            '<button type="button" onclick="closeInvoiceDetail()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8;line-height:1">✕</button></div>' +
-            '<div class="hs-detail-sub">' +
-            (d.inhouse ? '<span class="hs-inhouse-dot" style="margin-right:4px"></span>' : '') +
-            '<strong>' + d.guest_name + '</strong>' + (d.room_number ? ' · Room ' + d.room_number : '') + (d.guest_phone ? ' · ' + d.guest_phone : '') +
-            '<br>' + d.date + ' · ' + d.status.toUpperCase() + '</div>' +
-            '<div class="hs-detail-items">' + itemsHtml + '</div>' +
-            '<div class="hs-detail-totals">' + totalsHtml + '</div>';
+            '<div class="hsd-head"><div class="hsd-hico">🧾</div>' +
+            '<div class="hsd-htxt"><b>' + hsdEsc(d.invoice_number) + '</b><span class="hsd-pay ' + pay[1] + '">' + hsdT(pay[0]) + '</span></div>' +
+            '<button type="button" class="hsd-x" onclick="closeInvoiceDetail()" aria-label="' + hsdT('Tutup') + '">✕</button></div>' +
+            '<div class="hsd-guest"><div class="hsd-av">' + hsdEsc(initial) + '</div><div class="hsd-gtxt">' +
+            '<div class="hsd-name">' + hsdEsc(d.guest_name) + (d.inhouse ? ' <span class="hsd-inh">' + hsdT('In-house') + '</span>' : '') + '</div>' +
+            '<div class="hsd-meta">' + (d.room_number ? '<span class="hsd-chip">' + hsdT('Kamar') + ' ' + hsdEsc(d.room_number) + '</span>' : '') +
+            (d.guest_phone ? '<span>' + hsdEsc(d.guest_phone) + '</span>' : '') + '<span>' + hsdEsc(d.date) + '</span>' +
+            '<span class="hsd-st">' + hsdEsc(hsdT(String(d.status || '').toLowerCase())) + '</span></div></div></div>' +
+            '<div class="hsd-sec">' + hsdT('Layanan') + ' <span>' + items.length + '</span></div>' +
+            '<div class="hsd-items">' + itemsHtml + '</div>' +
+            '<div class="hsd-totals">' + totalsHtml + '</div>';
         document.getElementById('invoiceDetailOverlay').classList.add('open');
     }
 
+    // Konfirmasi pengembalian dalam popup (bukan dialog browser), lalu panggil aksi return_motor yang sama dengan halaman Rental Motor
+    function hsdAskReturn(rid) {
+        var el = document.getElementById('hsdM' + rid);
+        if (!el) return;
+        el.innerHTML = '<div class="hsd-ask">' + hsdT('Kembalikan motor ini sekarang? Harga dihitung dari lama pinjam sesungguhnya.') +
+            '<div class="hsd-ask-btns"><button type="button" class="hsd-btn ghost" onclick="showInvoiceDetail(' + (window.__hsdCur || 0) + ')">' + hsdT('Batal') + '</button>' +
+            '<button type="button" class="hsd-btn go" onclick="hsdDoReturn(' + rid + ', this)">' + hsdT('Ya, kembalikan') + '</button></div></div>';
+    }
+
+    function hsdDoReturn(rid, btn) {
+        btn.disabled = true;
+        btn.textContent = hsdT('Memproses…');
+        var fd = new FormData();
+        fd.append('action', 'return_motor');
+        fd.append('rental_id', rid);
+        fetch('rental-motor.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function(r) { return r.json(); })
+            .then(function(r) {
+                var el = document.getElementById('hsdM' + rid);
+                if (!r.success) {
+                    el.innerHTML = '<div class="hsd-ask bad">' + hsdT('Gagal') + ': ' + hsdEsc(r.message || '') + '</div>';
+                    return;
+                }
+                el.innerHTML = '<div class="hsd-ask ok"><b>✓ ' + hsdT('Motor berhasil dikembalikan') + '</b>' +
+                    '<div>' + hsdT('Lama pinjam') + ': ' + hsdEsc(r.actual_days) + ' ' + hsdT('hari') + ' × ' + fmtRp(r.daily_rate) + '</div>' +
+                    (r.is_min_price ? '<div>' + hsdT('Minimum Rp 100.000 diterapkan') + '</div>' : '') +
+                    '<div><b>' + hsdT('Total sewa') + ': ' + fmtRp(r.new_total) + '</b></div>' +
+                    '<div class="hsd-ask-btns"><button type="button" class="hsd-btn go" onclick="location.reload()">' + hsdT('Selesai') + '</button></div></div>';
+            })
+            .catch(function() {
+                var el = document.getElementById('hsdM' + rid);
+                if (el) el.innerHTML = '<div class="hsd-ask bad">' + hsdT('Gagal menghubungi server.') + '</div>';
+            });
+    }
     function closeInvoiceDetail() {
         document.getElementById('invoiceDetailOverlay').classList.remove('open');
     }
