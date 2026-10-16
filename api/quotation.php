@@ -3,7 +3,8 @@
 /**
  * API Penawaran kamar (tidak memblok kamar).
  * POST action:
- *   create        check_in, check_out, guest_name, guest_phone, guest_email, notes, valid_until, lang, items(JSON: [{room_id,disc_type,disc_value}])
+ *   create        check_in, check_out, guest_name, guest_phone, guest_email, notes, valid_until, lang, items(JSON: [{room_id,disc_type,disc_value}]), extras(JSON: [{catalog_id|name,price,qty,unit,type}])
+ *   catalog       → katalog Hotel Service aktif (untuk fasilitas tambahan)
  *   get           id            → penawaran + item + kamar yang sudah bentrok (untuk tombol Konfirmasi)
  *   list          status=open|confirmed|cancelled|all
  *   cancel        id
@@ -17,6 +18,8 @@ define('APP_ACCESS', true);
 require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/auth.php';
+require_once '../includes/functions.php';
+require_once '../includes/business_helper.php';
 require_once '../includes/Quotations.php';
 
 ob_clean();
@@ -38,13 +41,18 @@ try {
     $act = (string)($_POST['action'] ?? '');
     if ($act === 'create') {
         $items = json_decode((string)($_POST['items'] ?? '[]'), true);
+        $extras = json_decode((string)($_POST['extras'] ?? '[]'), true);
         $res = Quotations::create($db, [
             'check_in' => $_POST['check_in'] ?? '', 'check_out' => $_POST['check_out'] ?? '',
             'guest_name' => $_POST['guest_name'] ?? '', 'guest_phone' => $_POST['guest_phone'] ?? '', 'guest_email' => $_POST['guest_email'] ?? '',
             'notes' => $_POST['notes'] ?? '', 'valid_until' => $_POST['valid_until'] ?? '', 'lang' => $_POST['lang'] ?? 'id',
             'items' => is_array($items) ? $items : [],
+            'extras' => is_array($extras) ? $extras : [],
         ], $uid);
         echo json_encode($res);
+    } elseif ($act === 'catalog') {
+        $bizId = (int)($_SESSION['business_id'] ?? 0) ?: ((function_exists('getNumericBusinessId') ? (int)getNumericBusinessId(ACTIVE_BUSINESS_ID) : 0) ?: 1);
+        echo json_encode(['ok' => true, 'rows' => Quotations::catalog($db, $bizId)]);
     } elseif ($act === 'get') {
         $q = Quotations::get($db, (int)($_POST['id'] ?? 0));
         if (!$q) {

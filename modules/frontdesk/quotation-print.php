@@ -2,6 +2,7 @@
 
 /**
  * Cetak penawaran kamar (A4). ?id=<quotation id>  [&lang=id|en untuk mengganti bahasa dokumen]
+ * Tata letak: pita kop navy + garis emas, isi, lalu penutup (tanda tangan & footer) yang selalu menempel di dasar halaman.
  */
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
@@ -26,20 +27,22 @@ $lang = in_array($_GET['lang'] ?? '', ['id', 'en'], true) ? $_GET['lang'] : ($q[
 
 $L = $lang === 'en' ? [
     'title' => 'ROOM QUOTATION', 'no' => 'Quotation No.', 'date' => 'Date', 'valid' => 'Valid until', 'to' => 'Prepared for', 'stay' => 'Stay details',
-    'ci' => 'Check-in', 'co' => 'Check-out', 'nights' => 'night(s)', 'type' => 'Room type', 'rooms' => 'Room(s)', 'rate' => 'Rate / night', 'disc' => 'Discount',
-    'net' => 'Net / night', 'n' => 'Nights', 'total' => 'Total', 'subtotal' => 'Subtotal', 'discount' => 'Discount', 'grand' => 'TOTAL', 'notes' => 'Notes',
-    'terms' => 'Terms', 'term1' => 'This quotation does not hold the rooms; availability is guaranteed only after confirmation.',
-    'term2' => 'Prices are in Indonesian Rupiah (IDR) per room per night.', 'term3' => 'Please contact the Front Office to confirm before the validity date.',
+    'ci' => 'Check-in', 'co' => 'Check-out', 'nights' => 'night(s)', 'desc' => 'Description', 'rate' => 'Rate', 'disc' => 'Discount',
+    'net' => 'Net rate', 'n' => 'Qty / Nights', 'total' => 'Total', 'subtotal' => 'Room subtotal', 'discount' => 'Room discount', 'extras_total' => 'Additional services',
+    'grand' => 'TOTAL', 'notes' => 'Notes', 'terms' => 'Terms & conditions', 'term1' => 'This quotation does not hold the rooms; availability is guaranteed only after confirmation.',
+    'term2' => 'Prices are in Indonesian Rupiah (IDR); room rates are per room per night.', 'term3' => 'Please contact the Front Office to confirm before the validity date.',
     'pay' => 'Payment information', 'regards' => 'Best regards,', 'fo' => 'Front Office', 'print' => 'Print', 'close' => 'Close', 'lang' => 'Bahasa Indonesia',
-    'status_c' => 'CONFIRMED', 'status_x' => 'CANCELLED', 'status_e' => 'EXPIRED', 'room' => 'Room',
+    'status_c' => 'CONFIRMED', 'status_x' => 'CANCELLED', 'status_e' => 'EXPIRED', 'room' => 'Room', 'acc' => 'Accommodation', 'extras' => 'Additional services',
+    'thanks' => 'Thank you for considering us — we look forward to welcoming you.', 'per' => '/ ',
 ] : [
     'title' => 'PENAWARAN KAMAR', 'no' => 'No. Penawaran', 'date' => 'Tanggal', 'valid' => 'Berlaku sampai', 'to' => 'Ditujukan kepada', 'stay' => 'Rincian menginap',
-    'ci' => 'Check-in', 'co' => 'Check-out', 'nights' => 'malam', 'type' => 'Tipe kamar', 'rooms' => 'Kamar', 'rate' => 'Harga / malam', 'disc' => 'Diskon',
-    'net' => 'Harga bersih / malam', 'n' => 'Malam', 'total' => 'Total', 'subtotal' => 'Subtotal', 'discount' => 'Diskon', 'grand' => 'TOTAL', 'notes' => 'Catatan',
-    'terms' => 'Ketentuan', 'term1' => 'Penawaran ini belum memblok kamar; ketersediaan dijamin setelah konfirmasi.',
-    'term2' => 'Harga dalam Rupiah (IDR) per kamar per malam.', 'term3' => 'Mohon hubungi Front Office untuk konfirmasi sebelum tanggal berlaku berakhir.',
+    'ci' => 'Check-in', 'co' => 'Check-out', 'nights' => 'malam', 'desc' => 'Deskripsi', 'rate' => 'Harga', 'disc' => 'Diskon',
+    'net' => 'Harga bersih', 'n' => 'Jml / Malam', 'total' => 'Total', 'subtotal' => 'Subtotal kamar', 'discount' => 'Diskon kamar', 'extras_total' => 'Layanan tambahan',
+    'grand' => 'TOTAL', 'notes' => 'Catatan', 'terms' => 'Syarat & ketentuan', 'term1' => 'Penawaran ini belum memblok kamar; ketersediaan dijamin setelah konfirmasi.',
+    'term2' => 'Harga dalam Rupiah (IDR); tarif kamar per kamar per malam.', 'term3' => 'Mohon hubungi Front Office untuk konfirmasi sebelum tanggal berlaku berakhir.',
     'pay' => 'Informasi pembayaran', 'regards' => 'Hormat kami,', 'fo' => 'Front Office', 'print' => 'Cetak', 'close' => 'Tutup', 'lang' => 'English',
-    'status_c' => 'TERKONFIRMASI', 'status_x' => 'DIBATALKAN', 'status_e' => 'KEDALUWARSA', 'room' => 'Kamar',
+    'status_c' => 'TERKONFIRMASI', 'status_x' => 'DIBATALKAN', 'status_e' => 'KEDALUWARSA', 'room' => 'Kamar', 'acc' => 'Akomodasi', 'extras' => 'Layanan tambahan',
+    'thanks' => 'Terima kasih atas kepercayaan Anda — kami menantikan kedatangan Anda.', 'per' => '/ ',
 ];
 $months = $lang === 'en'
     ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -71,7 +74,11 @@ foreach ($q['items'] as $it) {
     $groups[$k]['rooms'][] = $it['room_number'];
     $groups[$k]['total'] += (float)$it['line_total'];
 }
+$extrasTotal = (float)($q['extras_total'] ?? 0);
+$roomsNet = (float)$q['total'] - $extrasTotal;
+$blankRows = 5;
 $stateLbl = $q['status'] === 'confirmed' ? $L['status_c'] : ($q['status'] === 'cancelled' ? $L['status_x'] : ($q['expired'] ? $L['status_e'] : ''));
+$qtyFmt = fn($v) => rtrim(rtrim(number_format((float)$v, 2, ',', '.'), '0'), ',');
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo $lang; ?>">
@@ -80,38 +87,61 @@ $stateLbl = $q['status'] === 'confirmed' ? $L['status_c'] : ($q['status'] === 'c
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($L['title'] . ' ' . $q['quote_code']); ?></title>
     <style>
-        @page { size: A4; margin: 14mm; }
+        @page { size: A4; margin: 0; }
         * { box-sizing: border-box; }
-        body { margin: 0; background: #e8edf3; font-family: 'Segoe UI', system-ui, Arial, sans-serif; color: #0f172a; font-size: 12.5px; }
-        .bar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: center; gap: 8px; padding: 10px; background: #0f2744; }
-        .bar button, .bar a { height: 34px; padding: 0 16px; border: 0; border-radius: 9px; background: #fff; color: #0f2744; font-weight: 700; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
-        .bar .pri { background: #b8893b; color: #fff; }
-        .page { width: 210mm; min-height: 297mm; margin: 14px auto; padding: 16mm 15mm; background: #fff; box-shadow: 0 10px 40px rgba(15, 39, 68, .18); position: relative; }
-        .head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; border-bottom: 3px solid #0f2744; }
-        .head img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2px solid #d9c39c; }
-        .head .h { flex: 1; } .head h1 { margin: 0; font-size: 19px; color: #0f2744; letter-spacing: .01em; }
-        .head .a { margin-top: 3px; font-size: 11px; color: #475569; line-height: 1.45; }
-        .doc { text-align: right; } .doc b { display: block; font-size: 15px; letter-spacing: .08em; color: #b8893b; }
-        .doc span { display: block; font-size: 11px; color: #475569; margin-top: 2px; }
-        .state { position: absolute; top: 78mm; right: 22mm; transform: rotate(8deg); border: 3px solid #b91c1c; color: #b91c1c; padding: 3px 12px; font-weight: 900; letter-spacing: .12em; font-size: 17px; opacity: .5; border-radius: 6px; pointer-events: none; }
+        :root { --navy: #0f2744; --gold: #b8893b; --ink: #1e293b; --mute: #64748b; --line: #e5e9f0; --sand: #faf7f1; }
+        body { margin: 0; background: #e3e9f1; font-family: 'Segoe UI', system-ui, Arial, sans-serif; color: var(--ink); font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .bar { position: sticky; top: 0; z-index: 5; display: flex; justify-content: center; gap: 8px; padding: 10px; background: #0b1d33; }
+        .bar button, .bar a { height: 34px; padding: 0 16px; border: 0; border-radius: 9px; background: #fff; color: var(--navy); font-weight: 700; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+        .bar .pri { background: var(--gold); color: #fff; }
+
+        /* Halaman: kop + isi + penutup (penutup menempel di dasar) */
+        .page { position: relative; display: flex; flex-direction: column; width: 210mm; min-height: 296mm; margin: 14px auto; background: #fff; box-shadow: 0 12px 44px rgba(15, 39, 68, .2); overflow: hidden; }
+        .top { display: flex; align-items: center; gap: 16px; padding: 11mm 15mm 8mm; background: linear-gradient(135deg, #0b1d33, #14385f); color: #fff; }
+        .top img { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; border: 2px solid #d9c39c; background: #fff; flex: none; }
+        .top .h { flex: 1; min-width: 0; }
+        .top h1 { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 21px; font-weight: 700; letter-spacing: .01em; color: #fff; }
+        .top .a { margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: #c6d2e4; }
+        .top .doc { text-align: right; flex: none; }
+        .top .doc b { display: block; font-size: 12px; letter-spacing: .22em; color: #e3c68f; }
+        .top .doc .no { margin-top: 5px; font-size: 14.5px; font-weight: 700; color: #fff; letter-spacing: .02em; }
+        .top .doc span { display: block; margin-top: 2px; font-size: 10.5px; color: #c6d2e4; }
+        .rule { height: 4px; background: linear-gradient(90deg, var(--gold), #e3c68f 55%, var(--gold)); }
+        .body { flex: 1; padding: 9mm 15mm 6mm; }
+        .state { position: absolute; top: 88mm; right: 20mm; transform: rotate(8deg); border: 3px solid #b91c1c; color: #b91c1c; padding: 3px 12px; font-weight: 900; letter-spacing: .12em; font-size: 17px; opacity: .45; border-radius: 6px; pointer-events: none; }
         .state.ok { border-color: #15803d; color: #15803d; }
-        .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0 14px; }
-        .box { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; background: #f8fafc; }
-        .box small { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-        .box b { font-size: 14px; } .box div { line-height: 1.5; }
-        table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-        th { background: #0f2744; color: #fff; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; padding: 8px 8px; text-align: left; }
+
+        .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 7mm; }
+        .box { padding: 10px 14px; border-radius: 10px; background: var(--sand); border-left: 3px solid var(--gold); }
+        .box small { display: block; margin-bottom: 4px; font-size: 9px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+        .box .nm { font-family: Georgia, serif; font-size: 15px; font-weight: 700; color: var(--navy); }
+        .box div { line-height: 1.55; color: #334155; }
+
+        table { width: 100%; border-collapse: collapse; }
+        thead th { padding: 7px 8px; text-align: left; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--navy); border-bottom: 2px solid var(--navy); }
         th.r, td.r { text-align: right; } th.c, td.c { text-align: center; }
-        td { padding: 9px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-        td .rooms { color: #475569; font-size: 11px; }
-        .tot { margin: 12px 0 0 auto; width: 70mm; }
-        .tot div { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
-        .tot .g { margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: #0f2744; color: #fff; font-weight: 800; font-size: 14px; }
-        .sec { margin-top: 16px; } .sec h3 { margin: 0 0 4px; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #64748b; }
-        .sec p, .sec li { margin: 2px 0; line-height: 1.5; color: #334155; } .sec ul { margin: 0; padding-left: 16px; }
-        .sig { margin-top: 28px; display: flex; justify-content: flex-end; } .sig div { width: 56mm; text-align: center; } .sig .line { height: 52px; border-bottom: 1px solid #64748b; margin-bottom: 4px; }
-        .foot { position: absolute; left: 15mm; right: 15mm; bottom: 10mm; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 6px; }
-        @media print { body { background: #fff; } .bar { display: none; } .page { margin: 0; width: auto; min-height: 0; box-shadow: none; padding: 0; } .foot { position: fixed; left: 0; right: 0; bottom: 0; } }
+        td { padding: 8px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+        td .rooms { margin-top: 1px; font-size: 10.5px; color: var(--mute); }
+        tr.sec td { padding: 9px 8px 4px; border-bottom: 0; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+        tr.blank td { height: 8.5mm; border-bottom: 1px dotted #c3ccd9; }
+
+        .tot { width: 78mm; margin: 5mm 0 0 auto; }
+        .tot .r { display: flex; justify-content: space-between; padding: 3px 2px; font-size: 11.5px; color: #475569; }
+        .tot .g { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; padding: 9px 12px; border-radius: 9px; background: var(--navy); color: #fff; font-weight: 700; letter-spacing: .06em; }
+        .tot .g b { font-size: 15px; color: #e3c68f; letter-spacing: .01em; }
+
+        .sec2 { margin-top: 6mm; } .sec2 h3 { margin: 0 0 4px; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+        .sec2 p, .sec2 li { margin: 2px 0; line-height: 1.55; color: #334155; font-size: 11px; } .sec2 ul { margin: 0; padding-left: 15px; }
+
+        .foot { padding: 0 15mm 9mm; }
+        .sig { display: flex; justify-content: flex-end; margin-bottom: 7mm; }
+        .sig > div { width: 62mm; text-align: center; font-size: 11px; color: #334155; }
+        .sig .line { height: 17mm; border-bottom: 1px solid #94a3b8; margin-bottom: 4px; }
+        .sig b { color: var(--navy); }
+        .foot .thx { padding-top: 5px; border-top: 1px solid var(--line); text-align: center; font-size: 10px; color: var(--mute); font-style: italic; }
+        .foot .fl { margin-top: 3px; text-align: center; font-size: 9.5px; letter-spacing: .06em; color: #94a3b8; }
+
+        @media print { body { background: #fff; } .bar { display: none; } .page { margin: 0; box-shadow: none; width: 210mm; min-height: 296mm; } }
     </style>
 </head>
 <body>
@@ -122,67 +152,97 @@ $stateLbl = $q['status'] === 'confirmed' ? $L['status_c'] : ($q['status'] === 'c
     </div>
     <div class="page">
         <?php if ($stateLbl !== ''): ?><div class="state <?php echo $q['status'] === 'confirmed' ? 'ok' : ''; ?>"><?php echo $stateLbl; ?></div><?php endif; ?>
-        <div class="head">
+        <div class="top">
             <?php if ($logoUrl !== ''): ?><img src="<?php echo htmlspecialchars($logoUrl); ?>" alt=""><?php endif; ?>
             <div class="h">
                 <h1><?php echo htmlspecialchars($hotel); ?></h1>
                 <div class="a"><?php echo htmlspecialchars(trim(($set['company_address'] ?? ''))); ?><br>
-                    <?php echo htmlspecialchars(implode(' · ', array_filter([$set['company_phone'] ?? '', $set['company_email'] ?? '', $set['company_website'] ?? '']))); ?></div>
+                    <?php echo htmlspecialchars(implode('  ·  ', array_filter([$set['company_phone'] ?? '', $set['company_email'] ?? '', $set['company_website'] ?? '']))); ?></div>
             </div>
             <div class="doc">
                 <b><?php echo htmlspecialchars($L['title']); ?></b>
-                <span><?php echo htmlspecialchars($L['no']); ?>: <strong><?php echo htmlspecialchars($q['quote_code']); ?></strong></span>
+                <div class="no"><?php echo htmlspecialchars($q['quote_code']); ?></div>
                 <span><?php echo htmlspecialchars($L['date']); ?>: <?php echo $fd(substr((string)$q['created_at'], 0, 10)); ?></span>
                 <span><?php echo htmlspecialchars($L['valid']); ?>: <strong><?php echo $fd($q['valid_until']); ?></strong></span>
             </div>
         </div>
+        <div class="rule"></div>
 
-        <div class="cols">
-            <div class="box">
-                <small><?php echo htmlspecialchars($L['to']); ?></small>
-                <b><?php echo htmlspecialchars($q['guest_name']); ?></b>
-                <div><?php echo htmlspecialchars(implode(' · ', array_filter([$q['guest_phone'], $q['guest_email']]))); ?></div>
+        <div class="body">
+            <div class="cols">
+                <div class="box">
+                    <small><?php echo htmlspecialchars($L['to']); ?></small>
+                    <div class="nm"><?php echo htmlspecialchars($q['guest_name']); ?></div>
+                    <div><?php echo htmlspecialchars(implode('  ·  ', array_filter([$q['guest_phone'], $q['guest_email']]))); ?></div>
+                </div>
+                <div class="box">
+                    <small><?php echo htmlspecialchars($L['stay']); ?></small>
+                    <div><?php echo htmlspecialchars($L['ci']); ?>: <b><?php echo $fd($q['check_in'], true); ?></b></div>
+                    <div><?php echo htmlspecialchars($L['co']); ?>: <b><?php echo $fd($q['check_out'], true); ?></b> · <?php echo (int)$q['nights'] . ' ' . htmlspecialchars($L['nights']); ?></div>
+                </div>
             </div>
-            <div class="box">
-                <small><?php echo htmlspecialchars($L['stay']); ?></small>
-                <div><?php echo htmlspecialchars($L['ci']); ?>: <b><?php echo $fd($q['check_in'], true); ?></b></div>
-                <div><?php echo htmlspecialchars($L['co']); ?>: <b><?php echo $fd($q['check_out'], true); ?></b> · <?php echo (int)$q['nights'] . ' ' . htmlspecialchars($L['nights']); ?></div>
-            </div>
-        </div>
 
-        <table>
-            <thead><tr><th><?php echo htmlspecialchars($L['type']); ?></th><th class="r"><?php echo htmlspecialchars($L['rate']); ?></th><th class="r"><?php echo htmlspecialchars($L['disc']); ?></th><th class="r"><?php echo htmlspecialchars($L['net']); ?></th><th class="c"><?php echo htmlspecialchars($L['n']); ?></th><th class="r"><?php echo htmlspecialchars($L['total']); ?></th></tr></thead>
-            <tbody>
-                <?php foreach ($groups as $g): ?>
-                    <tr>
-                        <td><b><?php echo htmlspecialchars($g['type']); ?></b> × <?php echo count($g['rooms']); ?><div class="rooms"><?php echo htmlspecialchars($L['room'] . ' ' . implode(', ', $g['rooms'])); ?></div></td>
-                        <td class="r"><?php echo $rp($g['base']); ?></td>
-                        <td class="r"><?php echo $g['dv'] > 0 ? ($g['dt'] === 'percent' ? rtrim(rtrim(number_format($g['dv'], 2, ',', '.'), '0'), ',') . '%' : $rp($g['dv'])) : '—'; ?></td>
-                        <td class="r"><?php echo $rp($g['net']); ?></td>
-                        <td class="c"><?php echo (int)$q['nights']; ?></td>
-                        <td class="r"><b><?php echo $rp($g['total']); ?></b></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <div class="tot">
-            <?php if ((float)$q['discount_total'] > 0): ?>
-                <div><span><?php echo htmlspecialchars($L['subtotal']); ?></span><span><?php echo $rp($q['subtotal']); ?></span></div>
-                <div><span><?php echo htmlspecialchars($L['discount']); ?></span><span>−<?php echo $rp($q['discount_total']); ?></span></div>
+            <table>
+                <thead><tr><th><?php echo htmlspecialchars($L['desc']); ?></th><th class="r"><?php echo htmlspecialchars($L['rate']); ?></th><th class="r"><?php echo htmlspecialchars($L['disc']); ?></th><th class="r"><?php echo htmlspecialchars($L['net']); ?></th><th class="c"><?php echo htmlspecialchars($L['n']); ?></th><th class="r"><?php echo htmlspecialchars($L['total']); ?></th></tr></thead>
+                <tbody>
+                    <tr class="sec"><td colspan="6"><?php echo htmlspecialchars($L['acc']); ?></td></tr>
+                    <?php foreach ($groups as $g): ?>
+                        <tr>
+                            <td><b><?php echo htmlspecialchars($g['type']); ?></b> × <?php echo count($g['rooms']); ?><div class="rooms"><?php echo htmlspecialchars($L['room'] . ' ' . implode(', ', $g['rooms'])); ?></div></td>
+                            <td class="r"><?php echo $rp($g['base']); ?></td>
+                            <td class="r"><?php echo $g['dv'] > 0 ? ($g['dt'] === 'percent' ? rtrim(rtrim(number_format($g['dv'], 2, ',', '.'), '0'), ',') . '%' : $rp($g['dv'])) : '—'; ?></td>
+                            <td class="r"><?php echo $rp($g['net']); ?></td>
+                            <td class="c"><?php echo (int)$q['nights']; ?></td>
+                            <td class="r"><b><?php echo $rp($g['total']); ?></b></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (!empty($q['extras'])): ?>
+                        <tr class="sec"><td colspan="6"><?php echo htmlspecialchars($L['extras']); ?></td></tr>
+                        <?php foreach ($q['extras'] as $x): ?>
+                            <tr>
+                                <td><b><?php echo htmlspecialchars($x['item_name']); ?></b><?php if (trim((string)$x['type_label']) !== ''): ?><div class="rooms"><?php echo htmlspecialchars($x['type_label']); ?></div><?php endif; ?></td>
+                                <td class="r"><?php echo $rp($x['unit_price']); ?><?php echo (trim((string)$x['unit']) !== '' && $x['unit'] !== 'unit') ? '<div class="rooms">' . htmlspecialchars($L['per'] . $x['unit']) . '</div>' : ''; ?></td>
+                                <td class="r">—</td>
+                                <td class="r"><?php echo $rp($x['unit_price']); ?></td>
+                                <td class="c"><?php echo $qtyFmt($x['qty']); ?></td>
+                                <td class="r"><b><?php echo $rp($x['line_total']); ?></b></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    <?php for ($i = 0; $i < $blankRows; $i++): ?>
+                        <tr class="blank"><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                    <?php endfor; ?>
+                </tbody>
+            </table>
+
+            <div class="tot">
+                <?php if ((float)$q['discount_total'] > 0 || $extrasTotal > 0): ?>
+                    <div class="r"><span><?php echo htmlspecialchars($L['subtotal']); ?></span><span><?php echo $rp($q['subtotal']); ?></span></div>
+                <?php endif; ?>
+                <?php if ((float)$q['discount_total'] > 0): ?>
+                    <div class="r"><span><?php echo htmlspecialchars($L['discount']); ?></span><span>−<?php echo $rp($q['discount_total']); ?></span></div>
+                <?php endif; ?>
+                <?php if ($extrasTotal > 0): ?>
+                    <div class="r"><span><?php echo htmlspecialchars($L['extras_total']); ?></span><span><?php echo $rp($extrasTotal); ?></span></div>
+                <?php endif; ?>
+                <div class="g"><span><?php echo htmlspecialchars($L['grand']); ?></span><b><?php echo $rp($q['total']); ?></b></div>
+            </div>
+
+            <?php if (trim((string)$q['notes']) !== ''): ?>
+                <div class="sec2"><h3><?php echo htmlspecialchars($L['notes']); ?></h3><p><?php echo nl2br(htmlspecialchars($q['notes'])); ?></p></div>
             <?php endif; ?>
-            <div class="g"><span><?php echo htmlspecialchars($L['grand']); ?></span><span><?php echo $rp($q['total']); ?></span></div>
+            <div class="sec2"><h3><?php echo htmlspecialchars($L['terms']); ?></h3>
+                <ul><li><?php echo htmlspecialchars($L['term1']); ?></li><li><?php echo htmlspecialchars($L['term2']); ?></li><li><?php echo htmlspecialchars($L['term3']); ?></li></ul></div>
+            <?php if ($bankNo !== ''): ?>
+                <div class="sec2"><h3><?php echo htmlspecialchars($L['pay']); ?></h3><p><b><?php echo htmlspecialchars($bankNo); ?></b><?php echo $bankName !== '' ? '  ·  ' . htmlspecialchars($bankName) : ''; ?></p></div>
+            <?php endif; ?>
         </div>
 
-        <?php if (trim((string)$q['notes']) !== ''): ?>
-            <div class="sec"><h3><?php echo htmlspecialchars($L['notes']); ?></h3><p><?php echo nl2br(htmlspecialchars($q['notes'])); ?></p></div>
-        <?php endif; ?>
-        <div class="sec"><h3><?php echo htmlspecialchars($L['terms']); ?></h3>
-            <ul><li><?php echo htmlspecialchars($L['term1']); ?></li><li><?php echo htmlspecialchars($L['term2']); ?></li><li><?php echo htmlspecialchars($L['term3']); ?></li></ul></div>
-        <?php if ($bankNo !== ''): ?>
-            <div class="sec"><h3><?php echo htmlspecialchars($L['pay']); ?></h3><p><b><?php echo htmlspecialchars($bankNo); ?></b><?php echo $bankName !== '' ? ' · ' . htmlspecialchars($bankName) : ''; ?></p></div>
-        <?php endif; ?>
-        <div class="sig"><div><?php echo htmlspecialchars($L['regards']); ?><div class="line"></div><b><?php echo htmlspecialchars($L['fo'] . ' ' . $hotel); ?></b></div></div>
-        <div class="foot"><?php echo htmlspecialchars($hotel); ?> · <?php echo htmlspecialchars($q['quote_code']); ?></div>
+        <div class="foot">
+            <div class="sig"><div><?php echo htmlspecialchars($L['regards']); ?><div class="line"></div><b><?php echo htmlspecialchars($L['fo'] . ' ' . $hotel); ?></b></div></div>
+            <div class="thx"><?php echo htmlspecialchars($L['thanks']); ?></div>
+            <div class="fl"><?php echo htmlspecialchars($hotel); ?>  ·  <?php echo htmlspecialchars($q['quote_code']); ?></div>
+        </div>
     </div>
 </body>
 </html>

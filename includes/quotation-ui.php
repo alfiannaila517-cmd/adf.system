@@ -16,6 +16,8 @@ $qtText = [
     'Batalkan penawaran ini? Bar hijau di kalender akan hilang.' => 'Cancel this quotation? The green bar in the calendar will disappear.',
     'Kamar berikut sudah terisi / diblok pada tanggal ini, penawaran tidak bisa dikonfirmasi:' => 'These rooms are already booked / blocked on these dates, so the quotation cannot be confirmed:',
     'Penawaran ini sudah ' => 'This quotation is already ', 'Gagal memuat penawaran.' => 'Could not load the quotation.', 'Gagal' => 'Failed', 'Kamar' => 'Room',
+    'Fasilitas tambahan (Hotel Service)' => 'Additional facilities (Hotel Service)', 'Memuat katalog…' => 'Loading catalog…', 'Katalog Hotel Service masih kosong.' => 'The Hotel Service catalog is empty.',
+    '+ Item lain' => '+ Other item', 'Nama item' => 'Item name', 'Harga' => 'Price', 'Layanan tambahan' => 'Additional services', 'dipilih' => 'selected', 'Kamar' => 'Room',
     'Harga pas' => 'Net rate', '/malam' => '/night', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
 ];
 ?>
@@ -57,6 +59,26 @@ $qtText = [
     .qt-rooms li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--bd); }
     .qt-rooms li:last-child { border-bottom: 0; }
     .qt .qt-rooms span { color: var(--mu) !important; } .qt .qt-rooms b { color: var(--tx) !important; }
+
+    .qt-ex { margin: 0 0 10px; border: 1px solid var(--bd); border-radius: 11px; background: var(--tile); }
+    .qt-ex > summary { display: flex; align-items: center; gap: 8px; padding: 8px 11px; cursor: pointer; list-style: none; font-weight: 700; }
+    .qt-ex > summary::-webkit-details-marker { display: none; }
+    .qt-ex > summary::before { content: '▸'; font-size: .7rem; color: var(--mu); transition: transform .15s; }
+    .qt-ex[open] > summary::before { transform: rotate(90deg); }
+    .qt .qt-ex > summary { color: var(--tx) !important; }
+    .qt .qt-ex-n { margin-left: auto; padding: 0 8px; border-radius: 999px; background: #16a34a; color: #fff !important; font-size: 10px; font-weight: 800; line-height: 18px; }
+    .qt-ex-list { max-height: 210px; overflow-y: auto; padding: 0 9px 9px; }
+    .qt .qt-ex-g { margin: 7px 2px 3px; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mu) !important; }
+    .qt-ex-r { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto 58px; gap: 8px; align-items: center; padding: 5px 4px; border-radius: 8px; }
+    .qt-ex-r:hover { background: rgba(34, 197, 94, .08); }
+    .qt .qt-ex-r span { color: var(--tx) !important; font-size: 12.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .qt .qt-ex-r small { color: var(--mu) !important; font-size: 11px; white-space: nowrap; }
+    .qt .qt-ex-r input[type="number"], .qt .qt-ex-c input { height: 28px; padding: 0 6px; text-align: right; }
+    .qt .qt-ex-r input[type="checkbox"] { width: 16px; height: 16px; accent-color: #16a34a; }
+    .qt-ex-r input[type="number"]:disabled { opacity: .4; }
+    .qt-ex-c { display: grid; grid-template-columns: minmax(0, 1fr) 96px 58px; gap: 6px; padding: 4px 4px 0; }
+    .qt .qt-ex-add { margin: 4px 4px 0; height: 28px; padding: 0 10px; border: 1px dashed var(--inb) !important; border-radius: 8px; background: transparent !important; color: #16a34a !important; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+    .qt .qt-ex-empty { padding: 8px 4px; color: var(--mu) !important; font-size: 11.5px; }
 
     /* Bar penawaran di kalender: hijau transparan, tidak memblok (klik sel tetap membuat booking) */
     .booking-bar-container.qt-ghost { pointer-events: none; z-index: 3; }
@@ -108,7 +130,7 @@ $qtText = [
             sum.appendChild(el('div')).innerHTML = '<b></b>';
             sum.firstChild.firstChild.textContent = fd(st.ci) + ' → ' + fd(st.co);
             const l2 = el('div'); l2.appendChild(el('span', '', st.nights + ' ' + t('malam') + ' · ' + st.rooms.length + ' ' + t('kamar') + ': ' + st.rooms.map(r => r.number).join(', '))); sum.appendChild(l2);
-            const tt = el('div', 'tot'); tt.appendChild(el('small', '', t('Total'))); tt.appendChild(el('b', '', rp(total))); sum.appendChild(tt);
+            const tt = el('div', 'tot'); tt.appendChild(el('small', '', t('Total'))); const totB = el('b', '', rp(total)); tt.appendChild(totB); sum.appendChild(tt);
             body.appendChild(sum);
 
             const name = el('input'); name.type = 'text'; name.maxLength = 150; name.autocomplete = 'off';
@@ -120,6 +142,45 @@ $qtText = [
             body.appendChild(field(t('Nama tamu') + ' *', name));
             const r2 = el('div', 'qt-r2'); r2.appendChild(field(t('WhatsApp / telepon'), phone)); r2.appendChild(field(t('Email'), mail)); body.appendChild(r2);
             body.appendChild(field(t('Berlaku'), valid));
+
+            // ---- Fasilitas tambahan dari katalog Hotel Service (+ baris manual) ----
+            const ex = el('details', 'qt-ex'), exS = el('summary'), exN = el('span', 'qt-ex-n', '0 ' + t('dipilih'));
+            exS.appendChild(el('span', '', t('Fasilitas tambahan (Hotel Service)'))); exS.appendChild(exN); ex.appendChild(exS);
+            const exList = el('div', 'qt-ex-list'); exList.appendChild(el('div', 'qt-ex-empty', t('Memuat katalog…'))); ex.appendChild(exList);
+            body.appendChild(ex);
+            const extraRows = []; // { get: () => {catalog_id|name, price, qty, unit, type, total} | null }
+            const recalc = () => {
+                let ex$ = 0, n = 0;
+                extraRows.forEach(r => { const v = r.get(); if (v) { ex$ += v.total; n++; } });
+                exN.textContent = n + ' ' + t('dipilih');
+                totB.textContent = rp(total + ex$);
+            };
+            const numIn = (val) => { const i = el('input'); i.type = 'number'; i.min = '1'; i.step = '1'; i.value = val; i.addEventListener('input', recalc); return i; };
+            function addCatalogRow(c) {
+                const r = el('div', 'qt-ex-r'), cb = el('input'); cb.type = 'checkbox';
+                const q = numIn('1'); q.disabled = true;
+                cb.onchange = () => { q.disabled = !cb.checked; recalc(); };
+                r.appendChild(cb); r.appendChild(el('span', '', c.name)); r.appendChild(el('small', '', rp(c.price) + (c.unit && c.unit !== 'unit' ? ' / ' + c.unit : ''))); r.appendChild(q);
+                exList.appendChild(r);
+                extraRows.push({ get: () => cb.checked ? { catalog_id: c.id, name: c.name, price: c.price, unit: c.unit, type: c.type, qty: parseFloat(q.value) || 1, total: c.price * (parseFloat(q.value) || 1) } : null });
+            }
+            function addCustomRow() {
+                const w = el('div', 'qt-ex-c'), nm = el('input'), pr = el('input'), q = numIn('1');
+                nm.type = 'text'; nm.placeholder = t('Nama item'); nm.maxLength = 120; pr.type = 'number'; pr.min = '0'; pr.step = '1000'; pr.placeholder = t('Harga'); pr.style.textAlign = 'right';
+                nm.addEventListener('input', recalc); pr.addEventListener('input', recalc);
+                w.appendChild(nm); w.appendChild(pr); w.appendChild(q);
+                exList.insertBefore(w, addBtn);
+                extraRows.push({ get: () => { const p = parseFloat(pr.value) || 0, k = parseFloat(q.value) || 1; return nm.value.trim() && p > 0 ? { name: nm.value.trim(), price: p, unit: '', type: '', qty: k, total: p * k } : null; } });
+            }
+            const addBtn = el('button', 'qt-ex-add', t('+ Item lain')); addBtn.type = 'button'; addBtn.onclick = addCustomRow;
+            post({ action: 'catalog' }).then(r => {
+                exList.innerHTML = '';
+                const rows = (r && r.rows) || [];
+                if (!rows.length) exList.appendChild(el('div', 'qt-ex-empty', t('Katalog Hotel Service masih kosong.')));
+                let last = null;
+                rows.forEach(c => { if (c.type !== last) { exList.appendChild(el('div', 'qt-ex-g', (c.icon ? c.icon + ' ' : '') + c.type)); last = c.type; } addCatalogRow(c); });
+                exList.appendChild(addBtn);
+            }).catch(() => { exList.innerHTML = ''; exList.appendChild(el('div', 'qt-ex-empty', t('Katalog Hotel Service masih kosong.'))); exList.appendChild(addBtn); });
             body.appendChild(field(t('Catatan (opsional)'), notes));
             body.appendChild(el('div', 'qt-note', t('Kamar ini belum diblok — masih bisa dibooking orang lain sampai Anda mengonfirmasi.')));
             const err = el('div', 'qt-err'); err.style.display = 'none'; body.appendChild(err);
@@ -136,7 +197,8 @@ $qtText = [
                 post({
                     action: 'create', check_in: st.ci, check_out: st.co, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(),
                     notes: notes.value.trim(), valid_until: ymd(until), lang: EN ? 'en' : 'id',
-                    items: JSON.stringify(st.rooms.map(r => ({ room_id: r.id, disc_type: r.disc_type, disc_value: r.disc_value })))
+                    items: JSON.stringify(st.rooms.map(r => ({ room_id: r.id, disc_type: r.disc_type, disc_value: r.disc_value }))),
+                    extras: JSON.stringify(extraRows.map(r => r.get()).filter(Boolean).map(v => ({ catalog_id: v.catalog_id || 0, name: v.name, price: v.price, unit: v.unit, type: v.type, qty: v.qty })))
                 }).then(r => {
                     if (!r.ok) throw new Error(r.msg || '');
                     window.open(PRINT + '?id=' + r.id, '_blank', 'noopener');
@@ -172,7 +234,15 @@ $qtText = [
                     li.appendChild(el('b', '', rp(it.net_price) + t('/malam'))); ul.appendChild(li);
                 });
                 body.appendChild(ul);
-                const tt = el('div', 'qt-sum'); const t2 = el('div', 'tot'); t2.style.marginTop = '0'; t2.style.borderTop = '0'; t2.style.paddingTop = '0';
+                if (q.extras && q.extras.length) {
+                    const eh = el('div', 'qt-ex-g', t('Layanan tambahan')); eh.style.margin = '8px 0 2px'; body.appendChild(eh);
+                    const eu = el('ul', 'qt-rooms');
+                    q.extras.forEach(x => {
+                        const li = el('li'); li.appendChild(el('span', '', x.item_name + ' × ' + parseFloat(x.qty)));
+                        li.appendChild(el('b', '', rp(x.line_total))); eu.appendChild(li);
+                    });
+                    body.appendChild(eu);
+                }                const tt = el('div', 'qt-sum'); const t2 = el('div', 'tot'); t2.style.marginTop = '0'; t2.style.borderTop = '0'; t2.style.paddingTop = '0';
                 t2.appendChild(el('small', '', t('Total'))); t2.appendChild(el('b', '', rp(q.total))); tt.appendChild(t2); body.appendChild(tt);
                 if (r.conflicts && r.conflicts.length) {
                     body.appendChild(el('div', 'qt-err', t('Kamar berikut sudah terisi / diblok pada tanggal ini, penawaran tidak bisa dikonfirmasi:') + ' ' + r.conflicts.join(', ')));

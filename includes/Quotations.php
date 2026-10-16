@@ -51,7 +51,44 @@ class Quotations
             KEY idx_quote (quote_id),
             KEY idx_room (room_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $db->getConnection()->exec("CREATE TABLE IF NOT EXISTS quotation_extras (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            quote_id INT NOT NULL,
+            type_label VARCHAR(80) NULL,
+            item_name VARCHAR(160) NOT NULL,
+            unit_price DECIMAL(15,2) NOT NULL DEFAULT 0,
+            qty DECIMAL(10,2) NOT NULL DEFAULT 1,
+            unit VARCHAR(30) NULL,
+            line_total DECIMAL(15,2) NOT NULL DEFAULT 0,
+            KEY idx_quote (quote_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // total layanan tambahan (Hotel Service) di penawaran; total = kamar (setelah diskon) + tambahan
+        try {
+            if (!$db->fetchOne("SHOW COLUMNS FROM quotations LIKE 'extras_total'")) {
+                $db->getConnection()->exec("ALTER TABLE quotations ADD COLUMN extras_total DECIMAL(15,2) NOT NULL DEFAULT 0");
+            }
+        } catch (\Throwable $e) {
+        }
         $done = true;
+    }
+
+    /** Katalog Hotel Service aktif (untuk memilih fasilitas tambahan di penawaran), dikelompokkan per tipe. */
+    public static function catalog($db, int $businessId): array
+    {
+        try {
+            $labels = [];
+            foreach ($db->fetchAll("SELECT type_key, type_label, type_icon FROM hotel_service_types WHERE business_id = ? AND is_active = 1", [$businessId]) ?: [] as $t) {
+                $labels[$t['type_key']] = [$t['type_label'], $t['type_icon']];
+            }
+            $out = [];
+            foreach ($db->fetchAll("SELECT id, service_type, item_name, default_price, unit FROM hotel_service_catalog WHERE business_id = ? AND is_active = 1 ORDER BY service_type, sort_order, item_name", [$businessId]) ?: [] as $r) {
+                $lb = $labels[$r['service_type']] ?? [ucfirst(str_replace('_', ' ', (string)$r['service_type'])), ''];
+                $out[] = ['id' => (int)$r['id'], 'type' => $lb[0], 'icon' => (string)$lb[1], 'name' => $r['item_name'], 'price' => (float)$r['default_price'], 'unit' => (string)($r['unit'] ?? '')];
+            }
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     /** Harga bersih per malam setelah diskon (persen atau Rp per malam). */
@@ -80,9 +117,27 @@ class Quotations
         $valid = (string)($d['valid_until'] ?? '');
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $valid)) $valid = date('Y-m-d', strtotime('+7 days'));
 
+        // Layanan tambahan: dari katalog Hotel Service (catalog_id → harga diambil server) atau baris manual (name + price)
+        $extraRows = [];
+        $extrasTotal = 0.0;
+        foreach ((array)($d['extras'] ?? []) as $ex) {
+            $qty = max(0.01, min(9999, (float)($ex['qty'] ?? 1)));
+            $exName = trim((string)($ex['name'] ?? ''));
+            $exPrice = (float)($ex['price'] ?? 0);
+            $exUnit = trim((string)($ex['unit'] ?? ''));
+            $typeLabel = trim((string)($ex['type'] ?? ''));
+            if (!empty($ex['catalog_id'])) {
+                $c = $db->fetchOne("SELECT c.item_name, c.default_price, c.unit, t.type_label FROM hotel_service_catalog c LEFT JOIN hotel_service_types t ON t.type_key = c.service_type AND t.business_id = c.business_id WHERE c.id = ?", [(int)$ex['catalog_id']]);
+                if ($c) { $exName = $c['item_name']; $exPrice = (float)$c['default_price']; $exUnit = (string)$c['unit']; $typeLabel = (string)($c['type_label'] ?? $typeLabel); }
+            }
+            if ($exName === '' || $exPrice < 0) continue;
+            $line = round($exPrice * $qty, 2);
+            $extraRows[] = [$typeLabel, mb_substr($exName, 0, 160), $exPrice, $qty, mb_substr($exUnit, 0, 30), $line];
+            $extrasTotal += $line;
+        }
+
         $rows = [];
-        $subtotal = $total = 0.0;
-        foreach ($items as $it) {
+        $subtotal = $total = 0.0;        foreach ($items as $it) {
             $r = $db->fetchOne("SELECT r.id, r.room_number, rt.type_name, rt.base_price FROM rooms r LEFT JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = ?", [(int)$it['room_id']]);
             if (!$r) continue;
             $type = in_array($it['disc_type'] ?? '', ['percent', 'rp'], true) ? $it['disc_type'] : '';
@@ -103,15 +158,18 @@ class Quotations
                 $code = 'QT-' . date('Ymd') . '-' . str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT);
                 if (!$db->fetchOne("SELECT id FROM quotations WHERE quote_code = ?", [$code])) break;
             }
-            $db->query("INSERT INTO quotations (quote_code, guest_name, guest_phone, guest_email, notes, check_in, check_out, nights, valid_until, subtotal, discount_total, total, lang, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            $db->query("INSERT INTO quotations (quote_code, guest_name, guest_phone, guest_email, notes, check_in, check_out, nights, valid_until, subtotal, discount_total, total, extras_total, lang, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [$code, mb_substr($name, 0, 150), mb_substr(trim((string)($d['guest_phone'] ?? '')), 0, 40), mb_substr(trim((string)($d['guest_email'] ?? '')), 0, 120),
-                    trim((string)($d['notes'] ?? '')), $ci, $co, $nights, $valid, round($subtotal, 2), round($subtotal - $total, 2), round($total, 2),
+                    trim((string)($d['notes'] ?? '')), $ci, $co, $nights, $valid, round($subtotal, 2), round($subtotal - $total, 2), round($total + $extrasTotal, 2), round($extrasTotal, 2),
                     ($d['lang'] ?? 'id') === 'en' ? 'en' : 'id', $userId ?: null]);
             $qid = (int)$conn->lastInsertId();
             foreach ($rows as [$r, $type, $val, $base, $net, $line]) {
                 $db->query("INSERT INTO quotation_items (quote_id, room_id, room_number, room_type, base_price, disc_type, disc_value, net_price, line_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [$qid, (int)$r['id'], $r['room_number'], $r['type_name'], $base, $type, $val, $net, $line]);
+            }
+            foreach ($extraRows as [$tl, $nm, $pr, $qt, $un, $ln]) {
+                $db->query("INSERT INTO quotation_extras (quote_id, type_label, item_name, unit_price, qty, unit, line_total) VALUES (?, ?, ?, ?, ?, ?, ?)", [$qid, $tl, $nm, $pr, $qt, $un, $ln]);
             }
             $conn->commit();
         } catch (\Throwable $e) {
@@ -127,6 +185,7 @@ class Quotations
         $q = $db->fetchOne("SELECT * FROM quotations WHERE id = ?", [$id]);
         if (!$q) return null;
         $q['items'] = $db->fetchAll("SELECT * FROM quotation_items WHERE quote_id = ? ORDER BY room_number", [$id]) ?: [];
+        $q['extras'] = $db->fetchAll("SELECT * FROM quotation_extras WHERE quote_id = ? ORDER BY id", [$id]) ?: [];
         $q['expired'] = $q['status'] === 'open' && !empty($q['valid_until']) && $q['valid_until'] < date('Y-m-d');
         return $q;
     }
