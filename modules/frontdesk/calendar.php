@@ -3458,7 +3458,10 @@ include '../../includes/header.php';
                                         if (strtotime($date) === strtotime((string)$qg['check_in'])) {
                                             $qgNights = max(1, (int)ceil((strtotime((string)$qg['check_out']) - strtotime((string)$qg['check_in'])) / 86400));
                                             $qgW = ($qgNights * 110) - 6;
-                                            $qgLabel = 'Penawaran · ' . mb_substr((string)$qg['guest_name'], 0, 14);
+                                            // Label singkat "Quo · Nama": sapaan (Mr/Mrs/Pak/Ibu…) dibuang, ambil nama depan
+                                            $qgFirst = trim((string)preg_replace('/^(mr|mrs|ms|miss|bapak|ibu|pak|bu|dr|prof)\.?\s+/i', '', trim((string)$qg['guest_name'])));
+                                            $qgFirst = mb_substr((string)(preg_split('/\s+/', $qgFirst)[0] ?? ''), 0, 10);
+                                            $qgLabel = 'Quo · ' . $qgFirst;
                                 ?>
                                             <div class="booking-bar-container qt-ghost" style="left: 50%; width: <?php echo $qgW; ?>px;" data-quote-id="<?php echo (int)$qg['id']; ?>" data-room-id="<?php echo (int)$room['id']; ?>">
                                                 <div class="booking-bar booking-quote" title="<?php echo htmlspecialchars($qg['quote_code'] . ' · ' . $qg['guest_name']); ?>">

@@ -919,6 +919,19 @@ include '../../includes/header.php';
     }
 </style>
 
+<?php
+// Penawaran terbuka (belum memblok kamar): daftar tampil di popup yang dibuka dari tombol "Penawaran" di header
+$qtOpen = [];
+try {
+    require_once __DIR__ . '/../../includes/Quotations.php';
+    $qtOpen = Quotations::listAll($db, 'open');
+} catch (Throwable $e) {
+    $qtOpen = [];
+}
+$qtEn = function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en';
+$qtT = fn(string $id, string $en) => $qtEn ? $en : $id;
+$qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
+?>
 <div class="reservasi-container">
     <!-- Header -->
     <div class="reservasi-header">
@@ -929,6 +942,7 @@ include '../../includes/header.php';
             <button class="btn-primary" onclick="openNewBookingModal()">
                 New Booking
             </button>
+            <button class="btn-primary btn-quote" onclick="qtpOpen()"><?php echo htmlspecialchars($qtT('Penawaran', 'Quotations')); ?><?php if ($qtOpen): ?> <span class="qtp-n"><?php echo count($qtOpen); ?></span><?php endif; ?></button>
             <button class="btn-primary" onclick="window.location='calendar.php'">
                 Calendar View
             </button>
@@ -944,27 +958,18 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- Penawaran terbuka (belum memblok kamar) -->
-    <?php
-    $qtOpen = [];
-    try {
-        require_once __DIR__ . '/../../includes/Quotations.php';
-        $qtOpen = Quotations::listAll($db, 'open');
-    } catch (Throwable $e) {
-        $qtOpen = [];
-    }
-    if ($qtOpen):
-        $qtEn = function_exists('getCurrentLanguage') && getCurrentLanguage() === 'en';
-        $qtT = fn(string $id, string $en) => $qtEn ? $en : $id;
-        $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
-    ?>
-        <details class="qtp" open>
-            <summary>
-                <span class="qtp-t"><?php echo htmlspecialchars($qtT('Penawaran', 'Quotations')); ?></span>
-                <span class="qtp-n"><?php echo count($qtOpen); ?></span>
-                <span class="qtp-s"><?php echo htmlspecialchars($qtT('belum memblok kamar — tampil hijau transparan di kalender', 'rooms are not blocked — shown as transparent green in the calendar')); ?></span>
-            </summary>
+    <!-- Popup daftar penawaran -->
+    <div class="qtp-ov" id="qtpOv" onclick="if(event.target===this)qtpClose()">
+        <div class="qtp-box" role="dialog" aria-modal="true">
+            <div class="qtp-head">
+                <div><b><?php echo htmlspecialchars($qtT('Penawaran', 'Quotations')); ?></b>
+                    <small><?php echo htmlspecialchars($qtT('Belum memblok kamar — tampil hijau transparan di kalender', 'Rooms are not blocked — shown as transparent green in the calendar')); ?></small></div>
+                <button type="button" class="qtp-x" onclick="qtpClose()" aria-label="<?php echo htmlspecialchars($qtT('Tutup', 'Close')); ?>">&times;</button>
+            </div>
             <div class="qtp-list">
+                <?php if (!$qtOpen): ?>
+                    <div class="qtp-empty"><?php echo htmlspecialchars($qtT('Belum ada penawaran terbuka. Buat dari Kalender → Cek Ketersediaan → Buat Penawaran.', 'No open quotations yet. Create one from Calendar → Check Availability → Create Quotation.')); ?></div>
+                <?php endif; ?>
                 <?php foreach ($qtOpen as $q): ?>
                     <div class="qtp-row<?php echo $q['expired'] ? ' is-exp' : ''; ?>">
                         <div class="qtp-main">
@@ -988,48 +993,46 @@ include '../../includes/header.php';
                     </div>
                 <?php endforeach; ?>
             </div>
-        </details>
-        <style>
-            .qtp { margin: 0 0 .8rem; border: 1px solid rgba(34, 197, 94, .35); border-radius: 14px; background: rgba(34, 197, 94, .06); }
-            .qtp > summary { display: flex; align-items: center; gap: .55rem; padding: .55rem .85rem; cursor: pointer; list-style: none; flex-wrap: wrap; }
-            .qtp > summary::-webkit-details-marker { display: none; }
-            .qtp > summary::before { content: '▸'; font-size: .7rem; color: #16a34a; transition: transform .15s; }
-            .qtp[open] > summary::before { transform: rotate(90deg); }
-            .qtp-t { font-size: .82rem; font-weight: 800; color: #15803d; }
-            .qtp-n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #16a34a; color: #fff; font-size: .68rem; font-weight: 800; line-height: 20px; text-align: center; }
-            .qtp-s { font-size: .68rem; color: #64748b; }
-            .qtp-list { padding: 0 .7rem .7rem; display: flex; flex-direction: column; gap: .4rem; }
-            .qtp-row { display: flex; align-items: center; gap: .8rem; padding: .55rem .75rem; border-radius: 11px; background: #fff; border: 1px solid #e2e8f0; flex-wrap: wrap; }
-            .qtp-row.is-exp { opacity: .6; }
-            .qtp-main { flex: 1 1 260px; min-width: 0; }
-            .qtp-main b { font-size: .86rem; color: #0f172a; }
-            .qtp-code { margin-left: .4rem; font-size: .62rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #f1f5f9; color: #475569; }
-            .qtp-exp { margin-left: .3rem; font-size: .6rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: #fee2e2; color: #b91c1c; }
-            .qtp-meta { margin-top: 2px; font-size: .7rem; color: #64748b; }
-            .qtp-amt { font-size: .92rem; font-weight: 800; color: #0f172a; white-space: nowrap; }
-            .qtp-act { display: flex; gap: .35rem; }
-            .qtp-b { height: 28px; padding: 0 .75rem; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; color: #334155 !important; font-size: .7rem; font-weight: 700; cursor: pointer; text-decoration: none; }
-            .qtp-b.pri { background: linear-gradient(180deg, #22c55e, #15803d); border-color: transparent; color: #fff !important; }
-            .qtp-b.bad { color: #dc2626 !important; }
-            body[data-theme="dark"] .qtp { background: rgba(34, 197, 94, .08); }
-            body[data-theme="dark"] .qtp-t { color: #86efac; } body[data-theme="dark"] .qtp-s, body[data-theme="dark"] .qtp-meta { color: #94a3b8; }
-            body[data-theme="dark"] .qtp-row { background: #16213a; border-color: rgba(148, 163, 184, .2); }
-            body[data-theme="dark"] .qtp-main b, body[data-theme="dark"] .qtp-amt { color: #e6edf7; }
-            body[data-theme="dark"] .qtp-code { background: rgba(255, 255, 255, .08); color: #cbd5e1; }
-            body[data-theme="dark"] .qtp-b { background: #111a2e; border-color: rgba(148, 163, 184, .3); color: #e6edf7 !important; }
-            body[data-theme="dark"] .qtp-b.pri { background: linear-gradient(180deg, #22c55e, #15803d); color: #fff !important; }
-            body[data-theme="dark"] .qtp-b.bad { color: #f87171 !important; }
-        </style>
-        <script>
-            function qtpCancel(id) {
-                if (!confirm(<?php echo json_encode($qtT('Batalkan penawaran ini? Bar hijau di kalender akan hilang.', 'Cancel this quotation? The green bar in the calendar will disappear.'), JSON_UNESCAPED_UNICODE); ?>)) return;
-                const fd = new FormData();
-                fd.append('action', 'cancel');
-                fd.append('id', id);
-                fetch('../../api/quotation.php', { method: 'POST', body: fd, credentials: 'include' }).then(r => r.json()).then(() => location.reload());
-            }
-        </script>
-    <?php endif; ?>
+        </div>
+    </div>
+    <style>
+        .btn-primary.btn-quote { background: linear-gradient(180deg, #22c55e, #15803d) !important; border-color: transparent !important; }
+        .qtp-n { display: inline-block; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 4px; border-radius: 999px; background: rgba(255, 255, 255, .28); color: #fff; font-size: .66rem; font-weight: 800; line-height: 18px; text-align: center; vertical-align: middle; }
+        .qtp-ov { position: fixed; inset: 0; z-index: 10070; display: none; align-items: center; justify-content: center; padding: 14px; background: rgba(2, 6, 23, .55); backdrop-filter: blur(3px); }
+        .qtp-ov.on { display: flex; }
+        .qtp-box { --bg: #fff; --bd: #e2e8f0; --tx: #0f172a; --mu: #64748b; width: 100%; max-width: 640px; max-height: 88vh; display: flex; flex-direction: column; border-radius: 16px; background: var(--bg); color: var(--tx); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); font-family: system-ui, 'Segoe UI', sans-serif; }
+        body[data-theme="dark"] .qtp-box { --bg: #111a2e; --bd: #22304a; --tx: #e6edf7; --mu: #9fb0c8; }
+        .qtp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--bd); }
+        .qtp-head b { display: block; font-size: .98rem; color: var(--tx) !important; } .qtp-head small { font-size: .7rem; color: var(--mu) !important; }
+        .qtp-x { border: 0; background: rgba(148, 163, 184, .18); color: var(--mu); width: 28px; height: 28px; border-radius: 8px; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+        .qtp-list { overflow-y: auto; padding: 10px 12px 14px; display: flex; flex-direction: column; gap: .45rem; }
+        .qtp-empty { padding: 26px 10px; text-align: center; font-size: .8rem; color: var(--mu) !important; }
+        .qtp-row { display: flex; align-items: center; gap: .8rem; padding: .6rem .75rem; border-radius: 11px; background: rgba(148, 163, 184, .1); border: 1px solid var(--bd); flex-wrap: wrap; }
+        .qtp-row.is-exp { opacity: .6; }
+        .qtp-main { flex: 1 1 230px; min-width: 0; }
+        .qtp-main b { font-size: .86rem; color: var(--tx) !important; }
+        .qtp-code { margin-left: .4rem; font-size: .62rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(148, 163, 184, .2); color: var(--mu) !important; }
+        .qtp-exp { margin-left: .3rem; font-size: .6rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgba(239, 68, 68, .16); color: #dc2626 !important; }
+        .qtp-meta { margin-top: 2px; font-size: .7rem; color: var(--mu) !important; }
+        .qtp-amt { font-size: .92rem; font-weight: 800; color: var(--tx) !important; white-space: nowrap; }
+        .qtp-act { display: flex; gap: .35rem; }
+        .qtp-b { height: 28px; padding: 0 .75rem; display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid rgba(148, 163, 184, .45); background: transparent; color: var(--tx) !important; font-size: .7rem; font-weight: 700; cursor: pointer; text-decoration: none; }
+        .qtp-b.pri { background: linear-gradient(180deg, #22c55e, #15803d); border-color: transparent; color: #fff !important; }
+        .qtp-b.bad { color: #dc2626 !important; }
+    </style>
+    <script>
+        function qtpOpen() { document.getElementById('qtpOv').classList.add('on'); }
+        function qtpClose() { document.getElementById('qtpOv').classList.remove('on'); }
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') qtpClose(); });
+        function qtpCancel(id) {
+            if (!confirm(<?php echo json_encode($qtT('Batalkan penawaran ini? Bar hijau di kalender akan hilang.', 'Cancel this quotation? The green bar in the calendar will disappear.'), JSON_UNESCAPED_UNICODE); ?>)) return;
+            const fd = new FormData();
+            fd.append('action', 'cancel');
+            fd.append('id', id);
+            fetch('../../api/quotation.php', { method: 'POST', body: fd, credentials: 'include' }).then(r => r.json()).then(() => location.reload());
+        }
+    </script>
+
     <!-- Filter Section -->
     <div class="filter-section">
         <div class="filter-group">

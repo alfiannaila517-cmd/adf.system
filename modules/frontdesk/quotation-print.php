@@ -107,7 +107,9 @@ $qtyFmt = fn($v) => rtrim(rtrim(number_format((float)$v, 2, ',', '.'), '0'), ','
         .top .doc .no { margin-top: 5px; font-size: 14.5px; font-weight: 700; color: #fff; letter-spacing: .02em; }
         .top .doc span { display: block; margin-top: 2px; font-size: 10.5px; color: #c6d2e4; }
         .rule { height: 4px; background: linear-gradient(90deg, var(--gold), #e3c68f 55%, var(--gold)); }
-        .body { flex: 1; padding: 9mm 15mm 6mm; }
+        .body { position: relative; z-index: 1; flex: 1; padding: 9mm 15mm 6mm; }
+        /* Watermark logo hotel di tengah kertas (di belakang isi) */
+        .wm { position: absolute; z-index: 0; top: 56%; left: 50%; width: 118mm; height: 118mm; transform: translate(-50%, -50%); border-radius: 50%; object-fit: cover; opacity: .06; filter: grayscale(1); pointer-events: none; }
         .state { position: absolute; top: 88mm; right: 20mm; transform: rotate(8deg); border: 3px solid #b91c1c; color: #b91c1c; padding: 3px 12px; font-weight: 900; letter-spacing: .12em; font-size: 17px; opacity: .45; border-radius: 6px; pointer-events: none; }
         .state.ok { border-color: #15803d; color: #15803d; }
 
@@ -133,7 +135,7 @@ $qtyFmt = fn($v) => rtrim(rtrim(number_format((float)$v, 2, ',', '.'), '0'), ','
         .sec2 { margin-top: 6mm; } .sec2 h3 { margin: 0 0 4px; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
         .sec2 p, .sec2 li { margin: 2px 0; line-height: 1.55; color: #334155; font-size: 11px; } .sec2 ul { margin: 0; padding-left: 15px; }
 
-        .foot { padding: 0 15mm 9mm; }
+        .foot { position: relative; z-index: 1; padding: 0 15mm 9mm; }
         .sig { display: flex; justify-content: flex-end; margin-bottom: 7mm; }
         .sig > div { width: 62mm; text-align: center; font-size: 11px; color: #334155; }
         .sig .line { height: 17mm; border-bottom: 1px solid #94a3b8; margin-bottom: 4px; }
@@ -151,6 +153,7 @@ $qtyFmt = fn($v) => rtrim(rtrim(number_format((float)$v, 2, ',', '.'), '0'), ','
         <button onclick="window.close()"><?php echo htmlspecialchars($L['close']); ?></button>
     </div>
     <div class="page">
+        <?php if ($logoUrl !== ''): ?><img class="wm" src="<?php echo htmlspecialchars($logoUrl); ?>" alt=""><?php endif; ?>
         <?php if ($stateLbl !== ''): ?><div class="state <?php echo $q['status'] === 'confirmed' ? 'ok' : ''; ?>"><?php echo $stateLbl; ?></div><?php endif; ?>
         <div class="top">
             <?php if ($logoUrl !== ''): ?><img src="<?php echo htmlspecialchars($logoUrl); ?>" alt=""><?php endif; ?>
