@@ -3191,6 +3191,8 @@ include '../../includes/header.php';
         .av-net b { font-size: 0.78rem; font-weight: 800; color: #15803d !important; -webkit-text-fill-color: #15803d !important; }
         .av-net span { font-size: 0.64rem; font-weight: 600; color: #64748b !important; -webkit-text-fill-color: #64748b !important; }
         .av-net[hidden] { display: none; }
+        .av-net.plain b { color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+        body[data-theme="dark"] .av-net.plain b { color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
         body[data-theme="dark"] .av-disc-in { background: #0f172a; border-color: rgba(148, 163, 184, 0.3); color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; }
         body[data-theme="dark"] .av-seg { background: rgba(255, 255, 255, 0.07); }
         body[data-theme="dark"] .av-seg button { color: #94a3b8; }
@@ -5390,6 +5392,8 @@ include '../../includes/header.php';
                     html += '</div></div>';
                 });
                 body.innerHTML = html;
+                // Harga normal (tanpa diskon) langsung tampil per tipe room
+                body.querySelectorAll('.av-type').forEach(availDiscRender);
             }
             availUpdateBook();
             // Kalender: sorot rentang & tampilkan tanggal check-in
@@ -5415,7 +5419,16 @@ include '../../includes/header.php';
         if (!net) return;
         const base = parseFloat(section.dataset.price) || 0;
         const st = availState.disc[section.dataset.type];
-        if (!st || !(st.val > 0)) { net.hidden = true; net.innerHTML = ''; return; }
+        const nightsAll = availState.nights || 1;
+        if (!st || !(st.val > 0)) {
+            // Tanpa diskon: tampilkan total harga normal untuk lama menginap
+            net.classList.add('plain');
+            net.innerHTML = '<b>Total ' + nightsAll + ' malam: ' + availRp(base * nightsAll) + '</b>' +
+                '<span>' + availRp(base) + ' × ' + nightsAll + ' malam</span>';
+            net.hidden = false;
+            return;
+        }
+        net.classList.remove('plain');
         const perNight = Math.round(st.unit === 'pct' ? base * (1 - Math.min(100, st.val) / 100) : Math.max(0, base - st.val));
         const nights = availState.nights || 1;
         const saved = Math.max(0, base - perNight) * nights;
