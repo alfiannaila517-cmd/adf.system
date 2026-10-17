@@ -1130,13 +1130,14 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
             }
 
             $currentQty = (float)gudangNasitaCurrentQty($stock);
-            if ($quantity > $currentQty) {
+            // Bulatkan 4 desimal (sama dengan DECIMAL kolom): 0.1+0.2 > 0.3 di float tidak boleh membuat stok ditolak / menyisakan 1e-17
+            if (round($quantity, 4) > round($currentQty, 4)) {
                 throw new Exception('Qty stock keluar melebihi stok tersedia untuk item ' . $stock['item_name']);
             }
 
             $unitPrice = (float)gudangNasitaCurrentUnitCost($stock);
             $lineSubtotal = $quantity * $unitPrice;
-            $remainingQty = $currentQty - $quantity;
+            $remainingQty = round($currentQty - $quantity, 4);
             $remainingValue = max(0, (float)gudangNasitaCurrentStockValue($stock) - $lineSubtotal);
 
             $updateData = [
@@ -1902,11 +1903,11 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
             $available = (float)$stock['quantity'];
             $unitPrice = gudangNasitaCurrentUnitCost($stock);
             $lineSubtotal = $qty * $unitPrice;
-            if ($qty > $available) {
+            if (round($qty, 4) > round($available, 4)) {
                 throw new Exception('Stok tidak cukup untuk item ' . $stock['item_name']);
             }
 
-            $remaining = $available - $qty;
+            $remaining = round($available - $qty, 4);
             $remainingValue = max(0, gudangNasitaCurrentStockValue($stock) - $lineSubtotal);
             $stockUpdateData = [
                 'quantity'    => $remaining,
