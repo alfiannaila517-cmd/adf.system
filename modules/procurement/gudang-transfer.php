@@ -404,8 +404,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $poStatusCfg = require $poStatusCfgPath;
             $poStatusDbName = (string)($poStatusCfg['database'] ?? '');
             if ($poStatusDbName !== '') {
+                $originDbForPo = Database::getCurrentDatabase();
                 try {
-                    $originDbForPo = Database::getCurrentDatabase();
                     $poStatusDb = Database::switchDatabase($poStatusDbName);
 
                     // Ensure received_quantity column exists in older schemas.
@@ -431,14 +431,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     foreach ($byDetail as $detailId => $qtyToAdd) {
-                        $row = $poStatusDb->fetchOne('SELECT id, quantity, COALESCE(received_quantity,0) AS received_quantity FROM purchase_orders_detail WHERE id = ? AND po_header_id = ? LIMIT 1', [(int)$detailId, (int)$sourcePoId]);
-                        if (!$row) {
-                            continue;
+                        // Atomik di SQL: dua transfer bersamaan tidak saling menimpa, dan dibatasi sebesar qty pesanan
+                        $poUpd = $poStatusDb->query('UPDATE purchase_orders_detail SET received_quantity = LEAST(quantity, COALESCE(received_quantity,0) + ?) WHERE id = ? AND po_header_id = ?', [(float)$qtyToAdd, (int)$detailId, (int)$sourcePoId]);
+                        if ($poUpd === false) {
+                            throw new RuntimeException('Gagal memperbarui qty diterima pada PO bisnis (detail #' . (int)$detailId . ').');
                         }
-                        $ordered = (float)($row['quantity'] ?? 0);
-                        $receivedNow = (float)($row['received_quantity'] ?? 0);
-                        $newReceived = min($ordered, $receivedNow + (float)$qtyToAdd);
-                        $poStatusDb->update('purchase_orders_detail', ['received_quantity' => $newReceived], 'id = :id', ['id' => (int)$detailId]);
                     }
 
                     // Recompute header status.
@@ -453,11 +450,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     $poStatusDb->update('purchase_orders_header', ['status' => $newStatus], 'id = :id', ['id' => (int)$sourcePoId]);
 
+                } catch (Throwable $e) {
+                    error_log('gudang-transfer PO status update error: ' . $e->getMessage());
+                } finally {
                     if (!empty($originDbForPo)) {
                         Database::switchDatabase($originDbForPo);
                     }
-                } catch (Throwable $e) {
-                    error_log('gudang-transfer PO status update error: ' . $e->getMessage());
                 }
             }
         }
