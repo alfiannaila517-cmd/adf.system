@@ -3731,7 +3731,7 @@ include '../../includes/header.php';
     var reservationMode = 'reservation';
 
     window.setReservationMode = function setReservationMode(mode) {
-        reservationMode = mode === 'block_room' ? 'block_room' : 'reservation';
+        reservationMode = (mode === 'block_room' || mode === 'quotation') ? mode : 'reservation';
 
         const guestInfoSection = document.getElementById('guestInfoSection');
         const guestCountSection = document.getElementById('guestCountSection');
@@ -3745,19 +3745,27 @@ include '../../includes/header.php';
         const bookingSourceInput = document.getElementById('bookingSource');
 
         const isBlock = reservationMode === 'block_room';
+        const isQuote = reservationMode === 'quotation'; // penawaran: tanpa sumber/pembayaran/jumlah tamu, tidak memblok kamar
 
         if (guestInfoSection) guestInfoSection.style.display = isBlock ? 'none' : 'grid';
-        if (guestCountSection) guestCountSection.style.display = isBlock ? 'none' : 'flex';
-        if (sourcePaymentSection) sourcePaymentSection.style.display = isBlock ? 'none' : 'grid';
+        if (guestCountSection) guestCountSection.style.display = (isBlock || isQuote) ? 'none' : 'flex';
+        if (sourcePaymentSection) sourcePaymentSection.style.display = (isBlock || isQuote) ? 'none' : 'grid';
         if (priceSummarySection) priceSummarySection.style.display = isBlock ? 'none' : 'block';
-        if (paymentSection) paymentSection.style.display = isBlock ? 'none' : 'flex';
+        if (paymentSection) paymentSection.style.display = (isBlock || isQuote) ? 'none' : 'flex';
         if (blockInfoSection) blockInfoSection.style.display = isBlock ? 'block' : 'none';
 
         if (guestNameInput) guestNameInput.required = !isBlock;
-        if (bookingSourceInput) bookingSourceInput.required = !isBlock;
+        if (bookingSourceInput) bookingSourceInput.required = !isBlock && !isQuote;
 
-        if (title) title.textContent = isBlock ? 'Block Room' : 'New Reservation';
-        if (submitBtn) submitBtn.textContent = isBlock ? 'Save Block Room' : 'Save Reservation';
+        const qEn = (document.documentElement.lang || '').toLowerCase() === 'en';
+        if (title) title.textContent = isBlock ? 'Block Room' : (isQuote ? (qEn ? 'New Quotation' : 'Penawaran Baru') : 'New Reservation');
+        if (submitBtn) submitBtn.textContent = isBlock ? 'Save Block Room' : (isQuote ? (qEn ? 'Save & Print Quotation' : 'Simpan & Cetak Penawaran') : 'Save Reservation');
+        // Petunjuk di samping dropdown mode mengikuti mode terpilih
+        const hintEl = document.querySelector('#blockHintWrap .nr-hint');
+        if (hintEl) {
+            if (hintEl.dataset.orig === undefined) hintEl.dataset.orig = hintEl.textContent;
+            hintEl.textContent = isQuote ? (qEn ? 'Quotation: does not block the room — becomes a booking once confirmed.' : 'Penawaran: tidak memblok kamar — jadi booking setelah dikonfirmasi.') : hintEl.dataset.orig;
+        }
 
         calculateMultiRoomTotalCalendar();
     }
@@ -6146,7 +6154,8 @@ include '../../includes/header.php';
         document.getElementById('roomsChecklistCalendar').innerHTML = '<div style="text-align:center; padding: 20px;"><em>Loading available rooms...</em></div>';
 
         try {
-            const mode = document.getElementById('reservationMode')?.value || 'reservation';
+            let mode = document.getElementById('reservationMode')?.value || 'reservation';
+            if (mode === 'quotation') mode = 'reservation';
             const response = await fetch(`../../api/get-available-rooms.php?check_in=${checkIn}&check_out=${checkOut}&mode=${encodeURIComponent(mode)}`);
 
             // Check if response is OK
@@ -6425,6 +6434,45 @@ include '../../includes/header.php';
                 }
             } else {
                 alert('❌ Gagal membuat block room.\n' + failed.join('\n'));
+            }
+            return;
+        }
+
+        if (mode === 'quotation') {
+            const qEn = (document.documentElement.lang || '').toLowerCase() === 'en';
+            const qName = (document.getElementById('guestName').value || '').trim();
+            if (!qName) { alert(qEn ? 'Guest name is required.' : 'Nama tamu wajib diisi.'); return; }
+            const qIn = document.getElementById('checkInDate').value;
+            const qOut = document.getElementById('checkOutDate').value;
+            const qNights = Math.max(1, Math.ceil((new Date(qOut) - new Date(qIn)) / 86400000));
+            const qDisc = parseFloat(document.getElementById('discount').value) || 0;
+            const qDiscType = document.getElementById('discountType').value === 'percent' ? 'percent' : 'rp';
+            // Diskon Rp di form adalah total; penawaran menyimpan diskon per kamar per malam
+            const qDiscVal = qDisc > 0 ? (qDiscType === 'percent' ? qDisc : Math.round(qDisc / (checkedRooms.length * qNights))) : 0;
+            const qUntil = new Date(); qUntil.setDate(qUntil.getDate() + 7);
+            const fdq = new FormData();
+            fdq.append('action', 'create');
+            fdq.append('check_in', qIn);
+            fdq.append('check_out', qOut);
+            fdq.append('guest_name', qName);
+            fdq.append('guest_phone', (document.getElementById('guestPhone').value || '').trim());
+            fdq.append('valid_until', window.fdLocalYmd(qUntil));
+            fdq.append('lang', qEn ? 'en' : 'id');
+            fdq.append('items', JSON.stringify(Array.from(checkedRooms).map(cb => ({ room_id: cb.value, disc_type: qDisc > 0 ? qDiscType : '', disc_value: qDiscVal }))));
+            submitBtn.disabled = true;
+            submitBtn.textContent = qEn ? 'Saving…' : 'Menyimpan…';
+            try {
+                const resq = await fetch('<?php echo BASE_URL; ?>/api/quotation.php', { method: 'POST', body: fdq, credentials: 'same-origin' });
+                const dq = await resq.json();
+                if (!dq.ok) throw new Error(dq.msg || 'Gagal');
+                window.open('<?php echo BASE_URL; ?>/modules/frontdesk/quotation-print.php?id=' + dq.id, '_blank', 'noopener');
+                closeReservationModal();
+                saveScrollAndReload();
+            } catch (err) {
+                alert((qEn ? 'Failed: ' : 'Gagal: ') + err.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
             }
             return;
         }
@@ -7372,6 +7420,7 @@ include '../../includes/header.php';
                         <select id="reservationMode" name="reservation_mode" onchange="setReservationMode(this.value)">
                             <option value="reservation" selected>Reservasi</option>
                             <option value="block_room">Block Room</option>
+                            <option value="quotation">Penawaran</option>
                         </select>
                     </div>
                     <div class="input-compact" id="blockHintWrap">
