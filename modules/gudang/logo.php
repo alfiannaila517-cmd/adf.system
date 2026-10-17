@@ -14,6 +14,8 @@ require_once __DIR__ . '/../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
+require_once __DIR__ . '/../../includes/gudang_csrf.php';
+gudangCsrfProtect(); // CSRF: verifikasi POST + token otomatis di form/fetch
 if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse') || $auth->hasPermission('settings'))) {
     http_response_code(403);
     echo 'Akses ditolak.';

@@ -22,6 +22,8 @@ if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse')
     echo json_encode(['success' => false, 'message' => 'Akses Gudang Nasita ditolak']);
     exit;
 }
+require_once dirname(__DIR__) . '/includes/gudang_csrf.php';
+gudangCsrfProtect(false); // POST save/delete wajib bawa token (otomatis dari fetch di halaman Gudang)
 
 $db   = Database::getInstance();
 $action = $_GET['action'] ?? 'search';

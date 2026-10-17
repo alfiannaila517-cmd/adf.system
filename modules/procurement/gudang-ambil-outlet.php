@@ -15,6 +15,8 @@ require_once '../../includes/procurement_functions.php';
 
 $auth = new Auth();
 $auth->requireLogin();
+require_once __DIR__ . '/../../includes/gudang_csrf.php';
+gudangCsrfProtect(); // CSRF: verifikasi POST + token otomatis di form/fetch
 if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
     http_response_code(403);
     echo 'Akses Gudang Nasita ditolak.';
