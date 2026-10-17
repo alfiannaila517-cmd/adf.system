@@ -1283,7 +1283,14 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                 $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1 FOR UPDATE", [$item['item_name']]);
             }
             if (!$stock) {
-                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) ORDER BY COALESCE(quantity, jumlah_stok, 0) DESC LIMIT 1", ['%' . trim($item['item_name']) . '%']);
+                // Fallback nama mirip HANYA bila tepat satu barang yang cocok. Sebelumnya mengambil yang stoknya terbanyak,
+                // sehingga 'Beras' bisa masuk ke 'Beras Merah 25kg' (salah barang). Bila ambigu → dianggap belum ada
+                // (jalur di bawah membuat baris baru dari katalog atau meminta item didaftarkan dulu).
+                $likeLike = '%' . addcslashes(trim($item['item_name']), '%_\\') . '%';
+                $likeRows = $db->fetchAll("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) LIMIT 2 FOR UPDATE", [$likeLike]) ?: [];
+                if (count($likeRows) === 1) {
+                    $stock = $likeRows[0];
+                }
             }
 
             if ($stock && !(int)($stock['is_active'] ?? 1)) {
