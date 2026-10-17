@@ -429,7 +429,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_gudang_transfer') {
     $tid = (int)($_POST['transfer_id'] ?? 0);
     try {
-        $tr = $tid > 0 ? $db->fetchOne('SELECT * FROM gudang_nasita_transfers WHERE id = ? LIMIT 1', [$tid]) : null;
+        // DDL (ensure*) harus selesai SEBELUM transaksi dibuka (CREATE/ALTER = implicit commit di MySQL)
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+        $pdoCancel = $db->getConnection();
+        $pdoCancel->beginTransaction();
+        // Kunci header kiriman: klik ganda antre di sini, yang kedua melihat status 'cancelled' dan berhenti
+        $tr = $tid > 0 ? $db->fetchOne('SELECT * FROM gudang_nasita_transfers WHERE id = ? LIMIT 1 FOR UPDATE', [$tid]) : null;
         if (!$tr) {
             throw new Exception('Data kiriman tidak ditemukan.');
         }
@@ -462,9 +468,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 throw new Exception('Gagal mengembalikan stok ' . $it['item_name'] . ': ' . ($res['message'] ?? ''));
             }
         }
-        $db->query("UPDATE gudang_nasita_transfers SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes, ''), ' [Dibatalkan ', ?, ']')) WHERE id = ?", [date('d/m/Y H:i'), $tid]);
+        // PDO langsung: error harus melempar exception supaya seluruh pembatalan (stok yang sudah dikembalikan) di-rollback
+        $pdoCancel->prepare("UPDATE gudang_nasita_transfers SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes, ''), ' [Dibatalkan ', ?, ']')) WHERE id = ?")
+            ->execute([date('d/m/Y H:i'), $tid]);
+        $pdoCancel->commit();
         $_SESSION['success'] = 'Kiriman ' . $tr['transfer_number'] . ' dibatalkan, stok dikembalikan ke gudang.';
     } catch (Throwable $e) {
+        if (isset($pdoCancel) && $pdoCancel->inTransaction()) {
+            $pdoCancel->rollBack();
+        }
         $_SESSION['error'] = $e->getMessage();
     }
     header('Location: gudang-nasita.php');

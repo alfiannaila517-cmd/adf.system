@@ -865,16 +865,21 @@ function getGudangNasitaTransfers($limit = 50)
 function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $options = [])
 {
     $db = Database::getInstance();
+    // Bila pemanggil sudah membuka transaksi (mis. pembatalan kiriman), fungsi ini ikut di dalamnya: tidak begin/commit/rollback
+    // sendiri, dan tidak menjalankan DDL (CREATE/ALTER memicu implicit commit di MySQL — panggil ensure* sebelum begin).
+    $ownTx = !$db->getConnection()->inTransaction();
 
-    try {
-        ensureGudangNasitaStockSchemaCompatibility();
-    } catch (Throwable $e) {
-        error_log('addGudangNasitaManualStock stock schema skipped: ' . $e->getMessage());
-    }
-    try {
-        ensureGudangNasitaOperationalTablesCompatibility();
-    } catch (Throwable $e) {
-        error_log('addGudangNasitaManualStock operational tables skipped: ' . $e->getMessage());
+    if ($ownTx) {
+        try {
+            ensureGudangNasitaStockSchemaCompatibility();
+        } catch (Throwable $e) {
+            error_log('addGudangNasitaManualStock stock schema skipped: ' . $e->getMessage());
+        }
+        try {
+            ensureGudangNasitaOperationalTablesCompatibility();
+        } catch (Throwable $e) {
+            error_log('addGudangNasitaManualStock operational tables skipped: ' . $e->getMessage());
+        }
     }
     // Refresh column cache after schema ensure runs.
     gudangNasitaStockColumns(true);
@@ -903,7 +908,9 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         $notes = trim((string)($options['notes'] ?? ''));
         $reorderLevel = isset($options['reorder_level']) ? (float)$options['reorder_level'] : null;
 
-        $db->getConnection()->beginTransaction();
+        if ($ownTx) {
+            $db->getConnection()->beginTransaction();
+        }
 
         // Match by EXACT item_name ONLY — never fall back to barang_id. A stock row's
         // barang_id can be stale/wrong from historical bugs (e.g. linked to the wrong
@@ -1029,7 +1036,9 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             'created_by' => $createdBy
         ]);
 
-        $db->getConnection()->commit();
+        if ($ownTx) {
+            $db->getConnection()->commit();
+        }
 
         return [
             'success' => true,
@@ -1038,7 +1047,7 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
             'new_qty' => (float)$updateData['quantity']
         ];
     } catch (Throwable $e) {
-        if ($db->getConnection()->inTransaction()) {
+        if ($ownTx && $db->getConnection()->inTransaction()) {
             $db->getConnection()->rollBack();
         }
         error_log('[GUDANG] addGudangNasitaManualStock FAILED: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
