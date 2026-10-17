@@ -30,14 +30,25 @@ $pageTitle = 'Kas & Biaya Gudang';
 gudangNasitaEnsureAccountingTables($db);
 
 // Make sure cash_book accepts null division/category (same auto-fix used across the app).
+// ALTER TABLE hanya dijalankan bila salah satu kolom masih NOT NULL (dulu: di setiap muat halaman = kunci tabel tanpa perlu).
 try {
-    $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
+    $cbNeedsFix = false;
+    foreach (['division_id', 'category_id'] as $cbCol) {
+        $cbInfo = $db->fetchOne("SHOW COLUMNS FROM `cash_book` LIKE '" . $cbCol . "'");
+        if ($cbInfo && strtoupper((string)($cbInfo['Null'] ?? 'YES')) === 'NO') {
+            $cbNeedsFix = true;
+        }
+    }
+    if ($cbNeedsFix) {
+        try {
+            $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
+        } catch (Throwable $e) {
+        }
+        $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
+        $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
+    }
 } catch (Throwable $e) {
-}
-try {
-    $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `division_id` INT NULL");
-    $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `category_id` INT NULL");
-} catch (Throwable $e) {
+    error_log('gudang finance cash_book nullable check failed: ' . $e->getMessage());
 }
 
 // ── POST: tambah TKBM langsung dari Finance ──────────────────────────────────

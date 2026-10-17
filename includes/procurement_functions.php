@@ -4049,6 +4049,15 @@ function gudangNasitaTkbmEnsureCashBookColumn($db): void
  */
 function gudangNasitaTkbmAdd(string $tanggal, float $biaya, string $keterangan, int $jumlahBisnis, int $userId): int
 {
+    // Normalisasi input: tanggal wajib Y-m-d yang valid (selain itu → hari ini), keterangan dipotong, jumlah bisnis 1..20
+    $tanggal = trim($tanggal);
+    $tglObj = DateTime::createFromFormat('Y-m-d', $tanggal);
+    if (!$tglObj || $tglObj->format('Y-m-d') !== $tanggal) {
+        $tanggal = date('Y-m-d');
+    }
+    $keterangan = mb_substr(trim($keterangan), 0, 255);
+    $jumlahBisnis = max(1, min(20, $jumlahBisnis));
+
     $db = Database::getInstance();
     gudangNasitaEnsureAccountingTables($db);
     gudangNasitaTkbmEnsureCashBookColumn($db);
