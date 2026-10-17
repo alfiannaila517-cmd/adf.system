@@ -608,30 +608,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Reset all active Gudang stock quantities to zero.
+// Reset semua stok aktif Gudang ke 0 — hanya admin/owner/developer. Setiap barang yang bernilai dicatat sebagai
+// movement 'adjustment' (jejak audit) dan seluruhnya dalam satu transaksi (gagal = tidak ada yang berubah).
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reset_stock_zero') {
+    $pdoReset = null;
     try {
+        $resetRole = (string)($_SESSION['role'] ?? '');
+        if (!in_array($resetRole, ['admin', 'owner', 'developer'], true)) {
+            throw new Exception('Hanya admin / owner yang boleh me-reset stok.');
+        }
         $hasJumlahStok = function_exists('gudangNasitaStockHasColumn') ? gudangNasitaStockHasColumn('jumlah_stok') : false;
         $hasBusinessId = function_exists('gudangNasitaStockHasColumn') ? gudangNasitaStockHasColumn('business_id') : false;
+        $hasTotalHarga = function_exists('gudangNasitaStockHasColumn') ? gudangNasitaStockHasColumn('total_harga') : false;
         $activeBusinessId = isset($_SESSION['business_id']) ? (int)$_SESSION['business_id'] : 0;
-        $resetValueSql = (function_exists('gudangNasitaStockHasColumn') && gudangNasitaStockHasColumn('total_harga')) ? ', total_harga = 0' : '';
-
-        if ($hasBusinessId && $activeBusinessId > 0) {
-            if ($hasJumlahStok) {
-                $db->query('UPDATE gudang_nasita_stock SET quantity = 0, jumlah_stok = 0' . $resetValueSql . ' WHERE COALESCE(is_active,1) = 1 AND business_id = ?', [$activeBusinessId]);
-            } else {
-                $db->query('UPDATE gudang_nasita_stock SET quantity = 0' . $resetValueSql . ' WHERE COALESCE(is_active,1) = 1 AND business_id = ?', [$activeBusinessId]);
-            }
-        } else {
-            if ($hasJumlahStok) {
-                $db->query('UPDATE gudang_nasita_stock SET quantity = 0, jumlah_stok = 0' . $resetValueSql . ' WHERE COALESCE(is_active,1) = 1');
-            } else {
-                $db->query('UPDATE gudang_nasita_stock SET quantity = 0' . $resetValueSql . ' WHERE COALESCE(is_active,1) = 1');
-            }
+        if ($hasBusinessId && $activeBusinessId <= 0) {
+            // Jangan pernah menolkan stok semua bisnis bila bisnis aktif tidak diketahui
+            throw new Exception('Bisnis aktif tidak terdeteksi, reset dibatalkan.');
         }
 
-        $_SESSION['success'] = 'Stok Gudang berhasil di-reset ke 0.';
+        $pdoReset = $db->getConnection();
+        $pdoReset->beginTransaction();
+        $where = 'COALESCE(is_active,1) = 1' . ($hasBusinessId ? ' AND business_id = ?' : '');
+        $whereParams = $hasBusinessId ? [$activeBusinessId] : [];
+
+        $selStmt = $pdoReset->prepare('SELECT id, quantity, harga_beli' . ($hasTotalHarga ? ', total_harga' : '') . ' FROM gudang_nasita_stock WHERE ' . $where . ' FOR UPDATE');
+        $selStmt->execute($whereParams);
+        $resetRows = $selStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $movStmt = $pdoReset->prepare("INSERT INTO gudang_nasita_movements
+            (stock_id, movement_date, movement_type, quantity, unit_price, subtotal, reference_type, reference_number, notes, created_by)
+            VALUES (?, ?, 'adjustment', ?, ?, ?, 'reset_stock_zero', ?, ?, ?)");
+        $resetRef = 'RST-' . date('YmdHis');
+        $resetCount = 0;
+        foreach ($resetRows as $rr) {
+            $oldQty = (float)$rr['quantity'];
+            if ($oldQty <= 0) {
+                continue;
+            }
+            $oldValue = $hasTotalHarga ? (float)$rr['total_harga'] : $oldQty * (float)$rr['harga_beli'];
+            $movStmt->execute([(int)$rr['id'], date('Y-m-d'), $oldQty, (float)$rr['harga_beli'], $oldValue, $resetRef . '-' . (int)$rr['id'], 'Reset stok ke 0 oleh ' . $resetRole, $_SESSION['user_id'] ?? null]);
+            $resetCount++;
+        }
+
+        $setSql = 'quantity = 0' . ($hasJumlahStok ? ', jumlah_stok = 0' : '') . ($hasTotalHarga ? ', total_harga = 0' : '');
+        $updStmt = $pdoReset->prepare('UPDATE gudang_nasita_stock SET ' . $setSql . ' WHERE ' . $where);
+        $updStmt->execute($whereParams);
+        $pdoReset->commit();
+
+        $_SESSION['success'] = 'Stok Gudang berhasil di-reset ke 0 (' . $resetCount . ' barang tercatat di riwayat).';
     } catch (Throwable $e) {
+        if ($pdoReset && $pdoReset->inTransaction()) {
+            $pdoReset->rollBack();
+        }
         $_SESSION['error'] = 'Gagal reset stok: ' . $e->getMessage();
     }
 
@@ -1419,6 +1447,7 @@ body:not([data-theme="light"]) [style*="rgba(248,250,252"], body:not([data-theme
                         <input type="date" name="to_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
                         <button type="submit" class="btn btn-sm btn-secondary">Cetak</button>
                     </form>
+                    <?php if (in_array((string)($_SESSION['role'] ?? ''), ['admin', 'owner', 'developer'], true)): ?>
                     <div class="gudang-more-label">Bahaya</div>
                     <form method="POST" onsubmit="return confirm('Reset SEMUA stok Gudang ke 0?
 
@@ -1426,6 +1455,7 @@ Data barang tetap ada, hanya jumlah stok yang di-nolkan. Tindakan ini tidak bisa
                         <input type="hidden" name="action" value="reset_stock_zero">
                         <button type="submit" class="danger"><i data-feather="rotate-ccw"></i> Reset semua stok ke 0</button>
                     </form>
+                    <?php endif; ?>
                 </div>
             </details>
             <script>
