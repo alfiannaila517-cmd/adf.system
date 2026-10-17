@@ -287,7 +287,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recei
     $receivedItems = isset($_POST['received_qty']) && is_array($_POST['received_qty']) ? $_POST['received_qty'] : [];
     $notes        = trim($_POST['notes'] ?? '');
 
-    $result = receivePurchaseOrderToGudang($poId, $receivedItems, $createdById ?? 1, $notes);
+    // Hanya PO Gudang (business_id NULL + nomor GDN-): id PO bisnis lain tidak boleh diterima dari halaman ini
+    $ownPo = $poId > 0 ? $db->fetchOne("SELECT id FROM purchase_orders_header WHERE id = ? AND business_id IS NULL AND po_number LIKE 'GDN-%' LIMIT 1", [$poId]) : null;
+    $result = $ownPo ? receivePurchaseOrderToGudang($poId, $receivedItems, $createdById ?? 1, $notes)
+        : ['success' => false, 'message' => 'PO tidak ditemukan.'];
     if ($result['success']) {
         $_SESSION['success'] = 'Barang berhasil diterima ke Gudang Nasita.';
     } else {
@@ -301,8 +304,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recei
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cancel_po') {
     $poId = (int)($_POST['po_id'] ?? 0);
     if ($poId > 0) {
-        $db->update('purchase_orders_header', ['status' => 'cancelled'], 'id = :id', ['id' => $poId]);
-        $_SESSION['success'] = 'PO dibatalkan.';
+        try {
+            $conn = $db->getConnection();
+            $conn->beginTransaction();
+            // Kunci PO, lalu cek: yang sudah ada barang diterima tidak boleh dibatalkan (stok & riwayat tidak ikut kembali)
+            $poRow = $db->fetchOne("SELECT id, po_number, status FROM purchase_orders_header WHERE id = ? AND business_id IS NULL AND po_number LIKE 'GDN-%' LIMIT 1 FOR UPDATE", [$poId]);
+            if (!$poRow) {
+                throw new RuntimeException('PO tidak ditemukan.');
+            }
+            $poStatusKey = $normalizePoStatus($poRow['status'] ?? '');
+            if ($poStatusKey === 'cancelled') {
+                throw new RuntimeException('PO ' . (string)$poRow['po_number'] . ' sudah dibatalkan.');
+            }
+            $receivedRow = $db->fetchOne('SELECT COALESCE(SUM(received_quantity), 0) AS r FROM purchase_orders_detail WHERE po_header_id = ?', [$poId]);
+            if (in_array($poStatusKey, ['partially_received', 'completed', 'received'], true) || (float)($receivedRow['r'] ?? 0) > 0) {
+                throw new RuntimeException('PO ' . (string)$poRow['po_number'] . ' sudah ada barang yang diterima ke stok, tidak bisa dibatalkan.');
+            }
+            if ($db->update('purchase_orders_header', ['status' => 'cancelled'], 'id = :id', ['id' => $poId]) === false) {
+                throw new RuntimeException('Gagal membatalkan PO.');
+            }
+            $conn->commit();
+            $_SESSION['success'] = 'PO ' . (string)$poRow['po_number'] . ' dibatalkan.';
+        } catch (Throwable $e) {
+            try {
+                if ($db->getConnection()->inTransaction()) {
+                    $db->getConnection()->rollBack();
+                }
+            } catch (Throwable $rollbackError) {
+            }
+            $_SESSION['error'] = 'Gagal batalkan PO: ' . $e->getMessage();
+        }
     }
     header('Location: gudang-po-supplier.php');
     exit;
@@ -312,7 +343,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     $poId = (int)($_POST['po_id'] ?? 0);
     if ($poId > 0) {
         try {
-            $poRow = $db->fetchOne('SELECT id, po_number, status FROM purchase_orders_header WHERE id = ? LIMIT 1', [$poId]);
+            $poRow = $db->fetchOne("SELECT id, po_number, status FROM purchase_orders_header WHERE id = ? AND business_id IS NULL AND po_number LIKE 'GDN-%' LIMIT 1", [$poId]);
             if (!$poRow) {
                 throw new RuntimeException('PO tidak ditemukan.');
             }
