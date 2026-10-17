@@ -3458,14 +3458,17 @@ include '../../includes/header.php';
                                         if (strtotime($date) === strtotime((string)$qg['check_in'])) {
                                             $qgNights = max(1, (int)ceil((strtotime((string)$qg['check_out']) - strtotime((string)$qg['check_in'])) / 86400));
                                             $qgW = ($qgNights * 110) - 6;
-                                            // Label singkat "Quo · Nama": sapaan (Mr/Mrs/Pak/Ibu…) dibuang, ambil nama depan
-                                            $qgFirst = trim((string)preg_replace('/^(mr|mrs|ms|miss|bapak|ibu|pak|bu|dr|prof)\.?\s+/i', '', trim((string)$qg['guest_name'])));
-                                            $qgFirst = mb_substr((string)(preg_split('/\s+/', $qgFirst)[0] ?? ''), 0, 10);
-                                            $qgLabel = 'Quo · ' . $qgFirst;
+                                            // Label "Quo · Nama lengkap" di tengah balok (dipotong … hanya bila balok terlalu sempit)
+                                            $qgFull = trim((string)$qg['guest_name']);
+                                            if ($qgNights <= 1) { // balok 1 malam sempit: sapaan dibuang, nama depan saja
+                                                $qgFull = trim((string)preg_replace('/^(mr|mrs|ms|miss|bapak|ibu|pak|bu|dr|prof)\.?\s+/i', '', $qgFull));
+                                                $qgFull = (string)(preg_split('/\s+/', $qgFull)[0] ?? '');
+                                            }
+                                            $qgLabel = 'Quo · ' . $qgFull;
                                 ?>
                                             <div class="booking-bar-container qt-ghost" style="left: 50%; width: <?php echo $qgW; ?>px;" data-quote-id="<?php echo (int)$qg['id']; ?>" data-room-id="<?php echo (int)$room['id']; ?>">
-                                                <div class="booking-bar booking-quote" title="<?php echo htmlspecialchars($qg['quote_code'] . ' · ' . $qg['guest_name']); ?>">
-                                                    <button type="button" class="qt-chip" onclick="event.stopPropagation(); adfQuoteView(<?php echo (int)$qg['id']; ?>)"><?php echo htmlspecialchars($qgLabel); ?></button>
+                                                <div class="booking-bar booking-quote" role="button" tabindex="0" title="<?php echo htmlspecialchars($qg['quote_code'] . ' · ' . $qg['guest_name']); ?>" onclick="event.stopPropagation(); adfQuoteView(<?php echo (int)$qg['id']; ?>)" onkeydown="if(event.key==='Enter'){event.stopPropagation();adfQuoteView(<?php echo (int)$qg['id']; ?>)}">
+                                                    <span class="qt-chip"><?php echo htmlspecialchars($qgLabel); ?></span>
                                                 </div>
                                             </div>
                                 <?php

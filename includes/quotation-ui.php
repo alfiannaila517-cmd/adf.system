@@ -105,10 +105,12 @@ $qtText = [
 
     /* Bar penawaran di kalender: hijau transparan, tidak memblok (klik sel tetap membuat booking) */
     .booking-bar-container.qt-ghost { pointer-events: none; z-index: 3; }
-    .booking-bar.booking-quote { background: rgba(34, 197, 94, .2) !important; border: 1.5px dashed #22c55e; box-shadow: none; transform: none; border-radius: 6px; pointer-events: none; justify-content: flex-start; }
+    .booking-bar.booking-quote { background: rgba(34, 197, 94, .2) !important; border: 1.5px dashed #22c55e; box-shadow: none; transform: none; border-radius: 6px; pointer-events: auto; cursor: pointer; justify-content: center; align-items: center; transition: background .15s; }
+    .booking-bar.booking-quote:hover { background: rgba(34, 197, 94, .32) !important; }
     .booking-bar.booking-quote::before, .booking-bar.booking-quote::after { display: none; }
-    .qt-chip { pointer-events: auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: transparent; padding: 0 .4rem; font-size: .62rem; font-weight: 700; color: #15803d !important; -webkit-text-fill-color: #15803d !important; cursor: pointer; text-align: left; }
-    .qt-chip:hover { text-decoration: underline; }
+    .qt-chip { pointer-events: none; display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 .5rem; font-size: .66rem; font-weight: 700; color: #15803d !important; -webkit-text-fill-color: #15803d !important; text-align: center; }
+    body[data-theme] .calendar-grid .booking-bar.booking-quote > .qt-chip { color: #166534 !important; -webkit-text-fill-color: #166534 !important; text-shadow: none !important; font-size: .66rem !important; font-weight: 700 !important; position: static !important; }
+    body[data-theme="dark"] .calendar-grid .booking-bar.booking-quote > .qt-chip { color: #86efac !important; -webkit-text-fill-color: #86efac !important; }
     body[data-theme="dark"] .qt-chip { color: #86efac !important; -webkit-text-fill-color: #86efac !important; }
 </style>
 
