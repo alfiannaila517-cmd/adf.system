@@ -46,13 +46,14 @@ $barangDatangHistory = $db->fetchAll(
 
 // ── Histori terkirim per bisnis (ringkasan) ───────────────────────────────────
 $terkirimPerBisnis = $db->fetchAll(
-    "SELECT COALESCE(target_business_name, bisnis_tujuan, 'Lainnya') AS bisnis,
-            COUNT(*) AS total_transfer,
-            COALESCE(SUM(total_qty),0) AS total_qty,
-            MAX(COALESCE(tanggal_transfer, transfer_date, created_at)) AS terakhir
-     FROM gudang_nasita_transfers
-     WHERE COALESCE(status, '') <> 'cancelled'
-     GROUP BY COALESCE(target_business_name, bisnis_tujuan, 'Lainnya')
+    "SELECT COALESCE(NULLIF(gt.target_business_name, ''), 'Lainnya') AS bisnis,
+            COUNT(DISTINCT gt.id) AS total_transfer,
+            COALESCE(SUM(gti.quantity), 0) AS total_qty,
+            MAX(gt.created_at) AS terakhir
+     FROM gudang_nasita_transfers gt
+     LEFT JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
+     WHERE COALESCE(gt.status, '') <> 'cancelled'
+     GROUP BY COALESCE(NULLIF(gt.target_business_name, ''), 'Lainnya')
      ORDER BY total_qty DESC"
 ) ?: [];
 
@@ -507,7 +508,7 @@ body:not([data-theme="light"]) #gudangDetailModal th { color: #e2e8f0; }
                             "SELECT gt.transfer_number, gt.created_at, gti.item_name, gti.unit, gti.quantity
                              FROM gudang_nasita_transfers gt
                              JOIN gudang_nasita_transfer_items gti ON gti.transfer_id = gt.id
-                             WHERE COALESCE(gt.target_business_name, gt.bisnis_tujuan, 'Lainnya') = ?
+                             WHERE COALESCE(NULLIF(gt.target_business_name, ''), 'Lainnya') = ?
                                AND COALESCE(gt.status, '') <> 'cancelled'
                              ORDER BY gt.created_at DESC, gti.id ASC LIMIT 50",
                             [$tb['bisnis']]
