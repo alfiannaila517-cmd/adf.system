@@ -7,7 +7,7 @@
 require_once __DIR__ . '/content-store.php';
 $adminPageTitle = $adminPageTitle ?? 'Dashboard';
 $adminLogo = adf_load_content()['branding']['logo'] ?? '';
-$adminCurrentScript = basename($_SERVER['SCRIPT_NAME']);
+$adminCurrentScript = isset($adminNavForce) ? (string) $adminNavForce : basename($_SERVER['SCRIPT_NAME']);
 $adminUser = adf_admin_current_user() ?? [];
 $adminRole = $adminUser['role'] ?? 'staff';
 
@@ -39,6 +39,7 @@ function adf_admin_icon(string $name, int $size = 16): string
         'menu' => '<path d="M4 6h16M4 12h16M4 18h16"/>',
         'wallet' => '<path d="M3 7a2 2 0 0 1 2-2h13v4"/><rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="16" cy="13.5" r="1.2"/>',
         'clock' => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        'file' => '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
         'globe' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
     ];
     $inner = $paths[$name] ?? $paths['dashboard'];
@@ -110,6 +111,7 @@ $adminInitial = strtoupper(substr((string) ($adminUser['username'] ?? 'A'), 0, 1
                 <?php adf_admin_nav('orders.php', 'Transaksi', 'receipt'); ?>
                 <?php adf_admin_nav('customers.php', 'Pelanggan', 'users'); ?>
                 <?php if ($adminRole === 'admin'): ?>
+                    <?php adf_admin_nav('invoices.php', 'Invoice', 'file'); ?>
                     <?php adf_admin_nav('subscription-clients.php', 'Klien Langganan', 'link'); ?>
                 <?php endif; ?>
 
