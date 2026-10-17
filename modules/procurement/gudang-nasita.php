@@ -528,7 +528,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_bisnis_return') {
     $rid = (int)($_POST['return_id'] ?? 0);
     try {
-        $ret = $rid > 0 ? $db->fetchOne("SELECT * FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita' LIMIT 1", [$rid]) : null;
+        // DDL (ensure*) harus selesai SEBELUM transaksi dibuka (CREATE/ALTER = implicit commit di MySQL)
+        ensureGudangNasitaStockSchemaCompatibility();
+        ensureGudangNasitaOperationalTablesCompatibility();
+        $pdoRet = $db->getConnection();
+        $pdoRet->beginTransaction();
+        // Kunci baris penerimaan: klik ganda antre di sini, yang kedua tidak menemukan datanya lagi
+        $ret = $rid > 0 ? $db->fetchOne("SELECT * FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita' LIMIT 1 FOR UPDATE", [$rid]) : null;
         if (!$ret) {
             throw new Exception('Data penerimaan tidak ditemukan.');
         }
@@ -560,9 +566,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 throw new Exception('Stok gudang tidak cukup untuk membatalkan penerimaan ini: ' . ($res['message'] ?? ''));
             }
         }
-        $db->query("DELETE FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita'", [$rid]);
+        // PDO langsung: error melempar exception sehingga pengurangan stok di atas ikut di-rollback
+        $pdoRet->prepare("DELETE FROM business_inter_stock_transfers WHERE id = ? AND target_business_slug = 'gudang-nasita'")->execute([$rid]);
+        $pdoRet->commit();
         $_SESSION['success'] = 'Penerimaan ' . $ret['transfer_number'] . ' dibatalkan; stok gudang dikurangi dan stok kembali ke bisnis.';
     } catch (Throwable $e) {
+        if (isset($pdoRet) && $pdoRet->inTransaction()) {
+            $pdoRet->rollBack();
+        }
         $_SESSION['error'] = $e->getMessage();
     }
     header('Location: gudang-nasita.php');

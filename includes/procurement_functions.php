@@ -1077,16 +1077,26 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
     }
 
     if ($originDbName !== $targetDbName) {
+        // Pindah database di tengah transaksi pemanggil akan memutus transaksi itu: tolak dengan jelas, jangan lanjut setengah jalan
+        if ($db->getConnection()->inTransaction()) {
+            return ['success' => false, 'message' => 'Pengurangan stok Gudang tidak bisa dijalankan di dalam transaksi database lain.'];
+        }
         Database::switchDatabase($targetDbName);
         $db = Database::getInstance();
     }
 
+    // Bila pemanggil sudah membuka transaksi (mis. pembatalan penerimaan dari bisnis), ikut di dalamnya:
+    // tanpa begin/commit/rollback sendiri dan tanpa DDL (CREATE/ALTER = implicit commit di MySQL).
+    $ownTx = !$db->getConnection()->inTransaction();
+
     try {
-        try {
-            ensureGudangNasitaStockSchemaCompatibility();
-            ensureGudangNasitaOperationalTablesCompatibility();
-        } catch (Throwable $e) {
-            error_log('recordGudangNasitaDailyStockOut schema bootstrap skipped: ' . $e->getMessage());
+        if ($ownTx) {
+            try {
+                ensureGudangNasitaStockSchemaCompatibility();
+                ensureGudangNasitaOperationalTablesCompatibility();
+            } catch (Throwable $e) {
+                error_log('recordGudangNasitaDailyStockOut schema bootstrap skipped: ' . $e->getMessage());
+            }
         }
 
         try {
@@ -1101,7 +1111,9 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
                 throw new Exception('Qty stock keluar harus lebih dari 0');
             }
 
-            $db->getConnection()->beginTransaction();
+            if ($ownTx) {
+                $db->getConnection()->beginTransaction();
+            }
 
             // Deterministic match: prefer exact (binary) name match, then the active row
             // with the highest quantity — a bare LIMIT 1 with no ORDER BY can silently
@@ -1167,7 +1179,9 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
                 'created_by' => $createdBy,
             ]);
 
-            $db->getConnection()->commit();
+            if ($ownTx) {
+                $db->getConnection()->commit();
+            }
 
             return [
                 'success' => true,
@@ -1176,7 +1190,7 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
                 'remaining_qty' => (float)$remainingQty,
             ];
         } catch (Throwable $e) {
-            if ($db->getConnection()->inTransaction()) {
+            if ($ownTx && $db->getConnection()->inTransaction()) {
                 $db->getConnection()->rollBack();
             }
             error_log('recordGudangNasitaDailyStockOut failed: ' . $e->getMessage());
