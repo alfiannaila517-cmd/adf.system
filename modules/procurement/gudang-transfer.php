@@ -347,6 +347,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Mode manual: tujuan harus bisnis yang ada di daftar (POST langsung tidak boleh memilih ID sembarang)
+    if ($sourcePoId <= 0 && ($targetBusinessId <= 0 || !isset($allowedBusinessesById[(string)$targetBusinessId]))) {
+        header('Location: ' . $redirectBase . (strpos($redirectBase, '?') !== false ? '&' : '?') . 'transfer_err=' . urlencode('Bisnis tujuan tidak valid. Pilih bisnis dari daftar.'));
+        exit;
+    }
+
     // Resolve target business name + ID from current gudang/master businesses table.
     // Never trust cross-DB IDs because each business database can have different numeric IDs.
     $resolvedBizName = '';
