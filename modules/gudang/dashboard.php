@@ -476,7 +476,7 @@ body:not([data-theme="light"]) #gudangDetailModal th { color: #e2e8f0; }
                                 <div style="font-weight:600;font-size:.81rem;"><?php echo htmlspecialchars($bd['item_name']); ?></div>
                                 <div style="font-size:.7rem;color:var(--text-muted);"><?php echo $bd['tgl'] ? date('d M Y', strtotime($bd['tgl'])) : '-'; ?></div>
                             </td>
-                            <td><span style="font-weight:700;color:#16a34a;">+<?php echo number_format($bd['quantity'], 0); ?></span> <span style="font-size:.7rem;color:var(--text-muted);"><?php echo $bd['unit']; ?></span></td>
+                            <td><span style="font-weight:700;color:#16a34a;">+<?php echo number_format($bd['quantity'], 0); ?></span> <span style="font-size:.7rem;color:var(--text-muted);"><?php echo htmlspecialchars((string)$bd['unit']); ?></span></td>
                             <td style="font-size:.76rem;color:var(--text-muted);white-space:nowrap;"><?php echo htmlspecialchars($bd['po_number'] ?? '-'); ?></td>
                         </tr>
                     <?php endforeach; ?>
