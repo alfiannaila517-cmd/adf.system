@@ -169,12 +169,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
 
     $validItems = [];
     foreach ($items as $it) {
-        $nm = trim($it['item_name'] ?? '');
+        $nm = mb_substr(trim((string)($it['item_name'] ?? '')), 0, 200);
         $qt = (float)($it['quantity'] ?? 0);
-        $un = trim($it['unit'] ?? 'pcs');
-        $up = (float)($it['unit_price'] ?? 0);
-        if ($nm !== '' && $qt > 0) {
-            $validItems[] = ['item_name' => $nm, 'quantity' => $qt, 'unit' => $un, 'unit_price' => $up, 'expiry_date' => trim($it['expiry_date'] ?? '')];
+        $un = mb_substr(trim((string)($it['unit'] ?? 'pcs')), 0, 20);
+        if ($un === '') {
+            $un = 'pcs';
+        }
+        $up = max(0, (float)($it['unit_price'] ?? 0)); // harga tidak boleh negatif (merusak total PO & rata-rata harga stok)
+        $exp = trim((string)($it['expiry_date'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $exp) || strtotime($exp) === false) {
+            $exp = ''; // format tanggal tidak valid → abaikan
+        }
+        if ($nm !== '' && $qt > 0 && $qt <= 10000000) {
+            $validItems[] = ['item_name' => $nm, 'quantity' => $qt, 'unit' => $un, 'unit_price' => $up, 'expiry_date' => $exp];
         }
     }
 
@@ -183,25 +190,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     } else {
         try {
             $poPrefix = 'GDN-' . date('Ymd') . '-';
-            $lastPo = $db->fetchOne("SELECT po_number FROM purchase_orders_header WHERE po_number LIKE ? ORDER BY po_number DESC LIMIT 1", [$poPrefix . '%']);
-            $poSeq  = $lastPo ? ((int)substr($lastPo['po_number'], -3) + 1) : 1;
-            $poNumber = $poPrefix . str_pad($poSeq, 3, '0', STR_PAD_LEFT);
-
             $totalAmount = array_sum(array_map(fn($i) => $i['quantity'] * $i['unit_price'], $validItems));
 
             // Wrap in transaction so header rolls back if any detail insert fails
             $db->getConnection()->beginTransaction();
 
-            $poHeaderId = $db->insert('purchase_orders_header', [
-                'business_id'  => null,
-                'po_number'    => $poNumber,
-                'supplier_id'  => $supplierId,
-                'po_date'      => date('Y-m-d'),
-                'status'       => 'submitted',
-                'total_amount' => $totalAmount,
-                'notes'        => $notes ?: 'Restock Gudang Nasita',
-                'created_by'   => $createdById,
-            ]);
+            $poHeaderId = null;
+            $poNumber = '';
+            for ($attempt = 0; $attempt < 5 && !$poHeaderId; $attempt++) {
+                $lastPo = $db->fetchOne("SELECT po_number FROM purchase_orders_header WHERE po_number LIKE ? ORDER BY po_number DESC LIMIT 1", [$poPrefix . '%']);
+                $poSeq  = $lastPo ? ((int)substr($lastPo['po_number'], -3) + 1) : 1;
+                $poNumber = $poPrefix . str_pad($poSeq, 3, '0', STR_PAD_LEFT);
+                try {
+                    $poHeaderId = $db->insert('purchase_orders_header', [
+                        'business_id'  => null,
+                        'po_number'    => $poNumber,
+                        'supplier_id'  => $supplierId,
+                        'po_date'      => date('Y-m-d'),
+                        'status'       => 'submitted',
+                        'total_amount' => $totalAmount,
+                        'notes'        => $notes ?: 'Restock Gudang Nasita',
+                        'created_by'   => $createdById,
+                    ]);
+                } catch (PDOException $dupErr) {
+                    // 23000 = nomor sudah dipakai request lain: ambil nomor berikutnya lalu coba lagi
+                    if ($dupErr->getCode() !== '23000' || $attempt === 4) {
+                        throw $dupErr;
+                    }
+                    usleep(random_int(20000, 120000));
+                }
+            }
             if (!$poHeaderId) {
                 throw new \RuntimeException('Gagal membuat header PO.');
             }
@@ -245,19 +263,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
                 $nm = $it['item_name'];
                 $exists = $db->fetchOne('SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND COALESCE(is_active,1) = 1 LIMIT 1', [$nm]);
                 if (!$exists) {
-                    try {
-                        $prefix = 'BRG-';
-                        $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
-                        $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
-                        $db->insert('gudang_nasita_barang', [
-                            'kode_barang' => $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT),
-                            'nama_barang' => $nm,
-                            'satuan'      => $it['unit'],
-                            'harga_beli'  => $it['unit_price'] > 0 ? $it['unit_price'] : 0,
-                            'is_active'   => 1,
-                        ]);
-                    } catch (Throwable $regErr) {
-                        error_log('Auto-register barang failed: ' . $regErr->getMessage());
+                    for ($regTry = 0; $regTry < 3; $regTry++) {
+                        try {
+                            $prefix = 'BRG-';
+                            $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+                            $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
+                            $db->insert('gudang_nasita_barang', [
+                                'kode_barang' => $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT),
+                                'nama_barang' => $nm,
+                                'satuan'      => $it['unit'],
+                                'harga_beli'  => $it['unit_price'] > 0 ? $it['unit_price'] : 0,
+                                'is_active'   => 1,
+                            ]);
+                            break;
+                        } catch (Throwable $regErr) {
+                            error_log('Auto-register barang failed (try ' . ($regTry + 1) . '): ' . $regErr->getMessage());
+                            usleep(random_int(20000, 100000));
+                        }
                     }
                 }
             }

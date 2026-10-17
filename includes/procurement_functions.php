@@ -1829,7 +1829,25 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
             $transferData['created_by'] = $createdBy;
         }
 
-        $transferId = $db->insert('gudang_nasita_transfers', $transferData);
+        // Nomor transfer UNIQUE: bila dua transfer dibuat bersamaan dan nomornya bentrok (SQLSTATE 23000),
+        // ambil nomor berikutnya lalu coba lagi (dulu: salah satu gagal dengan pesan error mentah).
+        $transferId = null;
+        for ($tAttempt = 0; $tAttempt < 5 && !$transferId; $tAttempt++) {
+            try {
+                $transferId = $db->insert('gudang_nasita_transfers', $transferData);
+            } catch (PDOException $dupErr) {
+                if ($dupErr->getCode() !== '23000' || $tAttempt === 4) {
+                    throw $dupErr;
+                }
+                $transferNumber = generateGudangNasitaTransferNumber();
+                foreach (['transfer_number', 'no_transfer'] as $numCol) {
+                    if (isset($transferData[$numCol])) {
+                        $transferData[$numCol] = $transferNumber;
+                    }
+                }
+                usleep(random_int(20000, 120000));
+            }
+        }
 
         $totalQty = 0;
         foreach ($items as $item) {
