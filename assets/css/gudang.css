@@ -1,0 +1,235 @@
+/* =====================================================================
+   Gudang Nasita — sistem tampilan bersama (semua menu Gudang)
+   Dimuat includes/header.php hanya di halaman Gudang (modules/gudang/* dan modules/procurement/gudang-*).
+   Seragam dengan Front Desk / HK: kartu putih bergaris tipis, kontrol kecil (28-30px), aksen navy,
+   tombol biasa putih-outline, hanya aksi utama yang navy solid. Terang & gelap.
+
+   Dua lapis:
+   1) Komponen baru berprefix .gx-  (dipakai halaman yang sudah dirombak)
+   2) Penyegaran elemen lama (.card .btn .form-control .table .alert .badge) di dalam .main-content Gudang,
+      supaya halaman/modal yang belum dirombak tetap terlihat seragam.
+   Semua selector diawali body[data-business="gudang-nasita"] (menang atas style.css tema & <style> halaman).
+   ===================================================================== */
+
+body[data-business="gudang-nasita"] {
+    --gx-card: #ffffff;
+    --gx-soft: #f8fafc;
+    --gx-soft-2: #f1f5f9;
+    --gx-line: #e4e9f0;
+    --gx-ink: #0f172a;
+    --gx-ink-2: #334155;
+    --gx-mute: #64748b;
+    --gx-faint: #94a3b8;
+    --gx-navy: #0f2747;
+    --gx-navy-2: #1d3f6e;
+    --gx-acc: #2563eb;
+    --gx-acc-soft: rgba(37, 99, 235, .09);
+    --gx-ok: #15803d;      --gx-ok-bg: #dcfce7;
+    --gx-warn: #b45309;    --gx-warn-bg: #fef3c7;
+    --gx-bad: #b91c1c;     --gx-bad-bg: #fee2e2;
+    --gx-info: #1d4ed8;    --gx-info-bg: #dbeafe;
+    --gx-gray: #475569;    --gx-gray-bg: #e8edf3;
+    --gx-vio: #6d28d9;     --gx-vio-bg: #ede9fe;
+    --gx-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+    --gx-input-bg: #ffffff;
+    --gx-input-line: #d5dce6;
+}
+
+body[data-business="gudang-nasita"][data-theme="dark"] {
+    --gx-card: #111a2e;
+    --gx-soft: rgba(255, 255, 255, .04);
+    --gx-soft-2: rgba(255, 255, 255, .07);
+    --gx-line: rgba(148, 163, 184, .2);
+    --gx-ink: #e6edf7;
+    --gx-ink-2: #cbd5e1;
+    --gx-mute: #9fb0c8;
+    --gx-faint: #7d8fab;
+    --gx-navy: #3b5fa8;
+    --gx-navy-2: #4a70be;
+    --gx-acc: #60a5fa;
+    --gx-acc-soft: rgba(96, 165, 250, .16);
+    --gx-ok: #86efac;      --gx-ok-bg: rgba(34, 197, 94, .16);
+    --gx-warn: #fcd34d;    --gx-warn-bg: rgba(245, 158, 11, .16);
+    --gx-bad: #fca5a5;     --gx-bad-bg: rgba(239, 68, 68, .16);
+    --gx-info: #93c5fd;    --gx-info-bg: rgba(59, 130, 246, .18);
+    --gx-gray: #cbd5e1;    --gx-gray-bg: rgba(148, 163, 184, .16);
+    --gx-vio: #c4b5fd;     --gx-vio-bg: rgba(139, 92, 246, .18);
+    --gx-shadow: none;
+    --gx-input-bg: #0d1526;
+    --gx-input-line: #2a3a58;
+}
+
+/* ─────────────── 1) Komponen .gx-* ─────────────── */
+body[data-business="gudang-nasita"] .gx-page { max-width: 1500px; margin: 0 auto; padding: .55rem .6rem 3rem; color: var(--gx-ink); font-size: .8rem; }
+body[data-business="gudang-nasita"] .gx-page *,
+body[data-business="gudang-nasita"] .gx-page *::before,
+body[data-business="gudang-nasita"] .gx-page *::after { box-sizing: border-box; }
+
+/* Kepala halaman: judul + keterangan kiri, aksi kanan */
+body[data-business="gudang-nasita"] .gx-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: .8rem; }
+body[data-business="gudang-nasita"] .gx-head h1 { margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; color: var(--gx-ink) !important; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+body[data-business="gudang-nasita"] .gx-head p { margin: .15rem 0 0; font-size: .74rem; color: var(--gx-mute) !important; }
+body[data-business="gudang-nasita"] .gx-actions { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+
+/* Tombol */
+body[data-business="gudang-nasita"] .gx-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .35rem; height: 30px; padding: 0 .85rem; border-radius: 8px;
+    border: 1px solid var(--gx-input-line); background: var(--gx-card); color: var(--gx-ink-2) !important; -webkit-text-fill-color: var(--gx-ink-2);
+    font: inherit; font-size: .74rem; font-weight: 600; line-height: 1; cursor: pointer; text-decoration: none; white-space: nowrap;
+    box-shadow: var(--gx-shadow); transition: background .15s, border-color .15s;
+}
+body[data-business="gudang-nasita"] .gx-btn:hover { background: var(--gx-soft-2); border-color: var(--gx-faint); color: var(--gx-ink) !important; }
+body[data-business="gudang-nasita"] .gx-btn svg, body[data-business="gudang-nasita"] .gx-btn i[data-feather] { width: 14px; height: 14px; }
+body[data-business="gudang-nasita"] .gx-btn.pri { background: var(--gx-navy); border-color: var(--gx-navy); color: #fff !important; -webkit-text-fill-color: #fff; box-shadow: none; }
+body[data-business="gudang-nasita"] .gx-btn.pri:hover { background: var(--gx-navy-2); border-color: var(--gx-navy-2); }
+body[data-business="gudang-nasita"] .gx-btn.ok { background: #15803d; border-color: #15803d; color: #fff !important; -webkit-text-fill-color: #fff; box-shadow: none; }
+body[data-business="gudang-nasita"] .gx-btn.ok:hover { background: #166534; border-color: #166534; }
+body[data-business="gudang-nasita"] .gx-btn.danger { color: var(--gx-bad) !important; -webkit-text-fill-color: var(--gx-bad); }
+body[data-business="gudang-nasita"] .gx-btn.danger:hover { background: var(--gx-bad-bg); border-color: var(--gx-bad); }
+body[data-business="gudang-nasita"] .gx-btn.sm { height: 26px; padding: 0 .6rem; font-size: .68rem; border-radius: 7px; }
+body[data-business="gudang-nasita"] .gx-btn.icon { width: 30px; padding: 0; }
+body[data-business="gudang-nasita"] .gx-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Kartu */
+body[data-business="gudang-nasita"] .gx-card { background: var(--gx-card); border: 1px solid var(--gx-line); border-radius: 12px; box-shadow: var(--gx-shadow); margin-bottom: .8rem; overflow: hidden; }
+body[data-business="gudang-nasita"] .gx-card-h { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; padding: .6rem .85rem; border-bottom: 1px solid var(--gx-line); }
+body[data-business="gudang-nasita"] .gx-card-h h2, body[data-business="gudang-nasita"] .gx-card-h h3 { margin: 0; font-size: .82rem; font-weight: 700; color: var(--gx-ink) !important; display: flex; align-items: center; gap: .45rem; }
+body[data-business="gudang-nasita"] .gx-card-h small { font-size: .68rem; color: var(--gx-mute) !important; font-weight: 500; }
+body[data-business="gudang-nasita"] .gx-card-b { padding: .75rem .85rem; }
+body[data-business="gudang-nasita"] .gx-card-b.flush { padding: 0; }
+body[data-business="gudang-nasita"] .gx-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+body[data-business="gudang-nasita"] .gx-grid-2 > .gx-card { margin-bottom: 0; }
+body[data-business="gudang-nasita"] .gx-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+body[data-business="gudang-nasita"] .gx-grid-3 > .gx-card { margin-bottom: 0; }
+
+/* Angka ringkas (KPI) */
+body[data-business="gudang-nasita"] .gx-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .6rem; margin-bottom: .8rem; }
+body[data-business="gudang-nasita"] .gx-kpi { background: var(--gx-card); border: 1px solid var(--gx-line); border-radius: 12px; padding: .65rem .8rem; box-shadow: var(--gx-shadow); position: relative; overflow: hidden; }
+body[data-business="gudang-nasita"] .gx-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--kc, var(--gx-acc)); }
+body[data-business="gudang-nasita"] .gx-kpi.ok { --kc: #16a34a; } body[data-business="gudang-nasita"] .gx-kpi.warn { --kc: #d97706; }
+body[data-business="gudang-nasita"] .gx-kpi.bad { --kc: #dc2626; } body[data-business="gudang-nasita"] .gx-kpi.vio { --kc: #7c3aed; }
+body[data-business="gudang-nasita"] .gx-kpi small { display: block; font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gx-mute) !important; }
+body[data-business="gudang-nasita"] .gx-kpi b { display: block; margin-top: .15rem; font-size: 1.2rem; font-weight: 800; color: var(--gx-ink) !important; line-height: 1.2; font-variant-numeric: tabular-nums; }
+body[data-business="gudang-nasita"] .gx-kpi span { display: block; margin-top: .1rem; font-size: .68rem; color: var(--gx-mute) !important; }
+
+/* Filter / toolbar */
+body[data-business="gudang-nasita"] .gx-toolbar { display: flex; align-items: flex-end; gap: .55rem; flex-wrap: wrap; padding: .6rem .85rem; }
+body[data-business="gudang-nasita"] .gx-field { display: flex; flex-direction: column; gap: .2rem; min-width: 130px; }
+body[data-business="gudang-nasita"] .gx-field.grow { flex: 1; min-width: 180px; }
+body[data-business="gudang-nasita"] .gx-field > label { font-size: .62rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--gx-mute) !important; margin: 0; }
+body[data-business="gudang-nasita"] .gx-input,
+body[data-business="gudang-nasita"] .gx-select,
+body[data-business="gudang-nasita"] .gx-textarea {
+    width: 100%; height: 30px; padding: 0 .6rem; border: 1px solid var(--gx-input-line) !important; border-radius: 8px; background: var(--gx-input-bg) !important;
+    color: var(--gx-ink) !important; -webkit-text-fill-color: var(--gx-ink); font: inherit; font-size: .76rem; box-shadow: none !important;
+}
+body[data-business="gudang-nasita"] .gx-textarea { height: auto; min-height: 60px; padding: .45rem .6rem; resize: vertical; }
+body[data-business="gudang-nasita"] .gx-input:focus, body[data-business="gudang-nasita"] .gx-select:focus, body[data-business="gudang-nasita"] .gx-textarea:focus { outline: none; border-color: var(--gx-acc) !important; box-shadow: 0 0 0 3px var(--gx-acc-soft) !important; }
+body[data-business="gudang-nasita"][data-theme="dark"] .gx-select, body[data-business="gudang-nasita"][data-theme="dark"] .gx-input { color-scheme: dark; }
+body[data-business="gudang-nasita"] .gx-select option { background: var(--gx-card); color: var(--gx-ink); }
+
+/* Tabel */
+body[data-business="gudang-nasita"] .gx-table-wrap { overflow-x: auto; }
+body[data-business="gudang-nasita"] .gx-table { width: 100%; border-collapse: collapse; font-size: .76rem; }
+body[data-business="gudang-nasita"] .gx-table thead th { position: sticky; top: 0; background: var(--gx-soft); color: var(--gx-mute) !important; font-size: .62rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--gx-line); white-space: nowrap; }
+body[data-business="gudang-nasita"] .gx-table td { padding: .5rem .7rem; border-bottom: 1px solid var(--gx-line); color: var(--gx-ink) !important; vertical-align: middle; }
+body[data-business="gudang-nasita"] .gx-table tbody tr:last-child td { border-bottom: 0; }
+body[data-business="gudang-nasita"] .gx-table tbody tr:hover td { background: var(--gx-soft); }
+body[data-business="gudang-nasita"] .gx-table tr.clickable { cursor: pointer; }
+body[data-business="gudang-nasita"] .gx-table .r, body[data-business="gudang-nasita"] .gx-table th.r { text-align: right; font-variant-numeric: tabular-nums; }
+body[data-business="gudang-nasita"] .gx-table .c, body[data-business="gudang-nasita"] .gx-table th.c { text-align: center; }
+body[data-business="gudang-nasita"] .gx-table .sub { display: block; font-size: .66rem; color: var(--gx-mute) !important; margin-top: .05rem; }
+body[data-business="gudang-nasita"] .gx-table .num-pos { color: var(--gx-ok) !important; font-weight: 700; }
+body[data-business="gudang-nasita"] .gx-table .num-neg { color: var(--gx-bad) !important; font-weight: 700; }
+
+/* Lencana status */
+body[data-business="gudang-nasita"] .gx-chip { display: inline-flex; align-items: center; gap: .3rem; height: 20px; padding: 0 .55rem; border-radius: 999px; font-size: .64rem; font-weight: 700; white-space: nowrap; background: var(--gx-gray-bg); color: var(--gx-gray) !important; -webkit-text-fill-color: var(--gx-gray); }
+body[data-business="gudang-nasita"] .gx-chip.ok { background: var(--gx-ok-bg); color: var(--gx-ok) !important; -webkit-text-fill-color: var(--gx-ok); }
+body[data-business="gudang-nasita"] .gx-chip.warn { background: var(--gx-warn-bg); color: var(--gx-warn) !important; -webkit-text-fill-color: var(--gx-warn); }
+body[data-business="gudang-nasita"] .gx-chip.bad { background: var(--gx-bad-bg); color: var(--gx-bad) !important; -webkit-text-fill-color: var(--gx-bad); }
+body[data-business="gudang-nasita"] .gx-chip.info { background: var(--gx-info-bg); color: var(--gx-info) !important; -webkit-text-fill-color: var(--gx-info); }
+body[data-business="gudang-nasita"] .gx-chip.vio { background: var(--gx-vio-bg); color: var(--gx-vio) !important; -webkit-text-fill-color: var(--gx-vio); }
+
+/* Kosong & pemberitahuan */
+body[data-business="gudang-nasita"] .gx-empty { padding: 1.6rem 1rem; text-align: center; font-size: .78rem; color: var(--gx-mute) !important; }
+body[data-business="gudang-nasita"] .gx-note { padding: .5rem .8rem; border-radius: 9px; font-size: .74rem; margin-bottom: .7rem; border: 1px solid; }
+body[data-business="gudang-nasita"] .gx-note.ok { background: var(--gx-ok-bg); border-color: rgba(22, 163, 74, .35); color: var(--gx-ok) !important; }
+body[data-business="gudang-nasita"] .gx-note.warn { background: var(--gx-warn-bg); border-color: rgba(217, 119, 6, .35); color: var(--gx-warn) !important; }
+body[data-business="gudang-nasita"] .gx-note.bad { background: var(--gx-bad-bg); border-color: rgba(220, 38, 38, .35); color: var(--gx-bad) !important; }
+body[data-business="gudang-nasita"] .gx-note.info { background: var(--gx-info-bg); border-color: rgba(37, 99, 235, .3); color: var(--gx-info) !important; }
+
+/* Tab */
+body[data-business="gudang-nasita"] .gx-tabs { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--gx-line); border-radius: 10px; background: var(--gx-soft); margin-bottom: .8rem; flex-wrap: wrap; }
+body[data-business="gudang-nasita"] .gx-tab { height: 26px; padding: 0 .8rem; border: 0; border-radius: 7px; background: transparent; color: var(--gx-mute) !important; font: inherit; font-size: .72rem; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+body[data-business="gudang-nasita"] .gx-tab.active { background: var(--gx-card); color: var(--gx-ink) !important; box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+
+/* Langkah alur (dashboard) */
+body[data-business="gudang-nasita"] .gx-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin-bottom: .8rem; }
+body[data-business="gudang-nasita"] .gx-flow a { position: relative; display: block; padding: .6rem .75rem; border: 1px solid var(--gx-line); border-radius: 12px; background: var(--gx-card); text-decoration: none; box-shadow: var(--gx-shadow); transition: border-color .15s; }
+body[data-business="gudang-nasita"] .gx-flow a:hover { border-color: var(--gx-acc); }
+body[data-business="gudang-nasita"] .gx-flow b { display: flex; align-items: center; gap: .45rem; font-size: .78rem; color: var(--gx-ink) !important; }
+body[data-business="gudang-nasita"] .gx-flow b i { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--gx-navy); color: #fff; font-style: normal; font-size: .64rem; }
+body[data-business="gudang-nasita"] .gx-flow span { display: block; margin-top: .2rem; font-size: .68rem; color: var(--gx-mute) !important; line-height: 1.4; }
+
+/* Modal seragam */
+body[data-business="gudang-nasita"] .gx-ov { position: fixed; inset: 0; z-index: 10050; display: none; align-items: center; justify-content: center; padding: 14px; background: rgba(2, 6, 23, .55); backdrop-filter: blur(3px); }
+body[data-business="gudang-nasita"] .gx-ov.open, body[data-business="gudang-nasita"] .gx-ov.on { display: flex; }
+body[data-business="gudang-nasita"] .gx-modal { width: 100%; max-width: 560px; max-height: 90vh; overflow: auto; border-radius: 14px; background: var(--gx-card); border: 1px solid var(--gx-line); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); color: var(--gx-ink); }
+body[data-business="gudang-nasita"] .gx-modal.wide { max-width: 860px; }
+body[data-business="gudang-nasita"] .gx-modal-h { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .75rem 1rem; border-bottom: 1px solid var(--gx-line); position: sticky; top: 0; background: var(--gx-card); z-index: 2; }
+body[data-business="gudang-nasita"] .gx-modal-h b { font-size: .92rem; color: var(--gx-ink) !important; }
+body[data-business="gudang-nasita"] .gx-modal-h small { display: block; font-size: .7rem; color: var(--gx-mute) !important; }
+body[data-business="gudang-nasita"] .gx-modal-b { padding: .85rem 1rem; }
+body[data-business="gudang-nasita"] .gx-modal-f { display: flex; justify-content: flex-end; gap: .4rem; flex-wrap: wrap; padding: .6rem 1rem .85rem; }
+body[data-business="gudang-nasita"] .gx-x { width: 28px; height: 28px; border: 0; border-radius: 8px; background: var(--gx-soft-2); color: var(--gx-mute) !important; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+body[data-business="gudang-nasita"] .gx-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem .7rem; }
+body[data-business="gudang-nasita"] .gx-form-grid .full { grid-column: 1 / -1; }
+
+@media (max-width: 900px) {
+    body[data-business="gudang-nasita"] .gx-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    body[data-business="gudang-nasita"] .gx-grid-2, body[data-business="gudang-nasita"] .gx-grid-3 { grid-template-columns: 1fr; }
+    body[data-business="gudang-nasita"] .gx-form-grid { grid-template-columns: 1fr; }
+}
+
+/* ─────────────── 2) Penyegaran elemen lama di area konten Gudang ─────────────── */
+body[data-business="gudang-nasita"] .main-content .card {
+    background: var(--gx-card) !important; border: 1px solid var(--gx-line) !important; border-radius: 12px !important; box-shadow: var(--gx-shadow) !important;
+}
+body[data-business="gudang-nasita"] .main-content .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .35rem; height: 30px; padding: 0 .85rem !important; border-radius: 8px !important;
+    border: 1px solid var(--gx-input-line) !important; background: var(--gx-card) !important; color: var(--gx-ink-2) !important; -webkit-text-fill-color: var(--gx-ink-2) !important;
+    font-size: .74rem !important; font-weight: 600 !important; line-height: 1 !important; box-shadow: var(--gx-shadow) !important; text-decoration: none; cursor: pointer; transform: none !important;
+}
+body[data-business="gudang-nasita"] .main-content .btn:hover { background: var(--gx-soft-2) !important; border-color: var(--gx-faint) !important; }
+body[data-business="gudang-nasita"] .main-content .btn-primary {
+    background: var(--gx-navy) !important; border-color: var(--gx-navy) !important; color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: none !important;
+}
+body[data-business="gudang-nasita"] .main-content .btn-primary:hover { background: var(--gx-navy-2) !important; border-color: var(--gx-navy-2) !important; }
+body[data-business="gudang-nasita"] .main-content .btn-success { background: #15803d !important; border-color: #15803d !important; color: #fff !important; -webkit-text-fill-color: #fff !important; box-shadow: none !important; }
+body[data-business="gudang-nasita"] .main-content .btn-success:hover { background: #166534 !important; }
+body[data-business="gudang-nasita"] .main-content .btn-danger { color: var(--gx-bad) !important; -webkit-text-fill-color: var(--gx-bad) !important; }
+body[data-business="gudang-nasita"] .main-content .btn-danger:hover { background: var(--gx-bad-bg) !important; border-color: var(--gx-bad) !important; }
+body[data-business="gudang-nasita"] .main-content .btn-sm { height: 26px; padding: 0 .6rem !important; font-size: .68rem !important; border-radius: 7px !important; }
+body[data-business="gudang-nasita"] .main-content .form-control,
+body[data-business="gudang-nasita"] .main-content select.form-control,
+body[data-business="gudang-nasita"] .main-content textarea.form-control {
+    height: 30px; padding: 0 .6rem !important; border: 1px solid var(--gx-input-line) !important; border-radius: 8px !important; background: var(--gx-input-bg) !important;
+    color: var(--gx-ink) !important; -webkit-text-fill-color: var(--gx-ink) !important; font-size: .76rem !important; box-shadow: none !important;
+}
+body[data-business="gudang-nasita"] .main-content textarea.form-control { height: auto; padding: .45rem .6rem !important; }
+body[data-business="gudang-nasita"] .main-content .form-control:focus { outline: none; border-color: var(--gx-acc) !important; box-shadow: 0 0 0 3px var(--gx-acc-soft) !important; }
+body[data-business="gudang-nasita"][data-theme="dark"] .main-content .form-control { color-scheme: dark; }
+body[data-business="gudang-nasita"] .main-content .table,
+body[data-business="gudang-nasita"] .main-content table.table { width: 100%; border-collapse: collapse; font-size: .76rem; }
+body[data-business="gudang-nasita"] .main-content .table th {
+    background: var(--gx-soft) !important; color: var(--gx-mute) !important; font-size: .62rem !important; font-weight: 700 !important; letter-spacing: .06em; text-transform: uppercase;
+    padding: .5rem .7rem !important; border-bottom: 1px solid var(--gx-line) !important; white-space: nowrap;
+}
+body[data-business="gudang-nasita"] .main-content .table td { padding: .5rem .7rem !important; border-bottom: 1px solid var(--gx-line) !important; color: var(--gx-ink) !important; background: transparent !important; }
+body[data-business="gudang-nasita"] .main-content .table tbody tr:hover td { background: var(--gx-soft) !important; }
+body[data-business="gudang-nasita"] .main-content .alert { border-radius: 9px !important; padding: .5rem .8rem !important; font-size: .74rem !important; }
+body[data-business="gudang-nasita"] .main-content .badge { border-radius: 999px !important; font-size: .64rem !important; font-weight: 700 !important; padding: .15rem .55rem !important; }
+body[data-business="gudang-nasita"] .main-content h2.page-title-legacy { font-size: 1.15rem; }
+
+/* Menu samping Gudang: kelompok lebih rapi */
+body[data-business="gudang-nasita"] .gudang-nav-group { font-size: .6rem !important; letter-spacing: .08em !important; color: var(--gx-faint) !important; }

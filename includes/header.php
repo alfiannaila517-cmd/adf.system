@@ -264,6 +264,12 @@ $faviconUrl = BASE_URL . '/assets/img/developer-logo.png';
         <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/frontdesk.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/frontdesk.css') ?: 1; ?>">
     <?php endif; ?>
 
+    <?php $__gdScript = (string)($_SERVER['SCRIPT_NAME'] ?? ''); ?>
+    <?php if (strpos($__gdScript, '/modules/gudang/') !== false || preg_match('#/modules/procurement/gudang-[^/]*\.php$#', $__gdScript)): ?>
+        <!-- Gudang Nasita: sistem tampilan bersama semua menu Gudang (terang & gelap) -->
+        <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/gudang.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/gudang.css') ?: 1; ?>">
+    <?php endif; ?>
+
     <?php if (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/payroll/') !== false): ?>
         <!-- Payroll: teks & tombol selalu terbaca (terang/gelap), kontrol lebih ringkas -->
         <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/payroll.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/payroll.css') ?: 1; ?>">
