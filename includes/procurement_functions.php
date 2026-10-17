@@ -1205,6 +1205,21 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
 
         $db->getConnection()->beginTransaction();
 
+        // Kunci header PO dulu, BARU baca ulang item + received_quantity: dua request bersamaan (klik ganda / dua tab)
+        // antre di sini, jadi yang kedua melihat qty yang sudah diterima oleh yang pertama (tidak ada stok ganda).
+        $lockedHeader = $db->fetchOne('SELECT status FROM purchase_orders_header WHERE id = ? FOR UPDATE', [$po_id]);
+        if (!$lockedHeader) {
+            throw new Exception('Purchase Order not found');
+        }
+        $lockedStatus = strtolower((string)$lockedHeader['status']);
+        if (in_array($lockedStatus, ['cancelled', 'rejected', 'completed', 'draft'], true)) {
+            throw new Exception('PO ' . ($po['po_number'] ?? '') . ' berstatus ' . $lockedStatus . ', tidak bisa diterima.');
+        }
+        $po = getPurchaseOrder($po_id);
+        if (!$po) {
+            throw new Exception('Purchase Order not found');
+        }
+
         $totalReceived = 0;
         $allCompleted = true;
 
@@ -1238,11 +1253,11 @@ function receivePurchaseOrderToGudang($po_id, array $receivedItems, $receivedBy,
                      FROM gudang_nasita_stock gs
                      LEFT JOIN gudang_nasita_barang gb ON gb.id = gs.barang_id
                      WHERE LOWER(COALESCE(gs.item_name, gb.nama_barang, '')) = LOWER(?)
-                     LIMIT 1",
+                     LIMIT 1 FOR UPDATE",
                     [$item['item_name']]
                 );
             } else {
-                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1", [$item['item_name']]);
+                $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1 FOR UPDATE", [$item['item_name']]);
             }
             if (!$stock) {
                 $stock = $db->fetchOne("SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) LIKE LOWER(?) ORDER BY COALESCE(quantity, jumlah_stok, 0) DESC LIMIT 1", ['%' . trim($item['item_name']) . '%']);
