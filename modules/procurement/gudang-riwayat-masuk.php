@@ -23,6 +23,13 @@ if (function_exists('ensureGudangNasitaOperationalTablesCompatibility')) {
 
 $dateFrom = trim($_GET['date_from'] ?? '');
 $dateTo   = trim($_GET['date_to'] ?? '');
+// Hanya format Y-m-d yang dipakai (format lain diabaikan, bukan dibandingkan sebagai string ke kolom tanggal)
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)) {
+    $dateFrom = '';
+}
+if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+    $dateTo = '';
+}
 $search   = trim($_GET['q'] ?? '');
 $source   = in_array($_GET['sumber'] ?? '', ['supplier', 'bisnis'], true) ? $_GET['sumber'] : '';
 
@@ -32,6 +39,10 @@ $source   = in_array($_GET['sumber'] ?? '', ['supplier', 'bisnis'], true) ? $_GE
 //                mis. Narayana kirim pisang. Nilainya dibayar Gudang lewat Tagihan Bisnis.
 // Input stok manual (adjustment) sengaja tidak dimasukkan.
 $rows = [];
+$supplierTotalRows = 0;      // jumlah baris supplier SEBENARNYA (daftar dibatasi 500 baris terbaru)
+$supplierTotalQty = 0.0;
+$supplierTotalValue = 0.0;
+$supplierShown = 0;
 
 if ($source !== 'bisnis') {
     $where  = ["gm.movement_type = 'in_supplier'", "gm.reference_type = 'purchase_order'"];
@@ -62,6 +73,15 @@ if ($source !== 'bisnis') {
         ORDER BY gm.created_at DESC, gm.id DESC
         LIMIT 500
     ", $params) ?: [];
+    $supplierShown = count($supplierRows);
+    $aggRow = $db->fetchOne("
+        SELECT COUNT(*) AS c, COALESCE(SUM(gm.quantity), 0) AS q, COALESCE(SUM(gm.subtotal), 0) AS v
+        FROM gudang_nasita_movements gm
+        LEFT JOIN gudang_nasita_stock gs ON gs.id = gm.stock_id
+        WHERE " . implode(' AND ', $where), $params) ?: [];
+    $supplierTotalRows = (int)($aggRow['c'] ?? 0);
+    $supplierTotalQty = (float)($aggRow['q'] ?? 0);
+    $supplierTotalValue = (float)($aggRow['v'] ?? 0);
     foreach ($supplierRows as $r) {
         $rows[] = [
             'date'        => $r['movement_date'],
@@ -126,16 +146,21 @@ usort($rows, function ($x, $y) {
     return strcmp((string)$y['sort'], (string)$x['sort']);
 });
 
-$totalQty = 0;
-$totalValue = 0;
+// Supplier: total dari query agregat (akurat walau daftar terpotong 500 baris); bisnis: semua baris sudah dimuat
+$totalQty = $supplierTotalQty;
+$totalValue = $supplierTotalValue;
 $totalFromBusiness = 0;
+$businessRowCount = 0;
 foreach ($rows as $r) {
-    $totalQty += $r['quantity'];
-    $totalValue += $r['subtotal'];
     if ($r['kind'] === 'bisnis') {
+        $totalQty += $r['quantity'];
+        $totalValue += $r['subtotal'];
         $totalFromBusiness += $r['subtotal'];
+        $businessRowCount++;
     }
 }
+$totalRowCount = $supplierTotalRows + $businessRowCount;
+$supplierTruncated = $supplierTotalRows > $supplierShown;
 
 $forceTheme = 'light';
 include '../../includes/header.php';
@@ -182,7 +207,7 @@ include '../../includes/header.php';
 <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.25rem;">
     <div class="card" style="flex:1; min-width:200px; padding:1rem;">
         <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.25rem;">Total Baris</div>
-        <div style="font-size:1.4rem; font-weight:700; color:var(--text-primary);"><?php echo count($rows); ?></div>
+        <div style="font-size:1.4rem; font-weight:700; color:var(--text-primary);"><?php echo (int)$totalRowCount; ?></div>
     </div>
     <div class="card" style="flex:1; min-width:200px; padding:1rem;">
         <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.25rem;">Total Qty Masuk</div>
@@ -194,6 +219,13 @@ include '../../includes/header.php';
         <?php if ($totalFromBusiness > 0): ?><div style="font-size:0.72rem; color:var(--text-muted);">termasuk dari bisnis Rp <?php echo number_format($totalFromBusiness, 0, ',', '.'); ?></div><?php endif; ?>
     </div>
 </div>
+
+<?php if ($supplierTruncated): ?>
+    <div class="card" style="padding:0.7rem 1rem; margin-bottom:1rem; background:#fffbeb; border:1px solid #fde68a; color:#92400e; font-size:0.85rem;">
+        Daftar menampilkan <b><?php echo (int)$supplierShown; ?></b> dari <b><?php echo (int)$supplierTotalRows; ?></b> penerimaan supplier (yang terbaru). Total di atas sudah mencakup semuanya;
+        persempit filter tanggal untuk melihat baris yang lebih lama.
+    </div>
+<?php endif; ?>
 
 <div class="table-responsive">
     <table class="table">
