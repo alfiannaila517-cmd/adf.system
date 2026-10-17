@@ -4,6 +4,8 @@
  * API Penawaran kamar (tidak memblok kamar).
  * POST action:
  *   create        check_in, check_out, guest_name, guest_phone, guest_email, notes, valid_until, lang, items(JSON: [{room_id,disc_type,disc_value}]), extras(JSON: [{catalog_id|name,price,qty,unit,type}])
+ *   update        id + field yang sama dengan create (kecuali lang) → ubah penawaran terbuka
+ *   rooms         → daftar kamar + harga dasar
  *   catalog       → katalog Hotel Service aktif (untuk fasilitas tambahan)
  *   get           id            → penawaran + item + kamar yang sudah bentrok (untuk tombol Konfirmasi)
  *   list          status=open|confirmed|cancelled|all
@@ -50,6 +52,18 @@ try {
             'extras' => is_array($extras) ? $extras : [],
         ], $uid);
         echo json_encode($res);
+    } elseif ($act === 'update') {
+        $items = json_decode((string)($_POST['items'] ?? '[]'), true);
+        $extras = json_decode((string)($_POST['extras'] ?? '[]'), true);
+        echo json_encode(Quotations::update($db, (int)($_POST['id'] ?? 0), [
+            'check_in' => $_POST['check_in'] ?? '', 'check_out' => $_POST['check_out'] ?? '',
+            'guest_name' => $_POST['guest_name'] ?? '', 'guest_phone' => $_POST['guest_phone'] ?? '', 'guest_email' => $_POST['guest_email'] ?? '',
+            'notes' => $_POST['notes'] ?? '', 'valid_until' => $_POST['valid_until'] ?? '',
+            'items' => is_array($items) ? $items : [],
+            'extras' => is_array($extras) ? $extras : [],
+        ]));
+    } elseif ($act === 'rooms') {
+        echo json_encode(['ok' => true, 'rows' => Quotations::roomList($db)]);
     } elseif ($act === 'catalog') {
         $bizId = (int)($_SESSION['business_id'] ?? 0) ?: ((function_exists('getNumericBusinessId') ? (int)getNumericBusinessId(ACTIVE_BUSINESS_ID) : 0) ?: 1);
         echo json_encode(['ok' => true, 'rows' => Quotations::catalog($db, $bizId)]);

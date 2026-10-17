@@ -99,11 +99,8 @@ class Quotations
         return $base;
     }
 
-    /**
-     * Buat penawaran. $items = [['room_id'=>int,'disc_type'=>'percent|rp|','disc_value'=>float], …] — harga dasar diambil dari tipe kamar (server).
-     * @return array{ok:bool,msg?:string,id?:int,code?:string}
-     */
-    public static function create($db, array $d, int $userId = 0): array
+    /** Validasi + hitung ulang penawaran (harga kamar dari server). Dipakai create() dan update(). */
+    private static function prepare($db, array $d): array
     {
         self::ensureTables($db);
         $ci = (string)($d['check_in'] ?? '');
@@ -137,7 +134,8 @@ class Quotations
         }
 
         $rows = [];
-        $subtotal = $total = 0.0;        foreach ($items as $it) {
+        $subtotal = $total = 0.0;
+        foreach ($items as $it) {
             $r = $db->fetchOne("SELECT r.id, r.room_number, rt.type_name, rt.base_price FROM rooms r LEFT JOIN room_types rt ON rt.id = r.room_type_id WHERE r.id = ?", [(int)$it['room_id']]);
             if (!$r) continue;
             $type = in_array($it['disc_type'] ?? '', ['percent', 'rp'], true) ? $it['disc_type'] : '';
@@ -149,6 +147,19 @@ class Quotations
             $total += $net * $nights;
         }
         if (!$rows) return ['ok' => false, 'msg' => 'Kamar tidak ditemukan'];
+
+        return ['ok' => true, 'ci' => $ci, 'co' => $co, 'name' => $name, 'nights' => $nights, 'valid' => $valid, 'rows' => $rows, 'extraRows' => $extraRows, 'extrasTotal' => $extrasTotal, 'subtotal' => $subtotal, 'total' => $total];
+    }
+
+    /**
+     * Buat penawaran. $items = [['room_id'=>int,'disc_type'=>'percent|rp|','disc_value'=>float], …] — harga dasar diambil dari tipe kamar (server).
+     * @return array{ok:bool,msg?:string,id?:int,code?:string}
+     */
+    public static function create($db, array $d, int $userId = 0): array
+    {
+        $p = self::prepare($db, $d);
+        if (!$p['ok']) return $p;
+        extract($p);
 
         $conn = $db->getConnection();
         $conn->beginTransaction();
@@ -177,6 +188,47 @@ class Quotations
             return ['ok' => false, 'msg' => 'Gagal menyimpan: ' . $e->getMessage()];
         }
         return ['ok' => true, 'id' => $qid, 'code' => $code];
+    }
+
+    /** Ubah penawaran yang masih terbuka: data tamu, tanggal, masa berlaku, catatan, kamar+diskon dan layanan tambahan (harga dihitung ulang server). */
+    public static function update($db, int $id, array $d): array
+    {
+        self::ensureTables($db);
+        $q = $db->fetchOne("SELECT id, status FROM quotations WHERE id = ?", [$id]);
+        if (!$q) return ['ok' => false, 'msg' => 'Penawaran tidak ditemukan'];
+        if ($q['status'] !== 'open') return ['ok' => false, 'msg' => 'Hanya penawaran terbuka yang bisa diubah'];
+        $p = self::prepare($db, $d);
+        if (!$p['ok']) return $p;
+        extract($p);
+
+        $conn = $db->getConnection();
+        $conn->beginTransaction();
+        try {
+            $db->query("UPDATE quotations SET guest_name = ?, guest_phone = ?, guest_email = ?, notes = ?, check_in = ?, check_out = ?, nights = ?, valid_until = ?,
+                    subtotal = ?, discount_total = ?, total = ?, extras_total = ? WHERE id = ? AND status = 'open'",
+                [mb_substr($name, 0, 150), mb_substr(trim((string)($d['guest_phone'] ?? '')), 0, 40), mb_substr(trim((string)($d['guest_email'] ?? '')), 0, 120),
+                    trim((string)($d['notes'] ?? '')), $ci, $co, $nights, $valid, round($subtotal, 2), round($subtotal - $total, 2), round($total + $extrasTotal, 2), round($extrasTotal, 2), $id]);
+            $db->query("DELETE FROM quotation_items WHERE quote_id = ?", [$id]);
+            $db->query("DELETE FROM quotation_extras WHERE quote_id = ?", [$id]);
+            foreach ($rows as [$r, $type, $val, $base, $net, $line]) {
+                $db->query("INSERT INTO quotation_items (quote_id, room_id, room_number, room_type, base_price, disc_type, disc_value, net_price, line_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$id, (int)$r['id'], $r['room_number'], $r['type_name'], $base, $type, $val, $net, $line]);
+            }
+            foreach ($extraRows as [$tl, $nm, $pr, $qt, $un, $ln]) {
+                $db->query("INSERT INTO quotation_extras (quote_id, type_label, item_name, unit_price, qty, unit, line_total) VALUES (?, ?, ?, ?, ?, ?, ?)", [$id, $tl, $nm, $pr, $qt, $un, $ln]);
+            }
+            $conn->commit();
+        } catch (\Throwable $e) {
+            if ($conn->inTransaction()) $conn->rollBack();
+            return ['ok' => false, 'msg' => 'Gagal menyimpan: ' . $e->getMessage()];
+        }
+        return ['ok' => true, 'id' => $id];
+    }
+
+    /** Daftar kamar + harga dasar tipe (untuk menambah kamar saat mengubah penawaran). */
+    public static function roomList($db): array
+    {
+        return $db->fetchAll("SELECT r.id, r.room_number, rt.type_name, rt.base_price FROM rooms r LEFT JOIN room_types rt ON rt.id = r.room_type_id ORDER BY r.room_number") ?: [];
     }
 
     public static function get($db, int $id): ?array

@@ -2,7 +2,7 @@
 /**
  * UI penawaran kamar untuk kalender: modal "Buat Penawaran", popup detail penawaran (Cetak / Konfirmasi / Batalkan),
  * dan alur "Konfirmasi" yang membuka form reservasi terisi. Teks ID/EN lewat peta di bawah (tidak memakai kamus global).
- * JS publik: adfQuoteCreate(state), adfQuoteView(id), adfQuoteConfirm(id). URL: calendar.php?quote=<id> (konfirmasi), ?quote_view=<id>.
+ * JS publik: adfQuoteCreate(state), adfQuoteEdit(id), adfQuoteView(id), adfQuoteConfirm(id). URL: calendar.php?quote=<id> (konfirmasi), ?quote_view=<id>, ?quote_edit=<id>.
  */
 if (!defined('APP_ACCESS')) exit;
 
@@ -18,6 +18,8 @@ $qtText = [
     'Penawaran ini sudah ' => 'This quotation is already ', 'Gagal memuat penawaran.' => 'Could not load the quotation.', 'Gagal' => 'Failed', 'Kamar' => 'Room',
     'Fasilitas tambahan (Hotel Service)' => 'Additional facilities (Hotel Service)', 'Memuat katalog…' => 'Loading catalog…', 'Katalog Hotel Service masih kosong.' => 'The Hotel Service catalog is empty.',
     '+ Item lain' => '+ Other item', 'Nama item' => 'Item name', 'Harga' => 'Price', 'Layanan tambahan' => 'Additional services', 'dipilih' => 'selected', 'Kamar' => 'Room',
+    'Ubah Penawaran' => 'Edit Quotation', 'Ubah' => 'Edit', 'Simpan' => 'Save', 'Diskon' => 'Discount', '+ Kamar' => '+ Room', 'Tambah kamar…' => 'Add room…', '+ Tambah' => '+ Add', 'Pilih layanan…' => 'Select service…',
+    'Pilih minimal satu kamar.' => 'Select at least one room.', 'Tanggal tidak valid.' => 'Invalid dates.',
     'Harga pas' => 'Net rate', '/malam' => '/night', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
 ];
 ?>
@@ -79,6 +81,27 @@ $qtText = [
     .qt-ex-c { display: grid; grid-template-columns: minmax(0, 1fr) 96px 58px; gap: 6px; padding: 4px 4px 0; }
     .qt .qt-ex-add { margin: 4px 4px 0; height: 28px; padding: 0 10px; border: 1px dashed var(--inb) !important; border-radius: 8px; background: transparent !important; color: #16a34a !important; font-size: 11.5px; font-weight: 700; cursor: pointer; }
     .qt .qt-ex-empty { padding: 8px 4px; color: var(--mu) !important; font-size: 11.5px; }
+
+    .qt.wide { max-width: 580px; }
+    .qt-r3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; }
+    .qt .qt-sec { margin: 4px 0 6px; font-size: 9.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--mu) !important; }
+    .qt-ed { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
+    .qt-er { display: grid; gap: 6px; align-items: center; padding: 5px 7px; border: 1px solid var(--bd); border-radius: 10px; background: var(--tile); }
+    .qt-er-room { grid-template-columns: minmax(0, 1fr) 62px 92px 28px; }
+    .qt-er-ex { grid-template-columns: minmax(0, 1fr) 100px 54px 28px; }
+    .qt-er-l { min-width: 0; line-height: 1.3; }
+    .qt .qt-er-l b { display: block; color: var(--tx) !important; }
+    .qt .qt-er-l small { color: var(--mu) !important; font-size: 10.5px; }
+    .qt .qt-er input, .qt .qt-er select, .qt .qt-add select { width: 100%; height: 30px; padding: 0 8px; border: 1px solid var(--inb) !important; border-radius: 8px; background: var(--bg) !important; color: var(--tx) !important; -webkit-text-fill-color: var(--tx) !important; font: inherit; font-size: 12px; }
+    .qt .qt-er input[type="number"] { text-align: right; }
+    .qt .qt-x { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: rgba(239, 68, 68, .12); color: #dc2626 !important; font-weight: 800; cursor: pointer; }
+    .qt-add { display: flex; gap: 6px; margin-bottom: 10px; }
+    .qt .qt-add select { flex: 1; min-width: 0; }
+    .qt .qt-mini { height: 30px; padding: 0 11px; border-radius: 8px; border: 0; background: #16a34a; color: #fff !important; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .qt .qt-mini.ghost { background: transparent; border: 1px dashed var(--inb); color: #16a34a !important; }
+    body[data-theme="dark"] .qt .qt-er select, body[data-theme="dark"] .qt .qt-add select { color-scheme: dark; }
+    body[data-theme="dark"] .qt select option, body[data-theme="dark"] .qt select optgroup { background: #16213a; color: #e6edf7; }
+    @media (max-width: 520px) { .qt-r3 { grid-template-columns: 1fr; } .qt-er-room { grid-template-columns: minmax(0, 1fr) 56px 80px 28px; } }
 
     /* Bar penawaran di kalender: hijau transparan, tidak memblok (klik sel tetap membuat booking) */
     .booking-bar-container.qt-ghost { pointer-events: none; z-index: 3; }
@@ -211,6 +234,134 @@ $qtText = [
             setTimeout(() => name.focus(), 40);
         };
 
+        // ---- Ubah penawaran (hanya yang masih terbuka) ----
+        window.adfQuoteEdit = function(id) {
+            box.innerHTML = ''; box.className = 'qt'; box.appendChild(el('div', 'qt-b', '…')); open();
+            Promise.all([post({ action: 'get', id: id }), post({ action: 'rooms' }), post({ action: 'catalog' })]).then(([g, rm, cat]) => {
+                if (!g.ok) throw new Error(g.msg || t('Gagal memuat penawaran.'));
+                const q = g.quote;
+                if (q.status !== 'open') { window.adfQuoteView(id); return; }
+                const allRooms = (rm && rm.rows) || [], catalog = (cat && cat.rows) || [];
+                const rooms = q.items.map(i => ({ id: +i.room_id, number: i.room_number, type: i.room_type || '', base: +i.base_price, dtype: i.disc_type || '', dval: +i.disc_value || 0 }));
+                const extras = q.extras.map(x => ({ name: x.item_name, price: +x.unit_price, qty: +x.qty, unit: x.unit || '', type: x.type_label || '' }));
+
+                box.innerHTML = ''; box.className = 'qt wide';
+                box.appendChild(header(t('Ubah Penawaran'), q.quote_code));
+                const body = el('div', 'qt-b');
+                const inp = (type, val, extra) => { const i = el('input'); i.type = type; i.value = val == null ? '' : val; if (extra) Object.assign(i, extra); return i; };
+                const name = inp('text', q.guest_name, { maxLength: 150, autocomplete: 'off' });
+                const phone = inp('tel', q.guest_phone, { autocomplete: 'off' });
+                const mail = inp('email', q.guest_email, { autocomplete: 'off' });
+                const ci = inp('date', q.check_in), co = inp('date', q.check_out), valid = inp('date', q.valid_until || '');
+                const notes = el('textarea'); notes.maxLength = 600; notes.value = q.notes || '';
+                body.appendChild(field(t('Nama tamu') + ' *', name));
+                const r1 = el('div', 'qt-r2'); r1.appendChild(field(t('WhatsApp / telepon'), phone)); r1.appendChild(field(t('Email'), mail)); body.appendChild(r1);
+                const r2 = el('div', 'qt-r3'); r2.appendChild(field(t('Check-in'), ci)); r2.appendChild(field(t('Check-out'), co)); r2.appendChild(field(t('Berlaku sampai'), valid)); body.appendChild(r2);
+
+                // Kamar + diskon
+                body.appendChild(el('div', 'qt-sec', t('Kamar')));
+                const roomBox = el('div', 'qt-ed');
+                const addSel = el('select'); const addBtn = el('button', 'qt-mini', t('+ Kamar')); addBtn.type = 'button';
+                const addRow = el('div', 'qt-add'); addRow.appendChild(addSel); addRow.appendChild(addBtn);
+                body.appendChild(roomBox); body.appendChild(addRow);
+                // Layanan tambahan
+                body.appendChild(el('div', 'qt-sec', t('Layanan tambahan')));
+                const exBox = el('div', 'qt-ed');
+                const exSel = el('select'); const exBtn = el('button', 'qt-mini', t('+ Tambah')); exBtn.type = 'button';
+                const exCustom = el('button', 'qt-mini ghost', t('+ Item lain')); exCustom.type = 'button';
+                const exAdd = el('div', 'qt-add'); exAdd.appendChild(exSel); exAdd.appendChild(exBtn); exAdd.appendChild(exCustom);
+                body.appendChild(exBox); body.appendChild(exAdd);
+                body.appendChild(field(t('Catatan (opsional)'), notes));
+
+                const sum = el('div', 'qt-sum'); const tt = el('div', 'tot'); tt.style.marginTop = '0'; tt.style.borderTop = '0'; tt.style.paddingTop = '0';
+                const totInfo = el('small', ''), totB = el('b', ''); tt.appendChild(totInfo); tt.appendChild(totB); sum.appendChild(tt); body.appendChild(sum);
+                const err = el('div', 'qt-err'); err.style.display = 'none'; body.appendChild(err);
+                box.appendChild(body);
+
+                const nightsNow = () => { const a = new Date(ci.value + 'T00:00:00'), b = new Date(co.value + 'T00:00:00'); const n = Math.round((b - a) / 86400000); return n > 0 ? n : 0; };
+                const net = r => { const v = +r.dval || 0; return v > 0 ? (r.dtype === 'percent' ? Math.round(r.base * (1 - Math.min(100, v) / 100)) : (r.dtype === 'rp' ? Math.max(0, r.base - v) : r.base)) : r.base; };
+                const recalc = () => {
+                    const n = nightsNow();
+                    const roomsT = rooms.reduce((s, r) => s + net(r) * n, 0), exT = extras.reduce((s, x) => s + (+x.price || 0) * (+x.qty || 0), 0);
+                    totInfo.textContent = n + ' ' + t('malam') + ' · ' + rooms.length + ' ' + t('kamar') + (extras.length ? ' + ' + extras.length + ' ' + t('Layanan tambahan').toLowerCase() : '');
+                    totB.textContent = rp(roomsT + exT);
+                };
+                const delBtn = fn => { const b = el('button', 'qt-x', '✕'); b.type = 'button'; b.onclick = fn; return b; };
+                function drawRooms() {
+                    roomBox.innerHTML = '';
+                    rooms.forEach((r, idx) => {
+                        const row = el('div', 'qt-er qt-er-room');
+                        const lab = el('div', 'qt-er-l'); lab.appendChild(el('b', '', t('Kamar') + ' ' + r.number)); lab.appendChild(el('small', '', (r.type ? r.type + ' · ' : '') + rp(r.base) + t('/malam')));
+                        const sel = el('select'); [['', '—'], ['percent', '%'], ['rp', 'Rp']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; if (v === r.dtype) o.selected = true; sel.appendChild(o); });
+                        const val = inp('number', r.dval || '', { min: '0', step: 'any', placeholder: t('Diskon') });
+                        sel.onchange = () => { r.dtype = sel.value; if (!sel.value) { r.dval = 0; val.value = ''; } recalc(); };
+                        val.oninput = () => { r.dval = parseFloat(val.value) || 0; if (r.dval > 0 && !r.dtype) { r.dtype = 'percent'; sel.value = 'percent'; } recalc(); };
+                        row.appendChild(lab); row.appendChild(sel); row.appendChild(val);
+                        row.appendChild(delBtn(() => { rooms.splice(idx, 1); drawRooms(); fillAddSel(); recalc(); }));
+                        roomBox.appendChild(row);
+                    });
+                }
+                function fillAddSel() {
+                    addSel.innerHTML = ''; const o0 = el('option', '', t('Tambah kamar…')); o0.value = ''; addSel.appendChild(o0);
+                    allRooms.filter(r => !rooms.some(x => x.id === +r.id)).forEach(r => { const o = el('option', '', r.room_number + ' · ' + (r.type_name || '') + ' · ' + rp(r.base_price)); o.value = r.id; addSel.appendChild(o); });
+                }
+                addBtn.onclick = () => {
+                    const r = allRooms.find(x => String(x.id) === addSel.value); if (!r) return;
+                    rooms.push({ id: +r.id, number: r.room_number, type: r.type_name || '', base: +r.base_price || 0, dtype: '', dval: 0 });
+                    rooms.sort((a, b) => String(a.number).localeCompare(String(b.number), undefined, { numeric: true }));
+                    drawRooms(); fillAddSel(); recalc();
+                };
+                function drawExtras() {
+                    exBox.innerHTML = '';
+                    extras.forEach((x, idx) => {
+                        const row = el('div', 'qt-er qt-er-ex');
+                        const nm = inp('text', x.name, { maxLength: 120, placeholder: t('Nama item') });
+                        const pr = inp('number', x.price, { min: '0', step: '1000', placeholder: t('Harga') });
+                        const qy = inp('number', x.qty, { min: '1', step: '1' });
+                        nm.oninput = () => { x.name = nm.value; recalc(); }; pr.oninput = () => { x.price = parseFloat(pr.value) || 0; recalc(); }; qy.oninput = () => { x.qty = parseFloat(qy.value) || 1; recalc(); };
+                        row.appendChild(nm); row.appendChild(pr); row.appendChild(qy);
+                        row.appendChild(delBtn(() => { extras.splice(idx, 1); drawExtras(); recalc(); }));
+                        exBox.appendChild(row);
+                    });
+                }
+                (function fillCatalog() {
+                    const o0 = el('option', '', t('Pilih layanan…')); o0.value = ''; exSel.appendChild(o0);
+                    let grp = null, last = null;
+                    catalog.forEach(c => { if (c.type !== last) { grp = el('optgroup'); grp.label = (c.icon ? c.icon + ' ' : '') + c.type; exSel.appendChild(grp); last = c.type; } const o = el('option', '', c.name + ' · ' + rp(c.price) + (c.unit && c.unit !== 'unit' ? ' / ' + c.unit : '')); o.value = c.id; grp.appendChild(o); });
+                })();
+                exBtn.onclick = () => {
+                    const c = catalog.find(x => String(x.id) === exSel.value); if (!c) return;
+                    extras.push({ name: c.name, price: c.price, qty: 1, unit: c.unit || '', type: c.type || '' }); exSel.value = ''; drawExtras(); recalc();
+                };
+                exCustom.onclick = () => { extras.push({ name: '', price: 0, qty: 1, unit: '', type: '' }); drawExtras(); recalc(); };
+                [ci, co].forEach(i => i.addEventListener('change', recalc));
+                drawRooms(); fillAddSel(); drawExtras(); recalc();
+
+                const f = el('div', 'qt-foot');
+                const c = el('button', '', t('Batal')); c.type = 'button'; c.onclick = close;
+                const sv = el('button', '', t('Simpan')); sv.type = 'button';
+                const sp = el('button', 'pri', t('Simpan & Cetak')); sp.type = 'button';
+                const save = (print) => {
+                    const show = m => { err.textContent = m; err.style.display = 'block'; };
+                    if (!name.value.trim()) { show(t('Nama tamu wajib diisi.')); name.focus(); return; }
+                    if (!nightsNow()) { show(t('Tanggal tidak valid.')); return; }
+                    if (!rooms.length) { show(t('Pilih minimal satu kamar.')); return; }
+                    err.style.display = 'none'; sv.disabled = sp.disabled = true; (print ? sp : sv).textContent = t('Menyimpan…');
+                    post({
+                        action: 'update', id: q.id, check_in: ci.value, check_out: co.value, valid_until: valid.value, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(), notes: notes.value.trim(),
+                        items: JSON.stringify(rooms.map(r => ({ room_id: r.id, disc_type: r.dtype, disc_value: r.dval }))),
+                        extras: JSON.stringify(extras.filter(x => x.name.trim() && +x.price >= 0).map(x => ({ name: x.name.trim(), price: +x.price || 0, qty: +x.qty || 1, unit: x.unit, type: x.type })))
+                    }).then(r => {
+                        if (!r.ok) throw new Error(r.msg || '');
+                        if (print) window.open(PRINT + '?id=' + q.id, '_blank', 'noopener');
+                        close(); reload();
+                    }).catch(e => { sv.disabled = sp.disabled = false; sv.textContent = t('Simpan'); sp.textContent = t('Simpan & Cetak'); show(t('Gagal') + ': ' + e.message); });
+                };
+                sv.onclick = () => save(false); sp.onclick = () => save(true);
+                f.appendChild(c); f.appendChild(sv); f.appendChild(sp); box.appendChild(f);
+            }).catch(e => { box.innerHTML = ''; box.appendChild(header(t('Penawaran'))); box.appendChild(el('div', 'qt-b', t('Gagal') + ': ' + e.message)); const f = el('div', 'qt-foot'), c = el('button', '', t('Tutup')); c.onclick = close; f.appendChild(c); box.appendChild(f); });
+        };
+
         // ---- Detail penawaran ----
         window.adfQuoteView = function(id, afterConflicts) {
             box.innerHTML = ''; box.appendChild(el('div', 'qt-b', '…')); open();
@@ -257,7 +408,8 @@ $qtText = [
                 if (q.status === 'open') {
                     const cx = el('button', 'bad', t('Batalkan penawaran')); cx.type = 'button';
                     cx.onclick = () => { if (!window.confirm(t('Batalkan penawaran ini? Bar hijau di kalender akan hilang.'))) return; post({ action: 'cancel', id: q.id }).then(() => { close(); reload(); }); };
-                    f.appendChild(cx);
+                    const ed = el('button', '', t('Ubah')); ed.type = 'button'; ed.onclick = () => { close(); window.adfQuoteEdit(q.id); };
+                    f.appendChild(ed); f.appendChild(cx);
                     if (!q.expired && !(r.conflicts && r.conflicts.length)) {
                         const ok = el('button', 'pri', t('Konfirmasi (jadikan booking)')); ok.type = 'button'; ok.onclick = () => { close(); window.adfQuoteConfirm(q.id); };
                         f.appendChild(ok);
@@ -290,6 +442,7 @@ $qtText = [
         document.addEventListener('DOMContentLoaded', function() {
             const p = new URLSearchParams(location.search);
             if (p.get('quote')) setTimeout(() => window.adfQuoteConfirm(parseInt(p.get('quote'), 10)), 300);
+            else if (p.get('quote_edit')) setTimeout(() => window.adfQuoteEdit(parseInt(p.get('quote_edit'), 10)), 300);
             else if (p.get('quote_view')) setTimeout(() => window.adfQuoteView(parseInt(p.get('quote_view'), 10)), 300);
         });
     })();

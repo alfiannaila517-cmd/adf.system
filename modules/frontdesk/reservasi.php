@@ -1019,6 +1019,7 @@ $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
                         <div class="qtp-amt">Rp <?php echo number_format((float)$q['total'], 0, ',', '.'); ?></div>
                         <div class="qtp-act">
                             <a class="qtp-b" href="quotation-print.php?id=<?php echo (int)$q['id']; ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($qtT('Cetak', 'Print')); ?></a>
+                            <a class="qtp-b" href="calendar.php?quote_edit=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Ubah', 'Edit')); ?></a>
                             <?php if (!$q['expired']): ?>
                                 <a class="qtp-b pri" href="calendar.php?quote=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Konfirmasi', 'Confirm')); ?></a>
                             <?php endif; ?>
