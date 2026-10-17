@@ -45,6 +45,7 @@ $quickLinks = [
     ],
 ];
 if ($isAdmin) {
+    $quickLinks['Bisnis'][] = ['invoices.php', 'file', 'Invoice', 'Tagihan manual: registrasi, setup, modul'];
     $quickLinks['Bisnis'][] = ['subscription-clients.php', 'link', 'Klien Langganan', 'Tarif & tagihan klien sistem'];
     $quickLinks['Pengaturan'] = [
         ['edit-payment.php', 'card', 'Payment Gateway', 'Koneksi Pakasir'],
