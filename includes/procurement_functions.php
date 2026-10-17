@@ -920,7 +920,7 @@ function addGudangNasitaManualStock($itemName, $unit, $quantity, $createdBy, $op
         $stock = $db->fetchOne(
             "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?)
              ORDER BY (BINARY item_name = ?) DESC, COALESCE(is_active,1) DESC, quantity DESC, id ASC
-             LIMIT 1",
+             LIMIT 1 FOR UPDATE",
             [$itemName, $itemName]
         );
         // Reactivate soft-deleted row so we update instead of insert
@@ -1100,7 +1100,7 @@ function recordGudangNasitaDailyStockOut($itemName, $quantity, $createdBy, $opti
             $stock = $db->fetchOne(
                 "SELECT * FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1) = 1
                  ORDER BY (BINARY item_name = ?) DESC, quantity DESC, id ASC
-                 LIMIT 1",
+                 LIMIT 1 FOR UPDATE",
                 [$itemName, $itemName]
             );
 
