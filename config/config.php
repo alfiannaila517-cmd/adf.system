@@ -59,7 +59,7 @@ defined('APP_ACCESS') or define('APP_ACCESS', true);
 if (!defined('APP_NAME')) define('APP_NAME', 'ADF System - Multi-Business Management');
 if (!defined('APP_VERSION')) define('APP_VERSION', '2.0.0');
 if (!defined('APP_YEAR')) define('APP_YEAR', '2026');
-if (!defined('DEVELOPER_NAME')) define('DEVELOPER_NAME', 'Ariefsystemdesign.net');
+if (!defined('DEVELOPER_NAME')) define('DEVELOPER_NAME', 'CV.ADF SYSTEM DEVELOPER');
 if (!defined('DEVELOPER_LOGO')) define('DEVELOPER_LOGO', 'assets/img/developer-logo.png');
 
 // ============================================
