@@ -483,6 +483,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Apakah catatan riwayat stok menyebut nomor transfer PERSIS ini? (LIKE '%no%' salah cocok: TRF-1 ikut mengenai TRF-10)
+if (!function_exists('gudangMovementMentionsTransfer')) {
+    function gudangMovementMentionsTransfer($db, string $transferNo): bool
+    {
+        if ($transferNo === '') {
+            return false;
+        }
+        $pattern = '(^|[^A-Za-z0-9-])' . preg_quote($transferNo, '/') . '($|[^A-Za-z0-9-])';
+        return (bool)$db->fetchOne('SELECT id FROM gudang_nasita_movements WHERE notes REGEXP ? LIMIT 1', [$pattern]);
+    }
+}
+
 // Update expiry date per stock item
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_expiry') {
     $stockId = (int)($_POST['stock_id'] ?? 0);
@@ -539,8 +551,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         // Barang ini dulu menambah stok gudang → kurangi lagi sebelum datanya dihapus
         // (kecuali belum pernah masuk stok gudang / "Belum masuk ke stok Gudang")
         $qty = (float)($ret['quantity'] ?? 0);
-        $credited = (string)($ret['transfer_number'] ?? '') !== ''
-            && (bool)$db->fetchOne('SELECT id FROM gudang_nasita_movements WHERE notes LIKE ? LIMIT 1', ['%' . $ret['transfer_number'] . '%']);
+        $credited = gudangMovementMentionsTransfer($db, (string)($ret['transfer_number'] ?? ''));
         if ($qty > 0 && $credited) {
             $res = recordGudangNasitaDailyStockOut((string)$ret['item_name'], $qty, (int)($_SESSION['user_id'] ?? 0), [
                 'notes' => 'Batal penerimaan ' . $ret['transfer_number'] . ' dari ' . ($ret['source_business_name'] ?: $ret['source_business_slug']),
@@ -578,11 +589,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $transferNoForRetry = (string)($retRow['transfer_number'] ?? '');
                 $alreadyCredited = false;
                 if ($transferNoForRetry !== '') {
-                    $existingMovement = $db->fetchOne(
-                        "SELECT id FROM gudang_nasita_movements WHERE notes LIKE ? LIMIT 1",
-                        ['%' . $transferNoForRetry . '%']
-                    );
-                    $alreadyCredited = (bool)$existingMovement;
+                    $alreadyCredited = gudangMovementMentionsTransfer($db, $transferNoForRetry);
                 }
                 if ($alreadyCredited) {
                     $_SESSION['success'] = 'Transfer ' . $transferNoForRetry . ' sudah pernah tercatat di stok Gudang, tidak perlu diulang.';
@@ -613,8 +620,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_stock') {
     $stockId = (int)($_POST['stock_id'] ?? 0);
     if ($stockId > 0) {
-        $db->update('gudang_nasita_stock', ['is_active' => 0], 'id = :id', ['id' => $stockId]);
-        $_SESSION['success'] = 'Item stok berhasil dihapus.';
+        $pdoDel = null;
+        try {
+            $pdoDel = $db->getConnection();
+            $pdoDel->beginTransaction();
+            $selDel = $pdoDel->prepare('SELECT * FROM gudang_nasita_stock WHERE id = ? FOR UPDATE');
+            $selDel->execute([$stockId]);
+            $delRow = $selDel->fetch(PDO::FETCH_ASSOC);
+            if (!$delRow) {
+                throw new Exception('Item stok tidak ditemukan.');
+            }
+            $delQty = (float)($delRow['quantity'] ?? 0);
+            if ($delQty > 0) {
+                // Stok bernilai ikut hilang dari laporan: catat sebagai penyesuaian keluar supaya ada jejaknya
+                $delValue = isset($delRow['total_harga']) ? (float)$delRow['total_harga'] : $delQty * (float)($delRow['harga_beli'] ?? 0);
+                $pdoDel->prepare("INSERT INTO gudang_nasita_movements
+                    (stock_id, movement_date, movement_type, quantity, unit_price, subtotal, reference_type, reference_number, notes, created_by)
+                    VALUES (?, ?, 'adjustment', ?, ?, ?, 'delete_stock', ?, ?, ?)")
+                    ->execute([$stockId, date('Y-m-d'), $delQty, (float)($delRow['harga_beli'] ?? 0), $delValue, 'DEL-' . date('YmdHis') . '-' . $stockId, 'Item stok dihapus (sisa ' . $delQty . ' ikut dihapus)', $_SESSION['user_id'] ?? null]);
+            }
+            $setDel = 'is_active = 0, quantity = 0';
+            if (array_key_exists('jumlah_stok', $delRow)) {
+                $setDel .= ', jumlah_stok = 0';
+            }
+            if (array_key_exists('total_harga', $delRow)) {
+                $setDel .= ', total_harga = 0';
+            }
+            $pdoDel->prepare('UPDATE gudang_nasita_stock SET ' . $setDel . ' WHERE id = ?')->execute([$stockId]);
+            $pdoDel->commit();
+            $_SESSION['success'] = 'Item stok berhasil dihapus' . ($delQty > 0 ? ' (sisa stok tercatat di riwayat).' : '.');
+        } catch (Throwable $e) {
+            if ($pdoDel && $pdoDel->inTransaction()) {
+                $pdoDel->rollBack();
+            }
+            $_SESSION['error'] = 'Gagal menghapus item stok: ' . $e->getMessage();
+        }
     }
     header('Location: gudang-nasita.php');
     exit;
