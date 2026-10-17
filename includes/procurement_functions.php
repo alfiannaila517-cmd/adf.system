@@ -1829,7 +1829,7 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
                 "SELECT gs.*, {$hargaFallbackExpr} AS harga_beli
                  FROM gudang_nasita_stock gs
                  {$barangJoinSql}
-                 WHERE gs.id = ? LIMIT 1",
+                 WHERE gs.id = ? LIMIT 1 FOR UPDATE",
                 [$stockId]
             );
             if (!$stock) {
@@ -1852,7 +1852,9 @@ function transferGudangNasitaStock($targetBusinessId, array $items, $createdBy, 
             ];
             // Only update columns that exist to prevent silent failure from unknown-column errors
             $stockUpdateData = array_intersect_key($stockUpdateData, array_flip(gudangNasitaStockColumns()));
-            $db->update('gudang_nasita_stock', $stockUpdateData, 'id = :id', ['id' => $stockId]);
+            if ($db->update('gudang_nasita_stock', $stockUpdateData, 'id = :id', ['id' => $stockId]) === false) {
+                throw new Exception('Gagal mengurangi stok ' . $stock['item_name'] . ' (transfer dibatalkan, cek error_log server).');
+            }
 
             $db->insert('gudang_nasita_transfer_items', [
                 'transfer_id' => $transferId,
