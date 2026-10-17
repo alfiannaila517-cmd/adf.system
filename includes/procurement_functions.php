@@ -646,12 +646,21 @@ function getGudangNasitaStock($limit = 200)
 
     // Only use movements subqueries if the table exists.
     $movementsExist = (bool)$db->fetchOne("SHOW TABLES LIKE 'gudang_nasita_movements'");
-    $totalInExpr  = $movementsExist
-        ? "COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'in_supplier'), 0)"
-        : '0';
-    $totalOutExpr = $movementsExist
-        ? "COALESCE((SELECT SUM(quantity) FROM gudang_nasita_movements gm WHERE gm.stock_id = gs.id AND gm.movement_type = 'out_transfer'), 0)"
-        : '0';
+    // Satu agregat yang di-JOIN (bukan 2 subquery berkorelasi per baris stok): ribuan barang tidak lagi memicu ribuan subquery
+    $movJoin = '';
+    $totalInExpr = '0';
+    $totalOutExpr = '0';
+    if ($movementsExist) {
+        $movJoin = "LEFT JOIN (
+                SELECT stock_id,
+                       SUM(CASE WHEN movement_type = 'in_supplier' THEN quantity ELSE 0 END) AS total_in,
+                       SUM(CASE WHEN movement_type = 'out_transfer' THEN quantity ELSE 0 END) AS total_out
+                FROM gudang_nasita_movements
+                GROUP BY stock_id
+            ) gmv ON gmv.stock_id = gs.id";
+        $totalInExpr = 'COALESCE(gmv.total_in, 0)';
+        $totalOutExpr = 'COALESCE(gmv.total_out, 0)';
+    }
 
     $rows = $db->fetchAll("
         SELECT
@@ -663,6 +672,7 @@ function getGudangNasitaStock($limit = 200)
             {$totalOutExpr}  AS total_out
         FROM gudang_nasita_stock gs
         {$barangJoin}
+        {$movJoin}
         WHERE {$isActiveWhere}
         ORDER BY {$categoryOrder} ASC, {$itemNameOrder} ASC
         LIMIT {$limit}
