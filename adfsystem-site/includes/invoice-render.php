@@ -127,6 +127,8 @@ function adf_invoice_render_document(array $inv, array $settings, array $opts = 
         .bank b { display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
         .bank .num { font-size: 16px; font-weight: 800; letter-spacing: .06em; margin: 3px 0 1px; }
         .bank small { font-size: 10.5px; color: var(--muted); }
+        .bank-missing { border: 1.5px dashed #f59e0b; background: #fffbeb; color: #92400e; border-radius: 11px; padding: 10px 14px; font-size: 11.5px; }
+        .bank-missing a { color: #c2410c; font-weight: 700; }
         .pay .pnote { margin-top: 8px; font-size: 10.5px; color: var(--muted); }
         .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 20px; }
         .sec .tx { font-size: 10.5px; color: var(--ink-2); white-space: pre-line; line-height: 1.6; }
@@ -149,11 +151,12 @@ function adf_invoice_render_document(array $inv, array $settings, array $opts = 
         @media print {
             body { background: #fff; padding: 0; }
             .page { box-shadow: none; width: 100%; min-height: 296mm; margin: 0; }
-            .actions, .flash { display: none !important; }
+            .actions, .flash, .nobank { display: none !important; }
+            .page { width: 210mm; }
             .wm { position: fixed; } /* diulang di setiap halaman cetak */
             .stamp { position: fixed; }
         }
-        @media (max-width: 820px) {
+        @media screen and (max-width: 820px) {
             body { padding: 10px 0 96px; }
             .page { width: 100%; min-height: 0; }
             .inner { padding: 22px 18px 0; }
@@ -264,6 +267,8 @@ function adf_invoice_render_document(array $inv, array $settings, array $opts = 
                     </div>
                     <?php if (trim((string) ($settings['payment_note'] ?? '')) !== ''): ?><div class="pnote"><?php echo $e($settings['payment_note']); ?></div><?php endif; ?>
                 </div>
+            <?php elseif (!$public): ?>
+                <div class="pay nobank"><h3>Cara pembayaran</h3><div class="bank-missing">Nomor rekening belum diatur, jadi belum tampil di invoice. Isi di <a href="invoice-settings.php">Pengaturan Invoice → Rekening pembayaran</a>.</div></div>
             <?php endif; ?>
 
             <?php $noteTxt = trim((string) ($inv['notes'] ?? '')); $termsTxt = trim((string) ($settings['terms'] ?? '')); ?>
