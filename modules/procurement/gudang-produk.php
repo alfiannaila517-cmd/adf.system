@@ -68,17 +68,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg = "Nama \"$nama\" sudah ada di database (ID #{$dupe['id']}). Gunakan nama yang berbeda atau edit produk yang ada.";
                 $msgType = 'danger';
             } else {
-                $data = ['nama_barang' => $nama, 'kategori' => $kategori, 'satuan' => $satuan, 'deskripsi' => $deskripsi, 'min_stock' => $minStock, 'is_active' => 1];
+                $data = ['nama_barang' => $nama, 'kategori' => $kategori, 'satuan' => $satuan, 'deskripsi' => $deskripsi, 'min_stock' => $minStock];
+                // UNIQUE nama_barang juga mencakup baris nonaktif: nama yang pernah dihapus dihidupkan lagi, bukan di-INSERT
+                $inactiveSame = $db->fetchOne("SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND id != ? AND COALESCE(is_active,1) = 0 LIMIT 1", [$nama, $id]);
                 if ($id > 0) {
-                    $db->update('gudang_nasita_barang', $data, 'id = :id', ['id' => $id]);
-                    $msg = 'Produk berhasil diperbarui.';
+                    if ($inactiveSame) {
+                        $msg = "Nama \"$nama\" dipakai produk nonaktif (ID #{$inactiveSame['id']}). Aktifkan produk itu atau pakai nama lain.";
+                        $msgType = 'danger';
+                    } elseif ($db->update('gudang_nasita_barang', $data, 'id = :id', ['id' => $id]) === false) {
+                        // is_active tidak diubah: mengedit tidak boleh mengaktifkan ulang produk yang sudah dihapus
+                        $msg = 'Gagal menyimpan produk (cek error_log server).';
+                        $msgType = 'danger';
+                    } else {
+                        $msg = 'Produk berhasil diperbarui.';
+                    }
+                } elseif ($inactiveSame) {
+                    $data['is_active'] = 1;
+                    if ($db->update('gudang_nasita_barang', $data, 'id = :id', ['id' => (int)$inactiveSame['id']]) === false) {
+                        $msg = 'Gagal mengaktifkan kembali produk (cek error_log server).';
+                        $msgType = 'danger';
+                    } else {
+                        $msg = 'Produk lama dengan nama ini diaktifkan kembali.';
+                    }
                 } else {
+                    $data['is_active'] = 1;
                     $prefix = 'BRG-';
-                    $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
-                    $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
-                    $data['kode_barang'] = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
-                    $db->insert('gudang_nasita_barang', $data);
-                    $msg = 'Produk berhasil ditambahkan.';
+                    $saved = false;
+                    for ($try = 0; $try < 4 && !$saved; $try++) {
+                        $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+                        $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
+                        $data['kode_barang'] = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
+                        try {
+                            $db->insert('gudang_nasita_barang', $data);
+                            $saved = true;
+                        } catch (PDOException $insErr) {
+                            if ($insErr->getCode() !== '23000' || $try === 3) {
+                                $msg = 'Gagal menyimpan produk: nama atau kode sudah dipakai.';
+                                $msgType = 'danger';
+                                break;
+                            }
+                            usleep(random_int(20000, 100000));
+                        }
+                    }
+                    if ($saved) {
+                        $msg = 'Produk berhasil ditambahkan.';
+                    }
                 }
             }
         }
@@ -301,7 +335,7 @@ include '../../includes/header.php';
                                         <input type="hidden" name="form_action" value="delete">
                                         <input type="hidden" name="ids[]" value="<?php echo (int)$p['id']; ?>">
                                         <button type="submit" class="btn btn-sm btn-danger"
-                                            onclick="return confirm('Hapus produk <?php echo htmlspecialchars(addslashes($p['nama_barang'])); ?> dari database master?')">
+                                            onclick="return confirm(<?php echo htmlspecialchars(json_encode('Hapus produk ' . $p['nama_barang'] . ' dari database master?', JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>)">
                                             Hapus
                                         </button>
                                     </form>

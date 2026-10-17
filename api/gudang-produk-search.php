@@ -102,7 +102,8 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Duplicate check (exclude self when editing)
+    // Duplicate check (exclude self when editing). UNIQUE KEY nama_barang juga mencakup baris nonaktif,
+    // jadi nama yang pernah di-soft-delete dicek terpisah (lihat di bawah).
     $dupeCheck = $db->fetchOne(
         "SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND id != ? AND COALESCE(is_active,1) = 1 LIMIT 1",
         [$nama, $id]
@@ -111,6 +112,10 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => false, 'message' => "Nama \"$nama\" sudah ada di database produk (ID #{$dupeCheck['id']})."]);
         exit;
     }
+    $inactiveSame = $db->fetchOne(
+        "SELECT id FROM gudang_nasita_barang WHERE LOWER(nama_barang) = LOWER(?) AND id != ? AND COALESCE(is_active,1) = 0 LIMIT 1",
+        [$nama, $id]
+    );
 
     $data = [
         'nama_barang' => $nama,
@@ -120,35 +125,79 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'harga_beli'  => $hargaBeli,
         'harga_jual'  => $hargaJual,
         'min_stock'   => $minStock,
-        'expiry_date' => $expiryDate,
-        'is_active'   => 1,
     ];
+    // Tanggal kedaluwarsa hanya diubah bila form memang mengirimnya (form lama tanpa field ini tidak boleh menimpanya dengan NULL)
+    $hasExpiryField = array_key_exists('expiry_date', $_POST);
+    if ($hasExpiryField) {
+        $data['expiry_date'] = $expiryDate;
+    }
 
     if ($id > 0) {
-        $db->update('gudang_nasita_barang', $data, 'id = :id', ['id' => $id]);
-        // Sync expiry_date to matching gudang_nasita_stock row if the column exists
+        if ($inactiveSame) {
+            echo json_encode(['success' => false, 'message' => "Nama \"$nama\" dipakai produk nonaktif (ID #{$inactiveSame['id']}). Aktifkan produk itu atau pakai nama lain."]);
+            exit;
+        }
+        $old = $db->fetchOne('SELECT nama_barang FROM gudang_nasita_barang WHERE id = ? LIMIT 1', [$id]);
+        if (!$old) {
+            echo json_encode(['success' => false, 'message' => 'Produk tidak ditemukan']);
+            exit;
+        }
+        // is_active sengaja TIDAK diubah di sini: mengedit tidak boleh mengaktifkan ulang produk yang sudah dihapus
+        if ($db->update('gudang_nasita_barang', $data, 'id = :id', ['id' => $id]) === false) {
+            echo json_encode(['success' => false, 'message' => 'Gagal menyimpan produk (cek error_log server).']);
+            exit;
+        }
+        // Stok dicocokkan lewat NAMA: bila produk diganti nama, ikutkan nama di baris stok supaya tidak jadi baris yatim
         try {
             $stCols = array_column($db->fetchAll('SHOW COLUMNS FROM gudang_nasita_stock'), 'Field');
-            if (in_array('expiry_date', $stCols)) {
-                $barang = $db->fetchOne('SELECT nama_barang FROM gudang_nasita_barang WHERE id = ? LIMIT 1', [$id]);
-                if ($barang) {
-                    $db->query(
-                        'UPDATE gudang_nasita_stock SET expiry_date = ? WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1)=1',
-                        [$expiryDate, $barang['nama_barang']]
-                    );
+            if (strcasecmp((string)$old['nama_barang'], $nama) !== 0) {
+                $clash = $db->fetchOne('SELECT id FROM gudang_nasita_stock WHERE LOWER(item_name) = LOWER(?) LIMIT 1', [$nama]);
+                if (!$clash) {
+                    if (in_array('barang_id', $stCols, true)) {
+                        $db->query('UPDATE gudang_nasita_stock SET item_name = ? WHERE barang_id = ? OR LOWER(item_name) = LOWER(?)', [$nama, $id, $old['nama_barang']]);
+                    } else {
+                        $db->query('UPDATE gudang_nasita_stock SET item_name = ? WHERE LOWER(item_name) = LOWER(?)', [$nama, $old['nama_barang']]);
+                    }
                 }
             }
+            // Sinkron tanggal kedaluwarsa ke baris stok yang cocok (hanya bila field dikirim)
+            if ($hasExpiryField && in_array('expiry_date', $stCols, true)) {
+                $db->query(
+                    'UPDATE gudang_nasita_stock SET expiry_date = ? WHERE LOWER(item_name) = LOWER(?) AND COALESCE(is_active,1)=1',
+                    [$expiryDate, $nama]
+                );
+            }
         } catch (Throwable $syncErr) {
+            error_log('gudang-produk save sync failed: ' . $syncErr->getMessage());
         }
         echo json_encode(['success' => true, 'message' => 'Produk berhasil diperbarui', 'id' => $id]);
+    } elseif ($inactiveSame) {
+        // Nama pernah dihapus (nonaktif): hidupkan lagi barisnya dengan data baru, bukan INSERT yang pasti gagal di UNIQUE
+        $data['is_active'] = 1;
+        if ($db->update('gudang_nasita_barang', $data, 'id = :id', ['id' => (int)$inactiveSame['id']]) === false) {
+            echo json_encode(['success' => false, 'message' => 'Gagal mengaktifkan kembali produk (cek error_log server).']);
+            exit;
+        }
+        echo json_encode(['success' => true, 'message' => 'Produk lama dengan nama ini diaktifkan kembali', 'id' => (int)$inactiveSame['id']]);
     } else {
-        // Auto-generate kode_barang
+        $data['is_active'] = 1;
+        // Kode otomatis; bila dua orang menyimpan bersamaan dan kodenya bentrok (UNIQUE), ambil kode berikutnya lalu coba lagi
+        $newId = null;
         $prefix = 'BRG-';
-        $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
-        $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
-        $data['kode_barang'] = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
-
-        $newId = $db->insert('gudang_nasita_barang', $data);
+        for ($try = 0; $try < 4 && !$newId; $try++) {
+            $last = $db->fetchOne('SELECT kode_barang FROM gudang_nasita_barang WHERE kode_barang LIKE ? ORDER BY kode_barang DESC LIMIT 1', [$prefix . '%']);
+            $seq = $last ? ((int)substr($last['kode_barang'], -4) + 1) : 1;
+            $data['kode_barang'] = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
+            try {
+                $newId = $db->insert('gudang_nasita_barang', $data);
+            } catch (PDOException $insErr) {
+                if ($insErr->getCode() !== '23000' || $try === 3) {
+                    echo json_encode(['success' => false, 'message' => 'Gagal menyimpan produk: ' . ($insErr->getCode() === '23000' ? 'nama atau kode sudah dipakai.' : $insErr->getMessage())]);
+                    exit;
+                }
+                usleep(random_int(20000, 100000));
+            }
+        }
         echo json_encode(['success' => true, 'message' => 'Produk berhasil ditambahkan', 'id' => $newId]);
     }
     exit;
