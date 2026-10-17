@@ -16,6 +16,12 @@ if (!$auth->isLoggedIn()) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
+// Sama dengan halaman Daftar Barang / Stok Gudang: hanya user Gudang yang boleh mencari, menyimpan, atau menghapus master barang
+if (!($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse'))) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Akses Gudang Nasita ditolak']);
+    exit;
+}
 
 $db   = Database::getInstance();
 $action = $_GET['action'] ?? 'search';
