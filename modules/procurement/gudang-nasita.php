@@ -2114,14 +2114,25 @@ Data barang tetap ada, hanya jumlah stok yang di-nolkan. Tindakan ini tidak bisa
                     acDrop.style.display = 'none';
                     return;
                 }
-                acDrop.innerHTML = d.data.map(p =>
-                    `<div class="ac-item" onclick="selectAcItem(${JSON.stringify(p.nama_barang)}, ${JSON.stringify(p.kategori||'lainnya')}, ${JSON.stringify(p.satuan||'pcs')})"
-                    style="padding:0.55rem 0.85rem; cursor:pointer; border-bottom:1px solid #e2e8f0; font-size:0.875rem;">
-                    <span style="font-weight:600;">${p.nama_barang}</span>
-                    <span style="color:#64748b; margin-left:0.5rem;">${p.kategori||''} · ${p.satuan||'pcs'}</span>
-                    <span style="color:#94a3b8; font-size:0.75rem; margin-left:0.5rem;">${p.kode_barang||''}</span>
-                </div>`
-                ).join('');
+                // DOM + textContent (bukan innerHTML): nama barang tidak pernah dieksekusi sebagai HTML
+                acDrop.textContent = '';
+                d.data.forEach(p => {
+                    const row = document.createElement('div');
+                    row.className = 'ac-item';
+                    row.style.cssText = 'padding:0.55rem 0.85rem; cursor:pointer; border-bottom:1px solid #e2e8f0; font-size:0.875rem;';
+                    const nm = document.createElement('span');
+                    nm.style.fontWeight = '600';
+                    nm.textContent = p.nama_barang || '';
+                    const meta = document.createElement('span');
+                    meta.style.cssText = 'color:#64748b; margin-left:0.5rem;';
+                    meta.textContent = (p.kategori || '') + ' · ' + (p.satuan || 'pcs');
+                    const code = document.createElement('span');
+                    code.style.cssText = 'color:#94a3b8; font-size:0.75rem; margin-left:0.5rem;';
+                    code.textContent = p.kode_barang || '';
+                    row.append(nm, meta, code);
+                    row.addEventListener('click', () => selectAcItem(p.nama_barang, p.kategori || 'lainnya', p.satuan || 'pcs'));
+                    acDrop.appendChild(row);
+                });
                 acDrop.style.display = 'block';
             } catch (e) {}
         }
