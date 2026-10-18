@@ -13,35 +13,49 @@ $isLocal = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') !== false 
 // Database Sistem: untuk ambil data master (room types, harga, occupancy) - READ ONLY
 // Database Website: untuk simpan booking customer, payment - READ WRITE
 
+// Kredensial produksi sebaiknya di config/secrets.php (TIDAK masuk git; lihat secrets.sample.php).
+// Bila file itu ada, nilainya dipakai lebih dulu — konstanta di bawah hanya cadangan sampai password dirotasi.
+$__secretsFile = __DIR__ . '/secrets.php';
+if (!$isLocal && is_file($__secretsFile)) {
+    $__sec = require $__secretsFile;
+    foreach (['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_PORT', 'DB_WEB_HOST', 'DB_WEB_USER', 'DB_WEB_PASS', 'DB_WEB_NAME', 'DB_WEB_PORT'] as $__k) {
+        if (isset($__sec[$__k]) && !defined($__k)) {
+            define($__k, $__sec[$__k]);
+        }
+    }
+    unset($__sec, $__k);
+}
+unset($__secretsFile);
+
 if ($isLocal) {
     // Database SISTEM ADF (untuk data master room, harga, occupancy)
-    define('DB_HOST', 'localhost');
-    define('DB_USER', 'root');
-    define('DB_PASS', '');
-    define('DB_NAME', 'adf_narayana_hotel');   // Sistem hotel management
-    define('DB_PORT', 3306);
+    defined('DB_HOST') || define('DB_HOST', 'localhost');
+    defined('DB_USER') || define('DB_USER', 'root');
+    defined('DB_PASS') || define('DB_PASS', '');
+    defined('DB_NAME') || define('DB_NAME', 'adf_narayana_hotel');   // Sistem hotel management
+    defined('DB_PORT') || define('DB_PORT', 3306);
 
     // Database WEBSITE (untuk booking customer, payment)
-    define('DB_WEB_HOST', 'localhost');
-    define('DB_WEB_USER', 'root');
-    define('DB_WEB_PASS', '');
-    define('DB_WEB_NAME', 'adf_web_narayana'); // Website booking database
-    define('DB_WEB_PORT', 3306);
+    defined('DB_WEB_HOST') || define('DB_WEB_HOST', 'localhost');
+    defined('DB_WEB_USER') || define('DB_WEB_USER', 'root');
+    defined('DB_WEB_PASS') || define('DB_WEB_PASS', '');
+    defined('DB_WEB_NAME') || define('DB_WEB_NAME', 'adf_web_narayana'); // Website booking database
+    defined('DB_WEB_PORT') || define('DB_WEB_PORT', 3306);
 } else {
     // PRODUCTION — narayanakarimunjawa.com
     // Database SISTEM ADF (untuk data master)
-    define('DB_HOST', 'localhost');
-    define('DB_USER', 'adfb2574_adfsystem');
-    define('DB_PASS', '@Nnoc2025');
-    define('DB_NAME', 'adfb2574_narayana_hotel'); // Sistem hotel management
-    define('DB_PORT', 3306);
+    defined('DB_HOST') || define('DB_HOST', 'localhost');
+    defined('DB_USER') || define('DB_USER', 'adfb2574_adfsystem');
+    defined('DB_PASS') || define('DB_PASS', '@Nnoc2025');
+    defined('DB_NAME') || define('DB_NAME', 'adfb2574_narayana_hotel'); // Sistem hotel management
+    defined('DB_PORT') || define('DB_PORT', 3306);
 
     // Database WEBSITE (untuk booking customer)
-    define('DB_WEB_HOST', 'localhost');
-    define('DB_WEB_USER', 'adfb2574_adfsystem');
-    define('DB_WEB_PASS', '@Nnoc2025');
-    define('DB_WEB_NAME', 'adfb2574_web_narayana'); // Website booking database
-    define('DB_WEB_PORT', 3306);
+    defined('DB_WEB_HOST') || define('DB_WEB_HOST', 'localhost');
+    defined('DB_WEB_USER') || define('DB_WEB_USER', 'adfb2574_adfsystem');
+    defined('DB_WEB_PASS') || define('DB_WEB_PASS', '@Nnoc2025');
+    defined('DB_WEB_NAME') || define('DB_WEB_NAME', 'adfb2574_web_narayana'); // Website booking database
+    defined('DB_WEB_PORT') || define('DB_WEB_PORT', 3306);
 }
 
 // Site Configuration

@@ -195,3 +195,6 @@ config/mayar.php
 # Backup database (data tamu) tidak boleh masuk repo
 backups/
 *.sql.gz
+
+# Kredensial website Narayana (hanya di server)
+website/config/secrets.php
