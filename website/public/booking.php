@@ -85,7 +85,7 @@ include __DIR__ . '/includes/header.php';
         <h2 id="nrbModalTitle">Reservation Request Received</h2>
         <p class="nrb-code" id="nrbModalCode"></p>
         <div class="nrb-modal-body" id="nrbModalBody"></div>
-        <p class="nrb-modal-note">Please wait for our WhatsApp message to confirm your reservation and deposit details. Your room is secured once the deposit is received.</p>
+        <p class="nrb-modal-note">We have sent a summary to your email and WhatsApp. Please wait for our team to confirm your reservation and deposit details. Your room is secured once the deposit is received.</p>
         <div class="nrb-modal-actions">
             <a class="btn btn-primary" id="nrbModalWa" href="#" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> Chat with Admin</a>
             <a class="btn btn-outline" href="<?= BASE_URL ?>/">Back to Home</a>

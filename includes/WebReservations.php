@@ -4,7 +4,8 @@
  * Reservasi dari website (narayanakarimunjawa.com).
  *
  * Alur: tamu memilih tanggal & kamar di website → website menyimpan sebuah PENAWARAN (tabel quotations,
- * source='website', tidak memblok kamar) → ADF mengirim notifikasi ke admin (WhatsApp + email kantor) dan
+ * source='website', tidak memblok kamar) → tamu otomatis menerima WA + email "permintaan diterima, menunggu konfirmasi"
+ * → ADF mengirim notifikasi ke admin (WhatsApp + email kantor) dan
  * menampilkan popup di Front Desk → admin follow-up via WhatsApp, mencatat DP → Konfirmasi (jadi booking
  * lewat form reservasi biasa) → tamu otomatis menerima email "reservasi berhasil" berisi rincian & pembayaran.
  *
@@ -158,7 +159,79 @@ class WebReservations
                 . '</table></div>';
             $emailOk = self::mail($db, $office, 'Reservasi website baru ' . $q['quote_code'] . ' — ' . $q['guest_name'], $html) === null;
         }
-        return ['wa' => $sentWa, 'email' => $emailOk];
+        return ['wa' => $sentWa, 'email' => $emailOk] + self::sendReceived($db, $q);
+    }
+
+    /**
+     * Pemberitahuan otomatis ke tamu (WhatsApp + email, bahasa Inggris): permintaan reservasi sudah diterima
+     * dan sedang menunggu konfirmasi admin. Belum ada instruksi pembayaran — itu dikirim admin saat follow-up.
+     * @return array{guest_wa:bool,guest_email:bool}
+     */
+    private static function sendReceived($db, array $q): array
+    {
+        $hotel = self::hotelName($db);
+        $dp = self::dpAmount((float)$q['total']);
+        $pax = (int)($q['adults'] ?? 0) . ' adult(s)' . ((int)($q['children'] ?? 0) > 0 ? ', ' . (int)$q['children'] . ' child(ren)' : '');
+        $rooms = self::roomTypesSummary($q);
+        $phoneRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_phone'");
+        $hotelPhone = trim((string)($phoneRow['setting_value'] ?? ''));
+
+        $waOk = false;
+        if (trim((string)$q['guest_phone']) !== '') {
+            $msg = "Hello {$q['guest_name']},\n\n"
+                . "Thank you for choosing *{$hotel}*. We have received your reservation request:\n\n"
+                . "Reference: *{$q['quote_code']}*\n"
+                . "Stay: " . self::d($q['check_in']) . " - " . self::d($q['check_out']) . " ({$q['nights']} night(s))\n"
+                . "Room: {$rooms}\n"
+                . "Guests: {$pax}\n"
+                . "Estimated total: " . self::rp($q['total']) . "\n\n"
+                . "⏳ *Status: waiting for confirmation.* Our team is checking your request and will contact you on this WhatsApp shortly "
+                . "with the confirmation and deposit details (50% deposit: approx. " . self::rp($dp) . ", balance paid at the hotel).\n\n"
+                . "Your room is secured once the deposit is received. No payment is needed until we confirm.\n\nThank you!";
+            try {
+                require_once __DIR__ . '/WhatsAppHelper.php';
+                $wa = new WhatsAppHelper($db);
+                if ($wa->isConfigured()) {
+                    $r = $wa->send((string)$q['guest_phone'], $msg, null, null, 'web_reservation_guest', (string)$q['quote_code']);
+                    $waOk = !empty($r['ok']);
+                }
+            } catch (\Throwable $e) {
+                error_log('WebReservations guest WA: ' . $e->getMessage());
+            }
+        }
+
+        $mailOk = false;
+        $to = trim((string)$q['guest_email']);
+        if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $html = '<div style="font-family:Georgia,\'Times New Roman\',serif;max-width:600px;margin:0 auto;color:#1f1b16;background:#fbf8f3">'
+                . '<div style="background:#14110d;padding:26px 30px;border-bottom:3px solid #c9a548"><div style="color:#e5ad3e;font-size:12px;letter-spacing:4px;text-transform:uppercase;font-family:Arial,sans-serif">Reservation Request Received</div><div style="color:#fff;font-size:24px;margin-top:6px">' . htmlspecialchars($hotel) . '</div></div>'
+                . '<div style="padding:26px 30px;font-family:Arial,sans-serif;font-size:14px;line-height:1.6">'
+                . '<p style="margin:0 0 14px">Dear <b>' . htmlspecialchars($q['guest_name']) . '</b>,</p>'
+                . '<p style="margin:0 0 18px">Thank you for your reservation request. We have received it and our team will contact you on WhatsApp shortly to confirm availability and the deposit details.</p>'
+                . '<div style="margin:0 0 18px;padding:12px 14px;background:#fff7e6;border-left:3px solid #c9a548;color:#7a5a12"><b>Status: waiting for confirmation</b><br>Your room is not yet secured. It will be confirmed once the 50% deposit is received. No payment is needed until we contact you.</div>'
+                . '<table style="width:100%;border-collapse:collapse;margin-bottom:6px">'
+                . self::row('Reference', $q['quote_code'])
+                . self::row('Check-in', self::d($q['check_in'])) . self::row('Check-out', self::d($q['check_out']) . ' (' . (int)$q['nights'] . ' night(s))')
+                . self::row('Room', $rooms) . self::row('Guests', $pax)
+                . self::row('Estimated total', self::rp($q['total'])) . self::row('Deposit 50% (approx.)', self::rp($dp))
+                . ($q['notes'] ? self::row('Special request', $q['notes']) : '')
+                . '</table>'
+                . '<p style="margin:18px 0 0;color:#5b534a">Questions? Reply to this email' . ($hotelPhone !== '' ? ' or WhatsApp us at ' . htmlspecialchars($hotelPhone) : '') . '.</p>'
+                . '</div></div>';
+            $mailOk = self::mail($db, $to, 'Reservation request received — ' . $hotel . ' (' . $q['quote_code'] . ')', $html) === null;
+        }
+        return ['guest_wa' => $waOk, 'guest_email' => $mailOk];
+    }
+
+    /** Ringkasan untuk tamu tanpa nomor kamar (nomor kamar baru pasti saat dikonfirmasi): "2× King". */
+    private static function roomTypesSummary(array $q): string
+    {
+        $byType = [];
+        foreach ($q['items'] ?? [] as $it) {
+            $k = $it['room_type'] ?: 'Room';
+            $byType[$k] = ($byType[$k] ?? 0) + 1;
+        }
+        return implode(', ', array_map(fn($t, $n) => $n . '× ' . $t, array_keys($byType), $byType));
     }
 
     private static function row(string $k, $v): string
