@@ -199,7 +199,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lato:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         // Tema terang/gelap: pilihan tamu disimpan di perangkat (localStorage)
@@ -228,12 +228,13 @@
                 </div>
             </a>
             <ul class="nav-links" id="navLinks">
-                <li><a href="<?= BASE_URL ?>/" class="<?= ($currentPage ?? '') === 'home' ? 'active' : '' ?>">Home</a></li>
-                <li><a href="<?= BASE_URL ?>/rooms.php" class="<?= ($currentPage ?? '') === 'rooms' ? 'active' : '' ?>">Rooms</a></li>
-                <li><a href="<?= BASE_URL ?>/activities.php" class="<?= ($currentPage ?? '') === 'activities' ? 'active' : '' ?>">Activities</a></li>
-                <li><a href="<?= BASE_URL ?>/destinations.php" class="<?= ($currentPage ?? '') === 'destinations' ? 'active' : '' ?>">Destinations</a></li>
-                <li><a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="<?= ($currentPage ?? '') === 'booking' ? 'active' : '' ?>">Reservations</a></li>
-                <li><a href="<?= BASE_URL ?>/contact.php" class="<?= ($currentPage ?? '') === 'contact' ? 'active' : '' ?>">Contact</a></li>
+                <?php $cp = $currentPage ?? ''; ?>
+                <li><a href="<?= BASE_URL ?>/rooms.php" class="<?= $cp === 'rooms' ? 'active' : '' ?>">Rooms</a></li>
+                <li><a href="<?= BASE_URL ?>/activities.php" class="<?= $cp === 'activities' ? 'active' : '' ?>">Experiences</a></li>
+                <li><a href="<?= BASE_URL ?>/destinations.php" class="<?= $cp === 'destinations' ? 'active' : '' ?>">Destinations</a></li>
+                <li><a href="<?= BASE_URL ?>/#gallery">Gallery</a></li>
+                <li><a href="<?= BASE_URL ?>/#location">Location</a></li>
+                <li><a href="<?= BASE_URL ?>/contact.php" class="<?= $cp === 'contact' ? 'active' : '' ?>">Contact</a></li>
                 <li class="nav-theme-li"><button type="button" class="nav-theme" id="themeToggle" aria-label="Switch light / dark theme" title="Light / dark theme"><i class="fas fa-moon"></i><i class="fas fa-sun"></i></button></li>
                 <li><a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="nav-book-btn">Book Now</a></li>
             </ul>

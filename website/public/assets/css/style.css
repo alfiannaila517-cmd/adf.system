@@ -4179,3 +4179,68 @@ html[data-theme="dark"] .dest-card h3, html[data-theme="dark"] .dest-card h4 { c
 html[data-theme="dark"] .hero-eyebrow { color: var(--gold-hero) !important; }
 html[data-theme="dark"] .hero-subtitle, html[data-theme="dark"] .page-hero p, html[data-theme="dark"] .cta-section p { color: rgba(255, 255, 255, .88) !important; }
 html[data-theme="dark"] .about-lead strong { color: var(--gold-light) !important; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   SISTEM AMARANTA (final) — satu font Lato di seluruh situs, ukuran terkendali
+   (menu 12px .2em, judul hero ≤ 56px tipis, judul bagian tebal ≤ 48px, label emas .3em)
+   Menimpa Playfair/Inter dan ukuran-ukuran besar di lapisan sebelumnya.
+   ═══════════════════════════════════════════════════════════════════ */
+:root { --font-heading: 'Lato', system-ui, -apple-system, sans-serif; --font-body: 'Lato', system-ui, -apple-system, sans-serif; --font-display: 'Lato', system-ui, sans-serif; --gold-hero: #e5ad3e; --gold: #b08a30; --gold-light: #ecc46b; }
+body, button, input, select, textarea { font-family: var(--font-body); }
+body { font-size: 15px; line-height: 1.75; letter-spacing: .01em; }
+h1, h2, h3, h4, h5, h6, .section-title, .brand-logo, .room-price, .stat-value, .about-lead, .testimonial-card blockquote, .nr-service h4, .nr-loc-card h3, .room-card-body h3, .room-detail-info h2, .page-hero h1, .cta-section h2, .act-ss-title, .room-photo-empty span { font-family: var(--font-heading) !important; font-style: normal !important; }
+
+/* Navigasi: 12px, jarak .2em, tidak tebal */
+.navbar .nav-links { gap: 34px; }
+.navbar .nav-links a, .navbar.scrolled .nav-links a { font-size: 12px !important; font-weight: 400 !important; letter-spacing: .2em !important; color: #fdf8e1 !important; }
+.navbar .nav-links a.active::after, .navbar .nav-links a:hover::after { display: none; }
+.navbar .nav-links a.active, .navbar .nav-links a:hover { color: var(--gold-hero) !important; }
+.brand-logo { font-size: 1.35rem !important; font-weight: 700 !important; letter-spacing: .12em !important; text-transform: uppercase; }
+.brand-sub { font-size: 9px !important; letter-spacing: .45em !important; }
+.nav-book-btn, .navbar .nav-links a.nav-book-btn { font-size: 12px !important; font-weight: 400 !important; letter-spacing: .2em !important; padding: 10px 24px !important; }
+
+/* Hero */
+.hero-eyebrow { font-weight: 300; font-size: clamp(1.05rem, 1.6vw, 1.5rem); letter-spacing: .3em; margin-bottom: 6px; }
+.hero-title { font-weight: 300; font-size: clamp(2.25rem, 4vw, 3.5rem); line-height: 1.15; letter-spacing: .025em; margin-bottom: 26px; }
+.hero-title em { font-weight: 300; }
+.hero-stars { font-size: 12px; letter-spacing: 7px; margin-bottom: 26px; }
+.hero-stars span { width: 40px; }
+.hero-subtitle { font-size: 15px; line-height: 1.75; font-weight: 400; max-width: 500px; }
+.hero-ctas .btn, .btn { font-family: var(--font-body); font-weight: 400; font-size: 12px; letter-spacing: .2em; }
+.hero-ctas .btn { padding: 15px 34px; }
+
+/* Judul & label bagian */
+.section-eyebrow { font-size: 12px; font-weight: 400; letter-spacing: .3em; color: var(--gold); }
+.section-eyebrow::before, .section-eyebrow::after { display: none !important; }
+.section-title { font-weight: 700 !important; font-size: clamp(1.6rem, 3vw, 2.6rem) !important; letter-spacing: 0; line-height: 1.2; }
+.section-desc, .about-text, p { font-size: 15px; }
+.about-lead { font-size: 1.12rem !important; font-weight: 400; line-height: 1.75; }
+.about-highlight strong { font-size: .98rem !important; font-weight: 700; }
+.divider { width: 60px; }
+
+/* Kartu & isi */
+.room-card-body h3 { font-size: 1.25rem !important; font-weight: 700; }
+.room-price { font-size: 1.2rem !important; font-weight: 700; }
+.room-detail-info h2 { font-size: clamp(1.5rem, 2.4vw, 1.9rem) !important; font-weight: 700; }
+.nr-service h4 { font-size: 1.05rem !important; font-weight: 700; }
+.nr-service p { font-size: 14px; }
+.nr-loc-card h3 { font-size: 1.3rem !important; font-weight: 700; }
+.testimonial-card blockquote { font-size: 1rem !important; font-weight: 400; line-height: 1.8; font-style: normal !important; }
+.stat-value { font-size: clamp(2rem, 3.2vw, 2.6rem) !important; font-weight: 300; }
+.page-hero h1 { font-size: clamp(2rem, 3.6vw, 3rem) !important; font-weight: 300; letter-spacing: .04em; text-transform: uppercase; }
+.page-hero p { font-size: 15px; }
+.cta-section h2 { font-size: clamp(1.7rem, 3vw, 2.5rem) !important; font-weight: 300; letter-spacing: .03em; text-transform: uppercase; }
+.act-ss-title { font-weight: 700; }
+.room-photo-empty span { font-size: 1rem !important; font-weight: 700; }
+
+@media (max-width: 1180px) { .navbar .nav-links { gap: 22px; } .navbar .nav-links a { letter-spacing: .14em !important; } }
+@media (max-width: 768px) { .hero-title { font-size: clamp(1.9rem, 8vw, 2.4rem); } .hero-eyebrow { font-size: 1rem; letter-spacing: .22em; } }
+
+/* Navigasi rapat & rapi seperti Amaranta */
+.navbar .container { max-width: 1280px; }
+.navbar .nav-links { gap: 32px; margin-left: auto; }
+.navbar .nav-links li a { padding: 8px 0; }
+.navbar .nav-links li a.nav-book-btn { padding: 10px 24px !important; white-space: nowrap; }
+.navbar .nav-theme-li { margin-left: 4px; }
+@media (min-width: 1025px) and (max-width: 1240px) { .navbar .nav-links { gap: 20px; } .navbar .nav-links a { letter-spacing: .12em !important; } }
