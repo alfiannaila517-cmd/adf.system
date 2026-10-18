@@ -178,7 +178,7 @@ include __DIR__ . '/includes/header.php';
                     <!-- Amenities -->
                     <div class="room-amenities">
                         <?php foreach ($amenities as $a): ?>
-                            <span><?= htmlspecialchars($a) ?></span>
+                            <span><?= htmlspecialchars(nrAmenityLabel($a)) ?></span>
                         <?php endforeach; ?>
                     </div>
 

@@ -156,6 +156,10 @@ require_once __DIR__ . '/includes/header.php';
             <p class="hero-eyebrow">&mdash; <?= htmlspecialchars($heroAccent) ?></p>
             <h1 class="hero-title"><?= $heroTitle ?></h1>
             <p class="hero-subtitle"><?= htmlspecialchars($heroSubtitle) ?></p>
+            <div class="hero-ctas">
+                <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-gold btn-lg">Book Your Stay</a>
+                <a href="<?= BASE_URL ?>/rooms.php" class="btn btn-outline-white btn-lg">Explore Rooms</a>
+            </div>
         </div>
         <?php if (!empty($heroCards)): ?>
             <div class="hero-right">
@@ -192,6 +196,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         <?php endif; ?>
     </div>
+    <a href="#discover" class="hero-scroll" aria-label="Scroll down"><span></span></a>
 </section>
 
 <!-- Booking Bar -->
@@ -235,7 +240,7 @@ require_once __DIR__ . '/includes/header.php';
 
 
 <!-- About Narayana -->
-<section class="section about-section">
+<section class="section about-section" id="discover">
     <div class="container">
         <div class="about-layout fade-in">
             <div class="about-content">
@@ -352,7 +357,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                         <div class="room-amenities">
                             <?php foreach (array_slice($amenities, 0, 4) as $a): ?>
-                                <span><?= htmlspecialchars(trim($a)) ?></span>
+                                <span><?= htmlspecialchars(nrAmenityLabel($a)) ?></span>
                             <?php endforeach; ?>
                         </div>
                         <div class="room-card-footer">
@@ -360,7 +365,8 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
                         </div>
                         <div class="room-book-btn">
-                            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-primary btn-block">Book This Room</a>
+                            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-primary btn-block">Reserve This Room</a>
+                            <a href="<?= BASE_URL ?>/rooms.php" class="room-more">View details <i class="fas fa-arrow-right"></i></a>
                         </div>
                     </div>
                 </div>

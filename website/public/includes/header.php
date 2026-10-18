@@ -45,6 +45,17 @@
     } catch (Exception $e) {
     }
 
+    // Label fasilitas kamar yang rapi: 'ac' → 'AC', 'wifi tv' → 'WiFi TV', 'watter heater' → 'Water Heater'
+    if (!function_exists('nrAmenityLabel')) {
+        function nrAmenityLabel($a): string
+        {
+            $t = strtolower(trim((string)$a));
+            $t = str_replace('watter', 'water', $t);
+            $t = ucwords($t);
+            return preg_replace_callback('/\b(Ac|Tv|Wifi|Led|Usb)\b/', fn($m) => ['Ac' => 'AC', 'Tv' => 'TV', 'Wifi' => 'WiFi', 'Led' => 'LED', 'Usb' => 'USB'][$m[1]], $t);
+        }
+    }
+
     // Helper: build URL — if path is already absolute (http/https), use as-is
     // If just a filename (no slashes), prepend known upload directory
     function assetUrl($path, $uploadDir = '')
