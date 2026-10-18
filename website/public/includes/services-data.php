@@ -66,6 +66,21 @@ if (!function_exists('nrServices')) {
             }
             return $out;
         };
+        // Hanya item yang TIPE katalognya cocok (mis. narayana_trip) — bukan sekadar kata di nama item
+        $itemsByType = function (array $words) use (&$catalog): array {
+            $out = [];
+            foreach ($catalog as $i => $c) {
+                $hay = strtolower($c['service_type'] . ' ' . $c['type_label']);
+                foreach ($words as $w) {
+                    if (strpos($hay, $w) !== false) {
+                        $out[] = ['name' => (string)$c['item_name'], 'price' => (float)$c['default_price'], 'unit' => nrsUnit((string)$c['unit'])];
+                        unset($catalog[$i]);
+                        break;
+                    }
+                }
+            }
+            return $out;
+        };
         $flyers = [];
         foreach ((array)json_decode($get('gs_flyers', '[]'), true) as $f) {
             if (!empty($f['path'])) $flyers[(string)($f['cat'] ?? 'trip')][] = nrsImg((string)$f['path']);
@@ -76,13 +91,13 @@ if (!function_exists('nrServices')) {
         $out = [];
 
         // 1. Trip laut / open trip
-        $tripItems = $items(['trip', 'snorkel', 'island', 'hopping', 'tour']);
+        $tripItems = $itemsByType(['trip', 'tour', 'snorkel']);
         $out[] = [
             'key' => 'trips', 'icon' => 'fa-ship', 'eyebrow' => 'Ocean Adventures',
             'name' => $get('gs_trip_title_en', $get('gs_trip_title', 'Island Hopping & Snorkelling Trips')),
             'intro' => 'Discover crystal-clear lagoons, coral gardens and secluded white-sand islands with our own trusted boat crew — arranged directly by our front office.',
             'points' => array_values(array_filter(array_map('trim', explode(',', $get('gs_trip_chips_en', $get('gs_trip_chips', 'Island Hopping, Snorkelling, Sunset')))))),
-            'price' => $minPrice($tripItems, 0), 'unit' => $tripItems ? $tripItems[0]['unit'] : 'person',
+            'price' => $minPrice($tripItems, $num($get('gs_trip_price'))), 'unit' => $num($get('gs_trip_price')) > 0 ? 'person' : ($tripItems ? $tripItems[0]['unit'] : 'person'),
             'images' => $flyers['trip'] ?? [], 'items' => $tripItems,
             'wa' => 'Hello Narayana, I would like to ask about your island trips.',
         ];

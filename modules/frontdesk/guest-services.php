@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'gs_motor_unit', 'gs_motor_notes', 'gs_taxi_unit', 'gs_taxi_notes',
             'gs_trip_title_en', 'gs_trip_chips_en', 'gs_motor_notes_en', 'gs_taxi_notes_en'];
         foreach ($text as $k) GuestServices::save($db, $k, trim((string)($_POST[$k] ?? '')));
-        foreach (['gs_motor_price', 'gs_taxi_price'] as $k) GuestServices::save($db, $k, preg_replace('/[^\d]/', '', (string)($_POST[$k] ?? '')));
+        foreach (['gs_motor_price', 'gs_taxi_price', 'gs_trip_price'] as $k) GuestServices::save($db, $k, preg_replace('/[^\d]/', '', (string)($_POST[$k] ?? '')));
         foreach (['gs_enabled', 'gs_motor_enabled', 'gs_taxi_enabled'] as $k) GuestServices::save($db, $k, !empty($_POST[$k]) ? '1' : '0');
 
         // Foto motor
@@ -354,6 +354,9 @@ include '../../includes/header.php';
                     <div class="gs-f"><label class="l" for="gsChipsEn">Label singkat (English)</label>
                         <input class="gs-in" id="gsChipsEn" name="gs_trip_chips_en" value="<?php echo htmlspecialchars($s['gs_trip_chips_en']); ?>" placeholder="Island Hopping, Snorkeling, Sunset">
                         <span class="gs-hint">Teks English tampil untuk tamu berbahasa Inggris; bila kosong dipakai teks Indonesia di atas.</span></div>
+                    <div class="gs-f"><label class="l" for="gsTripPrice">Harga mulai dari (website) · Rp</label>
+                        <input class="gs-in" id="gsTripPrice" name="gs_trip_price" inputmode="numeric" value="<?php echo htmlspecialchars($s['gs_trip_price'] ?? ''); ?>" placeholder="275000">
+                        <span class="gs-hint">Tampil di halaman Services website ("From IDR …"). Kosong = harga terendah katalog Hotel Service bertipe trip.</span></div>
                 </div>
                 <div class="gs-card"><?php gsFlyerBox($flyers, 'trip'); ?></div>
             </div>
