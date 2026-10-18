@@ -5,7 +5,7 @@
  *
  * Alur: tamu memilih tanggal & kamar di website → website menyimpan sebuah PENAWARAN (tabel quotations,
  * source='website', tidak memblok kamar) → tamu otomatis menerima WA + email "permintaan diterima, menunggu konfirmasi"
- * → ADF mengirim notifikasi ke admin (WhatsApp + email kantor) dan
+ * → admin diberi tahu lewat popup di ADF (+ email kantor), tidak ke grup WhatsApp, dan
  * menampilkan popup di Front Desk → admin follow-up via WhatsApp, mencatat DP → Konfirmasi (jadi booking
  * lewat form reservasi biasa) → tamu otomatis menerima email "reservasi berhasil" berisi rincian & pembayaran.
  *
@@ -102,8 +102,8 @@ class WebReservations
     }
 
     /**
-     * Notifikasi ke admin untuk reservasi website baru (WhatsApp ke nomor laporan + email kantor). Sekali saja per reservasi.
-     * @return array{wa:int,email:bool,skipped?:bool}
+     * Reservasi website baru: email kantor + WA/email ke tamu (admin melihat popup di ADF). Sekali saja per reservasi.
+     * @return array{email:bool,guest_wa?:bool,guest_email?:bool,skipped?:bool}
      */
     public static function notifyNew($db, int $id): array
     {
@@ -117,33 +117,9 @@ class WebReservations
         // tandai dulu supaya panggilan ganda tidak mengirim dua kali
         $db->query("UPDATE quotations SET notified_at = NOW() WHERE id = ? AND notified_at IS NULL", [$id]);
 
+        // Admin diberi tahu lewat popup di ADF (web_pending) + email kantor; TIDAK ke grup WhatsApp laporan.
         $dp = self::dpAmount((float)$q['total']);
         $pax = (int)($q['adults'] ?? 0) . ' adult(s)' . ((int)($q['children'] ?? 0) > 0 ? ', ' . (int)$q['children'] . ' child(ren)' : '');
-        $msg = "🛎️ *Reservasi baru dari website*\n"
-            . "Kode: *{$q['quote_code']}*\n"
-            . "Tamu: {$q['guest_name']}\n"
-            . "WA: {$q['guest_phone']}\n"
-            . ($q['guest_email'] ? "Email: {$q['guest_email']}\n" : '')
-            . "Tanggal: " . self::d($q['check_in']) . " → " . self::d($q['check_out']) . " ({$q['nights']} malam)\n"
-            . "Kamar: " . self::roomsSummary($q) . "\n"
-            . "Tamu: {$pax}\n"
-            . "Estimasi: " . self::rp($q['total']) . " · DP 50%: " . self::rp($dp) . "\n"
-            . ($q['notes'] ? "Catatan: {$q['notes']}\n" : '')
-            . "\nKamar BELUM dikunci. Follow-up tamu via WhatsApp, terima DP, lalu Konfirmasi di ADF (Reservasi → Penawaran).";
-
-        $sentWa = 0;
-        try {
-            require_once __DIR__ . '/WhatsAppHelper.php';
-            $wa = new WhatsAppHelper($db);
-            if ($wa->isConfigured()) {
-                foreach ($wa->reportTargets() as $t) {
-                    $r = $wa->send($t, $msg, null, null, 'web_reservation', (string)$q['quote_code']);
-                    if (!empty($r['ok'])) $sentWa++;
-                }
-            }
-        } catch (\Throwable $e) {
-            error_log('WebReservations WA: ' . $e->getMessage());
-        }
 
         $emailOk = false;
         $office = self::officeEmail($db);
@@ -159,7 +135,7 @@ class WebReservations
                 . '</table></div>';
             $emailOk = self::mail($db, $office, 'Reservasi website baru ' . $q['quote_code'] . ' — ' . $q['guest_name'], $html) === null;
         }
-        return ['wa' => $sentWa, 'email' => $emailOk] + self::sendReceived($db, $q);
+        return ['email' => $emailOk] + self::sendReceived($db, $q);
     }
 
     /**
