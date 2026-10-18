@@ -13,6 +13,7 @@
  *   confirm_mark  id, ref       → tandai terkonfirmasi setelah booking dibuat dari penawaran (+ email ke tamu)
  *   web_pending / web_seen ids / web_followup id / record_dp id, amount, method → reservasi dari website
  *   extend_hold   id            → perpanjang hold (blok kamar) 24 jam dari sekarang
+ *   hold_dismiss  id            → peringatan hold hampir habis dijawab "Biarkan" (lepas otomatis)
  */
 error_reporting(0);
 ini_set('display_errors', 0);
@@ -113,7 +114,10 @@ try {
         // Reservasi website yang belum dilihat admin → popup di Front Desk
         $rows = $db->fetchAll("SELECT id, quote_code, guest_name, guest_phone, check_in, check_out, nights, total, adults, children, created_at
             FROM quotations WHERE source = 'website' AND status = 'open' AND seen_at IS NULL ORDER BY id DESC LIMIT 10") ?: [];
-        echo json_encode(['ok' => true, 'rows' => $rows]);
+        // + hold yang segera habis (≤ 60 menit) → popup "perpanjang atau biarkan"
+        echo json_encode(['ok' => true, 'rows' => $rows, 'expiring' => Quotations::expiringSoon($db)]);
+    } elseif ($act === 'hold_dismiss') {
+        echo json_encode(['ok' => Quotations::dismissHoldWarning($db, (int)($_POST['id'] ?? 0))]);
     } elseif ($act === 'web_seen') {
         $ids = array_filter(array_map('intval', explode(',', (string)($_POST['ids'] ?? ''))));
         if ($ids) {

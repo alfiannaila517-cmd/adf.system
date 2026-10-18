@@ -25,6 +25,10 @@ class Quotations
             if (!$db->fetchOne("SHOW COLUMNS FROM quotations LIKE 'hold_until'")) {
                 $conn->exec("ALTER TABLE quotations ADD COLUMN hold_until DATETIME NULL");
             }
+            // hold_until yang peringatannya sudah dijawab "Biarkan" (perpanjang → hold_until baru → peringatan muncul lagi nanti)
+            if (!$db->fetchOne("SHOW COLUMNS FROM quotations LIKE 'hold_warned_until'")) {
+                $conn->exec("ALTER TABLE quotations ADD COLUMN hold_warned_until DATETIME NULL");
+            }
         } catch (\Throwable $e) {
         }
         try {
@@ -463,6 +467,29 @@ class Quotations
         $ok = $r !== false && $r->rowCount() === 1;
         if ($ok) self::releaseHold($db, $id, 'jadi booking'); // sisa blok (bila ada) dilepas; kamar kini dipegang booking
         return $ok;
+    }
+
+    public const WARN_MINUTES = 60;
+
+    /** Hold yang tinggal ≤ WARN_MINUTES menit dan belum dijawab admin — untuk popup peringatan. */
+    public static function expiringSoon($db): array
+    {
+        self::ensureTables($db);
+        $now = date('Y-m-d H:i:s');
+        return $db->fetchAll("SELECT q.id, q.quote_code, q.guest_name, q.check_in, q.check_out, q.nights, q.hold_until, q.source,
+                (SELECT GROUP_CONCAT(i.room_number ORDER BY i.room_number SEPARATOR ', ') FROM quotation_items i WHERE i.quote_id = q.id) AS rooms
+            FROM quotations q
+            WHERE q.status = 'open' AND q.hold_until IS NOT NULL AND q.hold_until > ? AND q.hold_until <= ?
+              AND (q.hold_warned_until IS NULL OR q.hold_warned_until <> q.hold_until)
+            ORDER BY q.hold_until LIMIT 10", [$now, date('Y-m-d H:i:s', time() + self::WARN_MINUTES * 60)]) ?: [];
+    }
+
+    /** Admin memilih "Biarkan": peringatan untuk hold ini tidak muncul lagi; blok tetap lepas otomatis saat waktunya habis. */
+    public static function dismissHoldWarning($db, int $id): bool
+    {
+        self::ensureTables($db);
+        $r = $db->query("UPDATE quotations SET hold_warned_until = hold_until WHERE id = ? AND status = 'open'", [$id]);
+        return $r !== false && $r->rowCount() === 1;
     }
 
     /** Kedaluwarsa: status 'expired', hold sudah lewat, atau (penawaran lama tanpa hold) valid_until terlewati. */
