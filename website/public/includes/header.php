@@ -236,7 +236,7 @@
                 <li><a href="<?= BASE_URL ?>/#location">Location</a></li>
                 <li><a href="<?= BASE_URL ?>/contact.php" class="<?= $cp === 'contact' ? 'active' : '' ?>">Contact</a></li>
                 <li class="nav-theme-li"><button type="button" class="nav-theme" id="themeToggle" aria-label="Switch light / dark theme" title="Light / dark theme"><i class="fas fa-moon"></i><i class="fas fa-sun"></i></button></li>
-                <li><a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="nav-book-btn">Book Now</a></li>
+                <li><a href="<?= htmlspecialchars(bookingUrl()) ?>" class="nav-book-btn">Book Now</a></li>
             </ul>
             <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
                 <span></span><span></span><span></span>

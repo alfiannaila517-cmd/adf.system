@@ -21,6 +21,11 @@ $qtText = [
     'Ubah Penawaran' => 'Edit Quotation', 'Ubah' => 'Edit', 'Simpan' => 'Save', 'Diskon' => 'Discount', '+ Kamar' => '+ Room', 'Tambah kamar…' => 'Add room…', '+ Tambah' => '+ Add', 'Pilih layanan…' => 'Select service…',
     'Pilih minimal satu kamar.' => 'Select at least one room.', 'Tanggal tidak valid.' => 'Invalid dates.',
     'Harga pas' => 'Net rate', '/malam' => '/night', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
+    'Reservasi Website' => 'Website Reservation', 'dewasa' => 'adult(s)', 'anak' => 'child(ren)', 'Follow-up WhatsApp tamu' => 'Follow up guest on WhatsApp', 'Sudah di-follow-up' => 'Followed up',
+    'DP diterima' => 'Deposit received', 'Belum ada DP' => 'No deposit yet', 'Catat DP' => 'Record deposit', 'Saran DP 50%' => 'Suggested 50% deposit', 'Nominal DP' => 'Deposit amount',
+    'Langkah: 1) Follow-up WhatsApp  2) Terima & catat DP  3) Konfirmasi → email otomatis ke tamu.' => 'Steps: 1) Follow up on WhatsApp  2) Receive & record the deposit  3) Confirm → guest gets an automatic email.',
+    'Konfirmasi tanpa DP? Tamu tetap menerima email konfirmasi.' => 'Confirm without a deposit? The guest will still receive the confirmation email.',
+    'Catatan tamu' => 'Guest notes',
 ];
 ?>
 <style>
@@ -48,6 +53,16 @@ $qtText = [
     .qt-r2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
     .qt .qt-note { margin: 2px 0 10px; padding: 7px 10px; border-radius: 9px; background: rgba(34, 197, 94, .1); color: #15803d !important; font-size: 11px; line-height: 1.45; }
     body[data-theme="dark"] .qt .qt-note { color: #86efac !important; }
+    .qt .qt-web { margin: 0 0 11px; padding: 10px 11px; border-radius: 11px; border: 1px solid rgba(37, 99, 235, .28); background: rgba(37, 99, 235, .06); }
+    .qt .qt-web-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 700; color: #1d4ed8 !important; margin-bottom: 6px; }
+    body[data-theme="dark"] .qt .qt-web-h { color: #93c5fd !important; }
+    .qt .qt-web-s { font-size: 11px; color: var(--mu) !important; margin-bottom: 8px; line-height: 1.45; }
+    .qt .qt-web-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 7px; }
+    .qt .qt-web-row input, .qt .qt-web-row select { flex: 1 1 110px; min-width: 0; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--inb); background: var(--bg) !important; color: var(--tx) !important; font: inherit; }
+    .qt .qt-web-btn { padding: 7px 11px; border-radius: 8px; border: 1px solid transparent; font: inherit; font-weight: 700; cursor: pointer; background: #2563eb; color: #fff !important; }
+    .qt .qt-web-btn.wa { background: #16a34a; }
+    .qt .qt-chip { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgba(245, 158, 11, .15); color: #b45309 !important; }
+    .qt .qt-chip.ok { background: rgba(34, 197, 94, .15); color: #15803d !important; }
     .qt .qt-err { margin: 0 0 9px; padding: 7px 10px; border-radius: 9px; background: rgba(239, 68, 68, .12); color: #dc2626 !important; font-size: 11.5px; line-height: 1.5; }
     .qt-foot { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; padding: 8px 16px 14px; }
     .qt .qt-foot button { height: 34px; padding: 0 14px; border-radius: 9px; border: 1px solid var(--inb) !important; background: var(--bg) !important; color: var(--tx) !important; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -364,6 +379,43 @@ $qtText = [
             }).catch(e => { box.innerHTML = ''; box.appendChild(header(t('Penawaran'))); box.appendChild(el('div', 'qt-b', t('Gagal') + ': ' + e.message)); const f = el('div', 'qt-foot'), c = el('button', '', t('Tutup')); c.onclick = close; f.appendChild(c); box.appendChild(f); });
         };
 
+        // ---- Panel reservasi website: follow-up WhatsApp → catat DP → konfirmasi ----
+        function waNumber(p) { let n = String(p || '').replace(/\D/g, ''); if (n.startsWith('0')) n = '62' + n.slice(1); return n; }
+        function webPanel(q, r) {
+            const dp = parseFloat(q.dp_amount) || 0, open = q.status === 'open';
+            const w = el('div', 'qt-web');
+            const h = el('div', 'qt-web-h'); h.appendChild(el('span', '', '🌐 ' + t('Reservasi Website')));
+            h.appendChild(el('span', 'qt-chip' + (dp > 0 ? ' ok' : ''), dp > 0 ? t('DP diterima') + ' ' + rp(dp) : t('Belum ada DP'))); w.appendChild(h);
+            const guests = (parseInt(q.adults, 10) || 0) + ' ' + t('dewasa') + (parseInt(q.children, 10) ? ' · ' + q.children + ' ' + t('anak') : '');
+            w.appendChild(el('div', '', guests + (q.followup_at ? ' · ✓ ' + t('Sudah di-follow-up') : '')));
+            if (q.notes) w.appendChild(el('div', 'qt-web-s', t('Catatan tamu') + ': ' + q.notes));
+            if (!open) return w;
+            w.appendChild(el('div', 'qt-web-s', t('Langkah: 1) Follow-up WhatsApp  2) Terima & catat DP  3) Konfirmasi → email otomatis ke tamu.')));
+            const sug = r.dp_suggest || Math.round((parseFloat(q.total) || 0) * 0.5 / 1000) * 1000;
+            if (q.guest_phone) {
+                const wa = el('button', 'qt-web-btn wa', '💬 ' + t('Follow-up WhatsApp tamu')); wa.type = 'button';
+                wa.onclick = () => {
+                    const rooms = q.items.map(i => i.room_type).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+                    const bank = r.bank || {};
+                    const msg = 'Hello ' + q.guest_name + ', thank you for your reservation at Narayana Karimunjawa (' + q.quote_code + ').\n\n' +
+                        'Room: ' + q.items.length + ' x ' + rooms + '\nStay: ' + fd(q.check_in) + ' - ' + fd(q.check_out) + ' (' + q.nights + ' night(s))\nTotal: ' + rp(q.total) + '\n\n' +
+                        'Your room is available. To secure it, please transfer a 50% deposit of *' + rp(sug) + '* to:\n' + (bank.no || '') + ' (' + (bank.name || '') + ')\n\n' +
+                        'Please send the transfer receipt here. The balance is paid at the hotel. Thank you!';
+                    window.open('https://wa.me/' + waNumber(q.guest_phone) + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+                    post({ action: 'web_followup', id: q.id });
+                };
+                w.appendChild(wa);
+            }
+            const row = el('div', 'qt-web-row');
+            const amt = el('input'); amt.type = 'number'; amt.min = '0'; amt.step = '1000'; amt.value = dp > 0 ? dp : sug; amt.title = t('Nominal DP'); amt.placeholder = t('Nominal DP');
+            const mth = el('select'); [['transfer', 'Transfer'], ['cash', 'Cash'], ['qris', 'QRIS'], ['card', 'Card']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; if ((q.dp_method || 'transfer') === v) o.selected = true; mth.appendChild(o); });
+            const sv = el('button', 'qt-web-btn', t('Catat DP')); sv.type = 'button';
+            sv.onclick = () => { sv.disabled = true; post({ action: 'record_dp', id: q.id, amount: amt.value || 0, method: mth.value }).then(x => { if (!x.ok) throw new Error(''); window.adfQuoteView(q.id); }).catch(() => { sv.disabled = false; window.alert(t('Gagal')); }); };
+            row.appendChild(amt); row.appendChild(mth); row.appendChild(sv); w.appendChild(row);
+            w.appendChild(el('div', 'qt-web-s', t('Saran DP 50%') + ': ' + rp(sug)));
+            return w;
+        }
+
         // ---- Detail penawaran ----
         window.adfQuoteView = function(id, afterConflicts) {
             box.innerHTML = ''; box.appendChild(el('div', 'qt-b', '…')); open();
@@ -400,6 +452,7 @@ $qtText = [
                 if (r.conflicts && r.conflicts.length) {
                     body.appendChild(el('div', 'qt-err', t('Kamar berikut sudah terisi / diblok pada tanggal ini, penawaran tidak bisa dikonfirmasi:') + ' ' + r.conflicts.join(', ')));
                 }
+                if (q.source === 'website') body.appendChild(webPanel(q, r));
                 if (q.status !== 'open') body.appendChild(el('div', 'qt-note', t('Penawaran ini sudah ') + stTxt.toLowerCase() + '.'));
                 box.appendChild(body);
 
@@ -413,7 +466,7 @@ $qtText = [
                     const ed = el('button', '', t('Ubah')); ed.type = 'button'; ed.onclick = () => { close(); window.adfQuoteEdit(q.id); };
                     f.appendChild(ed); f.appendChild(cx);
                     if (!q.expired && !(r.conflicts && r.conflicts.length)) {
-                        const ok = el('button', 'pri', t('Konfirmasi (jadikan booking)')); ok.type = 'button'; ok.onclick = () => { close(); window.adfQuoteConfirm(q.id); };
+                        const ok = el('button', 'pri', t('Konfirmasi (jadikan booking)')); ok.type = 'button'; ok.onclick = () => { if (q.source === 'website' && !(parseFloat(q.dp_amount) > 0) && !window.confirm(t('Konfirmasi tanpa DP? Tamu tetap menerima email konfirmasi.'))) return; close(); window.adfQuoteConfirm(q.id); };
                         f.appendChild(ok);
                     }
                 }
@@ -437,6 +490,23 @@ $qtText = [
                 window.openNewReservationForm({ checkIn: q.check_in, checkOut: q.check_out, roomIds: q.items.map(i => i.room_id), discount: discount, quote: { id: q.id, code: q.quote_code } });
                 const set = (id2, v) => { const e = document.getElementById(id2); if (e && v) e.value = v; };
                 set('guestName', q.guest_name); set('guestPhone', q.guest_phone); set('guestEmail', q.guest_email);
+                if (q.source === 'website') {
+                    // Reservasi website: jumlah tamu, sumber booking & DP yang sudah diterima ikut terisi
+                    set('adultCount', String(parseInt(q.adults, 10) || ''));
+                    const src = document.getElementById('bookingSource');
+                    if (src) {
+                        const opt = ['website', 'web', 'online', 'direct'].map(k => src.querySelector('option[value="' + k + '"]')).find(Boolean)
+                            || Array.from(src.options).find(o => /web/i.test(o.value + ' ' + o.textContent));
+                        if (opt) { src.value = opt.value; src.dispatchEvent(new Event('change')); }
+                    }
+                    if (parseFloat(q.dp_amount) > 0) {
+                        setTimeout(() => {
+                            const pm = document.getElementById('paymentMethod');
+                            if (pm && q.dp_method && pm.querySelector('option[value="' + q.dp_method + '"]')) { pm.value = q.dp_method; pm.dispatchEvent(new Event('change')); }
+                            set('paidAmount', String(Math.round(parseFloat(q.dp_amount))));
+                        }, 150);
+                    }
+                }
             }).catch(e => window.alert(t('Gagal') + ': ' + e.message));
         };
 

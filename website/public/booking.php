@@ -2,357 +2,254 @@
 
 /**
  * NARAYANA KARIMUNJAWA — Reservations
- * Marriott-style booking with real-time availability
+ * Tamu memilih tanggal → kamar tersedia (langsung dari ADF) → isi data → permintaan reservasi terkirim.
+ * Pembayaran: DP 50% via transfer setelah dihubungi admin lewat WhatsApp, sisanya di hotel.
  */
-// Flexible path: works on hosting (config inside webroot) and local dev (config outside public/)
 $_cfg = __DIR__ . '/config/config.php';
 if (!file_exists($_cfg)) $_cfg = dirname(__DIR__) . '/config/config.php';
 require_once $_cfg;
 
-// Booking is handled by Cloudbeds channel manager.
-$checkInParam = $_GET['checkin'] ?? $_GET['check_in'] ?? null;
-$checkOutParam = $_GET['checkout'] ?? $_GET['check_out'] ?? null;
-$adultsParam = $_GET['adults'] ?? $_GET['guests'] ?? null;
-$kidsParam = $_GET['kids'] ?? 0;
-
-$cloudbedsUrl = buildCloudbedsReservationUrl([
-    'checkin' => $checkInParam,
-    'checkout' => $checkOutParam,
-    'adults' => $adultsParam,
-    'kids' => $kidsParam,
-]);
-
-header('Location: ' . $cloudbedsUrl, true, 302);
-exit;
-
 $currentPage = 'booking';
 $pageTitle = 'Reservations';
 
-$checkIn = $_GET['check_in'] ?? date('Y-m-d');
-$checkOut = $_GET['check_out'] ?? date('Y-m-d', strtotime('+1 day'));
-$guests = (int)($_GET['guests'] ?? 2);
-$roomTypeFilter = (int)($_GET['room_type'] ?? 0);
-$hasSearch = isset($_GET['check_in']) || isset($_GET['room_type']);
-
-$roomTypes = dbFetchAll("SELECT * FROM room_types ORDER BY base_price DESC");
-
-$availableRooms = [];
-$totalNights = 0;
-if ($hasSearch && $checkIn && $checkOut && strtotime($checkIn) < strtotime($checkOut)) {
-    $checkInDate = new DateTime($checkIn);
-    $checkOutDate = new DateTime($checkOut);
-    $totalNights = $checkInDate->diff($checkOutDate)->days;
-
-    $sql = "
-        SELECT r.id, r.room_number, r.floor_number,
-               rt.id as room_type_id, rt.type_name, rt.base_price, 
-               rt.max_occupancy, rt.amenities
-        FROM rooms r
-        JOIN room_types rt ON r.room_type_id = rt.id
-        WHERE r.status NOT IN ('maintenance', 'blocked')
-        AND rt.max_occupancy >= :guests
-        AND r.id NOT IN (
-            SELECT DISTINCT b.room_id 
-            FROM bookings b
-            WHERE b.status IN ('pending', 'confirmed', 'checked_in')
-            AND b.check_in_date < :checkout 
-            AND b.check_out_date > :checkin
-        )
-    ";
-    $params = [':guests' => $guests, ':checkout' => $checkOut, ':checkin' => $checkIn];
-
-    if ($roomTypeFilter > 0) {
-        $sql .= " AND rt.id = :room_type";
-        $params[':room_type'] = $roomTypeFilter;
-    }
-
-    $sql .= " ORDER BY rt.base_price DESC, r.room_number ASC";
-    $availableRooms = dbFetchAll($sql, $params);
-}
-
-$roomIcons = ['King' => '👑', 'Queen' => '🌙', 'Twin' => '🛏️'];
+$valid = static fn($d) => is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && strtotime($d) !== false;
+$ci = $_GET['checkin'] ?? $_GET['check_in'] ?? '';
+$co = $_GET['checkout'] ?? $_GET['check_out'] ?? '';
+if (!$valid($ci) || $ci < date('Y-m-d')) $ci = date('Y-m-d', strtotime('+1 day'));
+if (!$valid($co) || $co <= $ci) $co = date('Y-m-d', strtotime($ci . ' +1 day'));
+$adults = max(1, min(20, (int)($_GET['adults'] ?? $_GET['guests'] ?? 2)));
+$autoSearch = isset($_GET['checkin']) || isset($_GET['check_in']);
 
 include __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Page Hero -->
-<section class="page-hero">
+<section class="page-hero nrb-hero">
     <div class="container">
-        <div class="section-eyebrow" style="color:var(--gold-light);">Book Your Stay</div>
-        <h1>Reservations</h1>
-        <p>Select your dates and find the perfect room for your island escape.</p>
+        <div class="section-eyebrow" style="color:var(--gold-light);">Reservations</div>
+        <h1>Book Your Stay</h1>
+        <p>Choose your dates, pick a room, and our team will confirm your reservation on WhatsApp.</p>
     </div>
 </section>
 
-<!-- Search -->
-<section class="section" style="padding-top:48px;">
-    <div class="container" style="max-width:880px;">
+<section class="section nrb">
+    <div class="container">
+        <ol class="nrb-steps" id="nrbSteps">
+            <li class="is-active" data-step="1"><span>1</span>Dates</li>
+            <li data-step="2"><span>2</span>Room</li>
+            <li data-step="3"><span>3</span>Your Details</li>
+        </ol>
 
-        <div class="form-card">
-            <div class="section-eyebrow">Find & Reserve</div>
-            <h3 style="margin-bottom:24px;">Check Availability</h3>
-            <form method="GET">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Check-in Date</label>
-                        <input type="date" name="check_in" class="form-control" value="<?= htmlspecialchars($checkIn) ?>" min="<?= date('Y-m-d') ?>" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Check-out Date</label>
-                        <input type="date" name="check_out" class="form-control" value="<?= htmlspecialchars($checkOut) ?>" min="<?= date('Y-m-d', strtotime('+1 day')) ?>" required>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Guests</label>
-                        <select name="guests" class="form-control">
-                            <?php for ($i = 1; $i <= 6; $i++): ?>
-                                <option value="<?= $i ?>" <?= $guests === $i ? 'selected' : '' ?>><?= $i ?> Guest<?= $i > 1 ? 's' : '' ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Room Type</label>
-                        <select name="room_type" class="form-control">
-                            <option value="0">All Room Types</option>
-                            <?php foreach ($roomTypes as $rt): ?>
-                                <option value="<?= $rt['id'] ?>" <?= $roomTypeFilter === (int)$rt['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($rt['type_name']) ?> — <?= formatCurrency($rt['base_price']) ?>/night
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block" style="margin-top:8px;">
-                    <i class="fas fa-search"></i> Search Available Rooms
-                </button>
-            </form>
-        </div>
+        <form class="nrb-search" id="nrbSearch" autocomplete="off">
+            <label>Check-in<input type="date" id="nrbCi" value="<?= htmlspecialchars($ci) ?>" min="<?= date('Y-m-d') ?>" required></label>
+            <label>Check-out<input type="date" id="nrbCo" value="<?= htmlspecialchars($co) ?>" min="<?= date('Y-m-d', strtotime('+1 day')) ?>" required></label>
+            <label>Adults<input type="number" id="nrbAdults" value="<?= $adults ?>" min="1" max="20" required></label>
+            <label>Children<input type="number" id="nrbKids" value="0" min="0" max="10"></label>
+            <button type="submit" class="btn btn-primary">Check Availability</button>
+        </form>
 
-        <?php if ($hasSearch): ?>
-            <!-- Results -->
-            <div style="margin-top:32px;" class="fade-in">
-                <?php if ($totalNights > 0): ?>
-                    <div class="search-summary">
-                        <div>
-                            <strong><?= count($availableRooms) ?></strong> room<?= count($availableRooms) !== 1 ? 's' : '' ?> available
-                            &nbsp;·&nbsp;
-                            <?= date('d M Y', strtotime($checkIn)) ?> → <?= date('d M Y', strtotime($checkOut)) ?>
-                            &nbsp;·&nbsp;
-                            <?= $totalNights ?> night<?= $totalNights > 1 ? 's' : '' ?>
-                        </div>
-                        <div style="font-size:13px; color:var(--mid-gray);">
-                            <?= $guests ?> guest<?= $guests > 1 ? 's' : '' ?>
-                        </div>
-                    </div>
+        <div class="nrb-msg" id="nrbMsg" hidden></div>
+        <div class="nrb-rooms" id="nrbRooms"></div>
 
-                    <?php if (empty($availableRooms)): ?>
-                        <div style="text-align:center; padding:48px 24px; background:var(--white); border:1px solid var(--pale-gray); border-radius:var(--radius-lg);">
-                            <i class="fas fa-bed" style="font-size:2rem; color:var(--light-gray); display:block; margin-bottom:16px;"></i>
-                            <h3 style="margin-bottom:8px;">No Rooms Available</h3>
-                            <p style="color:var(--warm-gray); margin-bottom:20px;">No rooms match your criteria for these dates. Try different dates or fewer guests.</p>
-                            <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%2C%20I'd%20like%20to%20check%20availability%20for%20<?= $checkIn ?>%20to%20<?= $checkOut ?>" target="_blank" class="btn btn-primary">
-                                <i class="fab fa-whatsapp"></i> Ask via WhatsApp
-                            </a>
-                        </div>
-                    <?php else: ?>
-                        <?php foreach ($availableRooms as $room):
-                            $amenities = $room['amenities'] ? array_map('trim', explode(',', $room['amenities'])) : [];
-                            $totalPrice = $room['base_price'] * $totalNights;
-                            $icon = $roomIcons[$room['type_name']] ?? '🏨';
-                        ?>
-                            <div class="room-result-card" id="room-<?= $room['id'] ?>">
-                                <div class="room-result-img"><span><?= $icon ?></span></div>
-                                <div class="room-result-info">
-                                    <h4><?= htmlspecialchars($room['type_name']) ?> Room</h4>
-                                    <div class="room-number">Room <?= htmlspecialchars($room['room_number']) ?> · Floor <?= $room['floor_number'] ?></div>
-                                    <div class="room-amenities" style="margin-bottom:0;">
-                                        <?php foreach (array_slice($amenities, 0, 4) as $a): ?>
-                                            <span><?= htmlspecialchars($a) ?></span>
-                                        <?php endforeach; ?>
-                                    </div>
-                                    <div style="margin-top:6px; font-size:12px; color:var(--mid-gray);">
-                                        <i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> guests
-                                    </div>
-                                </div>
-                                <div class="room-result-price">
-                                    <div class="per-night"><?= formatCurrency($room['base_price']) ?></div>
-                                    <div class="total"><?= formatCurrency($totalPrice) ?> total · <?= $totalNights ?> night<?= $totalNights > 1 ? 's' : '' ?></div>
-                                    <button onclick="selectRoom(<?= $room['id'] ?>, '<?= htmlspecialchars($room['type_name']) ?>', '<?= $room['room_number'] ?>', <?= $room['base_price'] ?>, <?= $totalPrice ?>)" class="btn btn-primary btn-block btn-sm">
-                                        Select Room
-                                    </button>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                <?php else: ?>
-                    <div style="text-align:center; padding:24px; background:#fff8e1; border:1px solid #ffe082; border-radius:var(--radius);">
-                        <p style="color:var(--warning);">Check-out date must be after check-in date.</p>
-                    </div>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
-    </div>
-</section>
-
-<!-- Booking Form (hidden) -->
-<section class="section" id="bookingFormSection" style="display:none; padding-top:0;">
-    <div class="container" style="max-width:880px;">
-        <div class="form-card">
-            <div class="section-eyebrow">Complete Booking</div>
-            <h3 style="margin-bottom:24px;">Guest Information</h3>
-
-            <!-- Selected Room -->
-            <div class="selected-summary" id="selectedRoomSummary">
-                <div>
-                    <strong id="sumRoomType"></strong> — Room <span id="sumRoomNumber"></span><br>
-                    <small style="color:var(--mid-gray);">
-                        <?= date('d M Y', strtotime($checkIn)) ?> → <?= date('d M Y', strtotime($checkOut)) ?> · <?= $totalNights ?> night<?= $totalNights > 1 ? 's' : '' ?>
-                    </small>
+        <div class="nrb-details" id="nrbDetails" hidden>
+            <form class="nrb-form" id="nrbForm" autocomplete="on" novalidate>
+                <h2>Your Details</h2>
+                <div class="nrb-grid">
+                    <label>Full name<input type="text" name="name" maxlength="80" required autocomplete="name"></label>
+                    <label>WhatsApp number<input type="tel" name="phone" maxlength="20" placeholder="+62 812 ..." required autocomplete="tel"></label>
+                    <label class="nrb-span">Email<input type="email" name="email" maxlength="120" required autocomplete="email"></label>
+                    <label>Adults<input type="number" name="adults" id="nrbFAdults" min="1" max="40" required></label>
+                    <label>Children<input type="number" name="children" id="nrbFKids" min="0" max="20"></label>
+                    <label class="nrb-span">Special request <small>(optional)</small><textarea name="notes" rows="3" maxlength="500" placeholder="Arrival time, boat schedule, dietary needs..."></textarea></label>
+                    <label class="nrb-hp" aria-hidden="true">Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
                 </div>
-                <div style="text-align:right;">
-                    <div style="font-family:var(--font-heading); font-size:1.2rem; color:var(--black);" id="sumTotal"></div>
-                    <small style="color:var(--mid-gray);"><span id="sumPerNight"></span>/night</small>
-                </div>
-            </div>
-
-            <form id="reservationForm" onsubmit="submitBooking(event)">
-                <input type="hidden" name="room_id" id="formRoomId">
-                <input type="hidden" name="check_in" value="<?= htmlspecialchars($checkIn) ?>">
-                <input type="hidden" name="check_out" value="<?= htmlspecialchars($checkOut) ?>">
-                <input type="hidden" name="guests" value="<?= $guests ?>">
-                <!-- Honeypot: hidden from humans, bots tend to fill every field -->
-                <div style="position:absolute; left:-9999px; top:-9999px; opacity:0; height:0; overflow:hidden;" aria-hidden="true">
-                    <label for="website">Leave this field empty</label>
-                    <input type="text" name="website" id="website" tabindex="-1" autocomplete="off">
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Full Name *</label>
-                        <input type="text" name="guest_name" class="form-control" placeholder="Your full name" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Email *</label>
-                        <input type="email" name="guest_email" class="form-control" placeholder="your@email.com" required>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Phone *</label>
-                        <input type="tel" name="guest_phone" class="form-control" placeholder="+62 xxx-xxxx-xxxx" required>
-                    </div>
-                    <div class="form-group">
-                        <label>ID Type</label>
-                        <select name="id_card_type" class="form-control">
-                            <option value="ktp">KTP</option>
-                            <option value="passport">Passport</option>
-                            <option value="sim">SIM (Driver's License)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>ID Number</label>
-                        <input type="text" name="id_card_number" class="form-control" placeholder="ID card number">
-                    </div>
-                    <div class="form-group">
-                        <label>Nationality</label>
-                        <input type="text" name="nationality" class="form-control" value="Indonesia">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Special Requests</label>
-                    <textarea name="special_request" class="form-control" rows="3" placeholder="Early check-in, extra pillows, etc."></textarea>
-                </div>
-
-                <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--pale-gray);">
-                    <button type="submit" class="btn btn-primary btn-block btn-lg" id="submitBtn">
-                        <i class="fas fa-check"></i> Confirm Reservation
-                    </button>
-                    <p style="text-align:center; font-size:12px; color:var(--mid-gray); margin-top:10px;">
-                        Payment can be made at check-in. Free cancellation up to 24 hours before arrival.
-                    </p>
+                <div class="nrb-err" id="nrbErr" hidden></div>
+                <div class="nrb-actions">
+                    <button type="button" class="btn btn-outline" id="nrbBack">Change Room</button>
+                    <button type="submit" class="btn btn-primary" id="nrbSubmit">Send Reservation Request</button>
                 </div>
             </form>
+            <aside class="nrb-summary" id="nrbSummary"></aside>
+        </div>
+
+        <div class="nrb-policy">
+            <div><i class="fas fa-shield-halved"></i><strong>No online payment</strong><span>Nothing is charged on this website.</span></div>
+            <div><i class="fab fa-whatsapp"></i><strong>Confirmed on WhatsApp</strong><span>Our team contacts you to confirm availability.</span></div>
+            <div><i class="fas fa-building-columns"></i><strong>50% deposit</strong><span>Bank transfer to secure the room, balance paid at the hotel.</span></div>
         </div>
     </div>
 </section>
 
-<!-- Help -->
-<section class="section section-alt">
-    <div class="container" style="max-width:640px; text-align:center;">
-        <h3>Need Assistance?</h3>
-        <p style="color:var(--warm-gray); margin-bottom:20px;">Our reservation team is available to help you find the perfect room.</p>
-        <div class="btn-group" style="justify-content:center;">
-            <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>" target="_blank" class="btn btn-primary"><i class="fab fa-whatsapp"></i> WhatsApp Us</a>
-            <a href="tel:<?= BUSINESS_PHONE ?>" class="btn btn-outline"><i class="fas fa-phone"></i> <?= BUSINESS_PHONE ?></a>
+<div class="nrb-modal" id="nrbModal" hidden role="dialog" aria-modal="true" aria-labelledby="nrbModalTitle">
+    <div class="nrb-modal-box">
+        <div class="nrb-modal-icon"><i class="fas fa-check"></i></div>
+        <h2 id="nrbModalTitle">Reservation Request Received</h2>
+        <p class="nrb-code" id="nrbModalCode"></p>
+        <div class="nrb-modal-body" id="nrbModalBody"></div>
+        <p class="nrb-modal-note">Please wait for our WhatsApp message to confirm your reservation and deposit details. Your room is secured once the deposit is received.</p>
+        <div class="nrb-modal-actions">
+            <a class="btn btn-primary" id="nrbModalWa" href="#" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> Chat with Admin</a>
+            <a class="btn btn-outline" href="<?= BASE_URL ?>/">Back to Home</a>
         </div>
     </div>
-</section>
-
-<?php include __DIR__ . '/includes/footer.php'; ?>
+</div>
 
 <script>
-    function selectRoom(roomId, typeName, roomNumber, perNight, total) {
-        document.getElementById('formRoomId').value = roomId;
-        document.getElementById('sumRoomType').textContent = typeName + ' Room';
-        document.getElementById('sumRoomNumber').textContent = roomNumber;
-        document.getElementById('sumPerNight').textContent = formatCurrency(perNight);
-        document.getElementById('sumTotal').textContent = formatCurrency(total);
+    (function() {
+        var API = <?= json_encode(BASE_URL . '/api') ?>;
+        var $ = function(id) { return document.getElementById(id); };
+        var state = { data: null, room: null, qty: 1, opened: Date.now() };
+        var idr = function(n) { return 'IDR ' + Math.round(n).toLocaleString('id-ID'); };
+        var esc = function(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+        var fmtDate = function(d) { return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); };
 
-        document.querySelectorAll('.room-result-card').forEach(c => c.classList.remove('selected'));
-        document.getElementById('room-' + roomId).classList.add('selected');
-
-        const section = document.getElementById('bookingFormSection');
-        section.style.display = 'block';
-        setTimeout(() => section.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-        }), 100);
-    }
-
-    async function submitBooking(e) {
-        e.preventDefault();
-        const form = document.getElementById('reservationForm');
-        const btn = document.getElementById('submitBtn');
-        const formData = new FormData(form);
-
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-        try {
-            const response = await fetch('<?= BASE_URL ?>/api/create-booking.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(Object.fromEntries(formData))
+        function step(n) {
+            document.querySelectorAll('#nrbSteps li').forEach(function(li) {
+                var s = +li.dataset.step;
+                li.classList.toggle('is-active', s === n);
+                li.classList.toggle('is-done', s < n);
             });
-            const result = await response.json();
-
-            if (result.success) {
-                showToast('Reservation confirmed! Code: ' + result.data.booking_code, 'success');
-                setTimeout(() => {
-                    window.location.href = '<?= BASE_URL ?>/confirmation.php?code=' + result.data.booking_code;
-                }, 1500);
-            } else {
-                showToast(result.error || 'Failed to create reservation', 'error');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check"></i> Confirm Reservation';
-            }
-        } catch (err) {
-            showToast('Connection error. Please try again.', 'error');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-check"></i> Confirm Reservation';
         }
-    }
 
-    document.querySelector('input[name="check_in"]')?.addEventListener('change', function() {
-        const co = document.querySelector('input[name="check_out"]');
-        const next = new Date(this.value);
-        next.setDate(next.getDate() + 1);
-        co.min = next.toISOString().split('T')[0];
-        if (co.value <= this.value) co.value = co.min;
-    });
+        function msg(text, kind) {
+            var m = $('nrbMsg');
+            m.hidden = !text;
+            m.className = 'nrb-msg' + (kind ? ' is-' + kind : '');
+            m.innerHTML = text || '';
+        }
+
+        // Check-out minimal sehari setelah check-in
+        $('nrbCi').addEventListener('change', function() {
+            var d = new Date(this.value + 'T00:00:00');
+            d.setDate(d.getDate() + 1);
+            var min = d.toISOString().slice(0, 10);
+            $('nrbCo').min = min;
+            if ($('nrbCo').value <= this.value) $('nrbCo').value = min;
+        });
+
+        $('nrbSearch').addEventListener('submit', function(e) {
+            e.preventDefault();
+            search();
+        });
+
+        function search() {
+            $('nrbDetails').hidden = true;
+            $('nrbRooms').innerHTML = '<div class="nrb-loading"><span></span>Checking availability...</div>';
+            msg('');
+            step(1);
+            var q = 'check_in=' + encodeURIComponent($('nrbCi').value) + '&check_out=' + encodeURIComponent($('nrbCo').value);
+            fetch(API + '/availability.php?' + q).then(function(r) { return r.json(); }).then(function(res) {
+                if (!res.success) throw new Error(res.error || 'Unable to check availability.');
+                state.data = res;
+                renderRooms();
+            }).catch(function(err) {
+                $('nrbRooms').innerHTML = '';
+                msg(esc(err.message), 'error');
+            });
+        }
+
+        function renderRooms() {
+            var d = state.data;
+            var adults = +$('nrbAdults').value || 1;
+            var any = d.rooms.some(function(r) { return r.available > 0; });
+            step(2);
+            msg(any ? '<strong>' + d.nights + ' night' + (d.nights > 1 ? 's' : '') + '</strong> &middot; ' + fmtDate(d.check_in) + ' &rarr; ' + fmtDate(d.check_out) : 'Sorry, we are fully booked for these dates. Please try other dates or <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>" target="_blank" rel="noopener">chat with us</a>.', any ? '' : 'error');
+            $('nrbRooms').innerHTML = d.rooms.map(function(r, i) {
+                var need = Math.max(1, Math.ceil(adults / r.max));
+                var qty = Math.min(need, Math.max(1, r.available));
+                var opts = '';
+                for (var k = 1; k <= Math.min(r.available, 10); k++) opts += '<option value="' + k + '"' + (k === qty ? ' selected' : '') + '>' + k + ' room' + (k > 1 ? 's' : '') + '</option>';
+                var photo = r.photos[0] ? '<img src="' + esc(r.photos[0]) + '" alt="' + esc(r.name) + '" loading="lazy">' : '<div class="nrb-nophoto"><i class="fas fa-bed"></i></div>';
+                var am = r.amenities.slice(0, 5).map(function(a) { return '<li>' + esc(a) + '</li>'; }).join('');
+                var left = r.available === 0 ? '<span class="nrb-badge is-out">Fully booked</span>' : (r.available <= 2 ? '<span class="nrb-badge">Only ' + r.available + ' left</span>' : '<span class="nrb-badge is-ok">Available</span>');
+                return '<article class="nrb-room' + (r.available ? '' : ' is-out') + '">' +
+                    '<div class="nrb-room-photo">' + photo + left + '</div>' +
+                    '<div class="nrb-room-body"><h3>' + esc(r.name) + '</h3>' +
+                    '<p class="nrb-room-meta"><i class="fas fa-user-group"></i> Up to ' + r.max + ' guests per room</p>' +
+                    (am ? '<ul class="nrb-am">' + am + '</ul>' : '') + '</div>' +
+                    '<div class="nrb-room-buy"><div class="nrb-price"><small>per night</small>' + idr(r.price) + '</div>' +
+                    '<div class="nrb-price-total">' + idr(r.total) + ' for ' + d.nights + ' night' + (d.nights > 1 ? 's' : '') + '</div>' +
+                    (r.available ? '<select class="nrb-qty" data-i="' + i + '">' + opts + '</select><button type="button" class="btn btn-primary nrb-pick" data-i="' + i + '">Select</button>' : '') +
+                    '</div></article>';
+            }).join('');
+        }
+
+        $('nrbRooms').addEventListener('click', function(e) {
+            var b = e.target.closest('.nrb-pick');
+            if (!b) return;
+            var i = +b.dataset.i;
+            state.room = state.data.rooms[i];
+            state.qty = +document.querySelector('.nrb-qty[data-i="' + i + '"]').value || 1;
+            $('nrbFAdults').value = $('nrbAdults').value;
+            $('nrbFKids').value = $('nrbKids').value;
+            $('nrbRooms').innerHTML = '';
+            msg('');
+            $('nrbDetails').hidden = false;
+            $('nrbErr').hidden = true;
+            step(3);
+            renderSummary();
+            $('nrbDetails').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        $('nrbBack').addEventListener('click', function() {
+            $('nrbDetails').hidden = true;
+            renderRooms();
+        });
+        ['nrbFAdults', 'nrbFKids'].forEach(function(id) { $(id).addEventListener('input', renderSummary); });
+
+        function renderSummary() {
+            var d = state.data, r = state.room;
+            var total = r.total * state.qty;
+            var dp = Math.round(total * 0.5 / 1000) * 1000;
+            var guests = (+$('nrbFAdults').value || 0) + ' adult' + ((+$('nrbFAdults').value || 0) > 1 ? 's' : '') + ((+$('nrbFKids').value || 0) ? ', ' + $('nrbFKids').value + ' child' + (+$('nrbFKids').value > 1 ? 'ren' : '') : '');
+            $('nrbSummary').innerHTML = (r.photos[0] ? '<img src="' + esc(r.photos[0]) + '" alt="">' : '') +
+                '<div class="nrb-sum-body"><div class="section-eyebrow">Your Stay</div><h3>' + esc(r.name) + '</h3>' +
+                '<dl><dt>Check-in</dt><dd>' + fmtDate(d.check_in) + '</dd><dt>Check-out</dt><dd>' + fmtDate(d.check_out) + '</dd>' +
+                '<dt>Rooms</dt><dd>' + state.qty + ' &times; ' + d.nights + ' night' + (d.nights > 1 ? 's' : '') + '</dd><dt>Guests</dt><dd>' + guests + '</dd>' +
+                '<dt>Rate</dt><dd>' + idr(r.price) + ' / night</dd></dl>' +
+                '<div class="nrb-sum-total"><span>Estimated total</span><strong>' + idr(total) + '</strong></div>' +
+                '<div class="nrb-sum-dp"><span>Deposit 50% (bank transfer)</span><strong>' + idr(dp) + '</strong></div>' +
+                '<p class="nrb-sum-note">Final price is confirmed by our team. Balance is paid at the hotel.</p></div>';
+        }
+
+        $('nrbForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var f = this, err = $('nrbErr'), btn = $('nrbSubmit');
+            if (!f.checkValidity()) {
+                f.reportValidity();
+                return;
+            }
+            var body = {
+                check_in: state.data.check_in, check_out: state.data.check_out, room_type_id: state.room.id, rooms: state.qty,
+                adults: +f.adults.value, children: +f.children.value || 0, name: f.name.value, phone: f.phone.value,
+                email: f.email.value, notes: f.notes.value, website: f.website.value, t: state.opened
+            };
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            err.hidden = true;
+            fetch(API + '/reserve.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                .then(function(r) { return r.json(); })
+                .then(function(res) {
+                    if (!res.success) throw new Error(res.error || 'Unable to send your request.');
+                    $('nrbModalCode').textContent = 'Reference ' + res.code;
+                    $('nrbModalBody').innerHTML = '<dl><dt>Room</dt><dd>' + res.rooms + ' &times; ' + esc(res.room) + '</dd><dt>Stay</dt><dd>' + fmtDate(state.data.check_in) + ' &rarr; ' + fmtDate(state.data.check_out) + '</dd>' +
+                        '<dt>Estimated total</dt><dd>' + idr(res.total) + '</dd><dt>Deposit 50%</dt><dd><strong>' + idr(res.dp) + '</strong></dd></dl>';
+                    $('nrbModalWa').href = res.whatsapp;
+                    $('nrbModal').hidden = false;
+                    document.body.style.overflow = 'hidden';
+                    f.reset();
+                })
+                .catch(function(e2) {
+                    err.textContent = e2.message;
+                    err.hidden = false;
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Send Reservation Request';
+                });
+        });
+
+        <?php if ($autoSearch): ?>search();<?php endif; ?>
+    })();
 </script>
+
+<?php include __DIR__ . '/includes/footer.php'; ?>

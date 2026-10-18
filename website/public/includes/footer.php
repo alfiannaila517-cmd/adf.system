@@ -17,14 +17,14 @@
                     <li><a href="<?= BASE_URL ?>/rooms.php">Rooms</a></li>
                     <li><a href="<?= BASE_URL ?>/activities.php">Activities</a></li>
                     <li><a href="<?= BASE_URL ?>/destinations.php">Destinations</a></li>
-                    <li><a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>">Reservations</a></li>
+                    <li><a href="<?= htmlspecialchars(bookingUrl()) ?>">Reservations</a></li>
                     <li><a href="<?= BASE_URL ?>/contact.php">Contact</a></li>
                 </ul>
             </div>
             <div>
                 <h5>Information</h5>
                 <ul class="footer-links">
-                    <li><a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>">Check Availability</a></li>
+                    <li><a href="<?= htmlspecialchars(bookingUrl()) ?>">Check Availability</a></li>
                     <li><a href="<?= BASE_URL ?>/contact.php">Cancellation Policy</a></li>
                     <li><a href="<?= BASE_URL ?>/#location">Getting Here</a></li>
                     <li><a href="<?= BASE_URL ?>/#gallery">Photo Gallery</a></li>

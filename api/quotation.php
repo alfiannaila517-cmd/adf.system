@@ -10,7 +10,8 @@
  *   get           id            → penawaran + item + kamar yang sudah bentrok (untuk tombol Konfirmasi)
  *   list          status=open|confirmed|cancelled|all
  *   cancel        id
- *   confirm_mark  id, ref       → tandai terkonfirmasi setelah booking dibuat dari penawaran
+ *   confirm_mark  id, ref       → tandai terkonfirmasi setelah booking dibuat dari penawaran (+ email ke tamu)
+ *   web_pending / web_seen ids / web_followup id / record_dp id, amount, method → reservasi dari website
  */
 error_reporting(0);
 ini_set('display_errors', 0);
@@ -72,7 +73,21 @@ try {
         if (!$q) {
             echo json_encode(['ok' => false, 'msg' => 'Penawaran tidak ditemukan']);
         } else {
-            echo json_encode(['ok' => true, 'quote' => $q, 'conflicts' => $q['status'] === 'open' ? Quotations::conflicts($db, $q) : []]);
+            $extra = [];
+            if (($q['source'] ?? '') === 'website') {
+                // Data untuk pesan follow-up WhatsApp: DP 50% + rekening transfer
+                require_once '../includes/WebReservations.php';
+                $set = static function (string $k, string $def) use ($db): string {
+                    $r = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1", [$k]);
+                    return trim((string)($r['setting_value'] ?? '')) !== '' ? (string)$r['setting_value'] : $def;
+                };
+                $biz = defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : '';
+                $extra = ['dp_suggest' => WebReservations::dpAmount((float)$q['total']), 'bank' => [
+                    'no' => $set('invoice_bank_account_number_' . $biz, '1926663992'),
+                    'name' => $set('invoice_bank_account_name_' . $biz, 'BNI Jepara'),
+                ]];
+            }
+            echo json_encode(['ok' => true, 'quote' => $q, 'conflicts' => $q['status'] === 'open' ? Quotations::conflicts($db, $q) : []] + $extra);
         }
     } elseif ($act === 'list') {
         $st = in_array($_POST['status'] ?? 'open', ['open', 'confirmed', 'cancelled', 'all'], true) ? $_POST['status'] : 'open';
@@ -80,7 +95,36 @@ try {
     } elseif ($act === 'cancel') {
         echo json_encode(['ok' => Quotations::cancel($db, (int)($_POST['id'] ?? 0)), 'msg' => 'Penawaran dibatalkan']);
     } elseif ($act === 'confirm_mark') {
-        echo json_encode(['ok' => Quotations::markConfirmed($db, (int)($_POST['id'] ?? 0), (string)($_POST['ref'] ?? ''))]);
+        $qid = (int)($_POST['id'] ?? 0);
+        $ref = (string)($_POST['ref'] ?? '');
+        $ok = Quotations::markConfirmed($db, $qid, $ref);
+        $mail = null;
+        if ($ok) {
+            // Tamu otomatis menerima email "reservasi berhasil" + rincian pembayaran (bila ada email)
+            require_once '../includes/WebReservations.php';
+            $mail = WebReservations::sendConfirmed($db, $qid, $ref);
+        }
+        echo json_encode(['ok' => $ok, 'email' => $mail === null ? 'sent' : $mail]);
+    } elseif ($act === 'web_pending') {
+        // Reservasi website yang belum dilihat admin → popup di Front Desk
+        $rows = $db->fetchAll("SELECT id, quote_code, guest_name, guest_phone, check_in, check_out, nights, total, adults, children, created_at
+            FROM quotations WHERE source = 'website' AND status = 'open' AND seen_at IS NULL ORDER BY id DESC LIMIT 10") ?: [];
+        echo json_encode(['ok' => true, 'rows' => $rows]);
+    } elseif ($act === 'web_seen') {
+        $ids = array_filter(array_map('intval', explode(',', (string)($_POST['ids'] ?? ''))));
+        if ($ids) {
+            $db->query('UPDATE quotations SET seen_at = NOW() WHERE seen_at IS NULL AND id IN (' . implode(',', $ids) . ')');
+        }
+        echo json_encode(['ok' => true]);
+    } elseif ($act === 'web_followup') {
+        $db->query("UPDATE quotations SET followup_at = NOW(), seen_at = COALESCE(seen_at, NOW()) WHERE id = ?", [(int)($_POST['id'] ?? 0)]);
+        echo json_encode(['ok' => true]);
+    } elseif ($act === 'record_dp') {
+        // Catat DP yang sudah diterima (transfer / tunai). 0 = hapus catatan DP.
+        $amount = max(0, (float)($_POST['amount'] ?? 0));
+        $method = in_array($_POST['method'] ?? '', ['transfer', 'cash', 'qris', 'card'], true) ? $_POST['method'] : 'transfer';
+        $r = $db->query("UPDATE quotations SET dp_amount = ?, dp_method = ?, dp_paid_at = " . ($amount > 0 ? 'NOW()' : 'NULL') . ", seen_at = COALESCE(seen_at, NOW()) WHERE id = ? AND status = 'open'", [$amount, $amount > 0 ? $method : null, (int)($_POST['id'] ?? 0)]);
+        echo json_encode(['ok' => $r !== false && $r->rowCount() === 1]);
     } else {
         echo json_encode(['ok' => false, 'msg' => 'Aksi tidak dikenal']);
     }

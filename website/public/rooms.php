@@ -185,7 +185,7 @@ include __DIR__ . '/includes/header.php';
                     <!-- Price & CTA -->
                     <div class="room-detail-footer">
                         <div class="room-price"><?= formatCurrency($room['base_price']) ?><small> /night</small></div>
-                        <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-primary">Book Now</a>
+                        <a href="<?= htmlspecialchars(bookingUrl()) ?>" class="btn btn-primary">Book Now</a>
                     </div>
                 </div>
             </div>
@@ -228,7 +228,7 @@ include __DIR__ . '/includes/header.php';
     <div class="container">
         <h2>Find Your Perfect Room</h2>
         <p>Check availability for your desired dates and reserve your island escape.</p>
-        <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-gold btn-lg">Check Availability</a>
+        <a href="<?= htmlspecialchars(bookingUrl()) ?>" class="btn btn-gold btn-lg">Check Availability</a>
     </div>
 </section>
 

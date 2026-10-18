@@ -312,3 +312,19 @@ function buildCloudbedsReservationUrl(array $overrides = []): string
 
     return CLOUDBEDS_RESERVATION_BASE_URL . '?' . http_build_query($params);
 }
+
+// ── Reservasi langsung di website (pengganti halaman Cloudbeds) ─────────────
+// Alamat ADF System untuk notifikasi admin (server ke server) setelah tamu mengirim reservasi.
+if (!defined('ADF_SYSTEM_URL')) {
+    define('ADF_SYSTEM_URL', $isLocal ? 'http://localhost:8081/adf_system' : 'https://adfsystem.online');
+}
+
+/** URL halaman pemesanan website (opsional dengan tanggal & jumlah tamu). */
+function bookingUrl(array $p = []): string
+{
+    $q = [];
+    foreach (['checkin', 'checkout', 'adults'] as $k) {
+        if (!empty($p[$k])) $q[$k] = $p[$k];
+    }
+    return BASE_URL . '/booking.php' . ($q ? '?' . http_build_query($q) : '');
+}

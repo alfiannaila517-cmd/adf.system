@@ -1010,6 +1010,8 @@ $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
                             <b><?php echo htmlspecialchars($q['guest_name']); ?></b>
                             <span class="qtp-code"><?php echo htmlspecialchars($q['quote_code']); ?></span>
                             <?php if ($q['expired']): ?><span class="qtp-exp"><?php echo htmlspecialchars($qtT('Kedaluwarsa', 'Expired')); ?></span><?php endif; ?>
+                            <?php if (($q['source'] ?? '') === 'website'): ?><span class="qtp-web">🌐 Website</span>
+                                <span class="qtp-dp<?php echo (float)($q['dp_amount'] ?? 0) > 0 ? ' ok' : ''; ?>"><?php echo (float)($q['dp_amount'] ?? 0) > 0 ? htmlspecialchars($qtT('DP', 'Deposit')) . ' Rp ' . number_format((float)$q['dp_amount'], 0, ',', '.') : htmlspecialchars($qtT('Belum DP', 'No deposit')); ?></span><?php endif; ?>
                             <div class="qtp-meta">
                                 <?php echo $qtD($q['check_in']); ?> → <?php echo $qtD($q['check_out']); ?> · <?php echo (int)$q['nights']; ?> <?php echo htmlspecialchars($qtT('malam', 'night(s)')); ?>
                                 · <?php echo htmlspecialchars($qtT('Kamar', 'Room')); ?> <?php echo htmlspecialchars((string)$q['rooms']); ?>
@@ -1019,6 +1021,9 @@ $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
                         <div class="qtp-amt">Rp <?php echo number_format((float)$q['total'], 0, ',', '.'); ?></div>
                         <div class="qtp-act">
                             <a class="qtp-b" href="quotation-print.php?id=<?php echo (int)$q['id']; ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($qtT('Cetak', 'Print')); ?></a>
+                            <?php if (($q['source'] ?? '') === 'website'): ?>
+                                <a class="qtp-b" href="calendar.php?quote_view=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Follow-up / DP', 'Follow up / Deposit')); ?></a>
+                            <?php endif; ?>
                             <a class="qtp-b" href="calendar.php?quote_edit=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Ubah', 'Edit')); ?></a>
                             <?php if (!$q['expired']): ?>
                                 <a class="qtp-b pri" href="calendar.php?quote=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Konfirmasi', 'Confirm')); ?></a>
@@ -1047,6 +1052,9 @@ $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
         .qtp-main b { font-size: .86rem; color: var(--tx) !important; }
         .qtp-code { margin-left: .4rem; font-size: .62rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(148, 163, 184, .2); color: var(--mu) !important; }
         .qtp-exp { margin-left: .3rem; font-size: .6rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgba(239, 68, 68, .16); color: #dc2626 !important; }
+    .qtp-web, .qtp-dp { margin-left: .3rem; font-size: .6rem; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: rgba(37, 99, 235, .14); color: #1d4ed8 !important; }
+    .qtp-dp { background: rgba(245, 158, 11, .16); color: #b45309 !important; }
+    .qtp-dp.ok { background: rgba(34, 197, 94, .16); color: #15803d !important; }
         .qtp-meta { margin-top: 2px; font-size: .7rem; color: var(--mu) !important; }
         .qtp-amt { font-size: .92rem; font-weight: 800; color: var(--tx) !important; white-space: nowrap; }
         .qtp-act { display: flex; gap: .35rem; }

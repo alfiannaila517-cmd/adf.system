@@ -69,6 +69,28 @@ class Quotations
             }
         } catch (\Throwable $e) {
         }
+        // Reservasi dari website: sumber, jumlah tamu, DP yang sudah diterima, status follow-up & notifikasi
+        $webCols = [
+            'source' => "VARCHAR(20) NOT NULL DEFAULT 'admin'",
+            'adults' => 'INT NULL',
+            'children' => 'INT NULL',
+            'dp_amount' => 'DECIMAL(15,2) NOT NULL DEFAULT 0',
+            'dp_method' => 'VARCHAR(30) NULL',
+            'dp_paid_at' => 'DATETIME NULL',
+            'followup_at' => 'DATETIME NULL',
+            'seen_at' => 'DATETIME NULL',
+            'notified_at' => 'DATETIME NULL',
+            'client_ip' => 'VARCHAR(45) NULL',
+        ];
+        try {
+            $have = array_column($db->fetchAll('SHOW COLUMNS FROM quotations') ?: [], 'Field');
+            foreach ($webCols as $col => $def) {
+                if (!in_array($col, $have, true)) {
+                    $db->getConnection()->exec("ALTER TABLE quotations ADD COLUMN `$col` $def");
+                }
+            }
+        } catch (\Throwable $e) {
+        }
         $done = true;
     }
 

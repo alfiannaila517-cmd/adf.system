@@ -159,7 +159,7 @@ require_once __DIR__ . '/includes/header.php';
             <p class="hero-subtitle"><?= htmlspecialchars($heroSubtitle) ?></p>
             <div class="hero-ctas">
                 <a href="<?= BASE_URL ?>/rooms.php" class="btn btn-gold btn-lg">View Rooms</a>
-                <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-outline-white btn-lg">Book Your Stay</a>
+                <a href="<?= htmlspecialchars(bookingUrl()) ?>" class="btn btn-outline-white btn-lg">Book Your Stay</a>
             </div>
         </div>
         <?php if (!empty($heroCards)): ?>
@@ -205,7 +205,7 @@ require_once __DIR__ . '/includes/header.php';
 <div class="booking-bar">
     <div class="container">
         <div class="booking-bar-inner">
-            <form class="booking-bar-form" action="<?= htmlspecialchars(CLOUDBEDS_RESERVATION_BASE_URL) ?>" method="GET">
+            <form class="booking-bar-form" action="<?= BASE_URL ?>/booking.php" method="GET">
                 <div class="form-group">
                     <label for="bb_checkin">Check-in</label>
                     <input type="date" id="bb_checkin" name="checkin" min="<?= $today ?>" value="<?= $today ?>" required>
@@ -222,14 +222,7 @@ require_once __DIR__ . '/includes/header.php';
                         <option value="3">3 Guests</option>
                         <option value="4">4 Guests</option>
                     </select>
-                </div>
-                <input type="hidden" name="kids" value="0">
-                <input type="hidden" name="rid" value="<?= htmlspecialchars(CLOUDBEDS_RID) ?>">
-                <input type="hidden" name="currency" value="<?= htmlspecialchars(CLOUDBEDS_CURRENCY) ?>">
-                <input type="hidden" name="utm_source" value="<?= htmlspecialchars(CLOUDBEDS_UTM_SOURCE) ?>">
-                <input type="hidden" name="utm_medium" value="<?= htmlspecialchars(CLOUDBEDS_UTM_MEDIUM) ?>">
-                <input type="hidden" name="utm_campaign" value="<?= htmlspecialchars(CLOUDBEDS_UTM_CAMPAIGN) ?>">
-                <input type="hidden" name="utm_term" value="<?= htmlspecialchars(CLOUDBEDS_UTM_TERM) ?>">
+                </div>">">">">">">
                 <div class="form-group form-group-btn">
                     <label>&nbsp;</label>
                     <button type="submit" class="btn btn-primary">Find Rooms</button>
@@ -367,7 +360,7 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
                         </div>
                         <div class="room-book-btn">
-                            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-primary btn-block">Reserve This Room</a>
+                            <a href="<?= htmlspecialchars(bookingUrl()) ?>" class="btn btn-primary btn-block">Reserve This Room</a>
                             <a href="<?= BASE_URL ?>/rooms.php" class="room-more">View details <i class="fas fa-arrow-right"></i></a>
                         </div>
                     </div>
@@ -523,7 +516,7 @@ require_once __DIR__ . '/includes/header.php';
         <h2>Begin Your Island Journey</h2>
         <p>Book your stay and experience the magic of Karimunjawa.</p>
         <div class="btn-group" style="justify-content:center;">
-            <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-gold btn-lg">Reserve Your Room</a>
+            <a href="<?= htmlspecialchars(bookingUrl()) ?>" class="btn btn-gold btn-lg">Reserve Your Room</a>
             <a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>?text=Hi%20Narayana%2C%20I%27d%20like%20to%20inquire%20about%20a%20reservation" target="_blank" class="btn btn-outline-white btn-lg">
                 <i class="fab fa-whatsapp"></i> WhatsApp
             </a>

@@ -636,6 +636,8 @@
            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
            <?php endif; ?>
 
+           <?php include __DIR__ . '/web-reservation-popup.php'; ?>
+
            <!-- Additional JavaScript -->
            <?php if (isset($additionalJS)): ?>
                <?php foreach ($additionalJS as $js): ?>
