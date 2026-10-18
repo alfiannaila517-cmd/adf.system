@@ -133,14 +133,7 @@ if (!function_exists('nrServices')) {
             ];
         }
 
-        // 5. Sisa katalog yang belum masuk layanan mana pun → dikelompokkan per tipe
-        $rest = [];
-        foreach ($catalog as $c) $rest[(string)$c['type_label']][] = ['name' => (string)$c['item_name'], 'price' => (float)$c['default_price'], 'unit' => nrsUnit((string)$c['unit'])];
-        foreach ($rest as $label => $list) {
-            if (in_array(strtolower($label), ['lain-lain', 'other', 'others', 'service'], true)) continue;
-            $out[] = ['key' => 'c' . substr(md5($label), 0, 6), 'icon' => 'fa-bell-concierge', 'eyebrow' => 'Guest Service', 'name' => $label, 'intro' => '', 'points' => [],
-                'price' => min(array_column($list, 'price')), 'unit' => $list[0]['unit'], 'images' => [], 'items' => $list, 'wa' => 'Hello Narayana, I would like to ask about ' . $label . '.'];
-        }
+        // Sisa katalog (mis. Charge / biaya internal) sengaja TIDAK ditampilkan — hanya layanan di atas yang tampil di website.
 
         // Warna poster otomatis (layanan tanpa flyer)
         $tones = ['trips' => 'ocean', 'motorbike' => 'forest', 'transfers' => 'slate'];
