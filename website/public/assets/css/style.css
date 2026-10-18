@@ -4258,3 +4258,9 @@ h1, h2, h3, h4, h5, h6, .section-title, .brand-logo, .room-price, .stat-value, .
 
 /* Garis emas tipis pengganti ornamen bintang */
 .hero-line { width: 72px; height: 1px; background: var(--gold-hero); margin: 0 0 20px; box-shadow: 0 1px 6px rgba(0,0,0,.4); }
+
+/* Logo tanpa kotak latar, lebih besar */
+.navbar .brand-img, .navbar.scrolled .brand-img { background: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; border: 0 !important; width: 74px; height: 74px; object-fit: contain; }
+.navbar.scrolled .brand-img { width: 62px; height: 62px; }
+.navbar-brand { gap: 12px; }
+@media (max-width: 768px) { .navbar .brand-img, .navbar.scrolled .brand-img { width: 52px; height: 52px; } }
