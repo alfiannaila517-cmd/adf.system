@@ -175,8 +175,12 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <!-- Hero -->
-<section class="hero hero-activities">
-    <div class="hero-bg" style="background-image: url('<?= htmlspecialchars($actHeroBg) ?>');"></div>
+<section class="page-hero"<?php if (!empty($actHeroBg)): ?> style="background: linear-gradient(180deg, rgba(15,12,8,0.4), rgba(15,12,8,0.62)), url('<?= htmlspecialchars($actHeroBg) ?>') center/cover no-repeat;"<?php endif; ?>>
+    <div class="container">
+        <div class="section-eyebrow">Experiences</div>
+        <h1>Activities in Karimunjawa</h1>
+        <p>Reefs, islands, sunsets and village life — curated adventures arranged directly by our team.</p>
+    </div>
 </section>
 
 <!-- Intro -->

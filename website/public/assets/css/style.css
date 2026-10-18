@@ -3707,3 +3707,226 @@ textarea.form-control { resize: vertical; }
     .act-story-link { font-size: 0.68rem; }
     .act-story-content .section-eyebrow::before { width: 18px; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   REFINED LAYER (2026) — gaya krem-emas yang dirapikan
+   Ditaruh di akhir file supaya menimpa aturan lama tanpa membongkar struktur.
+   Komponen baru: .nr-gallery, .nr-location, .nr-services, .wa-float, .nr-lightbox, .room-photo-empty
+   ═══════════════════════════════════════════════════════════════════ */
+:root {
+    --gold: #a8884f;
+    --gold-light: #d6bc88;
+    --gold-dark: #7f6638;
+    --cream: #f6f1e9;
+    --bg: #fbf8f3;
+    --ink: #1f1b16;
+    --section-pad: 92px;
+    --radius: 8px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --shadow-soft: 0 1px 2px rgba(31, 27, 22, .04), 0 12px 32px -18px rgba(31, 27, 22, .22);
+    --shadow-lift: 0 2px 6px rgba(31, 27, 22, .05), 0 26px 50px -24px rgba(31, 27, 22, .32);
+}
+
+body { background: var(--bg); color: var(--ink); }
+
+/* ── Tipografi & judul bagian ── */
+.section { padding: var(--section-pad) 0; }
+.section-eyebrow { display: inline-flex; align-items: center; gap: 12px; font-size: 11px; letter-spacing: 3px; color: var(--gold); font-weight: 600; }
+.text-center .section-eyebrow::before, .section-header.text-center .section-eyebrow::before,
+.text-center .section-eyebrow::after, .section-header.text-center .section-eyebrow::after { content: ''; width: 28px; height: 1px; background: currentColor; opacity: .6; }
+.section-title { font-family: var(--font-heading); font-size: clamp(2rem, 3.4vw, 2.75rem); font-weight: 400; letter-spacing: -.01em; line-height: 1.15; color: var(--ink); }
+.section-desc { font-size: 15.5px; line-height: 1.8; color: var(--warm-gray); }
+.section-header { margin-bottom: 48px; }
+.divider { width: 48px; height: 2px; background: var(--gold); border-radius: 2px; opacity: .85; }
+
+/* ── Tombol ── */
+.btn { border-radius: 999px; padding: 13px 30px; font-size: 12.5px; letter-spacing: 1.2px; }
+.btn-primary { background: var(--ink); border-color: var(--ink); }
+.btn-primary:hover { background: var(--gold-dark); border-color: var(--gold-dark); transform: translateY(-1px); }
+.btn-gold { background: var(--gold); border-color: var(--gold); }
+.btn-gold:hover { background: var(--gold-dark); border-color: var(--gold-dark); transform: translateY(-1px); }
+
+/* ── Navigasi ── */
+.navbar { height: 76px; }
+.navbar.scrolled { background: rgba(251, 248, 243, .92); backdrop-filter: saturate(140%) blur(14px); -webkit-backdrop-filter: saturate(140%) blur(14px); box-shadow: 0 1px 0 rgba(31, 27, 22, .07); height: 64px; }
+.brand-logo { font-size: 1.55rem; letter-spacing: .01em; }
+.nav-links a { font-size: 13px; font-weight: 500; letter-spacing: .3px; }
+.nav-book-btn { border-radius: 999px !important; padding: 10px 22px !important; background: var(--gold) !important; color: #fff !important; border: 0 !important; }
+.nav-book-btn:hover { background: var(--gold-dark) !important; }
+
+/* ── Hero Beranda ── */
+.luxury-hero { min-height: 640px; max-height: 960px; }
+.luxury-hero::before { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(15, 12, 8, .45) 0%, rgba(15, 12, 8, .25) 40%, rgba(15, 12, 8, .62) 100%); }
+.hero-left { max-width: 760px; }
+.hero-eyebrow { font-size: 12px; letter-spacing: 3.5px; text-transform: uppercase; color: var(--gold-light); font-weight: 500; margin-bottom: 1.2rem; }
+.hero-title { font-size: clamp(2.6rem, 5.4vw, 4.6rem); font-weight: 400; line-height: 1.08; letter-spacing: -.015em; margin-bottom: 1.4rem; text-shadow: 0 2px 24px rgba(0, 0, 0, .25); }
+.hero-subtitle { font-size: clamp(.95rem, 1.25vw, 1.1rem); color: rgba(255, 255, 255, .82); max-width: 560px; }
+
+/* ── Bar pencarian (melayang di atas hero) ── */
+.booking-bar { position: relative; z-index: 5; margin-top: -58px; background: transparent; padding: 0; }
+.booking-bar-inner { background: #fff; border-radius: var(--radius-xl); box-shadow: var(--shadow-lift); padding: 20px 22px; border: 1px solid rgba(168, 136, 79, .14); }
+.booking-bar-form label { font-size: 10.5px; letter-spacing: 1.6px; color: var(--gold-dark); font-weight: 600; }
+.booking-bar-form input, .booking-bar-form select { height: 48px; border-radius: 12px; border-color: #e6dccb; background: #fdfbf7; font-size: 14px; }
+.booking-bar-form input:focus, .booking-bar-form select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(168, 136, 79, .15); }
+.booking-bar-form .form-group-btn .btn { height: 48px; border-radius: 12px; background: var(--gold); border-color: var(--gold); padding: 0 30px; }
+.booking-bar-form .form-group-btn .btn:hover { background: var(--gold-dark); border-color: var(--gold-dark); }
+
+/* ── Tentang ── */
+.about-section { padding-top: 96px; }
+.about-lead { font-size: 1.2rem; line-height: 1.7; color: var(--ink); font-family: var(--font-heading); }
+.about-text { font-size: 15px; line-height: 1.85; }
+.about-highlight { border-radius: var(--radius-lg); box-shadow: var(--shadow-soft); border: 1px solid rgba(168, 136, 79, .18); background: #fff; }
+.act-slideshow { border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-lift); }
+
+/* ── Layanan (pengganti "services row" + "Why Narayana") ── */
+.nr-services { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.nr-service { background: #fff; border: 1px solid #ece3d4; border-radius: var(--radius-lg); padding: 26px 24px; transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease); }
+.nr-service:hover { transform: translateY(-3px); box-shadow: var(--shadow-soft); border-color: rgba(168, 136, 79, .45); }
+.nr-service i { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--cream); color: var(--gold); font-size: 17px; margin-bottom: 16px; }
+.nr-service h4 { font-family: var(--font-heading); font-size: 1.15rem; font-weight: 500; margin-bottom: 6px; color: var(--ink); }
+.nr-service p { font-size: 14px; line-height: 1.7; color: var(--warm-gray); margin: 0; }
+
+/* ── Kartu kamar ── */
+.rooms-grid { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 28px; }
+.room-card { border-radius: var(--radius-xl); border-color: #ece3d4; box-shadow: var(--shadow-soft); }
+.room-card:hover { box-shadow: var(--shadow-lift); transform: translateY(-4px); }
+.room-card-image { height: 250px; }
+.room-type-badge { border-radius: 999px; padding: 5px 13px; font-size: 10.5px; letter-spacing: 1.4px; }
+.room-card-body { padding: 24px 24px 26px; }
+.room-card-body h3 { font-family: var(--font-heading); font-size: 1.45rem; font-weight: 400; }
+.room-price { font-family: var(--font-heading); font-size: 1.35rem; color: var(--ink); }
+.room-amenities span { border-radius: 999px; background: var(--cream); border-color: transparent; color: var(--charcoal); }
+.room-book-btn .btn { border-radius: 999px; }
+
+/* Foto kamar belum diunggah: panel krem elegan (bukan kotak biru kosong) */
+.room-card-image:has(.room-photo-empty), .room-detail-image:has(.room-photo-empty) { background: radial-gradient(120% 90% at 30% 20%, #fbf6ee 0%, #efe4d1 55%, #e5d5ba 100%) !important; }
+.room-card-image .room-visual, .room-detail-image .room-emoji { display: none; }
+.room-photo-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 100%; color: var(--gold-dark); text-align: center; padding: 20px; }
+.room-photo-empty svg { width: 54px; height: 54px; opacity: .55; }
+.room-photo-empty span { font-family: var(--font-heading); font-size: 1.05rem; color: var(--gold-dark); opacity: .85; }
+.room-photo-empty small { font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); opacity: .8; }
+
+/* ── Halaman Kamar (detail) ── */
+.room-detail { gap: 56px; margin-bottom: 72px; align-items: center; }
+.room-detail-image { border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-lift); min-height: 340px; }
+.room-detail-info h2 { font-family: var(--font-heading); font-weight: 400; font-size: clamp(1.8rem, 2.8vw, 2.3rem); }
+.room-detail-info p { font-size: 14.5px !important; line-height: 1.8 !important; }
+.room-photos-btn { position: absolute; right: 12px; bottom: 12px; z-index: 2; display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: var(--ink); font-size: 12px; font-weight: 600; border: 0; cursor: pointer; box-shadow: 0 6px 16px -8px rgba(0, 0, 0, .4); }
+.room-photos-btn:hover { background: #fff; }
+
+/* ── Hero halaman lain ── */
+.page-hero { padding: 168px 0 76px; background-size: cover; background-position: center; }
+.page-hero::after { content: ''; position: absolute; left: 50%; bottom: 0; width: 1px; height: 36px; background: linear-gradient(transparent, rgba(255, 255, 255, .6)); }
+.page-hero .section-eyebrow { color: var(--gold-light); }
+.page-hero h1 { font-family: var(--font-heading); font-weight: 400; font-size: clamp(2.2rem, 4.4vw, 3.4rem); letter-spacing: -.01em; }
+.page-hero p { font-size: 15px; max-width: 560px; color: rgba(255, 255, 255, .8); }
+
+/* ── Angka ── */
+.section-dark { background: #1f1b16; }
+.stat-value { font-family: var(--font-heading); color: var(--gold-light); font-weight: 400; }
+.stat-label { letter-spacing: 2.5px; }
+
+/* ── Testimoni ── */
+.testimonial-card { border-radius: var(--radius-xl); border-color: #ece3d4; box-shadow: var(--shadow-soft); background: #fff; }
+.testimonial-card blockquote { font-family: var(--font-heading); font-size: 1.05rem; line-height: 1.7; color: var(--ink); }
+.testimonial-stars { color: var(--gold); letter-spacing: 3px; }
+
+/* ── Galeri ── */
+.nr-gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 210px; gap: 14px; }
+.nr-gallery a { position: relative; display: block; overflow: hidden; border-radius: var(--radius-lg); background: var(--cream); }
+.nr-gallery a:nth-child(1) { grid-column: span 2; grid-row: span 2; }
+.nr-gallery a:nth-child(6) { grid-column: span 2; }
+.nr-gallery img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--ease); }
+.nr-gallery a:hover img { transform: scale(1.05); }
+.nr-gallery a::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(15, 12, 8, .55)); opacity: 0; transition: opacity .3s; }
+.nr-gallery a:hover::after { opacity: 1; }
+.nr-gallery .cap { position: absolute; left: 16px; bottom: 14px; z-index: 2; color: #fff; font-size: 13px; font-weight: 500; opacity: 0; transform: translateY(6px); transition: all .3s; }
+.nr-gallery a:hover .cap { opacity: 1; transform: none; }
+
+/* ── Lokasi & peta ── */
+.nr-location { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); gap: 28px; align-items: stretch; }
+.nr-loc-card { background: #fff; border: 1px solid #ece3d4; border-radius: var(--radius-xl); padding: 32px 30px; box-shadow: var(--shadow-soft); }
+.nr-loc-card h3 { font-family: var(--font-heading); font-weight: 400; font-size: 1.6rem; margin-bottom: 10px; }
+.nr-loc-card > p { color: var(--warm-gray); font-size: 14.5px; line-height: 1.8; margin-bottom: 18px; }
+.nr-loc-list { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 14px; }
+.nr-loc-list li { display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; font-size: 14px; color: var(--charcoal); line-height: 1.6; }
+.nr-loc-list i { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--cream); color: var(--gold); font-size: 14px; }
+.nr-loc-list b { display: block; font-weight: 600; color: var(--ink); font-size: 13px; }
+.nr-loc-list a { color: inherit; }
+.nr-map { border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-soft); border: 1px solid #ece3d4; min-height: 420px; background: var(--cream); }
+.nr-map iframe { display: block; width: 100%; height: 100%; min-height: 420px; border: 0; filter: saturate(.9) contrast(1.02); }
+
+/* ── CTA & footer ── */
+.cta-section { background: linear-gradient(rgba(20, 16, 11, .74), rgba(20, 16, 11, .74)), var(--cta-bg, linear-gradient(135deg, #2a231b, #3d3226)); background-size: cover; background-position: center; }
+.cta-section h2 { font-family: var(--font-heading); font-weight: 400; font-size: clamp(2rem, 3.6vw, 2.9rem); }
+.footer { background: #17140f; }
+.footer h5 { letter-spacing: 2.5px; color: var(--gold-light); }
+.footer-links a:hover, .footer-contact a:hover { color: var(--gold-light); }
+.footer-social a { border-radius: 50%; transition: all .25s; }
+.footer-social a:hover { background: var(--gold); border-color: var(--gold); color: #fff; }
+
+/* ── Tombol WhatsApp melayang ── */
+.wa-float { position: fixed; right: 22px; bottom: 22px; z-index: 900; display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 20px 0 16px; border-radius: 999px; background: #25d366; color: #fff !important; text-decoration: none; font-size: 14px; font-weight: 600; box-shadow: 0 14px 30px -10px rgba(37, 211, 102, .65), 0 2px 6px rgba(0, 0, 0, .12); transition: transform .25s var(--ease), box-shadow .25s; }
+.wa-float:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 18px 36px -10px rgba(37, 211, 102, .75); }
+.wa-float svg { width: 26px; height: 26px; flex-shrink: 0; }
+.wa-float::before { content: ''; position: absolute; inset: -4px; border-radius: inherit; border: 2px solid rgba(37, 211, 102, .5); animation: waPulse 2.4s ease-out infinite; pointer-events: none; }
+@keyframes waPulse { 0% { opacity: .9; transform: scale(.96); } 100% { opacity: 0; transform: scale(1.18); } }
+
+/* ── Lightbox (galeri & foto kamar) ── */
+.nr-lightbox { position: fixed; inset: 0; z-index: 2000; display: none; align-items: center; justify-content: center; background: rgba(10, 8, 5, .92); padding: 40px 70px; }
+.nr-lightbox.open { display: flex; }
+.nr-lightbox img { max-width: 100%; max-height: 82vh; border-radius: 10px; box-shadow: 0 30px 60px rgba(0, 0, 0, .5); }
+.nr-lightbox .cap { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; color: rgba(255, 255, 255, .85); font-size: 13.5px; }
+.nr-lightbox button { position: absolute; width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .08); color: #fff; font-size: 20px; cursor: pointer; display: grid; place-items: center; }
+.nr-lightbox button:hover { background: rgba(255, 255, 255, .18); }
+.nr-lightbox .lb-close { top: 20px; right: 20px; }
+.nr-lightbox .lb-prev { left: 16px; top: 50%; transform: translateY(-50%); }
+.nr-lightbox .lb-next { right: 16px; top: 50%; transform: translateY(-50%); }
+
+/* ── Responsif ── */
+@media (max-width: 1024px) {
+    .nr-services { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .nr-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 180px; }
+    .nr-gallery a:nth-child(6) { grid-column: span 1; }
+    .nr-location { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    :root { --section-pad: 68px; }
+    .booking-bar { margin-top: -40px; }
+    .booking-bar-inner { padding: 16px; border-radius: 16px; }
+    .nr-services { grid-template-columns: 1fr; }
+    .nr-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 150px; gap: 10px; }
+    .nr-gallery a:nth-child(1) { grid-column: span 2; grid-row: span 1; }
+    .room-detail { gap: 24px; margin-bottom: 52px; }
+    .room-detail-image { min-height: 240px; }
+    .page-hero { padding: 132px 0 60px; }
+    .nr-map, .nr-map iframe { min-height: 320px; }
+    .wa-float { right: 16px; bottom: 16px; height: 52px; padding: 0 14px; }
+    .wa-float span { display: none; }
+    .nr-lightbox { padding: 60px 12px; }
+}
+
+/* Perbaikan lanjutan */
+.room-detail-image:has(.room-photo-empty)::after { display: none; }
+.page-hero { background-image: linear-gradient(180deg, rgba(15, 12, 8, .35), rgba(15, 12, 8, .6)), linear-gradient(135deg, #2b231a 0%, #4a3b2a 55%, #6b5638 100%); }
+.features-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+.feature-card { border-radius: var(--radius-lg); border-color: #ece3d4; box-shadow: var(--shadow-soft); }
+.feature-icon { color: var(--gold); }
+
+/* Kontak & destinasi: kartu seragam */
+.contact-card .btn-primary, .contact-card .btn-primary i { color: #fff !important; }
+.contact-card { border-radius: var(--radius-lg) !important; border-color: #ece3d4 !important; box-shadow: var(--shadow-soft); }
+.contact-icon { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--cream); color: var(--gold); margin-bottom: 12px; }
+.contact-card h4 { font-family: var(--font-heading); font-weight: 500; font-size: 1.1rem; }
+.contact-form-card, .contact-form { border-radius: var(--radius-xl) !important; box-shadow: var(--shadow-soft); }
+.dest-card, .dest-featured { border-radius: var(--radius-lg) !important; overflow: hidden; box-shadow: var(--shadow-soft); }
+
+@media (max-width: 768px) {
+    .booking-bar-form { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .booking-bar-form .form-group { min-width: 0; width: auto; }
+    .booking-bar-form .form-group:nth-of-type(3), .booking-bar-form .form-group-btn { grid-column: 1 / -1; }
+    .booking-bar-form .form-group-btn label { display: none; }
+    .booking-bar-form input, .booking-bar-form select { width: 100%; min-width: 0; }
+}

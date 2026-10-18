@@ -123,6 +123,29 @@ foreach ($gallerySettings as $gs) {
     }
 }
 
+// Galeri Beranda: foto kamar dari pengaturan + foto aktivitas (tanpa duplikat), maksimal 8
+$homeGallery = [];
+$__seen = [];
+$__addImg = function ($src, $caption) use (&$homeGallery, &$__seen) {
+    $src = trim((string)$src);
+    if ($src === '' || isset($__seen[$src]) || count($homeGallery) >= 8) return;
+    $__seen[$src] = true;
+    $homeGallery[] = ['src' => preg_match('#^https?://#i', $src) ? $src : BASE_URL . '/' . ltrim($src, '/'), 'caption' => $caption];
+};
+foreach ($roomGalleries as $__k => $__imgs) {
+    foreach (array_slice((array)$__imgs, 0, 2) as $__img) $__addImg($__img, ucwords(str_replace('_', ' ', $__k)) . ' Room');
+}
+foreach ($homeActivities as $__a) $__addImg($__a['image'] ?? '', $__a['title'] ?? '');
+unset($__seen, $__addImg, $__k, $__imgs, $__img, $__a);
+
+// Lokasi untuk peta: koordinat dari pengaturan SEO, bila kosong cari berdasarkan nama hotel
+$__geo = [];
+foreach (dbFetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('web_schema_latitude','web_schema_longitude')") as $__r) $__geo[$__r['setting_key']] = trim((string)$__r['setting_value']);
+$mapQuery = (!empty($__geo['web_schema_latitude']) && !empty($__geo['web_schema_longitude'])) ? $__geo['web_schema_latitude'] . ',' . $__geo['web_schema_longitude'] : 'Narayana Hotel Karimunjawa';
+unset($__geo, $__r);
+$mapEmbed = 'https://maps.google.com/maps?q=' . rawurlencode($mapQuery) . '&z=15&output=embed';
+$mapDirections = 'https://www.google.com/maps/dir/?api=1&destination=' . rawurlencode($mapQuery);
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 
@@ -259,39 +282,6 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
         </div>
 
-        <!-- Services row below -->
-        <div class="services-row fade-in">
-            <div class="service-item">
-                <div class="service-icon"><i class="fas fa-map-marker-alt"></i></div>
-                <h4>Prime Location</h4>
-                <p>Steps from the town centre with easy access to the harbour, local market, and every major island destination.</p>
-            </div>
-            <div class="service-item">
-                <div class="service-icon"><i class="fas fa-mountain"></i></div>
-                <h4>Mountain Views</h4>
-                <p>Sweeping mountain panoramas and proximity to the island's most stunning sunset spot.</p>
-            </div>
-            <div class="service-item">
-                <div class="service-icon"><i class="fas fa-motorcycle"></i></div>
-                <h4>Motorbike Rental</h4>
-                <p>Explore Karimunjawa at your own pace — rent a motorbike directly from the hotel.</p>
-            </div>
-            <div class="service-item">
-                <div class="service-icon"><i class="fas fa-ship"></i></div>
-                <h4>Ocean Trips</h4>
-                <p>Island hopping, coral reef snorkelling, and visits to secluded hidden beaches.</p>
-            </div>
-            <div class="service-item">
-                <div class="service-icon"><i class="fas fa-utensils"></i></div>
-                <h4>Restaurant</h4>
-                <p>Freshly caught seafood and authentic local cuisine prepared by our chefs.</p>
-            </div>
-            <div class="service-item">
-                <div class="service-icon"><i class="fas fa-spa"></i></div>
-                <h4>Peaceful Stay</h4>
-                <p>Architecture crafted for tranquillity, enveloped by tropical greenery.</p>
-            </div>
-        </div>
     </div>
 </section>
 
@@ -351,7 +341,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                             <?php endif; ?>
                         <?php else: ?>
-                            <div class="room-visual"><?= $icon ?></div>
+                            <div class="room-photo-empty"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 46V26a4 4 0 0 1 4-4h40a4 4 0 0 1 4 4v20"/><path d="M4 46h56v6H4z"/><path d="M14 22v-6a3 3 0 0 1 3-3h30a3 3 0 0 1 3 3v6"/><rect x="14" y="30" width="14" height="8" rx="2"/><rect x="36" y="30" width="14" height="8" rx="2"/></svg><span><?= htmlspecialchars($typeName) ?></span><small>Photos coming soon</small></div>
                         <?php endif; ?>
                     </div>
                     <div class="room-card-body">
@@ -388,27 +378,13 @@ require_once __DIR__ . '/includes/header.php';
             <div class="divider center"></div>
         </div>
 
-        <div class="features-grid">
-            <div class="feature-card fade-in">
-                <div class="feature-icon"><i class="fas fa-water"></i></div>
-                <h4>Beachfront Location</h4>
-                <p>Step directly onto pristine white sandy shores with crystal-clear turquoise waters.</p>
-            </div>
-            <div class="feature-card fade-in">
-                <div class="feature-icon"><i class="fas fa-concierge-bell"></i></div>
-                <h4>Personalised Service</h4>
-                <p>Dedicated staff ensuring every aspect of your stay is tailored to your preferences.</p>
-            </div>
-            <div class="feature-card fade-in">
-                <div class="feature-icon"><i class="fas fa-anchor"></i></div>
-                <h4>Island Activities</h4>
-                <p>Snorkelling, diving, island hopping, and sunset cruises arranged for our guests.</p>
-            </div>
-            <div class="feature-card fade-in">
-                <div class="feature-icon"><i class="fas fa-utensils"></i></div>
-                <h4>Fresh Cuisine</h4>
-                <p>Freshly caught seafood and authentic local dishes prepared by skilled chefs.</p>
-            </div>
+        <div class="nr-services">
+            <div class="nr-service fade-in"><i class="fas fa-map-marker-alt"></i><h4>Prime Location</h4><p>Close to the town centre, harbour and local market, with easy access to every major island destination.</p></div>
+            <div class="nr-service fade-in"><i class="fas fa-mountain-sun"></i><h4>Mountain &amp; Sunset Views</h4><p>Sweeping mountain panoramas and moments from Karimunjawa's most beautiful sunset viewpoint.</p></div>
+            <div class="nr-service fade-in"><i class="fas fa-ship"></i><h4>Ocean Trips</h4><p>Island hopping, coral-reef snorkelling and secluded beaches, arranged directly by our team.</p></div>
+            <div class="nr-service fade-in"><i class="fas fa-utensils"></i><h4>Restaurant</h4><p>Freshly caught seafood and authentic local dishes prepared daily by our kitchen.</p></div>
+            <div class="nr-service fade-in"><i class="fas fa-motorcycle"></i><h4>Motorbike Rental</h4><p>Explore the island at your own pace with motorbikes available right at the hotel.</p></div>
+            <div class="nr-service fade-in"><i class="fas fa-concierge-bell"></i><h4>Personal Service</h4><p>A dedicated team that tailors every detail of your stay, from arrival to farewell.</p></div>
         </div>
     </div>
 </section>
@@ -422,8 +398,8 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">Total Rooms</div>
             </div>
             <div class="stat-item fade-in">
-                <div class="stat-value"><?= $availableNow ?></div>
-                <div class="stat-label">Available Tonight</div>
+                <div class="stat-value">27</div>
+                <div class="stat-label">Islands to Explore</div>
             </div>
             <div class="stat-item fade-in">
                 <div class="stat-value"><?= count($roomTypes) ?></div>
@@ -484,8 +460,56 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </section>
 
+<?php if (!empty($homeGallery)): ?>
+<!-- Gallery -->
+<section class="section section-alt" id="gallery">
+    <div class="container">
+        <div class="section-header text-center fade-in">
+            <div class="section-eyebrow">Gallery</div>
+            <h2 class="section-title">Moments at Narayana</h2>
+            <div class="divider center"></div>
+        </div>
+        <div class="nr-gallery fade-in">
+            <?php foreach ($homeGallery as $g): ?>
+                <a href="<?= htmlspecialchars($g['src']) ?>" data-lightbox="home" data-caption="<?= htmlspecialchars($g['caption']) ?>">
+                    <img src="<?= htmlspecialchars($g['src']) ?>" alt="<?= htmlspecialchars($g['caption']) ?>" loading="lazy">
+                    <span class="cap"><?= htmlspecialchars($g['caption']) ?></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
+<!-- Location -->
+<section class="section" id="location">
+    <div class="container">
+        <div class="section-header text-center fade-in">
+            <div class="section-eyebrow">Location</div>
+            <h2 class="section-title">Getting Here</h2>
+            <div class="divider center"></div>
+        </div>
+        <div class="nr-location fade-in">
+            <div class="nr-loc-card">
+                <h3>Narayana Karimunjawa</h3>
+                <p>Reach Karimunjawa by fast boat or ferry from Jepara or Semarang. Once you arrive at the harbour, we are only minutes away — just let us know your arrival time.</p>
+                <ul class="nr-loc-list">
+                    <li><i class="fas fa-location-dot"></i><span><b>Address</b><?= htmlspecialchars(BUSINESS_ADDRESS) ?></span></li>
+                    <li><i class="fas fa-ship"></i><span><b>From the harbour</b>Free assistance on request — contact us before you sail.</span></li>
+                    <li><i class="fas fa-clock"></i><span><b>Check-in / Check-out</b><?= BUSINESS_CHECKIN_TIME ?> · <?= BUSINESS_CHECKOUT_TIME ?></span></li>
+                    <li><i class="fab fa-whatsapp"></i><span><b>WhatsApp</b><a href="https://wa.me/<?= BUSINESS_WHATSAPP ?>" target="_blank" rel="noopener"><?= htmlspecialchars(BUSINESS_PHONE) ?></a></span></li>
+                </ul>
+                <a href="<?= htmlspecialchars($mapDirections) ?>" target="_blank" rel="noopener" class="btn btn-primary"><i class="fas fa-diamond-turn-right"></i> Get Directions</a>
+            </div>
+            <div class="nr-map">
+                <iframe src="<?= htmlspecialchars($mapEmbed) ?>" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Narayana Karimunjawa location map" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- CTA -->
-<section class="cta-section">
+<section class="cta-section"<?php if (!empty($heroBg)): ?> style="--cta-bg: url('<?= (strpos($heroBg, 'http') === 0) ? htmlspecialchars($heroBg) : BASE_URL . '/' . htmlspecialchars($heroBg) ?>');"<?php endif; ?>>
     <div class="container">
         <div class="section-eyebrow" style="color:var(--gold-light);">Ready to escape?</div>
         <h2>Begin Your Island Journey</h2>

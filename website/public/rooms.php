@@ -144,7 +144,17 @@ include __DIR__ . '/includes/header.php';
                     ?>
                         <img src="<?= htmlspecialchars($imgSrc) ?>" alt="<?= htmlspecialchars($typeName) ?> Room" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
                     <?php else: ?>
-                        <span class="room-emoji"><?= $icon ?></span>
+                        <div class="room-photo-empty"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 46V26a4 4 0 0 1 4-4h40a4 4 0 0 1 4 4v20"/><path d="M4 46h56v6H4z"/><path d="M14 22v-6a3 3 0 0 1 3-3h30a3 3 0 0 1 3 3v6"/><rect x="14" y="30" width="14" height="8" rx="2"/><rect x="36" y="30" width="14" height="8" rx="2"/></svg><span><?= htmlspecialchars($typeName) ?> Room</span><small>Photos coming soon</small></div>
+                    <?php endif; ?>
+                    <?php if (count($gallery) > 1): ?>
+                        <?php foreach ($gallery as $gi => $gImg):
+                            $gSrc = preg_match('#^https?://#i', $gImg) ? $gImg : BASE_URL . '/' . $gImg; ?>
+                            <?php if ($gi === 0): ?>
+                                <button type="button" class="room-photos-btn" data-lightbox="room-<?= (int)$room['id'] ?>" data-src="<?= htmlspecialchars($gSrc) ?>" data-caption="<?= htmlspecialchars($typeName) ?> Room"><i class="fas fa-images"></i> <?= count($gallery) ?> photos</button>
+                            <?php else: ?>
+                                <span hidden data-lightbox="room-<?= (int)$room['id'] ?>" data-src="<?= htmlspecialchars($gSrc) ?>" data-caption="<?= htmlspecialchars($typeName) ?> Room"></span>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
                     <?php endif; ?>
                     <div style="position:absolute; bottom:12px; left:12px; z-index: 2;">
                         <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
@@ -170,30 +180,6 @@ include __DIR__ . '/includes/header.php';
                         <?php foreach ($amenities as $a): ?>
                             <span><?= htmlspecialchars($a) ?></span>
                         <?php endforeach; ?>
-                    </div>
-
-                    <!-- Room Status -->
-                    <div style="margin-top:6px;">
-                        <div style="font-size:10px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--mid-gray); margin-bottom:4px;">Room Status</div>
-                        <div class="room-status-grid">
-                            <?php foreach ($typeRooms as $tr):
-                                $sc = match ($tr['live_status']) {
-                                    'available' => 'available',
-                                    'occupied' => 'occupied',
-                                    'cleaning' => 'cleaning',
-                                    default => 'maintenance'
-                                };
-                            ?>
-                                <div class="room-status-box <?= $sc ?>" title="Room <?= $tr['room_number'] ?> — <?= ucfirst($tr['live_status']) ?>">
-                                    <?= $tr['room_number'] ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <div class="status-legend">
-                            <span class="legend-available">Available</span>
-                            <span class="legend-occupied">Occupied</span>
-                            <span class="legend-cleaning">Cleaning</span>
-                        </div>
                     </div>
 
                     <!-- Price & CTA -->
