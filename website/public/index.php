@@ -202,38 +202,54 @@ require_once __DIR__ . '/includes/header.php';
 </section>
 
 <!-- Booking Bar -->
-<div class="booking-bar">
+<section class="nrbar" aria-label="Check availability">
     <div class="container">
-        <div class="booking-bar-inner">
-            <form class="booking-bar-form" action="<?= BASE_URL ?>/booking.php" method="GET">
-                <div class="form-group">
-                    <label for="bb_checkin">Check-in</label>
-                    <input type="date" id="bb_checkin" name="checkin" min="<?= $today ?>" value="<?= $today ?>" required>
-                </div>
-                <div class="form-group">
-                    <label for="bb_checkout">Check-out</label>
-                    <input type="date" id="bb_checkout" name="checkout" min="<?= $tomorrow ?>" value="<?= $tomorrow ?>" required>
-                </div>
-                <div class="form-group">
-                    <label for="bb_guests">Guests</label>
-                    <select id="bb_guests" name="adults">
-                        <option value="1">1 Guest</option>
-                        <option value="2" selected>2 Guests</option>
-                        <option value="3">3 Guests</option>
-                        <option value="4">4 Guests</option>
-                    </select>
-                </div>">">">">">">
-                <div class="form-group form-group-btn">
-                    <label>&nbsp;</label>
-                    <button type="submit" class="btn btn-primary">Find Rooms</button>
-                </div>
-            </form>
-        </div>
+        <form class="nrbar-form" action="<?= BASE_URL ?>/booking.php" method="GET">
+            <label class="nrbar-field">
+                <i class="far fa-calendar"></i>
+                <span class="nrbar-label">Check-in</span>
+                <input type="date" id="bb_checkin" name="checkin" min="<?= $today ?>" value="<?= $today ?>" required>
+            </label>
+            <label class="nrbar-field">
+                <i class="far fa-calendar-check"></i>
+                <span class="nrbar-label">Check-out</span>
+                <input type="date" id="bb_checkout" name="checkout" min="<?= $tomorrow ?>" value="<?= $tomorrow ?>" required>
+            </label>
+            <label class="nrbar-field nrbar-field-sm">
+                <i class="far fa-user"></i>
+                <span class="nrbar-label">Guests</span>
+                <select id="bb_guests" name="adults">
+                    <?php for ($g = 1; $g <= 8; $g++): ?>
+                        <option value="<?= $g ?>" <?= $g === 2 ? 'selected' : '' ?>><?= $g ?> Adult<?= $g > 1 ? 's' : '' ?></option>
+                    <?php endfor; ?>
+                </select>
+            </label>
+            <div class="nrbar-nights"><strong id="bb_nights">1</strong><span id="bb_nights_l">Night</span></div>
+            <button type="submit" class="nrbar-btn">Check Availability <i class="fas fa-arrow-right"></i></button>
+        </form>
+        <ul class="nrbar-perks">
+            <li><i class="fas fa-tag"></i>Best rate booking direct</li>
+            <li><i class="fas fa-shield-halved"></i>No online payment</li>
+            <li><i class="fab fa-whatsapp"></i>Confirmed by our team on WhatsApp</li>
+        </ul>
     </div>
-</div>
-
-
-
+</section>
+<script>
+    // Check-out mengikuti check-in + jumlah malam
+    (function() {
+        var ci = document.getElementById('bb_checkin'), co = document.getElementById('bb_checkout');
+        function upd() {
+            var d1 = new Date(ci.value + 'T00:00:00'), next = new Date(d1); next.setDate(next.getDate() + 1);
+            var min = next.toISOString().slice(0, 10);
+            co.min = min;
+            if (!co.value || co.value <= ci.value) co.value = min;
+            var n = Math.max(1, Math.round((new Date(co.value + 'T00:00:00') - d1) / 86400000));
+            document.getElementById('bb_nights').textContent = n;
+            document.getElementById('bb_nights_l').textContent = n > 1 ? 'Nights' : 'Night';
+        }
+        ci.addEventListener('change', upd); co.addEventListener('change', upd); upd();
+    })();
+</script>
 <!-- About Narayana -->
 <section class="section about-section" id="discover">
     <div class="container">

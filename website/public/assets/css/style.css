@@ -4370,3 +4370,79 @@ html[data-theme="dark"] .nrb input[type="date"] { color-scheme: dark; }
 .nrb label, .nrb-search > *, .nrb-grid > *, .nrb-room > *, .nrb-details > * { min-width: 0; }
 @media (max-width: 960px) { .nrb-search { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } .nrb-room, .nrb-details { grid-template-columns: minmax(0,1fr); } }
 @media (max-width: 560px) { .nrb-grid { grid-template-columns: minmax(0,1fr); } .nrb-search { padding: 16px; gap: 12px; } .nrb input[type="date"] { font-size: 14px; padding: 10px 8px; } }
+
+/* ===== BAR RESERVASI (beranda) & SECTION ABOUT — versi rapi ===== */
+.nrbar { position: relative; z-index: 6; margin-top: -52px; padding: 0 0 8px; background: transparent; }
+.nrbar .container { max-width: 1080px; }
+.nrbar-form { display: grid; grid-template-columns: 1.15fr 1.15fr .9fr auto auto; align-items: stretch; background: #fff; border-top: 2px solid var(--gold); box-shadow: 0 18px 50px rgba(20, 15, 8, .14); }
+.nrbar-field { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 16px 22px 14px 52px; margin: 0; cursor: pointer; min-width: 0; }
+.nrbar-field + .nrbar-field::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: #e9e1d3; }
+.nrbar-field > i { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); color: var(--gold); font-size: 15px; }
+.nrbar-label { font-size: 10px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--gold-dark); line-height: 1.4; }
+.nrbar-field input, .nrbar-field select { border: 0; background: transparent; padding: 2px 0; margin: 0; height: auto; font: inherit; font-size: 15px; font-weight: 500; color: var(--ink, #1a1612); width: 100%; min-width: 0; outline: none; box-shadow: none; border-radius: 0; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.nrbar-field select { background-image: linear-gradient(45deg, transparent 50%, var(--gold) 50%), linear-gradient(135deg, var(--gold) 50%, transparent 50%); background-position: calc(100% - 9px) 55%, calc(100% - 4px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 18px; }
+.nrbar-field:hover { background: #fcfaf6; }
+.nrbar-field:focus-within { background: #faf6ee; }
+.nrbar-nights { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 22px; border-left: 1px solid #e9e1d3; margin: 16px 0; line-height: 1.15; }
+.nrbar-nights strong { font-size: 22px; font-weight: 300; color: var(--ink, #1a1612); }
+.nrbar-nights span { font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--mid-gray); }
+.nrbar-btn { border: 0; background: var(--gold); color: #fff; font: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; padding: 0 30px; cursor: pointer; white-space: nowrap; transition: background .25s ease; }
+.nrbar-btn i { margin-left: 8px; font-size: 11px; transition: transform .25s ease; }
+.nrbar-btn:hover { background: var(--gold-dark); }
+.nrbar-btn:hover i { transform: translateX(3px); }
+.nrbar-perks { list-style: none; display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 28px; margin: 16px 0 0; padding: 0; }
+.nrbar-perks li { font-size: 12px; letter-spacing: .06em; color: var(--warm-gray); }
+.nrbar-perks i { color: var(--gold); margin-right: 7px; }
+html[data-theme="dark"] .nrbar-form { background: #1c1814; box-shadow: 0 18px 50px rgba(0, 0, 0, .45); }
+html[data-theme="dark"] .nrbar-field + .nrbar-field::before, html[data-theme="dark"] .nrbar-nights { background-color: transparent; border-color: #3a322a; }
+html[data-theme="dark"] .nrbar-field + .nrbar-field::before { background: #3a322a; }
+html[data-theme="dark"] .nrbar-field input, html[data-theme="dark"] .nrbar-field select, html[data-theme="dark"] .nrbar-nights strong { color: #f1ece4; }
+html[data-theme="dark"] .nrbar-field input[type="date"] { color-scheme: dark; }
+html[data-theme="dark"] .nrbar-field select option { background: #1c1814; }
+html[data-theme="dark"] .nrbar-field:hover, html[data-theme="dark"] .nrbar-field:focus-within { background: #241f19; }
+html[data-theme="dark"] .nrbar-label { color: var(--gold-light); }
+html[data-theme="dark"] .nrbar-perks li { color: #c3b9ab; }
+
+/* About: jarak lebih rapat, lebar konten terkendali */
+.about-section { padding-top: 56px !important; padding-bottom: 72px !important; }
+.about-section .container { max-width: 1120px; }
+.about-layout { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr) !important; gap: 56px !important; align-items: center; }
+.about-content .section-title { margin-bottom: 4px; }
+.about-content .divider { margin: 14px 0 22px; }
+.about-lead { font-family: var(--font-body, 'Lato', sans-serif) !important; font-size: 1.12rem !important; line-height: 1.7 !important; margin-bottom: 14px; }
+.about-lead strong { color: var(--gold-dark); font-weight: 600; }
+.about-text { font-size: 15px !important; line-height: 1.8 !important; margin-bottom: 22px; }
+.about-highlight { border-radius: 0 !important; box-shadow: none !important; border: 0 !important; border-left: 2px solid var(--gold) !important; background: #fff; padding: 18px 20px !important; gap: 14px; }
+.about-highlight strong { font-size: 14.5px; letter-spacing: .01em; }
+.about-highlight p { font-size: 14px; line-height: 1.7; margin: 4px 0 0; }
+.act-slideshow { border-radius: 0 !important; max-height: 460px !important; aspect-ratio: 4 / 4.6 !important; }
+html[data-theme="dark"] .about-highlight { background: #1c1814; }
+html[data-theme="dark"] .about-lead strong { color: var(--gold-light); }
+
+@media (max-width: 960px) {
+  .nrbar { margin-top: -40px; }
+  .nrbar-form { grid-template-columns: 1fr 1fr; }
+  .nrbar-field { padding: 14px 16px 12px 46px; border-bottom: 1px solid #e9e1d3; }
+  .nrbar-field > i { left: 17px; }
+  .nrbar-field + .nrbar-field::before { display: none; }
+  .nrbar-field:nth-child(2) { border-left: 1px solid #e9e1d3; }
+  .nrbar-nights { flex-direction: row; gap: 6px; margin: 0; padding: 14px 16px; border-left: 1px solid #e9e1d3; border-bottom: 1px solid #e9e1d3; }
+  .nrbar-nights strong { font-size: 16px; font-weight: 600; }
+  .nrbar-btn { grid-column: 1 / -1; padding: 16px; }
+  .about-section { padding-top: 44px !important; padding-bottom: 56px !important; }
+  .about-layout { grid-template-columns: minmax(0, 1fr) !important; gap: 32px !important; }
+  html[data-theme="dark"] .nrbar-field, html[data-theme="dark"] .nrbar-field:nth-child(2), html[data-theme="dark"] .nrbar-nights { border-color: #3a322a; }
+}
+@media (max-width: 560px) {
+  .nrbar-perks { gap: 6px 16px; }
+  .nrbar-perks li { font-size: 11.5px; }
+}
+
+/* bar reservasi: latar menyatu dengan About; seluruh kolom tanggal membuka kalender (ikon bawaan disembunyikan) */
+.nrbar { background: linear-gradient(to bottom, transparent 52px, var(--cream) 52px); }
+.nrbar-field input[type="date"] { position: relative; }
+.nrbar-field input[type="date"]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
+html[data-theme="dark"] .nrbar { background: linear-gradient(to bottom, transparent 52px, #13110e 52px); }
+@media (max-width: 960px) { .nrbar { background: linear-gradient(to bottom, transparent 40px, var(--cream) 40px); } html[data-theme="dark"] .nrbar { background: linear-gradient(to bottom, transparent 40px, #13110e 40px); } }
+html[data-theme="dark"] .nrbar-field input, html[data-theme="dark"] .nrbar-field select { background-color: transparent !important; border: 0 !important; box-shadow: none !important; }
+html[data-theme="dark"] .nrbar-field select { background-image: linear-gradient(45deg, transparent 50%, #d9bf8c 50%), linear-gradient(135deg, #d9bf8c 50%, transparent 50%) !important; background-position: calc(100% - 9px) 55%, calc(100% - 4px) 55% !important; background-size: 5px 5px !important; background-repeat: no-repeat !important; }
