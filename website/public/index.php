@@ -599,7 +599,7 @@ require_once __DIR__ . '/includes/header.php';
         });
     });
 
-    // ── Activities Slideshow (crossfade) ──
+    // ── Activities Slideshow: wipe + zoom pelan, ±3,2 dtk per slide, panah, swipe, jeda saat hover ──
     (function() {
         const ss = document.querySelector('.act-slideshow');
         if (!ss) return;
@@ -607,23 +607,47 @@ require_once __DIR__ . '/includes/header.php';
         const dots = ss.querySelectorAll('.act-ss-dot');
         const total = slides.length;
         if (total === 0) return;
-
-        let current = 0;
+        const DELAY = 3200;
+        let current = 0, timer = null, busy = false;
 
         function goTo(idx) {
-            slides[current].classList.remove('active');
+            idx = ((idx % total) + total) % total;
+            if (idx === current || busy) return;
+            busy = true;
+            const prev = slides[current];
+            prev.classList.add('leaving');
+            prev.classList.remove('active');
             if (dots[current]) dots[current].classList.remove('active');
-            current = ((idx % total) + total) % total;
+            current = idx;
             slides[current].classList.add('active');
             if (dots[current]) dots[current].classList.add('active');
+            setTimeout(() => { prev.classList.remove('leaving'); busy = false; }, 950);
         }
+        const start = () => { stop(); if (total > 1) timer = setInterval(() => goTo(current + 1), DELAY); };
+        const stop = () => { if (timer) clearInterval(timer); timer = null; };
 
-        dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.index)));
-
-        let timer = setInterval(() => goTo(current + 1), 4000);
-        ss.addEventListener('mouseenter', () => clearInterval(timer));
-        ss.addEventListener('mouseleave', () => {
-            timer = setInterval(() => goTo(current + 1), 4000);
-        });
-    })();
-</script>
+        dots.forEach(d => d.addEventListener('click', () => { goTo(+d.dataset.index); start(); }));
+        if (total > 1) {
+            ['prev', 'next'].forEach(dir => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'act-ss-nav act-ss-' + dir;
+                b.setAttribute('aria-label', dir === 'prev' ? 'Previous' : 'Next');
+                b.innerHTML = '<i class="fas fa-chevron-' + (dir === 'prev' ? 'left' : 'right') + '"></i>';
+                b.addEventListener('click', () => { goTo(current + (dir === 'prev' ? -1 : 1)); start(); });
+                ss.appendChild(b);
+            });
+            let x0 = null;
+            ss.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+            ss.addEventListener('touchend', e => {
+                if (x0 === null) return;
+                const dx = e.changedTouches[0].clientX - x0;
+                if (Math.abs(dx) > 40) { goTo(current + (dx < 0 ? 1 : -1)); start(); }
+                x0 = null;
+            });
+        }
+        ss.addEventListener('mouseenter', () => { stop(); ss.classList.add('is-paused'); });
+        ss.addEventListener('mouseleave', () => { ss.classList.remove('is-paused'); start(); });
+        document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
+        start();
+    })();</script>
