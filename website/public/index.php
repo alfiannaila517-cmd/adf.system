@@ -421,8 +421,8 @@ $homeServices = array_slice(nrServices(), 0, 4);
         </div>
         <div class="nrs-tiles">
             <?php foreach ($homeServices as $sv): ?>
-                <a class="nrs-tile fade-in" href="<?= BASE_URL ?>/services.php#<?= htmlspecialchars($sv['key']) ?>">
-                    <?php if ($sv['images']): ?><img src="<?= htmlspecialchars($sv['images'][0]) ?>" alt="<?= htmlspecialchars($sv['name']) ?>" loading="lazy"><?php endif; ?>
+                <a class="nrs-tile fade-in<?= $sv['images'] ? '' : ' nrs-tone-' . htmlspecialchars($sv['tone']) ?>" href="<?= BASE_URL ?>/services.php#<?= htmlspecialchars($sv['key']) ?>">
+                    <?php if ($sv['images']): ?><img src="<?= htmlspecialchars($sv['images'][0]) ?>" alt="<?= htmlspecialchars($sv['name']) ?>" loading="lazy"><?php else: ?><i class="fas <?= htmlspecialchars($sv['icon']) ?> nrs-tile-big" aria-hidden="true"></i><?php endif; ?>
                     <i class="fas <?= htmlspecialchars($sv['icon']) ?> nrs-tile-ic"></i>
                     <div class="nrs-tile-body">
                         <small><?= htmlspecialchars($sv['eyebrow']) ?></small>

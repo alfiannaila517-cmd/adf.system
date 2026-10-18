@@ -142,6 +142,15 @@ if (!function_exists('nrServices')) {
                 'price' => min(array_column($list, 'price')), 'unit' => $list[0]['unit'], 'images' => [], 'items' => $list, 'wa' => 'Hello Narayana, I would like to ask about ' . $label . '.'];
         }
 
+        // Warna poster otomatis (layanan tanpa flyer)
+        $tones = ['trips' => 'ocean', 'motorbike' => 'forest', 'transfers' => 'slate'];
+        $cycle = ['sand', 'plum', 'slate', 'ocean', 'forest'];
+        $n = 0;
+        foreach ($out as &$sv) {
+            $sv['tone'] = $tones[$sv['key']] ?? $cycle[$n++ % count($cycle)];
+        }
+        unset($sv);
+
         return $cache = $out;
     }
 

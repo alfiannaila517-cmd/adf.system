@@ -55,24 +55,43 @@ include __DIR__ . '/includes/header.php';
         <div class="container nrs-grid">
             <div class="nrs-media fade-in">
                 <?php if ($sv['images']): ?>
-                    <a class="nrs-main" href="<?= htmlspecialchars($sv['images'][0]) ?>" data-lightbox="svc-<?= htmlspecialchars($sv['key']) ?>" data-caption="<?= htmlspecialchars($sv['name']) ?>">
+                    <a class="nrs-main" style="--nrs-bg: url('<?= htmlspecialchars($sv['images'][0], ENT_QUOTES) ?>')" href="<?= htmlspecialchars($sv['images'][0]) ?>" data-lightbox="svc-<?= htmlspecialchars($sv['key']) ?>" data-caption="<?= htmlspecialchars($sv['name']) ?>">
                         <img src="<?= htmlspecialchars($sv['images'][0]) ?>" alt="<?= htmlspecialchars($sv['name']) ?>" loading="lazy">
+                        <span class="nrs-zoom" aria-hidden="true"><i class="fas fa-expand"></i></span>
                     </a>
                     <?php if (count($sv['images']) > 1): ?>
                         <div class="nrs-thumbs">
-                            <?php foreach (array_slice($sv['images'], 1, 4) as $k => $img): ?>
+                            <?php foreach (array_slice($sv['images'], 1, 5) as $k => $img): ?>
                                 <a href="<?= htmlspecialchars($img) ?>" data-lightbox="svc-<?= htmlspecialchars($sv['key']) ?>" data-caption="<?= htmlspecialchars($sv['name']) ?>">
                                     <img src="<?= htmlspecialchars($img) ?>" alt="" loading="lazy">
-                                    <?php if ($k === 3 && count($sv['images']) > 5): ?><span>+<?= count($sv['images']) - 5 ?></span><?php endif; ?>
+                                    <?php if ($k === 4 && count($sv['images']) > 6): ?><span>+<?= count($sv['images']) - 6 ?></span><?php endif; ?>
                                 </a>
                             <?php endforeach; ?>
-                            <?php foreach (array_slice($sv['images'], 5) as $img): ?>
+                            <?php foreach (array_slice($sv['images'], 6) as $img): ?>
                                 <a href="<?= htmlspecialchars($img) ?>" data-lightbox="svc-<?= htmlspecialchars($sv['key']) ?>" data-caption="<?= htmlspecialchars($sv['name']) ?>" hidden></a>
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
                 <?php else: ?>
-                    <div class="nrs-placeholder"><i class="fas <?= htmlspecialchars($sv['icon']) ?>"></i><span><?= htmlspecialchars($sv['eyebrow']) ?></span></div>
+                    <?php // Belum ada flyer: poster tipografi otomatis dari data layanan ?>
+                    <div class="nrs-poster nrs-tone-<?= htmlspecialchars($sv['tone']) ?>">
+                        <div class="nrs-poster-in">
+                            <div class="nrs-poster-brand">Narayana <span>·</span> Karimunjawa</div>
+                            <div class="nrs-poster-ic"><i class="fas <?= htmlspecialchars($sv['icon']) ?>"></i></div>
+                            <div class="nrs-poster-eyebrow"><?= htmlspecialchars($sv['eyebrow']) ?></div>
+                            <div class="nrs-poster-title"><?= htmlspecialchars($sv['name']) ?></div>
+                            <div class="nrs-poster-rule"><span></span></div>
+                            <?php if ($sv['points']): ?>
+                                <ul class="nrs-poster-points">
+                                    <?php foreach (array_slice($sv['points'], 0, 4) as $pt): ?><li><?= htmlspecialchars($pt) ?></li><?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                            <?php if ($sv['price'] > 0): ?>
+                                <div class="nrs-poster-price"><small>From</small><strong><?= nrsPrice($sv['price']) ?></strong><?php if ($sv['unit'] !== ''): ?><em>per <?= htmlspecialchars($sv['unit']) ?></em><?php endif; ?></div>
+                            <?php endif; ?>
+                            <div class="nrs-poster-foot"><i class="fab fa-whatsapp"></i> Arranged by our front office</div>
+                        </div>
+                    </div>
                 <?php endif; ?>
             </div>
             <div class="nrs-body fade-in">

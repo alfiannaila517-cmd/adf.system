@@ -4586,3 +4586,64 @@ html[data-theme="dark"] .nrs-list summary { color: var(--gold-light); }
   .nrs-actions .nrs-btn { width: 100%; justify-content: center; }
 }
 #services .section-desc { max-width: 640px; margin: 14px auto 0; text-align: center; }
+
+/* ===== SERVICES v2: flyer portrait utuh + poster otomatis ===== */
+.nrs-grid { grid-template-columns: minmax(0, .82fr) minmax(0, 1fr); gap: 72px; }
+.nrs-media { max-width: 470px; width: 100%; justify-self: center; }
+/* Flyer: bingkai portrait, gambar utuh (contain) di atas versi blur dirinya sendiri */
+.nrs-main { aspect-ratio: 4 / 5; background: #1a1612; isolation: isolate; }
+.nrs-main::before { content: ''; position: absolute; inset: -30px; z-index: -1; background: var(--nrs-bg) center / cover no-repeat; filter: blur(26px) brightness(.55) saturate(1.1); }
+.nrs-main img { object-fit: contain; position: relative; z-index: 1; filter: drop-shadow(0 10px 26px rgba(0, 0, 0, .35)); }
+.nrs-main::after { z-index: 2; inset: 12px; border-color: rgba(255, 255, 255, .22); }
+.nrs-main:hover img { transform: scale(1.025); }
+.nrs-thumbs { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.nrs-thumbs a { aspect-ratio: 3 / 4; }
+.nrs-thumbs img { object-position: top center; opacity: .85; transition: opacity .3s ease, transform 1.2s cubic-bezier(.22, .61, .36, 1); }
+.nrs-thumbs a:hover img { opacity: 1; }
+.nrs-zoom { position: absolute; z-index: 3; right: 22px; bottom: 22px; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: rgba(15, 12, 9, .55); color: #fff; font-size: 13px; border: 1px solid rgba(255, 255, 255, .35); }
+
+/* Poster otomatis untuk layanan yang belum punya flyer */
+.nrs-poster { --tone-a: #12313a; --tone-b: #08181d; --tone-ink: #d9bf8c; position: relative; aspect-ratio: 4 / 5; overflow: hidden; color: #fff; box-shadow: 0 22px 54px rgba(20, 15, 8, .22);
+  background:
+    radial-gradient(120% 70% at 85% -10%, rgba(255, 255, 255, .10), transparent 60%),
+    radial-gradient(90% 60% at -10% 110%, rgba(217, 191, 140, .14), transparent 60%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 14px),
+    linear-gradient(160deg, var(--tone-a), var(--tone-b)); }
+.nrs-tone-ocean { --tone-a: #14404a; --tone-b: #071a1f; }
+.nrs-tone-forest { --tone-a: #2c3a2a; --tone-b: #11170f; }
+.nrs-tone-slate { --tone-a: #2b3340; --tone-b: #11151b; }
+.nrs-tone-sand { --tone-a: #5a4630; --tone-b: #221a11; }
+.nrs-tone-plum { --tone-a: #3e2a36; --tone-b: #170f14; }
+.nrs-poster-in { position: absolute; inset: 16px; border: 1px solid rgba(217, 191, 140, .45); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 34px 30px; }
+.nrs-poster-in::before, .nrs-poster-in::after { content: ''; position: absolute; width: 22px; height: 22px; border-color: var(--tone-ink); border-style: solid; }
+.nrs-poster-in::before { top: 6px; left: 6px; border-width: 1px 0 0 1px; }
+.nrs-poster-in::after { bottom: 6px; right: 6px; border-width: 0 1px 1px 0; }
+.nrs-poster-brand { position: absolute; top: 26px; left: 0; right: 0; font-size: 10px; letter-spacing: .38em; text-transform: uppercase; color: rgba(255, 255, 255, .7); }
+.nrs-poster-brand span { color: var(--tone-ink); }
+.nrs-poster-ic { width: 92px; height: 92px; border-radius: 50%; border: 1px solid rgba(217, 191, 140, .6); display: grid; place-items: center; margin-bottom: 22px; position: relative; }
+.nrs-poster-ic::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; border: 1px dashed rgba(217, 191, 140, .3); }
+.nrs-poster-ic i { font-size: 34px; color: var(--tone-ink); }
+.nrs-poster-eyebrow { font-size: 10.5px; letter-spacing: .32em; text-transform: uppercase; color: var(--tone-ink); margin-bottom: 10px; }
+.nrs-poster-title { font-size: clamp(1.6rem, 2.6vw, 2.15rem); font-weight: 300; line-height: 1.15; letter-spacing: .06em; text-transform: uppercase; max-width: 92%; }
+.nrs-poster-rule { position: relative; width: 120px; height: 1px; margin: 20px auto; background: linear-gradient(90deg, transparent, var(--tone-ink), transparent); }
+.nrs-poster-rule span { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; background: var(--tone-ink); transform: rotate(45deg); }
+.nrs-poster-points { list-style: none; margin: 0 0 22px; padding: 0; display: grid; gap: 6px; }
+.nrs-poster-points li { font-size: 13.5px; color: rgba(255, 255, 255, .82); letter-spacing: .03em; }
+.nrs-poster-points li::before { content: '◆'; color: var(--tone-ink); font-size: 7px; margin-right: 9px; vertical-align: 2px; }
+.nrs-poster-price { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 26px; border-top: 1px solid rgba(217, 191, 140, .4); border-bottom: 1px solid rgba(217, 191, 140, .4); }
+.nrs-poster-price small { font-size: 9.5px; letter-spacing: .3em; text-transform: uppercase; color: rgba(255, 255, 255, .6); }
+.nrs-poster-price strong { font-size: 1.55rem; font-weight: 300; letter-spacing: .04em; color: #fff; }
+.nrs-poster-price em { font-style: normal; font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--tone-ink); }
+.nrs-poster-foot { position: absolute; bottom: 24px; left: 0; right: 0; font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: rgba(255, 255, 255, .6); }
+.nrs-poster-foot i { color: var(--tone-ink); margin-right: 6px; }
+
+/* Tile beranda: flyer portrait dari atas; tanpa foto pakai warna poster */
+.nrs-tile img { object-position: top center; }
+.nrs-tile.nrs-tone-ocean, .nrs-tile.nrs-tone-forest, .nrs-tile.nrs-tone-slate, .nrs-tile.nrs-tone-sand, .nrs-tile.nrs-tone-plum { background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .03) 0 2px, transparent 2px 14px), linear-gradient(160deg, var(--tone-a), var(--tone-b)); }
+.nrs-tile .nrs-tile-big { position: absolute; z-index: 1; left: 50%; top: 42%; transform: translate(-50%, -50%); font-size: 64px; color: rgba(217, 191, 140, .22); }
+
+@media (max-width: 960px) {
+  .nrs-grid { grid-template-columns: minmax(0, 1fr); gap: 30px; }
+  .nrs-media { max-width: 440px; }
+  .nrs-poster-in { padding: 30px 22px; }
+}
