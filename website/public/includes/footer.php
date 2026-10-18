@@ -105,6 +105,14 @@
         link.addEventListener('click', closeMobileNav);
     });
 
+    // Tombol tema terang / gelap
+    document.getElementById('themeToggle')?.addEventListener('click', () => {
+        const root = document.documentElement;
+        const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', next);
+        try { localStorage.setItem('nr-theme', next); } catch (e) {}
+    });
+
     // Lightbox foto (galeri Beranda & foto kamar)
     (function() {
         const lb = document.getElementById('nrLightbox');

@@ -4082,3 +4082,100 @@ p { color: var(--warm-gray); }
 .hero-place { position: absolute; right: 28px; bottom: 92px; z-index: 3; display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 6px; background: rgba(0,0,0,.55); color: #fff; font-size: 12.5px; font-weight: 600; backdrop-filter: blur(4px); }
 .hero-place i { color: #fff; font-size: 12px; }
 @media (max-width: 768px) { .hero-left { max-width: 100%; } .luxury-hero::before { background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.35) 45%, rgba(0,0,0,.7) 100%); } .hero-place { right: 16px; bottom: 70px; font-size: 11px; } .hero-title { font-size: clamp(2.3rem, 9vw, 3rem); } }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   GAYA AMARANTA — header gelap, judul hero kapital tipis (Lato),
+   label emas berjarak lebar, ornamen bintang, tombol kotak emas, mode gelap
+   ═══════════════════════════════════════════════════════════════════ */
+:root { --font-display: 'Lato', 'Inter', sans-serif; --gold-hero: #e3b341; }
+
+/* Navigasi: bar gelap transparan, tombol pesan bergaris emas bersudut tegas */
+.navbar, .navbar.scrolled { background: rgba(14, 12, 9, .72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: none; height: 84px; }
+.navbar.scrolled { background: rgba(14, 12, 9, .92); height: 72px; }
+.navbar .nav-links a, .navbar.scrolled .nav-links a { color: #f3eee6 !important; font-family: var(--font-display); font-weight: 700 !important; font-size: 12px !important; letter-spacing: 2.6px !important; }
+.navbar .nav-links a.active, .navbar .nav-links a:hover { color: var(--gold-hero) !important; }
+.navbar .brand-logo, .navbar.scrolled .brand-logo { color: #fff !important; }
+.navbar .brand-sub, .navbar.scrolled .brand-sub { color: var(--gold-hero) !important; }
+.nav-book-btn, .navbar .nav-links a.nav-book-btn { border-radius: 0 !important; background: transparent !important; border: 1.5px solid var(--gold-hero) !important; color: var(--gold-hero) !important; padding: 12px 26px !important; letter-spacing: 3px !important; }
+.nav-book-btn:hover, .navbar .nav-links a.nav-book-btn:hover { background: var(--gold-hero) !important; color: #14110d !important; }
+.nav-theme { width: 38px; height: 38px; border: 0; background: transparent; color: #f3eee6; font-size: 16px; cursor: pointer; border-radius: 50%; display: grid; place-items: center; }
+.nav-theme:hover { color: var(--gold-hero); background: rgba(255, 255, 255, .06); }
+.nav-theme .fa-sun { display: none; }
+html[data-theme="dark"] .nav-theme .fa-moon { display: none; }
+html[data-theme="dark"] .nav-theme .fa-sun { display: inline-block; }
+
+/* Hero: rata kiri, kapital tipis, baris akhir emas */
+.luxury-hero::before { background: linear-gradient(90deg, rgba(0, 0, 0, .78) 0%, rgba(0, 0, 0, .55) 35%, rgba(0, 0, 0, .25) 65%, rgba(0, 0, 0, .12) 100%), linear-gradient(180deg, rgba(0, 0, 0, .35) 0%, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0) 70%, rgba(0, 0, 0, .55) 100%); }
+.hero-eyebrow { font-family: var(--font-display); font-weight: 300; font-size: clamp(1.05rem, 1.8vw, 1.55rem); letter-spacing: .32em; color: var(--gold-hero); text-transform: uppercase; margin-bottom: 18px; text-shadow: 0 2px 10px rgba(0, 0, 0, .55); }
+.hero-title { font-family: var(--font-display); font-weight: 300; text-transform: uppercase; font-size: clamp(2.6rem, 5.2vw, 4.4rem); line-height: 1.12; letter-spacing: .04em; color: #fff; text-shadow: 0 2px 6px rgba(0, 0, 0, .5), 0 8px 30px rgba(0, 0, 0, .55); margin-bottom: 22px; }
+.hero-title em { font-family: var(--font-display); font-style: normal; font-weight: 300; color: var(--gold-hero); letter-spacing: .04em; }
+.hero-stars { display: flex; align-items: center; gap: 14px; color: var(--gold-hero); font-size: 13px; letter-spacing: 6px; margin: 0 0 24px; text-shadow: 0 1px 8px rgba(0, 0, 0, .5); }
+.hero-stars span { width: 46px; height: 1px; background: var(--gold-hero); opacity: .85; }
+.hero-subtitle { font-size: clamp(.98rem, 1.2vw, 1.1rem); font-weight: 400; color: rgba(255, 255, 255, .88); max-width: 520px; }
+.hero-ctas { margin-top: 28px; }
+.hero-ctas .btn { border-radius: 0; font-family: var(--font-display); font-weight: 700; letter-spacing: 3px; padding: 18px 40px; min-width: 0; }
+.hero-ctas .btn-gold { background: #c9a548; border-color: #c9a548; color: #1a150f; }
+.hero-ctas .btn-gold:hover { background: var(--gold-hero); border-color: var(--gold-hero); }
+.hero-ctas .btn-outline-white { border-color: rgba(255, 255, 255, .7); }
+.hero-scroll { display: block !important; bottom: 100px; border-color: var(--gold-hero); }
+.hero-scroll span { background: var(--gold-hero); }
+.hero-place { display: none; }
+
+/* Tombol WhatsApp: kotak gelap bergaris emas */
+.wa-float { background: rgba(18, 15, 11, .9); border: 1px solid rgba(227, 179, 65, .55); border-radius: 0; box-shadow: 0 10px 26px -10px rgba(0, 0, 0, .6); color: #fff !important; }
+.wa-float svg { color: #25d366; }
+.wa-float::before { display: none; }
+.wa-float::after { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--gold-hero); margin-left: 4px; }
+
+/* Tombol umum bersudut tegas (selaras gaya Amaranta) */
+.btn { border-radius: 2px; }
+.room-book-btn .btn, .booking-bar-form .form-group-btn .btn { border-radius: 2px; }
+
+/* ── MODE GELAP ── */
+html[data-theme="dark"] { color-scheme: dark; --ink: #f1ece4; --warm-gray: #c3b9ab; --mid-gray: #a69c8f; --cream: #1c1814; --bg: #13110e; --pale-gray: #2c2620; }
+html[data-theme="dark"] body { background: #13110e; color: #f1ece4; }
+html[data-theme="dark"] .section, html[data-theme="dark"] .about-section { background: #13110e; }
+html[data-theme="dark"] .section-alt, html[data-theme="dark"] #gallery { background: #1a1612; }
+html[data-theme="dark"] h1, html[data-theme="dark"] h2, html[data-theme="dark"] h3, html[data-theme="dark"] h4, html[data-theme="dark"] .section-title, html[data-theme="dark"] .about-lead, html[data-theme="dark"] .room-price, html[data-theme="dark"] .testimonial-card blockquote, html[data-theme="dark"] .testimonial-name, html[data-theme="dark"] .about-highlight strong { color: #f1ece4 !important; }
+html[data-theme="dark"] p, html[data-theme="dark"] .section-desc, html[data-theme="dark"] .about-text, html[data-theme="dark"] .room-meta-item, html[data-theme="dark"] .nr-loc-list li { color: #c3b9ab; }
+html[data-theme="dark"] .room-card, html[data-theme="dark"] .room-card-body, html[data-theme="dark"] .testimonial-card, html[data-theme="dark"] .nr-loc-card, html[data-theme="dark"] .about-highlight, html[data-theme="dark"] .feature-card, html[data-theme="dark"] .contact-card, html[data-theme="dark"] .contact-form-card, html[data-theme="dark"] .contact-form, html[data-theme="dark"] .dest-card, html[data-theme="dark"] .dest-featured, html[data-theme="dark"] .dest-featured-content, html[data-theme="dark"] .booking-bar-inner, html[data-theme="dark"] .room-detail-info { background: #1f1a15 !important; border-color: #332b22 !important; box-shadow: 0 1px 0 rgba(255, 255, 255, .02), 0 18px 40px -26px rgba(0, 0, 0, .8) !important; }
+html[data-theme="dark"] .room-detail-info { background: transparent !important; box-shadow: none !important; }
+html[data-theme="dark"] .booking-bar-form input, html[data-theme="dark"] .booking-bar-form select, html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea { background: #15120f !important; border-color: #3a3128 !important; color: #f1ece4 !important; }
+html[data-theme="dark"] .room-amenities span { background: #2a231c; color: var(--gold-light); }
+html[data-theme="dark"] .room-book-btn .btn { color: #f1ece4; border-color: #f1ece4; }
+html[data-theme="dark"] .room-book-btn .btn:hover { background: #f1ece4; color: #13110e; }
+html[data-theme="dark"] .room-more { color: var(--gold-light); }
+html[data-theme="dark"] .room-card-image:has(.room-photo-empty), html[data-theme="dark"] .room-detail-image:has(.room-photo-empty) { background: radial-gradient(120% 90% at 30% 20%, #2e261d 0%, #221c16 60%, #1a1511 100%) !important; }
+html[data-theme="dark"] .room-photo-empty, html[data-theme="dark"] .room-photo-empty span, html[data-theme="dark"] .room-photo-empty small { color: var(--gold-light) !important; }
+html[data-theme="dark"] .room-type-badge { background: #13110e; color: var(--gold-light); }
+html[data-theme="dark"] .nr-loc-list i, html[data-theme="dark"] .contact-icon, html[data-theme="dark"] .about-highlight-icon { background: #2a231c; color: var(--gold-light); }
+html[data-theme="dark"] .nr-map { border-color: #332b22; background: #1f1a15; }
+html[data-theme="dark"] .btn-primary { background: #c9a548; border-color: #c9a548; color: #13110e; }
+html[data-theme="dark"] .divider:not(.center) { background: linear-gradient(90deg, var(--gold-light), transparent); }
+html[data-theme="dark"] .dest-card *, html[data-theme="dark"] .contact-card * { border-color: #332b22; }
+html[data-theme="dark"] .dest-card h3, html[data-theme="dark"] .dest-card h4 { color: #f1ece4 !important; }
+
+@media (max-width: 1100px) {
+    .nav-links a { letter-spacing: 1.6px !important; }
+}
+@media (max-width: 768px) {
+    .navbar, .navbar.scrolled { height: 64px; }
+    .hero-eyebrow { letter-spacing: .22em; }
+    .hero-title { font-size: clamp(2.1rem, 9vw, 2.8rem); }
+    .hero-ctas .btn { padding: 15px 22px; letter-spacing: 2px; }
+    .hero-scroll { display: none !important; }
+    .nav-theme-li { order: -1; }
+}
+
+/* Hero Amaranta: lebar teks cukup supaya judul 2–3 baris, label satu baris, ruang aman di bawah navigasi */
+.hero-content-luxury { padding-top: 96px; padding-bottom: 70px; }
+.hero-left { max-width: 860px; }
+.hero-eyebrow { white-space: nowrap; font-size: clamp(.95rem, 1.5vw, 1.3rem); }
+.hero-title { font-size: clamp(2.3rem, 4.3vw, 3.9rem); }
+.hero-subtitle { max-width: 560px; }
+.hero-ctas .btn { padding: 16px 34px; }
+@media (max-width: 768px) { .hero-eyebrow { white-space: normal; } .hero-content-luxury { padding-top: 80px; } }
+html[data-theme="dark"] .hero-eyebrow { color: var(--gold-hero) !important; }
+html[data-theme="dark"] .hero-subtitle, html[data-theme="dark"] .page-hero p, html[data-theme="dark"] .cta-section p { color: rgba(255, 255, 255, .88) !important; }
+html[data-theme="dark"] .about-lead strong { color: var(--gold-light) !important; }

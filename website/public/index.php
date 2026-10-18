@@ -153,12 +153,13 @@ require_once __DIR__ . '/includes/header.php';
 <section class="luxury-hero" <?php if (!empty($heroBg)): ?>style="background-image: url('<?= (strpos($heroBg, 'http') === 0) ? htmlspecialchars($heroBg) : BASE_URL . '/' . htmlspecialchars($heroBg) ?>');" <?php endif; ?>>
     <div class="hero-content-luxury">
         <div class="hero-left">
-            <p class="hero-eyebrow">&mdash; <?= htmlspecialchars($heroAccent) ?></p>
+            <p class="hero-eyebrow"><?= htmlspecialchars($heroAccent) ?></p>
             <h1 class="hero-title"><?= $heroTitle ?></h1>
+            <div class="hero-stars" aria-hidden="true"><span></span>★ ★ ★ ★ ★<span></span></div>
             <p class="hero-subtitle"><?= htmlspecialchars($heroSubtitle) ?></p>
             <div class="hero-ctas">
-                <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-gold btn-lg">Book Your Stay</a>
-                <a href="<?= BASE_URL ?>/rooms.php" class="btn btn-outline-white btn-lg">Explore Rooms</a>
+                <a href="<?= BASE_URL ?>/rooms.php" class="btn btn-gold btn-lg">View Rooms</a>
+                <a href="<?= htmlspecialchars(buildCloudbedsReservationUrl()) ?>" class="btn btn-outline-white btn-lg">Book Your Stay</a>
             </div>
         </div>
         <?php if (!empty($heroCards)): ?>
