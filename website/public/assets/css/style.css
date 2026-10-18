@@ -4244,3 +4244,14 @@ h1, h2, h3, h4, h5, h6, .section-title, .brand-logo, .room-price, .stat-value, .
 .navbar .nav-links li a.nav-book-btn { padding: 10px 24px !important; white-space: nowrap; }
 .navbar .nav-theme-li { margin-left: 4px; }
 @media (min-width: 1025px) and (max-width: 1240px) { .navbar .nav-links { gap: 20px; } .navbar .nav-links a { letter-spacing: .12em !important; } }
+
+/* Hero lebih ringkas (permintaan: teks masih terlalu besar) */
+.hero-eyebrow { font-size: clamp(.82rem, 1.1vw, 1rem) !important; letter-spacing: .32em; margin-bottom: 10px; }
+.hero-title { font-size: clamp(1.75rem, 2.9vw, 2.6rem) !important; line-height: 1.2; letter-spacing: .03em; margin-bottom: 20px; }
+.hero-stars { font-size: 10px; letter-spacing: 6px; margin-bottom: 20px; }
+.hero-stars span { width: 32px; }
+.hero-subtitle { font-size: 14px !important; max-width: 440px; }
+.hero-ctas { margin-top: 24px; gap: 12px; }
+.hero-ctas .btn { padding: 13px 28px; font-size: 11px; letter-spacing: .22em; }
+.luxury-hero::before { background: linear-gradient(90deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.62) 34%, rgba(0,0,0,.28) 62%, rgba(0,0,0,.12) 100%), linear-gradient(180deg, rgba(0,0,0,.4) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 70%, rgba(0,0,0,.55) 100%); }
+@media (max-width: 768px) { .hero-title { font-size: clamp(1.55rem, 6.5vw, 2rem) !important; } }
