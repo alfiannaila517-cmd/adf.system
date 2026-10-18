@@ -231,6 +231,7 @@
                 <?php $cp = $currentPage ?? ''; ?>
                 <li><a href="<?= BASE_URL ?>/rooms.php" class="<?= $cp === 'rooms' ? 'active' : '' ?>">Rooms</a></li>
                 <li><a href="<?= BASE_URL ?>/activities.php" class="<?= $cp === 'activities' ? 'active' : '' ?>">Experiences</a></li>
+                <li><a href="<?= BASE_URL ?>/services.php" class="<?= $cp === 'services' ? 'active' : '' ?>">Services</a></li>
                 <li><a href="<?= BASE_URL ?>/destinations.php" class="<?= $cp === 'destinations' ? 'active' : '' ?>">Destinations</a></li>
                 <li><a href="<?= BASE_URL ?>/#gallery">Gallery</a></li>
                 <li><a href="<?= BASE_URL ?>/#location">Location</a></li>

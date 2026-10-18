@@ -398,13 +398,44 @@ require_once __DIR__ . '/includes/header.php';
         <div class="nr-services">
             <div class="nr-service fade-in"><i class="fas fa-map-marker-alt"></i><h4>Prime Location</h4><p>Close to the town centre, harbour and local market, with easy access to every major island destination.</p></div>
             <div class="nr-service fade-in"><i class="fas fa-mountain-sun"></i><h4>Mountain &amp; Sunset Views</h4><p>Sweeping mountain panoramas and moments from Karimunjawa's most beautiful sunset viewpoint.</p></div>
-            <div class="nr-service fade-in"><i class="fas fa-ship"></i><h4>Ocean Trips</h4><p>Island hopping, coral-reef snorkelling and secluded beaches, arranged directly by our team.</p></div>
+
             <div class="nr-service fade-in"><i class="fas fa-utensils"></i><h4>Restaurant</h4><p>Freshly caught seafood and authentic local dishes prepared daily by our kitchen.</p></div>
-            <div class="nr-service fade-in"><i class="fas fa-motorcycle"></i><h4>Motorbike Rental</h4><p>Explore the island at your own pace with motorbikes available right at the hotel.</p></div>
-            <div class="nr-service fade-in"><i class="fas fa-concierge-bell"></i><h4>Personal Service</h4><p>A dedicated team that tailors every detail of your stay, from arrival to farewell.</p></div>
+
         </div>
     </div>
 </section>
+
+<?php
+require_once __DIR__ . '/includes/services-data.php';
+$homeServices = array_slice(nrServices(), 0, 4);
+?>
+<?php if ($homeServices): ?>
+<!-- Hotel Services (data dari ADF: Layanan Tamu + katalog Hotel Service) -->
+<section class="section" id="services">
+    <div class="container">
+        <div class="section-header text-center fade-in">
+            <div class="section-eyebrow">Hotel Services</div>
+            <h2 class="section-title">More Than a Place to Stay</h2>
+            <div class="divider center"></div>
+            <p class="section-desc">Island trips, motorbikes, transfers and thoughtful extras — arranged personally by our front office.</p>
+        </div>
+        <div class="nrs-tiles">
+            <?php foreach ($homeServices as $sv): ?>
+                <a class="nrs-tile fade-in" href="<?= BASE_URL ?>/services.php#<?= htmlspecialchars($sv['key']) ?>">
+                    <?php if ($sv['images']): ?><img src="<?= htmlspecialchars($sv['images'][0]) ?>" alt="<?= htmlspecialchars($sv['name']) ?>" loading="lazy"><?php endif; ?>
+                    <i class="fas <?= htmlspecialchars($sv['icon']) ?> nrs-tile-ic"></i>
+                    <div class="nrs-tile-body">
+                        <small><?= htmlspecialchars($sv['eyebrow']) ?></small>
+                        <strong><?= htmlspecialchars($sv['name']) ?></strong>
+                        <?php if ($sv['price'] > 0): ?><span>From <?= nrsPrice($sv['price']) ?><?= $sv['unit'] !== '' ? ' / ' . htmlspecialchars($sv['unit']) : '' ?></span><?php endif; ?>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+        <div class="nrs-more"><a class="nrs-link" href="<?= BASE_URL ?>/services.php">Explore All Services <i class="fas fa-arrow-right"></i></a></div>
+    </div>
+</section>
+<?php endif; ?>
 
 <!-- Stats -->
 <section class="section-dark">
