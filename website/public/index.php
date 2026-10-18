@@ -197,6 +197,7 @@ require_once __DIR__ . '/includes/header.php';
         <?php endif; ?>
     </div>
     <a href="#discover" class="hero-scroll" aria-label="Scroll down"><span></span></a>
+    <div class="hero-place"><i class="fas fa-location-dot"></i> Narayana Karimunjawa, Central Java</div>
 </section>
 
 <!-- Booking Bar -->
