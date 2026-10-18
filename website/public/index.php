@@ -302,7 +302,7 @@ require_once __DIR__ . '/includes/header.php';
 </section>
 
 <!-- Rooms -->
-<section class="section">
+<section class="section nrr" id="rooms">
     <div class="container">
         <div class="section-header text-center fade-in">
             <div class="section-eyebrow">Accommodations</div>
@@ -360,24 +360,24 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="room-photo-empty"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 46V26a4 4 0 0 1 4-4h40a4 4 0 0 1 4 4v20"/><path d="M4 46h56v6H4z"/><path d="M14 22v-6a3 3 0 0 1 3-3h30a3 3 0 0 1 3 3v6"/><rect x="14" y="30" width="14" height="8" rx="2"/><rect x="36" y="30" width="14" height="8" rx="2"/></svg><span><?= htmlspecialchars($typeName) ?></span><small>Photos coming soon</small></div>
                         <?php endif; ?>
                     </div>
-                    <div class="room-card-body">
-                        <h3><?= htmlspecialchars($room['type_name']) ?> Room</h3>
-                        <div class="room-meta">
-                            <span class="room-meta-item"><i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> guests</span>
-                            <span class="room-meta-item"><i class="fas fa-door-open"></i> <?= $total ?> rooms</span>
+                    <div class="room-card-body nrr-body">
+                        <div class="nrr-top">
+                            <h3><?= htmlspecialchars($room['type_name']) ?> Room</h3>
+                            <span class="nrr-avail <?= $ac ?>"><span></span><?= $at ?></span>
                         </div>
-                        <div class="room-amenities">
-                            <?php foreach (array_slice($amenities, 0, 4) as $a): ?>
-                                <span><?= htmlspecialchars(nrAmenityLabel($a)) ?></span>
-                            <?php endforeach; ?>
+                        <div class="nrr-meta">
+                            <span><i class="far fa-user"></i> Up to <?= (int)$room['max_occupancy'] ?> guests</span>
+                            <span><i class="fas fa-door-open"></i> <?= $total ?> rooms</span>
                         </div>
-                        <div class="room-card-footer">
-                            <div class="room-price"><?= formatCurrency($room['base_price']) ?><small>/night</small></div>
-                            <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
-                        </div>
-                        <div class="room-book-btn">
-                            <a href="<?= htmlspecialchars(bookingUrl()) ?>" class="btn btn-primary btn-block">Reserve This Room</a>
-                            <a href="<?= BASE_URL ?>/rooms.php" class="room-more">View details <i class="fas fa-arrow-right"></i></a>
+                        <?php if ($amenities): ?>
+                            <p class="nrr-amen"><?= htmlspecialchars(implode('  ·  ', array_map('nrAmenityLabel', array_slice($amenities, 0, 4)))) ?></p>
+                        <?php endif; ?>
+                        <div class="nrr-foot">
+                            <div class="nrr-price"><small>From</small><strong><?= formatCurrency($room['base_price']) ?></strong><em>/ night</em></div>
+                            <div class="nrr-actions">
+                                <a href="<?= BASE_URL ?>/rooms.php" class="nrr-link">Details</a>
+                                <a href="<?= htmlspecialchars(bookingUrl()) ?>" class="nrr-btn">Reserve</a>
+                            </div>
                         </div>
                     </div>
                 </div>
