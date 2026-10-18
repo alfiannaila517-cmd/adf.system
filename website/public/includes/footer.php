@@ -105,6 +105,26 @@
         link.addEventListener('click', closeMobileNav);
     });
 
+    // Dropdown menu (desktop): buka saat hover / klik, tutup saat klik di luar atau Escape
+    const dds = document.querySelectorAll('.nav-dd');
+    const closeDds = except => dds.forEach(d => { if (d !== except) { d.classList.remove('open'); d.querySelector('.nav-dd-btn')?.setAttribute('aria-expanded', 'false'); } });
+    dds.forEach(dd => {
+        const btn = dd.querySelector('.nav-dd-btn');
+        btn?.addEventListener('click', e => {
+            if (window.matchMedia('(max-width: 768px)').matches) return; // menu mobile: selalu terbuka
+            e.stopPropagation();
+            const open = !dd.classList.contains('open');
+            closeDds(dd);
+            dd.classList.toggle('open', open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        let t;
+        dd.addEventListener('mouseenter', () => { if (window.matchMedia('(hover: hover) and (min-width: 769px)').matches) { clearTimeout(t); closeDds(dd); dd.classList.add('open'); } });
+        dd.addEventListener('mouseleave', () => { if (window.matchMedia('(hover: hover) and (min-width: 769px)').matches) t = setTimeout(() => dd.classList.remove('open'), 160); });
+    });
+    document.addEventListener('click', e => { if (!e.target.closest('.nav-dd')) closeDds(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDds(); });
+
     // Tombol tema terang / gelap
     document.getElementById('themeToggle')?.addEventListener('click', () => {
         const root = document.documentElement;

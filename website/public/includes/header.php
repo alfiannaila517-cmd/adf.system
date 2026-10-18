@@ -228,14 +228,38 @@
                 </div>
             </a>
             <ul class="nav-links" id="navLinks">
-                <?php $cp = $currentPage ?? ''; ?>
-                <li><a href="<?= BASE_URL ?>/rooms.php" class="<?= $cp === 'rooms' ? 'active' : '' ?>">Rooms</a></li>
-                <li><a href="<?= BASE_URL ?>/activities.php" class="<?= $cp === 'activities' ? 'active' : '' ?>">Experiences</a></li>
-                <li><a href="<?= BASE_URL ?>/services.php" class="<?= $cp === 'services' ? 'active' : '' ?>">Services</a></li>
-                <li><a href="<?= BASE_URL ?>/destinations.php" class="<?= $cp === 'destinations' ? 'active' : '' ?>">Destinations</a></li>
-                <li><a href="<?= BASE_URL ?>/#gallery">Gallery</a></li>
-                <li><a href="<?= BASE_URL ?>/#location">Location</a></li>
-                <li><a href="<?= BASE_URL ?>/contact.php" class="<?= $cp === 'contact' ? 'active' : '' ?>">Contact</a></li>
+                <?php
+                $cp = $currentPage ?? '';
+                // Menu dikelompokkan: Stay / Explore / Contact (dropdown di desktop, daftar bertingkat di menu mobile)
+                $navGroups = [
+                    'stay' => ['label' => 'Stay', 'pages' => ['rooms', 'services', 'booking'], 'items' => [
+                        ['Rooms & Suites', 'Room types, photos & rates', BASE_URL . '/rooms.php', 'rooms', 'fa-bed'],
+                        ['Hotel Services', 'Trips, transport & extras', BASE_URL . '/services.php', 'services', 'fa-bell-concierge'],
+                        ['Book Your Stay', 'Check availability', bookingUrl(), 'booking', 'fa-calendar-check'],
+                    ]],
+                    'explore' => ['label' => 'Explore', 'pages' => ['activities', 'destinations'], 'items' => [
+                        ['Experiences', 'Diving, snorkelling & more', BASE_URL . '/activities.php', 'activities', 'fa-water'],
+                        ['Destinations', 'Islands & beaches nearby', BASE_URL . '/destinations.php', 'destinations', 'fa-map-location-dot'],
+                        ['Gallery', 'Moments at Narayana', BASE_URL . '/#gallery', '', 'fa-images'],
+                    ]],
+                    'contact' => ['label' => 'Contact', 'pages' => ['contact'], 'items' => [
+                        ['Location', 'How to find us', BASE_URL . '/#location', '', 'fa-location-dot'],
+                        ['Contact Us', 'Send us a message', BASE_URL . '/contact.php', 'contact', 'fa-envelope'],
+                        ['WhatsApp', 'Chat with our front office', 'https://wa.me/' . BUSINESS_WHATSAPP, '', 'fa-whatsapp fab'],
+                    ]],
+                ];
+                ?>
+                <?php foreach ($navGroups as $gk => $grp): ?>
+                    <li class="nav-dd<?= in_array($cp, $grp['pages'], true) ? ' is-current' : '' ?>">
+                        <button type="button" class="nav-dd-btn" aria-expanded="false" aria-controls="dd-<?= $gk ?>"><?= $grp['label'] ?><i class="fas fa-chevron-down"></i></button>
+                        <ul class="nav-dd-menu" id="dd-<?= $gk ?>">
+                            <?php foreach ($grp['items'] as [$t, $d, $href, $page, $ic]): ?>
+                                <li><a href="<?= htmlspecialchars($href) ?>" class="<?= $page !== '' && $cp === $page ? 'active' : '' ?>"<?= strpos($href, 'wa.me') !== false ? ' target="_blank" rel="noopener"' : '' ?>>
+                                        <i class="<?= strpos($ic, 'fab') !== false ? str_replace(' fab', '', 'fab ' . $ic) : 'fas ' . $ic ?>"></i><span><strong><?= $t ?></strong><small><?= $d ?></small></span></a></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </li>
+                <?php endforeach; ?>
                 <li class="nav-theme-li"><button type="button" class="nav-theme" id="themeToggle" aria-label="Switch light / dark theme" title="Light / dark theme"><i class="fas fa-moon"></i><i class="fas fa-sun"></i></button></li>
                 <li><a href="<?= htmlspecialchars(bookingUrl()) ?>" class="nav-book-btn">Book Now</a></li>
             </ul>
