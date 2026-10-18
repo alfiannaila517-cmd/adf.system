@@ -24,6 +24,8 @@ try {
     if ($nights > 30) {
         throw new Exception('For stays longer than 30 nights, please contact us via WhatsApp.');
     }
+    nrbEnsureQuoteColumns($pdo);
+    nrbReleaseExpired($pdo); // hold 24 jam yang habis → kamar tampil tersedia lagi
     $types = nrbAvailability($ci, $co);
     $rows = [];
     foreach ($types as $t) {

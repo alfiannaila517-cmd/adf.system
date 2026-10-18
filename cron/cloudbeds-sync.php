@@ -58,6 +58,12 @@ foreach (glob(dirname(__DIR__) . '/config/businesses/*.php') ?: [] as $bf) {
         if (!$bdb->fetchOne("SHOW TABLES LIKE 'settings'") || !$bdb->fetchOne("SHOW TABLES LIKE 'bookings'")) {
             continue;
         }
+        // Hold penawaran (blok 24 jam) yang habis dilepas di sini juga, lalu sinkron di bawah mencabutnya di Cloudbeds
+        try {
+            require_once dirname(__DIR__) . '/includes/Quotations.php';
+            if ($bdb->fetchOne("SHOW TABLES LIKE 'quotations'")) Quotations::releaseExpired($bdb);
+        } catch (Throwable $e) {
+        }
         $cb = new CloudbedsClient($bdb);
         if (!$cb->isConfigured()) {
             continue;

@@ -30,7 +30,13 @@ try {
         exit;
     }
     echo json_encode(['ok' => true] + WebReservations::notifyNew($db, $id));
+    // Blok hold 24 jam dari website → Cloudbeds (OTA ikut tertutup), dikirim setelah respons
+    $holdIds = array_map('intval', array_column($db->fetchAll("SELECT id FROM room_blocks WHERE quote_id = ? AND status = 'active'", [$id]) ?: [], 'id'));
 } catch (\Throwable $e) {
     error_log('web-reservation-notify: ' . $e->getMessage());
     echo json_encode(['ok' => false]);
+}
+if (!empty($holdIds)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, [], $holdIds);
 }

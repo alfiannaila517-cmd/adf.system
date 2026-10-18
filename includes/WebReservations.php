@@ -151,6 +151,7 @@ class WebReservations
         $rooms = self::roomTypesSummary($q);
         $phoneRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_phone'");
         $hotelPhone = trim((string)($phoneRow['setting_value'] ?? ''));
+        $holdTxt = !empty($q['hold_until']) ? date('d M Y, H:i', strtotime((string)$q['hold_until'])) : '';
 
         $waOk = false;
         if (trim((string)$q['guest_phone']) !== '') {
@@ -161,9 +162,9 @@ class WebReservations
                 . "Room: {$rooms}\n"
                 . "Guests: {$pax}\n"
                 . "Estimated total: " . self::rp($q['total']) . "\n\n"
-                . "⏳ *Status: waiting for confirmation.* Our team is checking your request and will contact you on this WhatsApp shortly "
+                . "⏳ *Status: waiting for confirmation.* Our team will contact you on this WhatsApp shortly "
                 . "with the confirmation and deposit details (50% deposit: approx. " . self::rp($dp) . ", balance paid at the hotel).\n\n"
-                . "Your room is secured once the deposit is received. No payment is needed until we confirm.\n\nThank you!";
+                . "🔒 We are holding your room for *24 hours*" . ($holdTxt !== '' ? " (until {$holdTxt} WIB)" : '') . ". If the reservation is not confirmed with the deposit within that time, the hold is released automatically.\n\nThank you!";
             try {
                 require_once __DIR__ . '/WhatsAppHelper.php';
                 $wa = new WhatsAppHelper($db);
@@ -184,7 +185,7 @@ class WebReservations
                 . '<div style="padding:26px 30px;font-family:Arial,sans-serif;font-size:14px;line-height:1.6">'
                 . '<p style="margin:0 0 14px">Dear <b>' . htmlspecialchars($q['guest_name']) . '</b>,</p>'
                 . '<p style="margin:0 0 18px">Thank you for your reservation request. We have received it and our team will contact you on WhatsApp shortly to confirm availability and the deposit details.</p>'
-                . '<div style="margin:0 0 18px;padding:12px 14px;background:#fff7e6;border-left:3px solid #c9a548;color:#7a5a12"><b>Status: waiting for confirmation</b><br>Your room is not yet secured. It will be confirmed once the 50% deposit is received. No payment is needed until we contact you.</div>'
+                . '<div style="margin:0 0 18px;padding:12px 14px;background:#fff7e6;border-left:3px solid #c9a548;color:#7a5a12"><b>Status: waiting for confirmation</b><br>We are holding your room for 24 hours' . ($holdTxt !== '' ? ' (until ' . htmlspecialchars($holdTxt) . ' WIB)' : '') . '. Your reservation is confirmed once the 50% deposit is received; otherwise the hold is released automatically. No payment is needed until we contact you.</div>'
                 . '<table style="width:100%;border-collapse:collapse;margin-bottom:6px">'
                 . self::row('Reference', $q['quote_code'])
                 . self::row('Check-in', self::d($q['check_in'])) . self::row('Check-out', self::d($q['check_out']) . ' (' . (int)$q['nights'] . ' night(s))')

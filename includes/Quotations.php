@@ -1,19 +1,152 @@
 <?php
 
 /**
- * PENAWARAN (quotation) kamar — belum memblok kamar.
- * Penawaran disimpan terpisah dari booking (tabel quotations + quotation_items), jadi:
- *  - kamar yang ditawarkan tetap bisa dibooking orang lain (tidak ikut pengecekan ketersediaan),
- *  - di kalender hanya tampil sebagai bar hijau transparan,
- *  - saat dikonfirmasi, penawaran dijadikan booking lewat form reservasi yang sama (ketersediaan dicek di sana).
- * Status: open | confirmed | cancelled. "Kedaluwarsa" = open yang valid_until-nya sudah lewat (dihitung, tidak disimpan).
+ * PENAWARAN (quotation) kamar — MEMBLOK kamar selama 24 jam (hold).
+ * Penawaran disimpan terpisah dari booking (tabel quotations + quotation_items). Saat dibuat (dari admin maupun website),
+ * setiap kamarnya mendapat baris room_blocks (block_reason 'quotation_hold', kolom quote_id) sehingga:
+ *  - kamar tidak bisa dibooking orang lain di ADF, website, maupun OTA (blok ikut terkirim ke Cloudbeds),
+ *  - di kalender tetap tampil sebagai bar penawaran transparan (bukan bar blok biasa),
+ *  - setelah HOLD_HOURS tanpa konfirmasi, blok otomatis dilepas (releaseExpired) dan penawaran berstatus 'expired',
+ *  - saat dikonfirmasi, form reservasi membawa quote_id → blok milik penawaran ini tidak dianggap bentrok, lalu dilepas.
+ * Status: open | confirmed | cancelled | expired. Penawaran lama tanpa hold_until tetap memakai valid_until (tanpa blok).
  */
 class Quotations
 {
+    public const HOLD_HOURS = 24;
+
+    /** ID room_blocks yang baru dibuat / dilepas dalam request ini — dikirim ke Cloudbeds oleh pemanggil (API). */
+    public static array $pushBlocks = [];
+
+    /** Kolom & tabel untuk hold: quotations.hold_until, room_blocks.quote_id. */
+    private static function ensureHoldSupport($db): void
+    {
+        $conn = $db->getConnection();
+        try {
+            if (!$db->fetchOne("SHOW COLUMNS FROM quotations LIKE 'hold_until'")) {
+                $conn->exec("ALTER TABLE quotations ADD COLUMN hold_until DATETIME NULL");
+            }
+        } catch (\Throwable $e) {
+        }
+        try {
+            $conn->exec("CREATE TABLE IF NOT EXISTS room_blocks (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                block_code VARCHAR(40) NULL,
+                room_id INT NOT NULL,
+                block_start_date DATE NOT NULL,
+                block_end_date DATE NOT NULL,
+                block_reason VARCHAR(50) NOT NULL DEFAULT 'maintenance',
+                notes TEXT NULL,
+                status ENUM('active','cancelled') NOT NULL DEFAULT 'active',
+                created_by INT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_room_dates (room_id, block_start_date, block_end_date),
+                INDEX idx_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            if (!$db->fetchOne("SHOW COLUMNS FROM room_blocks LIKE 'quote_id'")) {
+                $conn->exec("ALTER TABLE room_blocks ADD COLUMN quote_id INT NULL, ADD INDEX idx_quote (quote_id)");
+            }
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * Kamar yang bentrok dengan booking aktif / blok aktif (blok milik penawaran $ownQuoteId diabaikan).
+     * @return string[] nomor kamar
+     */
+    private static function busyRooms($db, array $roomIds, string $ci, string $co, int $ownQuoteId = 0): array
+    {
+        $out = [];
+        foreach ($roomIds as $rid) {
+            $bk = $db->fetchOne("SELECT id FROM bookings WHERE room_id = ? AND status IN ('pending','confirmed','checked_in') AND check_in_date < ? AND check_out_date > ? LIMIT 1", [(int)$rid, $co, $ci]);
+            $blk = $db->fetchOne("SELECT id FROM room_blocks WHERE room_id = ? AND status = 'active' AND block_start_date < ? AND block_end_date > ? AND (quote_id IS NULL OR quote_id <> ?) LIMIT 1", [(int)$rid, $co, $ci, $ownQuoteId]);
+            if ($bk || $blk) {
+                $r = $db->fetchOne("SELECT room_number FROM rooms WHERE id = ?", [(int)$rid]);
+                $out[] = (string)($r['room_number'] ?? $rid);
+            }
+        }
+        return $out;
+    }
+
+    /** Pasang blok hold untuk semua kamar penawaran (dipanggil di dalam transaksi). */
+    private static function placeHold($db, int $qid, string $code, string $ci, string $co, array $roomIds, string $holdUntil, int $userId = 0): void
+    {
+        foreach ($roomIds as $rid) {
+            $rn = $db->fetchOne("SELECT room_number FROM rooms WHERE id = ?", [(int)$rid]);
+            $db->query("INSERT INTO room_blocks (block_code, room_id, block_start_date, block_end_date, block_reason, notes, status, created_by, quote_id)
+                VALUES (?, ?, ?, ?, 'quotation_hold', ?, 'active', ?, ?)",
+                [substr('QH-' . $code . '-' . ($rn['room_number'] ?? $rid), 0, 40), (int)$rid, $ci, $co, 'Penawaran ' . $code . ' · hold s/d ' . date('d M H:i', strtotime($holdUntil)), $userId ?: null, $qid]);
+            self::$pushBlocks[] = (int)$db->getConnection()->lastInsertId();
+        }
+    }
+
+    /** Lepas blok hold penawaran (status cancelled) — kamar langsung bisa dibooking lagi. */
+    public static function releaseHold($db, int $qid, string $why = 'dilepas', ?int $roomId = null): int
+    {
+        self::ensureTables($db);
+        $sql = "SELECT id FROM room_blocks WHERE quote_id = ? AND status = 'active'" . ($roomId ? ' AND room_id = ' . (int)$roomId : '');
+        $ids = array_map('intval', array_column($db->fetchAll($sql, [$qid]) ?: [], 'id'));
+        if ($ids) {
+            $db->query("UPDATE room_blocks SET status = 'cancelled', notes = TRIM(CONCAT(COALESCE(notes,''), ' [Hold " . addslashes($why) . "]')), updated_at = NOW() WHERE id IN (" . implode(',', $ids) . ")");
+            self::$pushBlocks = array_merge(self::$pushBlocks, $ids);
+        }
+        return count($ids);
+    }
+
+    /** Lepas semua hold yang sudah lewat 24 jam tanpa konfirmasi; penawarannya menjadi 'expired'. Murah dipanggil berulang. */
+    public static function releaseExpired($db): int
+    {
+        static $ran = []; // sekali per database per request (cron melooping beberapa bisnis)
+        try {
+            $dbName = (string)($db->fetchOne("SELECT DATABASE() d")['d'] ?? '');
+            if (isset($ran[$dbName])) return 0;
+            $ran[$dbName] = true;
+            self::ensureTables($db);
+            $rows = $db->fetchAll("SELECT id FROM quotations WHERE status = 'open' AND hold_until IS NOT NULL AND hold_until < ?", [date('Y-m-d H:i:s')]) ?: []; // jam PHP (Asia/Jakarta), bukan NOW() MySQL yang zona waktunya bisa beda
+            foreach ($rows as $r) {
+                self::releaseHold($db, (int)$r['id'], 'habis 24 jam');
+                $db->query("UPDATE quotations SET status = 'expired' WHERE id = ? AND status = 'open'", [(int)$r['id']]);
+            }
+            return count($rows);
+        } catch (\Throwable $e) {
+            error_log('Quotations::releaseExpired: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Perpanjang hold 24 jam dari sekarang. Untuk penawaran yang sudah 'expired', kamar diblok ulang bila masih kosong.
+     * @return array{ok:bool,msg?:string,hold_until?:string}
+     */
+    public static function extendHold($db, int $id, int $userId = 0): array
+    {
+        self::ensureTables($db);
+        $q = self::get($db, $id);
+        if (!$q || !in_array($q['status'], ['open', 'expired'], true)) return ['ok' => false, 'msg' => 'Penawaran tidak bisa diperpanjang'];
+        if ($q['check_out'] <= date('Y-m-d')) return ['ok' => false, 'msg' => 'Tanggal menginap sudah lewat'];
+        $until = date('Y-m-d H:i:s', time() + self::HOLD_HOURS * 3600);
+        $roomIds = array_map(fn($i) => (int)$i['room_id'], $q['items']);
+        $conn = $db->getConnection();
+        $conn->beginTransaction();
+        try {
+            $busy = self::busyRooms($db, $roomIds, $q['check_in'], $q['check_out'], $id);
+            if ($busy) throw new \RuntimeException('Kamar sudah terisi / diblok: ' . implode(', ', $busy));
+            self::releaseHold($db, $id, 'diperpanjang');
+            self::placeHold($db, $id, $q['quote_code'], $q['check_in'], $q['check_out'], $roomIds, $until, $userId);
+            $db->query("UPDATE quotations SET status = 'open', hold_until = ?, valid_until = ? WHERE id = ?", [$until, substr($until, 0, 10), $id]);
+            $conn->commit();
+        } catch (\Throwable $e) {
+            if ($conn->inTransaction()) $conn->rollBack();
+            self::$pushBlocks = [];
+            return ['ok' => false, 'msg' => $e->getMessage()];
+        }
+        return ['ok' => true, 'hold_until' => $until];
+    }
     public static function ensureTables($db): void
     {
-        static $done = false;
-        if ($done) return;
+        static $done = [];
+        $dbKey = spl_object_id($db->getConnection());
+        if (isset($done[$dbKey])) return;
         $db->getConnection()->exec("CREATE TABLE IF NOT EXISTS quotations (
             id INT AUTO_INCREMENT PRIMARY KEY,
             quote_code VARCHAR(30) NOT NULL,
@@ -91,7 +224,8 @@ class Quotations
             }
         } catch (\Throwable $e) {
         }
-        $done = true;
+        self::ensureHoldSupport($db);
+        $done[$dbKey] = true;
     }
 
     /** Katalog Hotel Service aktif (untuk memilih fasilitas tambahan di penawaran), dikelompokkan per tipe. */
@@ -183,6 +317,12 @@ class Quotations
         if (!$p['ok']) return $p;
         extract($p);
 
+        $roomIds = array_map(fn($row) => (int)$row[0]['id'], $rows);
+        $busy = self::busyRooms($db, $roomIds, $ci, $co);
+        if ($busy) return ['ok' => false, 'msg' => 'Kamar sudah terisi / diblok pada tanggal ini: ' . implode(', ', $busy)];
+        $holdUntil = date('Y-m-d H:i:s', time() + self::HOLD_HOURS * 3600);
+        $valid = substr($holdUntil, 0, 10);
+
         $conn = $db->getConnection();
         $conn->beginTransaction();
         try {
@@ -204,19 +344,22 @@ class Quotations
             foreach ($extraRows as [$tl, $nm, $pr, $qt, $un, $ln]) {
                 $db->query("INSERT INTO quotation_extras (quote_id, type_label, item_name, unit_price, qty, unit, line_total) VALUES (?, ?, ?, ?, ?, ?, ?)", [$qid, $tl, $nm, $pr, $qt, $un, $ln]);
             }
+            $db->query("UPDATE quotations SET hold_until = ? WHERE id = ?", [$holdUntil, $qid]);
+            self::placeHold($db, $qid, $code, $ci, $co, $roomIds, $holdUntil, $userId);
             $conn->commit();
         } catch (\Throwable $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            self::$pushBlocks = [];
             return ['ok' => false, 'msg' => 'Gagal menyimpan: ' . $e->getMessage()];
         }
-        return ['ok' => true, 'id' => $qid, 'code' => $code];
+        return ['ok' => true, 'id' => $qid, 'code' => $code, 'hold_until' => $holdUntil];
     }
 
     /** Ubah penawaran yang masih terbuka: data tamu, tanggal, masa berlaku, catatan, kamar+diskon dan layanan tambahan (harga dihitung ulang server). */
     public static function update($db, int $id, array $d): array
     {
         self::ensureTables($db);
-        $q = $db->fetchOne("SELECT id, status FROM quotations WHERE id = ?", [$id]);
+        $q = $db->fetchOne("SELECT id, status, quote_code, hold_until FROM quotations WHERE id = ?", [$id]);
         if (!$q) return ['ok' => false, 'msg' => 'Penawaran tidak ditemukan'];
         if ($q['status'] !== 'open') return ['ok' => false, 'msg' => 'Hanya penawaran terbuka yang bisa diubah'];
         $p = self::prepare($db, $d);
@@ -230,6 +373,14 @@ class Quotations
                     subtotal = ?, discount_total = ?, total = ?, extras_total = ? WHERE id = ? AND status = 'open'",
                 [mb_substr($name, 0, 150), mb_substr(trim((string)($d['guest_phone'] ?? '')), 0, 40), mb_substr(trim((string)($d['guest_email'] ?? '')), 0, 120),
                     trim((string)($d['notes'] ?? '')), $ci, $co, $nights, $valid, round($subtotal, 2), round($subtotal - $total, 2), round($total + $extrasTotal, 2), round($extrasTotal, 2), $id]);
+            // Hold ikut perubahan kamar/tanggal; batas waktunya tidak bertambah (penawaran lama tanpa hold mendapat 24 jam)
+            $roomIds = array_map(fn($row) => (int)$row[0]['id'], $rows);
+            $busy = self::busyRooms($db, $roomIds, $ci, $co, $id);
+            if ($busy) throw new \RuntimeException('Kamar sudah terisi / diblok pada tanggal ini: ' . implode(', ', $busy));
+            $holdUntil = $q['hold_until'] ?: date('Y-m-d H:i:s', time() + self::HOLD_HOURS * 3600);
+            self::releaseHold($db, $id, 'diubah');
+            self::placeHold($db, $id, (string)$q['quote_code'], $ci, $co, $roomIds, $holdUntil);
+            $db->query("UPDATE quotations SET hold_until = ?, valid_until = ? WHERE id = ?", [$holdUntil, substr($holdUntil, 0, 10), $id]);
             $db->query("DELETE FROM quotation_items WHERE quote_id = ?", [$id]);
             $db->query("DELETE FROM quotation_extras WHERE quote_id = ?", [$id]);
             foreach ($rows as [$r, $type, $val, $base, $net, $line]) {
@@ -242,6 +393,7 @@ class Quotations
             $conn->commit();
         } catch (\Throwable $e) {
             if ($conn->inTransaction()) $conn->rollBack();
+            self::$pushBlocks = [];
             return ['ok' => false, 'msg' => 'Gagal menyimpan: ' . $e->getMessage()];
         }
         return ['ok' => true, 'id' => $id];
@@ -260,7 +412,7 @@ class Quotations
         if (!$q) return null;
         $q['items'] = $db->fetchAll("SELECT * FROM quotation_items WHERE quote_id = ? ORDER BY room_number", [$id]) ?: [];
         $q['extras'] = $db->fetchAll("SELECT * FROM quotation_extras WHERE quote_id = ? ORDER BY id", [$id]) ?: [];
-        $q['expired'] = $q['status'] === 'open' && !empty($q['valid_until']) && $q['valid_until'] < date('Y-m-d');
+        $q['expired'] = self::isExpired($q);
         return $q;
     }
 
@@ -268,11 +420,14 @@ class Quotations
     public static function listAll($db, string $status = 'open', int $limit = 100): array
     {
         self::ensureTables($db);
-        $where = $status === 'all' ? '' : ' WHERE q.status = ' . $db->getConnection()->quote($status);
+        // 'open' juga menampilkan hold yang baru habis (≤ 7 hari) agar bisa diperpanjang
+        $where = $status === 'all' ? '' : ($status === 'open'
+            ? " WHERE (q.status = 'open' OR (q.status = 'expired' AND q.hold_until > NOW() - INTERVAL 7 DAY))"
+            : ' WHERE q.status = ' . $db->getConnection()->quote($status));
         $rows = $db->fetchAll("SELECT q.*, (SELECT COUNT(*) FROM quotation_items i WHERE i.quote_id = q.id) AS room_count,
                 (SELECT GROUP_CONCAT(i.room_number ORDER BY i.room_number SEPARATOR ', ') FROM quotation_items i WHERE i.quote_id = q.id) AS rooms
             FROM quotations q" . $where . " ORDER BY q.id DESC LIMIT " . (int)$limit) ?: [];
-        foreach ($rows as &$r) $r['expired'] = $r['status'] === 'open' && !empty($r['valid_until']) && $r['valid_until'] < date('Y-m-d');
+        foreach ($rows as &$r) $r['expired'] = self::isExpired($r);
         return $rows;
     }
 
@@ -281,9 +436,9 @@ class Quotations
     {
         try {
             self::ensureTables($db);
-            return $db->fetchAll("SELECT q.id, q.quote_code, q.guest_name, q.check_in, q.check_out, q.valid_until, i.room_id
+            return $db->fetchAll("SELECT q.id, q.quote_code, q.guest_name, q.check_in, q.check_out, q.valid_until, q.hold_until, i.room_id
                 FROM quotations q JOIN quotation_items i ON i.quote_id = q.id
-                WHERE q.status = 'open' AND (q.valid_until IS NULL OR q.valid_until >= CURDATE())
+                WHERE q.status = 'open' AND (q.hold_until IS NOT NULL OR q.valid_until IS NULL OR q.valid_until >= CURDATE())
                   AND q.check_in < ? AND q.check_out > ?
                 ORDER BY q.check_in, i.room_id", [$to, $from]) ?: [];
         } catch (\Throwable $e) {
@@ -294,8 +449,10 @@ class Quotations
     public static function cancel($db, int $id): bool
     {
         self::ensureTables($db);
-        $r = $db->query("UPDATE quotations SET status = 'cancelled' WHERE id = ? AND status = 'open'", [$id]);
-        return $r !== false && $r->rowCount() === 1;
+        $r = $db->query("UPDATE quotations SET status = 'cancelled' WHERE id = ? AND status IN ('open','expired')", [$id]);
+        $ok = $r !== false && $r->rowCount() === 1;
+        if ($ok) self::releaseHold($db, $id, 'dibatalkan');
+        return $ok;
     }
 
     /** Tandai terkonfirmasi setelah booking dibuat dari penawaran ini. */
@@ -303,7 +460,18 @@ class Quotations
     {
         self::ensureTables($db);
         $r = $db->query("UPDATE quotations SET status = 'confirmed', confirmed_at = NOW(), booking_ref = ? WHERE id = ? AND status = 'open'", [mb_substr($bookingRef, 0, 120), $id]);
-        return $r !== false && $r->rowCount() === 1;
+        $ok = $r !== false && $r->rowCount() === 1;
+        if ($ok) self::releaseHold($db, $id, 'jadi booking'); // sisa blok (bila ada) dilepas; kamar kini dipegang booking
+        return $ok;
+    }
+
+    /** Kedaluwarsa: status 'expired', hold sudah lewat, atau (penawaran lama tanpa hold) valid_until terlewati. */
+    public static function isExpired(array $q): bool
+    {
+        if (($q['status'] ?? '') === 'expired') return true;
+        if (($q['status'] ?? '') !== 'open') return false;
+        if (!empty($q['hold_until'])) return strtotime((string)$q['hold_until']) < time();
+        return !empty($q['valid_until']) && $q['valid_until'] < date('Y-m-d');
     }
 
     /** Kamar penawaran yang bentrok dengan booking / blok aktif — [room_number, …]; kosong = semua masih kosong. */
@@ -315,7 +483,7 @@ class Quotations
                 AND b.check_in_date < ? AND b.check_out_date > ? LIMIT 1", [(int)$it['room_id'], $q['check_out'], $q['check_in']]);
             $blk = null;
             try {
-                $blk = $db->fetchOne("SELECT id FROM room_blocks WHERE room_id = ? AND status = 'active' AND block_start_date < ? AND block_end_date > ? LIMIT 1", [(int)$it['room_id'], $q['check_out'], $q['check_in']]);
+                $blk = $db->fetchOne("SELECT id FROM room_blocks WHERE room_id = ? AND status = 'active' AND block_start_date < ? AND block_end_date > ? AND (quote_id IS NULL OR quote_id <> ?) LIMIT 1", [(int)$it['room_id'], $q['check_out'], $q['check_in'], (int)($q['id'] ?? 0)]);
             } catch (\Throwable $e) {
             }
             if ($bk || $blk) $out[] = (string)$it['room_number'];

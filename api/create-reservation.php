@@ -64,6 +64,13 @@ try {
     }
     $guestIdNumber = trim($_POST['guest_id_number'] ?? '');
     $groupId = trim($_POST['group_id'] ?? '');
+    // Booking dari penawaran: blok hold milik penawaran ini tidak dihitung bentrok, lalu dilepas setelah booking dibuat
+    $fromQuoteId = (int)($_POST['quote_id'] ?? 0);
+    try {
+        require_once '../includes/Quotations.php';
+        Quotations::releaseExpired($db); // hold > 24 jam yang belum dilepas tidak boleh menghalangi booking
+    } catch (\Throwable $e) {
+    }
 
     $checkInDate = $_POST['check_in_date'];
     $checkOutDate = $_POST['check_out_date'];
@@ -168,6 +175,7 @@ try {
             AND status = 'active'
             AND block_start_date < ?
             AND block_end_date > ?
+            " . ($fromQuoteId > 0 ? "AND (quote_id IS NULL OR quote_id <> " . $fromQuoteId . ")" : '') . "
             LIMIT 1
         ", [$roomId, $checkOutDate, $checkInDate]);
 
@@ -418,6 +426,15 @@ try {
     }
 
     $cbPushBookings = [(int)$bookingId];
+    $cbPushBlocks = [];
+    if ($fromQuoteId > 0) {
+        try {
+            Quotations::releaseHold($db, $fromQuoteId, 'jadi booking ' . $bookingCode, $roomId);
+        } catch (\Throwable $e) {
+            error_log('release quote hold: ' . $e->getMessage());
+        }
+    }
+    $cbPushBlocks = array_values(array_unique(class_exists('Quotations', false) ? Quotations::$pushBlocks : []));
     echo json_encode([
         'success' => true,
         'message' => $successMessage,

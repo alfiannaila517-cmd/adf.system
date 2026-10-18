@@ -61,14 +61,19 @@ try {
 
     // Get rooms that are BLOCKED during this date range
     // Overlap rule: block_start < check_out AND block_end > check_in
+    // quote_id = penawaran yang sedang dikonfirmasi → blok hold miliknya tidak dihitung (kamarnya tetap bisa dipilih)
+    $quoteId = (int)($_GET['quote_id'] ?? 0);
     $blockedRooms = [];
     try {
+        require_once '../includes/Quotations.php';
+        Quotations::releaseExpired($db);
         $blockedRooms = $db->fetchAll(" 
             SELECT DISTINCT room_id
             FROM room_blocks
             WHERE status = 'active'
             AND block_start_date < ?
             AND block_end_date > ?
+            " . ($quoteId > 0 ? "AND (quote_id IS NULL OR quote_id <> " . $quoteId . ")" : '') . "
         ", [$checkOut, $checkIn]);
     } catch (Exception $e) {
         // Table may not exist yet in old environments; treat as no blocks.

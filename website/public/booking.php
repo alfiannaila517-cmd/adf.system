@@ -74,7 +74,7 @@ include __DIR__ . '/includes/header.php';
         <div class="nrb-policy">
             <div><i class="fas fa-shield-halved"></i><strong>No online payment</strong><span>Nothing is charged on this website.</span></div>
             <div><i class="fab fa-whatsapp"></i><strong>Confirmed on WhatsApp</strong><span>Our team contacts you to confirm availability.</span></div>
-            <div><i class="fas fa-building-columns"></i><strong>50% deposit</strong><span>Bank transfer to secure the room, balance paid at the hotel.</span></div>
+            <div><i class="fas fa-lock"></i><strong>Held for 24 hours</strong><span>Your room is held while we confirm. 50% deposit by bank transfer, balance paid at the hotel.</span></div>
         </div>
     </div>
 </section>
@@ -85,7 +85,7 @@ include __DIR__ . '/includes/header.php';
         <h2 id="nrbModalTitle">Reservation Request Received</h2>
         <p class="nrb-code" id="nrbModalCode"></p>
         <div class="nrb-modal-body" id="nrbModalBody"></div>
-        <p class="nrb-modal-note">We have sent a summary to your email and WhatsApp. Please wait for our team to confirm your reservation and deposit details. Your room is secured once the deposit is received.</p>
+        <p class="nrb-modal-note"><span id="nrbModalHold"></span> We have sent a summary to your email and WhatsApp. Please wait for our team to confirm your reservation and deposit details.</p>
         <div class="nrb-modal-actions">
             <a class="btn btn-primary" id="nrbModalWa" href="#" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> Chat with Admin</a>
             <a class="btn btn-outline" href="<?= BASE_URL ?>/">Back to Home</a>
@@ -234,6 +234,7 @@ include __DIR__ . '/includes/header.php';
                     $('nrbModalBody').innerHTML = '<dl><dt>Room</dt><dd>' + res.rooms + ' &times; ' + esc(res.room) + '</dd><dt>Stay</dt><dd>' + fmtDate(state.data.check_in) + ' &rarr; ' + fmtDate(state.data.check_out) + '</dd>' +
                         '<dt>Estimated total</dt><dd>' + idr(res.total) + '</dd><dt>Deposit 50%</dt><dd><strong>' + idr(res.dp) + '</strong></dd></dl>';
                     $('nrbModalWa').href = res.whatsapp;
+                    $('nrbModalHold').textContent = res.hold_until ? 'Your room is held for 24 hours (until ' + res.hold_until + ' WIB) — it is released automatically if not confirmed with the deposit.' : '';
                     $('nrbModal').hidden = false;
                     document.body.style.overflow = 'hidden';
                     f.reset();

@@ -12,6 +12,7 @@
  *   cancel        id
  *   confirm_mark  id, ref       → tandai terkonfirmasi setelah booking dibuat dari penawaran (+ email ke tamu)
  *   web_pending / web_seen ids / web_followup id / record_dp id, amount, method → reservasi dari website
+ *   extend_hold   id            → perpanjang hold (blok kamar) 24 jam dari sekarang
  */
 error_reporting(0);
 ini_set('display_errors', 0);
@@ -42,6 +43,7 @@ try {
     $db = Database::getInstance();
     $uid = (int)($auth->getCurrentUser()['id'] ?? 0);
     $act = (string)($_POST['action'] ?? '');
+    Quotations::releaseExpired($db); // hold > 24 jam tanpa konfirmasi → kamar dilepas
     if ($act === 'create') {
         $items = json_decode((string)($_POST['items'] ?? '[]'), true);
         $extras = json_decode((string)($_POST['extras'] ?? '[]'), true);
@@ -90,10 +92,12 @@ try {
             echo json_encode(['ok' => true, 'quote' => $q, 'conflicts' => $q['status'] === 'open' ? Quotations::conflicts($db, $q) : []] + $extra);
         }
     } elseif ($act === 'list') {
-        $st = in_array($_POST['status'] ?? 'open', ['open', 'confirmed', 'cancelled', 'all'], true) ? $_POST['status'] : 'open';
+        $st = in_array($_POST['status'] ?? 'open', ['open', 'confirmed', 'cancelled', 'expired', 'all'], true) ? $_POST['status'] : 'open';
         echo json_encode(['ok' => true, 'rows' => Quotations::listAll($db, $st)]);
     } elseif ($act === 'cancel') {
         echo json_encode(['ok' => Quotations::cancel($db, (int)($_POST['id'] ?? 0)), 'msg' => 'Penawaran dibatalkan']);
+    } elseif ($act === 'extend_hold') {
+        echo json_encode(Quotations::extendHold($db, (int)($_POST['id'] ?? 0), $uid));
     } elseif ($act === 'confirm_mark') {
         $qid = (int)($_POST['id'] ?? 0);
         $ref = (string)($_POST['ref'] ?? '');
@@ -130,4 +134,10 @@ try {
     }
 } catch (\Throwable $e) {
     echo json_encode(['ok' => false, 'msg' => 'Gagal: ' . $e->getMessage()]);
+}
+
+// ═══ CLOUDBEDS: blok hold yang dibuat / dilepas dikirim segera (setelah respons) agar OTA ikut tertutup / terbuka ═══
+if (!empty(Quotations::$pushBlocks) && isset($db)) {
+    require_once dirname(__DIR__) . '/includes/cloudbeds_push_hook.php';
+    cloudbedsPushAfterResponse($db, [], array_unique(Quotations::$pushBlocks));
 }

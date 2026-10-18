@@ -2,7 +2,8 @@
 
 /**
  * API publik: kirim permintaan reservasi dari website.
- * Disimpan sebagai PENAWARAN di ADF (quotations, source='website') — kamar belum dikunci.
+ * Disimpan sebagai PENAWARAN di ADF (quotations, source='website') dan kamarnya DIBLOK 24 jam (room_blocks.quote_id);
+ * tanpa konfirmasi admin dalam 24 jam, blok otomatis dilepas (website, ADF & OTA).
  * Admin menerima popup + WhatsApp + email, menghubungi tamu, menerima DP, lalu mengonfirmasi di ADF.
  *
  * POST JSON: check_in, check_out, room_type_id, rooms, adults, children, name, phone, email, notes, website (honeypot)
@@ -72,6 +73,7 @@ try {
         throw new Exception('We have received several requests from you. Please contact us via WhatsApp to continue.');
     }
 
+    nrbReleaseExpired($pdo);
     // Cek ulang ketersediaan saat dikirim
     $type = null;
     foreach (nrbAvailability($ci, $co) as $t) {
@@ -107,6 +109,8 @@ try {
         $rn = dbFetch("SELECT room_number FROM rooms WHERE id = ?", [$rid]);
         $it->execute([$qid, $rid, (string)($rn['room_number'] ?? ''), $type['name'], $price, $price, $lineTotal]);
     }
+    $holdUntil = date('Y-m-d H:i:s', time() + 24 * 3600);
+    nrbPlaceHold($pdo, $qid, $code, $ci, $co, $roomIds, $holdUntil);
     $pdo->commit();
 
     nrbNotifyAdf($qid);
@@ -121,6 +125,7 @@ try {
         'nights' => $nights,
         'total' => $total,
         'dp' => $dp,
+        'hold_until' => date('d M Y, H:i', strtotime($holdUntil)),
         'whatsapp' => 'https://wa.me/' . BUSINESS_WHATSAPP . '?text=' . rawurlencode($waText),
     ]);
 } catch (Throwable $e) {

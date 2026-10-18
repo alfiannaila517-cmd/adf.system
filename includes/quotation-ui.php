@@ -26,6 +26,9 @@ $qtText = [
     'Langkah: 1) Follow-up WhatsApp  2) Terima & catat DP  3) Konfirmasi → email otomatis ke tamu.' => 'Steps: 1) Follow up on WhatsApp  2) Receive & record the deposit  3) Confirm → guest gets an automatic email.',
     'Konfirmasi tanpa DP? Tamu tetap menerima email konfirmasi.' => 'Confirm without a deposit? The guest will still receive the confirmation email.',
     'Catatan tamu' => 'Guest notes',
+    'Kamar diblok 24 jam sejak penawaran disimpan (juga di OTA). Tanpa konfirmasi, blok otomatis dilepas dan kamar bisa dibooking lagi.' => 'Rooms are blocked for 24 hours from saving (also on OTAs). Without confirmation the block is released automatically and the rooms can be booked again.',
+    'Kamar diblok sampai' => 'Rooms blocked until', 'sisa' => 'left', 'jam' => 'h', 'menit' => 'min', 'Hold habis — kamar sudah dilepas dan bisa dibooking lagi.' => 'Hold expired — the rooms were released and can be booked again.',
+    'Perpanjang 24 jam' => 'Extend 24 hours', 'Hold diperpanjang sampai' => 'Hold extended until', 'Batalkan penawaran ini? Blok kamar dilepas dan bar di kalender hilang.' => 'Cancel this quotation? The room block is released and the bar disappears from the calendar.',
 ];
 ?>
 <style>
@@ -176,12 +179,9 @@ $qtText = [
             const name = el('input'); name.type = 'text'; name.maxLength = 150; name.autocomplete = 'off';
             const phone = el('input'); phone.type = 'tel'; phone.autocomplete = 'off'; phone.placeholder = '0812…';
             const mail = el('input'); mail.type = 'email'; mail.autocomplete = 'off';
-            const valid = el('select');
-            [[1, '1 hari'], [3, '3 hari'], [7, '7 hari'], [14, '14 hari'], [30, '30 hari']].forEach(([d, l]) => { const o = el('option', '', t(l)); o.value = d; if (d === 7) o.selected = true; valid.appendChild(o); });
             const notes = el('textarea'); notes.maxLength = 600;
             body.appendChild(field(t('Nama tamu') + ' *', name));
             const r2 = el('div', 'qt-r2'); r2.appendChild(field(t('WhatsApp / telepon'), phone)); r2.appendChild(field(t('Email'), mail)); body.appendChild(r2);
-            body.appendChild(field(t('Berlaku'), valid));
 
             // ---- Fasilitas tambahan dari katalog Hotel Service (+ baris manual) ----
             const ex = el('details', 'qt-ex'), exS = el('summary'), exN = el('span', 'qt-ex-n', '0 ' + t('dipilih'));
@@ -222,7 +222,7 @@ $qtText = [
                 exList.appendChild(addBtn);
             }).catch(() => { exList.innerHTML = ''; exList.appendChild(el('div', 'qt-ex-empty', t('Katalog Hotel Service masih kosong.'))); exList.appendChild(addBtn); });
             body.appendChild(field(t('Catatan (opsional)'), notes));
-            body.appendChild(el('div', 'qt-note', t('Kamar ini belum diblok — masih bisa dibooking orang lain sampai Anda mengonfirmasi.')));
+            body.appendChild(el('div', 'qt-note', '🔒 ' + t('Kamar diblok 24 jam sejak penawaran disimpan (juga di OTA). Tanpa konfirmasi, blok otomatis dilepas dan kamar bisa dibooking lagi.')));
             const err = el('div', 'qt-err'); err.style.display = 'none'; body.appendChild(err);
             box.appendChild(body);
 
@@ -232,11 +232,10 @@ $qtText = [
             s.onclick = () => {
                 if (!name.value.trim()) { err.textContent = t('Nama tamu wajib diisi.'); err.style.display = 'block'; name.focus(); return; }
                 err.style.display = 'none'; s.disabled = true; s.textContent = t('Menyimpan…');
-                const until = new Date(); until.setDate(until.getDate() + parseInt(valid.value, 10));
-                const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
                 post({
                     action: 'create', check_in: st.ci, check_out: st.co, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(),
-                    notes: notes.value.trim(), valid_until: ymd(until), lang: EN ? 'en' : 'id',
+                    notes: notes.value.trim(), lang: EN ? 'en' : 'id',
                     items: JSON.stringify(st.rooms.map(r => ({ room_id: r.id, disc_type: r.disc_type, disc_value: r.disc_value }))),
                     extras: JSON.stringify(extraRows.map(r => r.get()).filter(Boolean).map(v => ({ catalog_id: v.catalog_id || 0, name: v.name, price: v.price, unit: v.unit, type: v.type, qty: v.qty })))
                 }).then(r => {
@@ -269,11 +268,11 @@ $qtText = [
                 const name = inp('text', q.guest_name, { maxLength: 150, autocomplete: 'off' });
                 const phone = inp('tel', q.guest_phone, { autocomplete: 'off' });
                 const mail = inp('email', q.guest_email, { autocomplete: 'off' });
-                const ci = inp('date', q.check_in), co = inp('date', q.check_out), valid = inp('date', q.valid_until || '');
+                const ci = inp('date', q.check_in), co = inp('date', q.check_out);
                 const notes = el('textarea'); notes.maxLength = 600; notes.value = q.notes || '';
                 body.appendChild(field(t('Nama tamu') + ' *', name));
                 const r1 = el('div', 'qt-r2'); r1.appendChild(field(t('WhatsApp / telepon'), phone)); r1.appendChild(field(t('Email'), mail)); body.appendChild(r1);
-                const r2 = el('div', 'qt-r3'); r2.appendChild(field(t('Check-in'), ci)); r2.appendChild(field(t('Check-out'), co)); r2.appendChild(field(t('Berlaku sampai'), valid)); body.appendChild(r2);
+                const r2 = el('div', 'qt-r2'); r2.appendChild(field(t('Check-in'), ci)); r2.appendChild(field(t('Check-out'), co)); body.appendChild(r2);
 
                 // Kamar + diskon
                 body.appendChild(el('div', 'qt-sec', t('Kamar')));
@@ -365,7 +364,7 @@ $qtText = [
                     if (!rooms.length) { show(t('Pilih minimal satu kamar.')); return; }
                     err.style.display = 'none'; sv.disabled = sp.disabled = true; (print ? sp : sv).textContent = t('Menyimpan…');
                     post({
-                        action: 'update', id: q.id, check_in: ci.value, check_out: co.value, valid_until: valid.value, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(), notes: notes.value.trim(),
+                        action: 'update', id: q.id, check_in: ci.value, check_out: co.value, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(), notes: notes.value.trim(),
                         items: JSON.stringify(rooms.map(r => ({ room_id: r.id, disc_type: r.dtype, disc_value: r.dval }))),
                         extras: JSON.stringify(extras.filter(x => x.name.trim() && +x.price >= 0).map(x => ({ name: x.name.trim(), price: +x.price || 0, qty: +x.qty || 1, unit: x.unit, type: x.type })))
                     }).then(r => {
@@ -400,7 +399,7 @@ $qtText = [
                     const msg = 'Hello ' + q.guest_name + ', thank you for your reservation at Narayana Karimunjawa (' + q.quote_code + ').\n\n' +
                         'Room: ' + q.items.length + ' x ' + rooms + '\nStay: ' + fd(q.check_in) + ' - ' + fd(q.check_out) + ' (' + q.nights + ' night(s))\nTotal: ' + rp(q.total) + '\n\n' +
                         'Your room is available. To secure it, please transfer a 50% deposit of *' + rp(sug) + '* to:\n' + (bank.no || '') + ' (' + (bank.name || '') + ')\n\n' +
-                        'Please send the transfer receipt here. The balance is paid at the hotel. Thank you!';
+                        (q.hold_until ? 'Your room is held until ' + new Date(String(q.hold_until).replace(' ', 'T')).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' WIB; please transfer before then.\n' : '') + 'Please send the transfer receipt here. The balance is paid at the hotel. Thank you!';
                     window.open('https://wa.me/' + waNumber(q.guest_phone) + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
                     post({ action: 'web_followup', id: q.id });
                 };
@@ -431,7 +430,17 @@ $qtText = [
                 const a = el('div'); a.appendChild(el('b', '', q.guest_name)); sum.appendChild(a);
                 if (q.guest_phone || q.guest_email) sum.appendChild(el('div')).appendChild(el('span', '', [q.guest_phone, q.guest_email].filter(Boolean).join(' · ')));
                 const d = el('div'); d.appendChild(el('span', '', fd(q.check_in) + ' → ' + fd(q.check_out) + ' · ' + q.nights + ' ' + t('malam'))); sum.appendChild(d);
-                if (q.valid_until) { const v = el('div'); v.appendChild(el('span', '', t('Berlaku sampai') + ': ' + fd(q.valid_until))); sum.appendChild(v); }
+                if (q.hold_until) {
+                    // Hold 24 jam: tampilkan batas waktu + sisa, atau info sudah dilepas
+                    const hu = new Date(String(q.hold_until).replace(' ', 'T')), left = hu - Date.now(), v = el('div');
+                    if (q.status === 'open' && left > 0) {
+                        const hh = Math.floor(left / 3600000), mm = Math.floor(left % 3600000 / 60000);
+                        v.appendChild(el('span', '', '🔒 ' + t('Kamar diblok sampai') + ' ' + hu.toLocaleString(loc, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' (' + t('sisa') + ' ' + hh + ' ' + t('jam') + ' ' + mm + ' ' + t('menit') + ')'));
+                    } else if (q.status === 'open' || q.status === 'expired') {
+                        v.appendChild(el('span', '', '🔓 ' + t('Hold habis — kamar sudah dilepas dan bisa dibooking lagi.')));
+                    }
+                    if (v.firstChild) sum.appendChild(v);
+                } else if (q.valid_until) { const v = el('div'); v.appendChild(el('span', '', t('Berlaku sampai') + ': ' + fd(q.valid_until))); sum.appendChild(v); }
                 body.appendChild(sum);
                 const ul = el('ul', 'qt-rooms');
                 q.items.forEach(it => {
@@ -453,18 +462,30 @@ $qtText = [
                     body.appendChild(el('div', 'qt-err', t('Kamar berikut sudah terisi / diblok pada tanggal ini, penawaran tidak bisa dikonfirmasi:') + ' ' + r.conflicts.join(', ')));
                 }
                 if (q.source === 'website') body.appendChild(webPanel(q, r));
-                if (q.status !== 'open') body.appendChild(el('div', 'qt-note', t('Penawaran ini sudah ') + stTxt.toLowerCase() + '.'));
+                if (q.status !== 'open' && q.status !== 'expired') body.appendChild(el('div', 'qt-note', t('Penawaran ini sudah ') + stTxt.toLowerCase() + '.'));
                 box.appendChild(body);
 
                 const f = el('div', 'qt-foot');
                 const cl = el('button', '', t('Tutup')); cl.type = 'button'; cl.onclick = close;
                 const pr = el('button', '', t('Cetak')); pr.type = 'button'; pr.onclick = () => window.open(PRINT + '?id=' + q.id, '_blank', 'noopener');
                 f.appendChild(cl); f.appendChild(pr);
-                if (q.status === 'open') {
+                if (q.status === 'open' || q.status === 'expired') {
                     const cx = el('button', 'bad', t('Batalkan penawaran')); cx.type = 'button';
-                    cx.onclick = () => { if (!window.confirm(t('Batalkan penawaran ini? Bar hijau di kalender akan hilang.'))) return; post({ action: 'cancel', id: q.id }).then(() => { close(); reload(); }); };
-                    const ed = el('button', '', t('Ubah')); ed.type = 'button'; ed.onclick = () => { close(); window.adfQuoteEdit(q.id); };
-                    f.appendChild(ed); f.appendChild(cx);
+                    cx.onclick = () => { if (!window.confirm(t('Batalkan penawaran ini? Blok kamar dilepas dan bar di kalender hilang.'))) return; post({ action: 'cancel', id: q.id }).then(() => { close(); reload(); }); };
+                    if (q.status === 'open') { const ed = el('button', '', t('Ubah')); ed.type = 'button'; ed.onclick = () => { close(); window.adfQuoteEdit(q.id); }; f.appendChild(ed); }
+                    if (q.hold_until) {
+                        const xt = el('button', '', '⏱ ' + t('Perpanjang 24 jam')); xt.type = 'button';
+                        xt.onclick = () => {
+                            xt.disabled = true;
+                            post({ action: 'extend_hold', id: q.id }).then(x => {
+                                if (!x.ok) throw new Error(x.msg || '');
+                                window.alert(t('Hold diperpanjang sampai') + ' ' + new Date(String(x.hold_until).replace(' ', 'T')).toLocaleString(loc, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }));
+                                close(); reload();
+                            }).catch(e => { xt.disabled = false; window.alert(t('Gagal') + ': ' + e.message); });
+                        };
+                        f.appendChild(xt);
+                    }
+                    f.appendChild(cx);
                     if (!q.expired && !(r.conflicts && r.conflicts.length)) {
                         const ok = el('button', 'pri', t('Konfirmasi (jadikan booking)')); ok.type = 'button'; ok.onclick = () => { if (q.source === 'website' && !(parseFloat(q.dp_amount) > 0) && !window.confirm(t('Konfirmasi tanpa DP? Tamu tetap menerima email konfirmasi.'))) return; close(); window.adfQuoteConfirm(q.id); };
                         f.appendChild(ok);

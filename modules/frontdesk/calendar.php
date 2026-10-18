@@ -251,10 +251,13 @@ try {
 // GET ROOM BLOCKS FOR DATE RANGE
 // ============================================
 $roomBlocks = [];
+// Hold penawaran (blok 24 jam) yang sudah habis dilepas dulu; kolom room_blocks.quote_id dipastikan ada
+require_once __DIR__ . '/../../includes/Quotations.php';
+Quotations::releaseExpired($db);
 try {
     $roomBlocks = $db->fetchAll(" 
         SELECT rb.id, rb.block_code, rb.room_id, rb.block_start_date, rb.block_end_date,
-               rb.block_reason, rb.notes, rb.status,
+               rb.block_reason, rb.notes, rb.status, rb.quote_id,
                r.room_number
         FROM room_blocks rb
         JOIN rooms r ON r.id = rb.room_id
@@ -3406,6 +3409,8 @@ include '../../includes/header.php';
                                 // Render room block bars (maintenance/out of order/etc)
                                 if (isset($roomBlockMatrix[$room['id']])) {
                                     foreach ($roomBlockMatrix[$room['id']] as $block) {
+                                        // Hold penawaran tampil sebagai bar penawaran (di bawah), bukan bar blok — kecuali tampilan staf
+                                        if (!empty($block['quote_id']) && !$isStaffView) continue;
                                         $blockStart = strtotime((string)$block['block_start_date']);
                                         $blockEnd = strtotime((string)$block['block_end_date']);
                                         $currentDate = strtotime($date);
@@ -3420,7 +3425,8 @@ include '../../includes/header.php';
                                                 'owner_use' => 'Owner Use',
                                                 'out_of_order' => 'Out of Order',
                                                 'event_setup' => 'Event Setup',
-                                                'other' => 'Block Room'
+                                                'other' => 'Block Room',
+                                                'quotation_hold' => 'Hold Penawaran'
                                             ];
                                             $reasonText = $reasonMap[$reasonRaw] ?? ucfirst(str_replace('_', ' ', $reasonRaw));
                                             $notesText = trim((string)($block['notes'] ?? ''));
@@ -3464,10 +3470,11 @@ include '../../includes/header.php';
                                                 $qgFull = trim((string)preg_replace('/^(mr|mrs|ms|miss|bapak|ibu|pak|bu|dr|prof)\.?\s+/i', '', $qgFull));
                                                 $qgFull = (string)(preg_split('/\s+/', $qgFull)[0] ?? '');
                                             }
-                                            $qgLabel = 'Quo · ' . $qgFull;
+                                            $qgLabel = (!empty($qg['hold_until']) ? '🔒 ' : '') . 'Quo · ' . $qgFull;
+                                            $qgHold = !empty($qg['hold_until']) ? ' · hold s/d ' . date('d M H:i', strtotime((string)$qg['hold_until'])) : '';
                                 ?>
                                             <div class="booking-bar-container qt-ghost" style="left: 50%; width: <?php echo $qgW; ?>px;" data-quote-id="<?php echo (int)$qg['id']; ?>" data-room-id="<?php echo (int)$room['id']; ?>">
-                                                <div class="booking-bar booking-quote" role="button" tabindex="0" title="<?php echo htmlspecialchars($qg['quote_code'] . ' · ' . $qg['guest_name']); ?>" onclick="event.stopPropagation(); adfQuoteView(<?php echo (int)$qg['id']; ?>)" onkeydown="if(event.key==='Enter'){event.stopPropagation();adfQuoteView(<?php echo (int)$qg['id']; ?>)}">
+                                                <div class="booking-bar booking-quote" role="button" tabindex="0" title="<?php echo htmlspecialchars($qg['quote_code'] . ' · ' . $qg['guest_name'] . $qgHold); ?>" onclick="event.stopPropagation(); adfQuoteView(<?php echo (int)$qg['id']; ?>)" onkeydown="if(event.key==='Enter'){event.stopPropagation();adfQuoteView(<?php echo (int)$qg['id']; ?>)}">
                                                     <span class="qt-chip"><?php echo htmlspecialchars($qgLabel); ?></span>
                                                 </div>
                                             </div>
@@ -6156,7 +6163,7 @@ include '../../includes/header.php';
         try {
             let mode = document.getElementById('reservationMode')?.value || 'reservation';
             if (mode === 'quotation') mode = 'reservation';
-            const response = await fetch(`../../api/get-available-rooms.php?check_in=${checkIn}&check_out=${checkOut}&mode=${encodeURIComponent(mode)}`);
+            const response = await fetch(`../../api/get-available-rooms.php?check_in=${checkIn}&check_out=${checkOut}&mode=${encodeURIComponent(mode)}${window.__quoteCtx ? '&quote_id=' + window.__quoteCtx.id : ''}`);
 
             // Check if response is OK
             if (!response.ok) {
@@ -6591,6 +6598,7 @@ include '../../includes/header.php';
             formData.append('booking_source', bookingSource);
             formData.append('payment_method', paymentMethod);
             formData.append('paid_amount', proportionalPayment);
+            if (window.__quoteCtx) formData.append('quote_id', window.__quoteCtx.id); // blok hold penawaran ini tidak dihitung bentrok
 
             // DEBUG: Log what we're sending
             console.log(`[MULTI-ROOM] Room ${i+1}/${checkedRooms.length} - Room ${roomNumber}:`, {

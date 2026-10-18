@@ -958,6 +958,7 @@ include '../../includes/header.php';
 $qtOpen = [];
 try {
     require_once __DIR__ . '/../../includes/Quotations.php';
+    Quotations::releaseExpired($db);
     $qtOpen = Quotations::listAll($db, 'open');
 } catch (Throwable $e) {
     $qtOpen = [];
@@ -997,7 +998,7 @@ $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
         <div class="qtp-box" role="dialog" aria-modal="true">
             <div class="qtp-head">
                 <div><b><?php echo htmlspecialchars($qtT('Penawaran', 'Quotations')); ?></b>
-                    <small><?php echo htmlspecialchars($qtT('Belum memblok kamar — tampil hijau transparan di kalender', 'Rooms are not blocked — shown as transparent green in the calendar')); ?></small></div>
+                    <small><?php echo htmlspecialchars($qtT('Kamar diblok 24 jam (juga di OTA); tanpa konfirmasi blok otomatis dilepas', 'Rooms are blocked for 24 hours (also on OTAs); released automatically without confirmation')); ?></small></div>
                 <button type="button" class="qtp-x" onclick="qtpClose()" aria-label="<?php echo htmlspecialchars($qtT('Tutup', 'Close')); ?>">&times;</button>
             </div>
             <div class="qtp-list">
@@ -1015,7 +1016,11 @@ $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
                             <div class="qtp-meta">
                                 <?php echo $qtD($q['check_in']); ?> → <?php echo $qtD($q['check_out']); ?> · <?php echo (int)$q['nights']; ?> <?php echo htmlspecialchars($qtT('malam', 'night(s)')); ?>
                                 · <?php echo htmlspecialchars($qtT('Kamar', 'Room')); ?> <?php echo htmlspecialchars((string)$q['rooms']); ?>
-                                · <?php echo htmlspecialchars($qtT('berlaku s/d', 'valid until')); ?> <?php echo $qtD($q['valid_until']); ?>
+                                <?php if (!empty($q['hold_until'])): ?>
+                                    · <?php echo $q['expired'] ? '🔓 ' . htmlspecialchars($qtT('hold habis, kamar dilepas', 'hold expired, rooms released')) : '🔒 ' . htmlspecialchars($qtT('diblok s/d', 'blocked until')) . ' ' . date('d M H:i', strtotime($q['hold_until'])); ?>
+                                <?php else: ?>
+                                    · <?php echo htmlspecialchars($qtT('berlaku s/d', 'valid until')); ?> <?php echo $qtD($q['valid_until']); ?>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="qtp-amt">Rp <?php echo number_format((float)$q['total'], 0, ',', '.'); ?></div>
@@ -1024,7 +1029,11 @@ $qtD = fn($d) => $d ? date('d M Y', strtotime($d)) : '-';
                             <?php if (($q['source'] ?? '') === 'website'): ?>
                                 <a class="qtp-b" href="calendar.php?quote_view=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Follow-up / DP', 'Follow up / Deposit')); ?></a>
                             <?php endif; ?>
-                            <a class="qtp-b" href="calendar.php?quote_edit=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Ubah', 'Edit')); ?></a>
+                            <?php if ($q['status'] === 'open'): ?>
+                                <a class="qtp-b" href="calendar.php?quote_edit=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Ubah', 'Edit')); ?></a>
+                            <?php else: ?>
+                                <a class="qtp-b" href="calendar.php?quote_view=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Perpanjang 24 jam', 'Extend 24h')); ?></a>
+                            <?php endif; ?>
                             <?php if (!$q['expired']): ?>
                                 <a class="qtp-b pri" href="calendar.php?quote=<?php echo (int)$q['id']; ?>"><?php echo htmlspecialchars($qtT('Konfirmasi', 'Confirm')); ?></a>
                             <?php endif; ?>
