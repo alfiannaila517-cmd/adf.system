@@ -4255,3 +4255,6 @@ h1, h2, h3, h4, h5, h6, .section-title, .brand-logo, .room-price, .stat-value, .
 .hero-ctas .btn { padding: 13px 28px; font-size: 11px; letter-spacing: .22em; }
 .luxury-hero::before { background: linear-gradient(90deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.62) 34%, rgba(0,0,0,.28) 62%, rgba(0,0,0,.12) 100%), linear-gradient(180deg, rgba(0,0,0,.4) 0%, rgba(0,0,0,0) 25%, rgba(0,0,0,0) 70%, rgba(0,0,0,.55) 100%); }
 @media (max-width: 768px) { .hero-title { font-size: clamp(1.55rem, 6.5vw, 2rem) !important; } }
+
+/* Garis emas tipis pengganti ornamen bintang */
+.hero-line { width: 72px; height: 1px; background: var(--gold-hero); margin: 0 0 20px; box-shadow: 0 1px 6px rgba(0,0,0,.4); }

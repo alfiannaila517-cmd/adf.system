@@ -155,7 +155,7 @@ require_once __DIR__ . '/includes/header.php';
         <div class="hero-left">
             <p class="hero-eyebrow"><?= htmlspecialchars($heroAccent) ?></p>
             <h1 class="hero-title"><?= $heroTitle ?></h1>
-            <div class="hero-stars" aria-hidden="true"><span></span>★ ★ ★ ★ ★<span></span></div>
+            <div class="hero-line" aria-hidden="true"></div>
             <p class="hero-subtitle"><?= htmlspecialchars($heroSubtitle) ?></p>
             <div class="hero-ctas">
                 <a href="<?= BASE_URL ?>/rooms.php" class="btn btn-gold btn-lg">View Rooms</a>
