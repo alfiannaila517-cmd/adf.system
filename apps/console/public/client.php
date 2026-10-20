@@ -203,14 +203,14 @@ View::start($client['name'], 'clients', $me);
     <div class="soonbox"><b>Segera:</b> draf tagihan bulanan per client yang bisa diedit bebas (satu baris per bisnis, termasuk website), kirim invoice, dan catat pembayaran.</div>
 
 <?php elseif ($tab === 'orang'): $people = Access::clientPeople($id); ?>
-    <p class="muted" style="margin:0 0 12px">Semua orang di <?= e($client['name']) ?> dan bisnis yang bisa mereka buka. Untuk memberi atau mengubah akses ke satu bisnis, buka bisnisnya → tab Orang & Akses.</p>
+    <p class="muted" style="margin:0 0 12px">Semua orang di <?= e($client['name']) ?> dan bisnis yang bisa mereka buka. Klik nama untuk mengubah data akun, password, atau status. Untuk memberi akses ke bisnis baru, buka bisnisnya → Orang & Akses.</p>
     <div class="card">
         <table class="stack">
             <thead><tr><th>Nama</th><th>Akses</th><th></th></tr></thead>
             <tbody>
                 <?php foreach ($people as $p): ?>
                     <tr>
-                        <td><b><?= e($p['name']) ?></b> <?= $p['status'] === 'invited' ? '<span class="pill warn">diundang</span>' : '' ?><br><span class="muted" style="font-size:12px"><?= e($p['email']) ?></span></td>
+                        <td><a href="/person.php?id=<?= (int)$p['id'] ?>" style="color:var(--ink)"><b><?= e($p['name']) ?></b></a> <?= $p['status'] === 'invited' ? '<span class="pill warn">diundang</span>' : '' ?><br><span class="muted" style="font-size:12px"><?= e($p['email']) ?></span></td>
                         <td>
                             <?php if ($p['group_owner']): ?><span class="pill gold">👑 Owner grup — semua bisnis</span> <?php endif; ?>
                             <?php foreach ($p['access'] as [$bid, $bName, $rName]): ?>

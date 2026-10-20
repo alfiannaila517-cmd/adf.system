@@ -496,7 +496,7 @@ View::start($biz['name'], 'clients', $me);
                 <tbody>
                     <?php foreach ($acc['owners'] as $o): ?>
                         <tr>
-                            <td><b><?= e($o['name']) ?></b><br><span class="muted" style="font-size:12px"><?= e($o['email']) ?></span></td>
+                            <td><a href="/person.php?id=<?= (int)$o['person_id'] ?>" style="color:var(--ink)"><b><?= e($o['name']) ?></b></a><br><span class="muted" style="font-size:12px"><?= e($o['email']) ?></span></td>
                             <td><span class="pill gold">👑 Owner grup</span></td>
                             <td><span class="pill">Sistem</span> <span class="pill">Owner Login</span></td>
                             <td class="muted" style="font-size:12px;text-align:right">diatur di <a href="/client.php?id=<?= (int)$biz['client_id'] ?>&tab=orang">grup</a></td>
@@ -504,7 +504,7 @@ View::start($biz['name'], 'clients', $me);
                     <?php endforeach; ?>
                     <?php foreach ($acc['members'] as $m): $ov = count(json_decode((string)($m['overrides'] ?? ''), true) ?: []); ?>
                         <tr>
-                            <td><b><?= e($m['name']) ?></b><?= $m['status'] === 'invited' ? ' <span class="pill warn">diundang</span>' : '' ?><?= $m['status'] === 'disabled' ? ' <span class="pill">nonaktif</span>' : '' ?>
+                            <td><a href="/person.php?id=<?= (int)$m['person_id'] ?>" style="color:var(--ink)"><b><?= e($m['name']) ?></b></a><?= $m['status'] === 'invited' ? ' <span class="pill warn">diundang</span>' : '' ?><?= $m['status'] === 'disabled' ? ' <span class="pill">nonaktif</span>' : '' ?>
                                 <br><span class="muted" style="font-size:12px"><?= $m['username'] ? e($m['username']) . ' · ' : '' ?><?= e($m['email']) ?></span></td>
                             <td><span class="pill <?= $m['is_owner'] ? 'gold' : '' ?>"><?= e($m['role_name']) ?></span><?= $ov ? ' <span class="pill" title="Izin khusus orang ini yang berbeda dari perannya">+' . $ov . ' pengecualian</span>' : '' ?></td>
                             <td><span class="pill">Sistem</span><?= $m['portal_owner'] ? ' <span class="pill ok">Owner Login</span>' : '' ?></td>

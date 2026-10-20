@@ -372,6 +372,79 @@ final class Legacy
         return $log;
     }
 
+    /**
+     * Data akun orang (nama, email, telepon, username, aktif) → users lama. Tidak menyentuh developer.
+     * @return string|null pesan, null bila orang ini belum punya user di sistem lama
+     */
+    public static function syncAccount(int $personId): ?string
+    {
+        $st = Auth::db()->prepare('SELECT * FROM people WHERE id = ?');
+        $st->execute([$personId]);
+        $p = $st->fetch();
+        if (!$p || !$p['legacy_user_id'] || Db::legacyMaster() === null) {
+            return null;
+        }
+        $db = self::db();
+        $role = $db->prepare('SELECT r.role_code FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = ?');
+        $role->execute([(int)$p['legacy_user_id']]);
+        if ($role->fetchColumn() === 'developer') {
+            throw new RuntimeException('Akun developer tidak diubah dari Console');
+        }
+        $dup = $db->prepare('SELECT username FROM users WHERE (username = ? OR email = ?) AND id <> ?');
+        $dup->execute([$p['username'], $p['email'], (int)$p['legacy_user_id']]);
+        if ($other = $dup->fetchColumn()) {
+            throw new RuntimeException("Username atau email sudah dipakai user lain di sistem ({$other})");
+        }
+        $db->prepare('UPDATE users SET full_name = ?, email = ?, username = ?, phone = COALESCE(?, phone), is_active = ? WHERE id = ?')
+            ->execute([$p['name'], $p['email'], $p['username'], $p['phone'] ?: null, $p['status'] === 'disabled' ? 0 : 1, (int)$p['legacy_user_id']]);
+        return 'Akun di sistem diperbarui.';
+    }
+
+    /**
+     * Ganti password login sistem lama. Hanya hash yang disimpan; password_view lama dikosongkan supaya
+     * panel developer lama tidak menampilkan password yang sudah usang.
+     */
+    public static function setPassword(int $personId, string $plain): void
+    {
+        $st = Auth::db()->prepare('SELECT legacy_user_id FROM people WHERE id = ?');
+        $st->execute([$personId]);
+        $uid = (int)$st->fetchColumn();
+        if (!$uid) {
+            throw new RuntimeException('Orang ini belum punya akun login di sistem');
+        }
+        $db = self::db();
+        $role = $db->prepare('SELECT r.role_code FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = ?');
+        $role->execute([$uid]);
+        if ($role->fetchColumn() === 'developer') {
+            throw new RuntimeException('Akun developer tidak diubah dari Console');
+        }
+        $hasView = (bool)$db->query("SHOW COLUMNS FROM users LIKE 'password_view'")->fetch();
+        $db->prepare('UPDATE users SET password = ?' . ($hasView ? ', password_view = NULL' : '') . ' WHERE id = ?')
+            ->execute([password_hash($plain, PASSWORD_DEFAULT), $uid]);
+        // Gagal login berulang sebelumnya tidak lagi mengunci orang ini
+        try {
+            $u = $db->prepare('SELECT username FROM users WHERE id = ?');
+            $u->execute([$uid]);
+            $db->prepare('DELETE FROM login_attempts WHERE username = ?')->execute([(string)$u->fetchColumn()]);
+        } catch (Throwable) {
+            // tabel login_attempts lama bisa berbeda bentuk — tidak wajib
+        }
+    }
+
+    /** Password acak yang mudah didikte lewat WhatsApp: tanpa huruf/angka yang mirip (0/O, 1/l/I). */
+    public static function generatePassword(): string
+    {
+        $chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+        $out = '';
+        for ($i = 0; $i < 10; $i++) {
+            $out .= $chars[random_int(0, strlen($chars) - 1)];
+            if ($i === 4) {
+                $out .= '-';
+            }
+        }
+        return $out;
+    }
+
     /** Buat user lama untuk orang baru di Console. Tanpa username / password → belum bisa (dilewati dengan catatan). */
     private static function createUser(array $d, ?string $password, array $roleIds, array &$log): ?int
     {
