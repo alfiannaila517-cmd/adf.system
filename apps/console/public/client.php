@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             flash('Email tidak valid.', 'err');
         } elseif ($needLogin && (!preg_match('/^[a-z0-9_.]{3,50}$/', $username) || mb_strlen($password) < 8)) {
-            flash('Grup ini terhubung ke sistem yang sedang berjalan: isi username (3–50 huruf kecil/angka/titik) dan password awal (min. 8).', 'err');
+            flash('Grup ini terhubung ke ' . Legacy::label() . ': isi username (3–50 huruf kecil/angka/titik) dan password awal (min. 8).', 'err');
         } elseif ($needLogin && $taken) {
             flash("Username {$username} atau email {$email} sudah dipakai di sistem.", 'err');
         } else {
@@ -107,9 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $newPasswords = [];
             }
             Auth::audit('legacy.export', "{$client['name']}: " . count($sync) . ' perubahan');
-            $_SESSION['flash']['msg'] .= ' Sistem lama diperbarui' . ($sync ? ': ' . implode(' · ', array_unique($sync)) : '.');
+            $_SESSION['flash']['msg'] .= ' ' . Legacy::label() . ' diperbarui' . ($sync ? ': ' . implode(' · ', array_unique($sync)) : '.');
         } catch (Throwable $e) {
-            $_SESSION['flash'] = ['msg' => $_SESSION['flash']['msg'] . ' TAPI gagal menulis ke sistem lama: ' . $e->getMessage(), 'type' => 'err'];
+            $_SESSION['flash'] = ['msg' => $_SESSION['flash']['msg'] . ' TAPI gagal menulis ke ' . Legacy::label() . ': ' . $e->getMessage(), 'type' => 'err'];
         }
     }
     redirect("/client.php?id={$id}&tab={$tab}");

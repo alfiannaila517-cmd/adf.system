@@ -176,9 +176,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $sync = Legacy::export(Biz::business($id), $newPasswords);
             Auth::audit('legacy.export', "{$biz['name']}: " . count($sync) . ' perubahan');
-            $_SESSION['flash']['msg'] .= ' Sistem lama diperbarui' . ($sync ? ': ' . implode(' · ', $sync) : ' (tidak ada yang berubah).');
+            $_SESSION['flash']['msg'] .= ' ' . Legacy::label() . ' diperbarui' . ($sync ? ': ' . implode(' · ', $sync) : ' (tidak ada yang berubah).');
         } catch (Throwable $e) {
-            $_SESSION['flash'] = ['msg' => $_SESSION['flash']['msg'] . ' TAPI gagal menulis ke sistem lama: ' . $e->getMessage(), 'type' => 'err'];
+            $_SESSION['flash'] = ['msg' => $_SESSION['flash']['msg'] . ' TAPI gagal menulis ke ' . Legacy::label() . ': ' . $e->getMessage(), 'type' => 'err'];
         }
     }
 
@@ -411,7 +411,7 @@ View::start($biz['name'], 'clients', $me);
         <a class="btn <?= $view === 'peran' ? '' : 'ghost' ?> sm" href="<?= $base ?>&view=peran">Peran & izin</a>
     </nav>
     <?php if ($linked): ?>
-        <div class="soonbox" style="margin-bottom:12px;padding:10px 14px;font-size:13px">🔗 Terhubung ke sistem <?= e($biz['name']) ?> yang sedang berjalan — setiap perubahan di sini <b>langsung berlaku</b> di sana.</div>
+        <div class="soonbox" style="margin-bottom:12px;padding:10px 14px;font-size:13px">🔗 Terhubung ke <b><?= e(Legacy::label()) ?></b> — perubahan di sini langsung berlaku di sana. Sistem asli di hosting <b>tidak tersentuh</b>.</div>
     <?php endif; ?>
 
     <?php if ($view === 'peran'): ?>

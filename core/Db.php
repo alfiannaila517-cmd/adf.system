@@ -52,6 +52,11 @@ final class Db
         if (isset(self::$pool['legacy:' . $name])) {
             return self::$pool['legacy:' . $name];
         }
+        // Pengaman: jembatan hanya boleh ke database di server ini sendiri — tidak pernah ke hosting / server lain
+        $host = strtolower((string)Secrets::get('DB_HOST', 'localhost'));
+        if (!in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+            throw new RuntimeException("Jembatan sistem lama hanya boleh ke database lokal (DB_HOST={$host} ditolak)");
+        }
         $pdo = new PDO('mysql:host=' . Secrets::get('DB_HOST', 'localhost') . ";charset=utf8mb4;dbname={$name}", Secrets::require('DB_USER'), Secrets::require('DB_PASS'), [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

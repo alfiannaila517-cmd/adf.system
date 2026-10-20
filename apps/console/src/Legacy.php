@@ -301,6 +301,15 @@ final class Legacy
     /** Urutan kekuatan peran global lama (users.role_id dipakai bersama untuk semua bisnis). */
     private const ROLE_RANK = ['staff' => 1, 'manager' => 2, 'admin' => 3, 'owner' => 4];
 
+    /**
+     * Nama sistem lama yang terhubung, untuk tulisan di layar. Diatur di secrets/legacy.env LEGACY_LABEL;
+     * selama uji coba = staging di VPS ini (database lokal VPS, BUKAN hosting). Saat pindah rumah diganti.
+     */
+    public static function label(): string
+    {
+        return (string)Secrets::get('LEGACY_LABEL', 'staging.adfsystem.online (salinan uji di VPS ini)');
+    }
+
     /** Bisnis Console yang terhubung ke sistem lama. */
     public static function linked(array $biz): bool
     {
@@ -397,7 +406,7 @@ final class Legacy
         }
         $db->prepare('UPDATE users SET full_name = ?, email = ?, username = ?, phone = COALESCE(?, phone), is_active = ? WHERE id = ?')
             ->execute([$p['name'], $p['email'], $p['username'], $p['phone'] ?: null, $p['status'] === 'disabled' ? 0 : 1, (int)$p['legacy_user_id']]);
-        return 'Akun di sistem diperbarui.';
+        return 'Akun di ' . self::label() . ' diperbarui.';
     }
 
     /**

@@ -166,7 +166,7 @@ View::start($person['name'], 'clients', $me);
             <?php endforeach; ?>
             <?php foreach ($access as $a): ?>
                 <tr>
-                    <td><b><?= e($a['business_name']) ?></b> <span class="muted" style="font-size:12px">· <?= e($a['client_name']) ?></span><?= $a['legacy_business_id'] ? ' <span class="pill" title="terhubung ke sistem yang berjalan">🔗</span>' : '' ?></td>
+                    <td><b><?= e($a['business_name']) ?></b> <span class="muted" style="font-size:12px">· <?= e($a['client_name']) ?></span><?= $a['legacy_business_id'] ? ' <span class="pill" title="terhubung ke <?= e(Legacy::label()) ?>">🔗</span>' : '' ?></td>
                     <td><span class="pill <?= $a['is_owner'] ? 'gold' : '' ?>"><?= e($a['role_name']) ?></span></td>
                     <td><span class="pill">Sistem</span><?= $a['portal_owner'] ? ' <span class="pill ok">Owner Login</span>' : '' ?></td>
                     <td style="text-align:right;white-space:nowrap">
