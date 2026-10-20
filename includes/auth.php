@@ -379,7 +379,8 @@ class Auth
         }
 
         // Hard-enable Gudang procurement menus for the 3 target businesses.
-        if (in_array($module, ['procurement_po', 'procurement_stock'], true)) {
+        // On the VPS, access is managed by ADF Console (ADF_CONSOLE_ACCESS in config/local-db-config.php) — skip the shortcut.
+        if (!defined('ADF_CONSOLE_ACCESS') && in_array($module, ['procurement_po', 'procurement_stock'], true)) {
             $activeBusinessId = strtolower((string)($_SESSION['active_business_id'] ?? ''));
             $activeBusinessNorm = preg_replace('/[^a-z0-9]/', '', $activeBusinessId);
             $targetBizNorm = ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'];
