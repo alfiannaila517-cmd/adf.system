@@ -78,6 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Auth::audit($lock ? 'subscription.lock' : 'subscription.unlock', $biz['name']);
         Telegram::security($lock ? '🔒' : '🔓', ($lock ? 'Sistem bisnis DIKUNCI' : 'Sistem bisnis DIBUKA') . ' (Console)', ['Bisnis' => $biz['name'], 'Oleh' => $me['username']]);
         flash($lock ? 'Sistem bisnis dikunci.' : 'Kunci sistem bisnis dibuka.');
+    } elseif ($action === 'modules') {
+        Biz::saveModules($biz, array_map('strval', (array)($_POST['m'] ?? [])), array_map('strval', (array)($_POST['f'] ?? [])));
+        Auth::audit('business.modules', $biz['name']);
+        flash('Modul & fitur disimpan.');
+    } elseif ($action === 'modules_reset') {
+        Biz::resetModules($id);
+        Auth::audit('business.modules_reset', $biz['name']);
+        flash('Modul & fitur dikembalikan ke bawaan jenis bisnis.');
     } elseif ($action === 'regenerate_token') {
         $db->prepare('UPDATE subscriptions SET client_token = ? WHERE business_id = ?')->execute([bin2hex(random_bytes(24)), $id]);
         Auth::audit('subscription.token', $biz['name']);
@@ -101,7 +109,7 @@ View::start($biz['name'], 'clients', $me);
 
 <nav class="tabs">
     <?php foreach (['ringkasan' => 'Ringkasan', 'langganan' => 'Langganan', 'database' => 'Database & Storage', 'modul' => 'Modul & Fitur', 'orang' => 'Orang & Akses', 'integrasi' => 'Integrasi'] as $k => $label): ?>
-        <a class="<?= $tab === $k ? 'on' : '' ?><?= in_array($k, ['modul', 'orang', 'integrasi'], true) ? ' soon' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
+        <a class="<?= $tab === $k ? 'on' : '' ?><?= in_array($k, ['orang', 'integrasi'], true) ? ' soon' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
 
@@ -218,8 +226,45 @@ View::start($biz['name'], 'clients', $me);
     </div>
     <div class="soonbox"><b>Segera:</b> ukuran database & folder, backup terakhir, dan tombol backup/unduh per bisnis.</div>
 
-<?php elseif ($tab === 'modul'): ?>
-    <div class="soonbox"><b>Modul & Fitur</b> — satu tempat untuk menyalakan/mematikan menu (Buku kas, Reservasi, Gaji, Gudang, …) dan fitur (Cloudbeds, hold kamar 24 jam, …) khusus bisnis ini. Menggantikan pengaturan modul yang sekarang tersebar di dua tempat.</div>
+<?php elseif ($tab === 'modul'): $mods = Biz::modules($biz); ?>
+    <p class="muted" style="margin:0 0 12px">Menu yang tampil di sistem <?= e($biz['name']) ?> dan fitur tambahannya. Yang dimatikan di sini tidak bisa dibuka siapa pun di bisnis ini, apa pun perannya.
+        <?= $mods['custom'] ? '<span class="pill gold">diatur khusus</span>' : '<span class="pill">bawaan jenis ' . e($typeLabel) . '</span>' ?></p>
+    <form method="post">
+        <?= csrf_field() ?><input type="hidden" name="action" value="modules"><input type="hidden" name="id" value="<?= $id ?>">
+        <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
+            <?php foreach (Catalog::GROUPS as $g => $gLabel):
+                $inGroup = array_filter($mods['module'], fn ($on, $code) => Catalog::MODULES[$code][1] === $g, ARRAY_FILTER_USE_BOTH);
+                if (!$inGroup) continue; ?>
+                <div class="card" style="margin:0">
+                    <h2><?= e($gLabel) ?></h2>
+                    <?php foreach ($inGroup as $code => $on): $required = Catalog::MODULES[$code][4]; ?>
+                        <label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:13px;margin:0 0 7px">
+                            <input type="checkbox" name="m[]" value="<?= e($code) ?>" style="width:auto" <?= $on ? 'checked' : '' ?> <?= $required || !$isAdmin ? 'disabled' : '' ?>>
+                            <?= e(Catalog::MODULES[$code][0]) ?><?= $required ? ' <span class="pill">wajib</span>' : '' ?>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <?php if ($mods['feature']): ?>
+            <div class="card" style="margin-top:12px">
+                <h2>Fitur</h2>
+                <?php foreach ($mods['feature'] as $code => $on): [$fLabel, $fDesc] = Catalog::FEATURES[$code]; ?>
+                    <label style="display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:13px;margin:0 0 9px">
+                        <input type="checkbox" name="f[]" value="<?= e($code) ?>" style="width:auto;margin-top:3px" <?= $on ? 'checked' : '' ?> <?= $isAdmin ? '' : 'disabled' ?>>
+                        <span><b style="font-weight:600"><?= e($fLabel) ?></b><br><span class="muted" style="font-size:12px"><?= e($fDesc) ?></span></span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+        <?php if ($isAdmin): ?><button class="btn" style="margin-top:4px">Simpan modul & fitur</button><?php endif; ?>
+    </form>
+    <?php if ($isAdmin && $mods['custom']): ?>
+        <form method="post" style="margin-top:10px" onsubmit="return confirm('Kembalikan semua modul & fitur ke bawaan jenis bisnis?')">
+            <?= csrf_field() ?><input type="hidden" name="action" value="modules_reset"><input type="hidden" name="id" value="<?= $id ?>"><button class="btn ghost sm">Kembalikan ke bawaan</button>
+        </form>
+    <?php endif; ?>
 <?php elseif ($tab === 'orang'): ?>
     <div class="soonbox"><b>Orang & Akses</b> — siapa saja yang bisa masuk ke <?= e($biz['name']) ?>, perannya (Owner, Manager, Front Desk, Kasir, Staff…), dan pintu masuknya (sistem, portal owner, portal staff). Tambah orang cukup: email → peran → kirim undangan.</div>
 <?php else: ?>
