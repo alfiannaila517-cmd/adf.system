@@ -40,8 +40,8 @@ final class View
         .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
         .card h2 { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mu); margin: 0 0 10px; font-weight: 600; }
         label { display: block; font-size: 12px; color: var(--mu); margin: 0 0 4px; }
-        input, select { width: 100%; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--line); background: #15120e; color: var(--ink); font: inherit; }
-        input:focus, select:focus { outline: none; border-color: var(--gold2); }
+        input, select, textarea { width: 100%; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--line); background: #15120e; color: var(--ink); font: inherit; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold2); }
         .btn { display: inline-block; padding: 8px 14px; border: 0; border-radius: 8px; background: var(--gold); color: #1a150e; font: inherit; font-weight: 700; cursor: pointer; text-align: center; }
         .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
         .btn.danger { background: transparent; color: var(--bad); border: 1px solid rgba(239, 123, 110, .45); }

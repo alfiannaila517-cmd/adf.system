@@ -8,6 +8,8 @@
  *   php cli/console.php set-password <username>       ganti password akun (darurat: lupa password & email tidak bisa dipakai)
  *   php cli/console.php users                         daftar akun
  *   php cli/console.php demo seed|clear               data contoh Grup Narayana (DEMO)
+ *   php cli/console.php vault-key                     buat kunci brankas (enkripsi kunci API integrasi) — sekali saja
+ *   php cli/console.php legacy-preview <kode-bisnis>  pratinjau baris tabel sistem lama (izin + integrasi)
  */
 
 declare(strict_types=1);
@@ -29,7 +31,8 @@ try {
         'set-password' => setPassword($argv[2] ?? ''),
         'demo' => demo($argv[2] ?? ''),
         'legacy-preview' => legacyPreview($argv[2] ?? ''),
-        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear\n"),
+        'vault-key' => vaultKey(),
+        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear | vault-key | legacy-preview <kode>\n"),
     };
 } catch (Throwable $e) {
     fwrite(STDERR, 'GAGAL: ' . $e->getMessage() . PHP_EOL);
@@ -241,4 +244,40 @@ function legacyPreview(string $slug): void
         }
         echo '   + ' . (count($eff) - count($granted)) . " modul lain ditulis 0000\n";
     }
+
+    // Integrasi → tabel lama di database bisnis (nilai rahasia disamarkan)
+    echo "\nIntegrasi → database bisnis lama\n";
+    foreach (Integration::all($biz) as $code => $it) {
+        $def = Integrations::DEFS[$code];
+        if (!$it['row']) {
+            echo "   {$def['label']}: belum diisi (tidak ditulis)\n";
+            continue;
+        }
+        echo "   {$def['label']}" . ($it['enabled'] ? '' : ' (mati)') . "\n";
+        foreach ($def['fields'] as $field => [, $kind, $target]) {
+            $val = $kind === 'secret' ? (Integration::secretHint($biz, $code, $field, $it['secrets']) ?? '(kosong)') : (string)($it['config'][$field] ?? '');
+            printf("      %-48s %s\n", $target, $val === '' ? '(kosong)' : str_replace("\n", ' / ', $val));
+        }
+        if ($def['enabled_target']) {
+            printf("      %-48s %d\n", $def['enabled_target'], $it['enabled'] ? 1 : 0);
+        }
+    }
+}
+
+/** Buat VAULT_KEY di secrets/vault.env (sekali). Kunci lama tidak pernah ditimpa: kunci API yang sudah tersimpan tidak bisa dibuka lagi kalau kuncinya diganti. */
+function vaultKey(): void
+{
+    if (Vault::ready()) {
+        echo "VAULT_KEY sudah ada — tidak diubah. (Backup file " . ADF_SECRETS . "/vault.env bersama backup database.)\n";
+        return;
+    }
+    $path = ADF_SECRETS . '/vault.env';
+    if (is_file($path) && filesize($path) > 0) {
+        throw new RuntimeException("{$path} sudah ada tapi isinya tidak valid — periksa manual, jangan ditimpa");
+    }
+    if (file_put_contents($path, "# Kunci brankas ADF Console — JANGAN dihapus/diganti; backup terpisah\nVAULT_KEY=" . Vault::generateKey() . "\n", LOCK_EX) === false) {
+        throw new RuntimeException("Tidak bisa menulis {$path} (jalankan sebagai user adf)");
+    }
+    @chmod($path, 0640);
+    echo "VAULT_KEY dibuat di {$path}. Simpan salinannya di tempat aman (mis. password manager).\n";
 }

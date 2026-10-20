@@ -40,3 +40,5 @@ require_once ADF_CORE . '/Migrator.php';
 require_once ADF_CORE . '/Mailer.php';
 require_once ADF_CORE . '/Telegram.php';
 require_once ADF_CORE . '/Catalog.php';
+require_once ADF_CORE . '/Vault.php';
+require_once ADF_CORE . '/Integrations.php';
