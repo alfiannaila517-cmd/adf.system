@@ -447,7 +447,8 @@ View::start($biz['name'], 'clients', $me);
     <?php elseif ($view === 'tambah' && $isAdmin): ?>
         <div class="card" style="max-width:760px">
             <h2>Tambah orang ke <?= e($biz['name']) ?></h2>
-            <form method="post" autocomplete="off" <?= $ownerConfirm ?>>
+            <?php if (!empty($old)): ?><div style="border:1px solid var(--bad);border-radius:8px;padding:8px 12px;margin:0 0 12px;color:var(--bad);font-size:13px">Belum tersimpan — periksa pesan merah di atas, lalu perbaiki isiannya.</div><?php endif; ?>
+            <form method="post" autocomplete="off" novalidate <?= $ownerConfirm ?>>
                 <?= csrf_field() ?><input type="hidden" name="action" value="member_add"><input type="hidden" name="id" value="<?= $id ?>">
                 <p style="margin:4px 0 8px;font-weight:600">1. Data orang</p>
                 <div class="row2">
@@ -457,8 +458,8 @@ View::start($biz['name'], 'clients', $me);
                 <?php if ($linked): ?>
                     <p style="margin:4px 0 8px;font-weight:600">2. Akun login sistem</p>
                     <div class="row2">
-                        <div class="field"><label>Username *</label><input name="username" value="<?= e($old['username'] ?? '') ?>" pattern="[a-z0-9_.]{3,50}" placeholder="huruf kecil, mis. rina.fo"></div>
-                        <div class="field"><label>Password awal *</label><input name="password" type="password" minlength="8" placeholder="min. 8 karakter" autocomplete="new-password"></div>
+                        <div class="field"><label>Username *</label><input name="username" value="<?= e($old['username'] ?? '') ?>" placeholder="mis. rina.fo (huruf kecil, tanpa spasi)" autocapitalize="none"></div>
+                        <div class="field"><label>Password awal *</label><input name="password" type="text" placeholder="min. 8 karakter" autocomplete="off"></div>
                     </div>
                     <p class="muted" style="margin:-4px 0 10px;font-size:12px"><b>Wajib untuk orang baru</b> — dipakai untuk login di sistem. Boleh kosong hanya bila orang ini sudah punya akun di bisnis lain grup ini (email sama).</p>
                 <?php endif; ?>
