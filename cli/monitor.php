@@ -2,16 +2,17 @@
 
 /**
  * Monitor server ADF → Telegram. Dijalankan cron sebagai user `adf` (lihat /etc/cron.d/adf-monitor):
- *   php cli/monitor.php              cek tiap 5 menit; kirim pesan HANYA saat ada masalah baru / pulih / masalah berlanjut tiap 6 jam
- *   php cli/monitor.php --daily      laporan pagi: ringkasan kondisi + pengingat tagihan VPS
- *   php cli/monitor.php --test       kirim pesan uji
- *   php cli/monitor.php --preview    tampilkan laporan pagi di layar (tidak dikirim)
- *   php cli/monitor.php --find-chat  cari chat id Telegram setelah kamu mengirim /start ke bot, lalu simpan ke secrets
+ *   php cli/monitor.php                cek tiap 5 menit; kirim pesan HANYA saat ada masalah baru / pulih / masalah berlanjut tiap 6 jam
+ *   php cli/monitor.php --daily        laporan pagi: ringkasan kondisi + pengingat tagihan VPS
+ *   php cli/monitor.php --test         kirim pesan uji
+ *   php cli/monitor.php --preview      tampilkan laporan pagi di layar (tidak dikirim)
+ *   php cli/monitor.php --find-chat    cari chat id Telegram setelah kamu mengirim /start ke bot, lalu simpan ke secrets
+ *   php cli/monitor.php --set-password buat / ganti login portal https://<SITE_HOST>/monitor/
  *
  * Rahasia & pengaturan di /srv/adf/secrets (tidak di git):
  *   telegram.env  TELEGRAM_BOT_TOKEN=…  TELEGRAM_CHAT_ID=…
- *   monitor.env   SERVER_NAME=VPS Biznet  SITE_HOST=vps.adfsystem.online
- *                 VPS_NEXT_DUE=2026-11-20  VPS_CYCLE=monthly|yearly  VPS_PRICE=198690  VPS_PLAN=NEO Lite MS 4.4
+ *   monitor.env   SERVER_NAME, SITE_HOST, VPS_NEXT_DUE=2026-11-20, VPS_CYCLE=monthly|yearly, VPS_PRICE, VPS_PLAN
+ *   portal.env    MONITOR_USER, MONITOR_PASS_HASH (dibuat oleh --set-password)
  */
 
 declare(strict_types=1);
@@ -22,33 +23,31 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require dirname(__DIR__) . '/core/bootstrap.php';
+require_once ADF_CORE . '/ServerHealth.php';
 
-const DISK_WARN = 80;        // % terpakai
-const MEM_WARN = 90;         // % terpakai (tanpa cache)
-const SSL_WARN_DAYS = 14;
-const REPEAT_HOURS = 6;      // masalah yang belum pulih diingatkan lagi setiap 6 jam
-const PROBLEM_LABELS = ['disk' => 'Disk', 'mem' => 'RAM', 'load' => 'Beban CPU', 'svc' => 'Layanan', 'ssl' => 'Sertifikat SSL', 'reboot' => 'Perlu restart', 'web' => 'Website'];
-const SERVICES = ['nginx' => 'Nginx (web)', 'php8.2-fpm' => 'PHP', 'mariadb' => 'MariaDB (database)', 'fail2ban' => 'fail2ban'];
+const REPEAT_HOURS = 6; // masalah yang belum pulih diingatkan lagi setiap 6 jam
 
 $mode = $argv[1] ?? '';
-$stateDir = ADF_STORAGE . '/_platform';
-$stateFile = $stateDir . '/monitor-state.json';
-if (!is_dir($stateDir)) {
-    @mkdir($stateDir, 0750, true);
+$stateFile = ServerHealth::stateFile();
+if (!is_dir(dirname($stateFile))) {
+    @mkdir(dirname($stateFile), 0770, true);
 }
 
-if ($mode === '--find-chat') {
-    findChat();
-    exit;
-}
-if ($mode === '--test') {
-    $ok = telegram("✅ <b>Monitor ADF tersambung</b>\n" . esc(serverName()) . ' · ' . date('d M Y H:i') . ' WIB');
-    echo $ok ? "Pesan uji terkirim.\n" : "Gagal mengirim — cek TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.\n";
-    exit($ok ? 0 : 1);
+switch ($mode) {
+    case '--find-chat':
+        findChat();
+        exit;
+    case '--set-password':
+        setPortalPassword();
+        exit;
+    case '--test':
+        $ok = telegram("✅ <b>Monitor ADF tersambung</b>\n" . esc(ServerHealth::serverName()) . ' · ' . date('d M Y H:i') . ' WIB');
+        echo $ok ? "Pesan uji terkirim.\n" : "Gagal mengirim — cek TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID.\n";
+        exit($ok ? 0 : 1);
 }
 
-$facts = collectFacts();
-$problems = findProblems($facts);
+$facts = ServerHealth::facts();
+$problems = ServerHealth::problems($facts);
 
 if ($mode === '--preview') {
     echo strip_tags(dailyReport($facts, $problems)) . PHP_EOL;
@@ -60,142 +59,57 @@ if ($mode === '--daily') {
 }
 
 // ---- Cek rutin: kirim hanya bila ada perubahan ----
-$state = is_file($stateFile) ? (json_decode((string)file_get_contents($stateFile), true) ?: []) : [];
-$prev = $state['problems'] ?? [];
+$prev = ServerHealth::lastState()['problems'] ?? [];
 $now = time();
 $lines = [];
 foreach ($problems as $key => $msg) {
     if (!isset($prev[$key])) {
         $lines[] = "⚠️ {$msg}";
-        $prev[$key] = ['since' => $now, 'notified' => $now];
-    } elseif ($now - (int)$prev[$key]['notified'] >= REPEAT_HOURS * 3600) {
-        $lines[] = "⏳ Masih bermasalah sejak " . date('d M H:i', (int)$prev[$key]['since']) . ": {$msg}";
-        $prev[$key]['notified'] = $now;
+        $prev[$key] = ['since' => $now, 'notified' => $now, 'msg' => $msg];
+    } else {
+        $prev[$key]['msg'] = $msg;
+        if ($now - (int)$prev[$key]['notified'] >= REPEAT_HOURS * 3600) {
+            $lines[] = '⏳ Masih bermasalah sejak ' . date('d M H:i', (int)$prev[$key]['since']) . ": {$msg}";
+            $prev[$key]['notified'] = $now;
+        }
     }
 }
 foreach (array_keys($prev) as $key) {
     if (!isset($problems[$key])) {
-        $lines[] = '✅ Pulih: ' . (PROBLEM_LABELS[explode(':', $key)[0]] ?? $key);
+        $lines[] = '✅ Pulih: ' . (ServerHealth::LABELS[explode(':', $key)[0]] ?? $key);
         unset($prev[$key]);
     }
 }
 if ($lines) {
-    telegram('<b>' . esc(serverName()) . "</b>\n" . implode("\n", array_map('esc', $lines)));
+    telegram('<b>' . esc(ServerHealth::serverName()) . "</b>\n" . implode("\n", array_map('esc', $lines)));
 }
 file_put_contents($stateFile, json_encode(['problems' => $prev, 'checked' => $now]), LOCK_EX);
+@chmod($stateFile, 0660); // portal (www-data, grup adf) ikut membaca
 
 // ======================================================================
-
-
-function serverName(): string
-{
-    return Secrets::get('SERVER_NAME', gethostname() ?: 'Server');
-}
 
 function esc(string $s): string
 {
     return htmlspecialchars($s, ENT_NOQUOTES);
 }
 
-/** Kondisi server saat ini (tanpa butuh akses root). */
-function collectFacts(): array
-{
-    $f = [];
-    $total = (float)@disk_total_space('/');
-    $free = (float)@disk_free_space('/');
-    $f['disk_pct'] = $total > 0 ? round(($total - $free) / $total * 100) : 0;
-    $f['disk_free_gb'] = round($free / 1073741824, 1);
-
-    $mem = [];
-    foreach (@file('/proc/meminfo') ?: [] as $line) {
-        if (preg_match('/^(\w+):\s+(\d+)/', $line, $m)) $mem[$m[1]] = (int)$m[2];
-    }
-    $memTotal = $mem['MemTotal'] ?? 0;
-    $f['mem_pct'] = $memTotal > 0 ? round(($memTotal - ($mem['MemAvailable'] ?? 0)) / $memTotal * 100) : 0;
-    $f['swap_used_mb'] = round((($mem['SwapTotal'] ?? 0) - ($mem['SwapFree'] ?? 0)) / 1024);
-
-    $f['load'] = function_exists('sys_getloadavg') ? (float)(sys_getloadavg()[1] ?? 0) : 0.0; // rata-rata 5 menit (Linux)
-    $f['cpus'] = max(1, (int)trim((string)@shell_exec('nproc')));
-    $f['uptime_days'] = round((float)explode(' ', (string)@file_get_contents('/proc/uptime'))[0] / 86400, 1);
-
-    $f['services'] = [];
-    foreach (SERVICES as $unit => $label) {
-        $f['services'][$unit] = trim((string)@shell_exec('systemctl is-active ' . escapeshellarg($unit) . ' 2>/dev/null')) ?: 'unknown';
-    }
-
-    $f['reboot'] = is_file('/var/run/reboot-required');
-    $apt = trim((string)@shell_exec('/usr/lib/update-notifier/apt-check 2>&1'));
-    [$f['updates'], $f['security_updates']] = preg_match('/^(\d+);(\d+)$/', $apt, $m) ? [(int)$m[1], (int)$m[2]] : [null, null];
-
-    $host = Secrets::get('SITE_HOST', 'vps.adfsystem.online');
-    $f['site_host'] = $host;
-    [$f['ssl_days'], $f['web_ok']] = sslAndWeb($host);
-    return $f;
-}
-
-/** Sisa hari sertifikat + apakah website menjawab, dilihat dari dalam server lewat koneksi HTTPS biasa. */
-function sslAndWeb(string $host): array
-{
-    $ctx = stream_context_create(['ssl' => ['capture_peer_cert' => true, 'SNI_enabled' => true, 'peer_name' => $host]]);
-    $sock = @stream_socket_client("ssl://{$host}:443", $errno, $err, 8, STREAM_CLIENT_CONNECT, $ctx);
-    if (!$sock) {
-        return [null, false];
-    }
-    $cert = openssl_x509_parse(stream_context_get_params($sock)['options']['ssl']['peer_certificate'] ?? '');
-    $days = $cert ? (int)floor(($cert['validTo_time_t'] - time()) / 86400) : null;
-    fwrite($sock, "HEAD / HTTP/1.1\r\nHost: {$host}\r\nConnection: close\r\n\r\n");
-    $status = (string)fgets($sock);
-    fclose($sock);
-    return [$days, (bool)preg_match('#^HTTP/\S+ [23]\d\d#', $status)];
-}
-
-/** @return array<string,string> kunci-unik => pesan */
-function findProblems(array $f): array
-{
-    $p = [];
-    if ($f['disk_pct'] >= DISK_WARN) $p['disk'] = "Disk terpakai {$f['disk_pct']}% (sisa {$f['disk_free_gb']} GB)";
-    if ($f['mem_pct'] >= MEM_WARN) $p['mem'] = "RAM terpakai {$f['mem_pct']}% (swap {$f['swap_used_mb']} MB)";
-    if ($f['load'] > $f['cpus'] * 1.5) $p['load'] = 'Beban CPU tinggi: ' . number_format($f['load'], 2) . " ({$f['cpus']} core)";
-    foreach ($f['services'] as $unit => $stateTxt) {
-        if ($stateTxt !== 'active') $p["svc:{$unit}"] = SERVICES[$unit] . " tidak berjalan ({$stateTxt})";
-    }
-    if (!$f['web_ok']) $p['web'] = "Website {$f['site_host']} tidak menjawab";
-    if ($f['ssl_days'] !== null && $f['ssl_days'] <= SSL_WARN_DAYS) $p['ssl'] = "Sertifikat SSL habis dalam {$f['ssl_days']} hari";
-    if ($f['reboot']) $p['reboot'] = 'Server perlu di-restart setelah update (sudo reboot)';
-    return $p;
-}
-
-/** Jatuh tempo VPS berikutnya: maju otomatis per siklus bila tanggal tersimpan sudah lewat (dianggap sudah dibayar). */
-function nextDue(): ?DateTimeImmutable
-{
-    $raw = Secrets::get('VPS_NEXT_DUE');
-    if (!$raw || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) return null;
-    $due = new DateTimeImmutable($raw);
-    $step = Secrets::get('VPS_CYCLE', 'monthly') === 'yearly' ? '+1 year' : '+1 month';
-    $today = new DateTimeImmutable('today');
-    while ($due < $today) $due = $due->modify($step);
-    return $due;
-}
-
 function billingLine(): ?string
 {
-    $due = nextDue();
-    if (!$due) return null;
-    $days = (int)(new DateTimeImmutable('today'))->diff($due)->days;
-    $price = (int)Secrets::get('VPS_PRICE', '0');
-    $txt = '💳 Tagihan VPS' . (Secrets::get('VPS_PLAN') ? ' (' . Secrets::get('VPS_PLAN') . ')' : '') . ': ' . $due->format('d M Y')
-        . ($price > 0 ? ' · Rp ' . number_format($price, 0, ',', '.') : '');
-    if ($days === 0) return "🔴 {$txt} — JATUH TEMPO HARI INI. Bayar di dashboard Biznet.";
-    if (in_array($days, [1, 3, 7], true)) return "🟠 {$txt} — {$days} hari lagi. Siapkan pembayaran.";
-    return "{$txt} ({$days} hari lagi)";
+    $b = ServerHealth::billing();
+    if (!$b) return null;
+    $txt = '💳 Tagihan VPS' . ($b['plan'] !== '' ? " ({$b['plan']})" : '') . ': ' . $b['due']->format('d M Y')
+        . ($b['price'] > 0 ? ' · Rp ' . number_format($b['price'], 0, ',', '.') : '');
+    if ($b['days'] === 0) return "🔴 {$txt} — JATUH TEMPO HARI INI. Bayar di dashboard Biznet.";
+    if (in_array($b['days'], [1, 3, 7], true)) return "🟠 {$txt} — {$b['days']} hari lagi. Siapkan pembayaran.";
+    return "{$txt} ({$b['days']} hari lagi)";
 }
 
 function dailyReport(array $f, array $problems): string
 {
     $svc = [];
-    foreach ($f['services'] as $unit => $s) $svc[] = ($s === 'active' ? '🟢 ' : '🔴 ') . SERVICES[$unit];
+    foreach ($f['services'] as $unit => $s) $svc[] = ($s === 'active' ? '🟢 ' : '🔴 ') . ServerHealth::SERVICES[$unit];
     $l = [];
-    $l[] = '☀️ <b>Laporan pagi · ' . esc(serverName()) . '</b>';
+    $l[] = '☀️ <b>Laporan pagi · ' . esc(ServerHealth::serverName()) . '</b>';
     $l[] = esc(date('l, d M Y'));
     $l[] = '';
     $l[] = $problems ? '⚠️ <b>' . count($problems) . ' perlu perhatian</b>' : '✅ <b>Semua normal</b>';
@@ -214,6 +128,8 @@ function dailyReport(array $f, array $problems): string
         $l[] = '';
         $l[] = esc($bill);
     }
+    $l[] = '';
+    $l[] = '📊 https://' . esc($f['site_host']) . '/monitor/';
     return implode("\n", $l);
 }
 
@@ -247,8 +163,7 @@ function findChat(): void
     $res = json_decode((string)@file_get_contents("https://api.telegram.org/bot{$token}/getUpdates"), true);
     $chat = null;
     foreach (array_reverse($res['result'] ?? []) as $u) {
-        $c = $u['message']['chat'] ?? null;
-        if ($c) {
+        if ($c = $u['message']['chat'] ?? null) {
             $chat = $c;
             break;
         }
@@ -257,9 +172,47 @@ function findChat(): void
         echo "Belum ada pesan. Buka bot-mu di Telegram, kirim /start, lalu jalankan lagi.\n";
         return;
     }
-    $file = ADF_SECRETS . '/telegram.env';
-    $lines = array_filter(@file($file, FILE_IGNORE_NEW_LINES) ?: [], fn ($l) => !str_starts_with(trim($l), 'TELEGRAM_CHAT_ID='));
-    $lines[] = 'TELEGRAM_CHAT_ID=' . $chat['id'];
-    file_put_contents($file, implode("\n", $lines) . "\n", LOCK_EX);
+    writeSecret('telegram.env', 'TELEGRAM_CHAT_ID', (string)$chat['id']);
     echo 'Chat ditemukan: ' . ($chat['first_name'] ?? $chat['title'] ?? '') . ' (id ' . $chat['id'] . ") — tersimpan di telegram.env\n";
+}
+
+/** Login portal monitor: username + password (disimpan sebagai hash, tidak pernah teks asli). */
+function setPortalPassword(): void
+{
+    echo 'Username portal [admin]: ';
+    $user = trim((string)fgets(STDIN)) ?: 'admin';
+    if (!preg_match('/^[a-zA-Z0-9._-]{3,32}$/', $user)) {
+        echo "Username hanya huruf/angka/titik/minus, 3–32 karakter.\n";
+        return;
+    }
+    $read = function (string $label): string {
+        echo $label;
+        @shell_exec('stty -echo');
+        $v = trim((string)fgets(STDIN));
+        @shell_exec('stty echo');
+        echo PHP_EOL;
+        return $v;
+    };
+    $pass = $read('Password baru (min. 10 karakter, tidak tampil): ');
+    if (strlen($pass) < 10) {
+        echo "Terlalu pendek — minimal 10 karakter.\n";
+        return;
+    }
+    if ($read('Ulangi password: ') !== $pass) {
+        echo "Tidak sama — ulangi perintahnya.\n";
+        return;
+    }
+    writeSecret('portal.env', 'MONITOR_USER', $user);
+    writeSecret('portal.env', 'MONITOR_PASS_HASH', password_hash($pass, PASSWORD_DEFAULT));
+    echo "Login portal tersimpan. Buka https://" . Secrets::get('SITE_HOST', 'vps.adfsystem.online') . "/monitor/\n";
+}
+
+/** Tulis/ganti satu KUNCI=nilai di file rahasia (mode 640, grup adf). */
+function writeSecret(string $file, string $key, string $value): void
+{
+    $path = ADF_SECRETS . '/' . $file;
+    $lines = array_filter(@file($path, FILE_IGNORE_NEW_LINES) ?: [], fn ($l) => trim($l) !== '' && !str_starts_with(trim($l), $key . '='));
+    $lines[] = $key . '=' . $value;
+    file_put_contents($path, implode("\n", $lines) . "\n", LOCK_EX);
+    @chmod($path, 0640);
 }

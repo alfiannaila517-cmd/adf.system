@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#14110d"/>
+  <rect x="56" y="56" width="400" height="400" rx="84" fill="none" stroke="#d6b16a" stroke-width="10" opacity=".55"/>
+  <polyline points="112,286 186,286 222,190 270,346 310,236 336,286 400,286" fill="none" stroke="#5fc983" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="256" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="56" font-weight="700" letter-spacing="10" fill="#d6b16a">ADF</text>
+</svg>
