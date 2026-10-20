@@ -130,7 +130,7 @@ View::start($biz['name'], 'clients', $me);
     <?php else: ?>
         <div class="row2" style="margin-bottom:14px">
             <div class="card"><h2>Status sistem</h2>
-                <div style="font-size:18px;font-weight:600;color:<?= $sub['locked'] ? 'var(--bad)' : 'var(--ok)' ?>"><?= $sub['locked'] ? '🔒 Terkunci sejak ' . e(date('d M Y H:i', strtotime((string)$sub['locked_at']))) : '● Aktif' ?></div>
+                <div style="font-size:15px;font-weight:600;color:<?= $sub['locked'] ? 'var(--bad)' : 'var(--ok)' ?>"><?= $sub['locked'] ? '🔒 Terkunci sejak ' . e(date('d M Y H:i', strtotime((string)$sub['locked_at']))) : '● Aktif' ?></div>
                 <?php if ($isAdmin): ?>
                     <form method="post" style="margin-top:10px" onsubmit="return confirm('<?= $sub['locked'] ? 'Buka kunci sistem bisnis ini?' : 'Kunci sistem bisnis ini? Staf tidak bisa memakai sistem sampai dibuka.' ?>')">
                         <?= csrf_field() ?><input type="hidden" name="action" value="<?= $sub['locked'] ? 'unlock' : 'lock' ?>"><input type="hidden" name="id" value="<?= $id ?>">
@@ -139,7 +139,7 @@ View::start($biz['name'], 'clients', $me);
                 <?php endif; ?>
             </div>
             <div class="card"><h2>Tarif</h2>
-                <div style="font-size:18px;font-weight:600"><?= Biz::rp($sub['base_fee']) ?> <span class="muted" style="font-size:13px;font-weight:400">/ bulan</span></div>
+                <div style="font-size:15px;font-weight:600"><?= Biz::rp($sub['base_fee']) ?> <span class="muted" style="font-size:13px;font-weight:400">/ bulan</span></div>
                 <p class="muted" style="margin:4px 0 0;font-size:13px"><?= (float)$sub['per_guest_fee'] > 0 ? '+ ' . Biz::rp($sub['per_guest_fee']) . ' per tamu' : 'tanpa tarif per tamu' ?></p>
             </div>
         </div>

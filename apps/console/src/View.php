@@ -33,45 +33,45 @@ final class View
     <style>
         :root { --bg: #12100c; --side: #17140f; --card: #1d1914; --line: #312a21; --ink: #f1ece4; --mu: #a39888; --gold: #d6b16a; --gold2: #b8924a; --ok: #5fc983; --warn: #f0b85a; --bad: #ef7b6e; }
         * { box-sizing: border-box; }
-        body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+        body { margin: 0; background: var(--bg); color: var(--ink); font: 13.5px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; }
         a { color: var(--gold); text-decoration: none; }
-        h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+        h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
         .muted { color: var(--mu); }
-        .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
-        .card h2 { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--mu); margin: 0 0 12px; font-weight: 600; }
-        label { display: block; font-size: 13px; color: var(--mu); margin: 0 0 6px; }
-        input, select { width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--line); background: #15120e; color: var(--ink); font: inherit; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+        .card h2 { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mu); margin: 0 0 10px; font-weight: 600; }
+        label { display: block; font-size: 12px; color: var(--mu); margin: 0 0 4px; }
+        input, select { width: 100%; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--line); background: #15120e; color: var(--ink); font: inherit; }
         input:focus, select:focus { outline: none; border-color: var(--gold2); }
-        .btn { display: inline-block; padding: 11px 18px; border: 0; border-radius: 10px; background: var(--gold); color: #1a150e; font: inherit; font-weight: 700; cursor: pointer; text-align: center; }
+        .btn { display: inline-block; padding: 8px 14px; border: 0; border-radius: 8px; background: var(--gold); color: #1a150e; font: inherit; font-weight: 700; cursor: pointer; text-align: center; }
         .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
         .btn.danger { background: transparent; color: var(--bad); border: 1px solid rgba(239, 123, 110, .45); }
-        .btn.sm { padding: 7px 12px; font-size: 13px; }
-        .field { margin-bottom: 14px; }
+        .btn.sm { padding: 5px 10px; font-size: 12px; }
+        .field { margin-bottom: 10px; }
         .alert { padding: 11px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 14px; }
         .alert.ok { background: rgba(95, 201, 131, .12); color: var(--ok); }
         .alert.err { background: rgba(239, 123, 110, .12); color: var(--bad); }
         .alert.info { background: rgba(214, 177, 106, .1); color: var(--gold); }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { text-align: left; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--mu); font-weight: 600; padding: 0 10px 10px; }
-        td { padding: 11px 10px; border-top: 1px solid var(--line); vertical-align: middle; }
-        .pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; background: #2a241c; color: var(--mu); }
+        td { padding: 8px 10px; border-top: 1px solid var(--line); vertical-align: middle; }
+        .pill { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 11px; background: #2a241c; color: var(--mu); }
         .pill.gold { background: rgba(214, 177, 106, .15); color: var(--gold); }
         /* Tab & kartu */
         .crumb { font-size: 13px; color: var(--mu); margin-bottom: 6px; }
         .crumb a { color: var(--mu); } .crumb a:hover { color: var(--gold); }
-        .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 18px 0 18px; overflow-x: auto; }
-        .tabs a { padding: 10px 14px; color: var(--mu); font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; }
+        .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 12px 0 14px; overflow-x: auto; }
+        .tabs a { padding: 7px 11px; color: var(--mu); font-size: 13px; border-bottom: 2px solid transparent; white-space: nowrap; }
         .tabs a.on { color: var(--gold); border-bottom-color: var(--gold); }
         .tabs a.soon { opacity: .5; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
-        .tile { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; color: var(--ink); transition: border-color .2s ease, transform .2s ease; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+        .tile { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; color: var(--ink); transition: border-color .2s ease, transform .2s ease; }
         a.tile:hover { border-color: var(--gold2); transform: translateY(-2px); }
-        .tile .ic { font-size: 22px; } .tile b { display: block; font-size: 16px; margin: 6px 0 2px; } .tile small { color: var(--mu); font-size: 13px; }
-        .tile .meta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+        .tile .ic { font-size: 17px; } .tile b { display: block; font-size: 14px; margin: 4px 0 1px; } .tile small { color: var(--mu); font-size: 12px; }
+        .tile .meta { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
         .pill.ok { background: rgba(95, 201, 131, .14); color: var(--ok); } .pill.bad { background: rgba(239, 123, 110, .14); color: var(--bad); } .pill.warn { background: rgba(240, 184, 90, .14); color: var(--warn); }
         .row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
-        .kv { display: grid; grid-template-columns: 170px 1fr; gap: 8px 14px; font-size: 14px; } .kv dt { color: var(--mu); } .kv dd { margin: 0; }
-        .soonbox { border: 1px dashed var(--line); border-radius: 14px; padding: 22px; color: var(--mu); }
+        .kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; font-size: 13px; } .kv dt { color: var(--mu); } .kv dd { margin: 0; }
+        .soonbox { border: 1px dashed var(--line); border-radius: 12px; padding: 14px 16px; color: var(--mu); }
         .soonbox b { color: var(--ink); }
         code { background: #241f18; padding: 1px 6px; border-radius: 6px; color: var(--gold); font-size: 13px; }
         @media (max-width: 860px) { .kv { grid-template-columns: 1fr; } .kv dt { margin-top: 6px; } }
@@ -82,17 +82,17 @@ final class View
         .brand b { display: block; font-size: 20px; font-weight: 300; letter-spacing: .22em; }
         .brand span { font-size: 12px; color: var(--mu); letter-spacing: .08em; }
         /* Kerangka utama */
-        .shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+        .shell { display: grid; grid-template-columns: 210px 1fr; min-height: 100vh; }
         .side { background: var(--side); border-right: 1px solid var(--line); padding: 20px 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
         .side .brand { text-align: left; padding: 0 8px 18px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
         .side .brand b { font-size: 16px; }
-        .nav a { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 9px; color: var(--ink); font-size: 14px; }
+        .nav a { display: flex; gap: 9px; align-items: center; padding: 7px 9px; border-radius: 8px; color: var(--ink); font-size: 13px; }
         .nav a i { font-style: normal; width: 18px; text-align: center; color: var(--gold2); }
         .nav a.on { background: rgba(214, 177, 106, .12); color: var(--gold); }
         .nav a.soon { color: var(--mu); }
         .nav a.soon::after { content: 'segera'; margin-left: auto; font-size: 10px; letter-spacing: .08em; color: var(--mu); border: 1px solid var(--line); border-radius: 99px; padding: 0 6px; }
         .side .me { margin-top: 18px; padding: 12px 10px; border-top: 1px solid var(--line); font-size: 13px; }
-        .main { padding: 26px 30px 40px; max-width: 1100px; width: 100%; }
+        .main { padding: 20px 24px 32px; max-width: 1100px; width: 100%; }
         .top { display: none; }
         @media (max-width: 860px) {
             .shell { grid-template-columns: 1fr; }

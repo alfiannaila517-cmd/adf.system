@@ -78,7 +78,7 @@ $users = $db->query('SELECT id, username, email, role, created_at FROM console_u
 View::start('Tim ADF', 'users', $me);
 ?>
 <h1>Tim ADF</h1>
-<p class="muted" style="margin:0 0 18px">Akun yang bisa masuk ke Console. Setiap perubahan meminta password Anda sebagai konfirmasi.</p>
+<p class="muted" style="margin:0 0 12px">Akun yang bisa masuk ke Console. Setiap perubahan meminta password Anda sebagai konfirmasi.</p>
 
 <div class="card">
     <table class="stack">

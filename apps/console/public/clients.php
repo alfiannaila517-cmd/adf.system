@@ -44,7 +44,7 @@ $clients = $db->query($sql)->fetchAll();
 View::start('Client & Bisnis', 'clients', $me);
 ?>
 <h1>Client & Bisnis</h1>
-<p class="muted" style="margin:0 0 18px">Client = pemilik / grup usaha. Setiap client punya satu atau beberapa bisnis yang masing-masing punya sistem, langganan, dan aksesnya sendiri.</p>
+<p class="muted" style="margin:0 0 12px">Client = pemilik / grup usaha. Setiap client punya satu atau beberapa bisnis yang masing-masing punya sistem, langganan, dan aksesnya sendiri.</p>
 
 <form method="get" style="display:flex;gap:8px;max-width:420px;margin-bottom:16px">
     <input name="q" value="<?= e($q) ?>" placeholder="Cari client atau bisnis…">

@@ -27,24 +27,24 @@ if (isset($_GET['denied'])) {
 }
 ?>
 <h1>Selamat datang, <?= e($user['username']) ?></h1>
-<p class="muted" style="margin:0 0 20px"><?= e(date('l, d M Y · H:i')) ?> WIB</p>
+<p class="muted" style="margin:0 0 14px"><?= e(date('l, d M Y · H:i')) ?> WIB</p>
 
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
     <div class="card">
         <h2>Server</h2>
-        <div style="font-size:18px;font-weight:600;color:<?= $problems ? 'var(--bad)' : 'var(--ok)' ?>"><?= $problems ? count($problems) . ' perlu perhatian' : 'Semua normal' ?></div>
+        <div style="font-size:15px;font-weight:600;color:<?= $problems ? 'var(--bad)' : 'var(--ok)' ?>"><?= $problems ? count($problems) . ' perlu perhatian' : 'Semua normal' ?></div>
         <p class="muted" style="margin:6px 0 0;font-size:13px">Cek otomatis terakhir: <?= $checked ? e(date('d M H:i', $checked)) : 'belum ada' ?></p>
         <?php foreach ($problems as $p): ?><p style="margin:6px 0 0;font-size:13px;color:var(--bad)">• <?= e($p['msg'] ?? '') ?></p><?php endforeach; ?>
     </div>
     <div class="card">
         <h2>Bisnis</h2>
-        <div style="font-size:18px;font-weight:600"><?= count($tenants) ?> terdaftar</div>
+        <div style="font-size:15px;font-weight:600"><?= count($tenants) ?> terdaftar</div>
         <p class="muted" style="margin:6px 0 0;font-size:13px"><?= e(implode(', ', array_map(fn ($t) => $t->name(), $tenants)) ?: '-') ?></p>
     </div>
     <?php if ($bill): ?>
         <div class="card">
             <h2>Tagihan VPS</h2>
-            <div style="font-size:18px;font-weight:600;color:<?= $bill['level'] === 'ok' ? 'var(--ink)' : ($bill['level'] === 'soon' ? 'var(--warn)' : 'var(--bad)') ?>"><?= $bill['days'] === 0 ? 'Hari ini' : $bill['days'] . ' hari lagi' ?></div>
+            <div style="font-size:15px;font-weight:600;color:<?= $bill['level'] === 'ok' ? 'var(--ink)' : ($bill['level'] === 'soon' ? 'var(--warn)' : 'var(--bad)') ?>"><?= $bill['days'] === 0 ? 'Hari ini' : $bill['days'] . ' hari lagi' ?></div>
             <p class="muted" style="margin:6px 0 0;font-size:13px"><?= e($bill['due']->format('d M Y')) ?><?= $bill['price'] ? ' · Rp ' . number_format($bill['price'], 0, ',', '.') : '' ?></p>
         </div>
     <?php endif; ?>

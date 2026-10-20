@@ -115,8 +115,8 @@ View::start($client['name'], 'clients', $me);
 
 <?php elseif ($tab === 'tagihan'): ?>
     <div class="row2" style="margin-bottom:14px">
-        <div class="card"><h2>Belum lunas</h2><div style="font-size:22px;font-weight:600;color:<?= $unpaid ? 'var(--warn)' : 'var(--ok)' ?>"><?= Biz::rp($unpaidTotal) ?></div><p class="muted" style="margin:4px 0 0;font-size:13px"><?= count($unpaid) ?> tagihan</p></div>
-        <div class="card"><h2>Biaya dasar per bulan</h2><div style="font-size:22px;font-weight:600"><?= Biz::rp($monthly) ?></div><p class="muted" style="margin:4px 0 0;font-size:13px">belum termasuk tarif per tamu</p></div>
+        <div class="card"><h2>Belum lunas</h2><div style="font-size:17px;font-weight:600;color:<?= $unpaid ? 'var(--warn)' : 'var(--ok)' ?>"><?= Biz::rp($unpaidTotal) ?></div><p class="muted" style="margin:4px 0 0;font-size:13px"><?= count($unpaid) ?> tagihan</p></div>
+        <div class="card"><h2>Biaya dasar per bulan</h2><div style="font-size:17px;font-weight:600"><?= Biz::rp($monthly) ?></div><p class="muted" style="margin:4px 0 0;font-size:13px">belum termasuk tarif per tamu</p></div>
     </div>
     <div class="card">
         <h2>Tagihan langganan belum lunas</h2>

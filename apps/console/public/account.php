@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 View::start('Akun saya', '', $me);
 ?>
 <h1>Akun saya</h1>
-<p class="muted" style="margin:0 0 18px"><?= e($me['username']) ?> · <?= e($me['email']) ?> · <?= e($me['role']) ?></p>
+<p class="muted" style="margin:0 0 12px"><?= e($me['username']) ?> · <?= e($me['email']) ?> · <?= e($me['role']) ?></p>
 <div class="card" style="max-width:460px">
     <h2>Ganti password</h2>
     <form method="post">
