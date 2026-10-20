@@ -198,3 +198,9 @@ backups/
 
 # Kredensial website Narayana (hanya di server)
 website/config/secrets.php
+
+# =============================================
+# ADF Platform: rahasia & file per bisnis (di VPS: /srv/adf/secrets, /srv/adf/storage)
+# =============================================
+/.secrets/
+/storage/
