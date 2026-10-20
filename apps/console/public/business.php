@@ -21,6 +21,7 @@ $dateOrNull = fn ($v) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$v) ? (stri
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
+    $newPasswords = [];
     if (!csrf_ok() || !$isAdmin) {
         flash(!$isAdmin ? 'Hanya admin yang bisa mengubah bisnis.' : 'Sesi form kedaluwarsa, silakan coba lagi.', 'err');
     } elseif ($action === 'update') {
@@ -92,13 +93,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $roleId = (int)($_POST['role_id'] ?? 0);
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
         $personId = (int)($_POST['person_id'] ?? 0);
+        // Bisnis yang terhubung ke sistem lama: orang baru butuh username + password awal untuk login di sana
+        $username = strtolower(trim((string)($_POST['username'] ?? '')));
+        $password = (string)($_POST['password'] ?? '');
+        $existing = null;
+        if ($action === 'member_add' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $st = $db->prepare('SELECT id, username, legacy_user_id FROM people WHERE email = ?');
+            $st->execute([$email]);
+            $existing = $st->fetch() ?: null;
+        }
+        $needLogin = $action === 'member_add' && Legacy::linked($biz) && empty($existing['legacy_user_id']);
+        $nameTaken = false;
+        if ($needLogin && $username !== '') {
+            $st = $db->prepare('SELECT 1 FROM people WHERE username = ? AND id <> ?');
+            $st->execute([$username, (int)($existing['id'] ?? 0)]);
+            $nameTaken = (bool)$st->fetchColumn();
+            $st = Legacy::db()->prepare('SELECT 1 FROM users WHERE username = ? OR email = ?');
+            $st->execute([$username, $email]);
+            $nameTaken = $nameTaken || (bool)$st->fetchColumn();
+        }
         if (!isset($roles[$roleId])) {
             flash('Pilih peran yang valid.', 'err');
         } elseif ($action === 'member_add' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             flash('Email tidak valid.', 'err');
+        } elseif ($needLogin && !preg_match('/^[a-z0-9_.]{3,50}$/', $username)) {
+            flash('Username wajib: 3–50 huruf kecil/angka/titik/garis bawah (dipakai untuk login di sistem).', 'err');
+        } elseif ($needLogin && $nameTaken) {
+            flash("Username {$username} atau email {$email} sudah dipakai di sistem.", 'err');
+        } elseif ($needLogin && mb_strlen($password) < 8) {
+            flash('Password awal minimal 8 karakter.', 'err');
         } else {
             if ($action === 'member_add') {
                 $personId = Access::person((string)($_POST['name'] ?? ''), $email);
+                if ($needLogin) {
+                    $db->prepare('UPDATE people SET username = ? WHERE id = ?')->execute([$username, $personId]);
+                    $newPasswords[$personId] = $password;
+                }
             }
             Access::setMembership($id, $personId, $roleId, !empty($_POST['portal_owner']), !empty($_POST['portal_staff']));
             Auth::audit($action === 'member_add' ? 'access.add' : 'access.update', "{$biz['name']}: #{$personId} → {$roles[$roleId]['name']}");
@@ -138,6 +168,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->prepare('UPDATE subscriptions SET client_token = ? WHERE business_id = ?')->execute([bin2hex(random_bytes(24)), $id]);
         Auth::audit('subscription.token', $biz['name']);
         flash('Token baru dibuat. Ganti juga token di pengaturan langganan sistem bisnis ini, kalau tidak sinkron akan gagal.', 'err');
+    }
+
+    // Perubahan akses langsung dikirim ke tabel sistem lama (bila bisnis ini terhubung) supaya sistem lama tetap berjalan sama
+    $accessActions = ['modules', 'modules_reset', 'member_add', 'member_update', 'member_clear_overrides', 'member_remove', 'roles_save'];
+    if (in_array($action, $accessActions, true) && ($_SESSION['flash']['type'] ?? '') === 'ok' && Legacy::linked($biz)) {
+        try {
+            $sync = Legacy::export(Biz::business($id), $newPasswords);
+            Auth::audit('legacy.export', "{$biz['name']}: " . count($sync) . ' perubahan');
+            $_SESSION['flash']['msg'] .= ' Sistem lama diperbarui' . ($sync ? ': ' . implode(' · ', $sync) : ' (tidak ada yang berubah).');
+        } catch (Throwable $e) {
+            $_SESSION['flash'] = ['msg' => $_SESSION['flash']['msg'] . ' TAPI gagal menulis ke sistem lama: ' . $e->getMessage(), 'type' => 'err'];
+        }
     }
     redirect("/business.php?id={$id}&tab={$tab}");
 }
@@ -366,6 +408,10 @@ View::start($biz['name'], 'clients', $me);
                 <?= csrf_field() ?><input type="hidden" name="action" value="member_add"><input type="hidden" name="id" value="<?= $id ?>">
                 <div><label>Nama</label><input name="name" required></div>
                 <div><label>Email</label><input name="email" type="email" required></div>
+                <?php if (Legacy::linked($biz)): ?>
+                    <div><label>Username login</label><input name="username" pattern="[a-z0-9_.]{3,50}" placeholder="huruf kecil, mis. rina.fo" autocomplete="off"></div>
+                    <div><label>Password awal</label><input name="password" type="password" minlength="8" placeholder="min. 8 karakter" autocomplete="new-password"></div>
+                <?php endif; ?>
                 <div><label>Peran</label><select name="role_id"><?php foreach ($roles as $rid => $r): ?><option value="<?= $rid ?>"><?= e($r['name']) ?></option><?php endforeach; ?></select></div>
                 <div style="display:flex;gap:10px;align-items:center;padding-bottom:6px">
                     <label style="display:flex;gap:4px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" name="portal_owner" value="1" style="width:auto"> portal owner</label>
@@ -373,7 +419,8 @@ View::start($biz['name'], 'clients', $me);
                 </div>
                 <div><button class="btn" style="width:100%">Tambah</button></div>
             </form>
-            <p class="muted" style="margin:8px 0 0;font-size:12px">Kalau email sudah terdaftar di bisnis lain, orangnya dipakai ulang (satu orang = satu akun). Undangan untuk membuat password dikirim saat sistem bisnis sudah berjalan di platform baru.</p>
+            <p class="muted" style="margin:8px 0 0;font-size:12px">Kalau email sudah terdaftar di bisnis lain, orangnya dipakai ulang (satu orang = satu akun<?= Legacy::linked($biz) ? '; username & password tidak perlu diisi lagi' : '' ?>).
+                <?= Legacy::linked($biz) ? 'Bisnis ini terhubung ke sistem yang sedang berjalan: setiap perubahan di tab ini langsung berlaku di sana. Berikan username & password awal ke orangnya.' : 'Undangan untuk membuat password dikirim saat sistem bisnis sudah berjalan di platform baru.' ?></p>
         </div>
     <?php endif; ?>
 

@@ -16,9 +16,17 @@ if (!$client) {
 }
 $tab = (string)($_GET['tab'] ?? 'bisnis');
 $isAdmin = $me['role'] === 'admin';
+// Bisnis grup ini yang terhubung ke sistem lama (perubahan owner grup dikirim ke sana)
+$linkedIds = [];
+if (Db::legacyMaster() !== null) {
+    $st = $db->prepare('SELECT id FROM businesses WHERE client_id = ? AND legacy_business_id IS NOT NULL');
+    $st->execute([$id]);
+    $linkedIds = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
+    $newPasswords = [];
     if (!csrf_ok() || !$isAdmin) {
         flash(!$isAdmin ? 'Hanya admin yang bisa mengubah data client.' : 'Sesi form kedaluwarsa, silakan coba lagi.', 'err');
     } elseif ($action === 'update') {
@@ -36,10 +44,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'owner_add') {
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
+        $username = strtolower(trim((string)($_POST['username'] ?? '')));
+        $password = (string)($_POST['password'] ?? '');
+        $st = $db->prepare('SELECT id, legacy_user_id FROM people WHERE email = ?');
+        $st->execute([$email]);
+        $existing = $st->fetch() ?: null;
+        $needLogin = $linkedIds && empty($existing['legacy_user_id']);
+        $taken = false;
+        if ($needLogin && $username !== '') {
+            $st = $db->prepare('SELECT 1 FROM people WHERE username = ? AND id <> ?');
+            $st->execute([$username, (int)($existing['id'] ?? 0)]);
+            $taken = (bool)$st->fetchColumn();
+            $st = Legacy::db()->prepare('SELECT 1 FROM users WHERE username = ? OR email = ?');
+            $st->execute([$username, $email]);
+            $taken = $taken || (bool)$st->fetchColumn();
+        }
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             flash('Email tidak valid.', 'err');
+        } elseif ($needLogin && (!preg_match('/^[a-z0-9_.]{3,50}$/', $username) || mb_strlen($password) < 8)) {
+            flash('Grup ini terhubung ke sistem yang sedang berjalan: isi username (3–50 huruf kecil/angka/titik) dan password awal (min. 8).', 'err');
+        } elseif ($needLogin && $taken) {
+            flash("Username {$username} atau email {$email} sudah dipakai di sistem.", 'err');
         } else {
             $pid = Access::person((string)($_POST['name'] ?? ''), $email);
+            if ($needLogin) {
+                $db->prepare('UPDATE people SET username = ? WHERE id = ?')->execute([$username, $pid]);
+                $newPasswords[$pid] = $password;
+            }
             Access::setGroupOwner($id, $pid, true);
             Auth::audit('access.group_owner_add', "{$client['name']}: {$email}");
             flash('Owner grup ditambahkan — otomatis punya akses penuh ke semua bisnis grup ini.');
@@ -63,6 +94,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Auth::audit('business.add', "{$name} → {$client['name']}");
             flash("Bisnis {$name} ditambahkan.");
             redirect("/business.php?id={$bid}");
+        }
+    }
+
+    // Owner grup berlaku di semua bisnis grup → kirim ke setiap bisnis yang terhubung ke sistem lama
+    if (in_array($action, ['owner_add', 'owner_remove'], true) && ($_SESSION['flash']['type'] ?? '') === 'ok' && $linkedIds) {
+        $sync = [];
+        try {
+            foreach ($linkedIds as $bid) {
+                // Password awal hanya dipakai sekali (user dibuat di bisnis pertama)
+                $sync = array_merge($sync, Legacy::export(Biz::business((int)$bid), $newPasswords));
+                $newPasswords = [];
+            }
+            Auth::audit('legacy.export', "{$client['name']}: " . count($sync) . ' perubahan');
+            $_SESSION['flash']['msg'] .= ' Sistem lama diperbarui' . ($sync ? ': ' . implode(' · ', array_unique($sync)) : '.');
+        } catch (Throwable $e) {
+            $_SESSION['flash'] = ['msg' => $_SESSION['flash']['msg'] . ' TAPI gagal menulis ke sistem lama: ' . $e->getMessage(), 'type' => 'err'];
         }
     }
     redirect("/client.php?id={$id}&tab={$tab}");
@@ -188,6 +235,10 @@ View::start($client['name'], 'clients', $me);
                 <?= csrf_field() ?><input type="hidden" name="action" value="owner_add"><input type="hidden" name="id" value="<?= $id ?>">
                 <div><label>Nama</label><input name="name" required></div>
                 <div><label>Email</label><input name="email" type="email" required></div>
+                <?php if ($linkedIds): ?>
+                    <div><label>Username login</label><input name="username" pattern="[a-z0-9_.]{3,50}" placeholder="kosongkan bila orangnya sudah punya akun" autocomplete="off"></div>
+                    <div><label>Password awal</label><input name="password" type="password" minlength="8" placeholder="min. 8 karakter" autocomplete="new-password"></div>
+                <?php endif; ?>
                 <div><button class="btn" style="width:100%">Jadikan owner grup</button></div>
             </form>
             <p class="muted" style="margin:8px 0 0;font-size:12px">Owner grup otomatis punya akses penuh + portal owner di semua bisnis <?= e($client['name']) ?>, termasuk bisnis yang ditambahkan nanti.</p>

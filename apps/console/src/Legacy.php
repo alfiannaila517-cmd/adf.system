@@ -296,6 +296,131 @@ final class Legacy
         return $over;
     }
 
+    /* ------------------------------------------------------------------ ekspor Console → tabel lama */
+
+    /** Urutan kekuatan peran global lama (users.role_id dipakai bersama untuk semua bisnis). */
+    private const ROLE_RANK = ['staff' => 1, 'manager' => 2, 'admin' => 3, 'owner' => 4];
+
+    /** Bisnis Console yang terhubung ke sistem lama. */
+    public static function linked(array $biz): bool
+    {
+        return !empty($biz['legacy_business_id']) && Db::legacyMaster() !== null;
+    }
+
+    /**
+     * Tulis kondisi Console satu bisnis ke tabel lama, persis seperti panel developer lama menulisnya:
+     * users (baru / peran / aktif), user_business_assignment, dan user_menu_permissions untuk SEMUA modul katalog
+     * (yang ditolak ditulis 0000 → aturan lama "tanpa baris = boleh semua" tidak pernah berlaku).
+     * User developer & menu di luar katalog tidak disentuh. $passwords = [person_id => password awal] untuk orang baru.
+     * @return string[] laporan
+     */
+    public static function export(array $biz, array $passwords = []): array
+    {
+        if (!self::linked($biz)) {
+            return [];
+        }
+        $db = self::db();
+        $lbid = (int)$biz['legacy_business_id'];
+        $roleIds = $db->query('SELECT role_code, id FROM roles')->fetchAll(PDO::FETCH_KEY_PAIR);
+        $menuIds = $db->query('SELECT menu_code, id FROM menu_items')->fetchAll(PDO::FETCH_KEY_PAIR);
+        $codes = array_keys(Catalog::MODULES);
+        $in = implode(',', array_fill(0, count($codes), '?'));
+        $log = [];
+
+        $db->beginTransaction();
+        try {
+            $want = [];
+            foreach (self::desired($biz) as $d) {
+                $uid = $d['legacy_user_id'] ?? self::createUser($d, $passwords[$d['person_id']] ?? null, $roleIds, $log);
+                if (!$uid) {
+                    continue;
+                }
+                $want[$uid] = true;
+                // Peran global = yang terkuat di semua bisnis orang ini (users.role_id satu untuk semua bisnis)
+                $role = self::globalRole((int)$d['person_id']);
+                $active = self::personStatus((int)$d['person_id']) === 'disabled' ? 0 : 1;
+                $u = $db->prepare('SELECT u.role_id, u.is_active, r.role_code FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = ?');
+                $u->execute([$uid]);
+                $cur = $u->fetch();
+                if (!$cur || $cur['role_code'] === 'developer') {
+                    continue; // user lama sudah dihapus / developer: jangan disentuh
+                }
+                if (($cur['role_code'] !== $role && isset($roleIds[$role])) || (int)$cur['is_active'] !== $active) {
+                    $db->prepare('UPDATE users SET role_id = ?, is_active = ? WHERE id = ?')->execute([$roleIds[$role] ?? $cur['role_id'], $active, $uid]);
+                    $log[] = "{$d['name']}: peran global {$cur['role_code']} → {$role}" . ($active ? '' : ' (nonaktif)');
+                }
+                $db->prepare('INSERT IGNORE INTO user_business_assignment (user_id, business_id, assigned_at) VALUES (?, ?, NOW())')->execute([$uid, $lbid]);
+                $db->prepare("DELETE FROM user_menu_permissions WHERE user_id = ? AND business_id = ? AND menu_code IN ({$in})")->execute([$uid, $lbid, ...$codes]);
+                $ins = $db->prepare('INSERT INTO user_menu_permissions (user_id, business_id, menu_id, menu_code, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+                foreach ($codes as $code) {
+                    $ins->execute([$uid, $lbid, $menuIds[$code] ?? null, $code, ...Catalog::legacyFlags($d['levels'][$code] ?? 0)]);
+                }
+            }
+            // Yang punya akses di sistem lama tapi tidak di Console → dicabut dari bisnis ini (user-nya tetap ada)
+            foreach (self::current($lbid) as $uid => $u) {
+                if ($u['assigned'] && !isset($want[$uid])) {
+                    $db->prepare('DELETE FROM user_business_assignment WHERE user_id = ? AND business_id = ?')->execute([$uid, $lbid]);
+                    $db->prepare('DELETE FROM user_menu_permissions WHERE user_id = ? AND business_id = ?')->execute([$uid, $lbid]);
+                    $log[] = "{$u['username']}: akses ke bisnis ini dicabut";
+                }
+            }
+            $db->commit();
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+        return $log;
+    }
+
+    /** Buat user lama untuk orang baru di Console. Tanpa username / password → belum bisa (dilewati dengan catatan). */
+    private static function createUser(array $d, ?string $password, array $roleIds, array &$log): ?int
+    {
+        $p = Auth::db()->prepare('SELECT * FROM people WHERE id = ?');
+        $p->execute([$d['person_id']]);
+        $person = $p->fetch();
+        if (!$person || !$person['username'] || $password === null || $password === '') {
+            $log[] = "{$d['name']}: belum dibuat di sistem lama (perlu username + password awal)";
+            return null;
+        }
+        $db = self::db();
+        $dup = $db->prepare('SELECT id FROM users WHERE username = ? OR email = ?');
+        $dup->execute([$person['username'], $person['email']]);
+        if ($dup->fetchColumn()) {
+            throw new RuntimeException("Username atau email {$person['username']} / {$person['email']} sudah dipakai di sistem lama");
+        }
+        $role = self::globalRole((int)$person['id']);
+        $db->prepare('INSERT INTO users (username, email, password, full_name, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)')
+            ->execute([$person['username'], $person['email'], password_hash($password, PASSWORD_DEFAULT), $person['name'], $person['phone'] ?: '0000000000', $roleIds[$role] ?? $roleIds['staff']]);
+        $uid = (int)$db->lastInsertId();
+        Auth::db()->prepare('UPDATE people SET legacy_user_id = ?, legacy_role = ?, status = ? WHERE id = ?')->execute([$uid, $role, 'active', $person['id']]);
+        $log[] = "{$person['name']}: user baru di sistem lama ({$person['username']}, peran {$role})";
+        return $uid;
+    }
+
+    private static function personStatus(int $personId): string
+    {
+        $st = Auth::db()->prepare('SELECT status FROM people WHERE id = ?');
+        $st->execute([$personId]);
+        return (string)$st->fetchColumn();
+    }
+
+    /** Peran global terkuat orang ini di semua bisnis Console yang terhubung ke sistem lama. */
+    private static function globalRole(int $personId): string
+    {
+        $st = Auth::db()->prepare('SELECT b.id FROM businesses b
+            WHERE b.legacy_business_id IS NOT NULL AND (b.id IN (SELECT business_id FROM memberships WHERE person_id = ?)
+               OR b.client_id IN (SELECT client_id FROM client_owners WHERE person_id = ?))');
+        $st->execute([$personId, $personId]);
+        $best = 'staff';
+        foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $bid) {
+            $role = self::desired(Biz::business((int)$bid))[$personId]['role'] ?? 'staff';
+            if ((self::ROLE_RANK[$role] ?? 0) > (self::ROLE_RANK[$best] ?? 0)) {
+                $best = $role;
+            }
+        }
+        return $best;
+    }
+
     /* ------------------------------------------------------------------ hitung balik & bandingkan */
 
     /**
@@ -359,8 +484,9 @@ final class Legacy
                 continue;
             }
             $d = $want[$uid];
-            if ($d['role'] !== $u['role']) {
-                $out[] = "{$u['username']}: peran global {$u['role']} → {$d['role']}";
+            $role = self::globalRole((int)$d['person_id']);
+            if ($role !== $u['role']) {
+                $out[] = "{$u['username']}: peran global {$u['role']} → {$role}";
             }
             foreach (Catalog::MODULES as $code => $_) {
                 $a = $u['levels'][$code] ?? 0;
