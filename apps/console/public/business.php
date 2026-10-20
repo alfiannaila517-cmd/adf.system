@@ -134,6 +134,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Auth::audit($action === 'member_add' ? 'access.add' : 'access.update', "{$biz['name']}: #{$personId} → {$roles[$roleId]['name']}");
             flash($action === 'member_add' ? 'Akses ditambahkan.' : 'Akses diperbarui.');
         }
+    } elseif ($action === 'module_on') {
+        // Nyalakan satu menu (dari peringatan "izin belum berlaku") tanpa mengubah pilihan lain
+        $code = (string)($_POST['code'] ?? '');
+        $cur = Biz::modules($biz);
+        if (!array_key_exists($code, $cur['module'])) {
+            flash('Menu tidak dikenal untuk jenis bisnis ini.', 'err');
+        } else {
+            $on = array_keys(array_filter($cur['module']));
+            $on[] = $code;
+            Biz::saveModules($biz, $on, array_keys(array_filter($cur['feature'])));
+            Auth::audit('business.module_on', "{$biz['name']}: {$code}");
+            flash('Menu ' . Catalog::MODULES[$code][0] . ' dinyalakan.');
+        }
     } elseif ($action === 'member_clear_overrides') {
         Access::clearOverrides($id, (int)($_POST['person_id'] ?? 0));
         Auth::audit('access.clear_overrides', "{$biz['name']}: #" . (int)($_POST['person_id'] ?? 0));
@@ -171,12 +184,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Perubahan akses langsung dikirim ke tabel sistem lama (bila bisnis ini terhubung) supaya sistem lama tetap berjalan sama
-    $accessActions = ['modules', 'modules_reset', 'member_add', 'member_update', 'member_clear_overrides', 'member_remove', 'roles_save'];
+    $accessActions = ['modules', 'modules_reset', 'module_on', 'member_add', 'member_update', 'member_clear_overrides', 'member_remove', 'roles_save'];
     if (in_array($action, $accessActions, true) && ($_SESSION['flash']['type'] ?? '') === 'ok' && Legacy::linked($biz)) {
         try {
             $fresh = Biz::business($id);
             // Modul menyala/mati → menu sidebar sistem lama ikut berubah; lalu izin semua orang ditulis ulang
-            $sync = in_array($action, ['modules', 'modules_reset'], true) ? Legacy::exportModules($fresh) : [];
+            $sync = in_array($action, ['modules', 'modules_reset', 'module_on'], true) ? Legacy::exportModules($fresh) : [];
             $sync = array_merge($sync, Legacy::export($fresh, $newPasswords));
             Auth::audit('legacy.export', "{$biz['name']}: " . count($sync) . ' perubahan');
             $_SESSION['flash']['msg'] .= ' ' . Legacy::label() . ' diperbarui' . ($sync ? ': ' . implode(' · ', $sync) : ' (tidak ada yang berubah).');
@@ -382,8 +395,24 @@ View::start($biz['name'], 'clients', $me);
     $old = $_SESSION['old_member'] ?? [];
     unset($_SESSION['old_member']);
     $base = "/business.php?id={$id}&tab=orang";
+    // Menu yang tersedia untuk jenis bisnis ini tapi sedang MATI di Modul & Fitur → izin ke menu itu tidak berlaku
+    $offMods = array_keys(array_filter(Biz::modules($biz)['module'], fn ($on) => !$on));
+    $offFor = function (array $perms, bool $isOwner, array $over = []) use ($offMods): array {
+        if ($isOwner) {
+            return [];
+        }
+        return array_values(array_filter($offMods, fn ($code) => (isset($over[$code]) ? (int)$over[$code] : Catalog::levelOf($perms, $code)) > 0));
+    };
+    $modName = fn (string $code): string => Catalog::MODULES[$code][0] ?? $code;
+    // Tombol satu klik: nyalakan menu yang dimatikan
+    $moduleOnButton = function (string $code) use ($id, $modName, $isAdmin): void {
+        if (!$isAdmin) {
+            return;
+        } ?>
+        <form method="post" style="display:inline"><?= csrf_field() ?><input type="hidden" name="action" value="module_on"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="code" value="<?= e($code) ?>"><button class="btn sm">Nyalakan <?= e($modName($code)) ?></button></form>
+    <?php };
     // Ringkasan izin peran: "8 menu · Kelola 5 · Input 3"
-    $roleSummary = function (array $r) use ($enabledMods): string {
+    $roleSummary = function (array $r) use ($enabledMods, $offFor, $modName): string {
         $count = array_fill_keys(array_keys(Catalog::LEVELS), 0);
         foreach ($enabledMods as $code) {
             $count[$r['is_owner'] ? Catalog::MAX_LEVEL : Catalog::levelOf($r['perms'], $code)]++;
@@ -395,7 +424,9 @@ View::start($biz['name'], 'clients', $me);
                 $parts[] = "{$label} {$count[$lv]}";
             }
         }
-        return $open ? "{$open} menu · " . implode(' · ', $parts) : 'tidak ada menu';
+        $off = $offFor($r['perms'], (bool)$r['is_owner']);
+        return ($open ? "{$open} menu · " . implode(' · ', $parts) : 'tidak ada menu')
+            . ($off ? ' · ⚠ tidak berlaku karena menunya mati: ' . implode(', ', array_map($modName, $off)) : '');
     };
     // Pilihan peran berupa kartu (lebih jelas daripada dropdown)
     $rolePicker = function (int $selected) use ($roles, $roleSummary): void {
@@ -489,7 +520,27 @@ View::start($biz['name'], 'clients', $me);
             </form>
         </div>
 
-    <?php else: ?>
+    <?php else:
+        // Siapa yang punya izin ke menu yang sedang mati (izin itu tidak berlaku sampai menunya dinyalakan)
+        $blocked = [];
+        foreach ($acc['members'] as $m) {
+            $r = $roles[(int)$m['role_id']] ?? null;
+            foreach ($r ? $offFor($r['perms'], (bool)$r['is_owner'], json_decode((string)($m['overrides'] ?? ''), true) ?: []) : [] as $code) {
+                $blocked[$code][] = $m['name'];
+            }
+        } ?>
+        <?php if ($blocked): ?>
+            <div class="card" style="border-color:var(--warn)">
+                <h2 style="color:var(--warn)">⚠ Ada izin yang belum berlaku</h2>
+                <p class="muted" style="margin:0 0 10px;font-size:13px">Menu di bawah ini <b>dimatikan</b> di <a href="/business.php?id=<?= $id ?>&tab=modul">Modul & Fitur</a>, jadi tidak tampil untuk siapa pun walaupun perannya mengizinkan. Nyalakan bila memang dipakai:</p>
+                <?php foreach ($blocked as $code => $names): ?>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 8px">
+                        <?php $moduleOnButton($code); ?>
+                        <span class="muted" style="font-size:12px">diizinkan untuk: <?= e(implode(', ', array_unique($names))) ?></span>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">
                 <h2 style="margin:0">Orang yang punya akses (<?= count($acc['owners']) + count($acc['members']) ?>)</h2>
@@ -510,7 +561,9 @@ View::start($biz['name'], 'clients', $me);
                         <tr>
                             <td><a href="/person.php?id=<?= (int)$m['person_id'] ?>" style="color:var(--ink)"><b><?= e($m['name']) ?></b></a><?= $m['status'] === 'invited' ? ' <span class="pill warn">diundang</span>' : '' ?><?= $m['status'] === 'disabled' ? ' <span class="pill">nonaktif</span>' : '' ?>
                                 <br><span class="muted" style="font-size:12px"><?= $m['username'] ? e($m['username']) . ' · ' : '' ?><?= e($m['email']) ?></span></td>
-                            <td><span class="pill <?= $m['is_owner'] ? 'gold' : '' ?>"><?= e($m['role_name']) ?></span><?= $ov ? ' <span class="pill" title="Izin khusus orang ini yang berbeda dari perannya">+' . $ov . ' pengecualian</span>' : '' ?></td>
+                            <?php $mOff = ($r = $roles[(int)$m['role_id']] ?? null) ? $offFor($r['perms'], (bool)$r['is_owner'], json_decode((string)($m['overrides'] ?? ''), true) ?: []) : []; ?>
+                            <td><span class="pill <?= $m['is_owner'] ? 'gold' : '' ?>"><?= e($m['role_name']) ?></span><?= $ov ? ' <span class="pill" title="Izin khusus orang ini yang berbeda dari perannya">+' . $ov . ' pengecualian</span>' : '' ?>
+                                <?= $mOff ? '<br><span class="pill warn" style="margin-top:4px" title="Menu ini mati di Modul &amp; Fitur">⚠ belum tampil: ' . e(implode(', ', array_map($modName, $mOff))) . '</span>' : '' ?></td>
                             <td><span class="pill">Sistem</span><?= $m['portal_owner'] ? ' <span class="pill ok">Owner Login</span>' : '' ?></td>
                             <td style="text-align:right;white-space:nowrap">
                                 <?php if ($isAdmin): ?><a class="btn ghost sm" href="<?= $base ?>&edit=<?= (int)$m['person_id'] ?>">Ubah</a><?php endif; ?>
@@ -529,7 +582,13 @@ View::start($biz['name'], 'clients', $me);
         <?php if ($show && ($p = array_values(array_filter($acc['members'], fn ($m) => (int)$m['person_id'] === $show))[0] ?? null)): $eff = Access::effective($biz, $show); ?>
             <div class="card" id="izin">
                 <h2>Izin akhir · <?= e($p['name']) ?> (<?= e($p['role_name']) ?>)</h2>
-                <?php $over = json_decode((string)($p['overrides'] ?? ''), true) ?: []; ?>
+                <?php $over = json_decode((string)($p['overrides'] ?? ''), true) ?: [];
+                $pr = $roles[(int)$p['role_id']] ?? null;
+                foreach ($pr ? $offFor($pr['perms'], (bool)$pr['is_owner'], $over) : [] as $code): ?>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 10px;color:var(--warn);font-size:13px">
+                        ⚠ Perannya mengizinkan <b><?= e($modName($code)) ?></b>, tapi menu itu mati di bisnis ini — belum tampil. <?php $moduleOnButton($code); ?>
+                    </div>
+                <?php endforeach; ?>
                 <div style="display:flex;flex-wrap:wrap;gap:6px">
                     <?php foreach ($enabledMods as $code): $lv = $eff[$code] ?? 0; ?>
                         <span class="pill <?= $lv >= Catalog::MAX_LEVEL ? 'ok' : ($lv >= 1 ? 'gold' : '') ?>"<?= isset($over[$code]) ? ' style="outline:1px dashed var(--gold2)" title="pengecualian khusus orang ini"' : '' ?>><?= e(Catalog::MODULES[$code][0]) ?>: <?= Catalog::LEVELS[$lv] ?><?= isset($over[$code]) ? ' ✱' : '' ?></span>
