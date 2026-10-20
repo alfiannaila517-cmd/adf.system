@@ -272,7 +272,7 @@ final class Legacy
             }
             [$code, $name, $desc] = self::ROLE_MAP[$legacyRole] ?? self::ROLE_MAP['staff'];
             if (isset($byCode[$code])) {
-                $con->prepare('UPDATE roles SET permissions = ?, is_owner = 0 WHERE id = ?')->execute([json_encode($perms), $byCode[$code]]);
+                $con->prepare('UPDATE roles SET permissions = ?, is_owner = 0, description = ? WHERE id = ?')->execute([json_encode($perms), $desc, $byCode[$code]]);
                 $out[$legacyRole] = $byCode[$code];
             } else {
                 $con->prepare('INSERT INTO roles (business_id, code, name, description, permissions, is_owner, sort) VALUES (?, ?, ?, ?, ?, 0, ?)')
