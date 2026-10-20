@@ -35,3 +35,7 @@ define('ADF_SECRETS', adf_resolve_dir('ADF_SECRETS_DIR', '/srv/adf/secrets', ADF
 require_once ADF_CORE . '/Secrets.php';
 require_once ADF_CORE . '/Hooks.php';
 require_once ADF_CORE . '/Tenant.php';
+require_once ADF_CORE . '/Db.php';
+require_once ADF_CORE . '/Migrator.php';
+require_once ADF_CORE . '/Mailer.php';
+require_once ADF_CORE . '/Telegram.php';

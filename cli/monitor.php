@@ -135,21 +135,12 @@ function dailyReport(array $f, array $problems): string
 
 function telegram(string $html): bool
 {
-    $token = Secrets::get('TELEGRAM_BOT_TOKEN');
-    $chat = Secrets::get('TELEGRAM_CHAT_ID');
-    if (!$token || !$chat) {
-        fwrite(STDERR, "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID belum diisi di " . ADF_SECRETS . "/telegram.env\n");
+    if (!Telegram::configured()) {
+        fwrite(STDERR, "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID belum diisi di " . ADF_SECRETS . "/telegram.env
+");
         return false;
     }
-    $ch = curl_init("https://api.telegram.org/bot{$token}/sendMessage");
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => ['chat_id' => $chat, 'text' => $html, 'parse_mode' => 'HTML', 'disable_web_page_preview' => 'true'],
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 15,
-    ]);
-    $res = json_decode((string)curl_exec($ch), true);
-    return !empty($res['ok']);
+    return Telegram::send($html);
 }
 
 /** Setelah kamu mengirim /start ke bot: ambil chat id dari pesan terakhir dan simpan ke telegram.env. */
