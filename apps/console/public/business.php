@@ -174,7 +174,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accessActions = ['modules', 'modules_reset', 'member_add', 'member_update', 'member_clear_overrides', 'member_remove', 'roles_save'];
     if (in_array($action, $accessActions, true) && ($_SESSION['flash']['type'] ?? '') === 'ok' && Legacy::linked($biz)) {
         try {
-            $sync = Legacy::export(Biz::business($id), $newPasswords);
+            $fresh = Biz::business($id);
+            // Modul menyala/mati → menu sidebar sistem lama ikut berubah; lalu izin semua orang ditulis ulang
+            $sync = in_array($action, ['modules', 'modules_reset'], true) ? Legacy::exportModules($fresh) : [];
+            $sync = array_merge($sync, Legacy::export($fresh, $newPasswords));
             Auth::audit('legacy.export', "{$biz['name']}: " . count($sync) . ' perubahan');
             $_SESSION['flash']['msg'] .= ' ' . Legacy::label() . ' diperbarui' . ($sync ? ': ' . implode(' · ', $sync) : ' (tidak ada yang berubah).');
         } catch (Throwable $e) {

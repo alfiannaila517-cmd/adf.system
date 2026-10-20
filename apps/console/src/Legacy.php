@@ -137,8 +137,13 @@ final class Legacy
                         $mods = array_merge($mods, array_keys(array_filter($p['levels'])));
                     }
                 }
-                $features = array_keys(array_filter(Biz::modules($biz)['feature']));
-                Biz::saveModules($biz, array_values(array_unique($mods)), $features);
+                // Pilihan Modul & Fitur yang sudah diatur di Console dipertahankan saat impor ulang (mis. hari pindahan)
+                $current = Biz::modules($biz);
+                if ($current['custom']) {
+                    $log[] = '   modul: pilihan Console dipertahankan';
+                } else {
+                    Biz::saveModules($biz, array_values(array_unique($mods)), array_keys(array_filter($current['feature'])));
+                }
                 Access::ensureRoles($biz);
                 $roleOf = self::deriveRoles($biz, array_filter($people, fn ($p) => $p['assigned']), $log);
                 $roles = Access::roles((int)$biz['id']);
@@ -377,6 +382,83 @@ final class Legacy
         } catch (Throwable $e) {
             $db->rollBack();
             throw $e;
+        }
+        return $log;
+    }
+
+    /** Kode modul Console → nama di 'enabled_modules' file config lama (isModuleEnabled), bila berbeda. */
+    private const CONFIG_NAMES = ['cafe_invoice' => 'cafe-invoice', 'sales_invoice' => 'sales'];
+
+    /** Folder kode sistem lama di server ini (secrets/legacy.env LEGACY_APP_DIR), untuk file config/businesses/*.php. */
+    public static function appDir(): ?string
+    {
+        $dir = rtrim((string)Secrets::get('LEGACY_APP_DIR', ''), '/\\');
+        return $dir !== '' && is_dir($dir . '/config/businesses') ? $dir : null;
+    }
+
+    /**
+     * Modul & Fitur Console → sistem lama, supaya menu sidebar mengikuti Console:
+     *   1. business_menu_config (menu yang menyala per bisnis, dipakai panel developer & beberapa halaman)
+     *   2. 'enabled_modules' di config/businesses/<slug>.php (isModuleEnabled di sidebar: laporan, gaji, frontdesk, …)
+     * Nama di enabled_modules yang bukan modul katalog (mis. 'auth') dibiarkan apa adanya.
+     * @return string[] laporan
+     */
+    public static function exportModules(array $biz): array
+    {
+        if (!self::linked($biz)) {
+            return [];
+        }
+        $mods = Biz::modules($biz)['module'];
+        $db = self::db();
+        $lbid = (int)$biz['legacy_business_id'];
+        $menuIds = $db->query('SELECT menu_code, id FROM menu_items')->fetchAll(PDO::FETCH_KEY_PAIR);
+        $up = $db->prepare('INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE is_enabled = VALUES(is_enabled)');
+        foreach (array_keys(Catalog::MODULES) as $code) {
+            if (isset($menuIds[$code])) {
+                $up->execute([$lbid, $menuIds[$code], !empty($mods[$code]) ? 1 : 0]);
+            }
+        }
+        $log = [];
+        $dir = self::appDir();
+        $st = $db->prepare('SELECT slug FROM businesses WHERE id = ?');
+        $st->execute([$lbid]);
+        $file = $dir ? "{$dir}/config/businesses/" . basename((string)$st->fetchColumn()) . '.php' : null;
+        if (!$file || !is_file($file)) {
+            return ['file config bisnis tidak ditemukan — hanya tabel menu yang diperbarui'];
+        }
+        $cfg = (static fn (string $f) => require $f)($file);
+        if (!is_array($cfg)) {
+            throw new RuntimeException('File config bisnis lama tidak berisi array — tidak diubah');
+        }
+        $managed = [];
+        foreach (array_keys(Catalog::MODULES) as $code) {
+            $managed[self::CONFIG_NAMES[$code] ?? $code] = !empty($mods[$code]);
+        }
+        $before = array_values((array)($cfg['enabled_modules'] ?? []));
+        $after = array_values(array_filter($before, fn ($m) => !array_key_exists((string)$m, $managed)));
+        foreach ($managed as $name => $on) {
+            if ($on) {
+                $after[] = $name;
+            }
+        }
+        $a = $before;
+        $b = $after;
+        sort($a);
+        sort($b);
+        if ($a !== $b) {
+            $cfg['enabled_modules'] = $after;
+            $tmp = $file . '.tmp-' . bin2hex(random_bytes(4));
+            $php = "<?php\n// Diperbarui otomatis oleh ADF Console (Modul & Fitur) " . date('Y-m-d H:i') . "\nreturn " . var_export($cfg, true) . ";\n";
+            if (file_put_contents($tmp, $php, LOCK_EX) === false || !rename($tmp, $file)) {
+                @unlink($tmp);
+                throw new RuntimeException("Tidak bisa menulis {$file} (izin folder?)");
+            }
+            if (function_exists('opcache_invalidate')) {
+                opcache_invalidate($file, true);
+            }
+            $on = array_diff($after, $before);
+            $off = array_diff($before, $after);
+            $log[] = 'menu sidebar diperbarui' . ($on ? ' · nyala: ' . implode(', ', $on) : '') . ($off ? ' · mati: ' . implode(', ', $off) : '');
         }
         return $log;
     }
