@@ -457,13 +457,13 @@ View::start($biz['name'], 'clients', $me);
                 <?php if ($linked): ?>
                     <p style="margin:4px 0 8px;font-weight:600">2. Akun login sistem</p>
                     <div class="row2">
-                        <div class="field"><label>Username</label><input name="username" value="<?= e($old['username'] ?? '') ?>" pattern="[a-z0-9_.]{3,50}" placeholder="huruf kecil, mis. rina.fo"></div>
-                        <div class="field"><label>Password awal</label><input name="password" type="password" minlength="8" placeholder="min. 8 karakter" autocomplete="new-password"></div>
+                        <div class="field"><label>Username *</label><input name="username" value="<?= e($old['username'] ?? '') ?>" pattern="[a-z0-9_.]{3,50}" placeholder="huruf kecil, mis. rina.fo"></div>
+                        <div class="field"><label>Password awal *</label><input name="password" type="password" minlength="8" placeholder="min. 8 karakter" autocomplete="new-password"></div>
                     </div>
-                    <p class="muted" style="margin:-4px 0 10px;font-size:12px">Kosongkan bila orang ini sudah punya akun di bisnis lain grup ini (email yang sama dipakai ulang).</p>
+                    <p class="muted" style="margin:-4px 0 10px;font-size:12px"><b>Wajib untuk orang baru</b> — dipakai untuk login di sistem. Boleh kosong hanya bila orang ini sudah punya akun di bisnis lain grup ini (email sama).</p>
                 <?php endif; ?>
                 <p style="margin:4px 0 8px;font-weight:600"><?= $linked ? 3 : 2 ?>. Peran di <?= e($biz['name']) ?></p>
-                <?php $rolePicker((int)($old['role_id'] ?? 0)); ?>
+                <?php $defaultRole = (int)($old['role_id'] ?? 0) ?: (int)(array_search('staff', array_column(array_map(fn ($r) => ['id' => (int)$r['id'], 'code' => $r['code']], $roles), 'code', 'id'), true) ?: array_key_last($roles)); $rolePicker($defaultRole); ?>
                 <label style="display:flex;gap:8px;align-items:center;margin:10px 0 14px;color:var(--ink)"><input type="checkbox" name="portal_owner" value="1" style="width:auto" <?= !empty($old['portal_owner']) ? 'checked' : '' ?>> Boleh masuk lewat <b>Owner Login</b> <span class="muted" style="font-size:12px">(pintu khusus pemilik / admin)</span></label>
                 <button class="btn">Tambah orang</button> <a class="btn ghost" href="<?= $base ?>">Batal</a>
             </form>
