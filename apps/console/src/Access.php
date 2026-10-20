@@ -104,6 +104,35 @@ final class Access
             ->execute([$personId, $businessId, $roleId, $portalOwner ? 1 : 0, $portalStaff ? 1 : 0]);
     }
 
+    /**
+     * Atur menu (level per modul) satu orang di satu bisnis. Disimpan sebagai pengecualian terhadap perannya:
+     * hanya modul yang levelnya berbeda dari peran yang dicatat. $levels = [modul => 0..4] untuk modul yang diatur.
+     */
+    public static function setPersonLevels(int $businessId, int $personId, array $levels): void
+    {
+        $st = self::db()->prepare('SELECT r.permissions, r.is_owner, m.overrides FROM memberships m JOIN roles r ON r.id = m.role_id WHERE m.business_id = ? AND m.person_id = ?');
+        $st->execute([$businessId, $personId]);
+        $m = $st->fetch();
+        if (!$m) {
+            throw new RuntimeException('Orang ini belum punya akses ke bisnis ini');
+        }
+        $rolePerms = $m['is_owner'] ? ['*' => Catalog::MAX_LEVEL] : (json_decode((string)$m['permissions'], true) ?: []);
+        $over = json_decode((string)$m['overrides'], true) ?: [];
+        foreach ($levels as $code => $lv) {
+            if (!isset(Catalog::MODULES[$code])) {
+                continue;
+            }
+            $lv = max(0, min(Catalog::MAX_LEVEL, (int)$lv));
+            if ($lv === Catalog::levelOf($rolePerms, $code)) {
+                unset($over[$code]);
+            } else {
+                $over[$code] = $lv;
+            }
+        }
+        self::db()->prepare('UPDATE memberships SET overrides = ? WHERE business_id = ? AND person_id = ?')
+            ->execute([$over ? json_encode($over) : null, $businessId, $personId]);
+    }
+
     /** Hapus pengecualian izin per orang → izinnya kembali persis mengikuti peran. */
     public static function clearOverrides(int $businessId, int $personId): void
     {

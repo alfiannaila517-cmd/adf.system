@@ -10,6 +10,7 @@ final class View
     /** Menu utama: [kunci, label, ikon, url, khusus admin?, sudah tersedia?] */
     private const MENU = [
         ['dashboard', 'Dashboard', '◧', '/', false, true],
+        ['people', 'User', '👤', '/people.php', false, true],
         ['clients', 'Client & Bisnis', '▦', '/clients.php', false, true],
         ['billing', 'Langganan & Tagihan', '◈', '/billing.php', false, false],
         ['integrations', 'Integrasi', '⇄', '/integrations.php', false, false],
@@ -57,6 +58,13 @@ final class View
         .pill { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 11px; background: #2a241c; color: var(--mu); }
         .pill.gold { background: rgba(214, 177, 106, .15); color: var(--gold); }
         /* Tab & kartu */
+        .subtabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 0 0 12px; }
+        .subtabs a { padding: 5px 11px; border-radius: 99px; font-size: 12px; color: var(--mu); border: 1px solid var(--line); }
+        .subtabs a.on { background: var(--gold); color: #1a150e; border-color: var(--gold); font-weight: 700; }
+        table.sm { font-size: 13px; }
+        table.sm td { padding: 6px 8px; }
+        table.sm th { padding: 0 8px 8px; }
+        select.sm, input.sm { padding: 4px 8px; font-size: 12px; width: auto; }
         .crumb { font-size: 13px; color: var(--mu); margin-bottom: 6px; }
         .crumb a { color: var(--mu); } .crumb a:hover { color: var(--gold); }
         .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 12px 0 14px; overflow-x: auto; }

@@ -544,7 +544,7 @@ View::start($biz['name'], 'clients', $me);
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">
                 <h2 style="margin:0">Orang yang punya akses (<?= count($acc['owners']) + count($acc['members']) ?>)</h2>
-                <?php if ($isAdmin): ?><a class="btn sm" href="<?= $base ?>&view=tambah">+ Tambah orang</a><?php endif; ?>
+                <?php if ($isAdmin): ?><a class="btn sm" href="/people.php?view=tambah&biz=<?= $id ?>">+ Tambah user</a><?php endif; ?>
             </div>
             <table class="stack">
                 <thead><tr><th>Orang</th><th>Peran</th><th>Bisa masuk lewat</th><th></th></tr></thead>
@@ -566,8 +566,8 @@ View::start($biz['name'], 'clients', $me);
                                 <?= $mOff ? '<br><span class="pill warn" style="margin-top:4px" title="Menu ini mati di Modul &amp; Fitur">⚠ belum tampil: ' . e(implode(', ', array_map($modName, $mOff))) . '</span>' : '' ?></td>
                             <td><span class="pill">Sistem</span><?= $m['portal_owner'] ? ' <span class="pill ok">Owner Login</span>' : '' ?></td>
                             <td style="text-align:right;white-space:nowrap">
-                                <?php if ($isAdmin): ?><a class="btn ghost sm" href="<?= $base ?>&edit=<?= (int)$m['person_id'] ?>">Ubah</a><?php endif; ?>
-                                <a class="btn ghost sm" href="<?= $base ?>&person=<?= (int)$m['person_id'] ?>#izin">Izin</a>
+                                <?php if ($isAdmin): ?><a class="btn ghost sm" href="/person.php?id=<?= (int)$m['person_id'] ?>&tab=akses">Edit</a><?php endif; ?>
+                                <a class="btn ghost sm" href="/person.php?id=<?= (int)$m['person_id'] ?>&tab=menu&biz=<?= $id ?>">Menu</a>
                                 <?php if ($isAdmin): ?>
                                     <form method="post" style="display:inline" onsubmit="return confirm('Cabut akses <?= e($m['name']) ?> dari <?= e($biz['name']) ?>?<?= $linked ? ' Orang ini tidak bisa lagi membuka bisnis ini.' : '' ?>')"><?= csrf_field() ?><input type="hidden" name="action" value="member_remove"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="person_id" value="<?= (int)$m['person_id'] ?>"><button class="btn danger sm">Cabut</button></form>
                                 <?php endif; ?>
