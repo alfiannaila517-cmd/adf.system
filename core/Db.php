@@ -46,8 +46,26 @@ final class Db
         if ($name === '') {
             return null;
         }
+        return self::legacyConnect($name);
+    }
+
+    /**
+     * Database bisnis sistem lama (mis. adfb2574_narayana_hotel) untuk Staff Portal dll. Nama wajib berawalan
+     * LEGACY_DB_PREFIX (secrets/legacy.env, bawaan "adfb2574_") supaya Console tidak bisa membuka database lain.
+     */
+    public static function legacyBusiness(string $name): PDO
+    {
+        $prefix = (string)Secrets::get('LEGACY_DB_PREFIX', 'adfb2574_');
+        if ($prefix === '' || !str_starts_with($name, $prefix)) {
+            throw new InvalidArgumentException("Database bisnis lama harus berawalan {$prefix}: {$name}");
+        }
+        return self::legacyConnect($name);
+    }
+
+    private static function legacyConnect(string $name): PDO
+    {
         if (!preg_match('/^[A-Za-z0-9_]{3,64}$/', $name)) {
-            throw new InvalidArgumentException("LEGACY_MASTER_DB tidak valid: {$name}");
+            throw new InvalidArgumentException("Nama database lama tidak valid: {$name}");
         }
         if (isset(self::$pool['legacy:' . $name])) {
             return self::$pool['legacy:' . $name];

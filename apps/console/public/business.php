@@ -40,8 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'database') {
         $dbName = trim((string)($_POST['db_name'] ?? ''));
-        if ($dbName !== '' && !preg_match('/^[a-z0-9_]{3,64}$/', $dbName)) {
-            flash('Nama database hanya huruf kecil, angka, garis bawah.', 'err');
+        if ($dbName !== '' && !preg_match('/^[A-Za-z0-9_]{3,64}$/', $dbName)) {
+            flash('Nama database hanya huruf, angka, garis bawah.', 'err');
         } else {
             $db->prepare('UPDATE businesses SET db_name = ?, db_host = ? WHERE id = ?')->execute([$dbName ?: null, trim((string)($_POST['db_host'] ?? '')) ?: null, $id]);
             Auth::audit('business.database', "{$biz['name']}: {$dbName}");
@@ -147,6 +147,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Auth::audit('business.module_on', "{$biz['name']}: {$code}");
             flash('Menu ' . Catalog::MODULES[$code][0] . ' dinyalakan.');
         }
+    } elseif (in_array($action, ['staff_create', 'staff_reset', 'staff_delete'], true)) {
+        // Akun Staff Portal di database bisnis sistem lama
+        try {
+            $sdb = StaffPortal::db($biz) ?? throw new RuntimeException('Bisnis ini belum terhubung ke database sistem.');
+            $emp = (int)($_POST['employee_id'] ?? 0);
+            if ($action === 'staff_delete') {
+                StaffPortal::delete($sdb, $emp);
+                Auth::audit('staff_portal.delete', "{$biz['name']}: karyawan #{$emp}");
+                flash('Akun portal dihapus — karyawan ini tidak bisa login portal lagi.');
+            } else {
+                $pw = ($_POST['mode'] ?? '') === 'auto' || (string)($_POST['password'] ?? '') === '' ? Legacy::generatePassword() : (string)$_POST['password'];
+                $action === 'staff_create'
+                    ? StaffPortal::create($sdb, $emp, (string)($_POST['username'] ?? ''), $pw)
+                    : StaffPortal::resetPassword($sdb, $emp, $pw);
+                Auth::audit('staff_portal.' . ($action === 'staff_create' ? 'create' : 'password'), "{$biz['name']}: karyawan #{$emp}");
+                $_SESSION['shown_staff_pw'] = ['biz' => $id, 'emp' => $emp, 'pw' => $pw];
+                flash($action === 'staff_create' ? 'Akun portal dibuat.' : 'Password portal diganti.');
+            }
+        } catch (Throwable $e) {
+            flash($e->getMessage(), 'err');
+        }
     } elseif ($action === 'member_clear_overrides') {
         Access::clearOverrides($id, (int)($_POST['person_id'] ?? 0));
         Auth::audit('access.clear_overrides', "{$biz['name']}: #" . (int)($_POST['person_id'] ?? 0));
@@ -226,7 +247,7 @@ View::start($biz['name'], 'clients', $me);
 <p class="muted" style="margin:0"><?= e($typeLabel) ?> · kode <code><?= e($biz['slug']) ?></code><?= $biz['domain'] ? ' · ' . e($biz['domain']) : '' ?></p>
 
 <nav class="tabs">
-    <?php foreach (['ringkasan' => 'Ringkasan', 'langganan' => 'Langganan', 'database' => 'Database & Storage', 'modul' => 'Modul & Fitur', 'orang' => 'Orang & Akses', 'integrasi' => 'Integrasi'] as $k => $label): ?>
+    <?php foreach (['ringkasan' => 'Ringkasan', 'langganan' => 'Langganan', 'database' => 'Database & Storage', 'modul' => 'Modul & Fitur', 'orang' => 'Orang & Akses', 'portal' => 'Staff Portal', 'integrasi' => 'Integrasi'] as $k => $label): ?>
         <a class="<?= $tab === $k ? 'on' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
@@ -604,6 +625,71 @@ View::start($biz['name'], 'clients', $me);
                 <?php endif; ?>
             </div>
         <?php endif; ?>
+    <?php endif; ?>
+<?php elseif ($tab === 'portal'):
+    $sdb = null;
+    $err = null;
+    try {
+        $sdb = StaffPortal::db($biz);
+    } catch (Throwable $e) {
+        $err = $e->getMessage();
+    }
+    $shownStaff = ($_SESSION['shown_staff_pw']['biz'] ?? 0) === $id ? $_SESSION['shown_staff_pw'] : null;
+    unset($_SESSION['shown_staff_pw']); ?>
+    <p class="muted" style="margin:0 0 12px;font-size:12px">Akun <b>karyawan</b> untuk Staff Portal (absen GPS/wajah, slip gaji, cuti, lembur, chat, tugas kamar). Terpisah dari user sistem — satu akun per karyawan di menu Payroll.</p>
+    <?php if (!$sdb): ?>
+        <div class="soonbox"><?= $err ? e($err) : 'Bisnis ini belum terhubung ke sistem yang berjalan (database bisnis belum diatur).' ?></div>
+    <?php else: $url = StaffPortal::url($biz); $emps = StaffPortal::employees($sdb); ?>
+        <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <span class="muted" style="font-size:12px">Link portal untuk staf:</span>
+            <code id="portal-url" style="font-size:12px"><?= e($url) ?></code>
+            <button class="btn ghost sm" type="button" onclick="navigator.clipboard.writeText(document.getElementById('portal-url').textContent);this.textContent='Tersalin ✓'">Salin</button>
+            <a class="btn ghost sm" target="_blank" rel="noopener" href="<?= e($url) ?>">Buka</a>
+        </div>
+        <?php if ($shownStaff && isset($emps[$shownStaff['emp']])): $se = $emps[$shownStaff['emp']]; ?>
+            <div class="card" style="border-color:var(--gold2)">
+                <h2>Login portal · <?= e($se['full_name']) ?></h2>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <span class="muted" style="font-size:12px">username</span> <code><?= e($se['username']) ?></code>
+                    <span class="muted" style="font-size:12px">password</span> <code id="spw" style="font-size:18px"><?= e($shownStaff['pw']) ?></code>
+                    <button class="btn sm" type="button" onclick="navigator.clipboard.writeText(document.getElementById('spw').textContent);this.textContent='Tersalin ✓'">Salin</button>
+                    <?php if ($se['phone']): $wa = preg_replace('/\D/', '', (string)$se['phone']); $wa = str_starts_with($wa, '0') ? '62' . substr($wa, 1) : $wa; ?>
+                        <a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/<?= e($wa) ?>?text=<?= rawurlencode("Staff Portal {$biz['name']}: {$url} — username {$se['username']}, password {$shownStaff['pw']}") ?>">Kirim WhatsApp</a>
+                    <?php endif; ?>
+                </div>
+                <p class="muted" style="margin:8px 0 0;font-size:11px">Hanya tampil sekali. Bila lupa, buat password baru.</p>
+            </div>
+        <?php endif; ?>
+        <div class="card">
+            <h2>Karyawan aktif (<?= count($emps) ?>)</h2>
+            <?php if (!$emps): ?>
+                <p class="muted" style="margin:0;font-size:12px">Belum ada karyawan. Tambahkan karyawan di menu <b>Payroll</b> sistem <?= e($biz['name']) ?> (nyalakan Payroll di Modul & Fitur bila belum tampil), lalu buat akun portalnya di sini.</p>
+            <?php else: ?>
+                <table class="sm stack">
+                    <thead><tr><th>Karyawan</th><th>Akun portal</th><th></th></tr></thead>
+                    <tbody>
+                        <?php foreach ($emps as $eid => $em): ?>
+                            <tr>
+                                <td><b><?= e($em['full_name']) ?></b><br><span class="muted" style="font-size:11px"><?= e($em['employee_code']) ?><?= $em['position'] ? ' · ' . e($em['position']) : '' ?></span></td>
+                                <td><?php if ($em['account_id']): ?><code><?= e($em['username']) ?></code><br><span class="muted" style="font-size:11px"><?= $em['last_login'] ? 'login terakhir ' . e(date('d M Y H:i', strtotime((string)$em['last_login']))) : 'belum pernah login' ?></span><?php else: ?><span class="pill">belum punya akun</span><?php endif; ?></td>
+                                <td style="text-align:right">
+                                    <?php if (!$isAdmin): ?>
+                                    <?php elseif ($em['account_id']): ?>
+                                        <form method="post" style="display:inline" onsubmit="return confirm('Buat password portal baru untuk <?= e($em['full_name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="staff_reset"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>"><input type="hidden" name="mode" value="auto"><button class="btn ghost sm">🔑 Password baru</button></form>
+                                        <form method="post" style="display:inline" onsubmit="return confirm('Hapus akun portal <?= e($em['full_name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="staff_delete"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>"><button class="btn danger sm">Hapus</button></form>
+                                    <?php else: ?>
+                                        <form method="post" style="display:inline-flex;gap:6px" novalidate><?= csrf_field() ?><input type="hidden" name="action" value="staff_create"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>">
+                                            <input name="username" class="sm" placeholder="username" value="<?= e(strtolower(preg_replace('/[^a-z0-9]+/i', '.', trim((string)$em['full_name'])))) ?>" style="width:140px">
+                                            <button class="btn sm">Buat akun</button></form>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <p class="muted" style="margin:10px 0 0;font-size:11px">Password dibuat acak dan ditampilkan sekali. Password lama tidak bisa dilihat — buat yang baru bila karyawan lupa.</p>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 <?php else: $integs = Integration::all($biz); $feat = Biz::modules($biz)['feature']; ?>
     <p class="muted" style="margin:0 0 12px">Kunci layanan luar khusus <?= e($biz['name']) ?>. Kunci rahasia disimpan terenkripsi dan tidak pernah ditampilkan ulang — kosongkan kolomnya bila tidak ingin mengganti. Tes koneksi hanya membaca (tidak mengirim pesan / mengubah data).

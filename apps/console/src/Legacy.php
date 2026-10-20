@@ -231,11 +231,11 @@ final class Legacy
         $id = (int)$st->fetchColumn();
         $type = self::mapType((string)$lb['business_type'], (string)$lb['slug']);
         if ($id) {
-            $con->prepare('UPDATE businesses SET legacy_business_id = ?, db_name = COALESCE(db_name, ?) WHERE id = ?')->execute([(int)$lb['id'], $lb['database_name'], $id]);
+            $con->prepare('UPDATE businesses SET legacy_business_id = ?, db_name = ? WHERE id = ?')->execute([(int)$lb['id'], self::businessDbName($lb), $id]);
             $log[] = "Bisnis {$lb['business_name']}: sudah ada (#{$id}), diperbarui";
         } else {
             $con->prepare('INSERT INTO businesses (client_id, slug, name, type, status, db_name, domain, legacy_business_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$clientId, $lb['slug'], $lb['business_name'], $type, $lb['is_active'] ? 'active' : 'suspended', $lb['database_name'], $lb['addon_domain'] ?: null, (int)$lb['id']]);
+                ->execute([$clientId, $lb['slug'], $lb['business_name'], $type, $lb['is_active'] ? 'active' : 'suspended', self::businessDbName($lb), $lb['addon_domain'] ?: null, (int)$lb['id']]);
             $id = (int)$con->lastInsertId();
             $log[] = "Bisnis {$lb['business_name']}: dibuat (#{$id}, jenis {$type}, database {$lb['database_name']})";
         }
@@ -412,6 +412,32 @@ final class Legacy
             throw $e;
         }
         return $log;
+    }
+
+    /** Peta nama database lokal → hosting, salinan persis config/database.php sistem lama (mis. adf_benscafe → …_Adf_Bens). */
+    private const DB_MAP = [
+        'adf_system' => 'adfb2574_adf',
+        'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
+        'adf_benscafe' => 'adfb2574_Adf_Bens',
+        'adf_eat_meet' => 'adfb2574_eat_meet',
+        'adf_demo' => 'adfb2574_demo',
+        'adf_cqc' => 'adfb2574_cqc',
+    ];
+
+    /**
+     * Nama database bisnis yang BENAR-BENAR dipakai sistem lama: 'database' di config/businesses/<slug>.php
+     * lalu diterjemahkan seperti config/database.php. Tanpa file config → businesses.database_name.
+     */
+    public static function businessDbName(array $legacyBusiness): string
+    {
+        $dir = self::appDir();
+        $file = $dir ? "{$dir}/config/businesses/" . basename((string)$legacyBusiness['slug']) . '.php' : null;
+        $cfg = $file && is_file($file) ? (static fn (string $f) => require $f)($file) : null;
+        $name = is_array($cfg) && !empty($cfg['database']) ? (string)$cfg['database'] : (string)$legacyBusiness['database_name'];
+        if (isset(self::DB_MAP[$name])) {
+            return self::DB_MAP[$name];
+        }
+        return str_starts_with($name, 'adf_') ? (string)Secrets::get('LEGACY_DB_PREFIX', 'adfb2574_') . substr($name, 4) : $name;
     }
 
     /** Kode modul Console → nama di 'enabled_modules' file config lama (isModuleEnabled), bila berbeda. */
