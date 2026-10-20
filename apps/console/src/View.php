@@ -10,7 +10,7 @@ final class View
     /** Menu utama: [kunci, label, ikon, url, khusus admin?, sudah tersedia?] */
     private const MENU = [
         ['dashboard', 'Dashboard', '◧', '/', false, true],
-        ['businesses', 'Bisnis', '▦', '/businesses.php', false, false],
+        ['clients', 'Client & Bisnis', '▦', '/clients.php', false, true],
         ['billing', 'Langganan & Tagihan', '◈', '/billing.php', false, false],
         ['integrations', 'Integrasi', '⇄', '/integrations.php', false, false],
         ['monitor', 'Monitor Server', '◉', '/monitor.php', false, false],
@@ -56,6 +56,25 @@ final class View
         td { padding: 11px 10px; border-top: 1px solid var(--line); vertical-align: middle; }
         .pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; background: #2a241c; color: var(--mu); }
         .pill.gold { background: rgba(214, 177, 106, .15); color: var(--gold); }
+        /* Tab & kartu */
+        .crumb { font-size: 13px; color: var(--mu); margin-bottom: 6px; }
+        .crumb a { color: var(--mu); } .crumb a:hover { color: var(--gold); }
+        .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 18px 0 18px; overflow-x: auto; }
+        .tabs a { padding: 10px 14px; color: var(--mu); font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; }
+        .tabs a.on { color: var(--gold); border-bottom-color: var(--gold); }
+        .tabs a.soon { opacity: .5; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+        .tile { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; color: var(--ink); transition: border-color .2s ease, transform .2s ease; }
+        a.tile:hover { border-color: var(--gold2); transform: translateY(-2px); }
+        .tile .ic { font-size: 22px; } .tile b { display: block; font-size: 16px; margin: 6px 0 2px; } .tile small { color: var(--mu); font-size: 13px; }
+        .tile .meta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+        .pill.ok { background: rgba(95, 201, 131, .14); color: var(--ok); } .pill.bad { background: rgba(239, 123, 110, .14); color: var(--bad); } .pill.warn { background: rgba(240, 184, 90, .14); color: var(--warn); }
+        .row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+        .kv { display: grid; grid-template-columns: 170px 1fr; gap: 8px 14px; font-size: 14px; } .kv dt { color: var(--mu); } .kv dd { margin: 0; }
+        .soonbox { border: 1px dashed var(--line); border-radius: 14px; padding: 22px; color: var(--mu); }
+        .soonbox b { color: var(--ink); }
+        code { background: #241f18; padding: 1px 6px; border-radius: 6px; color: var(--gold); font-size: 13px; }
+        @media (max-width: 860px) { .kv { grid-template-columns: 1fr; } .kv dt { margin-top: 6px; } }
         /* Halaman tamu */
         .guest { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
         .guest .box { width: 100%; max-width: 400px; }

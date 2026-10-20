@@ -7,6 +7,7 @@
  *   php cli/console.php create-admin                  buat akun admin baru (interaktif)
  *   php cli/console.php set-password <username>       ganti password akun (darurat: lupa password & email tidak bisa dipakai)
  *   php cli/console.php users                         daftar akun
+ *   php cli/console.php demo seed|clear               data contoh Grup Narayana (DEMO)
  */
 
 declare(strict_types=1);
@@ -26,7 +27,8 @@ try {
         'create-admin' => createAdmin(),
         'users' => listUsers(),
         'set-password' => setPassword($argv[2] ?? ''),
-        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users\n"),
+        'demo' => demo($argv[2] ?? ''),
+        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear\n"),
     };
 } catch (Throwable $e) {
     fwrite(STDERR, 'GAGAL: ' . $e->getMessage() . PHP_EOL);
@@ -122,4 +124,58 @@ function setPassword(string $username): void
     Auth::clearFails((string)$user["username"]);
     Telegram::security("🔑", "Password ADF Console diganti dari terminal server", ["Akun" => (string)$user["username"]]);
     echo "Password {$user['username']} diganti. Kunci percobaan login juga dibuka.\n";
+}
+/**
+ * Data contoh Grup Narayana untuk mencoba menu Client & Bisnis sebelum data asli diimpor.
+ *   php cli/console.php demo seed    isi (ditandai DEMO, kode bisnis berawalan demo-)
+ *   php cli/console.php demo clear   hapus semua data DEMO
+ */
+function demo(string $what): void
+{
+    $db = Auth::db();
+    if ($what === 'clear') {
+        $ids = $db->query('SELECT b.id FROM businesses b JOIN clients c ON c.id = b.client_id WHERE c.is_demo = 1')->fetchAll(PDO::FETCH_COLUMN);
+        $db->beginTransaction();
+        if ($ids) {
+            $in = implode(',', array_map('intval', $ids));
+            $db->exec("DELETE FROM invoices WHERE business_id IN ({$in})");
+            $db->exec("DELETE FROM subscription_charges WHERE business_id IN ({$in})");
+            $db->exec("DELETE FROM subscriptions WHERE business_id IN ({$in})");
+            $db->exec("DELETE FROM businesses WHERE id IN ({$in})");
+        }
+        $n = $db->exec('DELETE FROM clients WHERE is_demo = 1');
+        $db->commit();
+        echo "Data DEMO dihapus ({$n} client, " . count($ids) . " bisnis).\n";
+        return;
+    }
+    if ($what !== 'seed') {
+        throw new RuntimeException('Pakai: demo seed | demo clear');
+    }
+    if ($db->query('SELECT 1 FROM clients WHERE is_demo = 1')->fetchColumn()) {
+        throw new RuntimeException('Data DEMO sudah ada. Hapus dulu dengan: demo clear');
+    }
+    $db->beginTransaction();
+    $db->prepare('INSERT INTO clients (name, contact_name, email, phone, address, is_demo) VALUES (?, ?, ?, ?, ?, 1)')
+        ->execute(['Grup Narayana', 'Arif', 'owner@narayana.test', '0812-0000-0000', 'Karimunjawa, Jepara']);
+    $clientId = (int)$db->lastInsertId();
+    // [nama, jenis, kode, database, domain, biaya dasar, tarif per tamu, tamu Sep, tamu Okt, Okt lunas?]
+    $list = [
+        ['Narayana Hotel', 'hotel', 'demo-narayana-hotel', 'adf_narayana_hotel', null, 250000, 2500, 120, 85, false],
+        ['Bens Cafe', 'restaurant', 'demo-bens-cafe', 'adf_benscafe', null, 150000, 0, 0, 0, true],
+        ['Eatmeet', 'restaurant', 'demo-eatmeet', 'adf_eatmeet', null, 150000, 0, 0, 0, false],
+        ['Gudang Nasita', 'warehouse', 'demo-gudang-nasita', 'adf_gudang_nasita', null, 100000, 0, 0, 0, true],
+        ['Narayana Website', 'website', 'demo-narayana-website', null, 'narayanakarimunjawa.com', 100000, 0, 0, 0, false],
+    ];
+    $insB = $db->prepare('INSERT INTO businesses (client_id, slug, name, type, db_name, domain) VALUES (?, ?, ?, ?, ?, ?)');
+    $insS = $db->prepare('INSERT INTO subscriptions (business_id, client_key, client_token, display_name, base_fee, per_guest_fee, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    $insC = $db->prepare('INSERT INTO subscription_charges (business_id, kind, ref, period, base_fee, guest_count, carry_guests, per_guest_fee, status, due_date, paid_at) VALUES (?, \'recurring\', ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    foreach ($list as [$name, $type, $slug, $dbName, $domain, $base, $perGuest, $gSep, $gOct, $octPaid]) {
+        $insB->execute([$clientId, $slug, $name, $type, $dbName, $domain]);
+        $bid = (int)$db->lastInsertId();
+        $insS->execute([$bid, $slug, bin2hex(random_bytes(24)), $name, $base, $perGuest, '2026-05-20']);
+        $insC->execute([$bid, '2026-09', '2026-09', $base, $gSep, 0, $perGuest, 'paid', '2026-09-20', '2026-09-18 11:00:00']);
+        $insC->execute([$bid, '2026-10', '2026-10', $base, $gOct, $gOct ? 5 : 0, $perGuest, $octPaid ? 'paid' : 'unpaid', '2026-10-20', $octPaid ? '2026-10-19 10:00:00' : null]);
+    }
+    $db->commit();
+    echo "Data DEMO Grup Narayana dibuat: 5 bisnis + langganan + tagihan Sep (lunas) & Okt.\n";
 }
