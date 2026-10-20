@@ -5,6 +5,7 @@
  *   php cli/console.php migrate                       buat/ubah tabel (aman diulang; jalankan setiap selesai git pull)
  *   php cli/console.php import-users <users.json>     impor akun dari data/users.json adfsystem.store lama (password tetap sama)
  *   php cli/console.php create-admin                  buat akun admin baru (interaktif)
+ *   php cli/console.php set-password <username>       ganti password akun (darurat: lupa password & email tidak bisa dipakai)
  *   php cli/console.php users                         daftar akun
  */
 
@@ -24,6 +25,7 @@ try {
         'import-users' => importUsers($argv[2] ?? ''),
         'create-admin' => createAdmin(),
         'users' => listUsers(),
+        'set-password' => setPassword($argv[2] ?? ''),
         default => print("Perintah: migrate | import-users <users.json> | create-admin | users\n"),
     };
 } catch (Throwable $e) {
@@ -92,4 +94,33 @@ function listUsers(): void
     foreach (Auth::db()->query('SELECT id, username, email, role FROM console_users ORDER BY id') as $u) {
         printf("  #%-3d %-20s %-32s %s\n", $u['id'], $u['username'], $u['email'], $u['role']);
     }
+}
+
+/** Darurat: ganti password dari terminal server (hanya pemegang akses SSH yang bisa). Sesi lain tidak terpengaruh, link reset lama dibatalkan. */
+function setPassword(string $username): void
+{
+    $user = Auth::findUser($username);
+    if (!$user) {
+        throw new RuntimeException("Akun tidak ditemukan: {$username} (lihat: php cli/console.php users)");
+    }
+    $read = function (string $label): string {
+        echo $label;
+        @shell_exec("stty -echo");
+        $v = trim((string)fgets(STDIN));
+        @shell_exec("stty echo");
+        echo PHP_EOL;
+        return $v;
+    };
+    $pass = $read("Password baru untuk {$user['username']} (min. 10, tidak tampil): ");
+    if (strlen($pass) < 10) {
+        throw new RuntimeException("Password minimal 10 karakter");
+    }
+    if ($read("Ulangi password: ") !== $pass) {
+        throw new RuntimeException("Password tidak sama");
+    }
+    Auth::setPassword((int)$user["id"], $pass);
+    Auth::clearFails((string)$user["username"]);
+    Telegram::security("🔑", "Password ADF Console diganti dari terminal server", ["Akun" => (string)$user["username"]]);
+    echo "Password {$user['username']} diganti. Kunci percobaan login juga dibuka.
+";
 }
