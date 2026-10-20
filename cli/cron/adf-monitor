@@ -1,0 +1,7 @@
+# Monitor ADF -> Telegram. Pasang: sudo cp /srv/adf/app/cli/cron/adf-monitor /etc/cron.d/adf-monitor
+# Cek tiap 5 menit (pesan hanya saat ada masalah / pulih) dan laporan pagi jam 07:00 WIB.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Jakarta
+*/5 * * * * adf /usr/bin/php /srv/adf/app/cli/monitor.php >> /srv/adf/storage/_platform/monitor.log 2>&1
+0 7 * * * adf /usr/bin/php /srv/adf/app/cli/monitor.php --daily >> /srv/adf/storage/_platform/monitor.log 2>&1
