@@ -30,6 +30,8 @@ final class Db
         ]);
         // Jam database mengikuti WIB, sama dengan PHP
         $pdo->exec("SET time_zone = '+07:00'");
+        // Server MariaDB disamakan dengan hosting lama (tidak ketat) demi sistem lama; platform baru tetap ketat di sesinya sendiri.
+        $pdo->exec("SET SESSION sql_mode = 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'");
         return self::$pool[$key] = $pdo;
     }
 

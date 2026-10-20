@@ -1,0 +1,10 @@
+# MariaDB VPS — disamakan dengan hosting lama (Rumahweb, MariaDB 11.4.13) supaya sistem lama berperilaku sama.
+# Pasang: sudo cp ops/mariadb/99-adf.cnf /etc/mysql/mariadb.conf.d/99-adf.cnf && sudo systemctl restart mariadb
+# Nilai dari hosting (SHOW VARIABLES, 2026-10-20): character_set_server latin1, collation_server latin1_swedish_ci,
+# lower_case_table_names 0, sql_mode tidak ketat. Platform baru (core/Db.php) memasang mode ketat di sesinya sendiri.
+[mariadb]
+character_set_server = latin1
+collation_server = latin1_swedish_ci
+sql_mode = ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION
+# Hanya bisa diakses dari dalam server (password lama sistem lama ikut dipakai sementara)
+bind-address = 127.0.0.1
