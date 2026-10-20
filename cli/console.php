@@ -26,7 +26,7 @@ try {
         'create-admin' => createAdmin(),
         'users' => listUsers(),
         'set-password' => setPassword($argv[2] ?? ''),
-        default => print("Perintah: migrate | import-users <users.json> | create-admin | users\n"),
+        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users\n"),
     };
 } catch (Throwable $e) {
     fwrite(STDERR, 'GAGAL: ' . $e->getMessage() . PHP_EOL);
@@ -121,6 +121,5 @@ function setPassword(string $username): void
     Auth::setPassword((int)$user["id"], $pass);
     Auth::clearFails((string)$user["username"]);
     Telegram::security("🔑", "Password ADF Console diganti dari terminal server", ["Akun" => (string)$user["username"]]);
-    echo "Password {$user['username']} diganti. Kunci percobaan login juga dibuka.
-";
+    echo "Password {$user['username']} diganti. Kunci percobaan login juga dibuka.\n";
 }
