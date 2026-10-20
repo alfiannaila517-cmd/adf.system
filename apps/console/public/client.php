@@ -34,6 +34,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Auth::audit('client.update', $name);
             flash('Data client disimpan.');
         }
+    } elseif ($action === 'owner_add') {
+        $email = strtolower(trim((string)($_POST['email'] ?? '')));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('Email tidak valid.', 'err');
+        } else {
+            $pid = Access::person((string)($_POST['name'] ?? ''), $email);
+            Access::setGroupOwner($id, $pid, true);
+            Auth::audit('access.group_owner_add', "{$client['name']}: {$email}");
+            flash('Owner grup ditambahkan — otomatis punya akses penuh ke semua bisnis grup ini.');
+        }
+    } elseif ($action === 'owner_remove') {
+        Access::setGroupOwner($id, (int)($_POST['person_id'] ?? 0), false);
+        Auth::audit('access.group_owner_remove', "{$client['name']}: #" . (int)($_POST['person_id'] ?? 0));
+        flash('Owner grup dicabut. Akses per bisnis (bila ada) tetap.');
     } elseif ($action === 'add_business') {
         $name = trim((string)($_POST['name'] ?? ''));
         $type = array_key_exists($_POST['type'] ?? '', Biz::TYPES) ? $_POST['type'] : 'other';
@@ -141,15 +155,44 @@ View::start($client['name'], 'clients', $me);
     </div>
     <div class="soonbox"><b>Segera:</b> draf tagihan bulanan per client yang bisa diedit bebas (satu baris per bisnis, termasuk website), kirim invoice, dan catat pembayaran.</div>
 
-<?php elseif ($tab === 'orang'): ?>
-    <div class="soonbox">
-        <b>Orang & Akses</b> — dibangun pada langkah berikutnya. Di sini nanti terlihat semua orang di grup ini dan bisnis mana saja yang bisa mereka buka:
-        <ul style="margin:10px 0 0;padding-left:18px;line-height:1.8">
-            <li><b>Owner grup</b>: otomatis bisa masuk ke semua bisnis grup ini</li>
-            <li>Orang lain: dipilih bisnisnya + perannya per bisnis (mis. Front Desk di hotel, Kasir di kafe)</li>
-            <li>Tambah orang = 3 langkah: email → pilih bisnis & peran → kirim undangan</li>
-        </ul>
+<?php elseif ($tab === 'orang'): $people = Access::clientPeople($id); ?>
+    <p class="muted" style="margin:0 0 12px">Semua orang di <?= e($client['name']) ?> dan bisnis yang bisa mereka buka. Untuk memberi atau mengubah akses ke satu bisnis, buka bisnisnya → tab Orang & Akses.</p>
+    <div class="card">
+        <table class="stack">
+            <thead><tr><th>Nama</th><th>Akses</th><th></th></tr></thead>
+            <tbody>
+                <?php foreach ($people as $p): ?>
+                    <tr>
+                        <td><b><?= e($p['name']) ?></b> <?= $p['status'] === 'invited' ? '<span class="pill warn">diundang</span>' : '' ?><br><span class="muted" style="font-size:12px"><?= e($p['email']) ?></span></td>
+                        <td>
+                            <?php if ($p['group_owner']): ?><span class="pill gold">👑 Owner grup — semua bisnis</span> <?php endif; ?>
+                            <?php foreach ($p['access'] as [$bid, $bName, $rName]): ?>
+                                <a class="pill" href="/business.php?id=<?= $bid ?>&tab=orang"><?= e($bName) ?>: <?= e($rName) ?></a>
+                            <?php endforeach; ?>
+                        </td>
+                        <td style="text-align:right">
+                            <?php if ($p['group_owner'] && $isAdmin): ?>
+                                <form method="post" style="display:inline" onsubmit="return confirm('Cabut status owner grup <?= e($p['name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="owner_remove"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="person_id" value="<?= (int)$p['id'] ?>"><button class="btn danger sm">Cabut owner grup</button></form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$people): ?><tr><td colspan="3" class="muted">Belum ada orang di grup ini.</td></tr><?php endif; ?>
+            </tbody>
+        </table>
     </div>
+    <?php if ($isAdmin): ?>
+        <div class="card">
+            <h2>Tambah owner grup</h2>
+            <form method="post" class="row2" style="align-items:end">
+                <?= csrf_field() ?><input type="hidden" name="action" value="owner_add"><input type="hidden" name="id" value="<?= $id ?>">
+                <div><label>Nama</label><input name="name" required></div>
+                <div><label>Email</label><input name="email" type="email" required></div>
+                <div><button class="btn" style="width:100%">Jadikan owner grup</button></div>
+            </form>
+            <p class="muted" style="margin:8px 0 0;font-size:12px">Owner grup otomatis punya akses penuh + portal owner di semua bisnis <?= e($client['name']) ?>, termasuk bisnis yang ditambahkan nanti.</p>
+        </div>
+    <?php endif; ?>
 
 <?php else: ?>
     <div class="card" style="max-width:720px">

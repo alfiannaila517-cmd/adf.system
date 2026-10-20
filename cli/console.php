@@ -28,6 +28,7 @@ try {
         'users' => listUsers(),
         'set-password' => setPassword($argv[2] ?? ''),
         'demo' => demo($argv[2] ?? ''),
+        'legacy-preview' => legacyPreview($argv[2] ?? ''),
         default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear\n"),
     };
 } catch (Throwable $e) {
@@ -141,9 +142,12 @@ function demo(string $what): void
             $db->exec("DELETE FROM invoices WHERE business_id IN ({$in})");
             $db->exec("DELETE FROM subscription_charges WHERE business_id IN ({$in})");
             $db->exec("DELETE FROM subscriptions WHERE business_id IN ({$in})");
+            $db->exec("DELETE FROM memberships WHERE business_id IN ({$in})");
+            $db->exec("DELETE FROM roles WHERE business_id IN ({$in})");
             $db->exec("DELETE FROM businesses WHERE id IN ({$in})");
         }
         $n = $db->exec('DELETE FROM clients WHERE is_demo = 1');
+        $db->exec("DELETE FROM people WHERE email LIKE '%@demo.adf'");
         $db->commit();
         echo "Data DEMO dihapus ({$n} client, " . count($ids) . " bisnis).\n";
         return;
@@ -169,13 +173,72 @@ function demo(string $what): void
     $insB = $db->prepare('INSERT INTO businesses (client_id, slug, name, type, db_name, domain) VALUES (?, ?, ?, ?, ?, ?)');
     $insS = $db->prepare('INSERT INTO subscriptions (business_id, client_key, client_token, display_name, base_fee, per_guest_fee, start_date) VALUES (?, ?, ?, ?, ?, ?, ?)');
     $insC = $db->prepare('INSERT INTO subscription_charges (business_id, kind, ref, period, base_fee, guest_count, carry_guests, per_guest_fee, status, due_date, paid_at) VALUES (?, \'recurring\', ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $bizBySlug = [];
     foreach ($list as [$name, $type, $slug, $dbName, $domain, $base, $perGuest, $gSep, $gOct, $octPaid]) {
         $insB->execute([$clientId, $slug, $name, $type, $dbName, $domain]);
         $bid = (int)$db->lastInsertId();
         $insS->execute([$bid, $slug, bin2hex(random_bytes(24)), $name, $base, $perGuest, '2026-05-20']);
         $insC->execute([$bid, '2026-09', '2026-09', $base, $gSep, 0, $perGuest, 'paid', '2026-09-20', '2026-09-18 11:00:00']);
         $insC->execute([$bid, '2026-10', '2026-10', $base, $gOct, $gOct ? 5 : 0, $perGuest, $octPaid ? 'paid' : 'unpaid', '2026-10-20', $octPaid ? '2026-10-19 10:00:00' : null]);
+        Access::ensureRoles(Biz::business($bid));
+        $bizBySlug[$slug] = $bid;
     }
+
+    // Orang contoh (email @demo.adf, dihapus oleh "demo clear")
+    $roleId = function (string $slug, string $code) use ($db, &$bizBySlug): int {
+        $st = $db->prepare('SELECT id FROM roles WHERE business_id = ? AND code = ?');
+        $st->execute([$bizBySlug[$slug], $code]);
+        return (int)$st->fetchColumn();
+    };
+    Access::setGroupOwner($clientId, Access::person('Arif', 'arif@demo.adf'), true);
+    $lucca = Access::person('Lucca', 'lucca@demo.adf');
+    Access::setMembership($bizBySlug['demo-narayana-hotel'], $lucca, $roleId('demo-narayana-hotel', 'owner'), true, false);
+    Access::setMembership($bizBySlug['demo-bens-cafe'], $lucca, $roleId('demo-bens-cafe', 'owner'), true, false);
+    $sandra = Access::person('Sandra', 'sandra@demo.adf');
+    Access::setMembership($bizBySlug['demo-narayana-hotel'], $sandra, $roleId('demo-narayana-hotel', 'front_desk'), false, false);
+    Access::setMembership($bizBySlug['demo-bens-cafe'], $sandra, $roleId('demo-bens-cafe', 'cashier'), false, false);
+    $putri = Access::person('Putri', 'putri@demo.adf');
+    Access::setMembership($bizBySlug['demo-narayana-hotel'], $putri, $roleId('demo-narayana-hotel', 'staff'), false, true);
+
     $db->commit();
-    echo "Data DEMO Grup Narayana dibuat: 5 bisnis + langganan + tagihan Sep (lunas) & Okt.\n";
+    echo "Data DEMO Grup Narayana dibuat: 5 bisnis + langganan + tagihan Sep (lunas) & Okt + orang (Arif owner grup, Lucca, Sandra, Putri).\n";
+}
+
+/**
+ * Pratinjau terjemahan akses Console → tabel sistem lama (tanpa menulis apa pun):
+ *   php cli/console.php legacy-preview <kode-bisnis>
+ * Menampilkan baris user_menu_permissions yang akan ditulis saat sistem bisnis dipindah: SEMUA modul katalog per orang
+ * (yang tidak diizinkan ditulis 0000, supaya aturan lama "belum diatur = boleh semua" tidak pernah berlaku),
+ * serta role global lama (owner / manager / staff).
+ */
+function legacyPreview(string $slug): void
+{
+    $db = Auth::db();
+    $st = $db->prepare('SELECT id FROM businesses WHERE slug = ?');
+    $st->execute([$slug]);
+    $biz = Biz::business((int)$st->fetchColumn());
+    if (!$biz) {
+        throw new RuntimeException("Bisnis tidak ditemukan: {$slug}");
+    }
+    $acc = Access::members($biz);
+    $people = [];
+    foreach ($acc['owners'] as $o) {
+        $people[$o['person_id']] = [$o['name'], 'owner (owner grup)'];
+    }
+    foreach ($acc['members'] as $m) {
+        $people[(int)$m['person_id']] ??= [$m['name'], $m['is_owner'] ? 'owner' : (str_contains(strtolower($m['role_name']), 'manager') ? 'manager' : 'staff')];
+    }
+    echo "Bisnis {$biz['name']} — " . count($people) . " orang, " . count(Catalog::MODULES) . " modul per orang\n";
+    echo "flag = can_view can_create can_edit can_delete\n";
+    foreach ($people as $pid => [$name, $legacyRole]) {
+        $eff = Access::effective($biz, (int)$pid);
+        $granted = array_filter($eff);
+        echo "\n{$name}  → users.role = {$legacyRole}  · user_business_assignment: ya\n";
+        foreach ($eff as $code => $lv) {
+            if ($lv > 0) {
+                printf("   %-20s %s  (%s)\n", $code, implode('', Catalog::legacyFlags($lv)), Catalog::LEVELS[$lv]);
+            }
+        }
+        echo '   + ' . (count($eff) - count($granted)) . " modul lain ditulis 0000\n";
+    }
 }

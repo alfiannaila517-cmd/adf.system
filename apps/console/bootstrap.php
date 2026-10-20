@@ -10,6 +10,7 @@ require dirname(__DIR__, 2) . '/core/bootstrap.php';
 require_once __DIR__ . '/src/Auth.php';
 require_once __DIR__ . '/src/View.php';
 require_once __DIR__ . '/src/Biz.php';
+require_once __DIR__ . '/src/Access.php';
 
 const CONSOLE_DB = 'adf_console';
 

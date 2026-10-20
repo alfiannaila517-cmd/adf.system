@@ -86,6 +86,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Biz::resetModules($id);
         Auth::audit('business.modules_reset', $biz['name']);
         flash('Modul & fitur dikembalikan ke bawaan jenis bisnis.');
+    } elseif ($action === 'member_add' || $action === 'member_update') {
+        Access::ensureRoles($biz);
+        $roles = Access::roles($id);
+        $roleId = (int)($_POST['role_id'] ?? 0);
+        $email = strtolower(trim((string)($_POST['email'] ?? '')));
+        $personId = (int)($_POST['person_id'] ?? 0);
+        if (!isset($roles[$roleId])) {
+            flash('Pilih peran yang valid.', 'err');
+        } elseif ($action === 'member_add' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('Email tidak valid.', 'err');
+        } else {
+            if ($action === 'member_add') {
+                $personId = Access::person((string)($_POST['name'] ?? ''), $email);
+            }
+            Access::setMembership($id, $personId, $roleId, !empty($_POST['portal_owner']), !empty($_POST['portal_staff']));
+            Auth::audit($action === 'member_add' ? 'access.add' : 'access.update', "{$biz['name']}: #{$personId} → {$roles[$roleId]['name']}");
+            flash($action === 'member_add' ? 'Akses ditambahkan.' : 'Akses diperbarui.');
+        }
+    } elseif ($action === 'member_remove') {
+        Access::removeMembership($id, (int)($_POST['person_id'] ?? 0));
+        Auth::audit('access.remove', "{$biz['name']}: #" . (int)($_POST['person_id'] ?? 0));
+        flash('Akses dicabut.');
+    } elseif ($action === 'roles_save') {
+        Access::ensureRoles($biz);
+        Access::saveRolePermissions($id, (array)($_POST['lv'] ?? []));
+        Auth::audit('roles.update', $biz['name']);
+        flash('Izin peran disimpan.');
     } elseif ($action === 'regenerate_token') {
         $db->prepare('UPDATE subscriptions SET client_token = ? WHERE business_id = ?')->execute([bin2hex(random_bytes(24)), $id]);
         Auth::audit('subscription.token', $biz['name']);
@@ -109,7 +136,7 @@ View::start($biz['name'], 'clients', $me);
 
 <nav class="tabs">
     <?php foreach (['ringkasan' => 'Ringkasan', 'langganan' => 'Langganan', 'database' => 'Database & Storage', 'modul' => 'Modul & Fitur', 'orang' => 'Orang & Akses', 'integrasi' => 'Integrasi'] as $k => $label): ?>
-        <a class="<?= $tab === $k ? 'on' : '' ?><?= in_array($k, ['orang', 'integrasi'], true) ? ' soon' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
+        <a class="<?= $tab === $k ? 'on' : '' ?><?= in_array($k, ['integrasi'], true) ? ' soon' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
 
@@ -265,8 +292,109 @@ View::start($biz['name'], 'clients', $me);
             <?= csrf_field() ?><input type="hidden" name="action" value="modules_reset"><input type="hidden" name="id" value="<?= $id ?>"><button class="btn ghost sm">Kembalikan ke bawaan</button>
         </form>
     <?php endif; ?>
-<?php elseif ($tab === 'orang'): ?>
-    <div class="soonbox"><b>Orang & Akses</b> — siapa saja yang bisa masuk ke <?= e($biz['name']) ?>, perannya (Owner, Manager, Front Desk, Kasir, Staff…), dan pintu masuknya (sistem, portal owner, portal staff). Tambah orang cukup: email → peran → kirim undangan.</div>
+<?php elseif ($tab === 'orang'):
+    Access::ensureRoles($biz);
+    $roles = Access::roles($id);
+    $acc = Access::members($biz);
+    $enabledMods = array_keys(array_filter(Biz::modules($biz)['module']));
+    $show = (int)($_GET['person'] ?? 0); ?>
+    <p class="muted" style="margin:0 0 12px">Siapa yang bisa masuk ke <?= e($biz['name']) ?> dan apa yang boleh dibuka. Izin akhir = modul yang menyala di bisnis ini × izin perannya.</p>
+
+    <div class="card">
+        <h2>Orang yang punya akses</h2>
+        <table class="stack">
+            <thead><tr><th>Nama</th><th>Peran</th><th>Pintu masuk</th><th></th></tr></thead>
+            <tbody>
+                <?php foreach ($acc['owners'] as $o): ?>
+                    <tr>
+                        <td><b><?= e($o['name']) ?></b><br><span class="muted" style="font-size:12px"><?= e($o['email']) ?></span></td>
+                        <td><span class="pill gold">👑 Owner grup</span></td>
+                        <td class="muted" style="font-size:12px">sistem · portal owner</td>
+                        <td class="muted" style="font-size:12px">otomatis dari <a href="/client.php?id=<?= (int)$biz['client_id'] ?>&tab=orang">grup</a></td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php foreach ($acc['members'] as $m): ?>
+                    <tr>
+                        <td><b><?= e($m['name']) ?></b> <?= $m['status'] === 'invited' ? '<span class="pill warn">diundang</span>' : '' ?><br><span class="muted" style="font-size:12px"><?= e($m['email']) ?></span></td>
+                        <td colspan="2">
+                            <form method="post" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                                <?= csrf_field() ?><input type="hidden" name="action" value="member_update"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="person_id" value="<?= (int)$m['person_id'] ?>">
+                                <select name="role_id" style="width:auto" <?= $dis ?>><?php foreach ($roles as $rid => $r): ?><option value="<?= $rid ?>" <?= $rid === (int)$m['role_id'] ? 'selected' : '' ?>><?= e($r['name']) ?></option><?php endforeach; ?></select>
+                                <label style="display:flex;gap:4px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" name="portal_owner" value="1" style="width:auto" <?= $m['portal_owner'] ? 'checked' : '' ?> <?= $dis ?>> portal owner</label>
+                                <label style="display:flex;gap:4px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" name="portal_staff" value="1" style="width:auto" <?= $m['portal_staff'] ? 'checked' : '' ?> <?= $dis ?>> portal staff</label>
+                                <?php if ($isAdmin): ?><button class="btn ghost sm">Simpan</button><?php endif; ?>
+                            </form>
+                        </td>
+                        <td style="text-align:right;white-space:nowrap">
+                            <a class="btn ghost sm" href="/business.php?id=<?= $id ?>&tab=orang&person=<?= (int)$m['person_id'] ?>#izin">Izin akhir</a>
+                            <?php if ($isAdmin): ?>
+                                <form method="post" style="display:inline" onsubmit="return confirm('Cabut akses <?= e($m['name']) ?> dari <?= e($biz['name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="member_remove"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="person_id" value="<?= (int)$m['person_id'] ?>"><button class="btn danger sm">Cabut</button></form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$acc['owners'] && !$acc['members']): ?><tr><td colspan="4" class="muted">Belum ada orang yang punya akses.</td></tr><?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <?php if ($isAdmin): ?>
+        <div class="card">
+            <h2>Tambah orang</h2>
+            <form method="post" class="row2" style="align-items:end">
+                <?= csrf_field() ?><input type="hidden" name="action" value="member_add"><input type="hidden" name="id" value="<?= $id ?>">
+                <div><label>Nama</label><input name="name" required></div>
+                <div><label>Email</label><input name="email" type="email" required></div>
+                <div><label>Peran</label><select name="role_id"><?php foreach ($roles as $rid => $r): ?><option value="<?= $rid ?>"><?= e($r['name']) ?></option><?php endforeach; ?></select></div>
+                <div style="display:flex;gap:10px;align-items:center;padding-bottom:6px">
+                    <label style="display:flex;gap:4px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" name="portal_owner" value="1" style="width:auto"> portal owner</label>
+                    <label style="display:flex;gap:4px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" name="portal_staff" value="1" style="width:auto"> portal staff</label>
+                </div>
+                <div><button class="btn" style="width:100%">Tambah</button></div>
+            </form>
+            <p class="muted" style="margin:8px 0 0;font-size:12px">Kalau email sudah terdaftar di bisnis lain, orangnya dipakai ulang (satu orang = satu akun). Undangan untuk membuat password dikirim saat sistem bisnis sudah berjalan di platform baru.</p>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($show && ($p = array_values(array_filter($acc['members'], fn ($m) => (int)$m['person_id'] === $show))[0] ?? null)): $eff = Access::effective($biz, $show); ?>
+        <div class="card" id="izin">
+            <h2>Izin akhir · <?= e($p['name']) ?> (<?= e($p['role_name']) ?>)</h2>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <?php foreach ($enabledMods as $code): $lv = $eff[$code] ?? 0; ?>
+                    <span class="pill <?= $lv >= 3 ? 'ok' : ($lv >= 1 ? 'gold' : '') ?>"><?= e(Catalog::MODULES[$code][0]) ?>: <?= Catalog::LEVELS[$lv] ?></span>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <div class="card">
+        <h2>Izin per peran</h2>
+        <p class="muted" style="margin:0 0 10px;font-size:12px">Hanya modul yang menyala di bisnis ini yang tampil. Mengubah izin peran berlaku untuk semua orang berperan itu di <?= e($biz['name']) ?> saja.</p>
+        <form method="post" style="overflow-x:auto">
+            <?= csrf_field() ?><input type="hidden" name="action" value="roles_save"><input type="hidden" name="id" value="<?= $id ?>">
+            <table>
+                <thead><tr><th>Modul</th><?php foreach ($roles as $r): ?><th><?= e($r['name']) ?></th><?php endforeach; ?></tr></thead>
+                <tbody>
+                    <?php foreach ($enabledMods as $code): ?>
+                        <tr>
+                            <td><?= e(Catalog::MODULES[$code][0]) ?></td>
+                            <?php foreach ($roles as $rid => $r): $lv = Catalog::levelOf($r['perms'], $code); ?>
+                                <td>
+                                    <?php if ($r['is_owner']): ?>
+                                        <span class="pill ok">Kelola</span>
+                                    <?php else: ?>
+                                        <select name="lv[<?= $rid ?>][<?= e($code) ?>]" style="width:auto;padding:4px 6px" <?= $dis ?>><?php foreach (Catalog::LEVELS as $v => $l): ?><option value="<?= $v ?>" <?= $v === $lv ? 'selected' : '' ?>><?= $l ?></option><?php endforeach; ?></select>
+                                    <?php endif; ?>
+                                </td>
+                            <?php endforeach; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if ($isAdmin): ?><button class="btn" style="margin-top:10px">Simpan izin peran</button><?php endif; ?>
+        </form>
+        <p class="muted" style="margin:10px 0 0;font-size:12px">Tidak = menu tidak tampil · Lihat = hanya melihat · Input = melihat & menambah · Kelola = melihat, menambah, mengubah, menghapus.</p>
+    </div>
 <?php else: ?>
     <div class="soonbox"><b>Integrasi</b> — kunci WhatsApp (Fonnte), Cloudbeds, mesin absensi, dan Pakasir khusus bisnis ini, lengkap dengan tombol "Tes koneksi" dan status terakhir.</div>
 <?php endif; ?>

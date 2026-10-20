@@ -64,6 +64,61 @@ final class Catalog
         'fingerprint' => ['Absensi fingerprint', 'Tarik data absensi dari mesin fingerprint', null, []],
     ];
 
+    /** Tingkat izin per modul */
+    public const LEVELS = [0 => 'Tidak', 1 => 'Lihat', 2 => 'Input', 3 => 'Kelola'];
+
+    /**
+     * Templat peran per jenis bisnis: [kode, nama, keterangan, pemilik?, izin {modul: level, '*': level bawaan}].
+     * Disalin ke bisnis saat pertama dipakai, lalu bisa diubah khusus bisnis itu.
+     * procurement_po & procurement_stock diberikan ke peran harian hotel/kafe karena sistem lama membukanya
+     * untuk semua orang di Narayana Hotel, Bens Cafe & Eatmeet (perilaku dipertahankan).
+     */
+    public const ROLE_TEMPLATES = [
+        'hotel' => [
+            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 3]],
+            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 3, 'settings' => 1, 'database' => 0, 'investor' => 1]],
+            ['front_desk', 'Front Desk', 'Reservasi, check-in/out, input kas', false, ['dashboard' => 1, 'frontdesk' => 3, 'cashbook' => 2, 'procurement' => 2, 'procurement_po' => 2, 'procurement_stock' => 2]],
+            ['staff', 'Staff', 'Akses dasar + PO & stok', false, ['dashboard' => 1, 'procurement_po' => 2, 'procurement_stock' => 2]],
+        ],
+        'restaurant' => [
+            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 3]],
+            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 3, 'settings' => 1, 'database' => 0, 'investor' => 1]],
+            ['cashier', 'Kasir', 'Invoice kafe, buku menu, input kas', false, ['dashboard' => 1, 'cafe_invoice' => 3, 'menu_book' => 1, 'cashbook' => 2, 'procurement_po' => 2, 'procurement_stock' => 2]],
+            ['staff', 'Staff', 'Akses dasar + PO & stok', false, ['dashboard' => 1, 'procurement_po' => 2, 'procurement_stock' => 2]],
+        ],
+        'warehouse' => [
+            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 3]],
+            ['warehouse_admin', 'Admin Gudang', 'Kelola stok, transfer & barang masuk', false, ['dashboard' => 1, 'warehouse' => 3, 'warehouse_transfers' => 3, 'procurement_stock' => 3, 'cashbook' => 2, 'reports' => 1]],
+            ['staff', 'Staff Gudang', 'Lihat stok & input barang masuk', false, ['dashboard' => 1, 'warehouse' => 1, 'procurement_stock' => 2]],
+        ],
+        'website' => [
+            ['owner', 'Owner', 'Akses penuh', true, ['*' => 3]],
+            ['editor', 'Editor', 'Ubah isi website', false, ['dashboard' => 1, 'settings' => 2]],
+        ],
+        '*' => [
+            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 3]],
+            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 3, 'settings' => 1, 'database' => 0, 'investor' => 1]],
+            ['staff', 'Staff', 'Akses dasar', false, ['dashboard' => 1]],
+        ],
+    ];
+
+    public static function roleTemplates(string $type): array
+    {
+        return self::ROLE_TEMPLATES[$type] ?? self::ROLE_TEMPLATES['*'];
+    }
+
+    /** Level satu modul dari peta izin (kunci '*' = level bawaan untuk modul yang tidak disebut). */
+    public static function levelOf(array $perms, string $module): int
+    {
+        return max(0, min(3, (int)($perms[$module] ?? $perms['*'] ?? 0)));
+    }
+
+    /** Level → 4 tanda izin sistem lama (can_view, can_create, can_edit, can_delete). */
+    public static function legacyFlags(int $level): array
+    {
+        return [$level >= 1 ? 1 : 0, $level >= 2 ? 1 : 0, $level >= 3 ? 1 : 0, $level >= 3 ? 1 : 0];
+    }
+
     public static function moduleAvailable(string $code, string $type): bool
     {
         $m = self::MODULES[$code] ?? null;
