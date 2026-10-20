@@ -22,6 +22,17 @@ final class Legacy
      */
     private const PO_ALWAYS_BIZ = ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'];
 
+    /** Impor dari data hosting (hari pindahan): aturan mati PO/Stok masih berlaku di sana, jadi selalu dihitung. */
+    public static bool $fromHosting = false;
+
+    /** Saklar VPS menyala? (config/local-db-config.php sistem lama mendefinisikan ADF_CONSOLE_ACCESS → aturan mati PO/Stok mati) */
+    public static function consoleSwitchOn(): bool
+    {
+        $dir = self::appDir();
+        $file = $dir ? $dir . '/config/local-db-config.php' : null;
+        return $file && is_file($file) && str_contains((string)file_get_contents($file), 'ADF_CONSOLE_ACCESS');
+    }
+
     /** Peran global lama yang boleh Owner Login (owner-login.php). */
     private const OWNER_LOGIN_ROLES = ['owner', 'admin'];
 
@@ -100,7 +111,8 @@ final class Legacy
         // Aturan mati lama (includes/auth.php): PO Internal & Stok Masuk selalu boleh DILIHAT siapa pun di 3 bisnis ini
         $st = $db->prepare('SELECT slug FROM businesses WHERE id = ?');
         $st->execute([$legacyBizId]);
-        $poAlways = in_array(preg_replace('/[^a-z0-9]/', '', strtolower((string)$st->fetchColumn())), self::PO_ALWAYS_BIZ, true);
+        $poAlways = (self::$fromHosting || !self::consoleSwitchOn())
+            && in_array(preg_replace('/[^a-z0-9]/', '', strtolower((string)$st->fetchColumn())), self::PO_ALWAYS_BIZ, true);
         foreach ($out as &$u) {
             if ($u['rows'] === 0 && in_array($u['role'], ['admin', 'owner'], true)) {
                 $u['levels'] = array_fill_keys(array_keys(Catalog::MODULES), Catalog::MAX_LEVEL);

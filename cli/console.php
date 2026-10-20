@@ -10,7 +10,8 @@
  *   php cli/console.php demo seed|clear               data contoh Grup Narayana (DEMO)
  *   php cli/console.php vault-key                     buat kunci brankas (enkripsi kunci API integrasi) — sekali saja
  *   php cli/console.php legacy-preview <kode-bisnis>  pratinjau baris tabel sistem lama (izin + integrasi)
- *   php cli/console.php legacy-import [--dry-run] [--client="Grup Narayana"] [slug …]
+ *   php cli/console.php legacy-import [--dry-run] [--from-hosting] [--client="Grup Narayana"] [slug …]
+ *                                                     --from-hosting = data baru dari hosting (hari pindahan)
  *                                                     impor bisnis + orang + izin dari database master sistem lama
  *   php cli/console.php legacy-diff <kode-bisnis>     beda izin Console vs tabel sistem lama (kosong = identik)
  */
@@ -287,6 +288,8 @@ function vaultKey(): void
 function legacyImport(array $args): void
 {
     $dry = in_array('--dry-run', $args, true);
+    // Hari pindahan: data baru dari hosting → aturan mati PO/Stok hosting ikut dihitung sebagai akses Lihat
+    Legacy::$fromHosting = in_array('--from-hosting', $args, true);
     $client = 'Grup Narayana';
     $slugs = [];
     foreach ($args as $a) {
