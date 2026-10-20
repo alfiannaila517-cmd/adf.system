@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash("Kode bisnis \"{$slug}\" sudah dipakai, pakai kode lain.", 'err');
         } else {
             $db->prepare('INSERT INTO businesses (client_id, slug, name, type, domain) VALUES (?, ?, ?, ?, ?)')
-                ->execute([$id, $slug, mb_substr($name, 0, 150), $type, trim((string)($_POST['domain'] ?? '')) ?: null]);
+                ->execute([$id, $slug, mb_substr($name, 0, 150), $type, Legacy::normalizeDomain((string)($_POST['domain'] ?? '')) ?: null]);
             $bid = (int)$db->lastInsertId();
             Auth::audit('business.add', "{$name} → {$client['name']}");
             $msg = "Bisnis {$name} ditambahkan.";

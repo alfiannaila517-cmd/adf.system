@@ -33,10 +33,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Nama bisnis wajib diisi dan client harus valid.', 'err');
         } else {
             $db->prepare('UPDATE businesses SET name = ?, type = ?, status = ?, client_id = ?, domain = ?, notes = ? WHERE id = ?')->execute([
-                mb_substr($name, 0, 150), $type, $status, $clientId, trim((string)($_POST['domain'] ?? '')) ?: null, trim((string)($_POST['notes'] ?? '')) ?: null, $id,
+                mb_substr($name, 0, 150), $type, $status, $clientId, Legacy::normalizeDomain((string)($_POST['domain'] ?? '')) ?: null, trim((string)($_POST['notes'] ?? '')) ?: null, $id,
             ]);
             Auth::audit('business.update', $name . ($clientId !== (int)$biz['client_id'] ? ' (pindah client)' : ''));
-            flash('Bisnis disimpan.');
+            try {
+                // Nama, domain sendiri & status ikut ke sistem (domain → website + /admin bisnis ini)
+                Legacy::syncBusiness(Biz::business($id));
+                flash('Bisnis disimpan.' . (Legacy::linked($biz) ? ' ' . Legacy::label() . ' diperbarui.' : ''));
+            } catch (Throwable $e) {
+                flash('Bisnis disimpan di Console, TAPI: ' . $e->getMessage(), 'err');
+            }
         }
     } elseif ($action === 'provision') {
         try {
@@ -271,11 +277,30 @@ View::start($biz['name'], 'clients', $me);
                 <div class="field"><label>Status</label><select name="status" <?= $dis ?>><?php foreach (Biz::STATUS as $code => $l): ?><option value="<?= $code ?>" <?= $biz['status'] === $code ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
                 <div class="field"><label>Milik client</label><select name="client_id" <?= $dis ?>><?php foreach ($clients as $c): ?><option value="<?= (int)$c['id'] ?>" <?= (int)$c['id'] === (int)$biz['client_id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?></select></div>
             </div>
-            <div class="field"><label>Domain / website</label><input name="domain" value="<?= e($biz['domain']) ?>" <?= $dis ?>></div>
+            <div class="field"><label>Domain sendiri (opsional)</label><input name="domain" value="<?= e($biz['domain']) ?>" placeholder="mis. sunseakarimunjawa.com" <?= $dis ?>></div>
             <div class="field"><label>Catatan</label><input name="notes" value="<?= e($biz['notes']) ?>" <?= $dis ?>></div>
             <?php if ($isAdmin): ?><button class="btn">Simpan</button><?php endif; ?>
         </form>
     </div>
+    <?php if ($biz['domain'] && $biz['legacy_business_id']):
+        $dom = (string)$biz['domain'];
+        $serverIp = (string)Secrets::get('SERVER_IP', $_SERVER['SERVER_ADDR'] ?? '');
+        $resolved = gethostbyname($dom);
+        $dnsOk = $resolved !== $dom && ($serverIp === '' || $resolved === $serverIp); ?>
+        <div class="card" style="max-width:760px">
+            <h2>Domain <?= e($dom) ?></h2>
+            <p class="muted" style="margin:0 0 10px;font-size:12px">
+                <b><?= e($dom) ?></b> → <?= $biz['type'] === 'travel' ? 'website publik bisnis ini' : 'halaman login bisnis ini' ?> · <b><?= e($dom) ?>/admin</b> → login sistem <?= e($biz['name']) ?> (bisnisnya otomatis terpilih).</p>
+            <table class="sm">
+                <tr><td style="width:28px"><?= $dnsOk ? '✅' : '⏳' ?></td>
+                    <td><b>1. DNS</b> — di tempat domain dibeli, buat record <b>A</b> untuk <code><?= e($dom) ?></code> dan <code>www</code> → <code><?= e($serverIp ?: 'IP VPS') ?></code>
+                        <br><span class="muted" style="font-size:11px">sekarang mengarah ke: <?= $resolved === $dom ? 'belum ada' : e($resolved) ?><?= $dnsOk ? ' — sudah benar' : '' ?></span></td></tr>
+                <tr><td>🖥️</td><td><b>2. Pasang di server</b> (sekali, setelah DNS benar) — jalankan di VPS:<br><code>sudo bash /srv/adf/app/ops/add-domain.sh <?= e($dom) ?></code>
+                    <br><span class="muted" style="font-size:11px">Membuat pintu Nginx untuk domain ini + sertifikat SSL (https) otomatis.</span></td></tr>
+                <tr><td>🌐</td><td><b>3. Cek</b> — buka <a href="https://<?= e($dom) ?>" target="_blank" rel="noopener">https://<?= e($dom) ?></a> dan <a href="https://<?= e($dom) ?>/admin" target="_blank" rel="noopener">https://<?= e($dom) ?>/admin</a></td></tr>
+            </table>
+        </div>
+    <?php endif; ?>
 
 <?php elseif ($tab === 'langganan'): ?>
     <?php if (!$sub): ?>

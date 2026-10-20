@@ -58,7 +58,7 @@ final class Provision
             }
             $m->prepare('INSERT INTO businesses (business_code, slug, business_name, business_type, database_name, owner_id, description, addon_domain, is_active)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)')
-                ->execute([$code, $slug, $biz['name'], $type, $realDb, self::ownerId($biz), $biz['notes'] ?: null, $biz['domain'] ?: null]);
+                ->execute([$code, $slug, $biz['name'], $type, $realDb, self::ownerId($biz), $biz['notes'] ?: null, Legacy::normalizeDomain((string)$biz['domain']) ?: null]);
             $lbid = (int)$m->lastInsertId();
             $cash = $m->prepare('INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, ?, ?, 0, ?, ?, 1)');
             $cash->execute([$lbid, 'Petty Cash', 'cash', 1, 'Uang cash dari tamu / operasional']);

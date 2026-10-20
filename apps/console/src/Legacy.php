@@ -440,6 +440,37 @@ final class Legacy
         return str_starts_with($name, 'adf_') ? (string)Secrets::get('LEGACY_DB_PREFIX', 'adfb2574_') . substr($name, 4) : $name;
     }
 
+    /** Domain apa adanya dari form → "sunseakarimunjawa.com" (tanpa http://, www., garis miring, atau path). */
+    public static function normalizeDomain(string $domain): string
+    {
+        $d = strtolower(trim($domain));
+        $d = (string)preg_replace('#^https?://#', '', $d);
+        $d = (string)preg_replace('/^www\./', '', $d);
+        return (string)preg_replace('#[/?\#].*$#', '', $d);
+    }
+
+    /**
+     * Nama, domain (addon_domain = domain sendiri bisnis), dan status aktif → master lama.
+     * Sistem lama memakai addon_domain untuk: domain/ → website publik (travel) atau login, domain/admin → login sistem.
+     */
+    public static function syncBusiness(array $biz): void
+    {
+        if (!self::linked($biz)) {
+            return;
+        }
+        $db = self::db();
+        $domain = self::normalizeDomain((string)$biz['domain']);
+        if ($domain !== '') {
+            $st = $db->prepare("SELECT business_name FROM businesses WHERE LOWER(REPLACE(addon_domain,'www.','')) = ? AND id <> ?");
+            $st->execute([$domain, (int)$biz['legacy_business_id']]);
+            if ($other = $st->fetchColumn()) {
+                throw new RuntimeException("Domain {$domain} sudah dipakai bisnis {$other}");
+            }
+        }
+        $db->prepare('UPDATE businesses SET business_name = ?, addon_domain = ?, is_active = ? WHERE id = ?')
+            ->execute([$biz['name'], $domain ?: null, $biz['status'] === 'active' ? 1 : 0, (int)$biz['legacy_business_id']]);
+    }
+
     /** Kode modul Console → nama di 'enabled_modules' file config lama (isModuleEnabled), bila berbeda. */
     private const CONFIG_NAMES = ['cafe_invoice' => 'cafe-invoice', 'sales_invoice' => 'sales'];
 
