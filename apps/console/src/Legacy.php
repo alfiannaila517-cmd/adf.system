@@ -1,0 +1,382 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Jembatan Console ↔ sistem lama (database master adf_system / adfb2574_adf, lihat Db::legacyMaster()).
+ *
+ *   import()   tabel lama → Console (bisnis, modul, orang, peran + pengecualian) — hasilnya harus identik dengan izin lama
+ *   desired()  baris tabel lama yang SEHARUSNYA ada menurut Console (dipakai pratinjau, cek beda, dan nanti ekspor)
+ *   diff()     bandingkan desired() dengan isi tabel lama sekarang
+ *
+ * Aturan izin sistem lama (includes/auth.php hasPermission): menu boleh dibuka bila ada baris can_view = 1;
+ * baris yang tidak ada = tidak boleh; KECUALI peran developer/admin/owner tanpa satu baris pun di bisnis itu = boleh semua.
+ * User berperan developer (Tim ADF) tidak pernah diimpor maupun diubah oleh jembatan ini.
+ */
+final class Legacy
+{
+    /** Peran global lama yang boleh Owner Login (owner-login.php). */
+    private const OWNER_LOGIN_ROLES = ['owner', 'admin'];
+
+    public static function db(): PDO
+    {
+        return Db::legacyMaster() ?? throw new RuntimeException('LEGACY_MASTER_DB belum diatur di secrets/legacy.env');
+    }
+
+    /** Jenis bisnis lama → jenis Console. */
+    public static function mapType(string $legacyType, string $slug): string
+    {
+        if (str_contains($slug, 'gudang')) {
+            return 'warehouse';
+        }
+        return match ($legacyType) {
+            'hotel' => 'hotel',
+            'restaurant' => 'restaurant',
+            'manufacture' => 'manufacture',
+            'contractor' => 'contractor',
+            'tourism', 'travel_bureau' => 'travel',
+            default => 'other',
+        };
+    }
+
+    /* ------------------------------------------------------------------ baca tabel lama */
+
+    /**
+     * Kondisi akses di tabel lama untuk satu bisnis lama (developer dilewati).
+     * @return array<int, array{username:string, name:string, email:string, role:string, active:bool, assigned:bool, rows:int, levels:array<string,int>, inexact:string[], unknown:string[]}>
+     */
+    public static function current(int $legacyBizId): array
+    {
+        $db = self::db();
+        $out = [];
+        $users = $db->prepare('SELECT u.id, u.username, u.full_name, u.email, u.is_active, COALESCE(r.role_code, \'staff\') AS role_code
+            FROM users u LEFT JOIN roles r ON r.id = u.role_id
+            WHERE u.id IN (SELECT user_id FROM user_business_assignment WHERE business_id = ?)
+               OR u.id IN (SELECT user_id FROM user_menu_permissions WHERE business_id = ?)');
+        $users->execute([$legacyBizId, $legacyBizId]);
+        $assigned = $db->prepare('SELECT user_id FROM user_business_assignment WHERE business_id = ?');
+        $assigned->execute([$legacyBizId]);
+        $assignedIds = array_map('intval', $assigned->fetchAll(PDO::FETCH_COLUMN));
+
+        foreach ($users->fetchAll() as $u) {
+            if ($u['role_code'] === 'developer') {
+                continue;
+            }
+            $out[(int)$u['id']] = [
+                'username' => (string)$u['username'], 'name' => (string)($u['full_name'] ?: $u['username']), 'email' => trim((string)$u['email']),
+                'role' => (string)$u['role_code'], 'active' => (bool)$u['is_active'], 'assigned' => in_array((int)$u['id'], $assignedIds, true),
+                'rows' => 0, 'levels' => array_fill_keys(array_keys(Catalog::MODULES), 0), 'inexact' => [], 'unknown' => [],
+            ];
+        }
+        $perm = $db->prepare('SELECT user_id, menu_code, can_view, can_create, can_edit, can_delete FROM user_menu_permissions WHERE business_id = ?');
+        $perm->execute([$legacyBizId]);
+        foreach ($perm->fetchAll() as $p) {
+            $uid = (int)$p['user_id'];
+            if (!isset($out[$uid])) {
+                continue;
+            }
+            $out[$uid]['rows']++;
+            $code = (string)$p['menu_code'];
+            $lv = Catalog::levelFromFlags((int)$p['can_view'], (int)$p['can_create'], (int)$p['can_edit'], (int)$p['can_delete'], $exact);
+            if (!isset(Catalog::MODULES[$code])) {
+                if ($lv > 0) {
+                    $out[$uid]['unknown'][] = $code;
+                }
+                continue;
+            }
+            if (!$exact) {
+                $out[$uid]['inexact'][] = $code;
+            }
+            $out[$uid]['levels'][$code] = $lv;
+        }
+        // Celah lama: developer/admin/owner tanpa baris izin sama sekali = boleh semua menu
+        foreach ($out as &$u) {
+            if ($u['rows'] === 0 && in_array($u['role'], ['admin', 'owner'], true)) {
+                $u['levels'] = array_fill_keys(array_keys(Catalog::MODULES), Catalog::MAX_LEVEL);
+            }
+        }
+        return $out;
+    }
+
+    /** Modul yang menyala di bisnis lama (business_menu_config). */
+    public static function enabledModules(int $legacyBizId): array
+    {
+        $st = self::db()->prepare('SELECT mi.menu_code FROM business_menu_config bmc JOIN menu_items mi ON mi.id = bmc.menu_id WHERE bmc.business_id = ? AND bmc.is_enabled = 1');
+        $st->execute([$legacyBizId]);
+        return array_values(array_filter($st->fetchAll(PDO::FETCH_COLUMN), fn ($c) => isset(Catalog::MODULES[$c])));
+    }
+
+    /* ------------------------------------------------------------------ impor */
+
+    /**
+     * Impor bisnis lama (berdasarkan slug) ke client Console $clientName. $dryRun = jalankan lalu batalkan.
+     * @return string[] laporan
+     */
+    public static function import(array $slugs, string $clientName, bool $dryRun): array
+    {
+        $con = Auth::db();
+        $log = [];
+        $con->beginTransaction();
+        try {
+            $clientId = self::ensureClient($clientName, $log);
+            foreach ($slugs as $slug) {
+                $st = self::db()->prepare('SELECT * FROM businesses WHERE slug = ?');
+                $st->execute([$slug]);
+                $lb = $st->fetch();
+                if (!$lb) {
+                    $log[] = "!! bisnis lama '{$slug}' tidak ada — dilewati";
+                    continue;
+                }
+                $biz = self::ensureBusiness($lb, $clientId, $log);
+                $people = self::current((int)$lb['id']);
+
+                // Modul: yang menyala di sistem lama + yang masih diberi izin ke seseorang (supaya tidak ada izin yang hilang)
+                $mods = self::enabledModules((int)$lb['id']);
+                foreach ($people as $p) {
+                    if ($p['assigned']) {
+                        $mods = array_merge($mods, array_keys(array_filter($p['levels'])));
+                    }
+                }
+                $features = array_keys(array_filter(Biz::modules($biz)['feature']));
+                Biz::saveModules($biz, array_values(array_unique($mods)), $features);
+                Access::ensureRoles($biz);
+                $roleOf = self::deriveRoles($biz, array_filter($people, fn ($p) => $p['assigned']), $log);
+                $roles = Access::roles((int)$biz['id']);
+
+                $keep = [];
+                foreach ($people as $uid => $p) {
+                    if (!$p['assigned']) {
+                        $log[] = "   - {$p['username']}: punya baris izin tapi tidak ditugaskan ke bisnis ini — dilewati (sama seperti sistem lama: tidak bisa memilih bisnis ini)";
+                        continue;
+                    }
+                    $personId = self::ensurePerson($uid, $p);
+                    $roleId = $roleOf[$p['role']];
+                    $over = self::overrides($roles[$roleId], $p['levels']);
+                    $portalOwner = in_array($p['role'], self::OWNER_LOGIN_ROLES, true);
+                    Access::setMembership((int)$biz['id'], $personId, $roleId, $portalOwner, false);
+                    $con->prepare('UPDATE memberships SET overrides = ? WHERE business_id = ? AND person_id = ?')
+                        ->execute([$over ? json_encode($over) : null, (int)$biz['id'], $personId]);
+                    $keep[] = $personId;
+                    $log[] = sprintf('   + %-12s %-8s → %s%s%s', $p['username'], "({$p['role']})", $roles[$roleId]['name'], $over ? ' +' . count($over) . ' pengecualian' : '', $portalOwner ? ' · portal owner' : '')
+                        . ($p['inexact'] ? ' · DIBULATKAN: ' . implode(',', $p['inexact']) : '') . ($p['unknown'] ? ' · menu di luar katalog: ' . implode(',', $p['unknown']) : '');
+                }
+                // Orang hasil impor sebelumnya yang sudah tidak punya akses di sistem lama
+                $st = $con->prepare('SELECT m.person_id FROM memberships m JOIN people p ON p.id = m.person_id WHERE m.business_id = ? AND p.legacy_user_id IS NOT NULL');
+                $st->execute([(int)$biz['id']]);
+                foreach (array_diff(array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN)), $keep) as $gone) {
+                    Access::removeMembership((int)$biz['id'], $gone);
+                    $log[] = "   - orang #{$gone} sudah tidak punya akses di sistem lama — akses Console dicabut";
+                }
+            }
+            $dryRun ? $con->rollBack() : $con->commit();
+            $log[] = $dryRun ? '(UJI COBA — tidak ada yang disimpan)' : 'Tersimpan.';
+        } catch (Throwable $e) {
+            $con->rollBack();
+            throw $e;
+        }
+        return $log;
+    }
+
+    private static function ensureClient(string $name, array &$log): int
+    {
+        $con = Auth::db();
+        $st = $con->prepare('SELECT id FROM clients WHERE name = ? AND is_demo = 0 LIMIT 1');
+        $st->execute([$name]);
+        if ($id = $st->fetchColumn()) {
+            return (int)$id;
+        }
+        $con->prepare('INSERT INTO clients (name, notes) VALUES (?, ?)')->execute([$name, 'Dibuat oleh impor dari sistem lama']);
+        $log[] = "Client baru: {$name}";
+        return (int)$con->lastInsertId();
+    }
+
+    private static function ensureBusiness(array $lb, int $clientId, array &$log): array
+    {
+        $con = Auth::db();
+        $st = $con->prepare('SELECT id FROM businesses WHERE legacy_business_id = ? OR slug = ? ORDER BY legacy_business_id IS NULL LIMIT 1');
+        $st->execute([(int)$lb['id'], $lb['slug']]);
+        $id = (int)$st->fetchColumn();
+        $type = self::mapType((string)$lb['business_type'], (string)$lb['slug']);
+        if ($id) {
+            $con->prepare('UPDATE businesses SET legacy_business_id = ?, db_name = COALESCE(db_name, ?) WHERE id = ?')->execute([(int)$lb['id'], $lb['database_name'], $id]);
+            $log[] = "Bisnis {$lb['business_name']}: sudah ada (#{$id}), diperbarui";
+        } else {
+            $con->prepare('INSERT INTO businesses (client_id, slug, name, type, status, db_name, domain, legacy_business_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$clientId, $lb['slug'], $lb['business_name'], $type, $lb['is_active'] ? 'active' : 'suspended', $lb['database_name'], $lb['addon_domain'] ?: null, (int)$lb['id']]);
+            $id = (int)$con->lastInsertId();
+            $log[] = "Bisnis {$lb['business_name']}: dibuat (#{$id}, jenis {$type}, database {$lb['database_name']})";
+        }
+        return Biz::business($id);
+    }
+
+    private static function ensurePerson(int $legacyUserId, array $p): int
+    {
+        $con = Auth::db();
+        $st = $con->prepare('SELECT id FROM people WHERE legacy_user_id = ? OR username = ? ORDER BY legacy_user_id IS NULL LIMIT 1');
+        $st->execute([$legacyUserId, $p['username']]);
+        $id = (int)$st->fetchColumn();
+        // Email wajib unik di Console; email kosong / dipakai orang lain → alamat pengganti yang jelas palsu
+        $email = strtolower($p['email']);
+        $taken = $con->prepare('SELECT id FROM people WHERE email = ? AND id <> ?');
+        $taken->execute([$email, $id]);
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $taken->fetchColumn()) {
+            $email = strtolower($p['username']) . '@legacy.invalid';
+        }
+        $status = $p['active'] ? 'active' : 'disabled';
+        if ($id) {
+            $con->prepare('UPDATE people SET name = ?, email = ?, username = ?, legacy_user_id = ?, legacy_role = ?, status = ? WHERE id = ?')
+                ->execute([$p['name'], $email, $p['username'], $legacyUserId, $p['role'], $status, $id]);
+            return $id;
+        }
+        $con->prepare('INSERT INTO people (name, email, username, legacy_user_id, legacy_role, status) VALUES (?, ?, ?, ?, ?, ?)')
+            ->execute([$p['name'], $email, $p['username'], $legacyUserId, $p['role'], $status]);
+        return (int)$con->lastInsertId();
+    }
+
+    /** Peran global lama → peran bisnis Console: [kode, nama, keterangan]. */
+    private const ROLE_MAP = [
+        'owner' => ['owner_limited', 'Owner (terbatas)', 'Pemilik dengan izin tertentu (dari sistem lama) + portal owner'],
+        'admin' => ['admin', 'Admin', 'Admin bisnis (dari sistem lama) + portal owner'],
+        'manager' => ['manager', 'Manager', 'Dari sistem lama'],
+        'staff' => ['staff', 'Staff', 'Dari sistem lama'],
+    ];
+
+    /**
+     * Peran dibentuk dari izin nyata: tiap peran global lama yang dipakai di bisnis ini menjadi satu peran bisnis
+     * berisi izin yang paling banyak dipakai orang berperan itu (orang lain berperan sama yang berbeda → pengecualian).
+     * Owner dengan izin penuh masuk peran Owner bawaan; owner dengan izin terbatas → "Owner (terbatas)".
+     * @return array<string,int> peran lama → id peran Console
+     */
+    private static function deriveRoles(array $biz, array $people, array &$log): array
+    {
+        $con = Auth::db();
+        $roles = Access::roles((int)$biz['id']);
+        $byCode = array_column(array_map(fn ($r) => ['code' => $r['code'], 'id' => (int)$r['id']], $roles), 'id', 'code');
+        $groups = [];
+        foreach ($people as $p) {
+            $groups[$p['role']][] = $p['levels'];
+        }
+        $out = [];
+        $sort = 100;
+        foreach ($groups as $legacyRole => $vectors) {
+            // Izin yang paling sering dipakai di kelompok ini
+            $count = [];
+            foreach ($vectors as $v) {
+                $count[json_encode($v)] = ($count[json_encode($v)] ?? 0) + 1;
+            }
+            arsort($count);
+            $perms = json_decode((string)array_key_first($count), true);
+            if ($legacyRole === 'owner' && !array_diff($perms, [Catalog::MAX_LEVEL]) && isset($byCode['owner'])) {
+                $out[$legacyRole] = $byCode['owner']; // pemilik dengan izin penuh = peran Owner bawaan
+                continue;
+            }
+            [$code, $name, $desc] = self::ROLE_MAP[$legacyRole] ?? self::ROLE_MAP['staff'];
+            if (isset($byCode[$code])) {
+                $con->prepare('UPDATE roles SET permissions = ?, is_owner = 0 WHERE id = ?')->execute([json_encode($perms), $byCode[$code]]);
+                $out[$legacyRole] = $byCode[$code];
+            } else {
+                $con->prepare('INSERT INTO roles (business_id, code, name, description, permissions, is_owner, sort) VALUES (?, ?, ?, ?, ?, 0, ?)')
+                    ->execute([(int)$biz['id'], $code, $name, $desc, json_encode($perms), $sort++]);
+                $out[$legacyRole] = $byCode[$code] = (int)$con->lastInsertId();
+            }
+            $log[] = "   peran {$name}: diisi dari izin nyata " . count($vectors) . ' orang';
+        }
+        return $out;
+    }
+
+    /** Modul yang izinnya berbeda dari peran → pengecualian per orang (hasil akhir tetap identik). */
+    private static function overrides(array $role, array $levels): array
+    {
+        $over = [];
+        foreach ($levels as $code => $lv) {
+            if (($role['is_owner'] ? Catalog::MAX_LEVEL : Catalog::levelOf($role['perms'], $code)) !== $lv) {
+                $over[$code] = $lv;
+            }
+        }
+        return $over;
+    }
+
+    /* ------------------------------------------------------------------ hitung balik & bandingkan */
+
+    /**
+     * Baris yang seharusnya ada di tabel lama menurut Console, per orang.
+     * @return array<int, array{person_id:int, legacy_user_id:?int, username:?string, name:string, role:string, levels:array<string,int>}>
+     */
+    public static function desired(array $biz): array
+    {
+        $acc = Access::members($biz);
+        $roles = Access::roles((int)$biz['id']);
+        $out = [];
+        $con = Auth::db();
+        $person = $con->prepare('SELECT * FROM people WHERE id = ?');
+        $add = function (int $pid, bool $groupOwner, ?array $m) use (&$out, $biz, $roles, $person): void {
+            $person->execute([$pid]);
+            $p = $person->fetch();
+            if (!$p) {
+                return;
+            }
+            $role = $m ? ($roles[(int)$m['role_id']] ?? null) : null;
+            $computed = $groupOwner || ($role && $role['is_owner']) ? 'owner' : (($m['portal_owner'] ?? 0) ? 'admin' : (($role['code'] ?? '') === 'manager' ? 'manager' : 'staff'));
+            $legacy = (string)($p['legacy_role'] ?? '');
+            // Peran lama dipertahankan selama pintu Owner Login-nya masih sesuai dengan Console
+            $keepLegacy = $legacy !== '' && in_array($legacy, self::OWNER_LOGIN_ROLES, true) === in_array($computed, self::OWNER_LOGIN_ROLES, true);
+            $out[$pid] = [
+                'person_id' => $pid, 'legacy_user_id' => $p['legacy_user_id'] !== null ? (int)$p['legacy_user_id'] : null, 'username' => $p['username'],
+                'name' => (string)$p['name'], 'role' => $keepLegacy ? $legacy : $computed, 'levels' => Access::effective($biz, $pid),
+            ];
+        };
+        foreach ($acc['owners'] as $o) {
+            $add((int)$o['person_id'], true, null);
+        }
+        foreach ($acc['members'] as $m) {
+            if (!isset($out[(int)$m['person_id']])) {
+                $add((int)$m['person_id'], false, $m);
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Beda antara Console dan tabel lama untuk satu bisnis. Kosong = identik (akses siapa pun tidak berubah bila diekspor).
+     * Dibandingkan per menu: boleh dibuka atau tidak (can_view) DAN keempat tanda izin.
+     * @return string[]
+     */
+    public static function diff(array $biz): array
+    {
+        if (empty($biz['legacy_business_id'])) {
+            return ['Bisnis ini belum terhubung ke sistem lama (legacy_business_id kosong).'];
+        }
+        $cur = self::current((int)$biz['legacy_business_id']);
+        $cur = array_filter($cur, fn ($u) => $u['assigned']);
+        $want = [];
+        foreach (self::desired($biz) as $d) {
+            $want[$d['legacy_user_id'] ?? 'baru:' . $d['person_id']] = $d;
+        }
+        $out = [];
+        foreach ($cur as $uid => $u) {
+            if (!isset($want[$uid])) {
+                $out[] = "{$u['username']}: ada di sistem lama, tidak ada di Console (aksesnya akan DICABUT)";
+                continue;
+            }
+            $d = $want[$uid];
+            if ($d['role'] !== $u['role']) {
+                $out[] = "{$u['username']}: peran global {$u['role']} → {$d['role']}";
+            }
+            foreach (Catalog::MODULES as $code => $_) {
+                $a = $u['levels'][$code] ?? 0;
+                $b = $d['levels'][$code] ?? 0;
+                if ($a !== $b) {
+                    $out[] = sprintf('%s: %s %s → %s', $u['username'], $code, implode('', Catalog::legacyFlags($a)), implode('', Catalog::legacyFlags($b)));
+                }
+            }
+            foreach ($u['unknown'] as $code) {
+                $out[] = "{$u['username']}: menu '{$code}' (di luar katalog) diizinkan di sistem lama — tidak dikelola Console";
+            }
+            unset($want[$uid]);
+        }
+        foreach ($want as $d) {
+            $out[] = ($d['username'] ?: $d['name']) . ': baru di Console, belum ada di sistem lama';
+        }
+        return $out;
+    }
+}

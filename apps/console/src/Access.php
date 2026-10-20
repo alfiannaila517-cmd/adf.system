@@ -104,6 +104,12 @@ final class Access
             ->execute([$personId, $businessId, $roleId, $portalOwner ? 1 : 0, $portalStaff ? 1 : 0]);
     }
 
+    /** Hapus pengecualian izin per orang → izinnya kembali persis mengikuti peran. */
+    public static function clearOverrides(int $businessId, int $personId): void
+    {
+        self::db()->prepare('UPDATE memberships SET overrides = NULL WHERE business_id = ? AND person_id = ?')->execute([$businessId, $personId]);
+    }
+
     public static function removeMembership(int $businessId, int $personId): void
     {
         self::db()->prepare('DELETE FROM memberships WHERE business_id = ? AND person_id = ?')->execute([$businessId, $personId]);
@@ -115,7 +121,7 @@ final class Access
         self::db()->prepare($sql)->execute([$clientId, $personId]);
     }
 
-    /** Simpan matriks izin peran: $levels[roleId][modul] = 0..3 (peran pemilik selalu penuh). */
+    /** Simpan matriks izin peran: $levels[roleId][modul] = 0..4 (peran pemilik selalu penuh). */
     public static function saveRolePermissions(int $businessId, array $levels): void
     {
         $roles = self::roles($businessId);
@@ -127,7 +133,7 @@ final class Access
             $perms = [];
             foreach (array_keys(Catalog::MODULES) as $code) {
                 if (isset($levels[$rid][$code])) {
-                    $perms[$code] = max(0, min(3, (int)$levels[$rid][$code]));
+                    $perms[$code] = max(0, min(Catalog::MAX_LEVEL, (int)$levels[$rid][$code]));
                 } else {
                     $perms[$code] = Catalog::levelOf($r['perms'], $code); // modul yang tidak tampil (mati) tetap disimpan apa adanya
                 }
@@ -137,7 +143,7 @@ final class Access
     }
 
     /**
-     * Izin akhir per modul untuk satu orang di satu bisnis (0..3). Modul yang mati di bisnis = 0 untuk siapa pun.
+     * Izin akhir per modul untuk satu orang di satu bisnis (0..4). Modul yang mati di bisnis = 0 untuk siapa pun.
      * @return array<string,int>
      */
     public static function effective(array $biz, int $personId): array
@@ -150,7 +156,7 @@ final class Access
         $st = $db->prepare('SELECT r.permissions, r.is_owner, m.overrides FROM memberships m JOIN roles r ON r.id = m.role_id WHERE m.business_id = ? AND m.person_id = ?');
         $st->execute([(int)$biz['id'], $personId]);
         $m = $st->fetch();
-        $perms = $groupOwner || ($m && $m['is_owner']) ? ['*' => 3] : ($m ? (json_decode((string)$m['permissions'], true) ?: []) : []);
+        $perms = $groupOwner || ($m && $m['is_owner']) ? ['*' => Catalog::MAX_LEVEL] : ($m ? (json_decode((string)$m['permissions'], true) ?: []) : []);
         $over = $m && !$groupOwner ? (json_decode((string)$m['overrides'], true) ?: []) : [];
         $out = [];
         foreach (array_keys(Catalog::MODULES) as $code) {

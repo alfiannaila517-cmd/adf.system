@@ -10,6 +10,9 @@
  *   php cli/console.php demo seed|clear               data contoh Grup Narayana (DEMO)
  *   php cli/console.php vault-key                     buat kunci brankas (enkripsi kunci API integrasi) — sekali saja
  *   php cli/console.php legacy-preview <kode-bisnis>  pratinjau baris tabel sistem lama (izin + integrasi)
+ *   php cli/console.php legacy-import [--dry-run] [--client="Grup Narayana"] [slug …]
+ *                                                     impor bisnis + orang + izin dari database master sistem lama
+ *   php cli/console.php legacy-diff <kode-bisnis>     beda izin Console vs tabel sistem lama (kosong = identik)
  */
 
 declare(strict_types=1);
@@ -32,7 +35,9 @@ try {
         'demo' => demo($argv[2] ?? ''),
         'legacy-preview' => legacyPreview($argv[2] ?? ''),
         'vault-key' => vaultKey(),
-        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear | vault-key | legacy-preview <kode>\n"),
+        'legacy-import' => legacyImport(array_slice($argv, 2)),
+        'legacy-diff' => legacyDiff($argv[2] ?? ''),
+        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear | vault-key | legacy-preview <kode> | legacy-import [--dry-run] | legacy-diff <kode>\n"),
     };
 } catch (Throwable $e) {
     fwrite(STDERR, 'GAGAL: ' . $e->getMessage() . PHP_EOL);
@@ -223,26 +228,18 @@ function legacyPreview(string $slug): void
     if (!$biz) {
         throw new RuntimeException("Bisnis tidak ditemukan: {$slug}");
     }
-    $acc = Access::members($biz);
-    $people = [];
-    foreach ($acc['owners'] as $o) {
-        $people[$o['person_id']] = [$o['name'], 'owner (owner grup)'];
-    }
-    foreach ($acc['members'] as $m) {
-        $people[(int)$m['person_id']] ??= [$m['name'], $m['is_owner'] ? 'owner' : (str_contains(strtolower($m['role_name']), 'manager') ? 'manager' : 'staff')];
-    }
+    $people = Legacy::desired($biz);
     echo "Bisnis {$biz['name']} — " . count($people) . " orang, " . count(Catalog::MODULES) . " modul per orang\n";
     echo "flag = can_view can_create can_edit can_delete\n";
-    foreach ($people as $pid => [$name, $legacyRole]) {
-        $eff = Access::effective($biz, (int)$pid);
-        $granted = array_filter($eff);
-        echo "\n{$name}  → users.role = {$legacyRole}  · user_business_assignment: ya\n";
-        foreach ($eff as $code => $lv) {
+    foreach ($people as $d) {
+        $granted = array_filter($d['levels']);
+        echo "\n{$d['name']}" . ($d['username'] ? " ({$d['username']})" : '') . "  → users.role = {$d['role']}  · user_business_assignment: ya\n";
+        foreach ($d['levels'] as $code => $lv) {
             if ($lv > 0) {
                 printf("   %-20s %s  (%s)\n", $code, implode('', Catalog::legacyFlags($lv)), Catalog::LEVELS[$lv]);
             }
         }
-        echo '   + ' . (count($eff) - count($granted)) . " modul lain ditulis 0000\n";
+        echo '   + ' . (count($d['levels']) - count($granted)) . " modul lain ditulis 0000\n";
     }
 
     // Integrasi → tabel lama di database bisnis (nilai rahasia disamarkan)
@@ -280,4 +277,49 @@ function vaultKey(): void
     }
     @chmod($path, 0640);
     echo "VAULT_KEY dibuat di {$path}. Simpan salinannya di tempat aman (mis. password manager).\n";
+}
+
+/**
+ * Impor dari database master sistem lama (LEGACY_MASTER_DB). Bawaan: 4 bisnis Grup Narayana.
+ *   php cli/console.php legacy-import --dry-run
+ *   php cli/console.php legacy-import --client="Grup Narayana" narayana-hotel bens-cafe
+ */
+function legacyImport(array $args): void
+{
+    $dry = in_array('--dry-run', $args, true);
+    $client = 'Grup Narayana';
+    $slugs = [];
+    foreach ($args as $a) {
+        if (str_starts_with($a, '--client=')) {
+            $client = trim(substr($a, 9), "\"' ");
+        } elseif (!str_starts_with($a, '--')) {
+            $slugs[] = $a;
+        }
+    }
+    $slugs = $slugs ?: ['narayana-hotel', 'bens-cafe', 'eaat-meet', 'gudang-nasita'];
+    foreach (Legacy::import($slugs, $client, $dry) as $line) {
+        echo $line, PHP_EOL;
+    }
+    // Bukti: hitung balik dari Console harus sama persis dengan tabel lama
+    echo "\nCek beda Console vs sistem lama:\n";
+    foreach ($slugs as $slug) {
+        $st = Auth::db()->prepare('SELECT id FROM businesses WHERE slug = ?');
+        $st->execute([$slug]);
+        if (!$dry && ($biz = Biz::business((int)$st->fetchColumn()))) {
+            $d = Legacy::diff($biz);
+            echo "   {$slug}: " . ($d ? count($d) . " beda\n      " . implode("\n      ", $d) : 'IDENTIK') . "\n";
+        }
+    }
+    if ($dry) {
+        echo "   (uji coba — cek beda dijalankan setelah impor sungguhan)\n";
+    }
+}
+
+function legacyDiff(string $slug): void
+{
+    $st = Auth::db()->prepare('SELECT id FROM businesses WHERE slug = ?');
+    $st->execute([$slug]);
+    $biz = Biz::business((int)$st->fetchColumn()) ?: throw new RuntimeException("Bisnis tidak ditemukan: {$slug}");
+    $d = Legacy::diff($biz);
+    echo $d ? implode(PHP_EOL, $d) . PHP_EOL : "IDENTIK — izin di Console sama persis dengan tabel sistem lama.\n";
 }

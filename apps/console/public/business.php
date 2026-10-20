@@ -104,6 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Auth::audit($action === 'member_add' ? 'access.add' : 'access.update', "{$biz['name']}: #{$personId} → {$roles[$roleId]['name']}");
             flash($action === 'member_add' ? 'Akses ditambahkan.' : 'Akses diperbarui.');
         }
+    } elseif ($action === 'member_clear_overrides') {
+        Access::clearOverrides($id, (int)($_POST['person_id'] ?? 0));
+        Auth::audit('access.clear_overrides', "{$biz['name']}: #" . (int)($_POST['person_id'] ?? 0));
+        flash('Pengecualian dihapus — izin mengikuti peran.');
     } elseif ($action === 'member_remove') {
         Access::removeMembership($id, (int)($_POST['person_id'] ?? 0));
         Auth::audit('access.remove', "{$biz['name']}: #" . (int)($_POST['person_id'] ?? 0));
@@ -332,7 +336,7 @@ View::start($biz['name'], 'clients', $me);
                 <?php endforeach; ?>
                 <?php foreach ($acc['members'] as $m): ?>
                     <tr>
-                        <td><b><?= e($m['name']) ?></b> <?= $m['status'] === 'invited' ? '<span class="pill warn">diundang</span>' : '' ?><br><span class="muted" style="font-size:12px"><?= e($m['email']) ?></span></td>
+                        <td><b><?= e($m['name']) ?></b> <?= $m['status'] === 'invited' ? '<span class="pill warn">diundang</span>' : '' ?><?php $ov = count(json_decode((string)($m['overrides'] ?? ''), true) ?: []); ?><?= $ov ? ' <span class="pill gold" title="Izin khusus orang ini yang berbeda dari perannya">+' . $ov . ' pengecualian</span>' : '' ?><br><span class="muted" style="font-size:12px"><?= e($m['email']) ?><?= $m['username'] ? ' · ' . e($m['username']) : '' ?></span></td>
                         <td colspan="2">
                             <form method="post" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                                 <?= csrf_field() ?><input type="hidden" name="action" value="member_update"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="person_id" value="<?= (int)$m['person_id'] ?>">
@@ -376,11 +380,20 @@ View::start($biz['name'], 'clients', $me);
     <?php if ($show && ($p = array_values(array_filter($acc['members'], fn ($m) => (int)$m['person_id'] === $show))[0] ?? null)): $eff = Access::effective($biz, $show); ?>
         <div class="card" id="izin">
             <h2>Izin akhir · <?= e($p['name']) ?> (<?= e($p['role_name']) ?>)</h2>
+            <?php $over = json_decode((string)($p['overrides'] ?? ''), true) ?: []; ?>
             <div style="display:flex;flex-wrap:wrap;gap:6px">
                 <?php foreach ($enabledMods as $code): $lv = $eff[$code] ?? 0; ?>
-                    <span class="pill <?= $lv >= 3 ? 'ok' : ($lv >= 1 ? 'gold' : '') ?>"><?= e(Catalog::MODULES[$code][0]) ?>: <?= Catalog::LEVELS[$lv] ?></span>
+                    <span class="pill <?= $lv >= Catalog::MAX_LEVEL ? 'ok' : ($lv >= 1 ? 'gold' : '') ?>"<?= isset($over[$code]) ? ' style="outline:1px dashed var(--gold2)" title="pengecualian khusus orang ini"' : '' ?>><?= e(Catalog::MODULES[$code][0]) ?>: <?= Catalog::LEVELS[$lv] ?><?= isset($over[$code]) ? ' ✱' : '' ?></span>
                 <?php endforeach; ?>
             </div>
+            <?php if ($over): ?>
+                <p class="muted" style="margin:10px 0 0;font-size:12px">✱ = pengecualian khusus orang ini (<?= count($over) ?> modul) — izin lain mengikuti peran <?= e($p['role_name']) ?>.</p>
+                <?php if ($isAdmin): ?>
+                    <form method="post" style="margin-top:8px" onsubmit="return confirm('Hapus semua pengecualian? Izin <?= e($p['name']) ?> akan persis mengikuti peran <?= e($p['role_name']) ?>.')">
+                        <?= csrf_field() ?><input type="hidden" name="action" value="member_clear_overrides"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="person_id" value="<?= (int)$p['person_id'] ?>"><button class="btn ghost sm">Hapus pengecualian</button>
+                    </form>
+                <?php endif; ?>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 
@@ -410,7 +423,7 @@ View::start($biz['name'], 'clients', $me);
             </table>
             <?php if ($isAdmin): ?><button class="btn" style="margin-top:10px">Simpan izin peran</button><?php endif; ?>
         </form>
-        <p class="muted" style="margin:10px 0 0;font-size:12px">Tidak = menu tidak tampil · Lihat = hanya melihat · Input = melihat & menambah · Kelola = melihat, menambah, mengubah, menghapus.</p>
+        <p class="muted" style="margin:10px 0 0;font-size:12px">Tidak = menu tidak tampil · Lihat = hanya melihat · Input = melihat & menambah · Ubah = melihat, menambah, mengubah (tanpa hapus) · Kelola = semuanya termasuk menghapus. Pengecualian = izin khusus satu orang yang berbeda dari perannya (biasanya hasil impor dari sistem lama).</p>
     </div>
 <?php else: $integs = Integration::all($biz); $feat = Biz::modules($biz)['feature']; ?>
     <p class="muted" style="margin:0 0 12px">Kunci layanan luar khusus <?= e($biz['name']) ?>. Kunci rahasia disimpan terenkripsi dan tidak pernah ditampilkan ulang — kosongkan kolomnya bila tidak ingin mengganti. Tes koneksi hanya membaca (tidak mengirim pesan / mengubah data).

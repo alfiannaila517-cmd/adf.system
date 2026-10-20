@@ -35,6 +35,32 @@ final class Db
         return self::$pool[$key] = $pdo;
     }
 
+    /**
+     * Database master sistem lama (adf_system di hosting = adfb2574_adf), nama dari secrets/legacy.env LEGACY_MASTER_DB.
+     * Satu-satunya pengecualian aturan awalan adf_; dipakai jembatan Console ↔ sistem lama. null = belum diatur.
+     * Sesi memakai sql_mode server (tidak ketat) supaya menulis persis seperti sistem lama.
+     */
+    public static function legacyMaster(): ?PDO
+    {
+        $name = (string)Secrets::get('LEGACY_MASTER_DB', '');
+        if ($name === '') {
+            return null;
+        }
+        if (!preg_match('/^[A-Za-z0-9_]{3,64}$/', $name)) {
+            throw new InvalidArgumentException("LEGACY_MASTER_DB tidak valid: {$name}");
+        }
+        if (isset(self::$pool['legacy:' . $name])) {
+            return self::$pool['legacy:' . $name];
+        }
+        $pdo = new PDO('mysql:host=' . Secrets::get('DB_HOST', 'localhost') . ";charset=utf8mb4;dbname={$name}", Secrets::require('DB_USER'), Secrets::require('DB_PASS'), [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+        $pdo->exec("SET time_zone = '+07:00'");
+        return self::$pool['legacy:' . $name] = $pdo;
+    }
+
     /** Buat database bila belum ada (utf8mb4). */
     public static function ensureDatabase(string $name): void
     {

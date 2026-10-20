@@ -33,20 +33,23 @@ final class Catalog
         'finance' => ['Manajemen Keuangan', 'inti', null, [], false],
         'owner' => ['Owner Monitoring', 'inti', null, ['hotel', 'restaurant', 'warehouse', 'travel', 'manufacture', 'contractor'], false],
         'settings' => ['Pengaturan', 'inti', null, null, true],
+        'admin' => ['Panel Admin', 'inti', null, [], false],
         'frontdesk' => ['Frontdesk (reservasi & kamar)', 'hotel', ['hotel'], ['hotel'], false],
         'sales_invoice' => ['Sales Invoice', 'penjualan', null, [], false],
         'cafe_invoice' => ['Invoice Kafe', 'penjualan', ['restaurant'], ['restaurant'], false],
-        'menu_book' => ['Buku Menu', 'penjualan', ['restaurant'], ['restaurant'], false],
+        'menu_book' => ['Buku Menu', 'penjualan', null, ['restaurant'], false],
         'procurement' => ['PO & Belanja', 'gudang', null, ['hotel', 'restaurant'], false],
         'procurement_po' => ['PO Internal', 'gudang', null, ['hotel', 'restaurant'], false],
         'procurement_stock' => ['Stok Masuk', 'gudang', null, ['hotel', 'restaurant', 'warehouse'], false],
         'warehouse' => ['Gudang', 'gudang', ['warehouse', 'hotel', 'restaurant'], ['warehouse'], false],
         'warehouse_transfers' => ['Transfer Gudang', 'gudang', ['warehouse'], ['warehouse'], false],
+        'gudang_nasita' => ['Gudang Nasita', 'gudang', null, [], false],
         'divisions' => ['Kelola Divisi', 'keuangan', null, ['hotel', 'restaurant'], false],
         'bills' => ['Tagihan Bulanan', 'keuangan', null, ['hotel', 'restaurant', 'warehouse'], false],
         'investor' => ['Investor', 'keuangan', null, [], false],
         'project' => ['Proyek', 'keuangan', null, ['contractor'], false],
         'production' => ['Produksi', 'keuangan', ['manufacture'], ['manufacture'], false],
+        'cqc-projects' => ['Proyek CQC', 'keuangan', null, [], false],
         'payroll' => ['Gaji & Karyawan', 'sdm', null, ['hotel', 'restaurant', 'warehouse', 'travel', 'manufacture', 'contractor'], false],
         'email' => ['Email Kantor', 'lain', null, [], false],
         'staff_chat' => ['Chat Staf', 'lain', null, [], false],
@@ -64,8 +67,12 @@ final class Catalog
         'fingerprint' => ['Absensi fingerprint', 'Tarik data absensi dari mesin fingerprint', null, []],
     ];
 
-    /** Tingkat izin per modul */
-    public const LEVELS = [0 => 'Tidak', 1 => 'Lihat', 2 => 'Input', 3 => 'Kelola'];
+    /**
+     * Tingkat izin per modul = 4 tanda izin sistem lama (lihat, tambah, ubah, hapus) yang selalu bertingkat:
+     *   Tidak 0000 · Lihat 1000 · Input 1100 · Ubah 1110 (tanpa hapus) · Kelola 1111
+     */
+    public const LEVELS = [0 => 'Tidak', 1 => 'Lihat', 2 => 'Input', 3 => 'Ubah', 4 => 'Kelola'];
+    public const MAX_LEVEL = 4;
 
     /**
      * Templat peran per jenis bisnis: [kode, nama, keterangan, pemilik?, izin {modul: level, '*': level bawaan}].
@@ -75,29 +82,29 @@ final class Catalog
      */
     public const ROLE_TEMPLATES = [
         'hotel' => [
-            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 3]],
-            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 3, 'settings' => 1, 'database' => 0, 'investor' => 1]],
-            ['front_desk', 'Front Desk', 'Reservasi, check-in/out, input kas', false, ['dashboard' => 1, 'frontdesk' => 3, 'cashbook' => 2, 'procurement' => 2, 'procurement_po' => 2, 'procurement_stock' => 2]],
+            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 4]],
+            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 4, 'settings' => 1, 'database' => 0, 'admin' => 0, 'investor' => 1]],
+            ['front_desk', 'Front Desk', 'Reservasi, check-in/out, input kas', false, ['dashboard' => 1, 'frontdesk' => 4, 'cashbook' => 2, 'procurement' => 2, 'procurement_po' => 2, 'procurement_stock' => 2]],
             ['staff', 'Staff', 'Akses dasar + PO & stok', false, ['dashboard' => 1, 'procurement_po' => 2, 'procurement_stock' => 2]],
         ],
         'restaurant' => [
-            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 3]],
-            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 3, 'settings' => 1, 'database' => 0, 'investor' => 1]],
-            ['cashier', 'Kasir', 'Invoice kafe, buku menu, input kas', false, ['dashboard' => 1, 'cafe_invoice' => 3, 'menu_book' => 1, 'cashbook' => 2, 'procurement_po' => 2, 'procurement_stock' => 2]],
+            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 4]],
+            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 4, 'settings' => 1, 'database' => 0, 'admin' => 0, 'investor' => 1]],
+            ['cashier', 'Kasir', 'Invoice kafe, buku menu, input kas', false, ['dashboard' => 1, 'cafe_invoice' => 4, 'menu_book' => 1, 'cashbook' => 2, 'procurement_po' => 2, 'procurement_stock' => 2]],
             ['staff', 'Staff', 'Akses dasar + PO & stok', false, ['dashboard' => 1, 'procurement_po' => 2, 'procurement_stock' => 2]],
         ],
         'warehouse' => [
-            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 3]],
-            ['warehouse_admin', 'Admin Gudang', 'Kelola stok, transfer & barang masuk', false, ['dashboard' => 1, 'warehouse' => 3, 'warehouse_transfers' => 3, 'procurement_stock' => 3, 'cashbook' => 2, 'reports' => 1]],
+            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 4]],
+            ['warehouse_admin', 'Admin Gudang', 'Kelola stok, transfer & barang masuk', false, ['dashboard' => 1, 'warehouse' => 4, 'warehouse_transfers' => 4, 'procurement_stock' => 4, 'cashbook' => 2, 'reports' => 1]],
             ['staff', 'Staff Gudang', 'Lihat stok & input barang masuk', false, ['dashboard' => 1, 'warehouse' => 1, 'procurement_stock' => 2]],
         ],
         'website' => [
-            ['owner', 'Owner', 'Akses penuh', true, ['*' => 3]],
+            ['owner', 'Owner', 'Akses penuh', true, ['*' => 4]],
             ['editor', 'Editor', 'Ubah isi website', false, ['dashboard' => 1, 'settings' => 2]],
         ],
         '*' => [
-            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 3]],
-            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 3, 'settings' => 1, 'database' => 0, 'investor' => 1]],
+            ['owner', 'Owner', 'Akses penuh + portal owner', true, ['*' => 4]],
+            ['manager', 'Manager', 'Mengelola operasional, pengaturan hanya lihat', false, ['*' => 4, 'settings' => 1, 'database' => 0, 'admin' => 0, 'investor' => 1]],
             ['staff', 'Staff', 'Akses dasar', false, ['dashboard' => 1]],
         ],
     ];
@@ -110,13 +117,28 @@ final class Catalog
     /** Level satu modul dari peta izin (kunci '*' = level bawaan untuk modul yang tidak disebut). */
     public static function levelOf(array $perms, string $module): int
     {
-        return max(0, min(3, (int)($perms[$module] ?? $perms['*'] ?? 0)));
+        return max(0, min(self::MAX_LEVEL, (int)($perms[$module] ?? $perms['*'] ?? 0)));
     }
 
     /** Level → 4 tanda izin sistem lama (can_view, can_create, can_edit, can_delete). */
     public static function legacyFlags(int $level): array
     {
-        return [$level >= 1 ? 1 : 0, $level >= 2 ? 1 : 0, $level >= 3 ? 1 : 0, $level >= 3 ? 1 : 0];
+        return [$level >= 1 ? 1 : 0, $level >= 2 ? 1 : 0, $level >= 3 ? 1 : 0, $level >= 4 ? 1 : 0];
+    }
+
+    /**
+     * 4 tanda izin sistem lama → level. Kombinasi tidak bertingkat (mis. ubah tanpa tambah) dibulatkan ke bawah
+     * pada tanda pertama yang mati; $exact = false memberi tahu pemanggil bahwa ada yang dibulatkan.
+     */
+    public static function levelFromFlags(int $view, int $create, int $edit, int $delete, ?bool &$exact = null): int
+    {
+        $flags = [$view ? 1 : 0, $create ? 1 : 0, $edit ? 1 : 0, $delete ? 1 : 0];
+        $level = 0;
+        while ($level < 4 && $flags[$level] === 1) {
+            $level++;
+        }
+        $exact = $flags === self::legacyFlags($level);
+        return $level;
     }
 
     public static function moduleAvailable(string $code, string $type): bool

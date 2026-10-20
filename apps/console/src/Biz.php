@@ -128,7 +128,10 @@ final class Biz
     {
         $type = (string)$biz['type'];
         $db = self::db();
-        $db->beginTransaction();
+        $own = !$db->inTransaction(); // ikut transaksi pemanggil bila ada (mis. impor sistem lama)
+        if ($own) {
+            $db->beginTransaction();
+        }
         $db->prepare('DELETE FROM business_modules WHERE business_id = ?')->execute([(int)$biz['id']]);
         $ins = $db->prepare('INSERT INTO business_modules (business_id, kind, code, enabled) VALUES (?, ?, ?, ?)');
         foreach (Catalog::MODULES as $code => $m) {
@@ -141,7 +144,9 @@ final class Biz
                 $ins->execute([(int)$biz['id'], 'feature', $code, in_array($code, $features, true) ? 1 : 0]);
             }
         }
-        $db->commit();
+        if ($own) {
+            $db->commit();
+        }
     }
 
     /** Kembali ke bawaan jenis bisnis (hapus pilihan tersimpan). */
