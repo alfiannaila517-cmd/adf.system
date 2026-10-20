@@ -15,6 +15,13 @@ declare(strict_types=1);
  */
 final class Legacy
 {
+    /**
+     * Bisnis yang di kode lama (includes/auth.php hasPermission) selalu membuka PO Internal & Stok Masuk untuk semua orang.
+     * Diimpor sebagai izin Lihat minimal supaya Console menunjukkan akses yang sebenarnya; di VPS aturan mati itu
+     * dimatikan (ADF_CONSOLE_ACCESS di config/local-db-config.php, branch vps-legacy) sehingga Console yang mengatur.
+     */
+    private const PO_ALWAYS_BIZ = ['narayanahotel', 'benscafe', 'eatmeet', 'eaatmeet'];
+
     /** Peran global lama yang boleh Owner Login (owner-login.php). */
     private const OWNER_LOGIN_ROLES = ['owner', 'admin'];
 
@@ -90,9 +97,18 @@ final class Legacy
             $out[$uid]['levels'][$code] = $lv;
         }
         // Celah lama: developer/admin/owner tanpa baris izin sama sekali = boleh semua menu
+        // Aturan mati lama (includes/auth.php): PO Internal & Stok Masuk selalu boleh DILIHAT siapa pun di 3 bisnis ini
+        $st = $db->prepare('SELECT slug FROM businesses WHERE id = ?');
+        $st->execute([$legacyBizId]);
+        $poAlways = in_array(preg_replace('/[^a-z0-9]/', '', strtolower((string)$st->fetchColumn())), self::PO_ALWAYS_BIZ, true);
         foreach ($out as &$u) {
             if ($u['rows'] === 0 && in_array($u['role'], ['admin', 'owner'], true)) {
                 $u['levels'] = array_fill_keys(array_keys(Catalog::MODULES), Catalog::MAX_LEVEL);
+            }
+            if ($poAlways) {
+                foreach (['procurement_po', 'procurement_stock'] as $code) {
+                    $u['levels'][$code] = max(1, $u['levels'][$code]);
+                }
             }
         }
         return $out;
