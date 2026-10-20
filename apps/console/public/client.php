@@ -92,7 +92,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ->execute([$id, $slug, mb_substr($name, 0, 150), $type, trim((string)($_POST['domain'] ?? '')) ?: null]);
             $bid = (int)$db->lastInsertId();
             Auth::audit('business.add', "{$name} → {$client['name']}");
-            flash("Bisnis {$name} ditambahkan.");
+            $msg = "Bisnis {$name} ditambahkan.";
+            // Otomatis dibuat juga di sistem (database, tabel, config) — kecuali website
+            $newBiz = Biz::business($bid);
+            if (Provision::can($newBiz)) {
+                try {
+                    $msg .= ' Sistem: ' . implode(' · ', Provision::run($newBiz)) . '.';
+                    Auth::audit('business.provision', $name);
+                } catch (Throwable $e) {
+                    flash("{$msg} TAPI gagal membuat di sistem: " . $e->getMessage() . ' — coba lagi dari tab Database & Storage.', 'err');
+                    redirect("/business.php?id={$bid}&tab=database");
+                }
+            }
+            flash($msg);
             redirect("/business.php?id={$bid}");
         }
     }

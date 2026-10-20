@@ -38,6 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Auth::audit('business.update', $name . ($clientId !== (int)$biz['client_id'] ? ' (pindah client)' : ''));
             flash('Bisnis disimpan.');
         }
+    } elseif ($action === 'provision') {
+        try {
+            $steps = Provision::run($biz);
+            Auth::audit('business.provision', $biz['name']);
+            flash("{$biz['name']} dibuat di sistem: " . implode(' · ', $steps) . '.');
+        } catch (Throwable $e) {
+            flash('Gagal membuat di sistem: ' . $e->getMessage(), 'err');
+        }
     } elseif ($action === 'database') {
         $dbName = trim((string)($_POST['db_name'] ?? ''));
         if ($dbName !== '' && !preg_match('/^[A-Za-z0-9_]{3,64}$/', $dbName)) {
@@ -348,6 +356,17 @@ View::start($biz['name'], 'clients', $me);
     <?php endif; ?>
 
 <?php elseif ($tab === 'database'): ?>
+    <?php if (Provision::can($biz)): ?>
+        <div class="card" style="max-width:760px;border-color:var(--gold2)">
+            <h2>Belum ada di sistem</h2>
+            <p class="muted" style="margin:0 0 10px;font-size:12px">Satu klik: daftarkan bisnis di sistem, buat database + tabel + data awal, file config, lalu aktifkan dan hubungkan ke Console (menu & akses user ikut terkirim). Berlaku di <?= e(Legacy::label()) ?>.</p>
+            <?php if ($isAdmin): ?>
+                <form method="post" onsubmit="return confirm('Buat <?= e($biz['name']) ?> di sistem sekarang?')"><?= csrf_field() ?><input type="hidden" name="action" value="provision"><input type="hidden" name="id" value="<?= $id ?>"><button class="btn">⚡ Buat di sistem sekarang</button></form>
+            <?php endif; ?>
+        </div>
+    <?php elseif ($biz['legacy_business_id']): ?>
+        <div class="card" style="max-width:760px"><h2>Status</h2><span class="pill ok">terhubung ke <?= e(Legacy::label()) ?></span> <span class="muted" style="font-size:12px">· database <code><?= e($biz['db_name']) ?></code></span></div>
+    <?php endif; ?>
     <div class="card" style="max-width:760px">
         <h2>Database</h2>
         <form method="post">
