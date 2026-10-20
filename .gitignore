@@ -204,3 +204,6 @@ website/config/secrets.php
 # =============================================
 /.secrets/
 /storage/
+
+# Migrasi platform (bukan dump data) wajib ikut git
+!apps/*/migrations/*.sql
