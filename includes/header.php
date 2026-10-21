@@ -229,6 +229,26 @@ if (isset($_POST['__upload_topbar_avatar']) && $_POST['__upload_topbar_avatar'] 
 
 // Favicon: always use the ADF System logo (business icon must never override it)
 $faviconUrl = BASE_URL . '/assets/img/developer-logo.png';
+// VPS: on a company login domain (Console → Grup → Login & Domain) use that company's round favicon.
+// Looked up once per host per session (master settings.login_brands).
+$brandHostNow = strtolower((string)preg_replace('/^www\./', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
+if (($_SESSION['brand_favicon_host'] ?? null) !== $brandHostNow) {
+    $_SESSION['brand_favicon_host'] = $brandHostNow;
+    $_SESSION['brand_favicon'] = '';
+    try {
+        $bfPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        foreach ((array)json_decode((string)$bfPdo->query("SELECT setting_value FROM settings WHERE setting_key = 'login_brands'")->fetchColumn(), true) as $bf) {
+            if (is_array($bf) && ($bf['domain'] ?? '') === $brandHostNow && !empty($bf['favicon'])) {
+                $_SESSION['brand_favicon'] = (string)$bf['favicon'];
+            }
+        }
+    } catch (\Throwable $e) {
+        // tanpa branding: tetap logo ADF
+    }
+}
+if (!empty($_SESSION['brand_favicon'])) {
+    $faviconUrl = BASE_URL . '/' . $_SESSION['brand_favicon'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo $_SESSION['user_language'] ?? 'id'; ?>">

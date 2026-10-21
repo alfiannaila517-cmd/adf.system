@@ -552,8 +552,11 @@ if (isset($_GET['biz'])) {
     <title>Login - <?php echo htmlspecialchars($brandName ?? APP_NAME); ?></title>
 
     <!-- Favicon: always the ADF System logo, never the business icon -->
-    <link rel="icon" type="image/png" sizes="500x500" href="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo time(); ?>">
-    <link rel="shortcut icon" href="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo time(); ?>">
+    <?php // Domain perusahaan: favicon bulat dari Console (Login & Domain), selain itu logo ADF
+    $loginFavicon = $loginBrand && !empty($loginBrand['favicon']) ? BASE_URL . '/' . $loginBrand['favicon'] : BASE_URL . '/assets/img/developer-logo.png?v=' . time(); ?>
+    <link rel="icon" type="image/png" sizes="500x500" href="<?php echo htmlspecialchars($loginFavicon); ?>">
+    <link rel="shortcut icon" href="<?php echo htmlspecialchars($loginFavicon); ?>">
+    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($loginFavicon); ?>">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
