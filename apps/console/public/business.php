@@ -1,6 +1,6 @@
 <?php
 
-/** Satu bisnis: tab Ringkasan · Langganan · Database & Storage · Modul & Fitur · Orang & Akses · Integrasi. */
+/** Satu bisnis: tab Ringkasan · Orang & Akses · Menu & Fitur · Staff Portal · Integrasi · Langganan · Data & Backup. */
 
 declare(strict_types=1);
 
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status = array_key_exists($_POST['status'] ?? '', Biz::STATUS) ? $_POST['status'] : 'active';
         $clientId = (int)($_POST['client_id'] ?? $biz['client_id']);
         if (mb_strlen($name) < 2 || !Biz::client($clientId)) {
-            flash('Nama bisnis wajib diisi dan client harus valid.', 'err');
+            flash('Nama bisnis wajib diisi dan grup harus valid.', 'err');
         } else {
             $db->prepare('UPDATE businesses SET name = ?, type = ?, status = ?, client_id = ?, domain = ?, notes = ? WHERE id = ?')->execute([
                 mb_substr($name, 0, 150), $type, $status, $clientId, Legacy::normalizeDomain((string)($_POST['domain'] ?? '')) ?: null, trim((string)($_POST['notes'] ?? '')) ?: null, $id,
@@ -256,12 +256,12 @@ $dis = $isAdmin ? '' : 'disabled';
 
 View::start($biz['name'], 'clients', $me);
 ?>
-<div class="crumb"><a href="/clients.php">Client & Bisnis</a> › <a href="/client.php?id=<?= (int)$biz['client_id'] ?>"><?= e($biz['client_name']) ?></a> ›</div>
+<div class="crumb"><a href="/clients.php">Bisnis</a> › <a href="/client.php?id=<?= (int)$biz['client_id'] ?>"><?= e($biz['client_name']) ?></a> ›</div>
 <h1><?= $typeIcon ?> <?= e($biz['name']) ?></h1>
 <p class="muted" style="margin:0"><?= e($typeLabel) ?> · kode <code><?= e($biz['slug']) ?></code><?= $biz['domain'] ? ' · ' . e($biz['domain']) : '' ?></p>
 
 <nav class="tabs">
-    <?php foreach (['ringkasan' => 'Ringkasan', 'langganan' => 'Langganan', 'database' => 'Database & Storage', 'modul' => 'Modul & Fitur', 'orang' => 'Orang & Akses', 'portal' => 'Staff Portal', 'integrasi' => 'Integrasi'] as $k => $label): ?>
+    <?php foreach (['ringkasan' => 'Ringkasan', 'orang' => 'Orang & Akses', 'modul' => 'Menu & Fitur', 'portal' => 'Staff Portal', 'integrasi' => 'Integrasi', 'langganan' => 'Langganan', 'database' => 'Data & Backup'] as $k => $label): ?>
         <a class="<?= $tab === $k ? 'on' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
@@ -275,7 +275,7 @@ View::start($biz['name'], 'clients', $me);
                 <div class="field"><label>Nama bisnis</label><input name="name" value="<?= e($biz['name']) ?>" required <?= $dis ?>></div>
                 <div class="field"><label>Jenis</label><select name="type" <?= $dis ?>><?php foreach (Biz::TYPES as $code => [$l, $i]): ?><option value="<?= $code ?>" <?= $biz['type'] === $code ? 'selected' : '' ?>><?= $i ?> <?= e($l) ?></option><?php endforeach; ?></select></div>
                 <div class="field"><label>Status</label><select name="status" <?= $dis ?>><?php foreach (Biz::STATUS as $code => $l): ?><option value="<?= $code ?>" <?= $biz['status'] === $code ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
-                <div class="field"><label>Milik client</label><select name="client_id" <?= $dis ?>><?php foreach ($clients as $c): ?><option value="<?= (int)$c['id'] ?>" <?= (int)$c['id'] === (int)$biz['client_id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?></select></div>
+                <div class="field"><label>Milik grup</label><select name="client_id" <?= $dis ?>><?php foreach ($clients as $c): ?><option value="<?= (int)$c['id'] ?>" <?= (int)$c['id'] === (int)$biz['client_id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?></select></div>
             </div>
             <div class="field"><label>Domain sendiri (opsional)</label><input name="domain" value="<?= e($biz['domain']) ?>" placeholder="mis. sunseakarimunjawa.com" <?= $dis ?>></div>
             <div class="field"><label>Catatan</label><input name="notes" value="<?= e($biz['notes']) ?>" <?= $dis ?>></div>
@@ -358,7 +358,7 @@ View::start($biz['name'], 'clients', $me);
                     <div class="field"><label>Ubah jatuh tempo bulan ini</label><input name="due_date_override" type="date" value="<?= e($sub['due_date_override']) ?>" <?= $dis ?>></div>
                     <div class="field"><label>Email notifikasi</label><input name="notify_email" type="email" value="<?= e($sub['notify_email']) ?>" <?= $dis ?>></div>
                 </div>
-                <h2 style="margin-top:8px">Pakasir (pembayaran online client ini)</h2>
+                <h2 style="margin-top:8px">Pakasir (pembayaran online bisnis ini)</h2>
                 <div class="row2">
                     <div class="field"><label>Slug proyek</label><input name="pakasir_slug" value="<?= e($sub['pakasir_slug']) ?>" <?= $dis ?>></div>
                     <div class="field"><label>API key <?= $sub['pakasir_api_key'] ? '<span class="pill ok">tersimpan</span>' : '' ?></label><input name="pakasir_api_key" type="password" placeholder="<?= $sub['pakasir_api_key'] ? 'kosongkan = tetap' : '' ?>" autocomplete="off" <?= $dis ?>></div>
@@ -403,11 +403,21 @@ View::start($biz['name'], 'clients', $me);
             <?php if ($isAdmin): ?><button class="btn">Simpan</button><?php endif; ?>
         </form>
     </div>
+    <?php $bk = ServerHealth::backupStatus(); ?>
     <div class="card" style="max-width:760px">
-        <h2>Storage</h2>
-        <dl class="kv"><dt>Folder file bisnis</dt><dd><code>/srv/adf/storage/<?= e($biz['slug']) ?>/</code></dd></dl>
+        <h2>Backup</h2>
+        <?php if ($bk === null): ?>
+            <p class="muted" style="margin:0;font-size:13px">Status backup belum terbaca dari server.</p>
+        <?php else: ?>
+            <p style="margin:0 0 8px;font-weight:600;color:<?= !empty($bk['ok']) ? 'var(--ok)' : 'var(--bad)' ?>"><?= !empty($bk['ok']) ? 'Backup harian berjalan' : 'Backup terakhir gagal: ' . e((string)($bk['message'] ?? '')) ?></p>
+            <dl class="kv">
+                <dt>Terakhir</dt><dd><?= e(date('d M Y H:i', strtotime((string)($bk['finished'] ?? 'now')))) ?> <span class="muted">(<?= (int)$bk['age_h'] ?> jam lalu)</span></dd>
+                <dt>Isi</dt><dd>semua database (termasuk <?= $biz['db_name'] ? '<code>' . e($biz['db_name']) . '</code>' : 'bisnis ini' ?>) setiap malam · foto & upload tiap Minggu</dd>
+                <dt>Disimpan</dt><dd>7 harian · 4 mingguan · 3 bulanan di VPS + salinan terenkripsi di luar VPS</dd>
+            </dl>
+        <?php endif; ?>
+        <p class="muted" style="margin:10px 0 0;font-size:12px">Memulihkan data dilakukan lewat server (SSH) dengan <code>ops/legacy-db.sh import … --live</code>, supaya tidak bisa dipicu dari browser.</p>
     </div>
-    <div class="soonbox"><b>Segera:</b> ukuran database & folder, backup terakhir, dan tombol backup/unduh per bisnis.</div>
 
 <?php elseif ($tab === 'modul'): $mods = Biz::modules($biz); ?>
     <p class="muted" style="margin:0 0 12px">Menu yang tampil di sistem <?= e($biz['name']) ?> dan fitur tambahannya. Yang dimatikan di sini tidak bisa dibuka siapa pun di bisnis ini, apa pun perannya.

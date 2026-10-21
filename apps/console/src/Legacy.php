@@ -219,7 +219,7 @@ final class Legacy
             return (int)$id;
         }
         $con->prepare('INSERT INTO clients (name, notes) VALUES (?, ?)')->execute([$name, 'Dibuat oleh impor dari sistem lama']);
-        $log[] = "Client baru: {$name}";
+        $log[] = "Grup baru: {$name}";
         return (int)$con->lastInsertId();
     }
 

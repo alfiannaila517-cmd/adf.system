@@ -1,6 +1,6 @@
 <?php
 
-/** Satu client (grup usaha): tab Ringkasan · Bisnis · Tagihan · Orang & Akses. */
+/** Satu grup (pemilik / perusahaan): tab Bisnis · Owner & orang · Login & Domain · Data grup. Tagihannya ada di menu Tagihan. */
 
 declare(strict_types=1);
 
@@ -11,10 +11,13 @@ $db = Biz::db();
 $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
 $client = Biz::client($id);
 if (!$client) {
-    flash('Client tidak ditemukan.', 'err');
+    flash('Grup tidak ditemukan.', 'err');
     redirect('/clients.php');
 }
 $tab = (string)($_GET['tab'] ?? 'bisnis');
+if ($tab === 'tagihan') {
+    redirect('/billing.php'); // tagihan pindah ke menu Tagihan
+}
 $isAdmin = $me['role'] === 'admin';
 // Bisnis grup ini yang terhubung ke sistem lama (perubahan owner grup dikirim ke sana)
 $linkedIds = [];
@@ -28,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
     $newPasswords = [];
     if (!csrf_ok() || !$isAdmin) {
-        flash(!$isAdmin ? 'Hanya admin yang bisa mengubah data client.' : 'Sesi form kedaluwarsa, silakan coba lagi.', 'err');
+        flash(!$isAdmin ? 'Hanya admin yang bisa mengubah data grup.' : 'Sesi form kedaluwarsa, silakan coba lagi.', 'err');
     } elseif ($action === 'update') {
         $name = trim((string)($_POST['name'] ?? ''));
         $email = trim((string)($_POST['email'] ?? ''));
@@ -40,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 trim((string)($_POST['address'] ?? '')) ?: null, trim((string)($_POST['notes'] ?? '')) ?: null, $id,
             ]);
             Auth::audit('client.update', $name);
-            flash('Data client disimpan.');
+            flash('Data grup disimpan.');
         }
     } elseif ($action === 'owner_add') {
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
@@ -137,18 +140,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $businesses = Biz::businessesOf($id);
-$unpaid = Biz::unpaidChargesOfClient($id);
-$unpaidTotal = array_sum(array_map([Biz::class, 'chargeTotal'], $unpaid));
-$monthly = array_sum(array_map(fn ($b) => (float)$b['base_fee'], array_filter($businesses, fn ($b) => $b['sub_id'] && $b['status'] === 'active')));
 
 View::start($client['name'], 'clients', $me);
 ?>
-<div class="crumb"><a href="/clients.php">Client & Bisnis</a> ›</div>
+<div class="crumb"><a href="/clients.php">Bisnis</a> ›</div>
 <h1><?= e($client['name']) ?> <?php if ($client['is_demo']): ?><span class="pill gold">DEMO</span><?php endif; ?></h1>
 <p class="muted" style="margin:0"><?= e(implode(' · ', array_filter([$client['contact_name'], $client['email'], $client['phone']])) ?: 'Kontak belum diisi') ?></p>
 
 <nav class="tabs">
-    <?php foreach (['bisnis' => 'Bisnis (' . count($businesses) . ')', 'tagihan' => 'Tagihan', 'orang' => 'Orang & Akses', 'login' => 'Login & Domain', 'ringkasan' => 'Data client'] as $k => $label): ?>
+    <?php foreach (['bisnis' => 'Bisnis (' . count($businesses) . ')', 'orang' => 'Owner & orang', 'login' => 'Login & Domain', 'ringkasan' => 'Data grup'] as $k => $label): ?>
         <a class="<?= $tab === $k ? 'on' : '' ?>" href="/client.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
@@ -178,11 +178,11 @@ View::start($client['name'], 'clients', $me);
                 </div>
             </a>
         <?php endforeach; ?>
-        <?php if (!$businesses): ?><div class="soonbox">Belum ada bisnis di client ini.</div><?php endif; ?>
+        <?php if (!$businesses): ?><div class="soonbox">Belum ada bisnis di grup ini.</div><?php endif; ?>
     </div>
 
     <?php if ($isAdmin): ?>
-        <div class="card" style="margin-top:18px">
+        <div class="card" id="tambah" style="margin-top:18px">
             <h2>Tambah bisnis ke <?= e($client['name']) ?></h2>
             <form method="post" class="row2" style="align-items:end">
                 <?= csrf_field() ?><input type="hidden" name="action" value="add_business"><input type="hidden" name="id" value="<?= $id ?>">
@@ -194,34 +194,6 @@ View::start($client['name'], 'clients', $me);
             </form>
         </div>
     <?php endif; ?>
-
-<?php elseif ($tab === 'tagihan'): ?>
-    <div class="row2" style="margin-bottom:14px">
-        <div class="card"><h2>Belum lunas</h2><div style="font-size:17px;font-weight:600;color:<?= $unpaid ? 'var(--warn)' : 'var(--ok)' ?>"><?= Biz::rp($unpaidTotal) ?></div><p class="muted" style="margin:4px 0 0;font-size:13px"><?= count($unpaid) ?> tagihan</p></div>
-        <div class="card"><h2>Biaya dasar per bulan</h2><div style="font-size:17px;font-weight:600"><?= Biz::rp($monthly) ?></div><p class="muted" style="margin:4px 0 0;font-size:13px">belum termasuk tarif per tamu</p></div>
-    </div>
-    <div class="card">
-        <h2>Tagihan langganan belum lunas</h2>
-        <?php if (!$unpaid): ?>
-            <p class="muted" style="margin:0">Semua tagihan sudah lunas.</p>
-        <?php else: ?>
-            <table class="stack">
-                <thead><tr><th>Bisnis</th><th>Periode</th><th>Rincian</th><th>Jatuh tempo</th><th style="text-align:right">Total</th></tr></thead>
-                <tbody>
-                    <?php foreach ($unpaid as $ch): ?>
-                        <tr>
-                            <td><?= e($ch['business_name']) ?></td>
-                            <td><?= e($ch['period']) ?><?= $ch['kind'] === 'topup' ? ' <span class="pill">susulan</span>' : '' ?></td>
-                            <td class="muted" style="font-size:13px"><?= Biz::rp($ch['base_fee']) ?><?= (int)$ch['guest_count'] + (int)$ch['carry_guests'] > 0 ? ' + ' . ((int)$ch['guest_count'] + (int)$ch['carry_guests']) . ' tamu × ' . Biz::rp($ch['per_guest_fee']) : '' ?><?= (float)$ch['adjustment'] != 0 ? ' ' . ((float)$ch['adjustment'] > 0 ? '+' : '−') . ' ' . Biz::rp(abs((float)$ch['adjustment'])) : '' ?></td>
-                            <td><?= $ch['due_date'] ? e(date('d M Y', strtotime($ch['due_date']))) : '-' ?></td>
-                            <td style="text-align:right;font-weight:600"><?= Biz::rp(Biz::chargeTotal($ch)) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endif; ?>
-    </div>
-    <div class="soonbox"><b>Segera:</b> draf tagihan bulanan per client yang bisa diedit bebas (satu baris per bisnis, termasuk website), kirim invoice, dan catat pembayaran.</div>
 
 <?php elseif ($tab === 'orang'): $people = Access::clientPeople($id); ?>
     <p class="muted" style="margin:0 0 12px">Semua orang di <?= e($client['name']) ?> dan bisnis yang bisa mereka buka. Klik nama untuk mengubah data akun, password, atau status. Untuk memberi akses ke bisnis baru, buka bisnisnya → Orang & Akses.</p>
@@ -309,11 +281,11 @@ View::start($client['name'], 'clients', $me);
 
 <?php else: ?>
     <div class="card" style="max-width:720px">
-        <h2>Data client</h2>
+        <h2>Data grup</h2>
         <form method="post">
             <?= csrf_field() ?><input type="hidden" name="action" value="update"><input type="hidden" name="id" value="<?= $id ?>">
             <div class="row2">
-                <div class="field"><label>Nama client / grup</label><input name="name" value="<?= e($client['name']) ?>" required <?= $isAdmin ? '' : 'disabled' ?>></div>
+                <div class="field"><label>Nama grup</label><input name="name" value="<?= e($client['name']) ?>" required <?= $isAdmin ? '' : 'disabled' ?>></div>
                 <div class="field"><label>Nama kontak</label><input name="contact_name" value="<?= e($client['contact_name']) ?>" <?= $isAdmin ? '' : 'disabled' ?>></div>
                 <div class="field"><label>Email</label><input name="email" type="email" value="<?= e($client['email']) ?>" <?= $isAdmin ? '' : 'disabled' ?>></div>
                 <div class="field"><label>WhatsApp / telepon</label><input name="phone" value="<?= e($client['phone']) ?>" <?= $isAdmin ? '' : 'disabled' ?>></div>

@@ -90,6 +90,47 @@ final class Biz
         return $st->fetchAll();
     }
 
+    /** Biaya tambahan bulanan aktif per bisnis: [business_id => [rows]] (tabel belum dibuat = kosong). */
+    public static function addons(?int $businessId = null): array
+    {
+        try {
+            $sql = 'SELECT * FROM subscription_addons' . ($businessId ? ' WHERE business_id = ' . (int)$businessId : '') . ' ORDER BY name';
+            $out = [];
+            foreach (self::db()->query($sql)->fetchAll() as $r) {
+                $out[(int)$r['business_id']][] = $r;
+            }
+            return $out;
+        } catch (PDOException) {
+            return [];
+        }
+    }
+
+    /**
+     * Jatuh tempo berikutnya: tagihan belum lunas paling awal, atau tanggal yang diubah manual,
+     * atau tanggal mulai langganan yang diulang tiap bulan. null = belum bisa dihitung.
+     */
+    public static function nextDue(array $sub, ?string $unpaidDue = null): ?DateTimeImmutable
+    {
+        if ($unpaidDue) {
+            return new DateTimeImmutable($unpaidDue);
+        }
+        if (!empty($sub['due_date_override'])) {
+            return new DateTimeImmutable((string)$sub['due_date_override']);
+        }
+        if (empty($sub['start_date'])) {
+            return null;
+        }
+        $start = new DateTimeImmutable((string)$sub['start_date']);
+        $today = new DateTimeImmutable('today');
+        $day = (int)$start->format('j');
+        $due = $today->setDate((int)$today->format('Y'), (int)$today->format('n'), min($day, (int)$today->format('t')));
+        if ($due < $today) {
+            $next = $today->modify('first day of next month');
+            $due = $next->setDate((int)$next->format('Y'), (int)$next->format('n'), min($day, (int)$next->format('t')));
+        }
+        return $due < $start ? $start : $due;
+    }
+
     public static function slugify(string $s): string
     {
         $s = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($s)), '-');

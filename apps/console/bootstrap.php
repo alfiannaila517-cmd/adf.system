@@ -16,6 +16,7 @@ require_once __DIR__ . '/src/Legacy.php';
 require_once __DIR__ . '/src/StaffPortal.php';
 require_once __DIR__ . '/src/Provision.php';
 require_once __DIR__ . '/src/Branding.php';
+require_once ADF_CORE . '/ServerHealth.php';
 
 const CONSOLE_DB = 'adf_console';
 

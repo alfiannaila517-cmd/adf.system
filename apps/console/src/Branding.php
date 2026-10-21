@@ -51,7 +51,7 @@ final class Branding
         if ($domain !== '') {
             foreach (self::all() as $b) {
                 if ((int)$b['client_id'] !== $clientId && ($b['domain'] ?? '') === $domain) {
-                    throw new RuntimeException("Domain {$domain} sudah dipakai client lain.");
+                    throw new RuntimeException("Domain {$domain} sudah dipakai grup lain.");
                 }
             }
             $st = Legacy::db()->prepare("SELECT business_name FROM businesses WHERE LOWER(REPLACE(addon_domain,'www.','')) = ?");

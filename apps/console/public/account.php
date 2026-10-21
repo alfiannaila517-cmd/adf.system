@@ -28,7 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/account.php');
 }
 
-View::start('Akun saya', '', $me);
+View::start('Akun saya', 'account', $me);
+echo '<div class="crumb"><a href="/settings.php">Pengaturan</a> ›</div>';
 ?>
 <h1>Akun saya</h1>
 <p class="muted" style="margin:0 0 12px"><?= e($me['username']) ?> · <?= e($me['email']) ?> · <?= e($me['role']) ?></p>
