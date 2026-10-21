@@ -20,7 +20,7 @@ $qtText = [
     '+ Item lain' => '+ Other item', 'Nama item' => 'Item name', 'Harga' => 'Price', 'Layanan tambahan' => 'Additional services', 'dipilih' => 'selected', 'Kamar' => 'Room',
     'Ubah Penawaran' => 'Edit Quotation', 'Ubah' => 'Edit', 'Simpan' => 'Save', 'Diskon' => 'Discount', '+ Kamar' => '+ Room', 'Tambah kamar…' => 'Add room…', '+ Tambah' => '+ Add', 'Pilih layanan…' => 'Select service…',
     'Pilih minimal satu kamar.' => 'Select at least one room.', 'Tanggal tidak valid.' => 'Invalid dates.',
-    'Harga pas' => 'Net rate', '/malam' => '/night', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
+    'Harga pas' => 'Net rate', '/malam' => '/night', 'Harga kamar' => 'Room rates', 'Harga /malam' => 'Rate /night', 'normal' => 'standard', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
     'Reservasi Website' => 'Website Reservation', 'dewasa' => 'adult(s)', 'anak' => 'child(ren)', 'Follow-up WhatsApp tamu' => 'Follow up guest on WhatsApp', 'Sudah di-follow-up' => 'Followed up',
     'DP diterima' => 'Deposit received', 'Belum ada DP' => 'No deposit yet', 'Catat DP' => 'Record deposit', 'Saran DP 50%' => 'Suggested 50% deposit', 'Nominal DP' => 'Deposit amount',
     'Langkah: 1) Follow-up WhatsApp  2) Terima & catat DP  3) Konfirmasi → email otomatis ke tamu.' => 'Steps: 1) Follow up on WhatsApp  2) Receive & record the deposit  3) Confirm → guest gets an automatic email.',
@@ -106,6 +106,9 @@ $qtText = [
     .qt-ed { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
     .qt-er { display: grid; gap: 6px; align-items: center; padding: 5px 7px; border: 1px solid var(--bd); border-radius: 10px; background: var(--tile); }
     .qt-er-room { grid-template-columns: minmax(0, 1fr) 62px 92px 28px; }
+    .qt-er-price { grid-template-columns: minmax(0, 1fr) auto 120px; }
+    .qt .qt-er-price > small { color: var(--mu) !important; font-size: 10.5px; }
+    .qt-er-room.has-base { grid-template-columns: minmax(0, 1fr) 100px 58px 80px 28px; }
     .qt-er-ex { grid-template-columns: minmax(0, 1fr) 100px 54px 28px; }
     .qt-er-l { min-width: 0; line-height: 1.3; }
     .qt .qt-er-l b { display: block; color: var(--tx) !important; }
@@ -119,7 +122,7 @@ $qtText = [
     .qt .qt-mini.ghost { background: transparent; border: 1px dashed var(--inb); color: #16a34a !important; }
     body[data-theme="dark"] .qt .qt-er select, body[data-theme="dark"] .qt .qt-add select { color-scheme: dark; }
     body[data-theme="dark"] .qt select option, body[data-theme="dark"] .qt select optgroup { background: #16213a; color: #e6edf7; }
-    @media (max-width: 520px) { .qt-r3 { grid-template-columns: 1fr; } .qt-er-room { grid-template-columns: minmax(0, 1fr) 56px 80px 28px; } }
+    @media (max-width: 520px) { .qt-r3 { grid-template-columns: 1fr; } .qt-er-room { grid-template-columns: minmax(0, 1fr) 56px 80px 28px; } .qt-er-room.has-base { grid-template-columns: minmax(0, 1fr) 84px 50px 64px 26px; } .qt-er-price { grid-template-columns: minmax(0, 1fr) 104px; } .qt-er-price > small { display: none; } }
 
     /* Bar penawaran di kalender: hijau transparan, tidak memblok (klik sel tetap membuat booking) */
     .booking-bar-container.qt-ghost { pointer-events: none; z-index: 3; }
@@ -165,16 +168,35 @@ $qtText = [
             box.innerHTML = '';
             box.appendChild(header(t('Buat Penawaran')));
             const body = el('div', 'qt-b');
-            const total = st.rooms.reduce((s, r) => {
-                const net = r.disc_value > 0 ? (r.disc_type === 'percent' ? r.base * (1 - Math.min(100, r.disc_value) / 100) : Math.max(0, r.base - r.disc_value)) : r.base;
-                return s + Math.round(net) * st.nights;
-            }, 0);
+            // Harga /malam per kamar (sudah termasuk diskon dari Cek Ketersediaan) — bisa diketik ulang di sini
+            st.rooms.forEach(r => {
+                r.net = Math.round(r.disc_value > 0 ? (r.disc_type === 'percent' ? r.base * (1 - Math.min(100, r.disc_value) / 100) : Math.max(0, r.base - r.disc_value)) : r.base);
+                r.price = r.net;
+            });
+            let total = 0;
+            const roomsTotal = () => st.rooms.reduce((s, r) => s + (r.price || 0) * st.nights, 0);
+            total = roomsTotal();
             const sum = el('div', 'qt-sum');
             sum.appendChild(el('div')).innerHTML = '<b></b>';
             sum.firstChild.firstChild.textContent = fd(st.ci) + ' → ' + fd(st.co);
             const l2 = el('div'); l2.appendChild(el('span', '', st.nights + ' ' + t('malam') + ' · ' + st.rooms.length + ' ' + t('kamar') + ': ' + st.rooms.map(r => r.number).join(', '))); sum.appendChild(l2);
             const tt = el('div', 'tot'); tt.appendChild(el('small', '', t('Total'))); const totB = el('b', '', rp(total)); tt.appendChild(totB); sum.appendChild(tt);
             body.appendChild(sum);
+
+            // Harga kamar: satu baris per kamar, harga /malam bisa diubah
+            body.appendChild(el('div', 'qt-sec', t('Harga kamar')));
+            const priceBox = el('div', 'qt-ed');
+            st.rooms.forEach(r => {
+                const row = el('div', 'qt-er qt-er-price');
+                const lab = el('div', 'qt-er-l'); lab.appendChild(el('b', '', t('Kamar') + ' ' + r.number));
+                lab.appendChild(el('small', '', (r.type ? r.type + ' · ' : '') + t('normal') + ' ' + rp(r.base) + t('/malam')));
+                const pi = el('input'); pi.type = 'number'; pi.min = '0'; pi.step = '1000'; pi.value = r.price; pi.style.textAlign = 'right';
+                pi.setAttribute('aria-label', t('Harga /malam') + ' ' + r.number);
+                pi.addEventListener('input', () => { r.price = Math.max(0, Math.round(parseFloat(pi.value) || 0)); total = roomsTotal(); recalc(); });
+                row.appendChild(lab); row.appendChild(el('small', '', t('Harga /malam'))); row.appendChild(pi);
+                priceBox.appendChild(row);
+            });
+            body.appendChild(priceBox);
 
             const name = el('input'); name.type = 'text'; name.maxLength = 150; name.autocomplete = 'off';
             const phone = el('input'); phone.type = 'tel'; phone.autocomplete = 'off'; phone.placeholder = '0812…';
@@ -236,7 +258,10 @@ $qtText = [
                 post({
                     action: 'create', check_in: st.ci, check_out: st.co, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(),
                     notes: notes.value.trim(), lang: EN ? 'en' : 'id',
-                    items: JSON.stringify(st.rooms.map(r => ({ room_id: r.id, disc_type: r.disc_type, disc_value: r.disc_value }))),
+                    // Harga tidak diubah → harga tipe kamar + diskon seperti biasa; diubah → harga /malam itu dipakai apa adanya
+                    items: JSON.stringify(st.rooms.map(r => r.price === r.net
+                        ? { room_id: r.id, disc_type: r.disc_type, disc_value: r.disc_value }
+                        : { room_id: r.id, base: r.price, disc_type: '', disc_value: 0 })),
                     extras: JSON.stringify(extraRows.map(r => r.get()).filter(Boolean).map(v => ({ catalog_id: v.catalog_id || 0, name: v.name, price: v.price, unit: v.unit, type: v.type, qty: v.qty })))
                 }).then(r => {
                     if (!r.ok) throw new Error(r.msg || '');
@@ -306,13 +331,14 @@ $qtText = [
                 function drawRooms() {
                     roomBox.innerHTML = '';
                     rooms.forEach((r, idx) => {
-                        const row = el('div', 'qt-er qt-er-room');
-                        const lab = el('div', 'qt-er-l'); lab.appendChild(el('b', '', t('Kamar') + ' ' + r.number)); lab.appendChild(el('small', '', (r.type ? r.type + ' · ' : '') + rp(r.base) + t('/malam')));
+                        const row = el('div', 'qt-er qt-er-room has-base');
+                        const lab = el('div', 'qt-er-l'); lab.appendChild(el('b', '', t('Kamar') + ' ' + r.number)); lab.appendChild(el('small', '', r.type || ''));
+                        const baseIn = inp('number', r.base, { min: '0', step: '1000', title: t('Harga /malam') }); baseIn.oninput = () => { r.base = Math.max(0, Math.round(parseFloat(baseIn.value) || 0)); recalc(); };
                         const sel = el('select'); [['', '—'], ['percent', '%'], ['rp', 'Rp']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; if (v === r.dtype) o.selected = true; sel.appendChild(o); });
                         const val = inp('number', r.dval || '', { min: '0', step: 'any', placeholder: t('Diskon') });
                         sel.onchange = () => { r.dtype = sel.value; if (!sel.value) { r.dval = 0; val.value = ''; } recalc(); };
                         val.oninput = () => { r.dval = parseFloat(val.value) || 0; if (r.dval > 0 && !r.dtype) { r.dtype = 'percent'; sel.value = 'percent'; } recalc(); };
-                        row.appendChild(lab); row.appendChild(sel); row.appendChild(val);
+                        row.appendChild(lab); row.appendChild(baseIn); row.appendChild(sel); row.appendChild(val);
                         row.appendChild(delBtn(() => { rooms.splice(idx, 1); drawRooms(); fillAddSel(); recalc(); }));
                         roomBox.appendChild(row);
                     });
@@ -365,7 +391,7 @@ $qtText = [
                     err.style.display = 'none'; sv.disabled = sp.disabled = true; (print ? sp : sv).textContent = t('Menyimpan…');
                     post({
                         action: 'update', id: q.id, check_in: ci.value, check_out: co.value, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(), notes: notes.value.trim(),
-                        items: JSON.stringify(rooms.map(r => ({ room_id: r.id, disc_type: r.dtype, disc_value: r.dval }))),
+                        items: JSON.stringify(rooms.map(r => ({ room_id: r.id, base: r.base, disc_type: r.dtype, disc_value: r.dval }))),
                         extras: JSON.stringify(extras.filter(x => x.name.trim() && +x.price >= 0).map(x => ({ name: x.name.trim(), price: +x.price || 0, qty: +x.qty || 1, unit: x.unit, type: x.type })))
                     }).then(r => {
                         if (!r.ok) throw new Error(r.msg || '');

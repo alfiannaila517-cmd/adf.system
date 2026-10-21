@@ -300,7 +300,8 @@ class Quotations
             if (!$r) continue;
             $type = in_array($it['disc_type'] ?? '', ['percent', 'rp'], true) ? $it['disc_type'] : '';
             $val = max(0, (float)($it['disc_value'] ?? 0));
-            $base = (float)$r['base_price'];
+            // Harga /malam boleh diketik manual di penawaran; tanpa itu ikut harga tipe kamar
+            $base = isset($it['base']) && is_numeric($it['base']) && (float)$it['base'] >= 0 ? round((float)$it['base'], 2) : (float)$r['base_price'];
             $net = self::netPrice($base, $type, $val);
             $rows[] = [$r, $type, $type === '' ? 0 : $val, $base, $net, round($net * $nights, 2)];
             $subtotal += $base * $nights;
@@ -312,7 +313,8 @@ class Quotations
     }
 
     /**
-     * Buat penawaran. $items = [['room_id'=>int,'disc_type'=>'percent|rp|','disc_value'=>float], …] — harga dasar diambil dari tipe kamar (server).
+     * Buat penawaran. $items = [['room_id'=>int,'disc_type'=>'percent|rp|','disc_value'=>float,'base'=>?float], …] — harga dasar dari
+     * tipe kamar (server), kecuali 'base' diisi (harga /malam yang diketik manual di penawaran).
      * @return array{ok:bool,msg?:string,id?:int,code?:string}
      */
     public static function create($db, array $d, int $userId = 0): array
