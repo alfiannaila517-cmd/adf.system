@@ -59,7 +59,26 @@ read_dump() {
     *.zip) unzip -p "$1" '*.sql' ;;
     *.sql) cat "$1" ;;
     *) die "format tidak dikenal: $1 (pakai .sql, .sql.gz, atau .zip)" ;;
-  esac | sed -E '/^CREATE DATABASE /d; /^USE `/d; s/DEFINER=`[^`]+`@`[^`]+`//g'
+  esac | sed -E '/^CREATE DATABASE /d; /^USE `/d; s/DEFINER=`[^`]+`@`[^`]+`//g
+                 s/^CREATE TABLE (`[^`]+`)/DROP TABLE IF EXISTS \1;\nCREATE TABLE \1/'
+}
+
+# Sistem lama membuat tabel yang hilang sendiri setiap halaman dibuka (config/database.php auto-create).
+# Selama import, akses aplikasi ke database ini dicabut supaya tidak ada tabel kosong yang "mendahului" isi dump.
+APP_USER="'adfb2574_adfsystem'@'localhost'"
+app_block() {
+  local DB=$1
+  mariadb -e "REVOKE ALL PRIVILEGES ON \`$DB\`.* FROM $APP_USER" 2>/dev/null || true
+  for ID in $(mariadb -N -e "SELECT id FROM information_schema.processlist WHERE user='adfb2574_adfsystem' AND db='$DB'"); do
+    mariadb -e "KILL $ID" 2>/dev/null || true
+  done
+  # izin wildcard (mis. adfb2574\_%) tidak ikut tercabut → beri tahu saja, DROP TABLE IF EXISTS tetap melindungi
+  if [[ -n $(mariadb -N -e "SELECT 1 FROM mysql.db WHERE User='adfb2574_adfsystem' AND '$DB' LIKE Db LIMIT 1") ]]; then
+    echo "  Catatan: aplikasi punya izin wildcard — tutup dulu tab staging bila import gagal lagi."
+  fi
+}
+app_unblock() {
+  mariadb -e "GRANT ALL PRIVILEGES ON \`$1\`.* TO $APP_USER" || echo "PERINGATAN: izin aplikasi ke $1 belum kembali — jalankan ulang skrip." >&2
 }
 
 # Mode staging: kosongkan token & sakelar integrasi supaya VPS tidak berebut dengan hosting.
@@ -107,8 +126,9 @@ cmd_import() {
 
   # 2) kosongkan & isi ulang (bila gagal di tengah: kembalikan dari file langkah 1)
   trap 'echo "Import GAGAL di tengah jalan. Kembalikan isi lama dengan file di $PRE (perintah ada di bagian atas skrip)." >&2' ERR
-  mariadb -e "DROP DATABASE IF EXISTS \`$DB\`; CREATE DATABASE \`$DB\`;
-              GRANT ALL PRIVILEGES ON \`$DB\`.* TO 'adfb2574_adfsystem'@'localhost';"
+  app_block "$DB"
+  trap "app_unblock '$DB'" EXIT   # izin aplikasi selalu kembali, berhasil maupun gagal
+  mariadb -e "DROP DATABASE IF EXISTS \`$DB\`; CREATE DATABASE \`$DB\`;"
   { echo "SET FOREIGN_KEY_CHECKS=0; SET UNIQUE_CHECKS=0;"; read_dump "$FILE"; echo "SET FOREIGN_KEY_CHECKS=1;"; } | mariadb "$DB"
   echo "2) Import selesai: $DB — $(count_tables "$DB") tabel, $(size_mb "$DB") MB."
 
