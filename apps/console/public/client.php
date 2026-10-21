@@ -76,12 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             Access::setGroupOwner($id, $pid, true);
             Auth::audit('access.group_owner_add', "{$client['name']}: {$email}");
-            flash('Owner grup ditambahkan — otomatis punya akses penuh ke semua bisnis grup ini.');
+            flash('Pemilik grup ditambahkan — otomatis punya akses penuh ke semua bisnis grup ini.');
         }
     } elseif ($action === 'owner_remove') {
         Access::setGroupOwner($id, (int)($_POST['person_id'] ?? 0), false);
         Auth::audit('access.group_owner_remove', "{$client['name']}: #" . (int)($_POST['person_id'] ?? 0));
-        flash('Owner grup dicabut. Akses per bisnis (bila ada) tetap.');
+        flash('Pemilik grup dicabut. Akses per bisnis (bila ada) tetap.');
     } elseif ($action === 'branding') {
         // Login & Domain: domain grup + background/logo login (tanpa mengunci satu bisnis)
         try {
@@ -148,7 +148,7 @@ View::start($client['name'], 'clients', $me);
 <p class="muted" style="margin:0"><?= e(implode(' · ', array_filter([$client['contact_name'], $client['email'], $client['phone']])) ?: 'Kontak belum diisi') ?></p>
 
 <nav class="tabs">
-    <?php foreach (['bisnis' => 'Bisnis (' . count($businesses) . ')', 'orang' => 'Owner & orang', 'login' => 'Login & Domain', 'ringkasan' => 'Data grup'] as $k => $label): ?>
+    <?php foreach (['bisnis' => 'Bisnis (' . count($businesses) . ')', 'orang' => 'Akses', 'login' => 'Login & Domain', 'ringkasan' => 'Data grup'] as $k => $label): ?>
         <a class="<?= $tab === $k ? 'on' : '' ?>" href="/client.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
@@ -195,48 +195,68 @@ View::start($client['name'], 'clients', $me);
         </div>
     <?php endif; ?>
 
-<?php elseif ($tab === 'orang'): $people = Access::clientPeople($id); ?>
-    <p class="muted" style="margin:0 0 12px">Semua orang di <?= e($client['name']) ?> dan bisnis yang bisa mereka buka. Klik nama untuk mengubah data akun, password, atau status. Untuk memberi akses ke bisnis baru, buka bisnisnya → Orang & Akses.</p>
+<?php elseif ($tab === 'orang'):
+    $people = Access::clientPeople($id);
+    $owners = array_filter($people, fn ($p) => $p['group_owner']);
+    // Peran tiap orang per bisnis → tabel orang × bisnis
+    $roleAt = [];
+    foreach ($people as $p) {
+        foreach ($p['access'] as [$bid, , $rName]) {
+            $roleAt[(int)$p['id']][(int)$bid] = $rName;
+        }
+    } ?>
     <div class="card">
-        <table class="stack">
-            <thead><tr><th>Nama</th><th>Akses</th><th></th></tr></thead>
-            <tbody>
-                <?php foreach ($people as $p): ?>
-                    <tr>
-                        <td><a href="/person.php?id=<?= (int)$p['id'] ?>" style="color:var(--ink)"><b><?= e($p['name']) ?></b></a> <?= $p['status'] === 'invited' ? '<span class="pill warn">diundang</span>' : '' ?><br><span class="muted" style="font-size:12px"><?= e($p['email']) ?></span></td>
-                        <td>
-                            <?php if ($p['group_owner']): ?><span class="pill gold">👑 Owner grup — semua bisnis</span> <?php endif; ?>
-                            <?php foreach ($p['access'] as [$bid, $bName, $rName]): ?>
-                                <a class="pill" href="/business.php?id=<?= $bid ?>&tab=orang"><?= e($bName) ?>: <?= e($rName) ?></a>
-                            <?php endforeach; ?>
-                        </td>
-                        <td style="text-align:right">
-                            <?php if ($p['group_owner'] && $isAdmin): ?>
-                                <form method="post" style="display:inline" onsubmit="return confirm('Cabut status owner grup <?= e($p['name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="owner_remove"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="person_id" value="<?= (int)$p['id'] ?>"><button class="btn danger sm">Cabut owner grup</button></form>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-                <?php if (!$people): ?><tr><td colspan="3" class="muted">Belum ada orang di grup ini.</td></tr><?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-    <?php if ($isAdmin): ?>
-        <div class="card">
-            <h2>Tambah owner grup</h2>
-            <form method="post" class="row2" style="align-items:end">
-                <?= csrf_field() ?><input type="hidden" name="action" value="owner_add"><input type="hidden" name="id" value="<?= $id ?>">
-                <div><label>Nama</label><input name="name" required></div>
-                <div><label>Email</label><input name="email" type="email" required></div>
-                <?php if ($linkedIds): ?>
-                    <div><label>Username login</label><input name="username" pattern="[a-z0-9_.]{3,50}" placeholder="kosongkan bila orangnya sudah punya akun" autocomplete="off"></div>
-                    <div><label>Password awal</label><input name="password" type="password" minlength="8" placeholder="min. 8 karakter" autocomplete="new-password"></div>
-                <?php endif; ?>
-                <div><button class="btn" style="width:100%">Jadikan owner grup</button></div>
-            </form>
-            <p class="muted" style="margin:8px 0 0;font-size:12px">Owner grup otomatis punya akses penuh + portal owner di semua bisnis <?= e($client['name']) ?>, termasuk bisnis yang ditambahkan nanti.</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+            <h2 style="margin:0">Siapa bisa membuka bisnis mana</h2>
+            <?php if ($isAdmin): ?><a class="btn sm" href="/people.php?view=tambah">+ Tambah user</a><?php endif; ?>
         </div>
-    <?php endif; ?>
+        <p class="muted" style="margin:0 0 10px;font-size:12px">Klik nama untuk ubah password, peran, atau menu. Tanda – = tidak punya akses ke bisnis itu.</p>
+        <div style="overflow-x:auto">
+            <table class="sm">
+                <thead><tr><th>Nama</th><?php foreach ($businesses as $b): ?><th><?= e($b['name']) ?></th><?php endforeach; ?></tr></thead>
+                <tbody>
+                    <?php foreach ($people as $p): $pid = (int)$p['id']; ?>
+                        <tr>
+                            <td style="white-space:nowrap"><a href="/person.php?id=<?= $pid ?>" style="color:var(--ink)"><b><?= e($p['name']) ?></b></a><?= $p['status'] === 'invited' ? ' <span class="pill warn">diundang</span>' : '' ?><br><span class="muted" style="font-size:11px"><?= e($p['email']) ?></span></td>
+                            <?php foreach ($businesses as $b): $r = $p['group_owner'] ? 'Pemilik' : ($roleAt[$pid][(int)$b['id']] ?? null); ?>
+                                <td><?= $r === null ? '<span class="muted">–</span>' : '<span class="pill ' . ($p['group_owner'] ? 'gold' : '') . '">' . e($r) . '</span>' ?></td>
+                            <?php endforeach; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (!$people): ?><tr><td colspan="<?= count($businesses) + 1 ?>" class="muted">Belum ada orang di grup ini.</td></tr><?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Pemilik grup</h2>
+        <p class="muted" style="margin:0 0 10px;font-size:12px">Pemilik grup otomatis bisa membuka <b>semua</b> bisnis <?= e($client['name']) ?> dengan akses penuh + Owner Login, termasuk bisnis yang ditambahkan nanti.</p>
+        <?php foreach ($owners as $o): ?>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line2)">
+                <span><b><?= e($o['name']) ?></b> <span class="muted" style="font-size:12px">· <?= e($o['email']) ?></span></span>
+                <?php if ($isAdmin): ?>
+                    <form method="post" onsubmit="return confirm('Cabut status pemilik grup <?= e($o['name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="owner_remove"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="person_id" value="<?= (int)$o['id'] ?>"><button class="btn danger sm">Cabut</button></form>
+                <?php endif; ?>
+            </div>
+        <?php endforeach; ?>
+        <?php if (!$owners): ?><p style="margin:0;font-size:12.5px" class="muted">Belum ada pemilik grup.</p><?php endif; ?>
+        <?php if ($isAdmin): ?>
+            <details style="margin-top:10px">
+                <summary style="cursor:pointer;font-size:12.5px;font-weight:600">Tambah pemilik grup</summary>
+                <form method="post" class="row2" style="align-items:end;margin-top:10px">
+                    <?= csrf_field() ?><input type="hidden" name="action" value="owner_add"><input type="hidden" name="id" value="<?= $id ?>">
+                    <div><label>Nama</label><input name="name" required></div>
+                    <div><label>Email</label><input name="email" type="email" required></div>
+                    <?php if ($linkedIds): ?>
+                        <div><label>Username login</label><input name="username" pattern="[a-z0-9_.]{3,50}" placeholder="kosong bila sudah punya akun" autocomplete="off"></div>
+                        <div><label>Password awal</label><input name="password" type="password" minlength="8" placeholder="min. 8 karakter" autocomplete="new-password"></div>
+                    <?php endif; ?>
+                    <div><button class="btn" style="width:100%">Jadikan pemilik grup</button></div>
+                </form>
+            </details>
+        <?php endif; ?>
+    </div>
 
 <?php elseif ($tab === 'login'): ?>
     <?php if (!Branding::available()): ?>

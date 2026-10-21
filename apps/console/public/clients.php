@@ -68,7 +68,7 @@ View::start('Bisnis', 'clients', $me);
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <a class="btn ghost sm" href="/client.php?id=<?= $cid ?>&tab=login">Login & Domain</a>
-                <a class="btn ghost sm" href="/client.php?id=<?= $cid ?>&tab=orang">Owner grup</a>
+                <a class="btn ghost sm" href="/client.php?id=<?= $cid ?>&tab=orang">Akses</a>
                 <a class="btn ghost sm" href="/client.php?id=<?= $cid ?>">Pengaturan grup</a>
             </div>
         </div>

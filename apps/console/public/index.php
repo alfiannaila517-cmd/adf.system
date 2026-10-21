@@ -43,6 +43,8 @@ $label = static fn (string $a): string => [
     'business.modules' => 'Ubah menu & fitur', 'access.add' => 'Beri akses', 'access.update' => 'Ubah akses', 'access.remove' => 'Cabut akses',
     'roles.update' => 'Ubah izin peran', 'legacy.export' => 'Kirim perubahan ke sistem', 'subscription.update' => 'Ubah langganan',
     'billing.addon_add' => 'Tambah biaya tambahan', 'integration.save' => 'Ubah integrasi',
+    'staff_portal.create' => 'Buat akun Staff Portal', 'staff_portal.password' => 'Password Staff Portal baru', 'staff_portal.delete' => 'Hapus akun Staff Portal',
+    'access.group_owner_add' => 'Tambah pemilik grup', 'access.group_owner_remove' => 'Cabut pemilik grup', 'subscription.create' => 'Buat langganan',
 ][$a] ?? $a;
 
 $hour = (int)date('G');

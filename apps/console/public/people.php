@@ -151,7 +151,7 @@ if ($view === 'tambah' && $isAdmin):
                     <tr>
                         <td><b><?= e($p['name']) ?></b><br><span class="muted" style="font-size:11px"><?= $p['username'] ? e($p['username']) . ' · ' : '' ?><?= e($p['email']) ?></span></td>
                         <td>
-                            <?php foreach ($owners[$pid] ?? [] as $c): ?><span class="pill gold">👑 Owner grup <?= e($c) ?></span> <?php endforeach; ?>
+                            <?php foreach ($owners[$pid] ?? [] as $c): ?><span class="pill gold">Pemilik grup <?= e($c) ?></span> <?php endforeach; ?>
                             <?php foreach ($acc[$pid] ?? [] as $a): ?><span class="pill <?= $a['is_owner'] ? 'gold' : '' ?>"><?= e($a['name']) ?> · <?= e($a['role_name']) ?></span> <?php endforeach; ?>
                             <?= empty($acc[$pid]) && empty($owners[$pid]) ? '<span class="muted" style="font-size:11px">belum ada akses</span>' : '' ?>
                         </td>

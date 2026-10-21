@@ -627,7 +627,7 @@ View::start($biz['name'], 'clients', $me);
                     <?php foreach ($acc['owners'] as $o): ?>
                         <tr>
                             <td><a href="/person.php?id=<?= (int)$o['person_id'] ?>" style="color:var(--ink)"><b><?= e($o['name']) ?></b></a><br><span class="muted" style="font-size:12px"><?= e($o['email']) ?></span></td>
-                            <td><span class="pill gold">👑 Owner grup</span></td>
+                            <td><span class="pill gold">Pemilik grup</span></td>
                             <td><span class="pill">Sistem</span> <span class="pill">Owner Login</span></td>
                             <td class="muted" style="font-size:12px;text-align:right">diatur di <a href="/client.php?id=<?= (int)$biz['client_id'] ?>&tab=orang">grup</a></td>
                         </tr>

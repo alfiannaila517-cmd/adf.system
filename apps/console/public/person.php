@@ -189,7 +189,7 @@ View::start($person['name'], 'people', $me);
             <thead><tr><th>Bisnis</th><th>Peran</th><th>Owner Login</th><th></th></tr></thead>
             <tbody>
                 <?php foreach ($ownerOf as $c): ?>
-                    <tr><td><b>Semua bisnis <?= e($c['name']) ?></b></td><td><span class="pill gold">👑 Owner grup</span></td><td>✓</td>
+                    <tr><td><b>Semua bisnis <?= e($c['name']) ?></b></td><td><span class="pill gold">Pemilik grup</span></td><td>✓</td>
                         <td style="text-align:right"><a class="btn ghost sm" href="/client.php?id=<?= (int)$c['id'] ?>&tab=orang">Atur di grup</a></td></tr>
                 <?php endforeach; ?>
                 <?php foreach ($access as $a): $bid = (int)$a['business_id']; Access::ensureRoles(Biz::business($bid)); $roles = Access::roles($bid); ?>
@@ -243,7 +243,7 @@ View::start($person['name'], 'people', $me);
     $bizId = (int)($_GET['biz'] ?? ($access[0]['business_id'] ?? 0));
     $a = array_values(array_filter($access, fn ($x) => (int)$x['business_id'] === $bizId))[0] ?? null; ?>
     <?php if (!$access): ?>
-        <div class="card muted" style="max-width:760px"><?= $ownerOf ? 'Owner grup otomatis melihat semua menu di semua bisnis grupnya.' : 'Tambahkan akses ke bisnis dulu di tab Akses Bisnis.' ?></div>
+        <div class="card muted" style="max-width:760px"><?= $ownerOf ? 'Pemilik grup otomatis melihat semua menu di semua bisnis grupnya.' : 'Tambahkan akses ke bisnis dulu di tab Akses Bisnis.' ?></div>
     <?php else: ?>
         <?php if (count($access) > 1): ?>
             <nav class="subtabs"><?php foreach ($access as $x): ?><a class="<?= (int)$x['business_id'] === $bizId ? 'on' : '' ?>" href="<?= $base ?>&tab=menu&biz=<?= (int)$x['business_id'] ?>"><?= e($x['business_name']) ?></a><?php endforeach; ?></nav>
