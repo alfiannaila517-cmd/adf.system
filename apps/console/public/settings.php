@@ -11,6 +11,7 @@ $isAdmin = $me['role'] === 'admin';
 $items = [
     ['server', 'Server', 'Kesehatan VPS: disk, RAM, layanan, SSL, backup, tagihan VPS.', '/server.php', false],
     ['team', 'Tim ADF', 'Akun yang bisa masuk Console ini dan perannya.', '/users.php', true],
+    ['card', 'Pengaturan invoice', 'Kop perusahaan, rekening bank, syarat, nomor invoice.', '/invoice-settings.php', true],
     ['list', 'Audit log', 'Catatan siapa mengubah apa dan kapan.', '/audit.php', true],
     ['key', 'Akun saya', 'Ganti password akun Console Anda.', '/account.php', false],
 ];

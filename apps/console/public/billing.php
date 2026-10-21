@@ -95,7 +95,9 @@ View::start('Tagihan', 'billing', $me);
 ?>
 <div class="pagehead">
     <div><h1>Tagihan</h1><p>Langganan setiap bisnis, ditagih per grup. Biaya tambahan (mis. website) menempel di bisnisnya.</p></div>
+    <?php if ($isAdmin): ?><a class="btn" href="/invoice-edit.php">+ Invoice baru</a><?php endif; ?>
 </div>
+<nav class="tabs" style="margin-top:0"><a class="on" href="/billing.php">Langganan</a><a href="/invoices.php">Invoice</a></nav>
 
 <div class="row2" style="margin-bottom:14px">
     <div class="card" style="margin:0"><h2>Pendapatan per bulan</h2><div class="stat"><?= Biz::rp($sum['monthly']) ?></div><p class="muted" style="margin:4px 0 0;font-size:12.5px">paket + tambahan, bisnis aktif</p></div>
@@ -108,7 +110,10 @@ View::start('Tagihan', 'billing', $me);
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
             <div><b style="font-size:16px"><?= e($g['name']) ?></b> <?= $g['demo'] ? '<span class="pill gold">DEMO</span>' : '' ?>
                 <span class="muted" style="font-size:12.5px">· <?= count($g['rows']) ?> bisnis</span></div>
-            <a class="btn ghost sm" href="/client.php?id=<?= (int)$cid ?>">Buka grup</a>
+            <div style="display:flex;gap:6px">
+                <?php if ($isAdmin && !$g['demo']): ?><a class="btn sm" href="/invoice-edit.php?client=<?= (int)$cid ?>&period=<?= date('Y-m') ?>">Buat invoice <?= e(Invoice::date(date('Y-m-01'), false)) ?></a><?php endif; ?>
+                <a class="btn ghost sm" href="/client.php?id=<?= (int)$cid ?>">Buka grup</a>
+            </div>
         </div>
         <table class="stack">
             <thead><tr><th>Bisnis</th><th>Paket / bulan</th><th>Jatuh tempo</th><th>Status</th><th style="text-align:right">Total / bulan</th></tr></thead>

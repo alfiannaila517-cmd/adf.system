@@ -1,0 +1,190 @@
+<?php
+
+/** Buat / ubah invoice. ?client=ID&period=YYYY-MM = invoice bulanan grup (baris dari paket + tambahan tiap bisnis). */
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+$me = Auth::requireAdmin();
+$db = Biz::db();
+$id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
+$inv = $id ? Invoice::find($id) : null;
+if ($id && !$inv) {
+    flash('Invoice tidak ditemukan.', 'err');
+    redirect('/invoices.php');
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        if (!csrf_ok()) {
+            throw new RuntimeException('Sesi form kedaluwarsa, silakan coba lagi.');
+        }
+        $newId = Invoice::saveFromPost($_POST, $id);
+        $saved = Invoice::find($newId);
+        Auth::audit($id ? 'invoice.update' : 'invoice.add', "{$saved['number']} · {$saved['customer_name']}");
+        flash($id ? 'Invoice disimpan.' : 'Invoice dibuat.');
+        redirect("/invoice-view.php?id={$newId}");
+    } catch (Throwable $e) {
+        flash($e->getMessage(), 'err');
+        $_SESSION['old_invoice'] = $_POST;
+        redirect('/invoice-edit.php' . ($id ? "?id={$id}" : ''));
+    }
+}
+
+$s = Invoice::settings();
+$old = $_SESSION['old_invoice'] ?? null;
+unset($_SESSION['old_invoice']);
+$clientId = (int)($_GET['client'] ?? 0);
+$period = preg_match('/^\d{4}-\d{2}$/', (string)($_GET['period'] ?? '')) ? $_GET['period'] : date('Y-m');
+
+// Nilai awal form: data lama (gagal simpan) → invoice yang diedit → invoice baru (opsional dari grup)
+if ($old) {
+    $f = $old;
+    $items = [];
+    foreach ((array)($old['item_desc'] ?? []) as $i => $d) {
+        $items[] = ['description' => $d, 'note' => $old['item_note'][$i] ?? '', 'qty' => $old['item_qty'][$i] ?? 1, 'unit_price' => $old['item_price'][$i] ?? 0, 'business_id' => $old['item_biz'][$i] ?? ''];
+    }
+} elseif ($inv) {
+    $f = ['number' => $inv['number'], 'cust_name' => $inv['customer_name'], 'cust_company' => $inv['customer_company'], 'cust_email' => $inv['customer_email'],
+        'cust_phone' => $inv['customer_phone'], 'cust_address' => $inv['customer_address'], 'issue_date' => $inv['issue_date'], 'due_date' => $inv['due_date'],
+        'discount_type' => $inv['discount_type'], 'discount_value' => (float)$inv['discount_value'], 'tax_percent' => (float)$inv['tax_percent'],
+        'notes' => $inv['notes'], 'status' => $inv['status'], 'kind' => $inv['kind'], 'client_id' => $inv['client_id']];
+    $items = $inv['items'];
+} else {
+    $f = ['number' => '', 'issue_date' => date('Y-m-d'), 'due_date' => date('Y-m-d', strtotime('+' . (int)$s['default_due_days'] . ' days')),
+        'discount_type' => 'rp', 'discount_value' => 0, 'tax_percent' => (float)$s['default_tax_percent'], 'notes' => '', 'status' => 'unpaid', 'kind' => 'free'];
+    $items = [];
+    if ($clientId && ($c = Biz::client($clientId))) {
+        $f += ['cust_name' => $c['contact_name'] ?: $c['name'], 'cust_company' => $c['contact_name'] ? $c['name'] : '', 'cust_email' => $c['email'], 'cust_phone' => $c['phone'], 'cust_address' => $c['address']];
+        $f['kind'] = 'monthly';
+        $f['client_id'] = $clientId;
+        $f['notes'] = 'Tagihan langganan ADF System periode ' . Invoice::date($period . '-01', false) . '.';
+        foreach (Invoice::monthlyLines($clientId, $period) as $l) {
+            $items[] = ['description' => $l['desc'], 'note' => $l['note'], 'qty' => $l['qty'], 'unit_price' => $l['unit_price'], 'business_id' => $l['business_id']];
+        }
+        // Grup tanpa paket berbiaya → baris kosong; form tetap bisa diisi manual
+    }
+}
+$items = $items ?: [['description' => '', 'note' => '', 'qty' => 1, 'unit_price' => '', 'business_id' => '']];
+$money = static fn ($v) => $v === '' || $v === null ? '' : number_format((float)$v, 0, ',', '.');
+$qtyFmt = static fn ($v) => rtrim(rtrim(number_format((float)$v, 2, '.', ''), '0'), '.');
+
+View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
+?>
+<div class="crumb"><a href="/invoices.php">Invoice</a> ›</div>
+<div class="pagehead">
+    <div><h1><?= $inv ? 'Ubah invoice ' . e($inv['number']) : ($f['kind'] === 'monthly' ? 'Invoice bulanan · ' . e(Invoice::date($period . '-01', false)) : 'Invoice baru') ?></h1>
+        <p><?= $f['kind'] === 'monthly' ? 'Baris sudah diisi dari paket & biaya tambahan tiap bisnis — ubah bebas sebelum disimpan.' : 'Untuk registrasi, setup, tambah modul, atau pekerjaan khusus.' ?></p></div>
+</div>
+
+<form method="post" autocomplete="off" novalidate id="invForm">
+    <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
+    <input type="hidden" name="kind" value="<?= e($f['kind'] ?? 'free') ?>"><input type="hidden" name="client_id" value="<?= (int)($f['client_id'] ?? 0) ?>">
+    <div class="row2" style="align-items:start">
+        <div class="card" style="margin:0">
+            <h2>Ditagihkan kepada</h2>
+            <div class="row2">
+                <div class="field"><label>Nama pelanggan *</label><input name="cust_name" value="<?= e($f['cust_name'] ?? '') ?>"></div>
+                <div class="field"><label>Perusahaan</label><input name="cust_company" value="<?= e($f['cust_company'] ?? '') ?>"></div>
+                <div class="field"><label>Email</label><input name="cust_email" type="email" value="<?= e($f['cust_email'] ?? '') ?>"></div>
+                <div class="field"><label>WhatsApp / telepon</label><input name="cust_phone" value="<?= e($f['cust_phone'] ?? '') ?>"></div>
+            </div>
+            <div class="field" style="margin:0"><label>Alamat</label><textarea name="cust_address" rows="2"><?= e($f['cust_address'] ?? '') ?></textarea></div>
+        </div>
+        <div class="card" style="margin:0">
+            <h2>Detail invoice</h2>
+            <div class="row2">
+                <div class="field"><label>Nomor</label><input name="number" value="<?= e($f['number'] ?? '') ?>" placeholder="otomatis: <?= e(Invoice::nextNumber()) ?>"></div>
+                <div class="field"><label>Status</label><select name="status"><?php foreach (['unpaid' => 'Belum dibayar (kirim ke pelanggan)', 'draft' => 'Draft (belum bisa dibuka pelanggan)', 'paid' => 'Lunas'] as $k => $l): ?><option value="<?= $k ?>" <?= ($f['status'] ?? 'unpaid') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
+                <div class="field"><label>Tanggal terbit</label><input name="issue_date" type="date" value="<?= e($f['issue_date'] ?? '') ?>"></div>
+                <div class="field"><label>Jatuh tempo</label><input name="due_date" type="date" value="<?= e($f['due_date'] ?? '') ?>"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+        <h2>Rincian tagihan</h2>
+        <div style="overflow-x:auto">
+            <table class="sm" id="items">
+                <thead><tr><th>Deskripsi</th><th style="width:70px">Qty</th><th style="width:150px">Harga (Rp)</th><th style="width:140px;text-align:right">Jumlah</th><th style="width:36px"></th></tr></thead>
+                <tbody>
+                    <?php foreach ($items as $it): ?>
+                        <tr>
+                            <td><input name="item_desc[]" value="<?= e($it['description']) ?>" placeholder="mis. Langganan Narayana Hotel"><input name="item_note[]" value="<?= e((string)$it['note']) ?>" placeholder="keterangan kecil (opsional)" style="margin-top:4px;font-size:12px;padding:5px 9px"><input type="hidden" name="item_biz[]" value="<?= e((string)($it['business_id'] ?? '')) ?>"></td>
+                            <td><input name="item_qty[]" value="<?= e($qtyFmt($it['qty'])) ?>" inputmode="decimal"></td>
+                            <td><input name="item_price[]" value="<?= e($money($it['unit_price'])) ?>" inputmode="numeric"></td>
+                            <td class="amt" style="text-align:right;font-weight:600">-</td>
+                            <td><button type="button" class="btn ghost sm del" title="Hapus baris">×</button></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <button type="button" class="btn ghost sm" id="addRow" style="margin-top:8px">+ Tambah baris</button>
+
+        <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+            <div class="field" style="flex:1;min-width:240px"><label>Catatan untuk pelanggan</label><textarea name="notes" rows="3"><?= e($f['notes'] ?? '') ?></textarea></div>
+            <div style="min-width:280px">
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><label style="margin:0;width:70px">Diskon</label>
+                    <select class="sm" name="discount_type"><option value="rp" <?= ($f['discount_type'] ?? 'rp') === 'rp' ? 'selected' : '' ?>>Rp</option><option value="percent" <?= ($f['discount_type'] ?? '') === 'percent' ? 'selected' : '' ?>>%</option></select>
+                    <input class="sm" name="discount_value" value="<?= e((string)($f['discount_value'] ?? 0)) ?>" inputmode="decimal" style="flex:1"></div>
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px"><label style="margin:0;width:70px">PPN %</label><input class="sm" name="tax_percent" value="<?= e((string)($f['tax_percent'] ?? 0)) ?>" inputmode="decimal" style="flex:1"></div>
+                <div style="display:flex;justify-content:space-between" class="muted"><span>Subtotal</span><span id="tSub">-</span></div>
+                <div style="display:flex;justify-content:space-between" class="muted"><span>Diskon</span><span id="tDisc">-</span></div>
+                <div style="display:flex;justify-content:space-between" class="muted"><span>PPN</span><span id="tTax">-</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:17px;font-weight:700;margin-top:6px"><span>Total</span><span id="tTotal" style="color:var(--brand)">-</span></div>
+            </div>
+        </div>
+    </div>
+    <button class="btn">Simpan invoice</button> <a class="btn ghost" href="<?= $inv ? '/invoice-view.php?id=' . $id : '/invoices.php' ?>">Batal</a>
+</form>
+
+<script>
+(function () {
+    var tbody = document.querySelector('#items tbody');
+    var num = function (v) { return parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0; };
+    var rp = function (n) { return 'Rp ' + Math.round(n).toLocaleString('id-ID'); };
+    function recalc() {
+        var sub = 0;
+        tbody.querySelectorAll('tr').forEach(function (tr) {
+            var q = parseFloat(String(tr.querySelector('[name="item_qty[]"]').value).replace(',', '.')) || 0;
+            var a = q * num(tr.querySelector('[name="item_price[]"]').value);
+            tr.querySelector('.amt').textContent = rp(a);
+            sub += a;
+        });
+        var dv = parseFloat(String(document.querySelector('[name=discount_value]').value).replace(',', '.')) || 0;
+        var disc = document.querySelector('[name=discount_type]').value === 'percent' ? sub * Math.min(dv, 100) / 100 : Math.min(dv, sub);
+        var tax = (sub - disc) * (parseFloat(String(document.querySelector('[name=tax_percent]').value).replace(',', '.')) || 0) / 100;
+        document.getElementById('tSub').textContent = rp(sub);
+        document.getElementById('tDisc').textContent = disc ? '- ' + rp(disc) : '-';
+        document.getElementById('tTax').textContent = tax ? rp(tax) : '-';
+        document.getElementById('tTotal').textContent = rp(sub - disc + tax);
+    }
+    document.getElementById('addRow').addEventListener('click', function () {
+        var tr = tbody.querySelector('tr').cloneNode(true);
+        tr.querySelectorAll('input').forEach(function (i) { i.value = i.name === 'item_qty[]' ? '1' : ''; });
+        tbody.appendChild(tr);
+        tr.querySelector('input').focus();
+        recalc();
+    });
+    tbody.addEventListener('click', function (e) {
+        if (!e.target.classList.contains('del')) return;
+        if (tbody.querySelectorAll('tr').length > 1) e.target.closest('tr').remove();
+        else e.target.closest('tr').querySelectorAll('input').forEach(function (i) { i.value = i.name === 'item_qty[]' ? '1' : ''; });
+        recalc();
+    });
+    // Harga diketik → titik ribuan otomatis
+    tbody.addEventListener('input', function (e) {
+        if (e.target.name === 'item_price[]') {
+            var d = e.target.value.replace(/\D/g, '');
+            e.target.value = d ? Number(d).toLocaleString('id-ID') : '';
+        }
+        recalc();
+    });
+    document.getElementById('invForm').addEventListener('input', recalc);
+    document.getElementById('invForm').addEventListener('change', recalc);
+    recalc();
+})();
+</script>
+<?php View::end();
