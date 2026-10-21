@@ -59,7 +59,7 @@ if (!function_exists('qtWordsEn')) {
 
 $L = $lang === 'en' ? [
     'title' => 'QUOTATION', 'sub' => 'Room Offer', 'to' => 'Prepared For', 'stay' => 'Stay Details', 'phone' => 'Phone', 'email' => 'Email', 'ci' => 'Check-in', 'co' => 'Check-out',
-    'night' => 'night', 'nights' => 'nights', 'rooms' => 'Rooms', 'room' => 'Room', 'rtype' => 'Room Type', 'valid' => 'Valid Until', 'qno' => 'Quotation No.', 'date' => 'Issued',
+    'night' => 'night', 'nights' => 'nights', 'rooms' => 'Rooms', 'room' => 'Room', 'rtype' => 'Room Type', 'rate' => 'Rate', 'rateplan' => 'special rate', 'valid' => 'Valid Until', 'qno' => 'Quotation No.', 'date' => 'Issued',
     'desc' => 'Description', 'type' => 'Type', 'disc' => 'Discount', 'qty' => 'Qty', 'unit' => 'Unit Price', 'amount' => 'Amount', 'extra' => 'Service',
     'words' => 'Amount in Words', 'rupiah' => 'rupiah', 'subtotal' => 'Room subtotal', 'rdisc' => 'Room discount', 'rtotal' => 'Room total', 'extras' => 'Additional services', 'grand' => 'TOTAL',
     'notes' => 'Notes', 'bank' => 'Bank Transfer', 'accname' => 'Account name', 'ref' => 'Please include the quotation number in the transfer reference.',
@@ -68,7 +68,7 @@ $L = $lang === 'en' ? [
     'open' => 'OPEN', 'expired' => 'EXPIRED', 'confirmed' => 'CONFIRMED', 'cancelled' => 'CANCELLED', 'fo' => 'Front Office', 'save' => 'Save PDF', 'print' => 'Print', 'close' => 'Close', 'other' => 'Bahasa Indonesia',
 ] : [
     'title' => 'PENAWARAN', 'sub' => 'Penawaran Kamar', 'to' => 'Ditujukan Kepada', 'stay' => 'Rincian Menginap', 'phone' => 'Telepon', 'email' => 'Email', 'ci' => 'Check-in', 'co' => 'Check-out',
-    'night' => 'malam', 'nights' => 'malam', 'rooms' => 'Kamar', 'room' => 'Kamar', 'rtype' => 'Tipe Kamar', 'valid' => 'Berlaku Sampai', 'qno' => 'No. Penawaran', 'date' => 'Diterbitkan',
+    'night' => 'malam', 'nights' => 'malam', 'rooms' => 'Kamar', 'room' => 'Kamar', 'rtype' => 'Tipe Kamar', 'rate' => 'Harga', 'rateplan' => 'harga khusus', 'valid' => 'Berlaku Sampai', 'qno' => 'No. Penawaran', 'date' => 'Diterbitkan',
     'desc' => 'Deskripsi', 'type' => 'Jenis', 'disc' => 'Diskon', 'qty' => 'Jml', 'unit' => 'Harga Satuan', 'amount' => 'Jumlah', 'extra' => 'Layanan',
     'words' => 'Terbilang', 'rupiah' => 'rupiah', 'subtotal' => 'Subtotal kamar', 'rdisc' => 'Diskon kamar', 'rtotal' => 'Total kamar', 'extras' => 'Layanan tambahan', 'grand' => 'TOTAL',
     'notes' => 'Catatan', 'bank' => 'Transfer Bank', 'accname' => 'Atas nama', 'ref' => 'Mohon cantumkan nomor penawaran pada berita transfer.',
@@ -180,6 +180,7 @@ $no = 0;
         table.items td { padding: 10px 10px; border-bottom: 1px solid var(--line); font-size: 12.5px; vertical-align: top; }
         table.items td .desc { font-weight: 600; color: var(--ink); font-size: 13px; }
         table.items td.type { font-size: 12px; color: var(--ink); white-space: nowrap; }
+        table.items td.type .rate-plan { display: inline-block; margin-top: 3px; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; color: #b45309; background: #fef3c7; white-space: nowrap; }
         table.items td.ref { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
         table.items td .sub { color: var(--muted); font-size: 10.8px; margin-top: 2px; white-space: nowrap; }
         table.items .r { text-align: right; white-space: nowrap; } table.items .c { text-align: center; }
@@ -300,6 +301,9 @@ $no = 0;
                     <div class="kv">
                         <span><?php echo htmlspecialchars($L['rtype']); ?></span><span><?php echo htmlspecialchars($roomTypes ? implode(', ', $roomTypes) : '-'); ?></span>
                         <span><?php echo htmlspecialchars($L['rooms']); ?></span><span><?php echo count($q['items']); ?></span>
+                        <?php if (!empty($q['rate_plan'])): ?>
+                            <span><?php echo htmlspecialchars($L['rate']); ?></span><span><b><?php echo htmlspecialchars($q['rate_plan']); ?></b> <small style="color:var(--muted)">(<?php echo htmlspecialchars($L['rateplan']); ?>)</small></span>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -332,7 +336,7 @@ $no = 0;
                                 <div class="desc"><?php echo htmlspecialchars($L['room'] . ' ' . $it['room_number'] . ' — ' . ($it['room_type'] ?: $L['room'])); ?></div>
                                 <div class="sub"><?php echo $fs($q['check_in']); ?> – <?php echo $fs($q['check_out']); ?></div>
                             </td>
-                            <td class="type"><?php echo htmlspecialchars($L['room']); ?></td>
+                            <td class="type"><?php echo htmlspecialchars($L['room']); ?><?php if (!empty($q['rate_plan'])): ?><br><small class="rate-plan"><?php echo htmlspecialchars($q['rate_plan']); ?></small><?php endif; ?></td>
                             <td class="ref"><?php echo $discTxt; ?></td>
                             <td class="c"><?php echo $nNights . ' ' . htmlspecialchars($nNights === 1 ? $L['night'] : $L['nights']); ?></td>
                             <td class="r"><?php echo $rp($it['net_price']); ?></td>

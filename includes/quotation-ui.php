@@ -20,7 +20,7 @@ $qtText = [
     '+ Item lain' => '+ Other item', 'Nama item' => 'Item name', 'Harga' => 'Price', 'Layanan tambahan' => 'Additional services', 'dipilih' => 'selected', 'Kamar' => 'Room',
     'Ubah Penawaran' => 'Edit Quotation', 'Ubah' => 'Edit', 'Simpan' => 'Save', 'Diskon' => 'Discount', '+ Kamar' => '+ Room', 'Tambah kamar…' => 'Add room…', '+ Tambah' => '+ Add', 'Pilih layanan…' => 'Select service…',
     'Pilih minimal satu kamar.' => 'Select at least one room.', 'Tanggal tidak valid.' => 'Invalid dates.',
-    'Harga pas' => 'Net rate', '/malam' => '/night', 'Harga kamar' => 'Room rates', 'Harga normal' => 'Standard rate', 'Harga /malam' => 'Rate /night', 'normal' => 'standard', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
+    'Harga pas' => 'Net rate', '/malam' => '/night', 'Harga kamar' => 'Room rates', 'Harga normal' => 'Standard rate', 'Harga agent' => 'Agent rate', 'Harga /malam' => 'Rate /night', 'normal' => 'standard', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
     'Reservasi Website' => 'Website Reservation', 'dewasa' => 'adult(s)', 'anak' => 'child(ren)', 'Follow-up WhatsApp tamu' => 'Follow up guest on WhatsApp', 'Sudah di-follow-up' => 'Followed up',
     'DP diterima' => 'Deposit received', 'Belum ada DP' => 'No deposit yet', 'Catat DP' => 'Record deposit', 'Saran DP 50%' => 'Suggested 50% deposit', 'Nominal DP' => 'Deposit amount',
     'Langkah: 1) Follow-up WhatsApp  2) Terima & catat DP  3) Konfirmasi → email otomatis ke tamu.' => 'Steps: 1) Follow up on WhatsApp  2) Receive & record the deposit  3) Confirm → guest gets an automatic email.',
@@ -509,6 +509,7 @@ $qtText = [
                     }
                     if (v.firstChild) sum.appendChild(v);
                 } else if (q.valid_until) { const v = el('div'); v.appendChild(el('span', '', t('Berlaku sampai') + ': ' + fd(q.valid_until))); sum.appendChild(v); }
+                if (q.rate_plan) { const rp1 = el('div'); rp1.appendChild(el('span', '', '🏷️ ' + t('Harga agent') + ': ' + q.rate_plan)); sum.appendChild(rp1); }
                 body.appendChild(sum);
                 const ul = el('ul', 'qt-rooms');
                 q.items.forEach(it => {
