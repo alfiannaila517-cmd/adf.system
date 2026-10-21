@@ -1467,6 +1467,10 @@ if (isset($_GET['biz'])) {
                 </div>
             </div>
         </div>
+        <?php if ($loginBrand): ?>
+            <!-- Company login: developer credit shrinks to one small line at the bottom -->
+            <a class="dev-official" href="https://wa.me/628214400664" target="_blank" rel="noopener" title="Chat admin developer via WhatsApp">Developed by <em>ADF System</em> · 0821-4400-664</a>
+        <?php else: ?>
         <div class="dev-contact-out">
             <a class="dev-wa" href="https://wa.me/628214400664" target="_blank" rel="noopener" title="Chat admin developer via WhatsApp">
                 <span class="dev-wa-txt"><small>Admin Developer</small><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.9 7L4 20l1.5-4A8 8 0 1 1 20 11.5z"/><path d="M9 8.8c.3 2.2 2 4 4.2 4.6l1.2-1.1-1.5-.9-.7.6a3.7 3.7 0 0 1-1.6-1.6l.6-.7-.9-1.5z" fill="currentColor" stroke="none"/></svg> 0821-4400-664</b></span>
@@ -1474,6 +1478,7 @@ if (isset($_GET['biz'])) {
             </a>
         </div>
         <a class="dev-official" href="https://adfsystem.store" target="_blank" rel="noopener">&copy; <?php echo APP_YEAR; ?> adfsystem.store <em>official</em></a>
+        <?php endif; ?>
     </div>
 
     <script>
