@@ -272,9 +272,10 @@ View::start($client['name'], 'clients', $me);
             </div>
             <div class="field"><label>Keterangan kecil (opsional)</label><input name="subtitle" value="<?= e($br['subtitle']) ?>" placeholder="mis. Narayana Hotel · Bens Cafe · Eat Meet · Gudang Nasita" maxlength="80" <?= $isAdmin ? '' : 'disabled' ?>></div>
             <div class="row2">
-                <?php foreach (['bg' => 'Background (foto horizontal, min. 1920×1080)', 'logo' => 'Logo (PNG transparan disarankan)'] as $k => $label): $url = Branding::publicUrl($br, $k); ?>
-                    <div class="field"><label><?= e($label) ?></label>
-                        <?php if ($url): ?><img src="<?= e($url) ?>" alt="" style="display:block;max-width:100%;max-height:110px;border-radius:8px;margin:0 0 6px;<?= $k === 'logo' ? 'background:#15120e;padding:6px' : '' ?>">
+                <?php foreach (['bg' => 'Background (foto horizontal, min. 1920×1080)', 'logo' => 'Logo (PNG transparan disarankan)', 'favicon' => 'Favicon (ikon di tab browser & HP)'] as $k => $label): $url = Branding::publicUrl($br, $k); ?>
+                    <div class="field"><label><?= e($label) ?><?= $k === 'favicon' && !empty($br['favicon_auto']) ? ' <span class="pill">otomatis dari logo</span>' : '' ?></label>
+                        <?php if ($url): ?><img src="<?= e($url) ?>" alt="" style="display:block;max-width:100%;margin:0 0 6px;<?= $k === 'favicon' ? 'width:64px;height:64px;border-radius:50%' : 'max-height:110px;border-radius:8px' ?><?= $k === 'logo' ? ';background:#0f172a;padding:6px' : '' ?>">
+                        <?php elseif ($k === 'favicon'): ?><p class="muted" style="margin:0 0 6px;font-size:11.5px">Kosong = otomatis dibuat dari logo, dipotong bulat.</p>
                             <?php if ($isAdmin): ?><label style="display:flex;gap:6px;align-items:center;margin:0 0 6px;font-size:12px"><input type="checkbox" name="remove[]" value="<?= $k ?>" style="width:auto"> hapus</label><?php endif; ?>
                         <?php endif; ?>
                         <input type="file" name="<?= $k ?>" accept="image/jpeg,image/png,image/webp" <?= $isAdmin ? '' : 'disabled' ?>>

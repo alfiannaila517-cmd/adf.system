@@ -34,7 +34,7 @@ final class Branding
                 return $b;
             }
         }
-        return ['client_id' => $clientId, 'domain' => '', 'name' => '', 'subtitle' => '', 'bg' => '', 'logo' => ''];
+        return ['client_id' => $clientId, 'domain' => '', 'name' => '', 'subtitle' => '', 'bg' => '', 'logo' => '', 'favicon' => '', 'favicon_auto' => false];
     }
 
     /**
@@ -64,17 +64,35 @@ final class Branding
             'client_id' => $clientId, 'domain' => $domain,
             'name' => mb_substr(trim((string)($in['name'] ?? '')), 0, 40), 'subtitle' => mb_substr(trim((string)($in['subtitle'] ?? '')), 0, 80),
             'bg' => (string)($cur['bg'] ?? ''), 'logo' => (string)($cur['logo'] ?? ''),
+            'favicon' => (string)($cur['favicon'] ?? ''), 'favicon_auto' => !empty($cur['favicon_auto']),
         ];
-        foreach (['bg', 'logo'] as $k) {
+        $logoChanged = false;
+        foreach (['bg', 'logo', 'favicon'] as $k) {
             if (in_array($k, $remove, true)) {
                 self::deleteImage($b[$k]);
                 $b[$k] = '';
+                $logoChanged = $logoChanged || $k === 'logo';
+                if ($k === 'favicon') {
+                    $b['favicon_auto'] = false;
+                }
             }
             if (!empty($files[$k]['name'])) {
                 $new = self::storeImage($files[$k], "c{$clientId}-{$k}");
                 self::deleteImage($b[$k]);
                 $b[$k] = $new;
+                $logoChanged = $logoChanged || $k === 'logo';
+                if ($k === 'favicon') {
+                    $b['favicon_auto'] = false; // favicon pilihan sendiri dipakai apa adanya
+                }
             }
+        }
+        // Favicon kosong (atau dibuat otomatis lalu logonya berganti) → buat dari logo, dipotong bulat
+        if ($b['favicon'] === '' || ($b['favicon_auto'] && $logoChanged)) {
+            if ($b['favicon_auto']) {
+                self::deleteImage($b['favicon']);
+            }
+            $b['favicon'] = $b['logo'] !== '' ? (self::roundIcon($b['logo'], "c{$clientId}-favicon") ?? '') : '';
+            $b['favicon_auto'] = $b['favicon'] !== '';
         }
         $list = array_values(array_filter(self::all(), fn ($x) => (int)($x['client_id'] ?? 0) !== $clientId));
         if ($b['domain'] !== '' || $b['bg'] !== '' || $b['logo'] !== '' || $b['name'] !== '') {
@@ -112,6 +130,55 @@ final class Branding
             throw new RuntimeException('Gambar tidak bisa disimpan.');
         }
         @chmod("{$dir}/{$name}", 0664);
+        return 'uploads/brands/' . $name;
+    }
+
+    /**
+     * Ikon bulat 256×256 (PNG, sudut transparan) dari gambar di uploads/brands/ — untuk favicon tab browser & ikon HP.
+     * Dibuat 2× lebih besar lalu diperkecil supaya tepi lingkarannya halus. null bila GD tidak tersedia / gambar tak terbaca.
+     */
+    private static function roundIcon(string $srcRel, string $prefix): ?string
+    {
+        if (!function_exists('imagecreatefromstring') || !str_starts_with($srcRel, 'uploads/brands/')) {
+            return null;
+        }
+        $src = @imagecreatefromstring((string)@file_get_contents(Legacy::appDir() . '/' . $srcRel));
+        if (!$src) {
+            return null;
+        }
+        $w = imagesx($src);
+        $h = imagesy($src);
+        $side = min($w, $h);
+        $big = 512;
+        $sq = imagecreatetruecolor($big, $big);
+        imagealphablending($sq, false);
+        imagesavealpha($sq, true);
+        imagefill($sq, 0, 0, imagecolorallocatealpha($sq, 0, 0, 0, 127));
+        imagecopyresampled($sq, $src, 0, 0, intdiv($w - $side, 2), intdiv($h - $side, 2), $big, $big, $side, $side);
+        // Semua piksel di luar lingkaran dibuat transparan
+        $clear = imagecolorallocatealpha($sq, 0, 0, 0, 127);
+        $r = $big / 2;
+        for ($y = 0; $y < $big; $y++) {
+            for ($x = 0; $x < $big; $x++) {
+                if (($x - $r + .5) ** 2 + ($y - $r + .5) ** 2 > $r * $r) {
+                    imagesetpixel($sq, $x, $y, $clear);
+                }
+            }
+        }
+        $out = imagecreatetruecolor(256, 256);
+        imagealphablending($out, false);
+        imagesavealpha($out, true);
+        imagefill($out, 0, 0, imagecolorallocatealpha($out, 0, 0, 0, 127));
+        imagecopyresampled($out, $sq, 0, 0, 0, 0, 256, 256, $big, $big);
+        $name = $prefix . '-' . bin2hex(random_bytes(4)) . '.png';
+        $ok = imagepng($out, Legacy::appDir() . '/uploads/brands/' . $name, 6);
+        imagedestroy($src);
+        imagedestroy($sq);
+        imagedestroy($out);
+        if (!$ok) {
+            return null;
+        }
+        @chmod(Legacy::appDir() . '/uploads/brands/' . $name, 0664);
         return 'uploads/brands/' . $name;
     }
 
