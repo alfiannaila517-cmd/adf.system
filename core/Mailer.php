@@ -5,6 +5,8 @@ declare(strict_types=1);
 /**
  * Kirim email lewat SMTP tanpa library tambahan. Pengaturan di secrets/smtp.env:
  *   SMTP_HOST=mail.domainmu.com  SMTP_PORT=465  SMTP_ENCRYPTION=ssl|tls  SMTP_USER=…  SMTP_PASS=…  SMTP_FROM_NAME=ADF Console
+ *   SMTP_FROM=noreply@domainmu.com  (opsional — alamat pengirim bila berbeda dari login, mis. Brevo: login xxx@smtp-brevo.com)
+ *   SMTP_REPLY_TO=…                 (opsional — balasan penerima masuk ke sini, mis. Gmail admin)
  *
  *   Mailer::send('a@b.com', 'Judul', '<p>Isi</p>') → true/false; alasan gagal di Mailer::lastError()
  */
@@ -37,6 +39,8 @@ final class Mailer
         $port = (int)Secrets::get('SMTP_PORT', '465');
         $enc = Secrets::get('SMTP_ENCRYPTION', $port === 465 ? 'ssl' : 'tls');
         $user = (string)Secrets::get('SMTP_USER');
+        $from = (string)Secrets::get('SMTP_FROM', $user);
+        $replyTo = (string)Secrets::get('SMTP_REPLY_TO', '');
         $fromName ??= Secrets::get('SMTP_FROM_NAME', 'ADF Platform');
         try {
             $sock = @stream_socket_client(($enc === 'ssl' ? 'ssl://' : 'tcp://') . "{$host}:{$port}", $errno, $errstr, 15);
@@ -57,12 +61,13 @@ final class Mailer
             self::cmd($sock, 'AUTH LOGIN', [334]);
             self::cmd($sock, base64_encode($user), [334]);
             self::cmd($sock, base64_encode((string)Secrets::get('SMTP_PASS')), [235]);
-            self::cmd($sock, "MAIL FROM:<{$user}>", [250]);
+            self::cmd($sock, "MAIL FROM:<{$from}>", [250]);
             self::cmd($sock, "RCPT TO:<{$to}>", [250, 251]);
             self::cmd($sock, 'DATA', [354]);
-            $domain = substr((string)strrchr($user, '@'), 1) ?: 'localhost';
-            $headers = [
-                'From: ' . self::header($fromName) . " <{$user}>",
+            $domain = substr((string)strrchr($from, '@'), 1) ?: 'localhost';
+            $headers = array_merge([
+                'From: ' . self::header($fromName) . " <{$from}>",
+            ], filter_var($replyTo, FILTER_VALIDATE_EMAIL) ? ["Reply-To: <{$replyTo}>"] : [], [
                 "To: <{$to}>",
                 'Subject: ' . self::header($subject),
                 'Date: ' . date('r'),
@@ -70,7 +75,7 @@ final class Mailer
                 'MIME-Version: 1.0',
                 'Content-Type: text/html; charset=UTF-8',
                 'Content-Transfer-Encoding: 8bit',
-            ];
+            ]);
             $body = (string)preg_replace('/^\./m', '..', str_replace("\n", "\r\n", str_replace("\r\n", "\n", $html)));
             fwrite($sock, implode("\r\n", $headers) . "\r\n\r\n" . $body . "\r\n.\r\n");
             self::expect($sock, [250]);

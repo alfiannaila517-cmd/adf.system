@@ -14,6 +14,7 @@
  *                                                     --from-hosting = data baru dari hosting (hari pindahan)
  *                                                     impor bisnis + orang + izin dari database master sistem lama
  *   php cli/console.php legacy-diff <kode-bisnis>     beda izin Console vs tabel sistem lama (kosong = identik)
+ *   php cli/console.php mail-test <email>             kirim email uji lewat pengaturan secrets/smtp.env
  */
 
 declare(strict_types=1);
@@ -38,11 +39,25 @@ try {
         'vault-key' => vaultKey(),
         'legacy-import' => legacyImport(array_slice($argv, 2)),
         'legacy-diff' => legacyDiff($argv[2] ?? ''),
-        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear | vault-key | legacy-preview <kode> | legacy-import [--dry-run] | legacy-diff <kode>\n"),
+        'mail-test' => mailTest($argv[2] ?? ''),
+        default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear | vault-key | legacy-preview <kode> | legacy-import [--dry-run] | legacy-diff <kode> | mail-test <email>\n"),
     };
 } catch (Throwable $e) {
     fwrite(STDERR, 'GAGAL: ' . $e->getMessage() . PHP_EOL);
     exit(1);
+}
+
+/** Uji pengiriman email (mis. setelah mengganti SMTP ke Brevo) tanpa harus logout dari Console. */
+function mailTest(string $to): void
+{
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        throw new RuntimeException('pakai: mail-test alamat@email.com');
+    }
+    $host = (string)Secrets::get('SMTP_HOST', '(belum diatur)');
+    $from = (string)Secrets::get('SMTP_FROM', (string)Secrets::get('SMTP_USER', ''));
+    echo "SMTP {$host} · pengirim {$from} → {$to}\n";
+    $ok = Mailer::send($to, 'Tes email ADF Console', '<p>Halo, ini email uji dari <b>ADF Console</b> (' . date('d M Y H:i') . ' WIB).</p><p>Kalau email ini masuk, pengiriman OTP, reset password, dan notifikasi sudah berjalan.</p>', 'ADF Console');
+    echo $ok ? "OK: email terkirim. Cek kotak masuk (dan folder Spam).\n" : 'GAGAL: ' . Mailer::lastError() . "\n";
 }
 
 function migrate(): void
