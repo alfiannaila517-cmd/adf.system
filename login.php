@@ -60,6 +60,29 @@ try {
     // Settings table might not exist yet, continue without background
 }
 
+// VPS: company login per domain (ADF Console → Client → Login & Domain), stored in master settings.login_brands.
+// Only changes the look (background, logo, name) — unlike addon_domain it does NOT lock the session to one business.
+$loginBrand = null;
+try {
+    $brandHost = strtolower((string)preg_replace('/^www\./', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
+    $brandPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    $brandJson = $brandPdo->query("SELECT setting_value FROM settings WHERE setting_key = 'login_brands'")->fetchColumn();
+    foreach ((array)json_decode((string)$brandJson, true) as $b) {
+        if (is_array($b) && !empty($b['domain']) && $b['domain'] === $brandHost) {
+            $loginBrand = $b;
+            break;
+        }
+    }
+    if ($loginBrand && !empty($loginBrand['bg'])) {
+        $bgUrl = BASE_URL . '/' . $loginBrand['bg'];
+    }
+} catch (\Throwable $e) {
+    $loginBrand = null;
+}
+$brandLogo = $loginBrand && !empty($loginBrand['logo']) ? BASE_URL . '/' . $loginBrand['logo'] : null;
+$brandName = $loginBrand && trim((string)($loginBrand['name'] ?? '')) !== '' ? trim((string)$loginBrand['name']) : null;
+$brandSub = $loginBrand && trim((string)($loginBrand['subtitle'] ?? '')) !== '' ? trim((string)$loginBrand['subtitle']) : null;
+
 // ============================================
 // REMEMBER ME - Auto-login via HMAC token
 // ============================================
@@ -526,7 +549,7 @@ if (isset($_GET['biz'])) {
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Login - <?php echo APP_NAME; ?></title>
+    <title>Login - <?php echo htmlspecialchars($brandName ?? APP_NAME); ?></title>
 
     <!-- Favicon: always the ADF System logo, never the business icon -->
     <link rel="icon" type="image/png" sizes="500x500" href="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo time(); ?>">
@@ -1376,14 +1399,14 @@ if (isset($_GET['biz'])) {
     <div id="bootSplash" role="presentation">
         <div class="bs-stage">
             <div class="bs-logo">
-                <img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="">
+                <img src="<?php echo $brandLogo ? htmlspecialchars($brandLogo) : BASE_URL . '/assets/img/developer-logo.png?v=' . @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="">
                 <i class="bs-ring" style="--r:0"></i><i class="bs-ring" style="--r:1"></i><i class="bs-ring" style="--r:2"></i>
                 <span class="bs-dot"></span>
             </div>
             <div class="bs-welcome">Welcome to</div>
-            <div class="bs-brand" aria-label="ADF System"><span style="--i:0">A</span><span style="--i:1">D</span><span style="--i:2">F</span><span class="sp" style="--i:3">&nbsp;</span><span style="--i:4">S</span><span style="--i:5">Y</span><span style="--i:6">S</span><span style="--i:7">T</span><span style="--i:8">E</span><span style="--i:9">M</span></div>
+            <?php if ($brandName): ?><div class="bs-brand" aria-label="<?php echo htmlspecialchars($brandName); ?>"><?php foreach (preg_split('//u', mb_strtoupper($brandName), -1, PREG_SPLIT_NO_EMPTY) as $bi => $ch): ?><span<?php echo $ch === ' ' ? ' class="sp"' : ''; ?> style="--i:<?php echo $bi; ?>"><?php echo $ch === ' ' ? '&nbsp;' : htmlspecialchars($ch); ?></span><?php endforeach; ?></div><?php else: ?><div class="bs-brand" aria-label="ADF System"><span style="--i:0">A</span><span style="--i:1">D</span><span style="--i:2">F</span><span class="sp" style="--i:3">&nbsp;</span><span style="--i:4">S</span><span style="--i:5">Y</span><span style="--i:6">S</span><span style="--i:7">T</span><span style="--i:8">E</span><span style="--i:9">M</span></div><?php endif; ?>
             <div class="bs-line"></div>
-            <div class="bs-tag">Business Management System</div>
+            <div class="bs-tag"><?php echo htmlspecialchars($brandSub ?? 'Business Management System'); ?></div>
         </div>
         <div class="bs-skip">Ketuk untuk melanjutkan</div>
     </div>
@@ -1391,9 +1414,9 @@ if (isset($_GET['biz'])) {
         <div class="login-shell">
             <div class="login-box">
                 <div class="login-header">
-                    <div class="lg-logo"><img src="<?php echo BASE_URL; ?>/assets/img/developer-logo.png?v=<?php echo @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="ADF System"><span class="lg-dot"></span></div>
-                    <h2 class="login-logo">Sign in to Dashboard</h2>
-                    <p class="login-subtitle"><?php echo $displayInfo['subtitle']; ?><?php if (isset($_GET['biz'])): ?> • Hotel System<?php endif; ?></p>
+                    <div class="lg-logo"><img src="<?php echo $brandLogo ? htmlspecialchars($brandLogo) : BASE_URL . '/assets/img/developer-logo.png?v=' . @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="<?php echo htmlspecialchars($brandName ?? 'ADF System'); ?>"><span class="lg-dot"></span></div>
+                    <h2 class="login-logo"><?php echo $brandName ? htmlspecialchars($brandName) : 'Sign in to Dashboard'; ?></h2>
+                    <p class="login-subtitle"><?php if ($brandName): ?><?php echo htmlspecialchars($brandSub ?? 'Sign in to Dashboard'); ?><?php else: ?><?php echo $displayInfo['subtitle']; ?><?php if (isset($_GET['biz'])): ?> • Hotel System<?php endif; ?><?php endif; ?></p>
                 </div>
 
                 <?php if (isset($error)): ?>
