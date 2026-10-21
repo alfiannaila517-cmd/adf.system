@@ -90,7 +90,7 @@ View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
                 <div class="field"><label>Email</label><input name="cust_email" type="email" value="<?= e($f['cust_email'] ?? '') ?>"></div>
                 <div class="field"><label>WhatsApp / telepon</label><input name="cust_phone" value="<?= e($f['cust_phone'] ?? '') ?>"></div>
             </div>
-            <div class="field" style="margin:0"><label>Alamat</label><textarea name="cust_address" rows="2"><?= e($f['cust_address'] ?? '') ?></textarea></div>
+            <div class="field" style="margin:0"><label>Alamat</label><input name="cust_address" value="<?= e($f['cust_address'] ?? '') ?>"></div>
         </div>
         <div class="card" style="margin:0">
             <h2>Detail invoice</h2>
@@ -111,7 +111,7 @@ View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
                 <tbody>
                     <?php foreach ($items as $it): ?>
                         <tr>
-                            <td><input name="item_desc[]" value="<?= e($it['description']) ?>" placeholder="mis. Langganan Narayana Hotel"><input name="item_note[]" value="<?= e((string)$it['note']) ?>" placeholder="keterangan kecil (opsional)" style="margin-top:4px;font-size:12px;padding:5px 9px"><input type="hidden" name="item_biz[]" value="<?= e((string)($it['business_id'] ?? '')) ?>"></td>
+                            <td><input name="item_desc[]" value="<?= e($it['description']) ?>" placeholder="mis. Langganan Narayana Hotel"><input name="item_note[]" value="<?= e((string)$it['note']) ?>" placeholder="keterangan kecil (opsional)" style="margin-top:3px;font-size:11.5px;padding:3px 8px;color:var(--ink2)"><input type="hidden" name="item_biz[]" value="<?= e((string)($it['business_id'] ?? '')) ?>"></td>
                             <td><input name="item_qty[]" value="<?= e($qtyFmt($it['qty'])) ?>" inputmode="decimal"></td>
                             <td><input name="item_price[]" value="<?= e($money($it['unit_price'])) ?>" inputmode="numeric"></td>
                             <td class="amt" style="text-align:right;font-weight:600">-</td>
@@ -124,7 +124,7 @@ View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
         <button type="button" class="btn ghost sm" id="addRow" style="margin-top:8px">+ Tambah baris</button>
 
         <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
-            <div class="field" style="flex:1;min-width:240px"><label>Catatan untuk pelanggan</label><textarea name="notes" rows="3"><?= e($f['notes'] ?? '') ?></textarea></div>
+            <div class="field" style="flex:1;min-width:240px"><label>Catatan untuk pelanggan</label><textarea name="notes" rows="2"><?= e($f['notes'] ?? '') ?></textarea></div>
             <div style="min-width:280px">
                 <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><label style="margin:0;width:70px">Diskon</label>
                     <select class="sm" name="discount_type"><option value="rp" <?= ($f['discount_type'] ?? 'rp') === 'rp' ? 'selected' : '' ?>>Rp</option><option value="percent" <?= ($f['discount_type'] ?? '') === 'percent' ? 'selected' : '' ?>>%</option></select>
