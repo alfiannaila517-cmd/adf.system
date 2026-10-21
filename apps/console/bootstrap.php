@@ -15,6 +15,7 @@ require_once __DIR__ . '/src/Integration.php';
 require_once __DIR__ . '/src/Legacy.php';
 require_once __DIR__ . '/src/StaffPortal.php';
 require_once __DIR__ . '/src/Provision.php';
+require_once __DIR__ . '/src/Branding.php';
 
 const CONSOLE_DB = 'adf_console';
 
@@ -23,7 +24,9 @@ if (PHP_SAPI !== 'cli') {
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: same-origin');
     header('Cache-Control: no-store');
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'");
+    // Gambar dari sistem lama (pratinjau branding login) boleh tampil; selebihnya tetap hanya dari Console sendiri
+    $legacyOrigin = (string)preg_replace('#^(https?://[^/]+).*$#', '$1', (string)Secrets::get('LEGACY_BASE_URL', 'https://staging.adfsystem.online'));
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: {$legacyOrigin}; form-action 'self'; frame-ancestors 'none'");
 
     session_name('adf_console');
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => Auth::https(), 'httponly' => true, 'samesite' => 'Lax']);

@@ -79,6 +79,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Access::setGroupOwner($id, (int)($_POST['person_id'] ?? 0), false);
         Auth::audit('access.group_owner_remove', "{$client['name']}: #" . (int)($_POST['person_id'] ?? 0));
         flash('Owner grup dicabut. Akses per bisnis (bila ada) tetap.');
+    } elseif ($action === 'branding') {
+        // Login & Domain: domain grup + background/logo login (tanpa mengunci satu bisnis)
+        try {
+            Branding::save($id, $_POST, $_FILES, array_map('strval', (array)($_POST['remove'] ?? [])));
+            Auth::audit('client.branding', $client['name']);
+            flash('Login & domain disimpan.');
+        } catch (Throwable $e) {
+            flash('Gagal: ' . $e->getMessage(), 'err');
+        }
     } elseif ($action === 'add_business') {
         $name = trim((string)($_POST['name'] ?? ''));
         $type = array_key_exists($_POST['type'] ?? '', Biz::TYPES) ? $_POST['type'] : 'other';
@@ -139,7 +148,7 @@ View::start($client['name'], 'clients', $me);
 <p class="muted" style="margin:0"><?= e(implode(' · ', array_filter([$client['contact_name'], $client['email'], $client['phone']])) ?: 'Kontak belum diisi') ?></p>
 
 <nav class="tabs">
-    <?php foreach (['bisnis' => 'Bisnis (' . count($businesses) . ')', 'tagihan' => 'Tagihan', 'orang' => 'Orang & Akses', 'ringkasan' => 'Data client'] as $k => $label): ?>
+    <?php foreach (['bisnis' => 'Bisnis (' . count($businesses) . ')', 'tagihan' => 'Tagihan', 'orang' => 'Orang & Akses', 'login' => 'Login & Domain', 'ringkasan' => 'Data client'] as $k => $label): ?>
         <a class="<?= $tab === $k ? 'on' : '' ?>" href="/client.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
@@ -255,6 +264,47 @@ View::start($client['name'], 'clients', $me);
             </form>
             <p class="muted" style="margin:8px 0 0;font-size:12px">Owner grup otomatis punya akses penuh + portal owner di semua bisnis <?= e($client['name']) ?>, termasuk bisnis yang ditambahkan nanti.</p>
         </div>
+    <?php endif; ?>
+
+<?php elseif ($tab === 'login'): ?>
+    <?php if (!Branding::available()): ?>
+        <div class="soonbox">Sistem lama belum terhubung di server ini.</div>
+    <?php else: $br = Branding::forClient($id); ?>
+        <p class="muted" style="margin:0 0 12px;font-size:12px">Domain & tampilan login khusus <?= e($client['name']) ?>. Staf membuka domain ini → halaman login memakai background, logo & nama perusahaan; setelah login tetap bisa pindah ke semua bisnis yang diizinkan.</p>
+        <form method="post" enctype="multipart/form-data" class="card" style="max-width:760px">
+            <?= csrf_field() ?><input type="hidden" name="action" value="branding"><input type="hidden" name="id" value="<?= $id ?>">
+            <h2>Login perusahaan</h2>
+            <div class="row2">
+                <div class="field"><label>Domain login</label><input name="domain" value="<?= e($br['domain']) ?>" placeholder="mis. nasita.biz.id" <?= $isAdmin ? '' : 'disabled' ?>></div>
+                <div class="field"><label>Nama yang tampil</label><input name="name" value="<?= e($br['name']) ?>" placeholder="mis. NASITA" maxlength="40" <?= $isAdmin ? '' : 'disabled' ?>></div>
+            </div>
+            <div class="field"><label>Keterangan kecil (opsional)</label><input name="subtitle" value="<?= e($br['subtitle']) ?>" placeholder="mis. Narayana Hotel · Bens Cafe · Eat Meet · Gudang Nasita" maxlength="80" <?= $isAdmin ? '' : 'disabled' ?>></div>
+            <div class="row2">
+                <?php foreach (['bg' => 'Background (foto horizontal, min. 1920×1080)', 'logo' => 'Logo (PNG transparan disarankan)'] as $k => $label): $url = Branding::publicUrl($br, $k); ?>
+                    <div class="field"><label><?= e($label) ?></label>
+                        <?php if ($url): ?><img src="<?= e($url) ?>" alt="" style="display:block;max-width:100%;max-height:110px;border-radius:8px;margin:0 0 6px;<?= $k === 'logo' ? 'background:#15120e;padding:6px' : '' ?>">
+                            <?php if ($isAdmin): ?><label style="display:flex;gap:6px;align-items:center;margin:0 0 6px;font-size:12px"><input type="checkbox" name="remove[]" value="<?= $k ?>" style="width:auto"> hapus</label><?php endif; ?>
+                        <?php endif; ?>
+                        <input type="file" name="<?= $k ?>" accept="image/jpeg,image/png,image/webp" <?= $isAdmin ? '' : 'disabled' ?>>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <?php if ($isAdmin): ?><button class="btn">Simpan</button><?php endif; ?>
+        </form>
+        <?php if ($br['domain']):
+            $dom = $br['domain'];
+            $serverIp = (string)Secrets::get('SERVER_IP', $_SERVER['SERVER_ADDR'] ?? '');
+            $resolved = gethostbyname($dom);
+            $dnsOk = $resolved !== $dom && ($serverIp === '' || $resolved === $serverIp); ?>
+            <div class="card" style="max-width:760px">
+                <h2>Domain <?= e($dom) ?></h2>
+                <table class="sm">
+                    <tr><td style="width:28px"><?= $dnsOk ? '✅' : '⏳' ?></td><td><b>1. DNS</b> — record <b>A</b> <code><?= e($dom) ?></code> (dan <code>www</code>) → <code><?= e($serverIp ?: 'IP VPS') ?></code><br><span class="muted" style="font-size:11px">sekarang mengarah ke: <?= $resolved === $dom ? 'belum ada' : e($resolved) ?></span></td></tr>
+                    <tr><td>🖥️</td><td><b>2. Pasang di server</b> (sekali, setelah DNS benar):<br><code>sudo bash /srv/adf/app/ops/add-domain.sh <?= e($dom) ?></code></td></tr>
+                    <tr><td>🌐</td><td><b>3. Cek</b> — <a href="https://<?= e($dom) ?>/login.php" target="_blank" rel="noopener">https://<?= e($dom) ?>/login.php</a></td></tr>
+                </table>
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
 
 <?php else: ?>
