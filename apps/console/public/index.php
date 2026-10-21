@@ -96,7 +96,7 @@ if (isset($_GET['denied'])) {
     .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
     .two { display: grid; grid-template-columns: 1.6fr 1fr; gap: 10px; }
     @media (max-width: 1000px) { .kpi { grid-template-columns: repeat(2, 1fr); } .srv, .two { grid-template-columns: 1fr; } .dns { justify-content: center; flex-wrap: wrap; } }
-    @media (max-width: 560px) { .chk { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .chk { grid-template-columns: 1fr; } .dns { gap: 4px; flex-wrap: nowrap; } .dn { width: 33%; } .dn svg { width: 84px; height: 84px; } .dn small { font-size: 9.5px; } }
 </style>
 <svg width="0" height="0" style="position:absolute"><defs><linearGradient id="gOk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a4c"/><stop offset="1" stop-color="#ff6a1a"/></linearGradient></defs></svg>
 

@@ -15,6 +15,9 @@ final class View
         ['billing', 'Tagihan', 'card', '/billing.php'],
     ];
 
+    /** Menu aktif halaman ini (dipakai juga oleh menu bawah di HP) */
+    private static string $active = '';
+
     /** Halaman yang termasuk menu Pengaturan (di bawah sidebar) */
     private const SETTINGS_KEYS = ['settings', 'server', 'users', 'audit', 'account'];
 
@@ -51,6 +54,11 @@ final class View
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ADF Console">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -176,14 +184,22 @@ final class View
         .me .who { flex: 1; min-width: 0; line-height: 1.3; } .me .who small { color: var(--mu); font-size: 11.5px; }
         .me a { color: var(--mu); display: grid; place-items: center; padding: 6px; border-radius: 8px; } .me a:hover { background: rgba(255, 255, 255, .04); color: var(--bad); }
         .main { padding: 20px 26px 34px; max-width: 1140px; width: 100%; }
-        .top { display: none; }
+        .top, .bnav, .install { display: none; }
+        /* HP: seperti aplikasi — bilah atas ringkas + menu bawah, sidebar disembunyikan */
         @media (max-width: 860px) {
             .shell { grid-template-columns: 1fr; }
-            .side { position: fixed; inset: 0 22% 0 0; z-index: 20; transform: translateX(-100%); transition: transform .25s ease; height: 100%; }
-            .shell.open .side { transform: none; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55); }
-            .top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: rgba(11, 14, 20, .88); backdrop-filter: blur(8px); z-index: 10; }
-            .top button { background: var(--card); border: 1px solid var(--line); color: var(--ink); border-radius: 9px; padding: 6px 10px; font-size: 16px; }
-            .main { padding: 20px 16px 36px; }
+            .side { display: none; }
+            .top { display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: rgba(11, 14, 20, .92); backdrop-filter: blur(10px); z-index: 10; }
+            .top img { width: 24px; height: 24px; }
+            .top b { flex: 1; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .top a.out { color: var(--mu); display: grid; place-items: center; padding: 4px; }
+            .install.show { display: inline-flex; }
+            .main { padding: 16px 14px calc(80px + env(safe-area-inset-bottom)); }
+            .bnav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: rgba(14, 18, 26, .96); backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+            .bnav a { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--mu); font-size: 10.5px; font-weight: 500; padding: 4px 0; border-radius: 8px; }
+            .bnav a .ico { width: 20px; height: 20px; }
+            .bnav a.on { color: var(--brand); }
+            .bnav a.on .ico { filter: drop-shadow(0 0 6px rgba(255, 106, 26, .45)); }
             table.stack thead { display: none; }
             table.stack td { display: block; border: 0; padding: 4px 0; }
             table.stack tr { display: block; border-top: 1px solid var(--line2); padding: 10px 0; }
@@ -202,7 +218,7 @@ final class View
 
     public static function guestEnd(): void
     {
-        echo '</div></div></body></html>';
+        echo '</div></div><script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js").catch(function () {}); }</script></body></html>';
     }
 
     public static function start(string $title, string $active, array $user): void
@@ -218,7 +234,10 @@ final class View
             . '<div class="me"><span class="av">' . e(mb_strtoupper(mb_substr((string)$user['username'], 0, 1))) . '</span>'
             . '<span class="who"><b>' . e($user['username']) . '</b><br><small>' . e($user['role'] === 'admin' ? 'Admin' : 'Staf ADF') . '</small></span>'
             . '<a href="/logout.php" title="Keluar" aria-label="Keluar">' . self::icon('out') . '</a></div></div></aside>';
-        echo '<div><div class="top"><button type="button" onclick="document.getElementById(\'shell\').classList.toggle(\'open\')" aria-label="Menu">☰</button><b>' . e($title) . '</b></div><main class="main">';
+        self::$active = $active;
+        echo '<div><div class="top"><a href="/"><img src="/logo.png" alt=""></a><b>' . e($title) . '</b>'
+            . '<button type="button" class="btn sm install" id="installBtn">Pasang aplikasi</button>'
+            . '<a class="out" href="/logout.php" title="Keluar" aria-label="Keluar">' . self::icon('out') . '</a></div><main class="main">';
         if ($f = flash()) {
             echo '<div class="alert ' . ($f['type'] === 'ok' ? 'ok' : 'err') . '">' . e($f['msg']) . '</div>';
         }
@@ -226,6 +245,29 @@ final class View
 
     public static function end(): void
     {
-        echo '</main></div></div><script>document.querySelectorAll(".nav a").forEach(function(a){a.addEventListener("click",function(){document.getElementById("shell").classList.remove("open")})});</script></body></html>';
+        // Menu bawah (HP): 4 menu utama + Lainnya (= Pengaturan)
+        echo '</main></div></div><nav class="bnav">';
+        foreach (self::MENU as [$key, $label, $icon, $url]) {
+            echo '<a class="' . ($key === self::$active ? 'on' : '') . '" href="' . e($url) . '">' . self::icon($icon) . e($label) . '</a>';
+        }
+        echo '<a class="' . (in_array(self::$active, self::SETTINGS_KEYS, true) ? 'on' : '') . '" href="/settings.php">' . self::icon('gear') . 'Lainnya</a></nav>';
+        echo <<<'JS'
+<script>
+// Aplikasi (PWA): daftarkan service worker + tombol "Pasang aplikasi"
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(function () {}); }
+(function () {
+    var btn = document.getElementById('installBtn'), prompt = null;
+    var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (!btn || standalone) return;
+    window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); prompt = e; btn.classList.add('show'); });
+    if (ios) btn.classList.add('show'); // Safari tidak punya tombol otomatis → tampilkan petunjuk
+    btn.addEventListener('click', function () {
+        if (prompt) { prompt.prompt(); prompt.userChoice.finally(function () { prompt = null; btn.classList.remove('show'); }); return; }
+        alert('Di iPhone: ketuk tombol Bagikan (kotak dengan panah ke atas) di Safari, lalu pilih "Tambah ke Layar Utama".');
+    });
+})();
+</script></body></html>
+JS;
     }
 }
