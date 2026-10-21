@@ -1387,6 +1387,13 @@ if (isset($_GET['biz'])) {
         }
         @keyframes boxFlash { 0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0), 0 30px 80px rgba(0, 2, 12, .6); } 35% { box-shadow: 0 0 70px 6px rgba(251, 191, 36, .28), 0 30px 80px rgba(0, 2, 12, .6); } 100% { box-shadow: 0 30px 80px rgba(0, 2, 12, .6), inset 0 1px 0 rgba(255, 255, 255, .06); } }
         @media (max-width: 860px) { .dev-contact-out { width: min(320px, 90vw); } }
+        /* Logo perusahaan (domain brand): bulat, warna asli — bukan siluet putih seperti logo ADF */
+        .bs-logo.is-brand { width: 132px; height: 132px; clip-path: none; }
+        .bs-logo.is-brand img { width: 132px; height: 132px; border-radius: 50%; object-fit: cover; background: #fff; filter: none; box-shadow: 0 0 0 3px rgba(251, 191, 36, .55), 0 0 38px 6px rgba(251, 191, 36, .22); }
+        .lg-logo.is-brand { width: 76px; height: 76px; clip-path: none; margin-bottom: .7rem; }
+        .lg-logo.is-brand img { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; background: #fff; filter: none; box-shadow: 0 0 0 2px rgba(251, 191, 36, .55), 0 0 22px 2px rgba(251, 191, 36, .2); }
+        .is-brand .bs-dot, .is-brand .lg-dot { display: none; }
+        .bs-logo.is-brand .bs-ring { top: 50%; }
         @media (prefers-reduced-motion: reduce) { .bs-logo, .bs-dot, .bs-ring, .bs-welcome, .bs-brand span, .bs-line, .bs-tag, .bs-skip { animation: none !important; opacity: 1 !important; transform: none !important; filter: none !important; } .bs-line { width: 200px; } }
     </style>
 </head>
@@ -1398,7 +1405,7 @@ if (isset($_GET['biz'])) {
     </script>
     <div id="bootSplash" role="presentation">
         <div class="bs-stage">
-            <div class="bs-logo">
+            <div class="bs-logo<?php echo $brandLogo ? ' is-brand' : ''; ?>">
                 <img src="<?php echo $brandLogo ? htmlspecialchars($brandLogo) : BASE_URL . '/assets/img/developer-logo.png?v=' . @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="">
                 <i class="bs-ring" style="--r:0"></i><i class="bs-ring" style="--r:1"></i><i class="bs-ring" style="--r:2"></i>
                 <span class="bs-dot"></span>
@@ -1414,7 +1421,7 @@ if (isset($_GET['biz'])) {
         <div class="login-shell">
             <div class="login-box">
                 <div class="login-header">
-                    <div class="lg-logo"><img src="<?php echo $brandLogo ? htmlspecialchars($brandLogo) : BASE_URL . '/assets/img/developer-logo.png?v=' . @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="<?php echo htmlspecialchars($brandName ?? 'ADF System'); ?>"><span class="lg-dot"></span></div>
+                    <div class="lg-logo<?php echo $brandLogo ? ' is-brand' : ''; ?>"><img src="<?php echo $brandLogo ? htmlspecialchars($brandLogo) : BASE_URL . '/assets/img/developer-logo.png?v=' . @filemtime(__DIR__ . '/assets/img/developer-logo.png'); ?>" alt="<?php echo htmlspecialchars($brandName ?? 'ADF System'); ?>"><span class="lg-dot"></span></div>
                     <h2 class="login-logo"><?php echo $brandName ? htmlspecialchars($brandName) : 'Sign in to Dashboard'; ?></h2>
                     <p class="login-subtitle"><?php if ($brandName): ?><?php echo htmlspecialchars($brandSub ?? 'Sign in to Dashboard'); ?><?php else: ?><?php echo $displayInfo['subtitle']; ?><?php if (isset($_GET['biz'])): ?> • Hotel System<?php endif; ?><?php endif; ?></p>
                 </div>
