@@ -30,7 +30,6 @@ for v in S3_ENDPOINT S3_ACCESS_KEY S3_SECRET_KEY S3_BUCKET CRYPT_PASSWORD CRYPT_
 done
 
 # Konfigurasi rclone lewat variabel lingkungan → tidak ada file config berisi kunci di disk
-export RCLONE_CONFIG=/dev/null   # tanpa file config (menghilangkan pesan "Config file not found")
 exportRCLONE_CONFIG_NOS_TYPE=s3 RCLONE_CONFIG_NOS_PROVIDER=Other RCLONE_CONFIG_NOS_ENDPOINT=$S3_ENDPOINT \
        RCLONE_CONFIG_NOS_ACCESS_KEY_ID=$S3_ACCESS_KEY RCLONE_CONFIG_NOS_SECRET_ACCESS_KEY=$S3_SECRET_KEY \
        RCLONE_CONFIG_NOS_ACL=private RCLONE_CONFIG_NOS_NO_CHECK_BUCKET=true
@@ -48,8 +47,10 @@ case "${1:-}" in
     T=$(mktemp); echo "adf offsite test $(date '+%F %T')" > "$T"
     # cepat gagal (bukan mencoba ulang berkali-kali) supaya salah endpoint/kunci langsung kelihatan
     FAST=(--contimeout 15s --timeout 30s --retries 1 --low-level-retries 1 -v)
-    rclone copyto "$T" safe:_test.txt "${FAST[@]}" && rclone cat safe:_test.txt "${FAST[@]}" && rclone deletefile safe:_test.txt "${FAST[@]}"
+    OK=0
+    rclone copyto "$T" safe:_test.txt "${FAST[@]}" && rclone cat safe:_test.txt "${FAST[@]}" && rclone deletefile safe:_test.txt "${FAST[@]}" && OK=1
     rm -f "$T"
+    (( OK )) || die "tes offsite gagal — lihat pesan rclone di atas (endpoint / kunci / nama bucket)."
     echo "OK: koneksi + enkripsi berfungsi (isi file di atas terbaca kembali)."
     echo "Di panel Biznet isi bucket terlihat acak — itu tanda terenkripsi."
     ;;
