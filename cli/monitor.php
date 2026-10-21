@@ -120,6 +120,9 @@ function dailyReport(array $f, array $problems): string
     $l[] = '⚙️ Beban ' . number_format($f['load'], 2) . " · aktif {$f['uptime_days']} hari";
     $l[] = implode('  ', $svc);
     $l[] = '🔒 SSL ' . ($f['ssl_days'] === null ? 'tidak terbaca' : "sisa {$f['ssl_days']} hari");
+    $b = $f['backup'] ?? null;
+    $l[] = $b === null ? '🗄️ Backup: belum dipasang'
+        : ($b['ok'] ? '🗄️ Backup ' : '❌ Backup ') . esc((string)$b['finished']) . " · {$b['databases']} database · {$b['size_mb']} MB" . ($b['ok'] ? '' : ' · ' . esc((string)$b['message']));
     if ($f['security_updates'] !== null) {
         $l[] = '🛡️ Update: ' . $f['updates'] . ' tersedia' . ($f['security_updates'] > 0 ? " ({$f['security_updates']} keamanan — biasanya terpasang otomatis)" : '');
     }

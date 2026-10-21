@@ -1,0 +1,6 @@
+# Backup harian ADF. Pasang: sudo cp /srv/adf/app/ops/cron/adf-backup /etc/cron.d/adf-backup
+# 02:30 WIB setiap malam (sepi transaksi). Hasil & status: /srv/adf/backups, log: /var/log/adf-backup.log
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Asia/Jakarta
+30 2 * * * root /bin/bash /srv/adf/app/ops/backup.sh >> /var/log/adf-backup.log 2>&1

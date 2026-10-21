@@ -12,7 +12,8 @@ final class ServerHealth
     public const MEM_WARN = 90;        // % terpakai (tanpa cache)
     public const SSL_WARN_DAYS = 14;
     public const SERVICES = ['nginx' => 'Nginx (web)', 'php8.2-fpm' => 'PHP', 'mariadb' => 'MariaDB (database)', 'fail2ban' => 'fail2ban'];
-    public const LABELS = ['disk' => 'Disk', 'mem' => 'RAM', 'load' => 'Beban CPU', 'svc' => 'Layanan', 'ssl' => 'Sertifikat SSL', 'reboot' => 'Perlu restart', 'web' => 'Website'];
+    public const LABELS = ['disk' => 'Disk', 'mem' => 'RAM', 'load' => 'Beban CPU', 'svc' => 'Layanan', 'ssl' => 'Sertifikat SSL', 'reboot' => 'Perlu restart', 'web' => 'Website', 'backup' => 'Backup'];
+    public const BACKUP_MAX_AGE_H = 26; // backup harian dianggap terlewat bila status terakhir lebih tua dari ini
 
     public static function serverName(): string
     {
@@ -66,7 +67,21 @@ final class ServerHealth
 
         $f['site_host'] = Secrets::get('SITE_HOST', 'vps.adfsystem.online');
         [$f['ssl_days'], $f['web_ok']] = self::sslAndWeb($f['site_host']);
+        $f['backup'] = self::backupStatus();
         return $f;
+    }
+
+    /**
+     * Status backup harian (ops/backup.sh menulis BACKUP_DIR/last.json). null = backup belum pernah dipasang.
+     * @return array{ok:bool,date:string,finished:string,message:string,databases:int,size_mb:int,age_h:int}|null
+     */
+    public static function backupStatus(): ?array
+    {
+        $file = rtrim((string)Secrets::get('BACKUP_DIR', '/srv/adf/backups'), '/') . '/last.json';
+        $b = is_readable($file) ? json_decode((string)file_get_contents($file), true) : null;
+        if (!is_array($b)) return null;
+        $b['age_h'] = (int)floor((time() - (strtotime((string)($b['finished'] ?? '')) ?: 0)) / 3600);
+        return $b;
     }
 
     /** @return array<string,string> kunci-unik => pesan */
@@ -82,6 +97,11 @@ final class ServerHealth
         if (!$f['web_ok']) $p['web'] = "Website {$f['site_host']} tidak menjawab";
         if ($f['ssl_days'] !== null && $f['ssl_days'] <= self::SSL_WARN_DAYS) $p['ssl'] = "Sertifikat SSL habis dalam {$f['ssl_days']} hari";
         if ($f['reboot']) $p['reboot'] = 'Server perlu di-restart setelah update (sudo reboot)';
+        $b = $f['backup'] ?? null;
+        if ($b !== null) {
+            if (empty($b['ok'])) $p['backup'] = 'Backup gagal: ' . ($b['message'] ?? '?');
+            elseif ($b['age_h'] > self::BACKUP_MAX_AGE_H) $p['backup'] = "Backup terakhir {$b['age_h']} jam lalu — backup harian terlewat";
+        }
         return $p;
     }
 
