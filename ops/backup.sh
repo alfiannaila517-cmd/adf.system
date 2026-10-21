@@ -68,6 +68,11 @@ keep "$ROOT/daily" 7
 keep "$ROOT/weekly" 4
 keep "$ROOT/monthly" 3
 
+# --- salinan di luar VPS (bila sudah diatur) ---
+if [[ -f /srv/adf/secrets/offsite.env ]]; then
+  bash /srv/adf/app/ops/offsite.sh push > /dev/null 2>> "$DEST/errors.log" || FAILED+=("offsite")
+fi
+
 SIZE_MB=$(du -sk "$DEST" | awk '{printf "%.1f", $1/1024}')
 [[ -s "$DEST/errors.log" ]] || rm -f "$DEST/errors.log"
 if (( ${#FAILED[@]} )); then
