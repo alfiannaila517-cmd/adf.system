@@ -72,73 +72,79 @@ $qtyFmt = static fn ($v) => rtrim(rtrim(number_format((float)$v, 2, '.', ''), '0
 
 View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
 ?>
-<div class="crumb"><a href="/invoices.php">Invoice</a> ›</div>
-<div class="pagehead">
-    <div><h1><?= $inv ? 'Ubah invoice ' . e($inv['number']) : ($f['kind'] === 'monthly' ? 'Invoice bulanan · ' . e(Invoice::date($period . '-01', false)) : 'Invoice baru') ?></h1>
-        <p><?= $f['kind'] === 'monthly' ? 'Baris sudah diisi dari paket & biaya tambahan tiap bisnis — ubah bebas sebelum disimpan.' : 'Untuk registrasi, setup, tambah modul, atau pekerjaan khusus.' ?></p></div>
-</div>
-
+<style>
+    /* Form invoice ringkas: muat satu layar */
+    .inv { display: grid; gap: 6px 8px; }
+    .inv label { font-size: 10.5px; margin: 0 0 2px; }
+    .inv input, .inv select { padding: 4px 8px; font-size: 12px; }
+    .inv-a { grid-template-columns: 1.4fr 1.2fr 1fr 1.2fr; }
+    .inv-b { grid-template-columns: 2fr 1fr 1fr 1fr 1.3fr; }
+    #items td { padding: 2px 4px; border: 0; }
+    #items th { padding: 0 4px 4px; }
+    #items input { padding: 4px 7px; font-size: 12px; }
+    .inv-foot { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 10px; }
+    .inv-foot input, .inv-foot select { padding: 4px 7px; font-size: 12px; }
+    .inv-sum { font-size: 11px; color: var(--mu); text-align: right; line-height: 1.35; }
+    @media (max-width: 860px) { .inv-a, .inv-b { grid-template-columns: 1fr 1fr; } }
+</style>
 <form method="post" autocomplete="off" novalidate id="invForm">
     <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
     <input type="hidden" name="kind" value="<?= e($f['kind'] ?? 'free') ?>"><input type="hidden" name="client_id" value="<?= (int)($f['client_id'] ?? 0) ?>">
-    <div class="row2" style="align-items:start">
-        <div class="card" style="margin:0">
-            <h2>Ditagihkan kepada</h2>
-            <div class="row2">
-                <div class="field"><label>Nama pelanggan *</label><input name="cust_name" value="<?= e($f['cust_name'] ?? '') ?>"></div>
-                <div class="field"><label>Perusahaan</label><input name="cust_company" value="<?= e($f['cust_company'] ?? '') ?>"></div>
-                <div class="field"><label>Email</label><input name="cust_email" type="email" value="<?= e($f['cust_email'] ?? '') ?>"></div>
-                <div class="field"><label>WhatsApp / telepon</label><input name="cust_phone" value="<?= e($f['cust_phone'] ?? '') ?>"></div>
-            </div>
-            <div class="field" style="margin:0"><label>Alamat</label><input name="cust_address" value="<?= e($f['cust_address'] ?? '') ?>"></div>
+    <div class="pagehead" style="margin-bottom:10px;align-items:center">
+        <div><div class="crumb" style="margin:0"><a href="/invoices.php">Invoice</a> ›</div>
+            <h1><?= $inv ? 'Ubah invoice ' . e($inv['number']) : ($f['kind'] === 'monthly' ? 'Invoice bulanan · ' . e(Invoice::date($period . '-01', false)) : 'Invoice baru') ?></h1></div>
+        <div style="display:flex;gap:6px"><a class="btn ghost" href="<?= $inv ? '/invoice-view.php?id=' . $id : '/invoices.php' ?>">Batal</a><button class="btn">Simpan invoice</button></div>
+    </div>
+
+    <div class="card" style="margin-bottom:10px">
+        <div class="inv inv-a">
+            <div><label>Pelanggan *</label><input name="cust_name" value="<?= e($f['cust_name'] ?? '') ?>"></div>
+            <div><label>Perusahaan</label><input name="cust_company" value="<?= e($f['cust_company'] ?? '') ?>"></div>
+            <div><label>WhatsApp</label><input name="cust_phone" value="<?= e($f['cust_phone'] ?? '') ?>"></div>
+            <div><label>Email</label><input name="cust_email" type="email" value="<?= e($f['cust_email'] ?? '') ?>"></div>
         </div>
-        <div class="card" style="margin:0">
-            <h2>Detail invoice</h2>
-            <div class="row2">
-                <div class="field"><label>Nomor</label><input name="number" value="<?= e($f['number'] ?? '') ?>" placeholder="otomatis: <?= e(Invoice::nextNumber()) ?>"></div>
-                <div class="field"><label>Status</label><select name="status"><?php foreach (['unpaid' => 'Belum dibayar (kirim ke pelanggan)', 'draft' => 'Draft (belum bisa dibuka pelanggan)', 'paid' => 'Lunas'] as $k => $l): ?><option value="<?= $k ?>" <?= ($f['status'] ?? 'unpaid') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
-                <div class="field"><label>Tanggal terbit</label><input name="issue_date" type="date" value="<?= e($f['issue_date'] ?? '') ?>"></div>
-                <div class="field"><label>Jatuh tempo</label><input name="due_date" type="date" value="<?= e($f['due_date'] ?? '') ?>"></div>
-            </div>
+        <div class="inv inv-b" style="margin-top:6px">
+            <div><label>Alamat</label><input name="cust_address" value="<?= e($f['cust_address'] ?? '') ?>"></div>
+            <div><label>Nomor</label><input name="number" value="<?= e($f['number'] ?? '') ?>" placeholder="<?= e(Invoice::nextNumber()) ?>"></div>
+            <div><label>Terbit</label><input name="issue_date" type="date" value="<?= e($f['issue_date'] ?? '') ?>"></div>
+            <div><label>Jatuh tempo</label><input name="due_date" type="date" value="<?= e($f['due_date'] ?? '') ?>"></div>
+            <div><label>Status</label><select name="status"><?php foreach (['unpaid' => 'Belum dibayar', 'draft' => 'Draft', 'paid' => 'Lunas'] as $k => $l): ?><option value="<?= $k ?>" <?= ($f['status'] ?? 'unpaid') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
         </div>
     </div>
 
-    <div class="card" style="margin-top:14px">
-        <h2>Rincian tagihan</h2>
+    <div class="card" style="margin:0">
         <div style="overflow-x:auto">
-            <table class="sm" id="items">
-                <thead><tr><th>Deskripsi</th><th style="width:70px">Qty</th><th style="width:150px">Harga (Rp)</th><th style="width:140px;text-align:right">Jumlah</th><th style="width:36px"></th></tr></thead>
+            <table id="items">
+                <thead><tr><th>Deskripsi</th><th>Keterangan</th><th style="width:56px">Qty</th><th style="width:120px">Harga (Rp)</th><th style="width:110px;text-align:right">Jumlah</th><th style="width:30px"></th></tr></thead>
                 <tbody>
                     <?php foreach ($items as $it): ?>
                         <tr>
-                            <td><input name="item_desc[]" value="<?= e($it['description']) ?>" placeholder="mis. Langganan Narayana Hotel"><input name="item_note[]" value="<?= e((string)$it['note']) ?>" placeholder="keterangan kecil (opsional)" style="margin-top:3px;font-size:11.5px;padding:3px 8px;color:var(--ink2)"><input type="hidden" name="item_biz[]" value="<?= e((string)($it['business_id'] ?? '')) ?>"></td>
+                            <td><input name="item_desc[]" value="<?= e($it['description']) ?>" placeholder="mis. Langganan Narayana Hotel"><input type="hidden" name="item_biz[]" value="<?= e((string)($it['business_id'] ?? '')) ?>"></td>
+                            <td><input name="item_note[]" value="<?= e((string)$it['note']) ?>" placeholder="opsional" style="color:var(--ink2)"></td>
                             <td><input name="item_qty[]" value="<?= e($qtyFmt($it['qty'])) ?>" inputmode="decimal"></td>
                             <td><input name="item_price[]" value="<?= e($money($it['unit_price'])) ?>" inputmode="numeric"></td>
-                            <td class="amt" style="text-align:right;font-weight:600">-</td>
+                            <td class="amt" style="text-align:right;font-weight:600;white-space:nowrap">-</td>
                             <td><button type="button" class="btn ghost sm del" title="Hapus baris">×</button></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
-        <button type="button" class="btn ghost sm" id="addRow" style="margin-top:8px">+ Tambah baris</button>
+        <button type="button" class="btn ghost sm" id="addRow" style="margin-top:6px">+ Baris</button>
 
-        <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
-            <div class="field" style="flex:1;min-width:240px"><label>Catatan untuk pelanggan</label><textarea name="notes" rows="2"><?= e($f['notes'] ?? '') ?></textarea></div>
-            <div style="min-width:280px">
-                <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><label style="margin:0;width:70px">Diskon</label>
-                    <select class="sm" name="discount_type"><option value="rp" <?= ($f['discount_type'] ?? 'rp') === 'rp' ? 'selected' : '' ?>>Rp</option><option value="percent" <?= ($f['discount_type'] ?? '') === 'percent' ? 'selected' : '' ?>>%</option></select>
-                    <input class="sm" name="discount_value" value="<?= e((string)($f['discount_value'] ?? 0)) ?>" inputmode="decimal" style="flex:1"></div>
-                <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px"><label style="margin:0;width:70px">PPN %</label><input class="sm" name="tax_percent" value="<?= e((string)($f['tax_percent'] ?? 0)) ?>" inputmode="decimal" style="flex:1"></div>
-                <div style="display:flex;justify-content:space-between" class="muted"><span>Subtotal</span><span id="tSub">-</span></div>
-                <div style="display:flex;justify-content:space-between" class="muted"><span>Diskon</span><span id="tDisc">-</span></div>
-                <div style="display:flex;justify-content:space-between" class="muted"><span>PPN</span><span id="tTax">-</span></div>
-                <div style="display:flex;justify-content:space-between;font-size:17px;font-weight:700;margin-top:6px"><span>Total</span><span id="tTotal" style="color:var(--brand)">-</span></div>
-            </div>
+        <div class="inv-foot">
+            <input name="notes" value="<?= e(str_replace(["\r", "\n"], ' ', (string)($f['notes'] ?? ''))) ?>" placeholder="Catatan untuk pelanggan (opsional)" style="flex:1;min-width:220px">
+            <span class="muted" style="font-size:11px">Diskon</span>
+            <select name="discount_type" style="width:auto"><option value="rp" <?= ($f['discount_type'] ?? 'rp') === 'rp' ? 'selected' : '' ?>>Rp</option><option value="percent" <?= ($f['discount_type'] ?? '') === 'percent' ? 'selected' : '' ?>>%</option></select>
+            <input name="discount_value" value="<?= e((string)($f['discount_value'] ?? 0)) ?>" inputmode="decimal" style="width:90px">
+            <span class="muted" style="font-size:11px">PPN %</span>
+            <input name="tax_percent" value="<?= e((string)($f['tax_percent'] ?? 0)) ?>" inputmode="decimal" style="width:56px">
+            <div class="inv-sum">Subtotal <span id="tSub">-</span> · Diskon <span id="tDisc">-</span> · PPN <span id="tTax">-</span>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">Total <span id="tTotal" style="color:var(--brand)">-</span></div></div>
         </div>
     </div>
-    <button class="btn">Simpan invoice</button> <a class="btn ghost" href="<?= $inv ? '/invoice-view.php?id=' . $id : '/invoices.php' ?>">Batal</a>
 </form>
+
 
 <script>
 (function () {
@@ -157,8 +163,8 @@ View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
         var disc = document.querySelector('[name=discount_type]').value === 'percent' ? sub * Math.min(dv, 100) / 100 : Math.min(dv, sub);
         var tax = (sub - disc) * (parseFloat(String(document.querySelector('[name=tax_percent]').value).replace(',', '.')) || 0) / 100;
         document.getElementById('tSub').textContent = rp(sub);
-        document.getElementById('tDisc').textContent = disc ? '- ' + rp(disc) : '-';
-        document.getElementById('tTax').textContent = tax ? rp(tax) : '-';
+        document.getElementById('tDisc').textContent = disc ? '- ' + rp(disc) : 'Rp 0';
+        document.getElementById('tTax').textContent = rp(tax);
         document.getElementById('tTotal').textContent = rp(sub - disc + tax);
     }
     document.getElementById('addRow').addEventListener('click', function () {
