@@ -27,7 +27,7 @@ if (PHP_SAPI !== 'cli') {
     header('Cache-Control: no-store');
     // Gambar dari sistem lama (pratinjau branding login) boleh tampil; selebihnya tetap hanya dari Console sendiri
     $legacyOrigin = (string)preg_replace('#^(https?://[^/]+).*$#', '$1', (string)Secrets::get('LEGACY_BASE_URL', 'https://staging.adfsystem.online'));
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: {$legacyOrigin}; form-action 'self'; frame-ancestors 'none'");
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; img-src 'self' data: {$legacyOrigin}; form-action 'self'; frame-ancestors 'none'");
 
     session_name('adf_console');
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => Auth::https(), 'httponly' => true, 'samesite' => 'Lax']);
