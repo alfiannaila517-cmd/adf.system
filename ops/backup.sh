@@ -68,7 +68,7 @@ keep "$ROOT/daily" 7
 keep "$ROOT/weekly" 4
 keep "$ROOT/monthly" 3
 
-SIZE_MB=$(( $(du -sk "$DEST" | cut -f1) / 1024 ))
+SIZE_MB=$(du -sk "$DEST" | awk '{printf "%.1f", $1/1024}')
 [[ -s "$DEST/errors.log" ]] || rm -f "$DEST/errors.log"
 if (( ${#FAILED[@]} )); then
   status failed "Gagal: ${FAILED[*]}" "$COUNT" "$SIZE_MB"
