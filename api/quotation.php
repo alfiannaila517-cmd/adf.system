@@ -26,6 +26,7 @@ require_once '../includes/auth.php';
 require_once '../includes/functions.php';
 require_once '../includes/business_helper.php';
 require_once '../includes/Quotations.php';
+require_once '../includes/AgentRates.php';
 
 ob_clean();
 header('Content-Type: application/json; charset=utf-8');
@@ -51,7 +52,7 @@ try {
         $res = Quotations::create($db, [
             'check_in' => $_POST['check_in'] ?? '', 'check_out' => $_POST['check_out'] ?? '',
             'guest_name' => $_POST['guest_name'] ?? '', 'guest_phone' => $_POST['guest_phone'] ?? '', 'guest_email' => $_POST['guest_email'] ?? '',
-            'notes' => $_POST['notes'] ?? '', 'valid_until' => $_POST['valid_until'] ?? '', 'lang' => $_POST['lang'] ?? 'id',
+            'notes' => $_POST['notes'] ?? '', 'valid_until' => $_POST['valid_until'] ?? '', 'lang' => $_POST['lang'] ?? 'id', 'rate_plan' => $_POST['rate_plan'] ?? '',
             'items' => is_array($items) ? $items : [],
             'extras' => is_array($extras) ? $extras : [],
         ], $uid);
@@ -62,10 +63,13 @@ try {
         echo json_encode(Quotations::update($db, (int)($_POST['id'] ?? 0), [
             'check_in' => $_POST['check_in'] ?? '', 'check_out' => $_POST['check_out'] ?? '',
             'guest_name' => $_POST['guest_name'] ?? '', 'guest_phone' => $_POST['guest_phone'] ?? '', 'guest_email' => $_POST['guest_email'] ?? '',
-            'notes' => $_POST['notes'] ?? '', 'valid_until' => $_POST['valid_until'] ?? '',
+            'notes' => $_POST['notes'] ?? '', 'valid_until' => $_POST['valid_until'] ?? '', 'rate_plan' => $_POST['rate_plan'] ?? '',
             'items' => is_array($items) ? $items : [],
             'extras' => is_array($extras) ? $extras : [],
         ]));
+    } elseif ($act === 'agent_rates') {
+        // Daftar Harga Agent (Pengaturan Front Desk) untuk dropdown harga di penawaran
+        echo json_encode(['ok' => true, 'plans' => AgentRates::plans($db), 'types' => AgentRates::roomTypes($db)]);
     } elseif ($act === 'rooms') {
         echo json_encode(['ok' => true, 'rows' => Quotations::roomList($db)]);
     } elseif ($act === 'catalog') {

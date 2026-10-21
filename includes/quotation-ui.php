@@ -20,7 +20,7 @@ $qtText = [
     '+ Item lain' => '+ Other item', 'Nama item' => 'Item name', 'Harga' => 'Price', 'Layanan tambahan' => 'Additional services', 'dipilih' => 'selected', 'Kamar' => 'Room',
     'Ubah Penawaran' => 'Edit Quotation', 'Ubah' => 'Edit', 'Simpan' => 'Save', 'Diskon' => 'Discount', '+ Kamar' => '+ Room', 'Tambah kamar…' => 'Add room…', '+ Tambah' => '+ Add', 'Pilih layanan…' => 'Select service…',
     'Pilih minimal satu kamar.' => 'Select at least one room.', 'Tanggal tidak valid.' => 'Invalid dates.',
-    'Harga pas' => 'Net rate', '/malam' => '/night', 'Harga kamar' => 'Room rates', 'Harga /malam' => 'Rate /night', 'normal' => 'standard', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
+    'Harga pas' => 'Net rate', '/malam' => '/night', 'Harga kamar' => 'Room rates', 'Harga normal' => 'Standard rate', 'Harga /malam' => 'Rate /night', 'normal' => 'standard', 'Penawaran dibatalkan' => 'Quotation cancelled', 'Check-in' => 'Check-in', 'Check-out' => 'Check-out', 'Tamu' => 'Guest',
     'Reservasi Website' => 'Website Reservation', 'dewasa' => 'adult(s)', 'anak' => 'child(ren)', 'Follow-up WhatsApp tamu' => 'Follow up guest on WhatsApp', 'Sudah di-follow-up' => 'Followed up',
     'DP diterima' => 'Deposit received', 'Belum ada DP' => 'No deposit yet', 'Catat DP' => 'Record deposit', 'Saran DP 50%' => 'Suggested 50% deposit', 'Nominal DP' => 'Deposit amount',
     'Langkah: 1) Follow-up WhatsApp  2) Terima & catat DP  3) Konfirmasi → email otomatis ke tamu.' => 'Steps: 1) Follow up on WhatsApp  2) Receive & record the deposit  3) Confirm → guest gets an automatic email.',
@@ -183,8 +183,30 @@ $qtText = [
             const tt = el('div', 'tot'); tt.appendChild(el('small', '', t('Total'))); const totB = el('b', '', rp(total)); tt.appendChild(totB); sum.appendChild(tt);
             body.appendChild(sum);
 
-            // Harga kamar: satu baris per kamar, harga /malam bisa diubah
+            // Harga kamar: dropdown daftar Harga Agent (Pengaturan Front Desk) + satu baris per kamar, harga /malam bisa diubah
             body.appendChild(el('div', 'qt-sec', t('Harga kamar')));
+            let ratePlan = '';
+            const planRow = el('div', 'qt-add');
+            const planSel = el('select'); const o0 = el('option', '', t('Harga normal')); o0.value = ''; planSel.appendChild(o0);
+            planRow.appendChild(planSel); planRow.style.display = 'none'; body.appendChild(planRow);
+            post({ action: 'agent_rates' }).then(res => {
+                const plans = (res && res.plans) || [], types = (res && res.types) || [];
+                if (!plans.length) return;
+                plans.forEach((p, i) => { const o = el('option', '', t('Harga') + ': ' + p.name); o.value = String(i); planSel.appendChild(o); });
+                planRow.style.display = '';
+                planSel.onchange = () => {
+                    const p = plans[+planSel.value];
+                    ratePlan = p ? p.name : '';
+                    st.rooms.forEach(r => {
+                        const ty = types.find(x => x.name === r.type);
+                        const agent = p && ty ? +(p.prices[String(ty.id)] || 0) : 0;
+                        // Daftar agent: harga agent (tipe tanpa harga agent = harga normal); Harga normal: kembali ke harga awal (+diskon)
+                        r.price = p ? (agent > 0 ? agent : Math.round(r.base)) : r.net;
+                        if (r.input) r.input.value = r.price;
+                    });
+                    total = roomsTotal(); recalc();
+                };
+            }).catch(() => {});
             const priceBox = el('div', 'qt-ed');
             st.rooms.forEach(r => {
                 const row = el('div', 'qt-er qt-er-price');
@@ -193,6 +215,7 @@ $qtText = [
                 const pi = el('input'); pi.type = 'number'; pi.min = '0'; pi.step = '1000'; pi.value = r.price; pi.style.textAlign = 'right';
                 pi.setAttribute('aria-label', t('Harga /malam') + ' ' + r.number);
                 pi.addEventListener('input', () => { r.price = Math.max(0, Math.round(parseFloat(pi.value) || 0)); total = roomsTotal(); recalc(); });
+                r.input = pi;
                 row.appendChild(lab); row.appendChild(el('small', '', t('Harga /malam'))); row.appendChild(pi);
                 priceBox.appendChild(row);
             });
@@ -257,7 +280,7 @@ $qtText = [
 
                 post({
                     action: 'create', check_in: st.ci, check_out: st.co, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(),
-                    notes: notes.value.trim(), lang: EN ? 'en' : 'id',
+                    notes: notes.value.trim(), lang: EN ? 'en' : 'id', rate_plan: ratePlan,
                     // Harga tidak diubah → harga tipe kamar + diskon seperti biasa; diubah → harga /malam itu dipakai apa adanya
                     items: JSON.stringify(st.rooms.map(r => r.price === r.net
                         ? { room_id: r.id, disc_type: r.disc_type, disc_value: r.disc_value }
@@ -278,7 +301,7 @@ $qtText = [
         // ---- Ubah penawaran (hanya yang masih terbuka) ----
         window.adfQuoteEdit = function(id) {
             box.innerHTML = ''; box.className = 'qt'; box.appendChild(el('div', 'qt-b', '…')); open();
-            Promise.all([post({ action: 'get', id: id }), post({ action: 'rooms' }), post({ action: 'catalog' })]).then(([g, rm, cat]) => {
+            Promise.all([post({ action: 'get', id: id }), post({ action: 'rooms' }), post({ action: 'catalog' }), post({ action: 'agent_rates' }).catch(() => null)]).then(([g, rm, cat, ag]) => {
                 if (!g.ok) throw new Error(g.msg || t('Gagal memuat penawaran.'));
                 const q = g.quote;
                 if (q.status !== 'open') { window.adfQuoteView(id); return; }
@@ -299,8 +322,27 @@ $qtText = [
                 const r1 = el('div', 'qt-r2'); r1.appendChild(field(t('WhatsApp / telepon'), phone)); r1.appendChild(field(t('Email'), mail)); body.appendChild(r1);
                 const r2 = el('div', 'qt-r2'); r2.appendChild(field(t('Check-in'), ci)); r2.appendChild(field(t('Check-out'), co)); body.appendChild(r2);
 
-                // Kamar + diskon
+                // Kamar + diskon (+ dropdown Harga Agent bila ada daftarnya)
                 body.appendChild(el('div', 'qt-sec', t('Kamar')));
+                let ratePlan = q.rate_plan || '';
+                const plans = (ag && ag.plans) || [], types = (ag && ag.types) || [];
+                if (plans.length) {
+                    const planRow = el('div', 'qt-add'), planSel = el('select');
+                    const o0 = el('option', '', t('Harga normal')); o0.value = ''; planSel.appendChild(o0);
+                    plans.forEach((p, i) => { const o = el('option', '', t('Harga') + ': ' + p.name); o.value = String(i); if (p.name === ratePlan) o.selected = true; planSel.appendChild(o); });
+                    planSel.onchange = () => {
+                        const p = plans[+planSel.value];
+                        ratePlan = p ? p.name : '';
+                        rooms.forEach(r => {
+                            const normal = +((allRooms.find(x => +x.id === r.id) || {}).base_price || r.base);
+                            const ty = types.find(x => x.name === r.type);
+                            const agent = p && ty ? +(p.prices[String(ty.id)] || 0) : 0;
+                            r.base = agent > 0 ? agent : normal;
+                        });
+                        drawRooms(); recalc();
+                    };
+                    planRow.appendChild(planSel); body.appendChild(planRow);
+                }
                 const roomBox = el('div', 'qt-ed');
                 const addSel = el('select'); const addBtn = el('button', 'qt-mini', t('+ Kamar')); addBtn.type = 'button';
                 const addRow = el('div', 'qt-add'); addRow.appendChild(addSel); addRow.appendChild(addBtn);
@@ -390,7 +432,7 @@ $qtText = [
                     if (!rooms.length) { show(t('Pilih minimal satu kamar.')); return; }
                     err.style.display = 'none'; sv.disabled = sp.disabled = true; (print ? sp : sv).textContent = t('Menyimpan…');
                     post({
-                        action: 'update', id: q.id, check_in: ci.value, check_out: co.value, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(), notes: notes.value.trim(),
+                        action: 'update', id: q.id, rate_plan: ratePlan, check_in: ci.value, check_out: co.value, guest_name: name.value.trim(), guest_phone: phone.value.trim(), guest_email: mail.value.trim(), notes: notes.value.trim(),
                         items: JSON.stringify(rooms.map(r => ({ room_id: r.id, base: r.base, disc_type: r.dtype, disc_value: r.dval }))),
                         extras: JSON.stringify(extras.filter(x => x.name.trim() && +x.price >= 0).map(x => ({ name: x.name.trim(), price: +x.price || 0, qty: +x.qty || 1, unit: x.unit, type: x.type })))
                     }).then(r => {

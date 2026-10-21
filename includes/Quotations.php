@@ -209,6 +209,7 @@ class Quotations
         // Reservasi dari website: sumber, jumlah tamu, DP yang sudah diterima, status follow-up & notifikasi
         $webCols = [
             'source' => "VARCHAR(20) NOT NULL DEFAULT 'admin'",
+            'rate_plan' => 'VARCHAR(80) NULL', // nama daftar Harga Agent yang dipakai (kosong = harga normal)
             'adults' => 'INT NULL',
             'children' => 'INT NULL',
             'dp_amount' => 'DECIMAL(15,2) NOT NULL DEFAULT 0',
@@ -252,6 +253,13 @@ class Quotations
     }
 
     /** Harga bersih per malam setelah diskon (persen atau Rp per malam). */
+    /** Nama daftar Harga Agent yang dipilih di penawaran (null = harga normal). */
+    private static function ratePlan(array $d): ?string
+    {
+        $p = trim((string)($d['rate_plan'] ?? ''));
+        return $p === '' ? null : mb_substr($p, 0, 80);
+    }
+
     public static function netPrice(float $base, string $type, float $val): float
     {
         if ($val > 0 && $type === 'percent') return max(0, round($base * (1 - min(100, $val) / 100), 2));
@@ -350,7 +358,7 @@ class Quotations
             foreach ($extraRows as [$tl, $nm, $pr, $qt, $un, $ln]) {
                 $db->query("INSERT INTO quotation_extras (quote_id, type_label, item_name, unit_price, qty, unit, line_total) VALUES (?, ?, ?, ?, ?, ?, ?)", [$qid, $tl, $nm, $pr, $qt, $un, $ln]);
             }
-            $db->query("UPDATE quotations SET hold_until = ? WHERE id = ?", [$holdUntil, $qid]);
+            $db->query("UPDATE quotations SET hold_until = ?, rate_plan = ? WHERE id = ?", [$holdUntil, self::ratePlan($d), $qid]);
             self::placeHold($db, $qid, $code, $ci, $co, $roomIds, $holdUntil, $userId);
             $conn->commit();
         } catch (\Throwable $e) {
@@ -376,9 +384,9 @@ class Quotations
         $conn->beginTransaction();
         try {
             $db->query("UPDATE quotations SET guest_name = ?, guest_phone = ?, guest_email = ?, notes = ?, check_in = ?, check_out = ?, nights = ?, valid_until = ?,
-                    subtotal = ?, discount_total = ?, total = ?, extras_total = ? WHERE id = ? AND status = 'open'",
+                    subtotal = ?, discount_total = ?, total = ?, extras_total = ?, rate_plan = ? WHERE id = ? AND status = 'open'",
                 [mb_substr($name, 0, 150), mb_substr(trim((string)($d['guest_phone'] ?? '')), 0, 40), mb_substr(trim((string)($d['guest_email'] ?? '')), 0, 120),
-                    trim((string)($d['notes'] ?? '')), $ci, $co, $nights, $valid, round($subtotal, 2), round($subtotal - $total, 2), round($total + $extrasTotal, 2), round($extrasTotal, 2), $id]);
+                    trim((string)($d['notes'] ?? '')), $ci, $co, $nights, $valid, round($subtotal, 2), round($subtotal - $total, 2), round($total + $extrasTotal, 2), round($extrasTotal, 2), self::ratePlan($d), $id]);
             // Hold ikut perubahan kamar/tanggal; batas waktunya tidak bertambah (penawaran lama tanpa hold mendapat 24 jam)
             $roomIds = array_map(fn($row) => (int)$row[0]['id'], $rows);
             $busy = self::busyRooms($db, $roomIds, $ci, $co, $id);

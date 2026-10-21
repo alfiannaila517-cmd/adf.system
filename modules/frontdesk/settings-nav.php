@@ -9,6 +9,8 @@ $sxItems = [
         'icon' => '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>'],
     ['key' => 'breakfast_menu', 'link' => 'settings.php?tab=breakfast_menu', 'title' => 'Breakfast Menu', 'sub' => 'Menu & portal sarapan', 'a' => '#f59e0b', 'b' => '#b45309',
         'icon' => '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>'],
+    ['key' => 'agent_rates', 'link' => 'agent-rates.php', 'title' => 'Harga Agent', 'sub' => 'Harga khusus per tipe kamar', 'a' => '#f97316', 'b' => '#c2410c',
+        'icon' => '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'],
     ['key' => 'ota_fees', 'link' => 'settings.php?tab=ota_fees', 'title' => 'OTA Fees', 'sub' => 'Sumber booking & komisi', 'a' => '#10b981', 'b' => '#047857',
         'icon' => '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>'],
     ['key' => 'invoice_settings', 'link' => 'settings.php?tab=invoice_settings', 'title' => 'Invoice Settings', 'sub' => 'Format & identitas invoice', 'a' => '#ec4899', 'b' => '#be185d',
