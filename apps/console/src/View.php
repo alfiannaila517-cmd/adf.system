@@ -48,6 +48,9 @@ final class View
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#ffffff">
     <title><?= e($title) ?> · ADF Console</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <style>
         :root {
             --bg: #f6f7fb; --side: #ffffff; --card: #ffffff; --line: #e6e8ef; --line2: #f0f2f7;
