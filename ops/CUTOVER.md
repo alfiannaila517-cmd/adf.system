@@ -89,6 +89,9 @@ Buka dulu `adfsystem.online/developer` → **Maintenance** (sekarang sudah di VP
 ### 8. Buka kembali
 - [ ] VPS: Developer Panel → Maintenance → **Selesai — buka sistem**. Layar staf terbuka sendiri dalam ±30 detik.
 - [ ] Butuh waktu lebih? Klik **+15 menit**.
+- [ ] Alamat baru untuk staf: Developer Panel → Maintenance → **Pindah alamat** → `adfsystem.online` → `nasita.biz.id`, mode **Info dulu**.
+  Staf yang membuka alamat lama melihat alamat baru + cara menyimpannya, lalu pindah otomatis. Webhook/API tetap di alamat lama.
+  (Sebelumnya: Google Cloud → OAuth → tambahkan redirect URI `https://nasita.biz.id/google-callback.php`.)
 - [ ] Umumkan ke staf: **sistem sudah normal**. Bila HP masih membuka versi lama, tutup aplikasi lalu buka lagi.
 - [ ] Pantau 1–2 hari: laporan Telegram pagi, Cloudbeds tidak dobel, WA terkirim sekali.
 
@@ -100,6 +103,7 @@ Buka dulu `adfsystem.online/developer` → **Maintenance** (sekarang sudah di VP
 3. Data yang diinput di VPS selama masa gangguan dicatat manual, lalu diinput ulang di hosting.
 
 ## Setelah 2–4 minggu stabil
+- Pindah alamat → mode **Langsung pindah** (tanpa halaman info).
 - Hapus subdomain uji: `web-staging.adfsystem.online` (Cloudflare + `sudo rm /etc/nginx/sites-enabled/website-web-staging.adfsystem.online`).
 - Lanjutkan rencana lepas Rumahweb (adfsystem.store, PWF, domain lain, lalu hapus hosting dengan persetujuan).
 
