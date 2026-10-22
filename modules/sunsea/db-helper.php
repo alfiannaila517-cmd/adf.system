@@ -924,13 +924,7 @@ function sunseaNotifyAdminNewQuotation(PDO $pdo, int $quotationId): void
             . '<p style="color:#94a3b8;font-size:12px;margin-top:18px;">Email otomatis dari sistem ' . htmlspecialchars($companyName) . '.</p>'
             . '</div>';
 
-        $mailer = new SmtpMailer(
-            $emailConfig['smtp_host'] ?? $emailConfig['host'],
-            (int)($emailConfig['smtp_port'] ?? 465),
-            $emailConfig['smtp_encryption'] ?? 'ssl',
-            $emailConfig['user'],
-            $emailConfig['pass']
-        );
+        $mailer = SmtpMailer::fromConfig($emailConfig);
 
         foreach ($emails as $to) {
             try {

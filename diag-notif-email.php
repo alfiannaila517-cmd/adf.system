@@ -32,13 +32,7 @@ $sendTrace = '';
 
 if (isset($_GET['send_test']) && $emails && $emailConfig) {
     try {
-        $mailer = new SmtpMailer(
-            $emailConfig['smtp_host'] ?? $emailConfig['host'],
-            (int)($emailConfig['smtp_port'] ?? 465),
-            $emailConfig['smtp_encryption'] ?? 'ssl',
-            $emailConfig['user'],
-            $emailConfig['pass']
-        );
+        $mailer = SmtpMailer::fromConfig($emailConfig);
         $mailer->send($emails[0], 'TEST Notifikasi Booking - Diagnostic', '<p>Ini email test dari diag-notif-email.php. Kalau ini sampai, pengiriman SMTP berfungsi.</p>', sunseaSetting($pdo, 'company_name', 'Karimunjawa Explore'));
         $sendResult = 'Email test BERHASIL dikirim ke ' . $emails[0] . '. Cek inbox (dan folder Spam) alamat itu.';
     } catch (Throwable $e) {

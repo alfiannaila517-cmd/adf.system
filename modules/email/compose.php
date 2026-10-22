@@ -58,13 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errorMsg = 'Alamat email penerima tidak valid.';
     } else {
         try {
-            $mailer = new SmtpMailer(
-                $emailConfig['smtp_host'] ?? $emailConfig['host'],
-                (int)($emailConfig['smtp_port'] ?? 465),
-                $emailConfig['smtp_encryption'] ?? 'ssl',
-                $emailConfig['user'],
-                $emailConfig['pass']
-            );
+            $mailer = SmtpMailer::fromConfig($emailConfig);
             $htmlBody = nl2br(htmlspecialchars($body));
             $rawSent = $mailer->send($to, $subject, $htmlBody);
             EmailHelper::appendMessageToFolder($emailConfig, 'INBOX.Sent', $rawSent);

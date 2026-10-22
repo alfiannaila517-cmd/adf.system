@@ -102,8 +102,14 @@ class EmailHelper
         };
 
         $encPass = $get(self::SETTINGS_PREFIX . 'pass');
+        $encSmtpPass = $get(self::SETTINGS_PREFIX . 'smtp_pass');
 
         return [
+            // Kirim lewat layanan lain (mis. Brevo): login/key SMTP sendiri + alamat pengirim & balasan. Kosong = akun kotak masuk.
+            'smtp_user' => $get(self::SETTINGS_PREFIX . 'smtp_user'),
+            'smtp_pass' => $encSmtpPass !== '' ? self::decryptSecret($encSmtpPass) : '',
+            'from_email' => $get(self::SETTINGS_PREFIX . 'from_email'),
+            'reply_to' => $get(self::SETTINGS_PREFIX . 'reply_to'),
             'host' => $get(self::SETTINGS_PREFIX . 'host'),
             'port' => (int)($get(self::SETTINGS_PREFIX . 'port') ?: 993),
             'encryption' => $get(self::SETTINGS_PREFIX . 'encryption') ?: 'ssl',
@@ -128,9 +134,17 @@ class EmailHelper
             self::SETTINGS_PREFIX . 'smtp_host' => (string)($data['smtp_host'] ?? ''),
             self::SETTINGS_PREFIX . 'smtp_port' => (string)(int)($data['smtp_port'] ?? 465),
             self::SETTINGS_PREFIX . 'smtp_encryption' => (string)($data['smtp_encryption'] ?? 'ssl'),
+            self::SETTINGS_PREFIX . 'smtp_user' => trim((string)($data['smtp_user'] ?? '')),
+            self::SETTINGS_PREFIX . 'from_email' => trim((string)($data['from_email'] ?? '')),
+            self::SETTINGS_PREFIX . 'reply_to' => trim((string)($data['reply_to'] ?? '')),
         ];
         if (!empty($data['pass'])) {
             $values[self::SETTINGS_PREFIX . 'pass'] = self::encryptSecret((string)$data['pass']);
+        }
+        if (!empty($data['smtp_pass'])) {
+            $values[self::SETTINGS_PREFIX . 'smtp_pass'] = self::encryptSecret((string)$data['smtp_pass']);
+        } elseif (trim((string)($data['smtp_user'] ?? '')) === '') {
+            $values[self::SETTINGS_PREFIX . 'smtp_pass'] = ''; // SMTP terpisah dimatikan → hapus key-nya juga
         }
 
         foreach ($values as $key => $value) {

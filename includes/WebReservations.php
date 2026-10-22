@@ -81,7 +81,7 @@ class WebReservations
             return 'Pengaturan Email Kantor belum diisi';
         }
         try {
-            $mailer = new SmtpMailer($cfg['smtp_host'] ?? $cfg['host'], (int)($cfg['smtp_port'] ?? 465), $cfg['smtp_encryption'] ?? 'ssl', $cfg['user'], $cfg['pass']);
+            $mailer = SmtpMailer::fromConfig($cfg);
             $mailer->send($to, $subject, $html, self::hotelName($db));
             return null;
         } catch (\Throwable $e) {

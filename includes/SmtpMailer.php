@@ -11,14 +11,41 @@ class SmtpMailer
     private string $encryption;
     private string $user;
     private string $pass;
+    private string $from;
+    private string $replyTo;
 
-    public function __construct(string $host, int $port, string $encryption, string $user, string $pass)
+    /**
+     * @param string $from    Alamat pengirim bila berbeda dari login SMTP (mis. Brevo: login xxx@smtp-brevo.com,
+     *                        pengirim reservasi@domain). Kosong = sama dengan login (perilaku lama).
+     * @param string $replyTo Balasan penerima masuk ke sini. Kosong = alamat pengirim.
+     */
+    public function __construct(string $host, int $port, string $encryption, string $user, string $pass, string $from = '', string $replyTo = '')
     {
         $this->host = $host;
         $this->port = $port;
         $this->encryption = $encryption;
         $this->user = $user;
         $this->pass = $pass;
+        $this->from = $from !== '' ? $from : $user;
+        $this->replyTo = $replyTo !== '' ? $replyTo : $this->from;
+    }
+
+    /**
+     * Buat dari konfigurasi EmailHelper::resolveConfig(): SMTP terpisah (smtp_user/smtp_pass/from_email/reply_to)
+     * bila diisi, selain itu akun kotak masuk yang sama seperti sebelumnya.
+     */
+    public static function fromConfig(array $cfg): self
+    {
+        $smtpUser = trim((string)($cfg['smtp_user'] ?? ''));
+        return new self(
+            (string)(($cfg['smtp_host'] ?? '') ?: $cfg['host']),
+            (int)($cfg['smtp_port'] ?? 465),
+            (string)($cfg['smtp_encryption'] ?? 'ssl'),
+            $smtpUser !== '' ? $smtpUser : (string)$cfg['user'],
+            $smtpUser !== '' ? (string)($cfg['smtp_pass'] ?? '') : (string)$cfg['pass'],
+            trim((string)($cfg['from_email'] ?? '')),
+            trim((string)($cfg['reply_to'] ?? ''))
+        );
     }
 
     /**
@@ -53,17 +80,17 @@ class SmtpMailer
         $this->command($sock, base64_encode($this->user), 334);
         $this->command($sock, base64_encode($this->pass), 235);
 
-        $this->command($sock, 'MAIL FROM:<' . $this->user . '>', 250);
+        $this->command($sock, 'MAIL FROM:<' . $this->from . '>', 250);
         $this->command($sock, 'RCPT TO:<' . $to . '>', [250, 251]);
         $this->command($sock, 'DATA', 354);
 
         $headers = [];
-        $headers[] = 'From: ' . $this->encodeHeader($fromName) . ' <' . $this->user . '>';
-        $headers[] = 'Reply-To: ' . $this->user;
+        $headers[] = 'From: ' . $this->encodeHeader($fromName) . ' <' . $this->from . '>';
+        $headers[] = 'Reply-To: ' . $this->replyTo;
         $headers[] = 'To: <' . $to . '>';
         $headers[] = 'Subject: ' . $this->encodeHeader($subject);
         $headers[] = 'Date: ' . date('r');
-        $domain = substr(strrchr($this->user, '@'), 1) ?: 'localhost';
+        $domain = substr(strrchr($this->from, '@'), 1) ?: 'localhost';
         $headers[] = 'Message-ID: <' . bin2hex(random_bytes(16)) . '@' . $domain . '>';
         $headers[] = 'MIME-Version: 1.0';
 

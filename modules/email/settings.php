@@ -47,6 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'smtp_host' => $smtpHost,
                 'smtp_port' => $smtpPort,
                 'smtp_encryption' => $smtpEncryption,
+                'smtp_user' => trim((string)($_POST['smtp_user'] ?? '')),
+                'smtp_pass' => (string)($_POST['smtp_pass'] ?? ''),
+                'from_email' => filter_var(trim((string)($_POST['from_email'] ?? '')), FILTER_VALIDATE_EMAIL) ?: '',
+                'reply_to' => filter_var(trim((string)($_POST['reply_to'] ?? '')), FILTER_VALIDATE_EMAIL) ?: '',
             ]);
             $msg = 'Pengaturan email berhasil disimpan.';
             $msgType = 'success';
@@ -235,6 +239,30 @@ body:not([data-theme="light"]) .es-wrap h2[style*="color:#1e293b"] { color: #f1f
                     <option value="ssl" <?php echo ($current['smtp_encryption'] ?? 'ssl') === 'ssl' ? 'selected' : ''; ?>>SSL (port 465)</option>
                     <option value="tls" <?php echo ($current['smtp_encryption'] ?? 'ssl') === 'tls' ? 'selected' : ''; ?>>TLS/STARTTLS (port 587)</option>
                 </select>
+            </div>
+
+            <h3 style="margin:22px 0 4px;font-size:.98rem;color:#1e293b;">Kirim lewat layanan lain (opsional, mis. Brevo)</h3>
+            <div class="es-hint" style="margin-bottom:12px;">Isi bila email keluar (konfirmasi reservasi tamu, notifikasi) dikirim lewat layanan pengiriman seperti Brevo, bukan lewat akun email di atas. Kosongkan Login SMTP untuk kembali memakai akun email di atas. Untuk Brevo: Outgoing Server <code>smtp-relay.brevo.com</code>, port <code>587</code>, TLS.</div>
+
+            <div class="es-field">
+                <label>Login SMTP</label>
+                <input type="text" name="smtp_user" value="<?php echo htmlspecialchars($current['smtp_user'] ?? ''); ?>" placeholder="mis. xxxx@smtp-brevo.com" autocomplete="off">
+            </div>
+
+            <div class="es-field">
+                <label>Key / password SMTP</label>
+                <input type="password" name="smtp_pass" value="" placeholder="<?php echo ($current['smtp_pass'] ?? '') !== '' ? '•••••••• (sudah tersimpan, kosongkan jika tidak ingin diubah)' : 'SMTP key dari layanan pengiriman'; ?>" autocomplete="new-password">
+            </div>
+
+            <div class="es-field">
+                <label>Email pengirim</label>
+                <input type="email" name="from_email" value="<?php echo htmlspecialchars($current['from_email'] ?? ''); ?>" placeholder="mis. reservasi@narayanakarimunjawa.com">
+                <div class="es-hint">Harus alamat yang sudah diverifikasi di layanan pengiriman.</div>
+            </div>
+
+            <div class="es-field">
+                <label>Balasan tamu masuk ke</label>
+                <input type="email" name="reply_to" value="<?php echo htmlspecialchars($current['reply_to'] ?? ''); ?>" placeholder="mis. narayanahotelkarimunjawa@gmail.com">
             </div>
 
             <button type="submit" class="es-btn">Simpan Pengaturan</button>
