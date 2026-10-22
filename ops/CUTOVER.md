@@ -69,7 +69,7 @@ sudo bash /srv/adf/app/ops/add-website.sh narayanakarimunjawa.com   # website ho
 - [ ] **Cloudbeds** dinyalakan lagi di sistem (VPS): auto-sync & push.
 - [ ] **WA Fonnte**: token diisi di sistem (VPS); webhook Fonnte (bila ada) ke `https://adfsystem.online/…`.
 - [ ] **Fingerspot**: webhook tetap `https://adfsystem.online/api/fingerprint-webhook.php`, karena domainnya sama, otomatis ke VPS.
-- [ ] **Pakasir / Mayar**: callback tetap di domain yang sama → tidak perlu diubah.
+- [ ] **Pakasir**: callback tetap di domain yang sama → tidak perlu diubah.
 - [ ] **Langganan**: di setiap bisnis, menu Langganan → alamat sinkron `https://console.adfsystem.store/api/subscription-config.php` + client key/token dari Console.
 - [ ] **Email Kantor Narayana**: Pengaturan Email → "Kirim lewat layanan lain" diisi SMTP Brevo; pengirim `reservasi@narayanakarimunjawa.com`.
 
@@ -101,7 +101,7 @@ sudo bash /srv/adf/app/ops/add-website.sh narayanakarimunjawa.com   # website ho
 
 ## Lampiran A: file rahasia di hosting (tidak ada di git)
 Salin dengan struktur folder yang sama ke `/srv/adf/legacy/public_html/…` (dan `/srv/adf/legacy/` untuk file di luar public_html):
-- `config/backup-secrets.php`, `config/email-narayana.php`, `config/mayar.php`
+- `config/backup-secrets.php`, `config/email-narayana.php` (`config/mayar.php` tidak perlu: Mayar tidak dipakai)
 - `website/config/secrets.php` (versi hosting, bila ada)
 - File di folder home hosting: `adf-google-oauth.php`, `adf-sso-secret.php`, `adf-dev-login.json` → `/srv/adf/legacy/`
 - Setelah disalin: `sudo chown -R www-data:adf` dan `chmod 640`.
