@@ -111,7 +111,7 @@ Buka dulu `adfsystem.online/developer` → **Maintenance** (sekarang sudah di VP
 
 ## Lampiran A: file rahasia di hosting (tidak ada di git)
 Salin dengan struktur folder yang sama ke `/srv/adf/legacy/public_html/…` (dan `/srv/adf/legacy/` untuk file di luar public_html):
-- `config/backup-secrets.php`, `config/email-narayana.php` (`config/mayar.php` tidak perlu: Mayar tidak dipakai)
+- ~~`config/backup-secrets.php`, `config/email-narayana.php`~~ — tidak ada di hosting (hanya `.example`, dicek 2026-10-23): setelan email di database, backup VPS terpisah. `config/mayar.php` tidak perlu.
 - `website/config/secrets.php` (versi hosting, bila ada)
 - File di folder home hosting: `adf-google-oauth.php`, `adf-sso-secret.php`, `adf-dev-login.json` → `/srv/adf/legacy/`
 - Setelah disalin: `sudo chown -R www-data:adf` dan `chmod 640`.
