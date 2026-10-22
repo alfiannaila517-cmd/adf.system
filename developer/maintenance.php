@@ -62,6 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $state = adf_maintenance_state();
+// Developer yang membuka halaman ini selalu diberi akses lewat (mis. setelah alamat pindah ke server baru)
+if ($state && !empty($state['pass']) && ($_COOKIE['adf_maint_pass'] ?? '') !== $state['pass'] && !headers_sent()) {
+    setcookie('adf_maint_pass', (string)$state['pass'], ['expires' => time() + 86400, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'httponly' => true, 'samesite' => 'Lax']);
+}
 require_once __DIR__ . '/includes/header.php';
 ?>
 
