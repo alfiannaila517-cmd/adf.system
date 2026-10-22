@@ -91,45 +91,73 @@ foreach ($rows as $r) {
     }
 }
 
+$showDemo = !empty($_GET['demo']);
 View::start('Tagihan', 'billing', $me);
 ?>
-<div class="pagehead">
-    <div><h1>Tagihan</h1><p>Langganan setiap bisnis, ditagih per grup. Biaya tambahan (mis. website) menempel di bisnisnya.</p></div>
+<style>
+    /* Tagihan ringkas: satu tabel, grup = baris judul tipis, isian muncul saat diklik */
+    .kpis { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .kpis div { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; min-width: 150px; }
+    .kpis small { display: block; color: var(--mu); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; }
+    .kpis b { font-size: 15px; }
+    table.bill td { padding: 7px 10px; }
+    table.bill tr.grp td { background: #0f131b; border-top: 1px solid var(--line); padding: 8px 10px; }
+    table.bill tr.grp:first-child td { border-top: 0; }
+    table.bill tr.add td { padding: 3px 10px 3px 34px; font-size: 12px; color: var(--ink2); border-top: 0; }
+    .edit summary { list-style: none; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+    .edit summary::before { display: none; }
+    .edit summary .pen { color: var(--mu); font-size: 11px; }
+    .edit[open] summary .pen { color: var(--brand); }
+    .edit form { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+    .edit input, .edit select { width: auto; padding: 4px 8px; font-size: 12px; }
+</style>
+
+<div class="pagehead" style="margin-bottom:10px">
+    <div><h1>Tagihan</h1><p>Biaya langganan tiap bisnis per bulan, dikelompokkan per grup.</p></div>
     <?php if ($isAdmin): ?><a class="btn" href="/invoice-edit.php">+ Invoice baru</a><?php endif; ?>
 </div>
 <nav class="tabs" style="margin-top:0"><a class="on" href="/billing.php">Langganan</a><a href="/invoices.php">Invoice</a></nav>
 
-<div class="row2" style="margin-bottom:14px">
-    <div class="card" style="margin:0"><h2>Pendapatan per bulan</h2><div class="stat"><?= Biz::rp($sum['monthly']) ?></div><p class="muted" style="margin:4px 0 0;font-size:12.5px">paket + tambahan, bisnis aktif</p></div>
-    <div class="card" style="margin:0"><h2>Belum lunas</h2><div class="stat" style="color:<?= $sum['unpaid'] > 0 ? 'var(--warn)' : 'var(--ok)' ?>"><?= Biz::rp($sum['unpaid']) ?></div><p class="muted" style="margin:4px 0 0;font-size:12.5px"><?= $sum['unpaid_n'] ?> tagihan</p></div>
-    <div class="card" style="margin:0"><h2>Jatuh tempo 7 hari</h2><div class="stat"><?= $sum['soon'] ?> <small>bisnis</small></div><p class="muted" style="margin:4px 0 0;font-size:12.5px">termasuk yang sudah lewat</p></div>
+<div class="kpis">
+    <div><small>Pendapatan / bulan</small><b><?= Biz::rp($sum['monthly']) ?></b></div>
+    <div><small>Belum lunas</small><b style="color:<?= $sum['unpaid'] > 0 ? 'var(--warn)' : 'var(--ok)' ?>"><?= Biz::rp($sum['unpaid']) ?></b> <span class="muted" style="font-size:11px"><?= $sum['unpaid_n'] ?> tagihan</span></div>
+    <div><small>Jatuh tempo ≤ 7 hari</small><b><?= $sum['soon'] ?></b> <span class="muted" style="font-size:11px">bisnis</span></div>
 </div>
 
-<?php foreach ($groups as $cid => $g): $gMonthly = array_sum(array_map(fn ($r) => $r['status'] === 'active' ? $r['monthly'] : 0, $g['rows'])); $gUnpaid = array_sum(array_column($g['rows'], 'unpaid_total')); ?>
-    <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-            <div><b style="font-size:16px"><?= e($g['name']) ?></b> <?= $g['demo'] ? '<span class="pill gold">DEMO</span>' : '' ?>
-                <span class="muted" style="font-size:12.5px">· <?= count($g['rows']) ?> bisnis</span></div>
-            <div style="display:flex;gap:6px">
-                <?php if ($isAdmin && !$g['demo']): ?><a class="btn sm" href="/invoice-edit.php?client=<?= (int)$cid ?>&period=<?= date('Y-m') ?>">Buat invoice <?= e(Invoice::date(date('Y-m-01'), false)) ?></a><?php endif; ?>
-                <a class="btn ghost sm" href="/client.php?id=<?= (int)$cid ?>">Buka grup</a>
-            </div>
-        </div>
-        <table class="stack">
-            <thead><tr><th>Bisnis</th><th>Paket / bulan</th><th>Jatuh tempo</th><th>Status</th><th style="text-align:right">Total / bulan</th></tr></thead>
+<div class="card" style="padding:0;overflow:hidden">
+    <div style="overflow-x:auto">
+        <table class="bill">
+            <thead><tr><th style="padding-top:10px">Bisnis</th><th style="padding-top:10px">Paket / bulan</th><th style="padding-top:10px">Jatuh tempo</th><th style="padding-top:10px">Status</th><th style="padding-top:10px;text-align:right">Total / bulan</th></tr></thead>
             <tbody>
+            <?php foreach ($groups as $cid => $g): if ($g['demo'] && !$showDemo) continue;
+                $gMonthly = array_sum(array_map(fn ($r) => $r['status'] === 'active' ? $r['monthly'] : 0, $g['rows']));
+                $gUnpaid = array_sum(array_column($g['rows'], 'unpaid_total')); ?>
+                <tr class="grp">
+                    <td colspan="3">
+                        <a href="/client.php?id=<?= (int)$cid ?>" style="color:var(--ink);font-weight:650"><?= e($g['name']) ?></a>
+                        <?= $g['demo'] ? '<span class="pill gold">DEMO</span>' : '' ?>
+                        <span class="muted" style="font-size:11.5px">· <?= count($g['rows']) ?> bisnis</span>
+                        <?php if ($isAdmin && !$g['demo']): ?>
+                            <a class="btn ghost sm" style="margin-left:6px" href="/invoice-edit.php?client=<?= (int)$cid ?>&period=<?= date('Y-m') ?>">Invoice <?= e(Invoice::date(date('Y-m-01'), false)) ?></a>
+                        <?php endif; ?>
+                    </td>
+                    <td><?= $gUnpaid > 0 ? '<span class="pill warn">' . Biz::rp($gUnpaid) . ' belum lunas</span>' : '' ?></td>
+                    <td style="text-align:right;font-weight:650"><?= Biz::rp($gMonthly) ?></td>
+                </tr>
                 <?php foreach ($g['rows'] as $r): $bid = (int)$r['id']; [$tLabel, $tIcon] = Biz::type((string)$r['type']); ?>
                     <tr id="b<?= $bid ?>">
-                        <td><a href="/business.php?id=<?= $bid ?>&tab=langganan" style="color:var(--ink)"><b><?= $tIcon ?> <?= e($r['name']) ?></b></a><br><span class="muted" style="font-size:12px"><?= e($tLabel) ?></span></td>
+                        <td style="padding-left:18px"><a href="/business.php?id=<?= $bid ?>&tab=langganan" style="color:var(--ink)"><?= $tIcon ?> <?= e($r['name']) ?></a></td>
                         <td>
                             <?php if ($isAdmin): ?>
-                                <form method="post" style="display:flex;gap:6px;align-items:center"><?= csrf_field() ?><input type="hidden" name="action" value="base_fee"><input type="hidden" name="business_id" value="<?= $bid ?>">
-                                    <input class="sm" name="base_fee" inputmode="numeric" value="<?= $r['sub_id'] ? e(number_format((float)$r['base_fee'], 0, ',', '.')) : '' ?>" placeholder="Rp" style="width:120px">
-                                    <button class="btn ghost sm" title="Simpan biaya paket">Simpan</button></form>
+                                <details class="edit"><summary><?= $r['sub_id'] ? Biz::rp($r['base_fee']) : '<span class="muted">atur paket</span>' ?> <span class="pen">✎</span></summary>
+                                    <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="base_fee"><input type="hidden" name="business_id" value="<?= $bid ?>">
+                                        <input name="base_fee" inputmode="numeric" value="<?= $r['sub_id'] ? e(number_format((float)$r['base_fee'], 0, ',', '.')) : '' ?>" placeholder="Rp / bulan" style="width:110px">
+                                        <button class="btn sm">Simpan</button></form>
+                                </details>
                             <?php else: ?><?= $r['sub_id'] ? Biz::rp($r['base_fee']) : '-' ?><?php endif; ?>
-                            <?= (float)$r['per_guest_fee'] > 0 ? '<span class="muted" style="font-size:11.5px">+ ' . Biz::rp($r['per_guest_fee']) . ' / tamu</span>' : '' ?>
+                            <?= (float)$r['per_guest_fee'] > 0 ? '<div class="muted" style="font-size:11px">+ ' . Biz::rp($r['per_guest_fee']) . ' / tamu</div>' : '' ?>
                         </td>
-                        <td><?= $r['due'] ? e($r['due']->format('d M Y')) : '<span class="muted">-</span>' ?></td>
+                        <td class="muted"><?= $r['due'] ? e($r['due']->format('d M Y')) : '–' ?></td>
                         <td>
                             <?php if ($r['status'] !== 'active'): ?><span class="pill"><?= e(Biz::STATUS[$r['status']] ?? $r['status']) ?></span>
                             <?php elseif (!$r['sub_id']): ?><span class="pill">belum ada paket</span>
@@ -137,46 +165,48 @@ View::start('Tagihan', 'billing', $me);
                             <?php elseif ($r['unpaid_n']): ?><span class="pill warn"><?= Biz::rp($r['unpaid_total']) ?> belum lunas</span>
                             <?php else: ?><span class="pill ok">lunas</span><?php endif; ?>
                         </td>
-                        <td style="text-align:right;font-weight:600"><?= Biz::rp($r['monthly']) ?></td>
+                        <td style="text-align:right"><?= Biz::rp($r['monthly']) ?></td>
                     </tr>
                     <?php foreach ($r['addons'] as $a): ?>
-                        <tr>
-                            <td colspan="4" style="padding-left:34px">
+                        <tr class="add">
+                            <td colspan="4">
                                 <?php if ($isAdmin): ?>
-                                    <form method="post" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><?= csrf_field() ?><input type="hidden" name="action" value="addon_update"><input type="hidden" name="addon_id" value="<?= (int)$a['id'] ?>"><input type="hidden" name="business_id" value="<?= $bid ?>">
-                                        <span class="muted">└ tambahan</span>
-                                        <input class="sm" name="name" value="<?= e($a['name']) ?>" style="width:180px">
-                                        <input class="sm" name="fee" inputmode="numeric" value="<?= e(number_format((float)$a['monthly_fee'], 0, ',', '.')) ?>" style="width:110px">
-                                        <label style="display:flex;gap:5px;align-items:center;margin:0;font-size:12px"><input type="checkbox" name="active" value="1" style="width:auto" <?= $a['active'] ? 'checked' : '' ?>> aktif</label>
-                                        <button class="btn ghost sm">Simpan</button>
-                                        <button class="btn danger sm" name="action" value="addon_delete" onclick="return confirm('Hapus tambahan <?= e($a['name']) ?>?')">Hapus</button>
-                                    </form>
-                                <?php else: ?>
-                                    <span class="muted">└</span> <?= e($a['name']) ?> <?= $a['active'] ? '' : '<span class="pill">nonaktif</span>' ?>
-                                <?php endif; ?>
+                                    <details class="edit"><summary>└ <?= e($a['name']) ?> <?= $a['active'] ? '' : '<span class="pill">nonaktif</span>' ?> <span class="pen">✎</span></summary>
+                                        <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="addon_update"><input type="hidden" name="addon_id" value="<?= (int)$a['id'] ?>"><input type="hidden" name="business_id" value="<?= $bid ?>">
+                                            <input name="name" value="<?= e($a['name']) ?>" style="width:170px">
+                                            <input name="fee" inputmode="numeric" value="<?= e(number_format((float)$a['monthly_fee'], 0, ',', '.')) ?>" style="width:100px">
+                                            <label style="display:flex;gap:4px;align-items:center;margin:0;font-size:11.5px"><input type="checkbox" name="active" value="1" style="width:auto" <?= $a['active'] ? 'checked' : '' ?>> aktif</label>
+                                            <button class="btn sm">Simpan</button>
+                                            <button class="btn danger sm" name="action" value="addon_delete" onclick="return confirm('Hapus tambahan <?= e($a['name']) ?>?')">Hapus</button>
+                                        </form>
+                                    </details>
+                                <?php else: ?>└ <?= e($a['name']) ?><?php endif; ?>
                             </td>
-                            <td style="text-align:right" class="muted"><?= Biz::rp($a['monthly_fee']) ?></td>
+                            <td style="text-align:right"><?= Biz::rp($a['monthly_fee']) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endforeach; ?>
+                <?php if ($isAdmin && !$g['demo']): ?>
+                    <tr class="add">
+                        <td colspan="5">
+                            <details class="edit"><summary><span class="pen">＋</span> biaya tambahan (mis. website, modul)</summary>
+                                <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="addon_add">
+                                    <select name="business_id"><?php foreach ($g['rows'] as $r): ?><option value="<?= (int)$r['id'] ?>"><?= e($r['name']) ?></option><?php endforeach; ?></select>
+                                    <input name="name" placeholder="nama tambahan" style="width:170px">
+                                    <input name="fee" inputmode="numeric" placeholder="Rp / bulan" style="width:100px">
+                                    <button class="btn sm">Tambah</button>
+                                </form>
+                            </details>
+                        </td>
+                    </tr>
+                <?php endif; ?>
+            <?php endforeach; ?>
+            <?php if (!$groups): ?><tr><td colspan="5" class="muted">Belum ada bisnis. Tambahkan lewat menu <a href="/clients.php">Bisnis</a>.</td></tr><?php endif; ?>
             </tbody>
         </table>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:4px;padding-top:12px">
-            <?php if ($isAdmin): ?>
-                <details>
-                    <summary style="cursor:pointer;font-size:13px;font-weight:600">Tambah biaya tambahan</summary>
-                    <form method="post" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:10px"><?= csrf_field() ?><input type="hidden" name="action" value="addon_add">
-                        <select class="sm" name="business_id"><?php foreach ($g['rows'] as $r): ?><option value="<?= (int)$r['id'] ?>"><?= e($r['name']) ?></option><?php endforeach; ?></select>
-                        <input class="sm" name="name" placeholder="mis. Website Narayana" style="width:190px">
-                        <input class="sm" name="fee" inputmode="numeric" placeholder="Rp / bulan" style="width:120px">
-                        <button class="btn sm">Tambah</button>
-                    </form>
-                </details>
-            <?php else: ?><span></span><?php endif; ?>
-            <div style="text-align:right"><span class="muted" style="font-size:12.5px">Total grup per bulan</span><div style="font-size:18px;font-weight:650"><?= Biz::rp($gMonthly) ?></div>
-                <?= $gUnpaid > 0 ? '<span class="pill warn">' . Biz::rp($gUnpaid) . ' belum lunas</span>' : '' ?></div>
-        </div>
     </div>
-<?php endforeach; ?>
-<?php if (!$groups): ?><div class="soonbox">Belum ada bisnis. Tambahkan lewat menu <a href="/clients.php">Bisnis</a>.</div><?php endif; ?>
+</div>
+<?php if (array_filter($groups, fn ($g) => $g['demo'])): ?>
+    <p style="margin:0;font-size:12px"><a href="?<?= $showDemo ? '' : 'demo=1' ?>"><?= $showDemo ? 'Sembunyikan grup demo' : 'Tampilkan grup demo' ?></a></p>
+<?php endif; ?>
 <?php View::end();
