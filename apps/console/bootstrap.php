@@ -33,9 +33,25 @@ if (PHP_SAPI !== 'cli') {
 
     // API mesin-ke-mesin (sinkron langganan sistem bisnis) tidak memakai sesi login
     if (!defined('CONSOLE_API')) {
+        // Folder sesi sendiri (bila disiapkan di server): pembersih sesi bawaan Ubuntu menghapus sesi diam > 24 menit,
+        // padahal Console mengizinkan diam 2 jam (Auth::IDLE_TIMEOUT). Tanpa folder ini tetap memakai bawaan PHP.
+        $sessDir = '/srv/adf/storage/console-sessions';
+        if (is_dir($sessDir) && is_writable($sessDir)) {
+            session_save_path($sessDir);
+            ini_set('session.gc_maxlifetime', (string)Auth::IDLE_TIMEOUT);
+            ini_set('session.gc_probability', '1');
+            ini_set('session.gc_divisor', '100');
+        }
         session_name('adf_console');
-        session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => Auth::https(), 'httponly' => true, 'samesite' => 'Lax']);
+        // Cookie bertahan selama batas diam (bukan cookie sementara): di iPhone, aplikasi yang dipasang di layar utama
+        // membuang cookie sementara saat ditinggal ke Gmail mengambil kode → "Sesi verifikasi berakhir".
+        $cookieOpts = ['path' => '/', 'secure' => Auth::https(), 'httponly' => true, 'samesite' => 'Lax'];
+        session_set_cookie_params(['lifetime' => Auth::IDLE_TIMEOUT] + $cookieOpts);
         session_start();
+        // Perpanjang masa berlaku cookie setiap kali Console dibuka (batas 2 jam dihitung dari aktivitas terakhir, bukan dari login)
+        if (isset($_COOKIE[session_name()]) && !headers_sent()) {
+            setcookie(session_name(), session_id(), ['expires' => time() + Auth::IDLE_TIMEOUT] + $cookieOpts);
+        }
     }
 }
 
