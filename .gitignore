@@ -198,3 +198,7 @@ backups/
 
 # Kredensial website Narayana (hanya di server)
 website/config/secrets.php
+
+# Status mode maintenance (Developer Panel → Maintenance)
+maintenance.json
+maintenance.json.tmp

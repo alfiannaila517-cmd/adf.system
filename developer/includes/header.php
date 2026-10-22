@@ -19,6 +19,7 @@ $devNav = [
         ['developer-settings.php', 'Pengaturan & Branding', 'sliders', ['settings.php']],
         ['database.php', 'Database', 'database', []],
         ['audit.php', 'Audit Log', 'journal-text', []],
+        ['maintenance.php', 'Maintenance', 'cone-striped', []],
     ],
     'Khusus Narayana' => [
         ['web-settings.php', 'Website Narayana', 'globe', []],
