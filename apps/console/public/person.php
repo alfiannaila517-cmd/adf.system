@@ -118,6 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Access::setPersonLevels($bizId, $id, array_map('intval', (array)($_POST['lv'] ?? [])));
             Auth::audit('access.menu', "#{$bizId}: {$person['name']}");
             flash('Menu sidebar disimpan.' . $sync($bizId));
+        } elseif ($action === 'menu_resync') {
+            Auth::audit('access.resync', "#{$bizId}: {$person['name']}");
+            flash('Izin ditulis ulang ke sistem.' . $sync($bizId));
         } elseif ($action === 'menu_reset') {
             Access::clearOverrides($bizId, $id);
             Auth::audit('access.clear_overrides', "#{$bizId}: {$person['name']}");
@@ -263,7 +266,8 @@ View::start($person['name'], 'people', $me);
                         <tbody>
                             <?php foreach ($mods as $code => $on): if (!$on) continue; $lv = $eff[$code] ?? 0; ?>
                                 <tr>
-                                    <td><?= e(Catalog::MODULES[$code][0]) ?><?= isset($over[$code]) ? ' <span style="color:var(--gold)" title="berbeda dari peran">✱</span>' : '' ?></td>
+                                    <td><?= e(Catalog::MODULES[$code][0]) ?><?= isset($over[$code]) ? ' <span style="color:var(--gold)" title="berbeda dari peran">✱</span>' : '' ?>
+                                        <?php if (isset(Legacy::NO_SIDEBAR[$code])): ?><div class="muted" style="font-size:11px"><?= e(Legacy::NO_SIDEBAR[$code]) ?></div><?php endif; ?></td>
                                     <td><select name="lv[<?= e($code) ?>]" class="sm" <?= $dis ?>><?php foreach (Catalog::LEVELS as $v => $l): ?><option value="<?= $v ?>" <?= $v === $lv ? 'selected' : '' ?>><?= $l ?></option><?php endforeach; ?></select></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -278,6 +282,34 @@ View::start($person['name'], 'people', $me);
                 <?php endif; ?>
                 <p class="muted" style="margin:10px 0 0;font-size:11px">Lihat = hanya melihat · Input = + menambah · Ubah = + mengubah · Kelola = + menghapus.</p>
             </div>
+            <?php if (Legacy::linked($biz)):
+                try {
+                    $chk = Legacy::sidebarCheck($biz, $id);
+                } catch (Throwable $e) {
+                    $chk = ['issues' => ['Tidak bisa membaca sistem: ' . $e->getMessage()], 'items' => [], 'mismatch' => []];
+                } ?>
+                <div class="card" style="max-width:760px">
+                    <h2>Yang tampil di sidebar sistem</h2>
+                    <p class="muted" style="margin:0 0 8px;font-size:12px">Dibaca langsung dari <?= e(Legacy::label()) ?> — persis yang dilihat <?= e($person['name']) ?> saat membuka <?= e($a['business_name']) ?>.</p>
+                    <?php foreach ($chk['issues'] as $msg): ?><div class="alert err" style="margin:0 0 6px;font-size:12px">⚠ <?= e($msg) ?></div><?php endforeach; ?>
+                    <?php if ($chk['mismatch']): ?>
+                        <div class="alert err" style="margin:0 0 8px;font-size:12px">Pilihan Console belum tertulis ke sistem: <?= e(implode(' · ', $chk['mismatch'])) ?>
+                            <?php if ($isAdmin): ?>
+                                <form method="post" style="display:inline"><?= csrf_field() ?><input type="hidden" name="action" value="menu_resync"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="tab" value="menu"><input type="hidden" name="business_id" value="<?= $bizId ?>"><button class="btn sm" style="margin-left:6px">Tulis ulang ke sistem</button></form>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($chk['items']): ?>
+                        <table class="sm">
+                            <tbody>
+                                <?php foreach ($chk['items'] as [$label, $shown, $why]): ?>
+                                    <tr><td><?= $shown ? '<span style="color:var(--ok)">✓</span>' : '<span class="muted">✕</span>' ?> <?= e($label) ?></td><td class="muted" style="font-size:11px"><?= $shown ? 'tampil' : e($why) ?></td></tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
             <?php $offList = array_keys(array_filter($mods, fn ($on) => !$on)); if ($offList): ?>
                 <div class="card" style="max-width:760px">
                     <h2>Menu yang dimatikan untuk <?= e($a['business_name']) ?></h2>

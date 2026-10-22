@@ -670,6 +670,166 @@ final class Legacy
         return $best;
     }
 
+    /* ------------------------------------------------------------------ cek sidebar */
+
+    /**
+     * Menu sidebar sistem lama (includes/header.php, branch vps-legacy) — salinan aturan tampilnya:
+     * [label, izin (salah satu cukup), syarat tambahan atau null]. Syarat: cfg:<nama> = modul menyala di file config bisnis,
+     * nothotel / hotel = jenis bisnis lama, not:<slug> / only:<slug,…> = bisnis tertentu.
+     */
+    private const SIDEBAR = [
+        ['Dashboard', ['dashboard'], null],
+        ['Proyek CQC', ['cqc-projects'], null],
+        ['Produksi', ['production'], null],
+        ['Buku Kas Besar', ['cashbook'], null],
+        ['Kelola Divisi', ['divisions'], null],
+        ['Frontdesk', ['frontdesk'], 'cfg:frontdesk'],
+        ['Layanan Hotel', ['frontdesk'], 'hotel'],
+        ['Sales Invoice', ['sales_invoice'], 'cfg:sales|nothotel'],
+        ['Tagihan Bulanan', ['bills'], null],
+        ['Invoice Kafe', ['cafe_invoice'], 'cfg:cafe-invoice'],
+        ['Payroll', ['payroll'], 'cfg:payroll'],
+        ['Pembelian › PO Gudang', ['procurement_po'], null],
+        ['Pembelian › Stock Gudang', ['procurement_stock'], null],
+        ['Laporan', ['reports'], 'cfg:reports'],
+        ['Proyek', ['project'], 'not:narayana-hotel'],
+        ['Manajemen Keuangan', ['finance'], null],
+        ['Owner Monitoring', ['owner'], null],
+        ['Database Master', ['database'], null],
+        ['Pengaturan', ['settings'], null],
+        ['Buku Menu', ['menu_book'], 'only:bens-cafe,eaat-meet,eat-meet'],
+        ['Email Kantor', ['email'], 'only:narayana-hotel'],
+    ];
+
+    /** Sidebar khusus bisnis Gudang Nasita (urutan & izin sama dengan header.php). */
+    private const SIDEBAR_GUDANG = [
+        ['Dashboard Gudang', ['gudang_nasita', 'warehouse', 'gudang_view'], null],
+        ['Stok Gudang · Daftar Barang', ['gudang_nasita', 'warehouse'], null],
+        ['Order ke Supplier · Ambil dari Outlet · Riwayat Masuk', ['gudang_nasita', 'warehouse'], null],
+        ['Kirim ke Bisnis · Riwayat Pengiriman', ['gudang_nasita', 'warehouse', 'warehouse_transfers'], null],
+        ['Tagihan Bisnis', ['gudang_nasita', 'warehouse'], null],
+        ['Kas & Biaya Gudang', ['gudang_nasita', 'warehouse', 'gudang_finance'], null],
+        ['Logo Perusahaan', ['gudang_nasita', 'warehouse', 'settings'], null],
+    ];
+
+    /** Modul Console tanpa baris sidebar sendiri → keterangan untuk layar Menu. */
+    public const NO_SIDEBAR = [
+        'procurement' => 'tidak dipakai sistem — gunakan PO Gudang & Stock Gudang',
+        'admin' => 'tidak dipakai sistem',
+        'investor' => 'tanpa menu sendiri (izin halaman investor)',
+        'staff_chat' => 'tanpa menu sendiri (izin fitur chat)',
+        'warehouse' => 'menu hanya di bisnis Gudang Nasita',
+        'warehouse_transfers' => 'menu hanya di bisnis Gudang Nasita',
+        'gudang_nasita' => 'menu hanya di bisnis Gudang Nasita',
+    ];
+
+    /**
+     * Apa yang BENAR-BENAR tampil di sidebar sistem lama untuk satu orang di satu bisnis, dibaca langsung dari tabel lama
+     * dengan aturan includes/auth.php hasPermission. Untuk menjawab "sudah diberi akses tapi menu tidak muncul".
+     * @return array{issues:string[], items:array<int,array{0:string,1:bool,2:string}>, mismatch:string[]}
+     */
+    public static function sidebarCheck(array $biz, int $personId): array
+    {
+        $out = ['issues' => [], 'items' => [], 'mismatch' => []];
+        if (!self::linked($biz)) {
+            $out['issues'][] = 'Bisnis ini belum terhubung ke sistem.';
+            return $out;
+        }
+        $st = Auth::db()->prepare('SELECT legacy_user_id, username FROM people WHERE id = ?');
+        $st->execute([$personId]);
+        $p = $st->fetch();
+        if (!$p || !$p['legacy_user_id']) {
+            $out['issues'][] = 'Orang ini belum punya akun login di sistem.';
+            return $out;
+        }
+        $db = self::db();
+        $uid = (int)$p['legacy_user_id'];
+        $lbid = (int)$biz['legacy_business_id'];
+        $u = $db->prepare('SELECT u.username, u.is_active, COALESCE(r.role_code, \'staff\') AS role FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = ?');
+        $u->execute([$uid]);
+        $user = $u->fetch();
+        if (!$user) {
+            $out['issues'][] = "Akun login #{$uid} sudah tidak ada di sistem.";
+            return $out;
+        }
+        // hasPermission mencari user berdasarkan username → username kembar membuat izin dibaca dari akun lain
+        $dup = $db->prepare('SELECT COUNT(*) FROM users WHERE username = ? AND id <> ?');
+        $dup->execute([$user['username'], $uid]);
+        if ((int)$dup->fetchColumn() > 0) {
+            $out['issues'][] = "Ada akun lain dengan username \"{$user['username']}\" — sistem bisa membaca izin dari akun yang salah.";
+        }
+        if (!(int)$user['is_active']) {
+            $out['issues'][] = 'Akun login nonaktif — tidak bisa masuk.';
+        }
+        $as = $db->prepare('SELECT 1 FROM user_business_assignment WHERE user_id = ? AND business_id = ?');
+        $as->execute([$uid, $lbid]);
+        if (!$as->fetchColumn()) {
+            $out['issues'][] = 'Belum ditugaskan ke bisnis ini di sistem — bisnis tidak muncul di pilihan bisnis.';
+        }
+        $b = $db->prepare('SELECT slug, business_type FROM businesses WHERE id = ?');
+        $b->execute([$lbid]);
+        $lb = $b->fetch() ?: ['slug' => '', 'business_type' => ''];
+        $slug = (string)$lb['slug'];
+
+        $rows = $db->prepare('SELECT menu_code, can_view, can_create, can_edit, can_delete FROM user_menu_permissions WHERE user_id = ? AND business_id = ?');
+        $rows->execute([$uid, $lbid]);
+        $flags = [];
+        foreach ($rows->fetchAll() as $r) {
+            $flags[(string)$r['menu_code']] = [(int)$r['can_view'], (int)$r['can_create'], (int)$r['can_edit'], (int)$r['can_delete']];
+        }
+        $role = (string)$user['role'];
+        $allByRole = !$flags && in_array($role, ['developer', 'admin', 'owner'], true);
+        if ($allByRole) {
+            $out['issues'][] = "Peran {$role} tanpa satu pun baris izin → sistem membuka SEMUA menu (aturan lama). Simpan menu sekali untuk menerapkan pilihan Console.";
+        }
+        $poAlways = !self::consoleSwitchOn() && in_array(preg_replace('/[^a-z0-9]/', '', strtolower($slug)), self::PO_ALWAYS_BIZ, true);
+        $can = fn (string $code) => $allByRole || ($flags[$code][0] ?? 0) === 1 || ($poAlways && in_array($code, ['procurement_po', 'procurement_stock'], true));
+
+        // Modul menyala di file config bisnis (isModuleEnabled)
+        $dir = self::appDir();
+        $file = $dir ? "{$dir}/config/businesses/" . basename($slug) . '.php' : null;
+        $cfg = $file && is_file($file) ? (static fn (string $f) => require $f)($file) : null;
+        $cfgMods = is_array($cfg) ? array_map('strval', (array)($cfg['enabled_modules'] ?? [])) : null;
+        $type = (string)(is_array($cfg) ? ($cfg['business_type'] ?? $lb['business_type']) : $lb['business_type']);
+
+        foreach ($slug === 'gudang-nasita' ? self::SIDEBAR_GUDANG : self::SIDEBAR as [$label, $codes, $cond]) {
+            $why = '';
+            foreach (explode('|', (string)$cond) as $c) {
+                if ($c === '') {
+                    continue;
+                }
+                [$k, $v] = explode(':', $c, 2) + [1 => ''];
+                $fail = match ($k) {
+                    'cfg' => $cfgMods !== null && !in_array($v, $cfgMods, true) ? 'modul dimatikan untuk bisnis ini' : '',
+                    'hotel' => $type !== 'hotel' ? 'hanya untuk bisnis hotel' : '',
+                    'nothotel' => $type === 'hotel' ? 'tidak dipakai di bisnis hotel' : '',
+                    'not' => $slug === $v ? 'tidak dipakai di bisnis ini' : '',
+                    'only' => !in_array($slug, explode(',', $v), true) ? 'hanya untuk bisnis tertentu' : '',
+                    default => '',
+                };
+                if ($fail !== '') {
+                    $why = $fail;
+                    break;
+                }
+            }
+            $permitted = (bool)array_filter($codes, $can);
+            if ($why === '' && !$permitted) {
+                $why = 'izin "' . implode('" / "', $codes) . '" = Tidak';
+            }
+            $out['items'][] = [$label, $why === '', $why];
+        }
+
+        // Console vs isi tabel sistem (harus sama; beda = belum tertulis)
+        $eff = Access::effective($biz, $personId);
+        foreach ($eff as $code => $lv) {
+            $have = $flags[$code] ?? null;
+            if (!$allByRole && $have !== Catalog::legacyFlags($lv) && !($have === null && $lv === 0)) {
+                $out['mismatch'][] = Catalog::MODULES[$code][0] . ': Console ' . Catalog::LEVELS[$lv] . ', sistem ' . ($have === null ? 'kosong' : Catalog::LEVELS[Catalog::levelFromFlags(...$have)]);
+            }
+        }
+        return $out;
+    }
+
     /* ------------------------------------------------------------------ hitung balik & bandingkan */
 
     /**
