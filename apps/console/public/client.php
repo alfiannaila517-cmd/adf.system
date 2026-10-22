@@ -100,8 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($db->query('SELECT 1 FROM businesses WHERE slug = ' . $db->quote($slug))->fetchColumn()) {
             flash("Kode bisnis \"{$slug}\" sudah dipakai, pakai kode lain.", 'err');
         } else {
-            $db->prepare('INSERT INTO businesses (client_id, slug, name, type, domain) VALUES (?, ?, ?, ?, ?)')
-                ->execute([$id, $slug, mb_substr($name, 0, 150), $type, Legacy::normalizeDomain((string)($_POST['domain'] ?? '')) ?: null]);
+            $db->prepare('INSERT INTO businesses (client_id, slug, name, type, domain, hosted_elsewhere) VALUES (?, ?, ?, ?, ?, ?)')
+                ->execute([$id, $slug, mb_substr($name, 0, 150), $type, Legacy::normalizeDomain((string)($_POST['domain'] ?? '')) ?: null, !empty($_POST['hosted_elsewhere']) ? 1 : 0]);
             $bid = (int)$db->lastInsertId();
             Auth::audit('business.add', "{$name} → {$client['name']}");
             $msg = "Bisnis {$name} ditambahkan.";
@@ -190,6 +190,7 @@ View::start($client['name'], 'clients', $me);
                 <div><label>Jenis</label><select name="type"><?php foreach (Biz::TYPES as $code => [$l, $i]): ?><option value="<?= $code ?>"><?= $i ?> <?= e($l) ?></option><?php endforeach; ?></select></div>
                 <div><label>Kode (opsional)</label><input name="slug" placeholder="otomatis dari nama"></div>
                 <div><label>Domain (opsional)</label><input name="domain" placeholder="mis. narayanakarimunjawa.com"></div>
+                <div><label style="display:flex;gap:6px;align-items:center;margin:0 0 8px;color:var(--ink)"><input type="checkbox" name="hosted_elsewhere" value="1" style="width:auto"> Sistemnya di server lain</label><span class="muted" style="font-size:11px">mis. hosting sendiri — tidak dibuat di VPS, tetap ditagih &amp; sinkron dari Console</span></div>
                 <div><button class="btn" style="width:100%">Tambah bisnis</button></div>
             </form>
         </div>

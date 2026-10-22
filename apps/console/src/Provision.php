@@ -26,7 +26,8 @@ final class Provision
 
     public static function can(array $biz): bool
     {
-        return empty($biz['legacy_business_id']) && $biz['type'] !== 'website' && Db::legacyMaster() !== null && Legacy::appDir() !== null;
+        return empty($biz['legacy_business_id']) && $biz['type'] !== 'website' && empty($biz['hosted_elsewhere'])
+            && Db::legacyMaster() !== null && Legacy::appDir() !== null;
     }
 
     /** @return string[] laporan langkah */

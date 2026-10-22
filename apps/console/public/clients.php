@@ -83,7 +83,7 @@ View::start('Bisnis', 'clients', $me);
                         <?php elseif ($b['locked']): ?><span class="pill bad">terkunci</span>
                         <?php else: ?><span class="pill ok">aktif</span><?php endif; ?>
                         <?php if ((int)$b['unpaid_count'] > 0): ?><span class="pill warn"><?= (int)$b['unpaid_count'] ?> tagihan belum lunas</span><?php endif; ?>
-                        <?php if (!$b['legacy_business_id'] && $b['type'] !== 'website'): ?><span class="pill">belum dibuat di sistem</span><?php endif; ?>
+                        <?php if (!empty($b['hosted_elsewhere'])): ?><span class="pill">server lain</span><?php elseif (!$b['legacy_business_id'] && $b['type'] !== 'website'): ?><span class="pill">belum dibuat di sistem</span><?php endif; ?>
                     </div>
                 </a>
             <?php endforeach; ?>

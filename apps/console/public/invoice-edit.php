@@ -49,7 +49,7 @@ if ($old) {
     $f = ['number' => $inv['number'], 'cust_name' => $inv['customer_name'], 'cust_company' => $inv['customer_company'], 'cust_email' => $inv['customer_email'],
         'cust_phone' => $inv['customer_phone'], 'cust_address' => $inv['customer_address'], 'issue_date' => $inv['issue_date'], 'due_date' => $inv['due_date'],
         'discount_type' => $inv['discount_type'], 'discount_value' => (float)$inv['discount_value'], 'tax_percent' => (float)$inv['tax_percent'],
-        'notes' => $inv['notes'], 'status' => $inv['status'], 'kind' => $inv['kind'], 'client_id' => $inv['client_id']];
+        'notes' => $inv['notes'], 'status' => $inv['status'], 'kind' => $inv['kind'], 'client_id' => $inv['client_id'], 'bill_business_id' => $inv['kind'] === 'manual' ? $inv['business_id'] : null];
     $items = $inv['items'];
 } else {
     $f = ['number' => '', 'issue_date' => date('Y-m-d'), 'due_date' => date('Y-m-d', strtotime('+' . (int)$s['default_due_days'] . ' days')),
@@ -67,6 +67,7 @@ if ($old) {
     }
 }
 $items = $items ?: [['description' => '', 'note' => '', 'qty' => 1, 'unit_price' => '', 'business_id' => '']];
+$subBiz = $db->query('SELECT b.id, b.name FROM businesses b JOIN subscriptions s ON s.business_id = b.id JOIN clients c ON c.id = b.client_id WHERE c.is_demo = 0 ORDER BY b.name')->fetchAll();
 $money = static fn ($v) => $v === '' || $v === null ? '' : number_format((float)$v, 0, ',', '.');
 $qtyFmt = static fn ($v) => rtrim(rtrim(number_format((float)$v, 2, '.', ''), '0'), '.');
 
@@ -78,7 +79,7 @@ View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
     .inv label { font-size: 10.5px; margin: 0 0 2px; }
     .inv input, .inv select { padding: 4px 8px; font-size: 12px; }
     .inv-a { grid-template-columns: 1.4fr 1.2fr 1fr 1.2fr; }
-    .inv-b { grid-template-columns: 2fr 1fr 1fr 1fr 1.3fr; }
+    .inv-b { grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.3fr; }
     #items td { padding: 2px 4px; border: 0; }
     #items th { padding: 0 4px 4px; }
     #items input { padding: 4px 7px; font-size: 12px; }
@@ -109,6 +110,7 @@ View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
             <div><label>Terbit</label><input name="issue_date" type="date" value="<?= e($f['issue_date'] ?? '') ?>"></div>
             <div><label>Jatuh tempo</label><input name="due_date" type="date" value="<?= e($f['due_date'] ?? '') ?>"></div>
             <div><label>Status</label><select name="status"><?php foreach (['unpaid' => 'Belum dibayar', 'draft' => 'Draft', 'paid' => 'Lunas'] as $k => $l): ?><option value="<?= $k ?>" <?= ($f['status'] ?? 'unpaid') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></div>
+            <?php if (($f['kind'] ?? 'free') !== 'monthly'): ?><div><label>Tagih lewat sistem</label><select name="bill_business_id"><option value="">— tidak (link invoice saja) —</option><?php foreach ($subBiz as $sb): ?><option value="<?= (int)$sb['id'] ?>" <?= (int)($f['bill_business_id'] ?? 0) === (int)$sb['id'] ? 'selected' : '' ?>><?= e($sb['name']) ?></option><?php endforeach; ?></select></div><?php endif; ?>
         </div>
     </div>
 

@@ -18,6 +18,7 @@ require_once __DIR__ . '/src/Provision.php';
 require_once __DIR__ . '/src/Branding.php';
 require_once __DIR__ . '/src/Invoice.php';
 require_once __DIR__ . '/src/Website.php';
+require_once __DIR__ . '/src/SubSync.php';
 require_once ADF_CORE . '/ServerHealth.php';
 
 const CONSOLE_DB = 'adf_console';
@@ -30,9 +31,12 @@ if (PHP_SAPI !== 'cli') {
     // Gambar https boleh tampil (pratinjau branding sistem lama, foto website di Cloudinary); skrip/gaya tetap hanya dari Console
     header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; img-src 'self' data: https:; form-action 'self'; frame-ancestors 'none'");
 
-    session_name('adf_console');
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => Auth::https(), 'httponly' => true, 'samesite' => 'Lax']);
-    session_start();
+    // API mesin-ke-mesin (sinkron langganan sistem bisnis) tidak memakai sesi login
+    if (!defined('CONSOLE_API')) {
+        session_name('adf_console');
+        session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => Auth::https(), 'httponly' => true, 'samesite' => 'Lax']);
+        session_start();
+    }
 }
 
 function csrf_token(): string

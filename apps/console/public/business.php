@@ -32,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (mb_strlen($name) < 2 || !Biz::client($clientId)) {
             flash('Nama bisnis wajib diisi dan grup harus valid.', 'err');
         } else {
-            $db->prepare('UPDATE businesses SET name = ?, type = ?, status = ?, client_id = ?, domain = ?, notes = ? WHERE id = ?')->execute([
-                mb_substr($name, 0, 150), $type, $status, $clientId, Legacy::normalizeDomain((string)($_POST['domain'] ?? '')) ?: null, trim((string)($_POST['notes'] ?? '')) ?: null, $id,
+            $db->prepare('UPDATE businesses SET name = ?, type = ?, status = ?, client_id = ?, domain = ?, hosted_elsewhere = ?, notes = ? WHERE id = ?')->execute([
+                mb_substr($name, 0, 150), $type, $status, $clientId, Legacy::normalizeDomain((string)($_POST['domain'] ?? '')) ?: null, !empty($_POST['hosted_elsewhere']) ? 1 : 0, trim((string)($_POST['notes'] ?? '')) ?: null, $id,
             ]);
             Auth::audit('business.update', $name . ($clientId !== (int)$biz['client_id'] ? ' (pindah client)' : ''));
             try {
@@ -319,6 +319,7 @@ View::start($biz['name'], 'clients', $me);
             </div>
             <div class="field"><label>Domain sendiri (opsional)</label><input name="domain" value="<?= e($biz['domain']) ?>" placeholder="mis. sunseakarimunjawa.com" <?= $dis ?>></div>
             <div class="field"><label>Catatan</label><input name="notes" value="<?= e($biz['notes']) ?>" <?= $dis ?>></div>
+            <?php if ($biz['type'] !== 'website' && !$biz['legacy_business_id']): ?><label style="display:flex;gap:6px;align-items:center;margin:0 0 10px;color:var(--ink)"><input type="checkbox" name="hosted_elsewhere" value="1" style="width:auto" <?= $biz['hosted_elsewhere'] ? 'checked' : '' ?> <?= $dis ?>> Sistemnya di server lain <span class="muted" style="font-size:11px">— tidak dibuat di VPS, langganan tetap sinkron dari Console</span></label><?php else: ?><input type="hidden" name="hosted_elsewhere" value="<?= (int)$biz['hosted_elsewhere'] ?>"><?php endif; ?>
             <?php if ($isAdmin): ?><button class="btn">Simpan</button><?php endif; ?>
         </form>
     </div>
@@ -517,6 +518,16 @@ View::start($biz['name'], 'clients', $me);
             </form>
         </details>
 
+        <?php $syncUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'console.adfsystem.store') . '/api/subscription-config.php'; ?>
+        <div class="card">
+            <h2>Sambungan sistem bisnis</h2>
+            <p class="muted" style="margin:0 0 8px;font-size:12px">Di sistem bisnis: menu <b>Langganan → Pengaturan koneksi</b>, isi alamat sinkron, client key & token di bawah. Status, tagihan, dan pembayaran lalu tersinkron ke Console.</p>
+            <dl class="kv">
+                <dt>Alamat sinkron</dt><dd><code id="sync-url"><?= e($syncUrl) ?></code> <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText(document.getElementById('sync-url').textContent);this.textContent='Tersalin ✓'">Salin</button></dd>
+                <dt>Sinkron terakhir</dt><dd><?= !empty($sub['last_sync_at']) ? e(date('d M Y H:i', strtotime((string)$sub['last_sync_at']))) . ' WIB' : '<span class="muted">belum pernah — sistem ini masih memakai adfsystem.store</span>' ?></dd>
+            </dl>
+        </div>
+
         <details class="card">
             <summary style="cursor:pointer;font-weight:600">Kunci sinkron sistem bisnis (client key & token)</summary>
             <p class="muted" style="font-size:13px">Dua nilai ini diisi di pengaturan langganan sistem bisnis supaya bisa mengecek status ke Console.</p>
@@ -538,6 +549,8 @@ View::start($biz['name'], 'clients', $me);
                 <form method="post" onsubmit="return confirm('Buat <?= e($biz['name']) ?> di sistem sekarang?')"><?= csrf_field() ?><input type="hidden" name="action" value="provision"><input type="hidden" name="id" value="<?= $id ?>"><button class="btn">⚡ Buat di sistem sekarang</button></form>
             <?php endif; ?>
         </div>
+    <?php elseif (!empty($biz['hosted_elsewhere'])): ?>
+        <div class="card" style="max-width:760px"><h2>Status</h2><span class="pill">sistem di server lain</span> <span class="muted" style="font-size:12px">· database & backup dikelola di server itu; Console hanya mengurus langganan & tagihan.</span></div>
     <?php elseif ($biz['legacy_business_id']): ?>
         <div class="card" style="max-width:760px"><h2>Status</h2><span class="pill ok">terhubung ke <?= e(Legacy::label()) ?></span> <span class="muted" style="font-size:12px">· database <code><?= e($biz['db_name']) ?></code></span></div>
     <?php endif; ?>

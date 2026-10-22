@@ -167,8 +167,14 @@ final class Invoice
             throw new RuntimeException("Nomor invoice {$number} sudah dipakai.");
         }
         $clientId = ((int)($p['client_id'] ?? 0)) ?: ($old['client_id'] ?? null);
+        // Ditagihkan lewat sistem bisnis (muncul di menu Langganan sistem itu & bisa dibayar di sana): hanya bisnis berlangganan
+        $billBiz = (int)($p['bill_business_id'] ?? 0);
+        if ($billBiz && !Biz::subscription($billBiz)) {
+            throw new RuntimeException('Bisnis yang dipilih belum punya langganan, jadi tagihan tidak bisa tampil di sistemnya.');
+        }
+        $kind = ($p['kind'] ?? '') === 'monthly' || ($old['kind'] ?? '') === 'monthly' ? 'monthly' : ($billBiz ? 'manual' : 'free');
         $row = [
-            $number, ($p['kind'] ?? '') === 'monthly' || ($old['kind'] ?? '') === 'monthly' ? 'monthly' : 'free', $clientId,
+            $number, $kind, $clientId, $billBiz ?: null,
             $cust['name'], $cust['company'] ?: null, $cust['email'] ?: null, $cust['phone'] ?: null, $cust['address'] ?: null,
             $issue, $due, ($p['discount_type'] ?? 'rp') === 'percent' ? 'percent' : 'rp',
             max(0.0, ($p['discount_type'] ?? 'rp') === 'percent' ? (float)str_replace(',', '.', (string)($p['discount_value'] ?? 0)) : $num($p['discount_value'] ?? 0)),
@@ -178,14 +184,14 @@ final class Invoice
         $db->beginTransaction();
         try {
             if ($old) {
-                $db->prepare('UPDATE invoices SET number = ?, kind = ?, client_id = ?, customer_name = ?, customer_company = ?, customer_email = ?, customer_phone = ?, customer_address = ?,
+                $db->prepare('UPDATE invoices SET number = ?, kind = ?, client_id = ?, business_id = ?, customer_name = ?, customer_company = ?, customer_email = ?, customer_phone = ?, customer_address = ?,
                         issue_date = ?, due_date = ?, discount_type = ?, discount_value = ?, tax_percent = ?, notes = ?, status = ?,
                         paid_at = ' . ($status === 'paid' ? 'COALESCE(paid_at, NOW())' : 'NULL') . ' WHERE id = ?')->execute([...$row, $id]);
                 $db->prepare('DELETE FROM invoice_items WHERE invoice_id = ?')->execute([$id]);
             } else {
-                $db->prepare('INSERT INTO invoices (number, kind, client_id, customer_name, customer_company, customer_email, customer_phone, customer_address,
+                $db->prepare('INSERT INTO invoices (number, kind, client_id, business_id, customer_name, customer_company, customer_email, customer_phone, customer_address,
                         issue_date, due_date, discount_type, discount_value, tax_percent, notes, status, paid_at, token)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' . ($status === 'paid' ? 'NOW()' : 'NULL') . ', ?)')
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' . ($status === 'paid' ? 'NOW()' : 'NULL') . ', ?)')
                     ->execute([...$row, bin2hex(random_bytes(12))]);
                 $id = (int)$db->lastInsertId();
             }
