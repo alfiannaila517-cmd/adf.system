@@ -58,8 +58,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         setcookie('adf_maint_pass', '', ['expires' => time() - 3600, 'path' => '/']);
         $flash = 'Maintenance DIMATIKAN — sistem terbuka kembali untuk semua staf.';
+    } elseif ($action === 'move') {
+        // Pindah alamat: simpan / hapus domain-move.json
+        $mode = (string)($_POST['mode'] ?? 'off');
+        $from = strtolower(trim((string)($_POST['from'] ?? '')));
+        $to = strtolower(trim((string)($_POST['to'] ?? '')));
+        $domainRe = '/^[a-z0-9-]+(\.[a-z0-9-]+)+$/';
+        if ($mode === 'off') {
+            @unlink(adf_domain_move_file());
+            $flash = 'Pindah alamat dimatikan — alamat lama dibuka seperti biasa.';
+        } elseif (!in_array($mode, ['info', 'direct'], true) || !preg_match($domainRe, $from) || !preg_match($domainRe, $to) || $from === $to) {
+            $flash = 'Alamat lama / baru tidak valid.';
+            $flashType = 'danger';
+        } elseif (@file_put_contents(adf_domain_move_file(), json_encode(['from' => $from, 'to' => $to, 'mode' => $mode, 'since' => date('c')]), LOCK_EX) === false) {
+            $flash = 'Gagal menulis domain-move.json — periksa izin tulis folder utama.';
+            $flashType = 'danger';
+        } else {
+            $flash = $mode === 'info' ? "Pengunjung {$from} melihat info alamat baru {$to}, lalu otomatis pindah." : "Pengunjung {$from} langsung dialihkan ke {$to}.";
+        }
     }
 }
+$move = adf_domain_move_state();
 
 $state = adf_maintenance_state();
 // Developer yang membuka halaman ini selalu diberi akses lewat (mis. setelah alamat pindah ke server baru)
@@ -117,6 +136,35 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <p class="small text-secondary">Status: <span class="badge bg-success">sistem terbuka normal</span></p>
     <?php endif; ?>
+
+    <h5 class="mt-5 mb-1"><i class="bi bi-signpost-split me-2"></i>Pindah alamat</h5>
+    <p class="text-secondary small mb-3">Staf yang membuka alamat lama diarahkan ke alamat baru. Webhook, API, cron, dan Developer Panel tetap jalan di alamat lama.</p>
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                <input type="hidden" name="action" value="move">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <label class="form-label small">Alamat lama</label>
+                        <input name="from" class="form-control" value="<?= htmlspecialchars((string)($move['from'] ?? 'adfsystem.online')) ?>">
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small">Alamat baru</label>
+                        <input name="to" class="form-control" value="<?= htmlspecialchars((string)($move['to'] ?? 'nasita.biz.id')) ?>">
+                    </div>
+                    <div class="col-12 small">
+                        <?php $cm = $move['mode'] ?? 'off'; ?>
+                        <label class="d-block"><input type="radio" name="mode" value="off" class="form-check-input me-1" <?= $cm === 'off' ? 'checked' : '' ?>> Mati — alamat lama dibuka seperti biasa</label>
+                        <label class="d-block"><input type="radio" name="mode" value="info" class="form-check-input me-1" <?= $cm === 'info' ? 'checked' : '' ?>> Info dulu — tampil "Alamat sistem sudah pindah" + tips menyimpan, otomatis pindah dalam 10 detik <span class="text-secondary">(minggu-minggu awal)</span></label>
+                        <label class="d-block"><input type="radio" name="mode" value="direct" class="form-check-input me-1" <?= $cm === 'direct' ? 'checked' : '' ?>> Langsung pindah — tanpa halaman info <span class="text-secondary">(setelah staf terbiasa)</span></label>
+                    </div>
+                </div>
+                <button class="btn btn-outline-light btn-sm mt-3">Simpan</button>
+                <?php if ($move): ?><span class="badge bg-info text-dark ms-2">AKTIF · <?= $move['mode'] === 'info' ? 'info dulu' : 'langsung' ?></span><?php endif; ?>
+            </form>
+        </div>
+    </div>
+    <p class="small text-secondary mt-2">Uji dulu: isi alamat lama <code>staging.adfsystem.online</code>, buka di jendela InPrivate, lalu kembalikan ke Mati.</p>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

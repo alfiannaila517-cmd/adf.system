@@ -41,6 +41,11 @@ function adfGoogleRedirectUri(): string
         return 'http://' . ($host ?: 'localhost') . $dir . '/google-callback.php';
     }
     $domain = defined('MASTER_DOMAIN') ? MASTER_DOMAIN : 'adfsystem.online';
+    // Setelah pindah alamat (Developer Panel → Maintenance), login Google kembali ke alamat baru (sesi ada di sana)
+    if (function_exists('adf_domain_move_state') && ($move = adf_domain_move_state())
+        && strtolower((string)preg_replace('/^www\./', '', $host)) === $move['to']) {
+        $domain = $move['to'];
+    }
     return 'https://' . $domain . '/google-callback.php';
 }
 

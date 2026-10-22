@@ -13,6 +13,9 @@ if (!ob_get_level()) {
 // Mode maintenance (Developer Panel → Maintenance): staf melihat pemberitahuan pemindahan data + hitung mundur
 require_once dirname(__DIR__) . '/includes/maintenance.php';
 adf_maintenance_gate('system');
+// Pindah alamat (Developer Panel → Maintenance): alamat lama menampilkan info alamat baru / langsung dialihkan
+require_once dirname(__DIR__) . '/includes/domain-move.php';
+adf_domain_move_gate();
 
 // Session configuration BEFORE any requires
 if (!defined('SESSION_NAME')) define('SESSION_NAME', 'NARAYANA_SESSION');
