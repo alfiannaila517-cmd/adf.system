@@ -65,9 +65,47 @@ final class Auth
         return $u;
     }
 
+    /**
+     * Ganti nomor sesi (setelah password benar / login selesai) dengan aman untuk kiriman ganda:
+     * sesi lama dikosongkan dan hanya menyimpan "pindah ke" sesi baru selama 2 menit (pola resmi PHP),
+     * jadi permintaan kedua yang masih membawa nomor lama ikut diarahkan ke sesi baru, tidak membuang login.
+     */
+    public static function rotateSession(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+        $data = $_SESSION;
+        $new = session_create_id();
+        $_SESSION = ['__moved_to' => $new, '__moved_at' => time()];
+        session_commit();
+        ini_set('session.use_strict_mode', '0');
+        session_id($new);
+        session_start();
+        $_SESSION = $data;
+    }
+
+    /** Dipanggil tepat setelah session_start(): ikuti "pindah ke" dari sesi lama, atau buang sesi lama yang sudah basi. */
+    public static function followMovedSession(): void
+    {
+        $to = $_SESSION['__moved_to'] ?? null;
+        if (!$to) {
+            return;
+        }
+        if (time() - (int)($_SESSION['__moved_at'] ?? 0) > 120) {
+            $_SESSION = [];
+            session_regenerate_id(true);
+            return;
+        }
+        session_commit();
+        ini_set('session.use_strict_mode', '0');
+        session_id((string)$to);
+        session_start();
+    }
+
     public static function complete(array $user, string $how): void
     {
-        session_regenerate_id(true);
+        self::rotateSession();
         unset($_SESSION['console_pending']);
         $_SESSION['console_user'] = [
             'id' => (int)$user['id'], 'username' => $user['username'], 'email' => $user['email'], 'role' => $user['role'],

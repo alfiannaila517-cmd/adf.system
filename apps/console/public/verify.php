@@ -54,7 +54,7 @@ View::guestStart('Verifikasi');
     <p class="muted" style="margin:0 0 14px;font-size:14px">Kode 6 digit sudah dikirim ke <b><?= e(Auth::maskEmail((string)$user['email'])) ?></b>. Berlaku 10 menit.</p>
     <?php if ($notice): ?><div class="alert ok"><?= e($notice) ?></div><?php endif; ?>
     <?php if ($error): ?><div class="alert err"><?= e($error) ?></div><?php endif; ?>
-    <form method="post">
+    <form method="post" onsubmit="var b=this.querySelector('button');if(b.disabled)return false;b.disabled=true;b.textContent='Memeriksa…'">
         <?= csrf_field() ?>
         <div class="field"><input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" placeholder="123456" required autofocus style="font-size:24px;letter-spacing:8px;text-align:center"></div>
         <button class="btn" type="submit" style="width:100%">Verifikasi</button>

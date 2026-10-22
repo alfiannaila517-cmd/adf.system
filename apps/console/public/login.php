@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Telegram::security('⚠️', 'Login ADF Console TANPA kode (mode darurat aktif)', ['Akun' => $user['username'], 'Catatan' => 'hapus secrets/console-otp-disabled bila email sudah normal']);
         redirect('/');
     } else {
-        session_regenerate_id(true);
+        Auth::rotateSession();
         if (Auth::otpSend($user)) {
             redirect('/verify.php');
         }
@@ -44,7 +44,7 @@ View::guestStart('Masuk');
 <div class="card">
     <?php if ($notice): ?><div class="alert info"><?= e($notice) ?></div><?php endif; ?>
     <?php if ($error): ?><div class="alert err"><?= e($error) ?></div><?php endif; ?>
-    <form method="post" autocomplete="on">
+    <form method="post" autocomplete="on" onsubmit="var b=this.querySelector('button');if(b.disabled)return false;b.disabled=true;b.textContent='Memeriksa…'">
         <?= csrf_field() ?>
         <div class="field"><label for="u">Username atau email</label><input id="u" name="username" autocomplete="username" autocapitalize="none" required autofocus value="<?= e($_POST['username'] ?? '') ?>"></div>
         <div class="field"><label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required></div>

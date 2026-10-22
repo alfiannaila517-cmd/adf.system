@@ -48,6 +48,7 @@ if (PHP_SAPI !== 'cli') {
         $cookieOpts = ['path' => '/', 'secure' => Auth::https(), 'httponly' => true, 'samesite' => 'Lax'];
         session_set_cookie_params(['lifetime' => Auth::IDLE_TIMEOUT] + $cookieOpts);
         session_start();
+        Auth::followMovedSession();
         // Perpanjang masa berlaku cookie setiap kali Console dibuka (batas 2 jam dihitung dari aktivitas terakhir, bukan dari login)
         if (isset($_COOKIE[session_name()]) && !headers_sent()) {
             setcookie(session_name(), session_id(), ['expires' => time() + Auth::IDLE_TIMEOUT] + $cookieOpts);
