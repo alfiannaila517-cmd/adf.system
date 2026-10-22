@@ -212,6 +212,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Gagal: ' . $e->getMessage(), 'err');
         }
         redirect("/business.php?id={$id}&tab=integrasi#i-{$code}");
+    } elseif ($action === 'web_save' || $action === 'web_room') {
+        // Website publik hotel: kunci web_* di database bisnis (dibaca langsung oleh website)
+        try {
+            if (!Website::available($biz)) {
+                throw new RuntimeException('Bisnis ini tidak punya pengaturan website.');
+            }
+            $wdb = Website::db($biz);
+            if ($action === 'web_room') {
+                $room = (string)($_POST['room'] ?? '');
+                Website::saveRoomPhotos($wdb, $room, $_POST, $_FILES);
+                Auth::audit('website.room_photos', "{$biz['name']}: {$room}");
+                flash('Foto kamar ' . (Website::ROOMS[$room] ?? $room) . ' disimpan — langsung tampil di website.');
+            } else {
+                $sec = (string)($_POST['sec'] ?? '');
+                $n = Website::save($wdb, $sec, $_POST, $_FILES);
+                Auth::audit('website.save', "{$biz['name']}: {$sec} ({$n} perubahan)");
+                flash($n ? "{$n} pengaturan website disimpan — langsung tampil di website." : 'Tidak ada yang berubah.');
+            }
+        } catch (Throwable $e) {
+            flash($e->getMessage(), 'err');
+        }
     } elseif ($action === 'regenerate_token') {
         $db->prepare('UPDATE subscriptions SET client_token = ? WHERE business_id = ?')->execute([bin2hex(random_bytes(24)), $id]);
         Auth::audit('subscription.token', $biz['name']);
@@ -243,6 +264,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $suffix = '&edit=' . (int)($_POST['person_id'] ?? 0);
     } elseif ($action === 'roles_save') {
         $suffix = '&view=peran';
+    } elseif ($action === 'web_save') {
+        $suffix = '&sec=' . rawurlencode((string)($_POST['sec'] ?? 'umum'));
+    } elseif ($action === 'web_room') {
+        $suffix = '&sec=kamar#room-' . rawurlencode((string)($_POST['room'] ?? ''));
     }
     redirect("/business.php?id={$id}&tab={$tab}{$suffix}");
 }
@@ -261,7 +286,7 @@ View::start($biz['name'], 'clients', $me);
 <p class="muted" style="margin:0"><?= e($typeLabel) ?> · kode <code><?= e($biz['slug']) ?></code><?= $biz['domain'] ? ' · ' . e($biz['domain']) : '' ?></p>
 
 <nav class="tabs">
-    <?php foreach (['ringkasan' => 'Ringkasan', 'orang' => 'Orang & Akses', 'modul' => 'Menu & Fitur', 'portal' => 'Staff Portal', 'integrasi' => 'Integrasi', 'langganan' => 'Langganan', 'database' => 'Data & Backup'] as $k => $label): ?>
+    <?php foreach (['ringkasan' => 'Ringkasan'] + (Website::available($biz) ? ['website' => 'Website'] : []) + ['orang' => 'Orang & Akses', 'modul' => 'Menu & Fitur', 'portal' => 'Staff Portal', 'integrasi' => 'Integrasi', 'langganan' => 'Langganan', 'database' => 'Data & Backup'] as $k => $label): ?>
         <a class="<?= $tab === $k ? 'on' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
@@ -300,6 +325,96 @@ View::start($biz['name'], 'clients', $me);
                 <tr><td>🌐</td><td><b>3. Cek</b> — buka <a href="https://<?= e($dom) ?>" target="_blank" rel="noopener">https://<?= e($dom) ?></a> dan <a href="https://<?= e($dom) ?>/admin" target="_blank" rel="noopener">https://<?= e($dom) ?>/admin</a></td></tr>
             </table>
         </div>
+    <?php endif; ?>
+
+<?php elseif ($tab === 'website' && Website::available($biz)):
+    $sec = isset(Website::SECTIONS[$_GET['sec'] ?? '']) || ($_GET['sec'] ?? '') === 'kamar' ? (string)$_GET['sec'] : 'umum';
+    $wErr = null;
+    try {
+        $w = Website::values(Website::db($biz));
+    } catch (Throwable $e) {
+        $wErr = $e->getMessage();
+    }
+    $cloud = Website::cloudinaryReady();
+    // Satu kolom isian sesuai jenisnya (gambar: pratinjau + unggah / tempel URL + hapus)
+    $field = function (string $key, array $f) use (&$w, $dis, $cloud): void {
+        [$label, $kind, , $hint] = $f;
+        $val = (string)($w[$key] ?? '');
+        $wide = in_array($kind, ['textarea', 'image'], true);
+        echo '<div class="field" style="' . ($wide ? 'grid-column:1/-1' : '') . '"><label>' . e($label) . '</label>';
+        if ($kind === 'textarea') {
+            echo '<textarea name="' . e($key) . '" rows="2" ' . $dis . '>' . e($val) . '</textarea>';
+        } elseif ($kind === 'toggle') {
+            echo '<label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" name="' . e($key) . '" value="1" style="width:auto" ' . ($val === '1' ? 'checked' : '') . ' ' . $dis . '> aktif</label>';
+        } elseif ($kind === 'image') {
+            $url = Website::imageUrl($val);
+            echo '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">';
+            echo $url ? '<img src="' . e($url) . '" alt="" style="height:54px;max-width:120px;object-fit:cover;border-radius:7px;border:1px solid var(--line)">' : '<span class="pill">belum ada</span>';
+            if ($cloud) {
+                echo '<input type="file" name="' . e($key) . '" accept="image/*" style="width:auto;flex:1;min-width:180px" ' . $dis . '>';
+            }
+            echo '<input name="' . e($key) . '" placeholder="atau tempel URL gambar https://…" style="flex:2;min-width:200px" ' . $dis . '>';
+            if ($url) {
+                echo '<label style="display:flex;gap:4px;align-items:center;margin:0;font-size:11.5px"><input type="checkbox" name="remove[' . e($key) . ']" value="1" style="width:auto" ' . $dis . '> hapus</label>';
+            }
+            echo '</div>';
+        } else {
+            $type = ['time' => 'time', 'number' => 'number', 'color' => 'color'][$kind] ?? 'text';
+            echo '<input type="' . $type . '" name="' . e($key) . '" value="' . e($val) . '" ' . ($kind === 'color' ? 'style="height:32px;padding:2px"' : '') . ' ' . $dis . '>';
+        }
+        echo $hint !== '' ? '<div class="muted" style="font-size:11px;margin-top:2px">' . e($hint) . '</div>' : '';
+        echo '</div>';
+    }; ?>
+    <?php if ($wErr): ?>
+        <div class="soonbox"><?= e($wErr) ?></div>
+    <?php else: ?>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <div class="subtabs" style="margin:0">
+                <?php foreach (array_map(fn ($s) => $s[0], Website::SECTIONS) as $k => $l): ?>
+                    <a class="<?= $sec === $k ? 'on' : '' ?>" href="/business.php?id=<?= $id ?>&tab=website&sec=<?= $k ?>"><?= e($l) ?></a>
+                <?php endforeach; ?>
+            </div>
+            <span class="pill <?= $w['web_enabled'] === '1' ? 'ok' : 'warn' ?>"><?= $w['web_enabled'] === '1' ? 'website aktif' : 'website dimatikan' ?></span>
+        </div>
+        <?php if (!$cloud): ?>
+            <p class="muted" style="margin:0 0 10px;font-size:11.5px">Unggah foto langsung belum diatur di server — sementara tempel alamat (URL) gambar. Foto lama tetap tampil.</p>
+        <?php endif; ?>
+        <form method="post" enctype="multipart/form-data" class="card">
+            <?= csrf_field() ?><input type="hidden" name="action" value="web_save"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="sec" value="<?= e($sec) ?>">
+            <div class="row2" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+                <?php foreach (Website::SECTIONS[$sec][1] as $key => $f) { $field($key, $f); } ?>
+            </div>
+            <?php if ($isAdmin): ?><button class="btn" style="margin-top:10px">Simpan <?= e(mb_strtolower(Website::SECTIONS[$sec][0])) ?></button><?php endif; ?>
+            <?php if ($sec === 'kamar'): ?><p class="muted" style="margin:8px 0 0;font-size:11.5px">Nama, harga, dan jumlah kamar diatur dari <b>Front Desk → Pengaturan</b> di sistem; di sini hanya deskripsi & foto untuk website.</p><?php endif; ?>
+        </form>
+
+        <?php if ($sec === 'kamar'): ?>
+            <?php foreach (Website::ROOMS as $code => $rLabel):
+                $gal = json_decode($w["web_room_gallery_{$code}"] ?? '[]', true) ?: [];
+                $primary = (string)($w["web_room_primary_{$code}"] ?? ''); ?>
+                <form method="post" enctype="multipart/form-data" class="card" id="room-<?= e($code) ?>">
+                    <?= csrf_field() ?><input type="hidden" name="action" value="web_room"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="room" value="<?= e($code) ?>">
+                    <h2>Foto kamar <?= e($rLabel) ?> <span class="muted" style="text-transform:none;letter-spacing:0">· <?= count($gal) ?> foto</span></h2>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+                        <?php foreach ($gal as $u): $src = Website::imageUrl((string)$u); ?>
+                            <div style="width:116px;font-size:11px">
+                                <img src="<?= e((string)$src) ?>" alt="" style="width:116px;height:78px;object-fit:cover;border-radius:7px;border:2px solid <?= $u === $primary ? 'var(--brand)' : 'var(--line)' ?>">
+                                <label style="display:flex;gap:4px;align-items:center;margin:2px 0 0"><input type="radio" name="primary" value="<?= e((string)$u) ?>" style="width:auto" <?= $u === $primary ? 'checked' : '' ?> <?= $dis ?>> utama</label>
+                                <label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" name="remove_photo[]" value="<?= e((string)$u) ?>" style="width:auto" <?= $dis ?>> hapus</label>
+                            </div>
+                        <?php endforeach; ?>
+                        <?php if (!$gal): ?><span class="muted" style="font-size:12px">Belum ada foto.</span><?php endif; ?>
+                    </div>
+                    <?php if ($isAdmin): ?>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                            <?php if ($cloud): ?><input type="file" name="photos[]" accept="image/*" multiple style="width:auto;flex:1;min-width:200px"><?php endif; ?>
+                            <input name="photo_url" placeholder="atau tempel URL foto https://…" style="flex:2;min-width:200px">
+                            <button class="btn sm">Simpan foto <?= e($rLabel) ?></button>
+                        </div>
+                    <?php endif; ?>
+                </form>
+            <?php endforeach; ?>
+        <?php endif; ?>
     <?php endif; ?>
 
 <?php elseif ($tab === 'langganan'): ?>

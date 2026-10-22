@@ -17,6 +17,7 @@ require_once __DIR__ . '/src/StaffPortal.php';
 require_once __DIR__ . '/src/Provision.php';
 require_once __DIR__ . '/src/Branding.php';
 require_once __DIR__ . '/src/Invoice.php';
+require_once __DIR__ . '/src/Website.php';
 require_once ADF_CORE . '/ServerHealth.php';
 
 const CONSOLE_DB = 'adf_console';
@@ -26,9 +27,8 @@ if (PHP_SAPI !== 'cli') {
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: same-origin');
     header('Cache-Control: no-store');
-    // Gambar dari sistem lama (pratinjau branding login) boleh tampil; selebihnya tetap hanya dari Console sendiri
-    $legacyOrigin = (string)preg_replace('#^(https?://[^/]+).*$#', '$1', (string)Secrets::get('LEGACY_BASE_URL', 'https://staging.adfsystem.online'));
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; img-src 'self' data: {$legacyOrigin}; form-action 'self'; frame-ancestors 'none'");
+    // Gambar https boleh tampil (pratinjau branding sistem lama, foto website di Cloudinary); skrip/gaya tetap hanya dari Console
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; img-src 'self' data: https:; form-action 'self'; frame-ancestors 'none'");
 
     session_name('adf_console');
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => Auth::https(), 'httponly' => true, 'samesite' => 'Lax']);
