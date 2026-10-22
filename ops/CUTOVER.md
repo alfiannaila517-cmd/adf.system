@@ -115,6 +115,7 @@ Salin dengan struktur folder yang sama ke `/srv/adf/legacy/public_html/…` (dan
 - `website/config/secrets.php` (versi hosting, bila ada)
 - File di folder home hosting: `adf-google-oauth.php`, `adf-sso-secret.php`, `adf-dev-login.json` → `/srv/adf/legacy/`
 - Setelah disalin: `sudo chown -R www-data:adf` dan `chmod 640`.
+- Sudah dipasang 2026-10-23: `adf-google-oauth.php`, `adf-sso-secret.php` (640), `adf-dev-login.json` + `adf-sso-used.json` kosong (600, ditulis aplikasi — tanpa `adf-sso-used.json` tiket SSO ADF Store ditolak).
 
 ## Lampiran B: cron VPS (sama dengan 4 cron cPanel hosting per 2026-10-22)
 | Hosting (cPanel) | VPS (`ops/cron/adf-legacy`, user www-data) |
