@@ -5,6 +5,13 @@
  * Connects to MAIN hotel system database for real-time room & booking sync
  */
 
+// Mode maintenance sistem ADF (hanya menutup website bila "Website hotel ikut ditutup" dicentang)
+$__adfMaint = dirname(__DIR__, 2) . '/includes/maintenance.php';
+if (is_file($__adfMaint)) {
+    require_once $__adfMaint;
+    adf_maintenance_gate('website');
+}
+
 // Detect environment
 $isLocal = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') !== false ||
     strpos($_SERVER['HTTP_HOST'] ?? '127.0.0.1', '127.0.0.1') !== false);
