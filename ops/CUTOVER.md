@@ -97,10 +97,11 @@ Masuk Developer Panel lewat ADF Store seperti biasa. Bila gagal: `sudo touch /sr
 ### 8. Buka kembali
 - [ ] VPS: Developer Panel → Maintenance → **Selesai — buka sistem**. Layar staf terbuka sendiri dalam ±30 detik.
 - [ ] Butuh waktu lebih? Klik **+15 menit**.
-- [ ] Alamat baru untuk staf: Developer Panel → Maintenance → **Pindah alamat** → `adfsystem.online` → `nasita.biz.id`, mode **Info dulu**.
-  Staf yang membuka alamat lama melihat alamat baru + cara menyimpannya, lalu pindah otomatis. Webhook/API tetap di alamat lama.
-  (Sebelumnya: Google Cloud → OAuth → tambahkan redirect URI `https://nasita.biz.id/google-callback.php`.)
-- [ ] Umumkan ke staf: **sistem sudah normal**. Bila HP masih membuka versi lama, tutup aplikasi lalu buka lagi.
+- [ ] Umumkan ke staf: **sistem sudah normal**, alamat tetap sama (mungkin diminta login sekali lagi). Bila HP masih membuka versi lama, tutup aplikasi lalu buka lagi.
+- **"Pindah alamat" ke nasita.biz.id JANGAN malam ini** — staff portal besok pagi tetap di adfsystem.online (izin kamera/lokasi absen terikat alamat).
+  Setelah 1–2 hari stabil, saat sepi: Developer Panel → Maintenance → **Pindah alamat** → `adfsystem.online` → `nasita.biz.id`, mode **Info dulu**,
+  + pengumuman WA: buka nasita.biz.id, login, izinkan kamera & lokasi, Tambahkan ke Layar Utama, hapus ikon lama.
+  (Google OAuth redirect `https://nasita.biz.id/google-callback.php` sudah ditambahkan 2026-10-22.)
 - [ ] Pantau 1–2 hari: laporan Telegram pagi, Cloudbeds tidak dobel, WA terkirim sekali.
 
 ---
