@@ -27,7 +27,7 @@ Waktu terbaik: malam, saat tamu check-in/out sedikit (mis. 22.00).
 ### 2. Hentikan input di hosting
 - [ ] Hosting: `adfsystem.online/developer` → **Maintenance** → durasi ±90 menit, centang *Website hotel ikut ditutup* → Aktifkan.
   Staf langsung melihat pemberitahuan + hitung mundur (input otomatis terhenti). Browser Anda tetap bisa masuk.
-- [ ] VPS: `staging.adfsystem.online/developer` → **Maintenance** → aktifkan juga (setelah alamat pindah, staf tetap melihat pemberitahuan sampai uji selesai).
+- [ ] VPS: `staging.adfsystem.online/developer` → **Maintenance** → aktifkan juga, **tanpa** centang website (setelah alamat pindah, staf tetap melihat pemberitahuan sampai uji selesai; website hotel di VPS tetap terbuka supaya pemesanan uji di langkah 7 bisa dilakukan).
 - [ ] Di hosting: **matikan integrasi**:
   - **Cloudbeds:** auto-sync & push dimatikan
   - **WA Fonnte:** kosongkan token atau matikan
@@ -41,9 +41,10 @@ cPanel → Backup → *Download a MySQL Database Backup*:
 - [ ] `adfb2574_Adf_Bens`
 - [ ] `adfb2574_eat_meet`
 - [ ] `adfb2574_web_narayana`
-- [ ] Folder `uploads/` (File Manager → compress → download; **hapus zip-nya dari hosting** setelah terunduh)
+- [ ] Folder `uploads/` (File Manager → klik kanan `uploads` → Compress → Zip, nama **`uploads.zip`** → download; **hapus zip-nya dari hosting** setelah terunduh)
 
-Kirim ke VPS: `scp $env:USERPROFILE\Downloads\adfb2574_*.sql.gz adfarif@103.89.5.50:~/`
+Kirim ke VPS (PowerShell laptop):
+`scp $env:USERPROFILE\Downloads\adfb2574_*.sql.gz $env:USERPROFILE\Downloads\uploads.zip adfarif@103.89.5.50:~/`
 
 ### 4. Import di VPS (mode LIVE: token integrasi dipertahankan)
 ```bash
@@ -54,8 +55,13 @@ sudo bash /srv/adf/app/ops/master-merge.sh ~/adfb2574_adf.sql.gz --live
 sudo unzip -n ~/uploads.zip -d /srv/adf/legacy/public_html/ && sudo chown -R www-data:adf /srv/adf/legacy/public_html/uploads
 sudo bash /srv/adf/app/ops/legacy-db.sh list
 ```
-- [ ] Hapus file uji website: `sudo rm /srv/adf/legacy/public_html/website/config/secrets.php`
-  (website kembali mengirim notifikasi ke adfsystem.online)
+- [ ] Website kembali mengirim notifikasi ke adfsystem.online — hapus HANYA baris uji `ADF_SYSTEM_URL`
+  (file itu juga berisi password database website VPS — jangan dihapus seluruhnya):
+  ```bash
+  sudo sed -i '/ADF_SYSTEM_URL/d' /srv/adf/legacy/public_html/website/config/secrets.php
+  sudo grep -c ADF_SYSTEM_URL /srv/adf/legacy/public_html/website/config/secrets.php   # harus 0
+  sudo systemctl reload php8.2-fpm
+  ```
 
 ### 5. Alihkan alamat (Cloudflare → DNS)
 - [ ] `adfsystem.online` A → **103.89.5.50** (`www` mengikuti, CNAME)
@@ -78,6 +84,8 @@ sudo bash /srv/adf/app/ops/add-website.sh narayanakarimunjawa.com   # website ho
 
 ### 7. Uji (15 menit)
 Buka dulu `adfsystem.online/developer` → **Maintenance** (sekarang sudah di VPS) supaya browser Anda dapat akses lewat; staf masih melihat pemberitahuan.
+Masuk Developer Panel lewat ADF Store seperti biasa. Bila gagal: `sudo -u www-data touch /srv/adf/legacy/adf-dev-direct-login.txt`
+→ login langsung di `adfsystem.online/developer/login.php` → setelah selesai `sudo rm /srv/adf/legacy/adf-dev-direct-login.txt`.
 - [ ] Login System & Owner Login, pindah bisnis (4 bisnis)
 - [ ] Narayana: kalender, buat 1 reservasi uji lalu batalkan, buku kas
 - [ ] Bens / Eat Meet: transaksi kasir uji
@@ -111,11 +119,11 @@ Buka dulu `adfsystem.online/developer` → **Maintenance** (sekarang sudah di VP
 
 ## Lampiran A: file rahasia di hosting (tidak ada di git)
 Salin dengan struktur folder yang sama ke `/srv/adf/legacy/public_html/…` (dan `/srv/adf/legacy/` untuk file di luar public_html):
-- ~~`config/backup-secrets.php`, `config/email-narayana.php`~~ — tidak ada di hosting (hanya `.example`, dicek 2026-10-23): setelan email di database, backup VPS terpisah. `config/mayar.php` tidak perlu.
+- ~~`config/backup-secrets.php`, `config/email-narayana.php`~~ — tidak ada di hosting (hanya `.example`, dicek 2026-10-22): setelan email di database, backup VPS terpisah. `config/mayar.php` tidak perlu.
 - `website/config/secrets.php` (versi hosting, bila ada)
 - File di folder home hosting: `adf-google-oauth.php`, `adf-sso-secret.php`, `adf-dev-login.json` → `/srv/adf/legacy/`
 - Setelah disalin: `sudo chown -R www-data:adf` dan `chmod 640`.
-- Sudah dipasang 2026-10-23: `adf-google-oauth.php`, `adf-sso-secret.php` (640), `adf-dev-login.json` + `adf-sso-used.json` kosong (600, ditulis aplikasi — tanpa `adf-sso-used.json` tiket SSO ADF Store ditolak).
+- Sudah dipasang 2026-10-22: `adf-google-oauth.php`, `adf-sso-secret.php` (640), `adf-dev-login.json` + `adf-sso-used.json` kosong (600, ditulis aplikasi — tanpa `adf-sso-used.json` tiket SSO ADF Store ditolak).
 
 ## Lampiran B: cron VPS (sama dengan 4 cron cPanel hosting per 2026-10-22)
 | Hosting (cPanel) | VPS (`ops/cron/adf-legacy`, user www-data) |
