@@ -36,6 +36,16 @@ if ($intentPoId > 0 || $intentPoNumber !== '') {
 $activeBusinessSlug = strtolower((string)($_SESSION['active_business_id'] ?? ''));
 $isGudang = ($activeBusinessSlug === 'gudang-nasita');
 
+// Izin sama dengan menu sidebar: Gudang → Riwayat Pengiriman, bisnis lain → Pembelian › PO Gudang
+$canOpenPoList = $isGudang
+    ? ($auth->hasPermission('gudang_nasita') || $auth->hasPermission('warehouse') || $auth->hasPermission('warehouse_transfers'))
+    : $auth->hasPermission('procurement_po');
+if (!$canOpenPoList) {
+    http_response_code(403);
+    echo 'Akses daftar PO ditolak.';
+    exit;
+}
+
 // Map of business slugs to database names
 $businessDatabases = [
     'narayana-hotel' => 'adf_narayana_hotel',

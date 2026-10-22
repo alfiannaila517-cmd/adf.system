@@ -1889,34 +1889,50 @@ if ($userTheme === 'system') {
                         <?php
                         // Menu Gudang Nasita dikelompokkan mengikuti alur barang:
                         // stok → barang masuk (dari supplier) → barang keluar (ke bisnis) → keuangan.
+                        // Kolom ke-5 = izin (salah satu cukup), sama persis dengan pemeriksaan di halaman masing-masing,
+                        // supaya menu yang tampil = halaman yang benar-benar boleh dibuka (ADF Console → Menu Sidebar).
+                        $gdBase = ['gudang_nasita', 'warehouse'];
                         $gudangNavGroups = [
                             ['label' => null, 'items' => [
-                                ['modules/gudang/dashboard.php', 'grid', 'Dashboard', ['dashboard.php']],
+                                ['modules/gudang/dashboard.php', 'grid', 'Dashboard', ['dashboard.php'], [...$gdBase, 'gudang_view']],
                             ]],
                             ['label' => 'Stok', 'items' => [
-                                ['modules/procurement/gudang-nasita.php', 'archive', 'Stok Gudang', ['gudang-nasita.php', 'stock.php']],
-                                ['modules/procurement/gudang-produk.php', 'database', 'Daftar Barang', ['gudang-produk.php']],
+                                ['modules/procurement/gudang-nasita.php', 'archive', 'Stok Gudang', ['gudang-nasita.php', 'stock.php'], $gdBase],
+                                ['modules/procurement/gudang-produk.php', 'database', 'Daftar Barang', ['gudang-produk.php'], $gdBase],
                             ]],
                             ['label' => 'Barang Masuk', 'items' => [
-                                ['modules/procurement/gudang-po-supplier.php', 'shopping-cart', 'Order ke Supplier', ['gudang-po-supplier.php']],
-                                ['modules/procurement/gudang-ambil-outlet.php', 'download', 'Ambil dari Outlet', ['gudang-ambil-outlet.php']],
-                                ['modules/procurement/gudang-riwayat-masuk.php', 'log-in', 'Riwayat Barang Masuk', ['gudang-riwayat-masuk.php']],
+                                ['modules/procurement/gudang-po-supplier.php', 'shopping-cart', 'Order ke Supplier', ['gudang-po-supplier.php'], $gdBase],
+                                ['modules/procurement/gudang-ambil-outlet.php', 'download', 'Ambil dari Outlet', ['gudang-ambil-outlet.php'], $gdBase],
+                                ['modules/procurement/gudang-riwayat-masuk.php', 'log-in', 'Riwayat Barang Masuk', ['gudang-riwayat-masuk.php'], $gdBase],
                             ]],
                             ['label' => 'Barang Keluar · ke bisnis', 'items' => [
-                                ['modules/procurement/gudang-transfer.php', 'send', 'Kirim ke Bisnis', ['gudang-transfer.php']],
-                                ['modules/procurement/purchase-orders.php', 'list', 'Riwayat Pengiriman', ['purchase-orders.php']],
+                                ['modules/procurement/gudang-transfer.php', 'send', 'Kirim ke Bisnis', ['gudang-transfer.php'], [...$gdBase, 'warehouse_transfers']],
+                                ['modules/procurement/purchase-orders.php', 'list', 'Riwayat Pengiriman', ['purchase-orders.php'], [...$gdBase, 'warehouse_transfers']],
                             ]],
                             ['label' => 'Keuangan', 'items' => [
-                                ['modules/procurement/gudang-tagihan.php', 'file-text', 'Tagihan Bisnis', ['gudang-tagihan.php']],
-                                ['modules/gudang/finance.php', 'dollar-sign', 'Kas & Biaya Gudang', ['finance.php']],
+                                ['modules/procurement/gudang-tagihan.php', 'file-text', 'Tagihan Bisnis', ['gudang-tagihan.php'], $gdBase],
+                                ['modules/gudang/finance.php', 'dollar-sign', 'Kas & Biaya Gudang', ['finance.php'], [...$gdBase, 'gudang_finance']],
                             ]],
                             ['label' => 'Pengaturan', 'items' => [
-                                ['modules/gudang/logo.php', 'image', 'Logo Perusahaan', ['logo.php']],
+                                ['modules/gudang/logo.php', 'image', 'Logo Perusahaan', ['logo.php'], [...$gdBase, 'settings']],
                             ]],
                         ];
+                        // Satu kali cek per kode izin per halaman
+                        $gdCanCache = [];
+                        $gdCan = function (array $codes) use ($auth, &$gdCanCache): bool {
+                            foreach ($codes as $c) {
+                                if ($gdCanCache[$c] ??= $auth->hasPermission($c)) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        };
+                        foreach ($gudangNavGroups as $gi => $navGroup) {
+                            $gudangNavGroups[$gi]['items'] = array_values(array_filter($navGroup['items'], fn ($it) => $gdCan($it[4])));
+                        }
                         $gudangCurrentPage = basename($_SERVER['PHP_SELF']);
                         ?>
-                        <?php foreach ($gudangNavGroups as $navGroup): ?>
+                        <?php foreach ($gudangNavGroups as $navGroup): if (!$navGroup['items']) continue; ?>
                             <?php if ($navGroup['label']): ?>
                                 <li class="gudang-nav-group"><?php echo htmlspecialchars($navGroup['label']); ?></li>
                             <?php endif; ?>
