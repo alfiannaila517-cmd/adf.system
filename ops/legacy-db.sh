@@ -89,7 +89,7 @@ scrub() {
     N=$(mariadb -N "$DB" -e "
       UPDATE settings SET setting_value = '' WHERE setting_value <> '' AND (
            setting_key IN ('cloudbeds_api_key','cloudbeds_auto_sync','cloudbeds_push_enabled','cloudbeds_pay_enabled',
-                           'wa_token','wa_checkin_enabled','email_imap_pass','fingerspot_token','fingerspot_enabled',
+                           'wa_token','wa_checkin_enabled','email_imap_pass','email_imap_smtp_pass','fingerspot_token','fingerspot_enabled',
                            'openai_api_key','openai_active','subscription_client_key','subscription_client_token',
                            'subscription_sync_url','subscription_pakasir_api_key')
         OR setting_key LIKE 'pakasir\_%' OR setting_key LIKE 'smtp\_pass%');
