@@ -47,52 +47,76 @@ if ($q !== '') {
     }
 }
 $total = array_sum(array_map(fn ($g) => count($g['biz']), $groups));
+$unpaid = array_sum(array_map(fn ($g) => count(array_filter($g['biz'], fn ($b) => (int)$b['unpaid_count'] > 0)), $groups));
 
 View::start('Bisnis', 'clients', $me);
 ?>
+<style>
+    /* Daftar bisnis: satu kartu per grup, satu baris tipis per bisnis */
+    .grp { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+    .grp-head { display: flex; justify-content: space-between; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line2); background: var(--card2); }
+    .grp-head b { font-size: 13.5px; font-weight: 650; }
+    .grp-head .links { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; }
+    .grp-head .links a { color: var(--ink2); }
+    .grp-head .links a:hover { color: var(--brand); }
+    .grp-head .links a.add { color: var(--brand); font-weight: 600; }
+    .biz { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto 12px; align-items: center; gap: 10px; padding: 8px 14px; color: var(--ink); border-top: 1px solid var(--line2); }
+    .biz:first-of-type { border-top: 0; }
+    .biz:hover { background: rgba(255, 255, 255, .025); color: var(--ink); }
+    .biz .ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: #1a1f2b; font-size: 15px; }
+    .biz .nm { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .biz .sub { color: var(--mu); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .biz .st { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+    .biz .go { color: var(--mu); font-size: 15px; }
+    .biz:hover .go { color: var(--brand); }
+    .grp-empty { padding: 10px 14px; color: var(--mu); font-size: 12px; }
+    @media (max-width: 640px) { .biz { grid-template-columns: 30px minmax(0, 1fr) 12px; } .biz .st { grid-column: 2; justify-content: flex-start; } .biz .go { grid-row: 1; grid-column: 3; } }
+</style>
+
 <div class="pagehead">
-    <div><h1>Bisnis</h1><p><?= $total ?> bisnis dalam <?= count($groups) ?> grup. Grup = pemilik / perusahaan; klik bisnis untuk mengatur menu, akses, staff portal, dan integrasinya.</p></div>
-    <form method="get" style="display:flex;gap:8px;min-width:260px">
-        <input name="q" value="<?= e($q) ?>" placeholder="Cari grup atau bisnis…">
-        <?php if ($q !== ''): ?><a class="btn ghost" href="/clients.php">Reset</a><?php endif; ?>
-    </form>
+    <div><h1>Bisnis</h1><p><?= $total ?> bisnis · <?= count($groups) ?> grup<?= $unpaid ? " · <span style=\"color:var(--warn)\">{$unpaid} punya tagihan belum lunas</span>" : '' ?></p></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <form method="get" style="display:flex;gap:6px">
+            <input name="q" value="<?= e($q) ?>" placeholder="Cari grup atau bisnis…" style="width:220px">
+            <?php if ($q !== ''): ?><a class="btn ghost" href="/clients.php">Reset</a><?php endif; ?>
+        </form>
+        <?php if ($me['role'] === 'admin'): ?><a class="btn" href="#grup-baru" onclick="document.getElementById('grup-baru').open=true">＋ Grup baru</a><?php endif; ?>
+    </div>
 </div>
 
 <?php foreach ($groups as $cid => $g): $c = $g['client']; ?>
-    <section style="margin-bottom:24px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px">
+    <section class="grp">
+        <div class="grp-head">
             <div>
-                <span style="font-size:16px;font-weight:650"><?= e($c['name']) ?></span>
-                <?= $c['is_demo'] ? '<span class="pill gold">DEMO</span>' : '' ?>
-                <span class="muted" style="font-size:12.5px">· <?= count($g['biz']) ?> bisnis<?= $c['contact_name'] ? ' · ' . e($c['contact_name']) : '' ?></span>
+                <b><?= e($c['name']) ?></b>
+                <?= $c['is_demo'] ? ' <span class="pill gold">DEMO</span>' : '' ?>
+                <span class="muted" style="font-size:12px"> · <?= count($g['biz']) ?> bisnis</span>
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-                <a class="btn ghost sm" href="/client.php?id=<?= $cid ?>&tab=login">Login & Domain</a>
-                <a class="btn ghost sm" href="/client.php?id=<?= $cid ?>&tab=orang">Akses</a>
-                <a class="btn ghost sm" href="/client.php?id=<?= $cid ?>">Pengaturan grup</a>
+            <div class="links">
+                <a href="/client.php?id=<?= $cid ?>&tab=login">Login & domain</a>
+                <a href="/client.php?id=<?= $cid ?>&tab=orang">Akses</a>
+                <a href="/client.php?id=<?= $cid ?>">Pengaturan</a>
+                <?php if ($me['role'] === 'admin'): ?><a class="add" href="/client.php?id=<?= $cid ?>&add=1#tambah">＋ Bisnis</a><?php endif; ?>
             </div>
         </div>
-        <div class="grid">
-            <?php foreach ($g['biz'] as $b): [$tLabel, $tIcon] = Biz::type((string)$b['type']); ?>
-                <a class="tile" href="/business.php?id=<?= (int)$b['id'] ?>">
-                    <div class="ic"><?= $tIcon ?></div>
-                    <b><?= e($b['name']) ?></b>
-                    <small><?= e($tLabel) ?><?= $b['domain'] ? ' · ' . e($b['domain']) : '' ?></small>
-                    <div class="meta">
-                        <?php if ($b['status'] !== 'active'): ?><span class="pill"><?= e(Biz::STATUS[$b['status']] ?? $b['status']) ?></span>
-                        <?php elseif ($b['locked']): ?><span class="pill bad">terkunci</span>
-                        <?php else: ?><span class="pill ok">aktif</span><?php endif; ?>
-                        <?php if ((int)$b['unpaid_count'] > 0): ?><span class="pill warn"><?= (int)$b['unpaid_count'] ?> tagihan belum lunas</span><?php endif; ?>
-                        <?php if (!empty($b['hosted_elsewhere'])): ?><span class="pill">server lain</span><?php elseif (!$b['legacy_business_id'] && $b['type'] !== 'website'): ?><span class="pill">belum dibuat di sistem</span><?php endif; ?>
-                    </div>
-                </a>
-            <?php endforeach; ?>
-            <?php if ($me['role'] === 'admin'): ?>
-                <a class="tile" href="/client.php?id=<?= $cid ?>&add=1#tambah" style="border-style:dashed;box-shadow:none;display:grid;place-items:center;color:var(--mu);min-height:116px">
-                    <span style="text-align:center"><span style="font-size:22px">＋</span><br><small>Tambah bisnis ke <?= e($c['name']) ?></small></span>
-                </a>
-            <?php endif; ?>
-        </div>
+        <?php foreach ($g['biz'] as $b): [$tLabel, $tIcon] = Biz::type((string)$b['type']); ?>
+            <a class="biz" href="/business.php?id=<?= (int)$b['id'] ?>">
+                <span class="ic"><?= $tIcon ?></span>
+                <span style="min-width:0">
+                    <div class="nm"><?= e($b['name']) ?></div>
+                    <div class="sub"><?= e($tLabel) ?><?= $b['domain'] ? ' · ' . e($b['domain']) : '' ?></div>
+                </span>
+                <span class="st">
+                    <?php if ((int)$b['unpaid_count'] > 0): ?><span class="pill warn"><?= (int)$b['unpaid_count'] ?> tagihan belum lunas</span><?php endif; ?>
+                    <?php if (!empty($b['hosted_elsewhere'])): ?><span class="pill">server lain</span><?php elseif (!$b['legacy_business_id'] && $b['type'] !== 'website'): ?><span class="pill">belum dibuat di sistem</span><?php endif; ?>
+                    <?php if ($b['status'] !== 'active'): ?><span class="pill"><?= e(Biz::STATUS[$b['status']] ?? $b['status']) ?></span>
+                    <?php elseif ($b['locked']): ?><span class="pill bad">terkunci</span>
+                    <?php else: ?><span class="pill ok">aktif</span><?php endif; ?>
+                </span>
+                <span class="go">›</span>
+            </a>
+        <?php endforeach; ?>
+        <?php if (!$g['biz']): ?><div class="grp-empty">Belum ada bisnis.</div><?php endif; ?>
     </section>
 <?php endforeach; ?>
 
@@ -101,7 +125,7 @@ View::start('Bisnis', 'clients', $me);
 <?php endif; ?>
 
 <?php if ($me['role'] === 'admin'): ?>
-    <details class="card" style="margin-top:6px" <?= $clients ? '' : 'open' ?>>
+    <details class="card" id="grup-baru" style="margin-top:6px" <?= $clients ? '' : 'open' ?>>
         <summary style="cursor:pointer;font-weight:600">Buat grup baru</summary>
         <p class="muted" style="margin:8px 0 12px;font-size:12.5px">Grup = pemilik atau perusahaan (mis. Nasita Group). Satu grup bisa punya banyak bisnis dan ditagih bersama.</p>
         <form method="post" class="row2" style="align-items:end">
