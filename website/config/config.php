@@ -18,7 +18,8 @@ $isLocal = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') !== false 
 $__secretsFile = __DIR__ . '/secrets.php';
 if (!$isLocal && is_file($__secretsFile)) {
     $__sec = require $__secretsFile;
-    foreach (['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_PORT', 'DB_WEB_HOST', 'DB_WEB_USER', 'DB_WEB_PASS', 'DB_WEB_NAME', 'DB_WEB_PORT'] as $__k) {
+    // VPS: ADF_SYSTEM_URL juga boleh dari secrets (staging → staging.adfsystem.online, supaya uji pesan tidak masuk ke sistem live)
+    foreach (['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_PORT', 'DB_WEB_HOST', 'DB_WEB_USER', 'DB_WEB_PASS', 'DB_WEB_NAME', 'DB_WEB_PORT', 'ADF_SYSTEM_URL'] as $__k) {
         if (isset($__sec[$__k]) && !defined($__k)) {
             define($__k, $__sec[$__k]);
         }
