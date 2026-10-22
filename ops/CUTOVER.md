@@ -84,8 +84,8 @@ sudo bash /srv/adf/app/ops/add-website.sh narayanakarimunjawa.com   # website ho
 
 ### 7. Uji (15 menit)
 Buka dulu `adfsystem.online/developer` → **Maintenance** (sekarang sudah di VPS) supaya browser Anda dapat akses lewat; staf masih melihat pemberitahuan.
-Masuk Developer Panel lewat ADF Store seperti biasa. Bila gagal: `sudo -u www-data touch /srv/adf/legacy/adf-dev-direct-login.txt`
-→ login langsung di `adfsystem.online/developer/login.php` → setelah selesai `sudo rm /srv/adf/legacy/adf-dev-direct-login.txt`.
+Masuk Developer Panel lewat ADF Store seperti biasa. Bila gagal: `sudo touch /srv/adf/legacy/adf-dev-direct-login.txt /srv/adf/legacy/adf-otp-disabled.txt`
+→ login langsung di `adfsystem.online/developer/login.php` → setelah selesai `sudo rm /srv/adf/legacy/adf-dev-direct-login.txt /srv/adf/legacy/adf-otp-disabled.txt`.
 - [ ] Login System & Owner Login, pindah bisnis (4 bisnis)
 - [ ] Narayana: kalender, buat 1 reservasi uji lalu batalkan, buku kas
 - [ ] Bens / Eat Meet: transaksi kasir uji
