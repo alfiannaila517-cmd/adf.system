@@ -16,6 +16,7 @@ Waktu terbaik: malam, saat tamu check-in/out sedikit (mis. 22.00).
 - [ ] Siapkan cron VPS: `sudo bash /srv/adf/app/ops/legacy-cron-setup.sh prepare` (cron belum aktif, lihat lampiran B).
 - [ ] Google Cloud Console → OAuth: pastikan alamat callback yang sama berlaku (domain tidak berubah → biasanya tidak perlu diubah).
 - [ ] Backup lengkap hosting (cPanel → Backup → Full Backup), simpan di laptop.
+- [ ] Fitur **Maintenance** sudah ada di hosting (cPanel → Git → Update from Remote + Deploy HEAD Commit) dan dicoba sekali di staging: Developer Panel → Maintenance → aktifkan → buka di jendela InPrivate → tampil hitung mundur → Selesai.
 
 ## Hari H
 
@@ -24,7 +25,9 @@ Waktu terbaik: malam, saat tamu check-in/out sedikit (mis. 22.00).
 - [ ] Di VPS: `sudo -u adf php /srv/adf/app/cli/console.php migrate && sudo systemctl reload php8.2-fpm`
 
 ### 2. Hentikan input di hosting
-- [ ] Umumkan ke staf: **berhenti input** (reservasi, kasir, gudang) sampai diberi tahu.
+- [ ] Hosting: `adfsystem.online/developer` → **Maintenance** → durasi ±90 menit, centang *Website hotel ikut ditutup* → Aktifkan.
+  Staf langsung melihat pemberitahuan + hitung mundur (input otomatis terhenti). Browser Anda tetap bisa masuk.
+- [ ] VPS: `staging.adfsystem.online/developer` → **Maintenance** → aktifkan juga (setelah alamat pindah, staf tetap melihat pemberitahuan sampai uji selesai).
 - [ ] Di hosting: **matikan integrasi**:
   - **Cloudbeds:** auto-sync & push dimatikan
   - **WA Fonnte:** kosongkan token atau matikan
@@ -74,6 +77,7 @@ sudo bash /srv/adf/app/ops/add-website.sh narayanakarimunjawa.com   # website ho
 - [ ] **Email Kantor Narayana**: Pengaturan Email → "Kirim lewat layanan lain" diisi SMTP Brevo; pengirim `reservasi@narayanakarimunjawa.com`.
 
 ### 7. Uji (15 menit)
+Buka dulu `adfsystem.online/developer` → **Maintenance** (sekarang sudah di VPS) supaya browser Anda dapat akses lewat; staf masih melihat pemberitahuan.
 - [ ] Login System & Owner Login, pindah bisnis (4 bisnis)
 - [ ] Narayana: kalender, buat 1 reservasi uji lalu batalkan, buku kas
 - [ ] Bens / Eat Meet: transaksi kasir uji
@@ -83,6 +87,8 @@ sudo bash /srv/adf/app/ops/add-website.sh narayanakarimunjawa.com   # website ho
 - [ ] Console → Beranda: server normal, backup jalan
 
 ### 8. Buka kembali
+- [ ] VPS: Developer Panel → Maintenance → **Selesai — buka sistem**. Layar staf terbuka sendiri dalam ±30 detik.
+- [ ] Butuh waktu lebih? Klik **+15 menit**.
 - [ ] Umumkan ke staf: **sistem sudah normal**. Bila HP masih membuka versi lama, tutup aplikasi lalu buka lagi.
 - [ ] Pantau 1–2 hari: laporan Telegram pagi, Cloudbeds tidak dobel, WA terkirim sekali.
 
@@ -90,7 +96,7 @@ sudo bash /srv/adf/app/ops/add-website.sh narayanakarimunjawa.com   # website ho
 
 ## Jalan kembali (kalau ada masalah besar)
 1. Cloudflare: kembalikan A `adfsystem.online` & `narayanakarimunjawa.com` ke **202.10.43.81** (hosting).
-2. Hosting: nyalakan lagi cron & integrasi (Cloudbeds, WA).
+2. Hosting: nyalakan lagi cron & integrasi (Cloudbeds, WA), lalu Developer Panel → Maintenance → Selesai.
 3. Data yang diinput di VPS selama masa gangguan dicatat manual, lalu diinput ulang di hosting.
 
 ## Setelah 2–4 minggu stabil
