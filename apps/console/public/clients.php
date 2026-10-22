@@ -9,6 +9,35 @@ require dirname(__DIR__) . '/bootstrap.php';
 $me = Auth::requireLogin();
 $db = Biz::db();
 
+// ＋ Bisnis dari atas: ke grup yang ada, atau sekalian buat grup / pelanggan baru
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_business') {
+    try {
+        if (!csrf_ok() || $me['role'] !== 'admin') {
+            throw new RuntimeException($me['role'] !== 'admin' ? 'Hanya admin yang bisa menambah bisnis.' : 'Sesi form kedaluwarsa, silakan coba lagi.');
+        }
+        $pick = (string)($_POST['client_id'] ?? '');
+        if ($pick === 'new') {
+            $gname = trim((string)($_POST['group_name'] ?? ''));
+            if (mb_strlen($gname) < 2) {
+                throw new RuntimeException('Isi nama grup / pelanggan baru.');
+            }
+            $db->prepare('INSERT INTO clients (name, contact_name, phone) VALUES (?, ?, ?)')
+                ->execute([mb_substr($gname, 0, 150), trim((string)($_POST['contact_name'] ?? '')) ?: null, trim((string)($_POST['phone'] ?? '')) ?: null]);
+            $pick = (string)$db->lastInsertId();
+            Auth::audit('client.add', $gname);
+        }
+        $st = $db->prepare('SELECT * FROM clients WHERE id = ?');
+        $st->execute([(int)$pick]);
+        $client = $st->fetch() ?: throw new RuntimeException('Pilih grup.');
+        [$bid, $msg, $ok] = Biz::add($client, $_POST);
+        flash($msg, $ok ? 'ok' : 'err');
+        redirect("/business.php?id={$bid}" . ($ok ? '' : '&tab=database'));
+    } catch (RuntimeException $e) {
+        flash($e->getMessage(), 'err');
+        redirect('/clients.php?add=1');
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim((string)($_POST['name'] ?? ''));
     $email = trim((string)($_POST['email'] ?? ''));
@@ -80,9 +109,38 @@ View::start('Bisnis', 'clients', $me);
             <input name="q" value="<?= e($q) ?>" placeholder="Cari grup atau bisnis…" style="width:220px">
             <?php if ($q !== ''): ?><a class="btn ghost" href="/clients.php">Reset</a><?php endif; ?>
         </form>
-        <?php if ($me['role'] === 'admin'): ?><a class="btn" href="#grup-baru" onclick="document.getElementById('grup-baru').open=true">＋ Grup baru</a><?php endif; ?>
+        <?php if ($me['role'] === 'admin'): ?><a class="btn" href="?add=1#bisnis-baru" onclick="var d=document.getElementById('bisnis-baru');d.open=!d.open;return false">＋ Bisnis</a><?php endif; ?>
     </div>
 </div>
+
+<?php if ($me['role'] === 'admin'): ?>
+    <details class="card" id="bisnis-baru" <?= isset($_GET['add']) ? 'open' : '' ?>>
+        <summary style="cursor:pointer;font-weight:600">Bisnis baru</summary>
+        <form method="post" style="margin-top:10px" novalidate>
+            <?= csrf_field() ?><input type="hidden" name="action" value="add_business">
+            <div class="row2">
+                <div><label>Grup / pelanggan</label>
+                    <select name="client_id" onchange="document.getElementById('grp-new').style.display=this.value==='new'?'':'none'">
+                        <?php foreach ($clients as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?><?= $c['is_demo'] ? ' (demo)' : '' ?></option><?php endforeach; ?>
+                        <option value="new" <?= $clients ? '' : 'selected' ?>>＋ Grup / pelanggan baru…</option>
+                    </select></div>
+                <div><label>Nama bisnis</label><input name="name" placeholder="mis. Warung Makan Sari"></div>
+                <div><label>Jenis</label><select name="type"><?php foreach (Biz::TYPES as $code => [$l, $i]): ?><option value="<?= $code ?>"><?= $i ?> <?= e($l) ?></option><?php endforeach; ?></select></div>
+                <div><label>Domain sendiri (opsional)</label><input name="domain" placeholder="mis. warungsari.com"></div>
+            </div>
+            <div class="row2" id="grp-new" style="margin-top:9px;<?= $clients ? 'display:none' : '' ?>">
+                <div><label>Nama grup / pelanggan baru</label><input name="group_name" placeholder="mis. Sari Group"></div>
+                <div><label>Nama kontak</label><input name="contact_name"></div>
+                <div><label>WhatsApp</label><input name="phone" placeholder="0812…"></div>
+            </div>
+            <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px">
+                <button class="btn">Buat bisnis</button>
+                <label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" name="hosted_elsewhere" value="1" style="width:auto"> Sistemnya di server lain</label>
+                <span class="muted" style="font-size:11px">Bisnis langsung dibuat di sistem (database, menu, akses). Domain sendiri: arahkan DNS-nya dulu, lalu pasang SSL — petunjuk muncul di halaman bisnis.</span>
+            </div>
+        </form>
+    </details>
+<?php endif; ?>
 
 <?php foreach ($groups as $cid => $g): $c = $g['client']; ?>
     <section class="grp">

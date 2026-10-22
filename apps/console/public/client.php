@@ -92,32 +92,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Gagal: ' . $e->getMessage(), 'err');
         }
     } elseif ($action === 'add_business') {
-        $name = trim((string)($_POST['name'] ?? ''));
-        $type = array_key_exists($_POST['type'] ?? '', Biz::TYPES) ? $_POST['type'] : 'other';
-        $slug = Biz::slugify((string)($_POST['slug'] ?? '') ?: $name);
-        if (mb_strlen($name) < 2 || strlen($slug) < 2) {
-            flash('Nama bisnis wajib diisi.', 'err');
-        } elseif ($db->query('SELECT 1 FROM businesses WHERE slug = ' . $db->quote($slug))->fetchColumn()) {
-            flash("Kode bisnis \"{$slug}\" sudah dipakai, pakai kode lain.", 'err');
-        } else {
-            $db->prepare('INSERT INTO businesses (client_id, slug, name, type, domain, hosted_elsewhere) VALUES (?, ?, ?, ?, ?, ?)')
-                ->execute([$id, $slug, mb_substr($name, 0, 150), $type, Legacy::normalizeDomain((string)($_POST['domain'] ?? '')) ?: null, !empty($_POST['hosted_elsewhere']) ? 1 : 0]);
-            $bid = (int)$db->lastInsertId();
-            Auth::audit('business.add', "{$name} → {$client['name']}");
-            $msg = "Bisnis {$name} ditambahkan.";
-            // Otomatis dibuat juga di sistem (database, tabel, config) — kecuali website
-            $newBiz = Biz::business($bid);
-            if (Provision::can($newBiz)) {
-                try {
-                    $msg .= ' Sistem: ' . implode(' · ', Provision::run($newBiz)) . '.';
-                    Auth::audit('business.provision', $name);
-                } catch (Throwable $e) {
-                    flash("{$msg} TAPI gagal membuat di sistem: " . $e->getMessage() . ' — coba lagi dari tab Database & Storage.', 'err');
-                    redirect("/business.php?id={$bid}&tab=database");
-                }
-            }
-            flash($msg);
-            redirect("/business.php?id={$bid}");
+        try {
+            [$bid, $msg, $ok] = Biz::add($client, $_POST);
+            flash($msg, $ok ? 'ok' : 'err');
+            redirect("/business.php?id={$bid}" . ($ok ? '' : '&tab=database'));
+        } catch (RuntimeException $e) {
+            flash($e->getMessage(), 'err');
         }
     }
 

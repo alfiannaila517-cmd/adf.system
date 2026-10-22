@@ -190,6 +190,41 @@ final class Biz
         }
     }
 
+    /**
+     * Tambah bisnis ke grup, lalu otomatis dibuat di sistem (database, tabel, config, menu & akses) bila bisa.
+     * Dipakai halaman Bisnis (tombol ＋ Bisnis di atas) dan halaman grup.
+     * @return array{0:int, 1:string, 2:bool} [id bisnis, pesan, berhasil penuh?]
+     */
+    public static function add(array $client, array $in): array
+    {
+        $db = self::db();
+        $name = trim((string)($in['name'] ?? ''));
+        $type = array_key_exists($in['type'] ?? '', self::TYPES) ? (string)$in['type'] : 'other';
+        $slug = self::slugify((string)($in['slug'] ?? '') ?: $name);
+        if (mb_strlen($name) < 2 || strlen($slug) < 2) {
+            throw new RuntimeException('Nama bisnis wajib diisi.');
+        }
+        if ($db->query('SELECT 1 FROM businesses WHERE slug = ' . $db->quote($slug))->fetchColumn()) {
+            throw new RuntimeException("Kode bisnis \"{$slug}\" sudah dipakai, pakai kode lain.");
+        }
+        $db->prepare('INSERT INTO businesses (client_id, slug, name, type, domain, hosted_elsewhere) VALUES (?, ?, ?, ?, ?, ?)')
+            ->execute([(int)$client['id'], $slug, mb_substr($name, 0, 150), $type, Legacy::normalizeDomain((string)($in['domain'] ?? '')) ?: null, !empty($in['hosted_elsewhere']) ? 1 : 0]);
+        $bid = (int)$db->lastInsertId();
+        Auth::audit('business.add', "{$name} → {$client['name']}");
+        $msg = "Bisnis {$name} ditambahkan.";
+        // Otomatis dibuat juga di sistem (database, tabel, config) — kecuali website / server lain
+        $newBiz = self::business($bid);
+        if (Provision::can($newBiz)) {
+            try {
+                $msg .= ' Sistem: ' . implode(' · ', Provision::run($newBiz)) . '.';
+                Auth::audit('business.provision', $name);
+            } catch (Throwable $e) {
+                return [$bid, "{$msg} TAPI gagal membuat di sistem: " . $e->getMessage() . ' — coba lagi dari tab Database & Storage.', false];
+            }
+        }
+        return [$bid, $msg, true];
+    }
+
     /** Kembali ke bawaan jenis bisnis (hapus pilihan tersimpan). */
     public static function resetModules(int $businessId): void
     {
