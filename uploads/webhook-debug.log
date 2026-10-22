@@ -1216,3 +1216,5 @@
 2026-05-25 16:55:31 | Method: POST | Content-Type: application/json | Body length: 123 | Body: {"type":"attlog","cloud_id":"C2630891E72D312C","data":{"pin":"17","scan":"2026-05-25 16:55:28","verify":1,"status_scan":3}}
 2026-05-25 17:14:44 | Method: POST | Content-Type: application/json | Body length: 123 | Body: {"type":"attlog","cloud_id":"C2630891E72D312C","data":{"pin":"16","scan":"2026-05-25 17:14:42","verify":1,"status_scan":3}}
 2026-05-25 17:43:51 | Method: POST | Content-Type: application/json | Body length: 123 | Body: {"type":"attlog","cloud_id":"C2630891E72D312C","data":{"pin":"15","scan":"2026-05-25 17:43:49","verify":1,"status_scan":1}}
+2026-10-22 14:55:16 | Method: GET | Content-Type: none | Body length: 0 | Body: 
+2026-10-22 14:55:33 | Method: GET | Content-Type: none | Body length: 0 | Body: 

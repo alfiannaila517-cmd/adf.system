@@ -105,7 +105,7 @@ require_once __DIR__ . '/includes/header.php';
                         <?php if (!empty($state['message'])): ?><div class="small mt-1">“<?= htmlspecialchars((string)$state['message']) ?>”</div><?php endif; ?>
                     </div>
                     <div class="d-flex gap-2">
-                        <form method="post"><input type="hidden" name="action" value="extend"><button class="btn btn-outline-light btn-sm">+15 menit</button></form>
+                        <form method="post"><input type="hidden" name="action" value="extend"><button class="btn btn-outline-secondary btn-sm">+15 menit</button></form>
                         <form method="post" onsubmit="return confirm('Buka kembali sistem untuk semua staf?')"><input type="hidden" name="action" value="off"><button class="btn btn-success btn-sm"><i class="bi bi-unlock me-1"></i>Selesai — buka sistem</button></form>
                     </div>
                 </div>
@@ -159,7 +159,7 @@ require_once __DIR__ . '/includes/header.php';
                         <label class="d-block"><input type="radio" name="mode" value="direct" class="form-check-input me-1" <?= $cm === 'direct' ? 'checked' : '' ?>> Langsung pindah — tanpa halaman info <span class="text-secondary">(setelah staf terbiasa)</span></label>
                     </div>
                 </div>
-                <button class="btn btn-outline-light btn-sm mt-3">Simpan</button>
+                <button class="btn btn-primary btn-sm mt-3">Simpan</button>
                 <?php if ($move): ?><span class="badge bg-info text-dark ms-2">AKTIF · <?= $move['mode'] === 'info' ? 'info dulu' : 'langsung' ?></span><?php endif; ?>
             </form>
         </div>
