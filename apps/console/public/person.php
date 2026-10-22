@@ -218,7 +218,7 @@ View::start($person['name'], 'people', $me);
 
     <?php if ($isAdmin):
         $have = array_map(fn ($a) => (int)$a['business_id'], $access);
-        $others = array_filter($db->query('SELECT b.*, c.name AS client_name FROM businesses b JOIN clients c ON c.id = b.client_id ORDER BY c.name, b.name')->fetchAll(), fn ($b) => !in_array((int)$b['id'], $have, true)); ?>
+        $others = array_filter($db->query('SELECT b.*, c.name AS client_name FROM businesses b JOIN clients c ON c.id = b.client_id WHERE b.type <> "website" ORDER BY c.name, b.name')->fetchAll(), fn ($b) => !in_array((int)$b['id'], $have, true)); ?>
         <?php if ($others): ?>
             <form method="post" class="card" style="max-width:900px" novalidate>
                 <h2>Tambah akses ke bisnis lain</h2>

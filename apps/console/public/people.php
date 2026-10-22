@@ -12,7 +12,7 @@ $isAdmin = $me['role'] === 'admin';
 $view = (string)($_GET['view'] ?? '');
 
 // Semua bisnis (dikelompokkan per client) + peran masing-masing, untuk form tambah
-$bizList = $db->query('SELECT b.*, c.name AS client_name FROM businesses b JOIN clients c ON c.id = b.client_id ORDER BY c.name, b.name')->fetchAll();
+$bizList = $db->query('SELECT b.*, c.name AS client_name FROM businesses b JOIN clients c ON c.id = b.client_id WHERE b.type <> "website" ORDER BY c.name, b.name')->fetchAll();
 $rolesOf = [];
 foreach ($bizList as $b) {
     Access::ensureRoles($b);

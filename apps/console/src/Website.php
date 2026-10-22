@@ -73,10 +73,21 @@ final class Website
         ]],
     ];
 
-    /** Tab Website hanya untuk bisnis hotel yang terhubung ke sistem lama. */
+    /**
+     * Bisnis jenis Website (mis. "Website Narayana Hotel") yang sudah memilih sumber datanya:
+     * db_name = database bisnis hotel tempat kunci web_* disimpan (website membacanya dari sana).
+     */
     public static function available(array $biz): bool
     {
-        return $biz['type'] === 'hotel' && Legacy::linked($biz) && !empty($biz['db_name']);
+        return $biz['type'] === 'website' && !empty($biz['db_name']);
+    }
+
+    /** Bisnis hotel terhubung yang bisa menjadi sumber data website (grup yang sama didahulukan). */
+    public static function sources(int $clientId): array
+    {
+        $rows = Biz::db()->query("SELECT id, name, client_id, db_name FROM businesses WHERE type = 'hotel' AND legacy_business_id IS NOT NULL AND db_name IS NOT NULL ORDER BY name")->fetchAll();
+        usort($rows, fn ($a, $b) => ((int)$b['client_id'] === $clientId) <=> ((int)$a['client_id'] === $clientId));
+        return $rows;
     }
 
     public static function db(array $biz): PDO

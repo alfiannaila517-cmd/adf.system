@@ -212,6 +212,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Gagal: ' . $e->getMessage(), 'err');
         }
         redirect("/business.php?id={$id}&tab=integrasi#i-{$code}");
+    } elseif ($action === 'website_source') {
+        // Bisnis Website: data website diambil dari database bisnis hotel yang dipilih
+        $src = (int)($_POST['source_id'] ?? 0);
+        $row = array_values(array_filter(Website::sources((int)$biz['client_id']), fn ($s) => (int)$s['id'] === $src))[0] ?? null;
+        if ($biz['type'] !== 'website' || !$row) {
+            flash('Pilih bisnis hotel sumber data website.', 'err');
+        } else {
+            $db->prepare('UPDATE businesses SET db_name = ? WHERE id = ?')->execute([$row['db_name'], $id]);
+            Auth::audit('website.source', "{$biz['name']} ← {$row['name']}");
+            flash("Website ini sekarang memakai data {$row['name']}. Buka tab Pengaturan website.");
+        }
     } elseif ($action === 'web_save' || $action === 'web_room') {
         // Website publik hotel: kunci web_* di database bisnis (dibaca langsung oleh website)
         try {
@@ -286,7 +297,11 @@ View::start($biz['name'], 'clients', $me);
 <p class="muted" style="margin:0"><?= e($typeLabel) ?> · kode <code><?= e($biz['slug']) ?></code><?= $biz['domain'] ? ' · ' . e($biz['domain']) : '' ?></p>
 
 <nav class="tabs">
-    <?php foreach (['ringkasan' => 'Ringkasan'] + (Website::available($biz) ? ['website' => 'Website'] : []) + ['orang' => 'Orang & Akses', 'modul' => 'Menu & Fitur', 'portal' => 'Staff Portal', 'integrasi' => 'Integrasi', 'langganan' => 'Langganan', 'database' => 'Data & Backup'] as $k => $label): ?>
+    <?php // Bisnis jenis Website tidak punya login staf → hanya tab yang relevan
+    $tabs = $biz['type'] === 'website'
+        ? ['ringkasan' => 'Ringkasan', 'website' => 'Pengaturan website', 'langganan' => 'Langganan', 'database' => 'Data & Backup']
+        : ['ringkasan' => 'Ringkasan', 'orang' => 'Orang & Akses', 'modul' => 'Menu & Fitur', 'portal' => 'Staff Portal', 'integrasi' => 'Integrasi', 'langganan' => 'Langganan', 'database' => 'Data & Backup'];
+    foreach ($tabs as $k => $label): ?>
         <a class="<?= $tab === $k ? 'on' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
@@ -307,6 +322,22 @@ View::start($biz['name'], 'clients', $me);
             <?php if ($isAdmin): ?><button class="btn">Simpan</button><?php endif; ?>
         </form>
     </div>
+    <?php if ($biz['type'] === 'website'): $sources = Website::sources((int)$biz['client_id']); ?>
+        <div class="card" style="max-width:760px">
+            <h2>Sumber data website</h2>
+            <p class="muted" style="margin:0 0 8px;font-size:12px">Website hotel membaca kamar, harga, ketersediaan, dan pengaturannya dari database sistem hotel. Pilih hotelnya:</p>
+            <form method="post" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <?= csrf_field() ?><input type="hidden" name="action" value="website_source"><input type="hidden" name="id" value="<?= $id ?>">
+                <select name="source_id" style="flex:1;min-width:220px" <?= $dis ?>>
+                    <option value="">— pilih bisnis hotel —</option>
+                    <?php foreach ($sources as $s): ?><option value="<?= (int)$s['id'] ?>" <?= $s['db_name'] === $biz['db_name'] ? 'selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach; ?>
+                </select>
+                <?php if ($isAdmin): ?><button class="btn sm">Simpan</button><?php endif; ?>
+                <?php if (Website::available($biz)): ?><a class="btn ghost sm" href="/business.php?id=<?= $id ?>&tab=website">Buka pengaturan website →</a><?php endif; ?>
+            </form>
+            <?php if (!$sources): ?><p class="muted" style="margin:8px 0 0;font-size:12px">Belum ada bisnis hotel yang terhubung ke sistem.</p><?php endif; ?>
+        </div>
+    <?php endif; ?>
     <?php if ($biz['domain'] && $biz['legacy_business_id']):
         $dom = (string)$biz['domain'];
         $serverIp = (string)Secrets::get('SERVER_IP', $_SERVER['SERVER_ADDR'] ?? '');
@@ -327,8 +358,11 @@ View::start($biz['name'], 'clients', $me);
         </div>
     <?php endif; ?>
 
-<?php elseif ($tab === 'website' && Website::available($biz)):
-    $sec = isset(Website::SECTIONS[$_GET['sec'] ?? '']) || ($_GET['sec'] ?? '') === 'kamar' ? (string)$_GET['sec'] : 'umum';
+<?php elseif ($tab === 'website' && !Website::available($biz)): ?>
+    <div class="soonbox"><?= $biz['type'] === 'website' ? 'Pilih dulu <b>sumber data website</b> di tab <a href="/business.php?id=' . $id . '">Ringkasan</a>.' : 'Pengaturan website ada di bisnis jenis <b>Website</b> (mis. "Website ' . e($biz['name']) . '") di grup yang sama.' ?></div>
+
+<?php elseif ($tab === 'website'):
+    $sec =isset(Website::SECTIONS[$_GET['sec'] ?? '']) || ($_GET['sec'] ?? '') === 'kamar' ? (string)$_GET['sec'] : 'umum';
     $wErr = null;
     try {
         $w = Website::values(Website::db($biz));
