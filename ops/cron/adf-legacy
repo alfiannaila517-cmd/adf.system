@@ -1,0 +1,17 @@
+# Cron sistem lama (sama dengan cPanel → Cron Jobs hosting per 2026-10-22), dijalankan langsung dengan PHP lokal.
+# HANYA dipasang saat hari pindahan (ops/CUTOVER.md lampiran B) — kalau dipasang lebih awal, VPS ikut sinkron
+# Cloudbeds/absen bersamaan dengan hosting.
+#   sudo cp /srv/adf/app/ops/cron/adf-legacy /etc/cron.d/adf-legacy && sudo chmod 644 /etc/cron.d/adf-legacy
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+APP=/srv/adf/legacy/public_html
+LOG=/var/log/adf-legacy
+
+# Sinkron absen Fingerspot (tiap 10 menit)
+*/10 * * * * www-data php $APP/api/fingerprint-cron-sync.php --token=adf-deploy-2025-secure --days=2 >> $LOG/fingerprint.log 2>&1
+# Laporan & tagihan lewat Telegram (tiap 30 menit)
+*/30 * * * * www-data php $APP/cron/adf-telegram-report.php billing >> $LOG/telegram-report.log 2>&1
+# Sinkron Cloudbeds (tiap 5 menit)
+*/5 * * * * www-data php $APP/cron/cloudbeds-sync.php >> $LOG/cloudbeds-sync.log 2>&1
+# Sarapan on-spot otomatis (tiap 10 menit, jam 05.00–09.59)
+*/10 5-9 * * * www-data php $APP/cron/breakfast-auto-onspot.php >> $LOG/breakfast-auto.log 2>&1

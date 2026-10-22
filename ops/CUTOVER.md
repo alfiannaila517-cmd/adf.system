@@ -13,7 +13,7 @@ Waktu terbaik: malam, saat tamu check-in/out sedikit (mis. 22.00).
 - [ ] Beri tahu staf: jam berapa sistem berhenti sebentar, dan bahwa setelah itu **login sama seperti biasa**.
 - [ ] Di Cloudflare, untuk `adfsystem.online`, `www`, `narayanakarimunjawa.com`, dan `www`: TTL record A = **Auto** (sudah, karena Cloudflare memakai 5 menit).
 - [ ] Unduh dari cPanel **file rahasia** yang tidak ada di git (lihat lampiran A), lalu `scp` ke VPS dan simpan di tempat yang sama.
-- [ ] Siapkan cron VPS (lampiran B). File dipasang tapi **belum diaktifkan**.
+- [ ] Siapkan cron VPS: `sudo bash /srv/adf/app/ops/legacy-cron-setup.sh prepare` (cron belum aktif, lihat lampiran B).
 - [ ] Google Cloud Console → OAuth: pastikan alamat callback yang sama berlaku (domain tidak berubah → biasanya tidak perlu diubah).
 - [ ] Backup lengkap hosting (cPanel → Backup → Full Backup), simpan di laptop.
 
@@ -65,7 +65,7 @@ sudo bash /srv/adf/app/ops/add-website.sh narayanakarimunjawa.com   # website ho
 ```
 
 ### 6. Nyalakan di VPS
-- [ ] Cron VPS diaktifkan (lampiran B).
+- [ ] Cron VPS diaktifkan: `sudo bash /srv/adf/app/ops/legacy-cron-setup.sh enable`
 - [ ] **Cloudbeds** dinyalakan lagi di sistem (VPS): auto-sync & push.
 - [ ] **WA Fonnte**: token diisi di sistem (VPS); webhook Fonnte (bila ada) ke `https://adfsystem.online/…`.
 - [ ] **Fingerspot**: webhook tetap `https://adfsystem.online/api/fingerprint-webhook.php`, karena domainnya sama, otomatis ke VPS.
@@ -106,6 +106,15 @@ Salin dengan struktur folder yang sama ke `/srv/adf/legacy/public_html/…` (dan
 - File di folder home hosting: `adf-google-oauth.php`, `adf-sso-secret.php`, `adf-dev-login.json` → `/srv/adf/legacy/`
 - Setelah disalin: `sudo chown -R www-data:adf` dan `chmod 640`.
 
-## Lampiran B: cron VPS
-Diisi setelah daftar *cPanel → Cron Jobs* hosting dicatat (jadwal + skrip). Tiap baris hosting `curl https://adfsystem.online/…`
-diganti panggilan PHP lokal (`php /srv/adf/legacy/public_html/…`) dengan token baru.
+## Lampiran B: cron VPS (sama dengan 4 cron cPanel hosting per 2026-10-22)
+| Hosting (cPanel) | VPS (`ops/cron/adf-legacy`, user www-data) |
+|---|---|
+| `*/10` curl fingerprint-cron-sync | `*/10` php api/fingerprint-cron-sync.php --token=… --days=2 |
+| `*/30` php cron/adf-telegram-report.php billing | sama |
+| `*/5` php cron/cloudbeds-sync.php | sama |
+| `*/10 5-9` php cron/breakfast-auto-onspot.php | sama |
+
+- **H-1 (boleh lebih awal):** `sudo bash /srv/adf/app/ops/legacy-cron-setup.sh prepare`
+  (folder tmp bersama supaya kunci sinkron Cloudbeds cron ↔ web sama; log `/var/log/adf-legacy` dirotasi mingguan)
+- **Hari H langkah 6, SETELAH cron hosting dimatikan:** `sudo bash /srv/adf/app/ops/legacy-cron-setup.sh enable`
+- **Jalan kembali:** `sudo bash /srv/adf/app/ops/legacy-cron-setup.sh disable`, lalu nyalakan lagi cron di cPanel.
