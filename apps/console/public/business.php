@@ -310,6 +310,7 @@ $sections = $biz['type'] === 'website'
         'orang' => ['Orang & Akses', 'team', 'Siapa yang boleh login & perannya'],
         'modul' => ['Menu & Fitur', 'sliders', 'Menu yang tampil di sistem & fitur yang menyala'],
         'portal' => ['Staff Portal', 'phone', 'Akun karyawan untuk absen & slip gaji di HP'],
+        'kontak' => ['Kontak WhatsApp', 'book', 'Nama & nomor HP tamu, staf, agen… untuk HP bisnis'],
         'integrasi' => ['Integrasi', 'plug', 'Cloudbeds, WhatsApp, fingerprint & layanan lain'],
         'langganan' => ['Langganan', 'card', 'Paket, tagihan bulanan & pembayaran'],
         'database' => ['Data & Backup', 'db', 'Database, cadangan & ekspor data']];
@@ -894,6 +895,55 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
             </div>
         <?php endif; ?>
     <?php endif; ?>
+<?php elseif ($tab === 'kontak'):
+    // Kontak untuk HP WhatsApp bisnis (Fonnte tidak bisa menyimpan nama lewat API → nama diambil dari buku kontak HP)
+    $sdb = null;
+    $err = null;
+    try {
+        $sdb = StaffPortal::db($biz);
+    } catch (Throwable $e) {
+        $err = $e->getMessage();
+    } ?>
+    <?php if (!$sdb): ?>
+        <div class="soonbox"><?= $err ? e($err) : 'Bisnis ini belum terhubung ke sistem yang berjalan (database bisnis belum diatur).' ?></div>
+    <?php elseif (!$isAdmin): ?>
+        <div class="soonbox">Hanya admin yang bisa mengunduh kontak.</div>
+    <?php else: $cg = Contacts::collect($sdb)['groups']; $bizShort = explode(' ', trim((string)$biz['name']))[0]; ?>
+        <form class="card" method="get" action="/contacts-export.php" target="_blank">
+            <input type="hidden" name="id" value="<?= $id ?>">
+            <p class="muted" style="margin:0 0 10px;font-size:12px">Nama di WhatsApp diambil dari buku kontak HP. Unduh daftar ini lalu impor ke HP yang dipakai WhatsApp bisnis — nama tamu, staf & agen langsung muncul di chat. Nomor yang sama hanya dicatat sekali.</p>
+            <?php if (!$cg): ?>
+                <p class="muted">Belum ada nama dengan nomor HP di sistem bisnis ini.</p>
+            <?php else: ?>
+                <table>
+                    <thead><tr><th style="width:28px"></th><th>Grup</th><th style="text-align:right">Kontak</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($cg as $label => $n): ?>
+                            <tr>
+                                <td><input type="checkbox" name="g[]" value="<?= e($label) ?>" checked></td>
+                                <td><?= e($label) ?></td>
+                                <td style="text-align:right"><b><?= number_format($n, 0, ',', '.') ?></b></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <label style="display:flex;gap:8px;align-items:center;margin:12px 0;font-size:12.5px">
+                    <input type="checkbox" name="suffix" value="1" checked>
+                    Tambahkan grup &amp; bisnis di belakang nama, mis. <code>Budi · Tamu <?= e($bizShort) ?></code>
+                </label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn sm" type="submit" name="fmt" value="vcf">Unduh untuk HP (.vcf)</button>
+                    <button class="btn ghost sm" type="submit" name="fmt" value="csv">Unduh untuk Google Contacts (.csv)</button>
+                </div>
+                <div class="muted" style="margin-top:12px;font-size:11.5px;line-height:1.6">
+                    <b>.vcf</b> — kirim file ke HP WhatsApp bisnis, buka → pilih aplikasi Kontak → Impor.<br>
+                    <b>.csv</b> — buka contacts.google.com dengan akun Google HP itu → Impor → pilih file. Kontak ikut tersinkron ke HP.<br>
+                    Impor ulang nanti bisa membuat kontak dobel: di Google Contacts pakai <i>Gabungkan &amp; perbaiki</i>.
+                </div>
+            <?php endif; ?>
+        </form>
+    <?php endif; ?>
+
 <?php elseif ($tab === 'portal'):
     $sdb = null;
     $err = null;
