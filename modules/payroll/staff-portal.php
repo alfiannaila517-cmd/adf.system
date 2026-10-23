@@ -4046,6 +4046,12 @@ header('Expires: 0');
         .bottom-nav.sp-nav { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; transform: translate3d(0, 0, 0); -webkit-transform: translate3d(0, 0, 0); will-change: transform; }
         /* Tombol Kembali & Beranda: ikon saja */
         .sp-navbtn { gap: 0 !important; margin-bottom: 6px; }
+        /* Pengumuman: tidak lagi di kepala halaman (ada di Menu Utama dengan angka merah) */
+        .sp-head .chat-fab { display: none !important; }
+        .sp-tile { position: relative; }
+        .sp-badge { position: absolute; top: 7px; right: 9px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 99px; background: #ef4444; color: #fff; font-size: 10.5px; font-weight: 800; line-height: 19px; text-align: center; box-shadow: 0 2px 6px rgba(239, 68, 68, .45); display: none; }
+        .sp-badge.show { display: block; animation: sp-pop .3s ease; }
+        @keyframes sp-pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
     </style>
 </head>
 
@@ -4332,6 +4338,7 @@ header('Expires: 0');
                                 <div class="sp-tile<?php echo $pi === 0 && $i === 0 ? ' dark' : ''; ?>" onclick="<?php echo $act; ?>"<?php echo $mid ? ' id="' . $mid . '" style="display:none"' : ''; ?>>
                                     <span class="sp-tile-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><?php echo $spIcons[$ic] ?? ''; ?></svg></span>
                                     <span class="sp-tile-lb"><?php echo htmlspecialchars($label); ?></span>
+                                    <?php if ($ic === 'info'): ?><span class="sp-badge" id="spInfoBadge"></span><?php endif; ?>
                                 </div>
                             <?php endforeach; ?>
                         </div>
@@ -7770,6 +7777,7 @@ header('Expires: 0');
                 if (msgs.length > 0) {
                     localStorage.setItem('chat_last_seen_id', msgs[0].id);
                     document.getElementById('chatFabDot').classList.remove('show');
+                    spInfoBadge(0);
                     document.getElementById('chatFab').classList.remove('has-unread');
                 }
             } catch (e) {
@@ -7793,6 +7801,14 @@ header('Expires: 0');
             } catch (e) {}
         }
 
+        // Angka merah di ubin Pengumuman (Menu Utama) = pengumuman belum dibaca
+        function spInfoBadge(n) {
+            const b = document.getElementById('spInfoBadge');
+            if (!b) return;
+            b.textContent = n > 99 ? '99+' : String(n || '');
+            b.classList.toggle('show', n > 0);
+        }
+
         async function checkChatNew() {
             try {
                 const res = await fetch(API + '&action=chat_list');
@@ -7813,6 +7829,7 @@ header('Expires: 0');
                 dot.classList.toggle('show', hasNew && !chatOpen);
                 fab.classList.toggle('has-unread', hasNew && !chatOpen);
                 window._chatUnread = (hasNew && !chatOpen) ? unreadCount : 0;
+                spInfoBadge(window._chatUnread);
                 syncAppIconBadge();
 
                 if (hasNew && chatLastPolledId !== null && topId > chatLastPolledId) {
