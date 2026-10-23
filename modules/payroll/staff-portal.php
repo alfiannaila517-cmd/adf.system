@@ -4012,6 +4012,19 @@ header('Expires: 0');
         @keyframes spa-draw { to { stroke-dashoffset: 0; } }
         .spa-err { width: 64px; height: 64px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; background: #fee2e2; color: #dc2626; font-size: 30px; font-weight: 900; }
         .is-lock .spa-err { background: #fef3c7; font-size: 26px; }
+        /* Ikon garis modern di Menu Utama (pengganti emoji 3D) */
+        .sp-tile { background: #fff !important; box-shadow: 0 2px 10px rgba(20, 50, 110, .07) !important; border: 1px solid #e3ebf8; gap: 7px !important; }
+        .sp-tile-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: #eaf1fe; color: var(--sp-blue); filter: none !important; font-size: 0 !important; }
+        .sp-tile-ic svg { width: 20px; height: 20px; }
+        .sp-tile-lb { color: #334155 !important; font-weight: 600 !important; }
+        .sp-tile.dark { background: linear-gradient(160deg, var(--sp-navy2), var(--sp-navy)) !important; border-color: transparent; }
+        .sp-tile.dark .sp-tile-ic { background: rgba(255, 255, 255, .12); color: #fff; }
+        .sp-tile.dark .sp-tile-lb { color: #fff !important; }
+        @media (max-width: 380px) { .sp-tile-ic { width: 34px; height: 34px; } .sp-tile-ic svg { width: 18px; height: 18px; } }
+        /* Tombol refresh */
+        .sp-refresh { width: 36px; height: 36px; border-radius: 11px; border: 0; display: grid; place-items: center; background: rgba(255, 255, 255, .18); color: #fff; cursor: pointer; padding: 0; }
+        .sp-refresh svg { width: 17px; height: 17px; }
+        .sp-refresh.spin svg { animation: spa-rot .6s linear infinite; }
     </style>
 </head>
 
@@ -4156,6 +4169,7 @@ header('Expires: 0');
                     <span class="chat-fab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></span>
                     <div class="chat-fab-dot" id="chatFabDot">0</div>
                 </div>
+                <button type="button" class="sp-refresh" id="spRefresh" onclick="spRefresh()" title="Muat ulang" aria-label="Muat ulang"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg></button>
                 <div class="notif-bell" onclick="toggleNotifs()">
                     🔔
                     <div class="notif-dot" id="notifDot"></div>
@@ -4254,23 +4268,38 @@ header('Expires: 0');
 
                 <!-- Menu Utama: ubin berikon 4 kolom × 2 baris per halaman, geser ke samping (titik di bawah) -->
                 <?php
+                // Ikon garis (gaya modern, satu warna mengikuti tema)
+                $spIcons = [
+                    'absensi' => '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
+                    'kamar' => '<path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 17h20"/>',
+                    'hk' => '<path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7-4.7-1.8 4.7-1.8z"/><path d="M19 14l.8 2.2 2.2.8-2.2.8L19 20l-.8-2.2-2.2-.8 2.2-.8z"/>',
+                    'breakfast' => '<path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
+                    'cuti' => '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>',
+                    'lembur' => '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M10 2h4"/>',
+                    'jadwal' => '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>',
+                    'tepat' => '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+                    'gaji' => '<path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2l-3 2-3-2-3 2-3-2z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+                    'seragam' => '<path d="M20.4 6.6 16 4a4 4 0 0 1-8 0L3.6 6.6a1 1 0 0 0-.5 1.2l1 3a1 1 0 0 0 1.3.6L7 10.8V20a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9.2l1.6.6a1 1 0 0 0 1.3-.6l1-3a1 1 0 0 0-.5-1.2z"/>',
+                    'info' => '<path d="M3 11v3a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6"/><path d="M19.5 6.5a8 8 0 0 1 0 11"/>',
+                    'stock' => '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+                ];
                 // Urutan = yang paling sering dipakai lebih dulu: absensi, (hotel: kamar, HK, breakfast), izin/cuti, lembur, lalu lainnya
-                $spMenu = [['📊', 'Detail Absensi', "openStaffSection('monitorSection')", '']];
+                $spMenu = [['absensi', 'Detail Absensi', "openStaffSection('monitorSection')", '']];
                 if ($isHotel) {
-                    $spMenu[] = ['🏨', 'Status Kamar', "goPage('occupancy')", ''];
-                    $spMenu[] = ['🧹', 'Tugas HK', "goPage('hk')", ''];
-                    $spMenu[] = ['☕', 'Breakfast', "goPage('breakfast')", ''];
+                    $spMenu[] = ['kamar', 'Status Kamar', "goPage('occupancy')", ''];
+                    $spMenu[] = ['hk', 'Tugas HK', "goPage('hk')", ''];
+                    $spMenu[] = ['breakfast', 'Breakfast', "goPage('breakfast')", ''];
                 }
-                $spMenu[] = ['🏖️', 'Izin / Cuti', "openStaffSection('cutiSection')", ''];
-                $spMenu[] = ['⏱️', 'Lembur', "openStaffSection('lemburSection')", ''];
-                $spMenu[] = ['🗓️', 'Jadwal Kerja', "openStaffSection('teamSchedSection')", ''];
+                $spMenu[] = ['cuti', 'Izin / Cuti', "openStaffSection('cutiSection')", ''];
+                $spMenu[] = ['lembur', 'Lembur', "openStaffSection('lemburSection')", ''];
+                $spMenu[] = ['jadwal', 'Jadwal Kerja', "openStaffSection('teamSchedSection')", ''];
                 if ($isCafe) {
-                    $spMenu[] = ['⏰', 'Ketepatan Waktu', "goPage('schedule')", ''];
+                    $spMenu[] = ['tepat', 'Ketepatan Waktu', "goPage('schedule')", ''];
                 }
-                $spMenu[] = ['💰', 'Slip Gaji', "goPage('slipgaji')", ''];
-                $spMenu[] = ['👔', 'Jadwal Seragam', "openStaffSection('uniformSection')", ''];
-                $spMenu[] = ['📣', 'Pengumuman', 'toggleChat()', ''];
-                $spMenu[] = ['📦', 'Stock', 'goToStockPage()', 'quickMenuStock'];
+                $spMenu[] = ['gaji', 'Slip Gaji', "goPage('slipgaji')", ''];
+                $spMenu[] = ['seragam', 'Jadwal Seragam', "openStaffSection('uniformSection')", ''];
+                $spMenu[] = ['info', 'Pengumuman', 'toggleChat()', ''];
+                $spMenu[] = ['stock', 'Stock', 'goToStockPage()', 'quickMenuStock'];
                 $spPages = array_chunk($spMenu, 12);
                 ?>
                 <div class="sp-sec-title">Menu Utama</div>
@@ -4279,7 +4308,7 @@ header('Expires: 0');
                         <div class="sp-menu-page">
                             <?php foreach ($page as $i => [$ic, $label, $act, $mid]): ?>
                                 <div class="sp-tile<?php echo $pi === 0 && $i === 0 ? ' dark' : ''; ?>" onclick="<?php echo $act; ?>"<?php echo $mid ? ' id="' . $mid . '" style="display:none"' : ''; ?>>
-                                    <span class="sp-tile-ic"><?php echo $ic; ?></span>
+                                    <span class="sp-tile-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><?php echo $spIcons[$ic] ?? ''; ?></svg></span>
                                     <span class="sp-tile-lb"><?php echo htmlspecialchars($label); ?></span>
                                 </div>
                             <?php endforeach; ?>
@@ -5128,7 +5157,7 @@ header('Expires: 0');
 
                 const quickMenuStock = document.getElementById('quickMenuStock');
                 if (STOCK_ACCESS.has_access) {
-                    quickMenuStock.style.display = 'block';
+                    quickMenuStock.style.display = 'flex';
 
                     const hasBusinesses = (STOCK_ACCESS.allowed_businesses || []).length > 0;
                     const sel = document.getElementById('stockBizSelect');
@@ -7151,6 +7180,13 @@ header('Expires: 0');
                 if (img.complete) fit(img); else img.addEventListener('load', () => fit(img));
             });
         })();
+
+        // Tombol refresh di kepala halaman: muat ulang aplikasi (data & versi terbaru)
+        function spRefresh() {
+            const b = document.getElementById('spRefresh');
+            if (b) b.classList.add('spin');
+            setTimeout(() => location.reload(), 250);
+        }
 
         // ═══ AUTO-LOGIN CHECK ═══
         loadCredentials();
