@@ -71,6 +71,15 @@ try {
     $pdo->exec("ALTER TABLE staff_accounts ADD COLUMN plain_password VARCHAR(255) DEFAULT NULL AFTER password_hash");
 } catch (Exception $e) {
 }
+// Gmail yang ditautkan staf sendiri (Masuk dengan Google, lihat staff-google.php)
+try {
+    $pdo->query("SELECT google_email FROM staff_accounts LIMIT 0");
+} catch (PDOException $e) {
+    try {
+        $pdo->exec("ALTER TABLE staff_accounts ADD COLUMN google_email VARCHAR(255) DEFAULT NULL AFTER email, ADD INDEX idx_google (google_email)");
+    } catch (Throwable $e2) {
+    }
+}
 
 // Auto-create leave_requests table
 $pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (
@@ -309,6 +318,14 @@ if ($action === 'logout') {
 // ══════════════════════════════════════
 if (empty($_SESSION['staff_logged_in'])) {
     echo json_encode(['success' => false, 'message' => 'Not authenticated', 'auth' => false]);
+    exit;
+}
+
+// Status Gmail akun ini (ajakan "Hubungkan Gmail" setelah login)
+if ($action === 'google_status') {
+    $row = $db->fetchOne("SELECT google_email FROM staff_accounts WHERE id = ? AND LOWER(email) = LOWER(?)", [(int)($_SESSION['staff_id'] ?? 0), (string)($_SESSION['staff_email'] ?? '')]);
+    require_once '../../includes/google-login.php';
+    echo json_encode(['success' => true, 'available' => adfGoogleConfig() !== null, 'linked' => !empty($row['google_email']), 'email' => (string)($row['google_email'] ?? '')]);
     exit;
 }
 

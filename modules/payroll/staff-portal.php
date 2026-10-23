@@ -22,6 +22,12 @@ $settingsDb = Database::getInstance();
 $db = Database::switchDatabase($bizConfig['database']);
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 $apiUrl = 'staff-api.php?b=' . urlencode($bizSlug);
+// Masuk dengan Google / Hubungkan Gmail (staff-google.php) — tombol hanya tampil bila kredensial Google ada di server
+require_once '../../includes/google-login.php';
+$googleOn = adfGoogleConfig() !== null;
+$googleMsg = $_SESSION['staff_google_msg'] ?? null;
+unset($_SESSION['staff_google_msg']);
+$googleUrl = 'staff-google.php?b=' . urlencode($bizSlug);
 $bizName = htmlspecialchars($bizConfig['name'] ?? 'Staff Portal');
 $bizType = $bizConfig['business_type'] ?? 'general';
 $isHotel = ($bizType === 'hotel');
@@ -3799,7 +3805,24 @@ header('Expires: 0');
                     <label for="rememberMe">Simpan login</label>
                 </div>
                 <button type="submit" class="btn-auth" id="loginBtn">🔐 Login</button>
+                <?php if ($googleOn): ?>
+                    <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:#94a3b8;font-size:12px"><span style="flex:1;height:1px;background:#e2e8f0"></span>atau<span style="flex:1;height:1px;background:#e2e8f0"></span></div>
+                    <a href="<?php echo htmlspecialchars($googleUrl); ?>&amp;do=login" class="btn-google">
+                        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+                        Masuk dengan Google
+                    </a>
+                <?php endif; ?>
             </form>
+            <style>
+                .btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px; border-radius: 12px; background: #fff; color: #1f2937; border: 1px solid #e2e8f0; font-weight: 600; font-size: 14px; text-decoration: none; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+                .btn-google:active { background: #f1f5f9; }
+                .g-sheet { position: fixed; inset: 0; z-index: 9999; background: rgba(15, 23, 42, .45); display: flex; align-items: flex-end; justify-content: center; }
+                .g-sheet .box { width: 100%; max-width: 440px; background: #fff; border-radius: 20px 20px 0 0; padding: 22px 20px calc(18px + env(safe-area-inset-bottom)); text-align: center; color: #0f172a; }
+                .g-sheet h3 { margin: 6px 0 6px; font-size: 17px; }
+                .g-sheet p { margin: 0 0 16px; color: #64748b; font-size: 13.5px; line-height: 1.5; }
+                .g-sheet .later { display: block; width: 100%; margin-top: 8px; padding: 11px; border: 0; background: none; color: #64748b; font-size: 14px; }
+                .g-toast { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 9999; max-width: 92%; padding: 11px 16px; border-radius: 12px; background: #0f172a; color: #fff; font-size: 13px; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
+            </style>
 
             <!-- Register Form -->
             <form class="auth-form" id="registerForm" onsubmit="return handleRegister(event)">
@@ -4719,6 +4742,9 @@ header('Expires: 0');
                         clearCredentials();
                     }
                     showApp(data.name);
+                    // Setiap login password: ajak menautkan Gmail (sampai tertaut)
+                    try { sessionStorage.removeItem('g_later_<?php echo md5($bizSlug); ?>'); } catch (e) {}
+                    maybeAskGoogle();
                 } else {
                     showMsg(data.message, 'error');
                 }
@@ -6766,6 +6792,42 @@ header('Expires: 0');
             }
         }
 
+        // ═══ GMAIL: pesan hasil + ajakan "Hubungkan Gmail" setelah login ═══
+        const GOOGLE_ON = <?php echo $googleOn ? 'true' : 'false'; ?>;
+        const GOOGLE_URL = <?php echo json_encode($googleUrl); ?>;
+        const GOOGLE_MSG = <?php echo json_encode($googleMsg); ?>;
+
+        function gToast(text) {
+            const t = document.createElement('div');
+            t.className = 'g-toast';
+            t.textContent = text;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 4500);
+        }
+
+        async function maybeAskGoogle() {
+            // "Nanti saja" berlaku sampai login berikutnya (sessionStorage)
+            if (!GOOGLE_ON || sessionStorage.getItem('g_later_<?php echo md5($bizSlug); ?>')) return;
+            try {
+                const res = await fetch(API + '&action=google_status');
+                const st = await res.json();
+                if (!st.success || !st.available || st.linked) return;
+            } catch (e) {
+                return;
+            }
+            const sheet = document.createElement('div');
+            sheet.className = 'g-sheet';
+            sheet.innerHTML = '<div class="box"><div style="font-size:34px">📧</div><h3>Hubungkan Gmail Anda</h3>'
+                + '<p>Supaya berikutnya cukup tekan <b>Masuk dengan Google</b>, tanpa mengetik password.</p>'
+                + '<a class="btn-google" href="' + GOOGLE_URL + '&do=link">Hubungkan Gmail</a>'
+                + '<button type="button" class="later">Nanti saja</button></div>';
+            sheet.querySelector('.later').onclick = () => {
+                try { sessionStorage.setItem('g_later_<?php echo md5($bizSlug); ?>', '1'); } catch (e) {}
+                sheet.remove();
+            };
+            document.body.appendChild(sheet);
+        }
+
         // ═══ AUTO-LOGIN CHECK ═══
         loadCredentials();
         (async function checkSession() {
@@ -6773,11 +6835,21 @@ header('Expires: 0');
                 const res = await fetch(API + '&action=profile');
                 const data = await res.json();
                 if (data.success && data.data) {
+                    // Masuk lewat Google tidak melewati handleLogin → simpan data yang sama di sini
+                    try {
+                        localStorage.setItem('staff_name', data.data.full_name);
+                        localStorage.setItem('staff_employee_id', data.data.id);
+                    } catch (e) {}
                     showApp(data.data.full_name);
+                    if (GOOGLE_MSG && GOOGLE_MSG.type === 'success') gToast('✓ ' + GOOGLE_MSG.text);
+                    else if (GOOGLE_MSG) gToast(GOOGLE_MSG.text);
+                    if (!GOOGLE_MSG) maybeAskGoogle();
+                    return;
                 }
             } catch (e) {
                 /* stay on auth screen */
             }
+            if (GOOGLE_MSG) showMsg(GOOGLE_MSG.text, GOOGLE_MSG.type);
         })();
 
         // ═══ CUTI PAGE ═══

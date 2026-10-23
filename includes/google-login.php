@@ -49,15 +49,20 @@ function adfGoogleRedirectUri(): string
     return 'https://' . $domain . '/google-callback.php';
 }
 
-/** Buat URL login Google + simpan state/nonce/PKCE di sesi. */
-function adfGoogleAuthUrl(): ?string
+/**
+ * Buat URL login Google + simpan state/nonce/PKCE di sesi.
+ * $redirectUri / $key: dipakai Staff Portal (callback & kunci sesi sendiri); kosong = login sistem.
+ */
+function adfGoogleAuthUrl(?string $redirectUri = null, string $key = 'adf_google'): ?string
 {
     $cfg = adfGoogleConfig();
     if (!$cfg) {
         return null;
     }
     $verifier = adfGoogleB64Url(random_bytes(48));
-    $_SESSION['adf_google'] = [
+    $redirectUri = $redirectUri ?? adfGoogleRedirectUri();
+    $_SESSION[$key] = [
+        'redirect' => $redirectUri,
         'state' => bin2hex(random_bytes(16)),
         'nonce' => bin2hex(random_bytes(16)),
         'verifier' => $verifier,
@@ -65,11 +70,11 @@ function adfGoogleAuthUrl(): ?string
     ];
     return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
         'client_id' => $cfg['client_id'],
-        'redirect_uri' => adfGoogleRedirectUri(),
+        'redirect_uri' => $redirectUri,
         'response_type' => 'code',
         'scope' => 'openid email profile',
-        'state' => $_SESSION['adf_google']['state'],
-        'nonce' => $_SESSION['adf_google']['nonce'],
+        'state' => $_SESSION[$key]['state'],
+        'nonce' => $_SESSION[$key]['nonce'],
         'code_challenge' => adfGoogleB64Url(hash('sha256', $verifier, true)),
         'code_challenge_method' => 'S256',
         'prompt' => 'select_account',
@@ -77,10 +82,10 @@ function adfGoogleAuthUrl(): ?string
 }
 
 /** Proses callback Google. Return [email, ''] bila sah, atau [null, alasan]. */
-function adfGoogleHandleCallback(array $query): array
+function adfGoogleHandleCallback(array $query, string $key = 'adf_google'): array
 {
-    $flow = $_SESSION['adf_google'] ?? null;
-    unset($_SESSION['adf_google']); // state hanya bisa dipakai sekali
+    $flow = $_SESSION[$key] ?? null;
+    unset($_SESSION[$key]); // state hanya bisa dipakai sekali
     $cfg = adfGoogleConfig();
     if (!$cfg) {
         return [null, 'Login Google belum diatur.'];
@@ -103,7 +108,7 @@ function adfGoogleHandleCallback(array $query): array
             'code' => (string)$query['code'],
             'client_id' => $cfg['client_id'],
             'client_secret' => $cfg['client_secret'],
-            'redirect_uri' => adfGoogleRedirectUri(),
+            'redirect_uri' => $flow['redirect'] ?? adfGoogleRedirectUri(),
             'grant_type' => 'authorization_code',
             'code_verifier' => $flow['verifier'],
         ]),
