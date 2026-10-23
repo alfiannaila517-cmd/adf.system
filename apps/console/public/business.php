@@ -205,10 +205,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'integ') {
         $code = (string)($_POST['provider'] ?? '');
         try {
-            Integration::save($biz, $code, (array)($_POST['v'] ?? []), !empty($_POST['enabled']), array_map('strval', (array)($_POST['clear'] ?? [])));
-            Auth::audit('integration.save', "{$biz['name']}: {$code}");
+            $in = (array)($_POST['v'] ?? []);
+            $clear = array_map('strval', (array)($_POST['clear'] ?? []));
+            // Bisnis yang terhubung: tulis langsung ke sistem (yang benar-benar dipakai); salinan Console tetap disimpan bila brankas siap
+            $live = Integration::live($biz, $code);
+            $skipped = $live ? Integration::pushLive($biz, $code, $in, !empty($_POST['enabled']), $clear) : [];
+            try {
+                Integration::save($biz, $code, $in, $live ? $live['active'] || !empty($_POST['enabled']) : !empty($_POST['enabled']), $clear);
+            } catch (Throwable $e) {
+                if (!$live) {
+                    throw $e;
+                }
+            }
+            Auth::audit('integration.save', "{$biz['name']}: {$code}" . ($live ? ' (ke sistem)' : ''));
+            if ($skipped) {
+                flash(implode(', ', $skipped) . ' disimpan terenkripsi oleh sistem — ubah dari menu di sistem bisnisnya (tidak bisa dari Console).', 'err');
+            }
             if (($_POST['do'] ?? '') === 'test') {
-                $res = Integrations::test($code, Integration::values($biz, $code));
+                try {
+                    $tv = Integration::values($biz, $code);
+                } catch (Throwable) {
+                    $tv = [];
+                }
+                // nilai sistem (yang dipakai) menimpa salinan Console
+                if ($now = Integration::live($biz, $code)) {
+                    $tv = array_merge($tv, array_filter($now['config'], 'strlen'));
+                    foreach ($now['secrets'] as $sf => $sv) {
+                        if ($sv['plain'] !== null && $sv['plain'] !== '') {
+                            $tv[$sf] = $sv['plain'];
+                        }
+                    }
+                }
+                $res = Integrations::test($code, $tv);
                 Integration::recordTest($biz, $code, $res);
                 Auth::audit('integration.test', "{$biz['name']}: {$code} " . ($res['ok'] ? 'OK' : 'GAGAL'));
                 flash(Integrations::DEFS[$code]['label'] . ': ' . $res['msg'], $res['ok'] ? 'ok' : 'err');
@@ -1059,18 +1087,26 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
         </div>
     <?php endif; ?>
 <?php else: $integs = Integration::all($biz); $feat = Biz::modules($biz)['feature']; ?>
-    <p class="muted" style="margin:0 0 12px">Kunci layanan luar khusus <?= e($biz['name']) ?>. Kunci rahasia disimpan terenkripsi dan tidak pernah ditampilkan ulang — kosongkan kolomnya bila tidak ingin mengganti. Tes koneksi hanya membaca (tidak mengirim pesan / mengubah data).
+    <?php $liveOn = StaffPortal::db($biz) !== null; ?>
+    <p class="muted" style="margin:0 0 12px"><?php if ($liveOn): ?><b style="color:var(--ink)">Isian di bawah = pengaturan yang sedang dipakai sistem <?= e($biz['name']) ?></b> (dibaca langsung dari database bisnis); Simpan menulis langsung ke sistem. <?php endif; ?>Kunci rahasia tidak pernah ditampilkan ulang — kosongkan kolomnya bila tidak ingin mengganti. Tes koneksi hanya membaca (tidak mengirim pesan / mengubah data).
         Pakasir diatur di tab <a href="/business.php?id=<?= $id ?>&tab=langganan">Langganan</a>.</p>
     <?php if (!Vault::ready()): ?>
         <div class="soonbox" style="border-color:var(--bad)"><b>Brankas kunci belum dibuat.</b> Jalankan sekali di server: <code>sudo -u adf php /srv/adf/app/cli/console.php vault-key</code> — kunci rahasia belum bisa disimpan sebelum itu.</div>
     <?php endif; ?>
     <?php if (!$integs): ?><div class="soonbox">Jenis bisnis ini tidak punya integrasi.</div><?php endif; ?>
     <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr))">
-        <?php foreach ($integs as $code => $it): $def = Integrations::DEFS[$code]; $row = $it['row']; ?>
+        <?php foreach ($integs as $code => $it): $def = Integrations::DEFS[$code]; $row = $it['row'];
+            try {
+                $lv = $liveOn ? Integration::live($biz, $code) : null;
+            } catch (Throwable) {
+                $lv = null;
+            }
+            // Sistem terhubung → status & isian dari sistem (sumber kebenaran), bukan dari salinan Console
+            $isOn = $lv ? $lv['active'] : $it['enabled']; ?>
             <div class="card" id="i-<?= e($code) ?>" style="margin:0">
                 <h2 style="display:flex;justify-content:space-between;gap:8px;align-items:center">
                     <span><?= e($def['label']) ?></span>
-                    <?= $it['enabled'] ? '<span class="pill ok">aktif</span>' : '<span class="pill">mati</span>' ?>
+                    <?= $isOn ? '<span class="pill ok">aktif' . ($lv ? ' di sistem' : '') . '</span>' : '<span class="pill">' . ($lv ? 'belum diatur di sistem' : 'mati') . '</span>' ?>
                 </h2>
                 <p class="muted" style="margin:-4px 0 10px;font-size:12px"><?= e($def['desc']) ?></p>
                 <?php if ($def['feature'] && empty($feat[$def['feature']])): ?>
@@ -1083,11 +1119,16 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                     <?= csrf_field() ?><input type="hidden" name="action" value="integ"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="provider" value="<?= e($code) ?>">
                     <?php foreach ($def['fields'] as $field => [$label, $kind, , $opt]): $name = 'v[' . e($field) . ']'; ?>
                         <div class="field">
-                            <?php if ($kind === 'secret'): $hint = Integration::secretHint($biz, $code, $field, $it['secrets']); ?>
+                            <?php if ($kind === 'secret'): $hint = $lv ? ($lv['secrets'][$field]['hint'] ?: null) : Integration::secretHint($biz, $code, $field, $it['secrets']);
+                                $encLive = $lv && $lv['secrets'][$field]['plain'] === null; ?>
                                 <label><?= e($label) ?> <?= $hint ? '<span class="pill ok">' . e($hint) . '</span>' : '' ?></label>
-                                <input type="password" name="<?= $name ?>" placeholder="<?= $hint ? 'kosongkan = tetap' : e((string)$opt) ?>" autocomplete="new-password" <?= $dis ?>>
-                                <?php if ($hint && $isAdmin): ?><label style="display:flex;gap:4px;align-items:center;margin:4px 0 0;font-size:12px"><input type="checkbox" name="clear[]" value="<?= e($field) ?>" style="width:auto"> hapus</label><?php endif; ?>
-                            <?php else: $val = (string)($it['config'][$field] ?? ''); ?>
+                                <?php if ($encLive): ?>
+                                    <p class="muted" style="margin:0;font-size:11.5px">Disimpan terenkripsi oleh sistem — ubah dari menu di sistem bisnisnya.</p>
+                                <?php else: ?>
+                                    <input type="password" name="<?= $name ?>" placeholder="<?= $hint ? 'kosongkan = tetap' : e((string)$opt) ?>" autocomplete="new-password" <?= $dis ?>>
+                                    <?php if ($hint && $isAdmin): ?><label style="display:flex;gap:4px;align-items:center;margin:4px 0 0;font-size:12px"><input type="checkbox" name="clear[]" value="<?= e($field) ?>" style="width:auto"> hapus</label><?php endif; ?>
+                                <?php endif; ?>
+                            <?php else: $val = (string)($lv ? ($lv['config'][$field] ?? '') : ($it['config'][$field] ?? '')); ?>
                                 <label><?= e($label) ?></label>
                                 <?php if ($kind === 'textarea'): ?>
                                     <textarea name="<?= $name ?>" rows="3" placeholder="<?= e((string)$opt) ?>" <?= $dis ?>><?= e($val) ?></textarea>
@@ -1099,7 +1140,11 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                             <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
-                    <label style="display:flex;gap:6px;align-items:center;margin:0 0 10px;color:var(--ink)"><input type="checkbox" name="enabled" value="1" style="width:auto" <?= $it['enabled'] ? 'checked' : '' ?> <?= $dis ?>> Aktifkan untuk bisnis ini</label>
+                    <?php if (!$lv || $def['enabled_target']): ?>
+                        <label style="display:flex;gap:6px;align-items:center;margin:0 0 10px;color:var(--ink)"><input type="checkbox" name="enabled" value="1" style="width:auto" <?= ($lv ? $lv['flag'] : $it['enabled']) ? 'checked' : '' ?> <?= $dis ?>> Aktifkan untuk bisnis ini</label>
+                    <?php else: ?>
+                        <p class="muted" style="margin:0 0 10px;font-size:11.5px">Aktif otomatis di sistem selama kuncinya terisi.</p>
+                    <?php endif; ?>
                     <?php if ($isAdmin): ?>
                         <button class="btn sm" name="do" value="save">Simpan</button>
                         <button class="btn ghost sm" name="do" value="test">Simpan & tes koneksi</button>
