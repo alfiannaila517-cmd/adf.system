@@ -108,6 +108,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->prepare('UPDATE subscription_charges SET base_fee = ?, guest_count = ?, per_guest_fee = ?, adjustment = ?, note = ?, due_date = ?, status = ?, paid_at = ?, edited = ? WHERE id = ?')
                 ->execute([max(0, $num('base_fee')), max(0, (int)$num('guest_count')), max(0, $num('per_guest_fee')), $num('adjustment'),
                     mb_substr(trim((string)($_POST['note'] ?? '')), 0, 300) ?: null, $due, $status, $paidAt, $auto ? 0 : 1, $cid]);
+            // Pembukuan: lunas manual dari sini → catat pembayaran manual; batal lunas → hapus; tetap lunas → ikuti total baru
+            $st->execute([$cid, $id]);
+            $new = $st->fetch();
+            if ($status === 'paid' && $old['status'] !== 'paid') {
+                Finance::chargeManualPayment($new, true, Biz::chargeTotal($new));
+            } elseif ($status !== 'paid') {
+                Finance::chargeManualPayment($new, false, 0);
+            } else {
+                $db->prepare("UPDATE payments SET amount = ? WHERE charge_id = ? AND gateway = 'manual'")->execute([Biz::chargeTotal($new), $cid]);
+            }
             Auth::audit('subscription.charge', "{$biz['name']}: {$old['ref']} → {$status}" . ($auto ? ' (otomatis)' : ''));
             flash("Tagihan {$old['period']} disimpan." . ($auto ? ' Akan dihitung ulang otomatis saat sistem bisnis sinkron.' : ''));
         }

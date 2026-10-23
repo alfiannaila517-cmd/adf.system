@@ -16,6 +16,7 @@ require_once __DIR__ . '/src/Legacy.php';
 require_once __DIR__ . '/src/StaffPortal.php';
 require_once __DIR__ . '/src/Contacts.php';
 require_once __DIR__ . '/src/StoreSite.php';
+require_once __DIR__ . '/src/Finance.php';
 require_once __DIR__ . '/src/Provision.php';
 require_once __DIR__ . '/src/Branding.php';
 require_once __DIR__ . '/src/Invoice.php';
