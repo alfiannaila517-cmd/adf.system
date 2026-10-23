@@ -4093,6 +4093,20 @@ header('Expires: 0');
         .fc-day small { display: block; font-weight: 600; color: #94a3b8; font-size: 8.5px; }
         .fc-col.today .fc-day { color: var(--sp-blue); }
         .fc-col.today .fc-track { border-color: #bfd4fb; }
+        /* Ringkasan okupansi minimalis */
+        .occ-mini { padding: 12px 14px !important; }
+        .occ-mini-top { display: flex; align-items: baseline; gap: 8px; }
+        .occ-mini-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b; flex: 1; }
+        .occ-mini-pct { font-size: 20px; font-weight: 800; color: var(--sp-ink); letter-spacing: -.02em; }
+        .occ-mini-pct small { font-size: 11px; color: #64748b; margin-left: 1px; }
+        .occ-mini-of { font-size: 11px; color: #64748b; }
+        .occ-mini-of b { color: var(--sp-ink); }
+        .occ-mini-bar { height: 5px; border-radius: 99px; background: #eef2f8; overflow: hidden; margin: 8px 0 9px; }
+        .occ-mini-bar span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #0f8a65, #22c55e); }
+        .occ-mini-kpis { display: flex; justify-content: space-between; gap: 6px; font-size: 10.5px; color: #64748b; }
+        .occ-mini-kpis span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .occ-mini-kpis i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+        .occ-mini-kpis b { color: var(--sp-ink); font-size: 11.5px; }
     </style>
 </head>
 
@@ -6721,24 +6735,22 @@ header('Expires: 0');
                 const departures = parseInt(d.departures_today) || 0;
                 const occW = total > 0 ? (occ / total * 100) : 0;
                 const now = new Date();
+                // Ringkasan minimalis: persen + kamar terisi + garis tipis, lalu empat angka kecil
                 document.getElementById('occStats').innerHTML = `
-            <div class="rm-card">
-                <div class="rm-occ">
-                    <div>
-                        <div class="rm-occ-label">Okupansi hari ini</div>
-                        <div class="rm-occ-num">${rate}<small>%</small></div>
-                    </div>
-                    <div class="rm-occ-meta"><b>${occ}</b> dari <b>${total}</b> kamar terisi<br>${RM_DOW[now.getDay()].charAt(0) + RM_DOW[now.getDay()].slice(1).toLowerCase()}, ${rmFmt(today)}</div>
+            <div class="rm-card occ-mini">
+                <div class="occ-mini-top">
+                    <span class="occ-mini-lbl">Okupansi hari ini</span>
+                    <span class="occ-mini-pct">${rate}<small>%</small></span>
+                    <span class="occ-mini-of"><b>${occ}</b>/${total} kamar</span>
                 </div>
-                <div class="rm-bar"><span style="width:${occW}%;background:linear-gradient(90deg,#0f8a65,#14a37a);"></span></div>
-                <div class="rm-kpis">
-                    <div class="rm-kpi"><div class="rm-kpi-val">${occ}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#0f8a65"></i>Terisi</div></div>
-                    <div class="rm-kpi"><div class="rm-kpi-val">${avail}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#cbd5e1"></i>Kosong</div></div>
-                    <div class="rm-kpi"><div class="rm-kpi-val">${arrivals}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#3d5a99"></i>Check-in</div></div>
-                    <div class="rm-kpi"><div class="rm-kpi-val">${departures}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#ea580c"></i>Check-out</div></div>
+                <div class="occ-mini-bar"><span style="width:${occW}%"></span></div>
+                <div class="occ-mini-kpis">
+                    <span><i style="background:#0f8a65"></i>Terisi <b>${occ}</b></span>
+                    <span><i style="background:#cbd5e1"></i>Kosong <b>${avail}</b></span>
+                    <span><i style="background:#3d5a99"></i>In <b>${arrivals}</b></span>
+                    <span><i style="background:#ea580c"></i>Out <b>${departures}</b></span>
                 </div>
             </div>`;
-
                 // ── Okupansi 7 hari: batang persentase kamar terpesan per malam ──
                 const fcEl = document.getElementById('occForecast');
                 const fc = d.forecast || [];
