@@ -351,6 +351,20 @@ final class SubSync
         $orderId = trim((string)($p['order_id'] ?? '')) ?: 'SUB-' . strtoupper((string)$sub['client_key']) . '-' . $period;
         $title = trim((string)($p['description'] ?? '')) ?: (str_starts_with($period, 'MANUAL-') ? 'Tagihan Manual' : 'Langganan ' . $period);
 
+        // Sudah lunas di Console (dibayar lewat Mayar / ditandai lunas admin) → sistem bisnis hanya ikut melaporkan:
+        // jangan catat transaksi kedua (email kuitansi tetap dikirim oleh endpoint pemanggil)
+        $chk = $db->prepare("SELECT 1 FROM subscription_charges WHERE business_id = ? AND ref = ? AND status = 'paid'");
+        $chk->execute([(int)$sub['business_id'], $period]);
+        $paidHere = (bool)$chk->fetchColumn();
+        if (!$paidHere && preg_match('/^MANUAL-CI(\d+)$/', $period, $mm)) {
+            $chk = $db->prepare("SELECT 1 FROM invoices WHERE id = ? AND status = 'paid'");
+            $chk->execute([(int)$mm[1]]);
+            $paidHere = (bool)$chk->fetchColumn();
+        }
+        if ($paidHere) {
+            return $orderId;
+        }
+
         $exists = $db->prepare('SELECT status FROM orders WHERE order_id = ?');
         $exists->execute([mb_substr($orderId, 0, 80)]);
         $wasCompleted = $exists->fetchColumn() === 'completed';
