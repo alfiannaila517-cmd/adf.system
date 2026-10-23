@@ -4234,6 +4234,27 @@ header('Expires: 0');
         .sp-credit { position: absolute; left: 0; right: 0; bottom: calc(7px + env(safe-area-inset-bottom)); text-align: center; font-size: 9.5px; line-height: 1.2; color: #94a3b8; letter-spacing: .02em; pointer-events: auto; }
         .sp-credit a { color: #2f6fe0; font-weight: 600; text-decoration: none; }
         .sp-credit.on-auth { position: fixed; z-index: 5; }
+        /* ═══ Status Kamar — kartu per kamar ═══ */
+        .rk-sum { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 12px; }
+        .rk-sum span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 99px; background: color-mix(in srgb, var(--rk) 10%, #fff); color: #334155; font-size: 11.5px; font-weight: 600; }
+        .rk-sum b { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--rk); color: #fff; font-size: 11px; display: inline-grid; place-items: center; }
+        .rk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        @media (min-width: 520px) { .rk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        .rk-card { position: relative; min-width: 0; padding: 10px 11px 10px 14px; border-radius: 14px; background: #fff; border: 1px solid #e6ecf5; box-shadow: 0 2px 8px rgba(20, 50, 110, .05); overflow: hidden; }
+        .rk-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--rk); }
+        .rk-card:not(.rk-avail) { background: linear-gradient(135deg, color-mix(in srgb, var(--rk) 7%, #fff), #fff 70%); }
+        .rk-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        .rk-no { font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -.02em; line-height: 1.1; }
+        .rk-pill { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 99px; background: color-mix(in srgb, var(--rk) 14%, #fff); color: var(--rk); font-size: 9.5px; font-weight: 700; }
+        .rk-type { margin-top: 1px; font-size: 10.5px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rk-guest { display: flex; align-items: center; gap: 5px; margin-top: 7px; font-size: 12px; font-weight: 600; color: #1e293b; min-width: 0; }
+        .rk-guest svg { width: 13px; height: 13px; flex-shrink: 0; color: var(--rk); }
+        .rk-guest span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rk-meta { margin-top: 2px; padding-left: 18px; font-size: 10.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rk-avail .rk-no { color: #64748b; }
+        .rk-avail::before { background: #e2e8f0; }
+        .rk-avail { box-shadow: none; }
+        .rk-clean { margin-top: 8px; width: 100%; height: 30px; border: 0; border-radius: 9px; background: var(--rk); color: #fff; font-size: 11.5px; font-weight: 700; cursor: pointer; }
     </style>
 </head>
 
@@ -4772,13 +4793,7 @@ header('Expires: 0');
                             <div class="rm-sub">Kondisi setiap kamar saat ini</div>
                         </div>
                     </div>
-                    <div class="rm-legend">
-                        <span><i class="rm-dot" style="background:#0f8a65"></i>Tamu menginap</span>
-                        <span><i class="rm-dot" style="background:#ea580c"></i>Check-out hari ini</span>
-                        <span><i class="rm-dot" style="background:#3d5a99"></i>Tiba hari ini</span>
-                        <span><i class="rm-dot" style="background:#d97706"></i>Perlu dibersihkan</span>
-                        <span><i class="rm-dot" style="background:#cbd5e1"></i>Kosong</span>
-                    </div>
+                    <div class="rk-sum" id="roomSummary"></div>
                     <div id="roomGrid">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
@@ -6938,29 +6953,54 @@ header('Expires: 0');
                 if (rooms.length === 0) {
                     document.getElementById('roomGrid').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Tidak ada data kamar.</div>';
                 } else {
-                    let rh = '<div class="room-grid">';
+                    // Kartu kamar: warna + label status yang jelas, tamu & tanggal keluar; ringkasan jumlah per status di atas
+                    const RK = {
+                        occ: ['Menginap', '#0f8a65'],
+                        departing: ['Check-out hari ini', '#ea580c'],
+                        b2b: ['Keluar + masuk', '#dc2626'],
+                        arrival: ['Tiba hari ini', '#3d5a99'],
+                        dirty: ['Perlu dibersihkan', '#d97706'],
+                        blocked: ['Perbaikan', '#64748b'],
+                        avail: ['Kosong', '#94a3b8']
+                    };
+                    const rkCount = {};
+                    const icUser = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
+                    const rkDate = v => {
+                        const d = new Date(String(v).substring(0, 10) + 'T00:00:00');
+                        return isNaN(d) ? '' : d.getDate() + ' ' + RM_MONTHS[d.getMonth()];
+                    };
+                    let rk = '<div class="rk-grid">';
                     rooms.forEach(r => {
                         const arr = arrivalByRoom[r.id];
                         const isOcc = r.status === 'occupied';
                         const isDirty = r.status === 'cleaning';
                         const departing = isOcc && String(r.check_out_date || '').substring(0, 10) === today;
-                        const hasB2B = isOcc && r.next_guest;
-                        let boxClass = 'avail';
-                        if (isDirty) boxClass = 'dirty';
-                        else if (r.status === 'maintenance' || r.status === 'blocked') boxClass = 'blocked';
-                        else if (isOcc) boxClass = (departing ? 'departing' : 'occ') + (hasB2B ? ' b2b' : '');
-                        else if (arr) boxClass = 'arrival';
+                        let st = 'avail';
+                        if (isDirty) st = 'dirty';
+                        else if (r.status === 'maintenance' || r.status === 'blocked') st = 'blocked';
+                        else if (isOcc) st = r.next_guest ? 'b2b' : (departing ? 'departing' : 'occ');
+                        else if (arr) st = 'arrival';
+                        rkCount[st] = (rkCount[st] || 0) + 1;
+                        const [label, color] = RK[st];
                         const guest = isOcc ? (r.guest_name || '') : (arr && !isDirty ? (arr.guest_name || '') : '');
-                        rh += `<div class="room-box ${boxClass}">
-                    ${rmEsc(r.room_number)}
-                    <div class="room-type">${rmEsc(r.room_type || '')}</div>
-                    ${guest ? `<div class="room-guest">${rmEsc(guest)}</div>` : ''}
-                    ${hasB2B ? `<div class="room-next">→ ${rmEsc(r.next_guest)}</div>` : ''}
-                    ${isDirty ? `<button class="btn-clean" onclick="markRoomClean(${parseInt(r.id)}, '${rmEsc(String(r.room_number || '').replace(/'/g, ''))}')">✓ Clean</button>` : ''}
-                </div>`;
+                        let meta = '';
+                        if (st === 'occ' && r.check_out_date) meta = 'Keluar ' + rkDate(r.check_out_date);
+                        if (st === 'b2b') meta = 'Masuk: ' + rmEsc(r.next_guest);
+                        rk += `<div class="rk-card rk-${st}" style="--rk:${color}">
+                            <div class="rk-top"><b class="rk-no">${rmEsc(r.room_number)}</b><span class="rk-pill">${label}</span></div>
+                            <div class="rk-type">${rmEsc(r.room_type || '')}</div>
+                            ${guest ? `<div class="rk-guest">${icUser}<span>${rmEsc(guest)}</span></div>` : ''}
+                            ${meta ? `<div class="rk-meta">${meta}</div>` : ''}
+                            ${isDirty ? `<button class="rk-clean" onclick="markRoomClean(${parseInt(r.id)}, '${rmEsc(String(r.room_number || '').replace(/'/g, ''))}')">✓ Sudah bersih</button>` : ''}
+                        </div>`;
                     });
-                    rh += '</div>';
-                    document.getElementById('roomGrid').innerHTML = rh;
+                    rk += '</div>';
+                    document.getElementById('roomGrid').innerHTML = rk;
+                    const sumEl = document.getElementById('roomSummary');
+                    if (sumEl) {
+                        sumEl.innerHTML = ['occ', 'departing', 'b2b', 'arrival', 'dirty', 'blocked', 'avail'].filter(k => rkCount[k])
+                            .map(k => `<span style="--rk:${RK[k][1]}"><b>${rkCount[k]}</b>${RK[k][0]}</span>`).join('');
+                    }
                 }
 
                 // ── Kalender (balok noon-to-noon seperti Frontdesk) ──
