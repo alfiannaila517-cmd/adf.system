@@ -3973,6 +3973,15 @@ header('Expires: 0');
         .sp-tile-ic { font-size: 23px !important; }
         .sp-tile-lb { font-size: 10.5px !important; }
         @media (max-width: 380px) { .sp-tile-ic { font-size: 21px !important; } .sp-tile-lb { font-size: 10px !important; } }
+        /* Footer: hanya tombol bulat Absen di tengah */
+        .bottom-nav.sp-nav { display: flex !important; justify-content: center !important; background: none !important; box-shadow: none !important; border: 0 !important; padding: 0 0 calc(10px + env(safe-area-inset-bottom)) !important; pointer-events: none; }
+        .sp-nav .sp-fab-wrap { pointer-events: auto; color: var(--sp-blue); font-weight: 700; }
+        .sp-nav .sp-fab { margin-top: 0 !important; border-width: 4px !important; }
+        .sp-nav .sp-fab-wrap .nav-label { background: #fff; padding: 1px 9px; border-radius: 99px; box-shadow: 0 2px 6px rgba(20, 50, 110, .12); margin-top: -6px; position: relative; }
+        .app-wrap { padding-bottom: 96px !important; }
+        /* Tombol kembali ke Beranda di halaman lain */
+        .sp-back { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 12px; padding: 7px 14px 7px 10px; border: 0; border-radius: 99px; background: #fff; color: var(--sp-ink); font-size: 13px; font-weight: 600; box-shadow: 0 2px 8px rgba(20, 50, 110, .1); cursor: pointer; }
+        .sp-back span { font-size: 18px; line-height: 1; color: var(--sp-blue); }
     </style>
 </head>
 
@@ -4232,7 +4241,7 @@ header('Expires: 0');
                 $spMenu[] = ['👔', 'Jadwal Seragam', "openStaffSection('uniformSection')", ''];
                 $spMenu[] = ['📣', 'Pengumuman', 'toggleChat()', ''];
                 $spMenu[] = ['📦', 'Stock', 'goToStockPage()', 'quickMenuStock'];
-                $spPages = array_chunk($spMenu, 8);
+                $spPages = array_chunk($spMenu, 12);
                 ?>
                 <div class="sp-sec-title">Menu Utama</div>
                 <div class="sp-menu" id="spMenu">
@@ -4683,13 +4692,9 @@ header('Expires: 0');
 
         </div>
 
-        <!-- Navigasi bawah: Beranda · Jadwal · (Absen, tombol bulat) · Slip Gaji · Pengumuman. Halaman hotel/kafe dibuka dari Menu Utama -->
+        <!-- Bawah: hanya tombol bulat Absen. Semua menu ada di Menu Utama; halaman lain punya tombol "‹ Beranda" -->
         <div class="bottom-nav sp-nav">
-            <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Beranda</span></div>
-            <div class="nav-item nav-act" onclick="openJadwal()"><span class="nav-icon">🗓️</span><span class="nav-label">Jadwal</span></div>
             <div class="sp-fab-wrap"><button type="button" class="sp-fab" onclick="openManualAttendance()" aria-label="Absen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button><span class="nav-label">Absen</span></div>
-            <div class="nav-item" data-page="slipgaji"><span class="nav-icon">💰</span><span class="nav-label">Slip Gaji</span></div>
-            <div class="nav-item nav-act" onclick="toggleChat()"><span class="nav-icon">📣</span><span class="nav-label">Info</span></div>
         </div>
     </div>
 
@@ -5950,6 +5955,16 @@ header('Expires: 0');
         }
         document.querySelectorAll('.nav-item[data-page]').forEach(item => {
             item.addEventListener('click', () => goPage(item.dataset.page));
+        });
+
+        // Tombol "‹ Beranda" di setiap halaman selain Beranda (footer hanya berisi tombol Absen)
+        document.querySelectorAll('.page:not(#page-home)').forEach(p => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'sp-back';
+            b.innerHTML = '<span>‹</span> Beranda';
+            b.onclick = () => goPage('home');
+            p.insertBefore(b, p.firstChild);
         });
 
         // Jadwal di navigasi bawah: kafe → halaman Jadwal & Ketepatan Waktu, lainnya → Jadwal Kerja tim
