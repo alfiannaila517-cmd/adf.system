@@ -4235,26 +4235,31 @@ header('Expires: 0');
         .sp-credit a { color: #2f6fe0; font-weight: 600; text-decoration: none; }
         .sp-credit.on-auth { position: fixed; z-index: 5; }
         /* ═══ Status Kamar — kartu per kamar ═══ */
-        .rk-sum { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 12px; }
-        .rk-sum span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 99px; background: color-mix(in srgb, var(--rk) 10%, #fff); color: #334155; font-size: 11.5px; font-weight: 600; }
-        .rk-sum b { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--rk); color: #fff; font-size: 11px; display: inline-grid; place-items: center; }
-        .rk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-        @media (min-width: 520px) { .rk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-        .rk-card { position: relative; min-width: 0; padding: 10px 11px 10px 14px; border-radius: 14px; background: #fff; border: 1px solid #e6ecf5; box-shadow: 0 2px 8px rgba(20, 50, 110, .05); overflow: hidden; }
-        .rk-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--rk); }
-        .rk-card:not(.rk-avail) { background: linear-gradient(135deg, color-mix(in srgb, var(--rk) 7%, #fff), #fff 70%); }
-        .rk-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-        .rk-no { font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -.02em; line-height: 1.1; }
-        .rk-pill { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 99px; background: color-mix(in srgb, var(--rk) 14%, #fff); color: var(--rk); font-size: 9.5px; font-weight: 700; }
-        .rk-type { margin-top: 1px; font-size: 10.5px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .rk-guest { display: flex; align-items: center; gap: 5px; margin-top: 7px; font-size: 12px; font-weight: 600; color: #1e293b; min-width: 0; }
-        .rk-guest svg { width: 13px; height: 13px; flex-shrink: 0; color: var(--rk); }
-        .rk-guest span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .rk-meta { margin-top: 2px; padding-left: 18px; font-size: 10.5px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .rk-avail .rk-no { color: #64748b; }
+        .rk-sum { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 10px; }
+        .rk-sum span { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px 2px 2px; border-radius: 99px; background: color-mix(in srgb, var(--rk) 10%, #fff); color: var(--rk); font-size: 10.5px; font-weight: 800; }
+        .rk-sum b { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 99px; background: var(--rk); color: #fff; font-size: 10px; display: inline-grid; place-items: center; }
+        .rk-sum small { color: #64748b; font-weight: 500; font-size: 10px; }
+        .rk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; align-items: start; }
+        @media (min-width: 520px) { .rk-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        .rk-card { position: relative; min-width: 0; padding: 6px 7px 6px 9px; border-radius: 10px; background: #fff; border: 1px solid #e6ecf5; overflow: hidden; }
+        .rk-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--rk); }
+        .rk-card:not(.rk-avail) { background: color-mix(in srgb, var(--rk) 6%, #fff); border-color: color-mix(in srgb, var(--rk) 22%, #fff); }
+        .rk-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+        .rk-no { font-size: 13.5px; font-weight: 800; color: #0f172a; line-height: 1.15; }
+        .rk-pill { padding: 0 5px; border-radius: 5px; background: var(--rk); color: #fff; font-size: 8.5px; font-weight: 800; letter-spacing: .03em; line-height: 14px; }
+        .rk-type { font-size: 9px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rk-guest { margin-top: 2px; font-size: 10.5px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rk-meta { font-size: 9px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rk-avail .rk-no { color: #94a3b8; }
         .rk-avail::before { background: #e2e8f0; }
-        .rk-avail { box-shadow: none; }
-        .rk-clean { margin-top: 8px; width: 100%; height: 30px; border: 0; border-radius: 9px; background: var(--rk); color: #fff; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+        .rk-avail .rk-pill { background: #e2e8f0; color: #64748b; }
+        .rk-clean { margin-top: 4px; width: 100%; height: 22px; border: 0; border-radius: 6px; background: var(--rk); color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; }
+        /* Kalender Booking dilipat: kepala jadi tombol */
+        .rm-fold-head { cursor: pointer; margin-bottom: 0 !important; }
+        .rm-fold-head .rm-chev { width: 30px; height: 30px; border-radius: 10px; background: #eef3fb; color: #2f6fe0; display: grid; place-items: center; transition: transform .2s ease; flex-shrink: 0; }
+        .rm-fold.open .rm-chev { transform: rotate(180deg); }
+        .rm-fold-body { display: none; margin-top: 12px; }
+        .rm-fold.open .rm-fold-body { display: block; }
     </style>
 </head>
 
@@ -4798,12 +4803,17 @@ header('Expires: 0');
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
                 </div>
-                <div class="rm-card">
-                    <div class="rm-head">
+                <div class="rm-card rm-fold" id="calFold">
+                    <div class="rm-head rm-fold-head" onclick="toggleCalFold()">
                         <div>
                             <div class="rm-title">Kalender Booking</div>
-                            <div class="rm-sub">Ketuk balok untuk melihat detail</div>
+                            <div class="rm-sub">Ketuk untuk membuka</div>
                         </div>
+                        <span class="rm-chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+                    </div>
+                    <div class="rm-fold-body">
+                    <div class="rm-head" style="margin-bottom:6px">
+                        <div class="rm-sub">Ketuk balok untuk melihat detail</div>
                         <div class="rm-nav">
                             <button onclick="calNav(-7)" aria-label="Minggu sebelumnya">‹</button>
                             <button onclick="calToday()">Hari ini</button>
@@ -4822,6 +4832,7 @@ header('Expires: 0');
                         <span class="rm-chip"><i style="background:#9ca3af;opacity:.5"></i>Sudah check-out</span>
                         <span class="rm-chip"><i class="rm-dot" style="background:#22c55e;transform:none;width:8px;height:8px"></i>Lunas</span>
                         <span class="rm-chip"><i class="rm-dot" style="background:#ef4444;transform:none;width:8px;height:8px"></i>Belum lunas</span>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -6883,6 +6894,19 @@ header('Expires: 0');
             document.getElementById('calPopupOverlay').style.display = 'block';
         }
 
+        // Kalender Booking terlipat; posisi geser ke hari ini diterapkan saat dibuka (elemen tersembunyi tidak bisa digeser)
+        let CAL_SCROLL_TO = 0;
+
+        function toggleCalFold() {
+            const el = document.getElementById('calFold');
+            if (!el) return;
+            el.classList.toggle('open');
+            if (el.classList.contains('open')) {
+                const sc = document.getElementById('calScroll');
+                if (sc && CAL_SCROLL_TO) sc.scrollLeft = CAL_SCROLL_TO;
+            }
+        }
+
         async function loadOccupancy() {
             try {
                 const res = await fetch(API + '&action=occupancy&start=' + calStartDate);
@@ -6954,17 +6978,17 @@ header('Expires: 0');
                     document.getElementById('roomGrid').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Tidak ada data kamar.</div>';
                 } else {
                     // Kartu kamar: warna + label status yang jelas, tamu & tanggal keluar; ringkasan jumlah per status di atas
+                    // [kode, arti, warna] — kode sama dengan Tugas HK / Room Monitor
                     const RK = {
-                        occ: ['Menginap', '#0f8a65'],
-                        departing: ['Check-out hari ini', '#ea580c'],
-                        b2b: ['Keluar + masuk', '#dc2626'],
-                        arrival: ['Tiba hari ini', '#3d5a99'],
-                        dirty: ['Perlu dibersihkan', '#d97706'],
-                        blocked: ['Perbaikan', '#64748b'],
-                        avail: ['Kosong', '#94a3b8']
+                        occ: ['OD', 'menginap', '#0f8a65'],
+                        b2b: ['B2B', 'keluar + masuk', '#dc2626'],
+                        departing: ['CO', 'check-out', '#ea580c'],
+                        arrival: ['ARR', 'tiba', '#3d5a99'],
+                        dirty: ['VD', 'kotor', '#d97706'],
+                        blocked: ['OOO', 'perbaikan', '#64748b'],
+                        avail: ['VC', 'kosong', '#94a3b8']
                     };
                     const rkCount = {};
-                    const icUser = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>';
                     const rkDate = v => {
                         const d = new Date(String(v).substring(0, 10) + 'T00:00:00');
                         return isNaN(d) ? '' : d.getDate() + ' ' + RM_MONTHS[d.getMonth()];
@@ -6981,17 +7005,17 @@ header('Expires: 0');
                         else if (isOcc) st = r.next_guest ? 'b2b' : (departing ? 'departing' : 'occ');
                         else if (arr) st = 'arrival';
                         rkCount[st] = (rkCount[st] || 0) + 1;
-                        const [label, color] = RK[st];
+                        const [label, , color] = RK[st];
                         const guest = isOcc ? (r.guest_name || '') : (arr && !isDirty ? (arr.guest_name || '') : '');
                         let meta = '';
-                        if (st === 'occ' && r.check_out_date) meta = 'Keluar ' + rkDate(r.check_out_date);
-                        if (st === 'b2b') meta = 'Masuk: ' + rmEsc(r.next_guest);
+                        if (st === 'occ' && r.check_out_date) meta = 's/d ' + rkDate(r.check_out_date);
+                        if (st === 'b2b') meta = '→ ' + rmEsc(r.next_guest);
                         rk += `<div class="rk-card rk-${st}" style="--rk:${color}">
                             <div class="rk-top"><b class="rk-no">${rmEsc(r.room_number)}</b><span class="rk-pill">${label}</span></div>
                             <div class="rk-type">${rmEsc(r.room_type || '')}</div>
-                            ${guest ? `<div class="rk-guest">${icUser}<span>${rmEsc(guest)}</span></div>` : ''}
+                            ${guest ? `<div class="rk-guest">${rmEsc(guest)}</div>` : ''}
                             ${meta ? `<div class="rk-meta">${meta}</div>` : ''}
-                            ${isDirty ? `<button class="rk-clean" onclick="markRoomClean(${parseInt(r.id)}, '${rmEsc(String(r.room_number || '').replace(/'/g, ''))}')">✓ Sudah bersih</button>` : ''}
+                            ${isDirty ? `<button class="rk-clean" onclick="markRoomClean(${parseInt(r.id)}, '${rmEsc(String(r.room_number || '').replace(/'/g, ''))}')">✓ Bersih</button>` : ''}
                         </div>`;
                     });
                     rk += '</div>';
@@ -6999,7 +7023,7 @@ header('Expires: 0');
                     const sumEl = document.getElementById('roomSummary');
                     if (sumEl) {
                         sumEl.innerHTML = ['occ', 'departing', 'b2b', 'arrival', 'dirty', 'blocked', 'avail'].filter(k => rkCount[k])
-                            .map(k => `<span style="--rk:${RK[k][1]}"><b>${rkCount[k]}</b>${RK[k][0]}</span>`).join('');
+                            .map(k => `<span style="--rk:${RK[k][2]}"><b>${rkCount[k]}</b>${RK[k][0]}<small>${RK[k][1]}</small></span>`).join('');
                     }
                 }
 
@@ -7090,8 +7114,9 @@ header('Expires: 0');
                 // Geser ke hari ini (sisakan 1 hari sebelumnya terlihat)
                 if (todayIdx > 0) {
                     const scrollEl = document.getElementById('calScroll');
+                    CAL_SCROLL_TO = Math.max(0, (todayIdx - 1) * col);
                     setTimeout(() => {
-                        scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * col);
+                        scrollEl.scrollLeft = CAL_SCROLL_TO;
                     }, 60);
                 }
             } catch (e) {
