@@ -4227,6 +4227,7 @@ header('Expires: 0');
         .sps-dots i { width: 6px; height: 6px; border-radius: 50%; background: #ff6a1a; animation: sps-dot 1.1s ease-in-out infinite; }
         .sps-dots i:nth-child(2) { animation-delay: .15s; }
         .sps-dots i:nth-child(3) { animation-delay: .3s; }
+        .sps-status { min-height: 14px; font-size: 11px; color: rgba(255, 255, 255, .45); letter-spacing: .03em; }
         @keyframes sps-dot { 0%, 80%, 100% { opacity: .25; transform: scale(.75); } 40% { opacity: 1; transform: scale(1.15); } }
     </style>
 </head>
@@ -4236,11 +4237,14 @@ header('Expires: 0');
         <div class="sps-spin"><span class="sps-glow"></span><img src="../../assets/img/developer-logo.png" alt=""></div>
         <div class="sps-name"><b>STAFF PORTAL</b><small><?php echo $bizName; ?></small></div>
         <div class="sps-dots"><i></i><i></i><i></i></div>
+        <div class="sps-status" id="spsStatus">Memuat…</div>
     </div>
     <script>
-        // Tutup layar loading setelah halaman siap: pembukaan pertama minimal 1,3 detik (supaya terlihat), muat ulang berikutnya cepat; maksimal 5 detik
+        // Layar loading tertutup setelah halaman siap DAN semua "pegangan" selesai (lokasi GPS, data absen/jadwal/kamar).
+        // Pembukaan pertama minimal 1,3 detik, muat ulang berikutnya cepat; apa pun yang terjadi paling lama 6 detik.
+        // Pemakaian: spSplashHold(promise, 'Teks status…')
         (function() {
-            var t0 = Date.now(), done = false, minMs = 1300;
+            var t0 = Date.now(), done = false, loaded = false, pending = 0, minMs = 1300, MAX_MS = 6000;
             try { if (sessionStorage.getItem('sp_splash')) minMs = 350; sessionStorage.setItem('sp_splash', '1'); } catch (e) {}
             function hide() {
                 if (done) return;
@@ -4252,9 +4256,17 @@ header('Expires: 0');
                     setTimeout(function() { el.remove(); }, 500);
                 }, Math.max(0, minMs - (Date.now() - t0)));
             }
-            if (document.readyState === 'complete') hide();
-            else window.addEventListener('load', hide);
-            setTimeout(hide, 5000);
+            function check() { if (loaded && pending === 0) hide(); }
+            window.spSplashHold = function(p, label) {
+                if (done) return;
+                pending++;
+                var st = document.getElementById('spsStatus');
+                if (st && label) st.textContent = label;
+                Promise.resolve(p).catch(function() {}).then(function() { pending--; check(); });
+            };
+            if (document.readyState === 'complete') loaded = true;
+            else window.addEventListener('load', function() { loaded = true; check(); });
+            setTimeout(hide, MAX_MS);
         })();
     </script>
 
@@ -5334,10 +5346,15 @@ header('Expires: 0');
                 const role = document.getElementById('helloRole');
                 if (role && p.success && p.data) role.textContent = [p.data.position, BIZ_NAME].filter(Boolean).join(' · ');
             }).catch(() => {});
-            loadHome();
+            const home = loadHome();
             startLiveClock();
             initStockAccess();
-            setTimeout(spPrimeLocation, 800);
+            if (window.spSplashHold) {
+                spSplashHold(home, IS_HOTEL ? 'Menyinkronkan absen, jadwal & kamar…' : 'Menyinkronkan absen & jadwal…');
+                spSplashHold(spWarmGps(), 'Mencari lokasi GPS…');
+            } else {
+                setTimeout(spPrimeLocation, 800);
+            }
         }
 
         let liveClockTimer = null;
@@ -5363,12 +5380,12 @@ header('Expires: 0');
             liveClockTimer = setInterval(tick, 1000);
         }
 
+        // Mengembalikan Promise yang selesai saat data utama beranda sudah termuat (dipakai layar loading)
         function loadHome() {
-            loadAbsen();
-            loadMonitoring();
-            loadMonitorLembur();
-            loadTeamSchedule();
-            if (IS_CAFE) loadSchedule();
+            const jobs = [loadAbsen(), loadMonitoring(), loadMonitorLembur(), loadTeamSchedule()];
+            if (IS_CAFE) jobs.push(loadSchedule());
+            if (IS_HOTEL) jobs.push(loadOccupancy());
+            return Promise.allSettled(jobs);
         }
 
         // ═══ STOCK TAB (cross-business stock access, gated by admin-granted permission) ═══
@@ -5870,7 +5887,7 @@ header('Expires: 0');
         }
 
         function loadTeamSchedule() {
-            fetch(API + '&action=all_staff_schedule')
+            return fetch(API + '&action=all_staff_schedule')
                 .then(r => r.json())
                 .then(data => {
                     const weeklyByEmp = {};
@@ -7433,6 +7450,8 @@ header('Expires: 0');
         // ═══ AUTO-LOGIN CHECK ═══
         loadCredentials();
         (async function checkSession() {
+            let release;
+            if (window.spSplashHold) spSplashHold(new Promise(r => release = r), 'Memeriksa akun…');
             try {
                 const res = await fetch(API + '&action=profile');
                 const data = await res.json();
@@ -7446,11 +7465,13 @@ header('Expires: 0');
                     if (GOOGLE_MSG && GOOGLE_MSG.type === 'success') gToast('✓ ' + GOOGLE_MSG.text);
                     else if (GOOGLE_MSG) gToast(GOOGLE_MSG.text);
                     if (!GOOGLE_MSG) maybeAskGoogle();
+                    if (release) release();
                     return;
                 }
             } catch (e) {
                 /* stay on auth screen */
             }
+            if (release) release();
             if (GOOGLE_MSG) showMsg(GOOGLE_MSG.text, GOOGLE_MSG.type);
         })();
 
@@ -8736,7 +8757,13 @@ header('Expires: 0');
                     } catch (e) {}
                 }
                 if (!navigator.geolocation) throw { kind: 'nogps' };
-                const pos = await spGetPosition(9000);
+                // Lokasi dari layar loading masih baru (≤ 2 menit) & cukup akurat → langsung pakai, tidak menunggu GPS lagi
+                // (hanya bila sudah di dalam area kantor — kalau tidak, cari GPS baru: mungkin staf baru saja masuk area)
+                let warm = SP_WARM_POS && Date.now() - SP_WARM_POS.timestamp < 120000 && SP_WARM_POS.coords.accuracy <= 50 ? SP_WARM_POS : null;
+                SP_WARM_POS = null;
+                const wLocs = faceConfig?.locations || [];
+                if (warm && wLocs.length && !faceConfig?.allow_outside && !wLocs.some(l => haversineDist(warm.coords.latitude, warm.coords.longitude, l.lat, l.lng) <= l.radius)) warm = null;
+                const pos = warm || await spGetPosition(9000);
                 const lat = pos.coords.latitude, lng = pos.coords.longitude, acc = Math.round(pos.coords.accuracy);
 
                 // Pemeriksaan radius di HP (sama dengan server) supaya pesan jelas sebelum menyimpan
@@ -8803,6 +8830,15 @@ header('Expires: 0');
         }
 
         // Saat aplikasi dibuka: minta izin lokasi sekali per sesi (prompt muncul lebih awal + GPS siap saat absen)
+        // Lokasi awal saat aplikasi dibuka (maks. 4 detik); disimpan agar tombol Absen bisa langsung memakainya
+        let SP_WARM_POS = null;
+
+        function spWarmGps() {
+            if (!navigator.geolocation) return Promise.resolve();
+            try { sessionStorage.setItem('sp_loc_primed', '1'); } catch (e) {}
+            return spGetPosition(4000).then(p => { SP_WARM_POS = p; }).catch(() => {});
+        }
+
         function spPrimeLocation() {
             if (!navigator.geolocation) return;
             try {
