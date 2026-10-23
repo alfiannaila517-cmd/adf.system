@@ -41,6 +41,12 @@ $absenConfig = $db->fetchOne("SELECT app_logo FROM payroll_attendance_config WHE
 $appLogo = null;
 if (!empty($absenConfig['app_logo'])) {
     $appLogo = (str_starts_with($absenConfig['app_logo'], 'http')) ? $absenConfig['app_logo'] : $baseUrl . '/' . ltrim($absenConfig['app_logo'], '/');
+    // Logo di folder uploads sistem sendiri yang tersimpan dengan alamat lengkap domain lain (mis. adfsystem.online)
+    // dimuat dari domain yang sedang dibuka (mis. nasita.biz.id): gambar satu domain bisa dibaca penyesuai logo bulat
+    $logoPath = (string)parse_url($appLogo, PHP_URL_PATH);
+    if (str_starts_with($absenConfig['app_logo'], 'http') && str_starts_with($logoPath, '/uploads/')) {
+        $appLogo = $baseUrl . $logoPath;
+    }
 }
 
 // Invoice/PDF logo (same as report-settings) for slip gaji — from MASTER DB
@@ -68,7 +74,9 @@ try {
         $iconVal = $iconRow['setting_value'] ?? null;
         if (!$iconVal) continue;
         if (strpos($iconVal, 'http') === 0) {
-            $pwaIconUrl = $iconVal;
+            // uploads sistem sendiri dengan alamat lengkap domain lain → dari domain yang sedang dibuka (lihat logo di atas)
+            $iconPath = (string)parse_url($iconVal, PHP_URL_PATH);
+            $pwaIconUrl = str_starts_with($iconPath, '/uploads/') ? $baseUrl . $iconPath : $iconVal;
             break;
         } else {
             $localPath = __DIR__ . '/../../' . $localPrefix . $iconVal;
@@ -3952,6 +3960,11 @@ header('Expires: 0');
             .sp-ring-glass b { font-size: 18px; }
             .sp-hero-big b { font-size: 23px !important; }
         }
+        /* Tombol Rincian bulan ini (pengganti tiga kotak) */
+        .sp-detail-btn { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .08); color: #dbe6ff; font-size: 11px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .sp-detail-btn i { font-style: normal; font-size: 10px; transition: transform .2s; }
+        .sp-detail-btn.open i { transform: rotate(180deg); }
+        .sp-hero-stats[hidden] { display: none !important; }
     </style>
 </head>
 
@@ -4085,7 +4098,7 @@ header('Expires: 0');
             <div class="app-header-brand">
                 <?php
                 $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null); ?>
-                <span class="sp-av"><?php if ($headerLogo): ?><img class="sp-fit" src="<?php echo htmlspecialchars($headerLogo); ?>" alt=""><?php else: ?><?php echo mb_substr(strip_tags($bizName), 0, 1); ?><?php endif; ?></span>
+                <span class="sp-av"><?php if ($headerLogo): ?><img class="sp-fit" src="<?php echo htmlspecialchars($headerLogo); ?>" alt=""<?php echo str_contains((string)$headerLogo, 'res.cloudinary.com') ? ' crossorigin="anonymous"' : ''; ?>><?php else: ?><?php echo mb_substr(strip_tags($bizName), 0, 1); ?><?php endif; ?></span>
                 <div class="app-header-text">
                     <span class="title">Halo, <span id="helloName">Staff</span></span>
                     <span class="subtitle" id="helloRole"><?php echo $bizName; ?></span>
@@ -4170,9 +4183,11 @@ header('Expires: 0');
                             <div class="sp-hero-lbl">Absensi Bulan Ini · <span id="heroMonth"></span></div>
                             <div class="sp-hero-big"><b id="heroHours">0</b><span>jam kerja</span></div>
                             <div class="sp-hero-bar"><i id="heroBar"></i></div>
+                            <button type="button" class="sp-detail-btn" onclick="var s=document.getElementById('heroStats');s.hidden=!s.hidden;this.classList.toggle('open',!s.hidden)">Rincian bulan ini <i>▾</i></button>
                         </div>
                     </div>
-                    <div class="sp-hero-stats">
+                    <!-- Rincian bulan ini: tampil setelah tombol Rincian ditekan -->
+                    <div class="sp-hero-stats" id="heroStats" hidden>
                         <div><b id="heroDays">0</b><span>Hari hadir</span></div>
                         <div><b id="heroLate">0</b><span>Terlambat</span></div>
                         <div><b id="heroRemain">0</b><span>Sisa jam</span></div>
