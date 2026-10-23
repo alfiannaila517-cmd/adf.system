@@ -3967,6 +3967,12 @@ header('Expires: 0');
         .sp-hero-stats[hidden] { display: none !important; }
         /* Pengumuman yang dibuka dari popup HP */
         .cp-msg.cp-focus { outline: 2px solid #4f8df5; background: #eef4ff !important; border-radius: 12px; }
+        /* Ubin Menu Utama lebih kecil */
+        .sp-menu-page { gap: 8px !important; }
+        .sp-tile { aspect-ratio: 1 / .9 !important; border-radius: 16px !important; gap: 5px !important; }
+        .sp-tile-ic { font-size: 23px !important; }
+        .sp-tile-lb { font-size: 10.5px !important; }
+        @media (max-width: 380px) { .sp-tile-ic { font-size: 21px !important; } .sp-tile-lb { font-size: 10px !important; } }
     </style>
 </head>
 
@@ -4209,21 +4215,21 @@ header('Expires: 0');
 
                 <!-- Menu Utama: ubin berikon 4 kolom × 2 baris per halaman, geser ke samping (titik di bawah) -->
                 <?php
-                $spMenu = [
-                    ['📊', 'Detail Absensi', "openStaffSection('monitorSection')", ''],
-                    ['🗓️', 'Jadwal Kerja', "openStaffSection('teamSchedSection')", ''],
-                    ['⏱️', 'Ajukan Lembur', "openStaffSection('lemburSection')", ''],
-                    ['🏖️', 'Ajukan Cuti', "openStaffSection('cutiSection')", ''],
-                    ['💰', 'Slip Gaji', "goPage('slipgaji')", ''],
-                    ['👔', 'Jadwal Seragam', "openStaffSection('uniformSection')", ''],
-                ];
+                // Urutan = yang paling sering dipakai lebih dulu: absensi, (hotel: kamar, HK, breakfast), izin/cuti, lembur, lalu lainnya
+                $spMenu = [['📊', 'Detail Absensi', "openStaffSection('monitorSection')", '']];
                 if ($isHotel) {
                     $spMenu[] = ['🏨', 'Status Kamar', "goPage('occupancy')", ''];
                     $spMenu[] = ['🧹', 'Tugas HK', "goPage('hk')", ''];
                     $spMenu[] = ['☕', 'Breakfast', "goPage('breakfast')", ''];
-                } elseif ($isCafe) {
+                }
+                $spMenu[] = ['🏖️', 'Izin / Cuti', "openStaffSection('cutiSection')", ''];
+                $spMenu[] = ['⏱️', 'Lembur', "openStaffSection('lemburSection')", ''];
+                $spMenu[] = ['🗓️', 'Jadwal Kerja', "openStaffSection('teamSchedSection')", ''];
+                if ($isCafe) {
                     $spMenu[] = ['⏰', 'Ketepatan Waktu', "goPage('schedule')", ''];
                 }
+                $spMenu[] = ['💰', 'Slip Gaji', "goPage('slipgaji')", ''];
+                $spMenu[] = ['👔', 'Jadwal Seragam', "openStaffSection('uniformSection')", ''];
                 $spMenu[] = ['📣', 'Pengumuman', 'toggleChat()', ''];
                 $spMenu[] = ['📦', 'Stock', 'goToStockPage()', 'quickMenuStock'];
                 $spPages = array_chunk($spMenu, 8);
