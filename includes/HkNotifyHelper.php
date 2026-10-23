@@ -2,8 +2,7 @@
 
 /**
  * Notifikasi untuk semua staf (Staff Portal) saat tamu check-in / check-out:
- *   - baris di tabel notifications (muncul di lonceng Staff Portal)
- *   - push notification ke HP staf yang mengaktifkan notifikasi
+ *   push ke HP staf (bunyi + popup sekali), TIDAK disimpan di lonceng Staff Portal (permintaan pemilik, 2026-10).
  * Penerima: semua karyawan aktif (FO, HK, F&B, dll) agar seluruh tim tahu pergerakan tamu.
  * Tidak pernah melempar exception: check-in/out tidak boleh gagal karena notifikasi.
  */
@@ -34,30 +33,6 @@ function hkNotifyGuestMovement($db, string $event, array $booking): void
             $message = $guest . ' check-in pukul ' . date('H:i') . ', menginap sampai ' . $out . '. Kamar kini terisi.';
             $kind = 'hk_checkin';
         }
-        $data = json_encode(['room' => $room, 'guest' => $guest, 'booking_id' => (int)($booking['id'] ?? 0), 'event' => $event]);
-
-        // Notifikasi di Staff Portal (tabel dibuat oleh staff-api bila belum ada).
-        try {
-            $db->getConnection()->exec("CREATE TABLE IF NOT EXISTS `notifications` (
-                `id` INT AUTO_INCREMENT PRIMARY KEY,
-                `user_id` INT NOT NULL,
-                `type` VARCHAR(50) NOT NULL,
-                `title` VARCHAR(255) DEFAULT NULL,
-                `message` TEXT,
-                `data` TEXT,
-                `is_read` TINYINT(1) DEFAULT 0,
-                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_user (user_id),
-                INDEX idx_created (created_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-            $stmt = $db->getConnection()->prepare("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            foreach ($ids as $id) {
-                $stmt->execute([$id, $kind, $title, $message, $data]);
-            }
-        } catch (\Throwable $e) {
-            error_log('HK notify (table): ' . $e->getMessage());
-        }
-
         // Push ke HP staf.
         try {
             require_once __DIR__ . '/PushNotificationHelper.php';

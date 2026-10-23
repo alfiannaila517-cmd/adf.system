@@ -1253,9 +1253,9 @@ if ($action === 'notif_mark_read') {
 }
 
 if ($action === 'chat_list') {
-    // Pengumuman direset bulanan: pesan sebelum bulan ini dihapus.
+    // Pengumuman berlaku 24 jam sejak dikirim, lalu terhapus otomatis.
     try {
-        $db->query("DELETE FROM staff_chat_messages WHERE created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')");
+        $db->query("DELETE FROM staff_chat_messages WHERE created_at < NOW() - INTERVAL 1 DAY");
     } catch (\Throwable $e) {
     }
     $rows = $db->fetchAll("SELECT id, message, created_by_name, created_at FROM staff_chat_messages ORDER BY id DESC LIMIT 50") ?: [];

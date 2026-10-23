@@ -31,8 +31,8 @@ try {
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_created (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    // Pengumuman direset bulanan: hanya pesan bulan berjalan yang disimpan.
-    $db->query("DELETE FROM staff_chat_messages WHERE created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')");
+    // Pengumuman berlaku 24 jam sejak dikirim, lalu terhapus otomatis.
+    $db->query("DELETE FROM staff_chat_messages WHERE created_at < NOW() - INTERVAL 1 DAY");
 } catch (Exception $e) {
 }
 
@@ -76,6 +76,7 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $senderName = $user['full_name'] ?? 'Admin';
     $db->query("INSERT INTO staff_chat_messages (message, created_by_name) VALUES (?, ?)", [$message, $senderName]);
+    $msgId = (int)$db->getConnection()->lastInsertId();
 
     // Push notification to all active staff (pengumuman broadcast)
     try {
@@ -84,20 +85,17 @@ if ($action === 'send' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $empIds = array_column($db->fetchAll("SELECT id FROM payroll_employees WHERE is_active = 1") ?: [], 'id');
         $preview = mb_substr($message, 0, 120);
         $title = "\xF0\x9F\x93\xA2 Pengumuman dari " . $senderName;
+        // Pengumuman TIDAK disimpan di lonceng (punya tombol 📣 sendiri); popup di HP langsung membuka pengumuman ini
+        $url = '/modules/payroll/staff-portal.php?b=' . rawurlencode(ACTIVE_BUSINESS_ID) . '&open=chat&msg=' . $msgId;
         foreach ($empIds as $empId) {
             $empId = (int)$empId;
-            $db->query("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, 'announcement', ?, ?, ?, NOW())", [
-                $empId,
-                $title,
-                $preview,
-                json_encode(['tag' => 'announcement-' . time()])
-            ]);
-            $badgeCount = (int)($db->fetchOne("SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND is_read = 0", [$empId])['c'] ?? 0);
+            // Angka di ikon aplikasi: isi lonceng yang belum dibaca + pengumuman ini
+            $badgeCount = 1 + (int)($db->fetchOne("SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND is_read = 0 AND created_at >= CURDATE()", [$empId])['c'] ?? 0);
             $pushHelper->sendToEmployees(
                 [$empId],
                 $title,
                 $preview,
-                ['type' => 'announcement', 'tag' => 'announcement-' . time(), 'badgeCount' => $badgeCount, 'url' => '/modules/payroll/staff-portal.php?b=' . ACTIVE_BUSINESS_ID . '&open=chat']
+                ['type' => 'announcement', 'tag' => 'announcement-' . $msgId, 'msg_id' => $msgId, 'badgeCount' => $badgeCount, 'url' => $url]
             );
         }
     } catch (\Throwable $pushErr) {

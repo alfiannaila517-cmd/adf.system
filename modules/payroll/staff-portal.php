@@ -3965,6 +3965,8 @@ header('Expires: 0');
         .sp-detail-btn i { font-style: normal; font-size: 10px; transition: transform .2s; }
         .sp-detail-btn.open i { transform: rotate(180deg); }
         .sp-hero-stats[hidden] { display: none !important; }
+        /* Pengumuman yang dibuka dari popup HP */
+        .cp-msg.cp-focus { outline: 2px solid #4f8df5; background: #eef4ff !important; border-radius: 12px; }
     </style>
 </head>
 
@@ -7612,6 +7614,9 @@ header('Expires: 0');
             });
         }
 
+        // Pengumuman yang dituju dari popup HP (?open=chat&msg=<id>)
+        let CHAT_FOCUS_ID = 0;
+
         async function loadChatMessages() {
             const listEl = document.getElementById('chatMsgList');
             try {
@@ -7623,11 +7628,22 @@ header('Expires: 0');
                     listEl.innerHTML = '<div class="cp-empty">📢 Belum ada pengumuman</div>';
                 } else {
                     listEl.innerHTML = msgs.slice().reverse().map(m => `
-                <div class="cp-msg">
+                <div class="cp-msg" data-id="${parseInt(m.id) || 0}">
                     <div class="cp-meta">📢 ${m.created_by_name || 'Admin'} · ${timeAgoChat(m.created_at)}</div>
                     <div class="cp-text">${(m.message || '').replace(/</g, '&lt;')}</div>
                 </div>`).join('');
                     listEl.scrollTop = listEl.scrollHeight;
+                }
+                // Dibuka dari popup HP: langsung ke pengumuman itu & disorot
+                if (CHAT_FOCUS_ID) {
+                    const el = listEl.querySelector('.cp-msg[data-id="' + CHAT_FOCUS_ID + '"]');
+                    if (el) {
+                        el.classList.add('cp-focus');
+                        el.scrollIntoView({ block: 'center' });
+                    } else if (typeof gToast === 'function') {
+                        gToast('Pengumuman ini sudah berakhir (berlaku 24 jam).');
+                    }
+                    CHAT_FOCUS_ID = 0;
                 }
                 if (msgs.length > 0) {
                     localStorage.setItem('chat_last_seen_id', msgs[0].id);
@@ -8503,9 +8519,16 @@ header('Expires: 0');
                     if (!notifOpen) toggleNotifs();
                 }, 600);
             } else if (open === 'chat') {
+                CHAT_FOCUS_ID = parseInt(params.get('msg') || '0', 10) || 0;
                 setTimeout(() => {
                     if (!chatOpen) toggleChat();
                 }, 600);
+            }
+            // Hapus ?open=… dari alamat supaya tidak terbuka lagi saat halaman dimuat ulang
+            if (open) {
+                params.delete('open');
+                params.delete('msg');
+                history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params.toString() : ''));
             }
         })();
     </script>
@@ -9051,6 +9074,9 @@ header('Expires: 0');
                         })
                     });
                     console.log('[StaffPush] Subscribed OK');
+                    // Simpan identitas di service worker: bila browser memperbarui langganan sendiri (pushsubscriptionchange),
+                    // langganan baru tetap terhubung ke karyawan + bisnis ini
+                    if (reg.active) reg.active.postMessage({ type: 'push-identity', employee_id: parseInt(empId), business: '<?php echo htmlspecialchars($bizSlug, ENT_QUOTES); ?>' });
                 } catch (e) {
                     console.warn('[StaffPush] Subscribe failed:', e);
                 }

@@ -3,7 +3,7 @@
  * Handles caching for offline / slow-network support
  */
 
-const CACHE_NAME = 'staff-portal-v13'
+const CACHE_NAME = 'staff-portal-v14'
 const APP_SHELL = [
   './staff-portal.php',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
@@ -41,7 +41,7 @@ self.addEventListener('activate', event => {
       .keys()
       .then(keys =>
         Promise.all(
-          keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+          keys.filter(k => k !== CACHE_NAME && k !== 'staff-push-identity').map(k => caches.delete(k))
         )
       )
       .then(() => self.clients.claim())
@@ -121,15 +121,18 @@ self.addEventListener('push', event => {
     }
   }
 
+  // Tamu check-in / check-out (hk_*): cukup bunyi + popup sekali yang hilang sendiri, tanpa tombol
+  const isGuestMove = String(data.data?.type || '').startsWith('hk_')
   const options = {
     body: data.body,
     icon: data.icon || '/assets/img/logo.png',
     badge: data.badge || '/assets/img/badge.png',
     tag: data.tag || 'staff-push-' + Date.now(),
     vibrate: data.vibrate || [200, 100, 200],
-    requireInteraction: true,
+    requireInteraction: !isGuestMove,
+    renotify: false,
     data: data.data || {},
-    actions: [
+    actions: isGuestMove ? [] : [
       { action: 'view', title: '👁️ Lihat' },
       { action: 'dismiss', title: '✖️ Tutup' }
     ]
@@ -174,21 +177,37 @@ self.addEventListener('notificationclick', event => {
   )
 })
 
+// ── IDENTITAS PUSH (karyawan + bisnis) ───────────────────
+// Dikirim Staff Portal setelah berlangganan; dipakai saat browser memperbarui langganan sendiri.
+const IDENTITY_CACHE = 'staff-push-identity'
+const IDENTITY_KEY = '/__staff_push_identity'
+self.addEventListener('message', event => {
+  const m = event.data || {}
+  if (m.type !== 'push-identity' || !m.employee_id) return
+  event.waitUntil(
+    caches.open(IDENTITY_CACHE).then(c => c.put(IDENTITY_KEY, new Response(JSON.stringify({ employee_id: m.employee_id, business: m.business || '' }))))
+  )
+})
+
 // ── PUSH SUBSCRIPTION CHANGE ─────────────────────────────
+// Langganan baru dikirim bersama identitas karyawan + bisnis (dulu tanpa identitas → staf berhenti menerima notifikasi)
 self.addEventListener('pushsubscriptionchange', event => {
   event.waitUntil(
-    self.registration.pushManager
-      .subscribe(event.oldSubscription.options)
-      .then(newSub =>
-        fetch('/api/push-subscription.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'subscribe',
-            subscription: newSub.toJSON()
-          })
+    Promise.all([
+      self.registration.pushManager.subscribe(event.oldSubscription.options),
+      caches.open(IDENTITY_CACHE).then(c => c.match(IDENTITY_KEY)).then(r => (r ? r.json() : {})).catch(() => ({}))
+    ]).then(([newSub, who]) =>
+      fetch('/api/push-subscription.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'subscribe',
+          subscription: newSub.toJSON(),
+          employee_id: who.employee_id || undefined,
+          business: who.business || undefined
         })
-      )
+      })
+    )
   )
 })
 
