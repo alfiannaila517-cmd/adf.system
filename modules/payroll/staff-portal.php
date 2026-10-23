@@ -7727,7 +7727,8 @@ header('Expires: 0');
         }
 
         document.addEventListener('click', function(e) {
-            if (chatOpen && !e.target.closest('.chat-fab') && !e.target.closest('.chat-popup')) {
+            // Ketukan yang membuka pengumuman (ubin Menu Utama) tidak boleh langsung menutupnya lagi
+            if (chatOpen && !e.target.closest('.chat-fab') && !e.target.closest('.chat-popup') && !e.target.closest('[onclick*="toggleChat"]')) {
                 chatOpen = false;
                 document.getElementById('chatPopup').classList.remove('open');
             }
