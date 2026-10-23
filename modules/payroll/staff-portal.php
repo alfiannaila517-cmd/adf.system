@@ -24,7 +24,9 @@ $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 $apiUrl = 'staff-api.php?b=' . urlencode($bizSlug);
 // Masuk dengan Google / Hubungkan Gmail (staff-google.php) — tombol hanya tampil bila kredensial Google ada di server
 require_once '../../includes/google-login.php';
-$googleOn = adfGoogleConfig() !== null;
+// DIMATIKAN SEMENTARA (2026-10-23, permintaan pemilik): ajakan "Hubungkan Gmail" & tombol Masuk dengan Google belum jalan di HP staf.
+// Nyalakan lagi: ganti false menjadi true.
+$googleOn = false && adfGoogleConfig() !== null;
 $googleMsg = $_SESSION['staff_google_msg'] ?? null;
 unset($_SESSION['staff_google_msg']);
 $googleUrl = 'staff-google.php?b=' . urlencode($bizSlug);
