@@ -35,7 +35,10 @@ final class Pay
             return $link;
         }
         $exp = time() + $ttlDays * 86400;
-        $m = Mayar::createInvoice((string)($cust['name'] ?? ''), (string)($cust['email'] ?? ''), (string)($cust['phone'] ?? ''), $desc, (int)round($amount), $exp, ['ref_type' => $type, 'ref' => $ref]);
+        // Email & HP ke Mayar = kontak ADF sendiri (Pengaturan invoice), bukan pelanggan: Mayar ikut mengirim email/WA
+        // tagihannya sendiri ke alamat itu, sedangkan pelanggan cukup menerima tagihan dari sistem ADF. Nama tetap nama pelanggan.
+        $own = Invoice::settings();
+        $m = Mayar::createInvoice((string)($cust['name'] ?? ''), (string)($own['email'] ?: (Secrets::get('SMTP_REPLY_TO') ?: 'billing@adfsystem.store')), (string)$own['whatsapp'], $desc, (int)round($amount), $exp, ['ref_type' => $type, 'ref' => $ref]);
         self::db()->prepare('INSERT INTO payment_links (gateway, ref_type, ref, business_id, description, amount, gateway_id, gateway_txn, link, expires_at) VALUES (\'mayar\', ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute([$type, $ref, $bizId, mb_substr($desc, 0, 200), $amount, $m['id'], $m['transactionId'] ?: null, $m['link'], date('Y-m-d H:i:s', $m['expiredAt'] ? intdiv($m['expiredAt'], 1000) : $exp)]);
         return self::find((int)self::db()->lastInsertId());
