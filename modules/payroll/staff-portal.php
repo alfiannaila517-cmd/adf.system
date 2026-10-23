@@ -4210,10 +4210,53 @@ header('Expires: 0');
         #teamSchedSection .sc-cal-cell { padding: 6px 2px !important; min-height: 56px !important; border-radius: 11px !important; border-color: #e3ebf8 !important; }
         #teamSchedSection .sc-cal-daynum { font-size: 14px !important; }
         #teamSchedCalGrid .sc-cal-badge { font-size: 8px !important; padding: 1px 4px !important; white-space: normal !important; text-align: center; line-height: 1.15; justify-content: center; }
+
+        /* ═══ LAYAR LOADING saat aplikasi dibuka (logo ADF + cincin berputar, sama dengan loader sistem) ═══ */
+        #spSplash { position: fixed; inset: 0; z-index: 100000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: radial-gradient(circle at 50% 42%, #161b26 0%, #0b0e14 62%); transition: opacity .45s ease, visibility .45s ease; }
+        #spSplash.out { opacity: 0; visibility: hidden; pointer-events: none; }
+        .sps-spin { position: relative; width: 112px; height: 112px; display: grid; place-items: center; }
+        .sps-spin::before, .sps-spin::after { content: ''; position: absolute; border-radius: 50%; border: 3px solid transparent; }
+        .sps-spin::before { inset: 0; border-top-color: #ff6a1a; border-right-color: #ff6a1a; animation: spa-rot .9s linear infinite; }
+        .sps-spin::after { inset: 10px; border-bottom-color: #fbbf24; border-left-color: rgba(251, 191, 36, .35); animation: spa-rot 1.3s linear infinite reverse; }
+        .sps-spin .sps-glow { position: absolute; inset: 22px; border-radius: 50%; background: radial-gradient(circle, rgba(251, 191, 36, .45), transparent 70%); animation: spa-pulse 1.4s ease-in-out infinite; }
+        .sps-spin img { position: relative; z-index: 1; width: 56px; height: 56px; object-fit: contain; animation: spa-pulse 1.4s ease-in-out infinite; filter: brightness(0) saturate(100%) invert(53%) sepia(82%) saturate(776%) hue-rotate(8deg) brightness(100%) drop-shadow(0 0 8px rgba(251, 191, 36, .6)); }
+        .sps-name { text-align: center; color: #fff; font-family: 'Poppins', system-ui, sans-serif; }
+        .sps-name b { display: block; font-size: 15px; font-weight: 600; letter-spacing: .22em; }
+        .sps-name small { display: block; margin-top: 6px; font-size: 11.5px; color: rgba(255, 255, 255, .55); letter-spacing: .04em; }
+        .sps-dots { display: flex; gap: 6px; }
+        .sps-dots i { width: 6px; height: 6px; border-radius: 50%; background: #ff6a1a; animation: sps-dot 1.1s ease-in-out infinite; }
+        .sps-dots i:nth-child(2) { animation-delay: .15s; }
+        .sps-dots i:nth-child(3) { animation-delay: .3s; }
+        @keyframes sps-dot { 0%, 80%, 100% { opacity: .25; transform: scale(.75); } 40% { opacity: 1; transform: scale(1.15); } }
     </style>
 </head>
 
 <body>
+    <div id="spSplash" aria-hidden="true">
+        <div class="sps-spin"><span class="sps-glow"></span><img src="../../assets/img/developer-logo.png" alt=""></div>
+        <div class="sps-name"><b>STAFF PORTAL</b><small><?php echo $bizName; ?></small></div>
+        <div class="sps-dots"><i></i><i></i><i></i></div>
+    </div>
+    <script>
+        // Tutup layar loading setelah halaman siap: pembukaan pertama minimal 1,3 detik (supaya terlihat), muat ulang berikutnya cepat; maksimal 5 detik
+        (function() {
+            var t0 = Date.now(), done = false, minMs = 1300;
+            try { if (sessionStorage.getItem('sp_splash')) minMs = 350; sessionStorage.setItem('sp_splash', '1'); } catch (e) {}
+            function hide() {
+                if (done) return;
+                done = true;
+                setTimeout(function() {
+                    var el = document.getElementById('spSplash');
+                    if (!el) return;
+                    el.classList.add('out');
+                    setTimeout(function() { el.remove(); }, 500);
+                }, Math.max(0, minMs - (Date.now() - t0)));
+            }
+            if (document.readyState === 'complete') hide();
+            else window.addEventListener('load', hide);
+            setTimeout(hide, 5000);
+        })();
+    </script>
 
     <!-- ═══════════════════════════════════════ -->
     <!-- AUTH SCREEN                            -->
