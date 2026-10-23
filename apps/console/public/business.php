@@ -164,12 +164,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Auth::audit('business.module_on', "{$biz['name']}: {$code}");
             flash('Menu ' . Catalog::MODULES[$code][0] . ' dinyalakan.');
         }
-    } elseif (in_array($action, ['staff_create', 'staff_reset', 'staff_delete'], true)) {
+    } elseif (in_array($action, ['staff_create', 'staff_reset', 'staff_delete', 'staff_unlink_google'], true)) {
         // Akun Staff Portal di database bisnis sistem lama
         try {
             $sdb = StaffPortal::db($biz) ?? throw new RuntimeException('Bisnis ini belum terhubung ke database sistem.');
             $emp = (int)($_POST['employee_id'] ?? 0);
-            if ($action === 'staff_delete') {
+            if ($action === 'staff_unlink_google') {
+                StaffPortal::unlinkGoogle($sdb, $emp);
+                Auth::audit('staff_portal.google_unlink', "{$biz['name']}: karyawan #{$emp}");
+                flash('Gmail dilepas — karyawan ini login dengan password, lalu bisa menautkan Gmail lagi.');
+            } elseif ($action === 'staff_delete') {
                 StaffPortal::delete($sdb, $emp);
                 Auth::audit('staff_portal.delete', "{$biz['name']}: karyawan #{$emp}");
                 flash('Akun portal dihapus — karyawan ini tidak bisa login portal lagi.');
@@ -973,6 +977,12 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                                         <span>🔒 <span class="pwv" data-pw="<?= e($em['old_password']) ?>">••••••</span>
                                             <a href="#" onclick="var s=this.previousElementSibling,h=s.textContent.indexOf('•')===0;s.textContent=h?s.dataset.pw:'••••••';this.textContent=h?'sembunyi':'lihat';return false">lihat</a></span>
                                     <?php endif; ?>
+                                    <?php if (!empty($em['google_email'])): ?>
+                                        <span title="Masuk dengan Google"><b style="color:#4285f4">G</b> <?= e($em['google_email']) ?>
+                                            <?php if ($isAdmin): ?><form method="post" style="display:inline" onsubmit="return confirm('Lepas Gmail dari akun <?= e($em['full_name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="staff_unlink_google"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>"><button style="background:none;border:0;padding:0;color:var(--mu);font:inherit;font-size:11px;cursor:pointer;text-decoration:underline">lepas</button></form><?php endif; ?></span>
+                                    <?php else: ?>
+                                        <span class="muted" title="Diminta otomatis setelah login password">Gmail belum ditautkan</span>
+                                    <?php endif; ?>
                                     <span><?= $em['last_login'] ? 'login ' . e(date('d M H:i', strtotime((string)$em['last_login']))) : 'belum pernah login' ?></span>
                                 <?php else: ?>
                                     <span class="pill warn">belum punya akun</span>
@@ -993,7 +1003,7 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
-                <p class="muted" style="margin:10px 0 0;font-size:11px">🔑 = password baru (acak, tampil sekali + bisa dikirim WA) · ✕ = hapus akun portal. Password dari panel lama bisa dilihat; password baru tidak disimpan teks aslinya.</p>
+                <p class="muted" style="margin:10px 0 0;font-size:11px">🔑 = password baru (acak, tampil sekali + bisa dikirim WA) · ✕ = hapus akun portal · <b style="color:#4285f4">G</b> = Gmail yang ditautkan staf sendiri (setelah login password, staf diajak "Hubungkan Gmail"; berikutnya cukup Masuk dengan Google).</p>
             <?php endif; ?>
         </div>
     <?php endif; ?>

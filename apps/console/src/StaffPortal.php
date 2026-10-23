@@ -64,8 +64,10 @@ final class StaffPortal
             return [];
         }
         self::ensureTable($db);
+        // Gmail ditautkan staf sendiri dari Staff Portal (kolom dibuat oleh staff-api.php di sistem bisnis)
+        $gcol = self::hasGoogleColumn($db) ? 'sa.google_email' : 'NULL';
         $rows = $db->query('SELECT e.id, e.employee_code, e.full_name, e.position, e.department, e.phone, e.is_active,
-                sa.id AS account_id, sa.email AS username, sa.last_login, sa.plain_password AS old_password
+                sa.id AS account_id, sa.email AS username, sa.last_login, sa.plain_password AS old_password, ' . $gcol . ' AS google_email
             FROM payroll_employees e LEFT JOIN staff_accounts sa ON sa.employee_id = e.id
             WHERE e.is_active = 1 ORDER BY e.full_name')->fetchAll();
         $out = [];
@@ -117,5 +119,18 @@ final class StaffPortal
     public static function delete(PDO $db, int $employeeId): void
     {
         $db->prepare('DELETE FROM staff_accounts WHERE employee_id = ?')->execute([$employeeId]);
+    }
+
+    private static function hasGoogleColumn(PDO $db): bool
+    {
+        return (bool)$db->query("SHOW COLUMNS FROM staff_accounts LIKE 'google_email'")->fetch();
+    }
+
+    /** Lepas Gmail dari akun portal (mis. HP hilang / ganti Gmail) — staf tetap bisa login password, lalu menautkan lagi. */
+    public static function unlinkGoogle(PDO $db, int $employeeId): void
+    {
+        if (self::hasGoogleColumn($db)) {
+            $db->prepare('UPDATE staff_accounts SET google_email = NULL WHERE employee_id = ?')->execute([$employeeId]);
+        }
     }
 }
