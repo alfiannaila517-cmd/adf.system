@@ -939,6 +939,7 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
             <button class="btn ghost sm" type="button" onclick="navigator.clipboard.writeText(document.getElementById('portal-url').value);this.textContent='Tersalin ✓'">Salin link</button>
             <a class="btn ghost sm" target="_blank" rel="noopener" href="<?= e($waShare) ?>">WhatsApp</a>
             <a class="btn ghost sm" target="_blank" rel="noopener" href="<?= e($url) ?>">Buka</a>
+            <?php if ($me['role'] === 'admin'): ?><a class="btn ghost sm" target="_blank" rel="noopener" href="staff-print.php?id=<?= (int)$biz['id'] ?>">Export PDF</a><?php endif; ?>
         </div>
         <?php if ($shownStaff && isset($emps[$shownStaff['emp']])): $se = $emps[$shownStaff['emp']]; ?>
             <div class="card" style="border-color:var(--gold2)">
