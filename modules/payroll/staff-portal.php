@@ -4268,27 +4268,31 @@ header('Expires: 0');
         .ab-mlabel { position: relative; min-width: 128px; height: 30px; padding: 0 12px; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; color: #0f172a; cursor: pointer; }
         .ab-mlabel input, .ab-mlabel #monitorMonth { position: absolute; inset: 0; width: 100%; height: 100% !important; min-height: 0 !important; opacity: 0; cursor: pointer; border: 0 !important; padding: 0 !important; }
         .ab-now { height: 30px; padding: 0 10px; border: 0; border-radius: 10px; background: #2f6fe0; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
-        .ab-stats { display: grid; grid-template-columns: 1fr 1fr 2.2fr; gap: 6px; }
-        .ab-stats > div { padding: 7px 8px; border-radius: 12px; background: #f4f7fc; min-width: 0; }
-        .ab-stats b { display: block; font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.1; }
-        .ab-stats b small { font-size: 10.5px; font-weight: 600; color: #94a3b8; }
-        .ab-stats span { display: block; font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ab-stats em { font-style: normal; font-weight: 800; }
-        .ab-bar { height: 4px; border-radius: 99px; background: #e2e8f0; margin: 7px 2px 10px; overflow: hidden; }
+        .ab-stats { display: grid; grid-template-columns: 1fr 1fr 2fr; border: 1px solid #edf1f7; border-radius: 12px; overflow: hidden; }
+        .ab-stats > div { padding: 7px 10px; min-width: 0; }
+        .ab-stats > div + div { border-left: 1px solid #edf1f7; }
+        .ab-stats b { display: block; font-size: 14px; font-weight: 700; color: #0f172a; line-height: 1.2; font-variant-numeric: tabular-nums; }
+        .ab-stats b small { font-size: 10px; font-weight: 500; color: #94a3b8; }
+        .ab-stats span { display: block; font-size: 9.5px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ab-stats em { font-style: normal; font-weight: 700; }
+        .ab-bar { height: 3px; border-radius: 99px; background: #edf1f7; margin: 8px 0 12px; overflow: hidden; }
         .ab-bar i { display: block; height: 100%; border-radius: 99px; }
-        .ab-list { display: flex; flex-direction: column; gap: 5px; }
-        .ab-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 12px; background: #fff; border: 1px solid #eef2f7; }
-        .ab-date { text-align: center; line-height: 1.05; }
-        .ab-date b { display: block; font-size: 15px; font-weight: 800; color: #0f172a; }
-        .ab-date span { font-size: 9.5px; color: #94a3b8; text-transform: capitalize; }
-        .ab-scans { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: center; min-width: 0; font-size: 11px; color: #334155; font-variant-numeric: tabular-nums; }
+        .ab-list { border: 1px solid #edf1f7; border-radius: 14px; overflow: hidden; background: #fff; }
+        .ab-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 8px 10px; }
+        .ab-row + .ab-row { border-top: 1px solid #f1f4f9; }
+        .ab-date { width: 32px; height: 32px; border-radius: 9px; background: #f3f6fb; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+        .ab-date b { font-size: 12px; font-weight: 700; color: #0f172a; }
+        .ab-date span { margin-top: 2px; font-size: 7.5px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
+        .ab-mid { min-width: 0; }
+        .ab-scans { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
         .ab-pair { white-space: nowrap; color: #cbd5e1; }
-        .ab-pair i { font-style: normal; color: #334155; font-weight: 600; margin: 0 2px; }
-        .ab-pair i.in { color: var(--green); }
+        .ab-pair i { font-style: normal; color: #334155; font-weight: 500; margin: 0 2px; }
+        .ab-pair i.in { color: #0f172a; font-weight: 600; }
+        .ab-sub { display: flex; gap: 8px; align-items: center; margin-top: 1px; }
+        .ab-st { display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; color: #64748b; }
+        .ab-st::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--st); }
         .ab-ot { font-size: 9.5px; font-weight: 700; white-space: nowrap; }
-        .ab-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-        .ab-right b { font-size: 12px; font-weight: 800; color: #0f172a; }
-        .ab-badge { font-size: 8.5px !important; padding: 1px 6px !important; white-space: nowrap; }
+        .ab-hours { font-size: 12px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
     </style>
 </head>
 
@@ -6573,7 +6577,8 @@ header('Expires: 0');
                     const regularHours = wh > 0 ? Math.min(wh, 8) : 0;
                     const whTxt = regularHours > 0 ? `${regularHours.toFixed(1).replace(/\.0$/, '')}j` : (hadir ? '0j' : '—');
 
-                    const statusBadge = `<span class="badge ${bc} ab-badge">${monitorStatusMap[statusKey]||statusKey}</span>`;
+                    const stColor = bc === 'b-hadir' ? 'var(--green)' : bc === 'b-late' ? 'var(--orange)' : '#94a3b8';
+                    const statusTxt = `<span class="ab-st" style="--st:${stColor}">${statusMap[statusKey] || statusKey}</span>`;
                     // Jam scan per shift: masuk → pulang (hotel: 2 shift, kafe: 1)
                     const pair = (a, b) => `<span class="ab-pair"><i class="in">${a}</i>→<i>${b}</i></span>`;
                     let scans = pair(s1, s2);
@@ -6583,8 +6588,8 @@ header('Expires: 0');
                     const otTxt = ot > 0 ? `<span class="ab-ot" style="color:${otColor}">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</span>` : '';
                     html += `<div class="ab-row">
                         <div class="ab-date"><b>${dNum}</b><span>${dWd}</span></div>
-                        <div class="ab-scans">${scans}${otTxt}</div>
-                        <div class="ab-right"><b>${whTxt}</b>${statusBadge}</div>
+                        <div class="ab-mid"><div class="ab-scans">${scans}</div><div class="ab-sub">${statusTxt}${otTxt}</div></div>
+                        <div class="ab-hours">${whTxt}</div>
                     </div>`;
                 });
                 html += '</div>';
