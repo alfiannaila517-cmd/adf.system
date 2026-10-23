@@ -694,7 +694,7 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                     <div class="field"><label>Tarif per tamu (Rp)</label><input name="per_guest_fee" inputmode="numeric" value="<?= e(number_format((float)$sub['per_guest_fee'], 0, ',', '.')) ?>" <?= $dis ?>></div>
                     <div class="field"><label>Mulai langganan</label><input name="start_date" type="date" value="<?= e($sub['start_date']) ?>" <?= $dis ?>></div>
                     <div class="field"><label>Ubah jatuh tempo bulan ini</label><input name="due_date_override" type="date" value="<?= e($sub['due_date_override']) ?>" <?= $dis ?>></div>
-                    <div class="field"><label>Email notifikasi</label><input name="notify_email" type="email" value="<?= e($sub['notify_email']) ?>" <?= $dis ?>></div>
+                    <div class="field"><label>Email penagihan</label><input name="notify_email" type="email" value="<?= e($sub['notify_email']) ?>" placeholder="mis. owner@narayanakarimunjawa.com" <?= $dis ?>><small class="muted" style="font-size:11px">Otomatis: tagihan bulanan baru &amp; kuitansi lunas. Juga tujuan bawaan tagihan manual.</small></div>
                 </div>
                 <h2 style="margin-top:8px">Pakasir (pembayaran online bisnis ini)</h2>
                 <div class="row2">
