@@ -4107,6 +4107,40 @@ header('Expires: 0');
         .occ-mini-kpis span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
         .occ-mini-kpis i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
         .occ-mini-kpis b { color: var(--sp-ink); font-size: 11.5px; }
+        /* ── Breakfast: ringkasan minimalis + rekap dapur + kartu ringkas ── */
+        #page-breakfast .rm-card { border-radius: 18px !important; padding: 12px 14px !important; }
+        .bf-mini-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .bf-mini-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b; }
+        .bf-mini-rf { width: 28px; height: 28px; border-radius: 9px; border: 1px solid #e3ebf8; background: #f5f8fe; color: var(--sp-blue); display: grid; place-items: center; cursor: pointer; padding: 0; }
+        .bf-mini-rf svg { width: 14px; height: 14px; }
+        .bf-mini-top { display: flex; align-items: baseline; justify-content: space-between; }
+        .bf-mini-pax { font-size: 22px; font-weight: 800; color: var(--sp-ink); letter-spacing: -.02em; }
+        .bf-mini-pax small { font-size: 11px; font-weight: 600; color: #64748b; }
+        .bf-mini-of { font-size: 11px; color: #64748b; }
+        .bf-mini-of b { color: var(--sp-ink); }
+        .bf-mini-bar { height: 5px; border-radius: 99px; background: #eef2f8; overflow: hidden; margin: 7px 0 8px; }
+        .bf-mini-bar span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #0f8a65, #22c55e); }
+        .bf-mini-kpis { display: flex; gap: 14px; font-size: 10.5px; color: #64748b; }
+        .bf-mini-kpis span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+        .bf-mini-kpis i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+        .bf-mini-kpis b { color: var(--sp-ink); font-size: 11.5px; }
+        .bf-recap-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin: 12px 0 6px; padding-top: 10px; border-top: 1px solid #eef2f8; }
+        .bf-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+        .bf-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 99px; background: #f3f7ff; border: 1px solid #dfe8fa; font-size: 11.5px; color: var(--sp-ink); font-weight: 600; }
+        .bf-pill b { background: var(--sp-blue); color: #fff; border-radius: 99px; padding: 1px 7px; font-size: 10.5px; }
+        /* kartu pesanan ringkas */
+        #page-breakfast .bfx-order { padding: 10px !important; gap: 10px !important; border-radius: 14px !important; margin-bottom: 8px !important; }
+        #page-breakfast .bfx-time { min-width: 46px !important; padding: 6px 4px !important; border-radius: 10px !important; }
+        #page-breakfast .bfx-time b { font-size: 13px !important; }
+        #page-breakfast .bfx-time span { font-size: 8px !important; }
+        #page-breakfast .bfx-guest { font-size: 13px !important; }
+        #page-breakfast .bfx-meta { font-size: 10.5px !important; }
+        #page-breakfast .bfx-st { font-size: 9.5px !important; padding: 2px 8px !important; }
+        #page-breakfast .bfx-item { font-size: 11.5px !important; padding: 3px 0 !important; }
+        #page-breakfast .bfx-req { font-size: 10.5px !important; }
+        #page-breakfast .bfx-price { font-size: 11px !important; }
+        #page-breakfast .bfx-btn { font-size: 11px !important; padding: 5px 12px !important; border-radius: 9px !important; }
+        #page-breakfast .bfx-tabs button { font-size: 11px !important; padding: 5px 10px !important; }
     </style>
 </head>
 
@@ -4686,28 +4720,19 @@ header('Expires: 0');
 
             <!-- ═══ PAGE: BREAKFAST (Hotel only) ═══ -->
             <div class="page" id="page-breakfast">
-                <div class="rm-card">
-                    <div class="rm-head">
-                        <div>
-                            <div class="rm-title">Breakfast</div>
-                            <div class="rm-sub" id="bfDateLabel">Pesanan hari ini</div>
-                        </div>
-                        <div class="rm-nav">
-                            <button onclick="loadBreakfast()" aria-label="Muat ulang" title="Muat ulang">↻</button>
-                        </div>
+                <!-- Ringkasan minimalis + rekap dapur (pil kecil per menu) -->
+                <div class="rm-card bf-mini">
+                    <div class="bf-mini-head">
+                        <span class="bf-mini-lbl">Breakfast · <span id="bfDateLabel">Hari ini</span></span>
+                        <button type="button" class="bf-mini-rf" onclick="loadBreakfast()" aria-label="Muat ulang" title="Muat ulang"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg></button>
                     </div>
                     <div id="bfStats">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
-                </div>
-                <div class="rm-card" id="bfRecapCard" style="display:none;">
-                    <div class="rm-head" style="margin-bottom:8px;">
-                        <div>
-                            <div class="rm-title">Rekap Dapur</div>
-                            <div class="rm-sub">Total porsi per menu yang perlu disiapkan</div>
-                        </div>
+                    <div id="bfRecapCard" style="display:none;">
+                        <div class="bf-recap-lbl">Rekap dapur</div>
+                        <div id="bfMenuRecap"></div>
                     </div>
-                    <div id="bfMenuRecap"></div>
                 </div>
                 <div class="rm-card">
                     <div class="rm-head">
@@ -7161,25 +7186,25 @@ header('Expires: 0');
                 const waiting = (parseInt(sc.pending) || 0) + (parseInt(sc.preparing) || 0);
                 const pct = total ? Math.round(done / total * 100) : 0;
 
-                document.getElementById('bfDateLabel').textContent = 'Hari ini, ' + rmFmt(rmYmd(new Date()));
+                document.getElementById('bfDateLabel').textContent = rmFmt(rmYmd(new Date()));
                 document.getElementById('bfStats').innerHTML = `
-            <div class="hk-prog-top">
-                <b>${parseInt(stats.total_pax) || 0}<small> pax</small></b>
-                <span><b style="font-size:12px;color:#0f172a">${done}/${total}</b> pesanan disajikan</span>
+            <div class="bf-mini-top">
+                <span class="bf-mini-pax">${parseInt(stats.total_pax) || 0}<small> pax</small></span>
+                <span class="bf-mini-of"><b>${done}</b>/${total} disajikan</span>
             </div>
-            <div class="rm-bar" style="margin:8px 0 12px;"><span style="width:${pct}%;background:linear-gradient(90deg,#0f8a65,#14a37a);"></span></div>
-            <div class="rm-kpis">
-                <div class="rm-kpi"><div class="rm-kpi-val">${total}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#3d5a99"></i>Pesanan</div></div>
-                <div class="rm-kpi"><div class="rm-kpi-val">${parseInt(stats.total_pax) || 0}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#64748b"></i>Pax</div></div>
-                <div class="rm-kpi"><div class="rm-kpi-val">${waiting}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#d97706"></i>Menunggu</div></div>
-                <div class="rm-kpi"><div class="rm-kpi-val">${done}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#0f8a65"></i>Disajikan</div></div>
+            <div class="bf-mini-bar"><span style="width:${pct}%"></span></div>
+            <div class="bf-mini-kpis">
+                <span><i style="background:#3d5a99"></i>Pesanan <b>${total}</b></span>
+                <span><i style="background:#d97706"></i>Menunggu <b>${waiting}</b></span>
+                <span><i style="background:#0f8a65"></i>Disajikan <b>${done}</b></span>
             </div>`;
 
+                // Rekap dapur: pil kecil "menu ×porsi"
                 const recapCard = document.getElementById('bfRecapCard');
                 if (menuRecap.length > 0) {
                     recapCard.style.display = '';
-                    document.getElementById('bfMenuRecap').innerHTML = '<div class="bfx-recap">' + menuRecap.map(m =>
-                        `<div class="bfx-recap-row"><span>${rmEsc(m.menu_name)}</span><span class="bfx-qty">${parseInt(m.qty) || 0}</span></div>`
+                    document.getElementById('bfMenuRecap').innerHTML = '<div class="bf-pills">' + menuRecap.map(m =>
+                        `<span class="bf-pill">${rmEsc(m.menu_name)}<b>×${parseInt(m.qty) || 0}</b></span>`
                     ).join('') + '</div>';
                 } else {
                     recapCard.style.display = 'none';
