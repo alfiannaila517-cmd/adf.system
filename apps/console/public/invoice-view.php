@@ -14,6 +14,21 @@ if (!$inv) {
     redirect('/invoices.php');
 }
 $isAdmin = $me['role'] === 'admin';
+
+// Kirim tagihan lewat email (tombol di bawah, atau otomatis dari "Simpan & kirim" di form invoice)
+if ($isAdmin && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send') {
+    try {
+        if (!csrf_ok()) {
+            throw new RuntimeException('Sesi form kedaluwarsa, silakan coba lagi.');
+        }
+        $to = Invoice::sendEmail($id);
+        Auth::audit('invoice.send', "{$inv['number']} → {$to}");
+        flash("Tagihan terkirim ke {$to}.");
+    } catch (Throwable $ex) {
+        flash($ex->getMessage(), 'err');
+    }
+    redirect("/invoice-view.php?id={$id}");
+}
 $ds = Invoice::displayStatus($inv);
 $url = Invoice::publicUrl($inv);
 $total = Invoice::totals($inv)['total'];
@@ -25,6 +40,11 @@ if ($isAdmin) {
     if (in_array($ds, ['unpaid', 'overdue'], true)) {
         $actions .= '<form method="post" action="/invoices.php" onsubmit="return confirm(\'Tandai sudah dibayar?\')">' . $csrf
             . '<input type="hidden" name="id" value="' . $id . '"><input type="hidden" name="action" value="paid"><button>Tandai lunas</button></form>';
+    }
+    if (!in_array($inv['status'], ['paid', 'cancelled'], true)) {
+        $sent = !empty($inv['sent_at']) ? ' (terkirim ' . date('d M H:i', strtotime((string)$inv['sent_at'])) . ')' : '';
+        $actions .= '<form method="post" onsubmit="return confirm(\'Kirim tagihan ke ' . e((string)($inv['customer_email'] ?: 'email pelanggan')) . '?\')">' . $csrf
+            . '<input type="hidden" name="action" value="send"><button class="pri">Kirim tagihan (email)' . e($sent) . '</button></form>';
     }
     if ($inv['status'] !== 'draft' && $inv['status'] !== 'cancelled') {
         $actions .= '<button type="button" onclick="navigator.clipboard.writeText(' . e(json_encode($url)) . ');this.textContent=\'Link tersalin ✓\'">Salin link pelanggan</button>';

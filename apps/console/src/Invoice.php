@@ -230,6 +230,48 @@ final class Invoice
             ->execute([$id, self::totals($inv)['total'], mb_substr($method, 0, 40)]);
     }
 
+    /**
+     * Kirim tagihan ke email pelanggan: ringkasan + tombol "Lihat & bayar" (link publik; bayar online bila Mayar aktif).
+     * Draft diterbitkan dulu (jadi Belum dibayar). Mencatat sent_at. @throws RuntimeException pesan untuk pengguna
+     */
+    public static function sendEmail(int $id): string
+    {
+        $inv = self::find($id) ?? throw new RuntimeException('Invoice tidak ditemukan.');
+        $to = trim((string)$inv['customer_email']);
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('Email pelanggan belum diisi / tidak valid — isi di Ubah invoice, atau kirim lewat WhatsApp.');
+        }
+        if (in_array($inv['status'], ['paid', 'cancelled'], true)) {
+            throw new RuntimeException('Invoice sudah ' . ($inv['status'] === 'paid' ? 'lunas' : 'dibatalkan') . '.');
+        }
+        if ($inv['status'] === 'draft') {
+            self::db()->prepare("UPDATE invoices SET status = 'unpaid' WHERE id = ?")->execute([$id]);
+            $inv['status'] = 'unpaid';
+        }
+        $s = self::settings();
+        $e = static fn ($v) => htmlspecialchars((string)$v, ENT_QUOTES);
+        $total = self::totals($inv)['total'];
+        $url = self::publicUrl($inv);
+        $lines = '';
+        foreach ($inv['items'] as $it) {
+            $lines .= '<tr><td style="padding:6px 0;color:#334155">' . $e($it['description']) . '</td><td style="padding:6px 0;text-align:right;color:#334155">'
+                . $e(self::rp((float)$it['qty'] * (float)$it['unit_price'])) . '</td></tr>';
+        }
+        $html = '<div style="font-family:Segoe UI,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a">'
+            . '<h2 style="margin:0 0 4px">' . $e($s['company_name']) . '</h2><p style="margin:0 0 18px;color:#64748b">Tagihan ' . $e($inv['number']) . '</p>'
+            . '<p>Halo ' . $e($inv['customer_name']) . ',</p><p>berikut tagihan dari kami:</p>'
+            . '<table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin:10px 0">' . $lines . '</table>'
+            . '<p style="font-size:18px;margin:12px 0"><b>Total ' . $e(self::rp($total)) . '</b><br><span style="font-size:13px;color:#64748b">Jatuh tempo ' . $e(self::date($inv['due_date'])) . '</span></p>'
+            . '<p style="margin:22px 0"><a href="' . $e($url) . '" style="background:#ff6a1a;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;display:inline-block">Lihat &amp; bayar invoice</a></p>'
+            . '<p style="font-size:12px;color:#64748b">Atau buka: ' . $e($url) . '</p>'
+            . '<p style="font-size:12px;color:#94a3b8;margin-top:24px">' . $e($s['company_name']) . ($s['whatsapp'] ? ' · WA ' . $e($s['whatsapp']) : '') . ($s['email'] ? ' · ' . $e($s['email']) : '') . '</p></div>';
+        if (!Mailer::send($to, "Tagihan {$inv['number']} · " . self::rp($total), $html, (string)$s['company_name'])) {
+            throw new RuntimeException('Email gagal dikirim: ' . Mailer::lastError());
+        }
+        self::db()->prepare('UPDATE invoices SET sent_at = NOW() WHERE id = ?')->execute([$id]);
+        return $to;
+    }
+
     public static function delete(int $id): void
     {
         self::db()->prepare("DELETE FROM invoices WHERE id = ? AND status IN ('draft', 'cancelled')")->execute([$id]);
