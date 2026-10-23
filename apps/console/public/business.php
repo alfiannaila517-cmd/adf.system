@@ -90,6 +90,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Auth::audit('subscription.update', $biz['name']);
             flash('Langganan disimpan.');
         }
+    } elseif ($action === 'charge_save') {
+        // Ubah satu tagihan langganan. edited = 1 → sinkron otomatis tidak menghitung ulang tagihan ini;
+        // "hitung otomatis lagi" mengembalikannya ke hitungan dari jumlah tamu.
+        $cid = (int)($_POST['charge_id'] ?? 0);
+        $st = $db->prepare('SELECT * FROM subscription_charges WHERE id = ? AND business_id = ?');
+        $st->execute([$cid, $id]);
+        $old = $st->fetch();
+        if (!$old) {
+            flash('Tagihan tidak ditemukan.', 'err');
+        } else {
+            $num = fn (string $k) => (float)preg_replace('/[^\d-]/', '', (string)($_POST[$k] ?? '0'));
+            $status = in_array($_POST['status'] ?? '', ['unpaid', 'paid', 'cancelled'], true) ? (string)$_POST['status'] : $old['status'];
+            $due = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_POST['due_date'] ?? '')) ? (string)$_POST['due_date'] : null;
+            $auto = !empty($_POST['auto']);
+            $paidAt = $status === 'paid' ? ($old['paid_at'] ?: date('Y-m-d H:i:s')) : null;
+            $db->prepare('UPDATE subscription_charges SET base_fee = ?, guest_count = ?, per_guest_fee = ?, adjustment = ?, note = ?, due_date = ?, status = ?, paid_at = ?, edited = ? WHERE id = ?')
+                ->execute([max(0, $num('base_fee')), max(0, (int)$num('guest_count')), max(0, $num('per_guest_fee')), $num('adjustment'),
+                    mb_substr(trim((string)($_POST['note'] ?? '')), 0, 300) ?: null, $due, $status, $paidAt, $auto ? 0 : 1, $cid]);
+            Auth::audit('subscription.charge', "{$biz['name']}: {$old['ref']} → {$status}" . ($auto ? ' (otomatis)' : ''));
+            flash("Tagihan {$old['period']} disimpan." . ($auto ? ' Akan dihitung ulang otomatis saat sistem bisnis sinkron.' : ''));
+        }
     } elseif ($action === 'lock' || $action === 'unlock') {
         $lock = $action === 'lock';
         $db->prepare('UPDATE subscriptions SET locked = ?, locked_at = ' . ($lock ? 'NOW()' : 'NULL') . ' WHERE business_id = ?')->execute([$lock ? 1 : 0, $id]);
@@ -561,16 +582,40 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                 <p class="muted" style="margin:0">Belum ada tagihan.</p>
             <?php else: ?>
                 <table class="stack">
-                    <thead><tr><th>Periode</th><th>Rincian</th><th>Jatuh tempo</th><th>Status</th><th style="text-align:right">Total</th></tr></thead>
+                    <thead><tr><th>Periode</th><th>Rincian</th><th>Jatuh tempo</th><th>Status</th><th style="text-align:right">Total</th><?php if ($isAdmin): ?><th></th><?php endif; ?></tr></thead>
                     <tbody>
                         <?php foreach ($charges as $ch): $guests = (int)$ch['guest_count'] + (int)$ch['carry_guests']; ?>
                             <tr>
                                 <td><?= e($ch['period']) ?><?= $ch['kind'] === 'topup' ? ' <span class="pill">susulan</span>' : '' ?></td>
                                 <td class="muted" style="font-size:13px"><?= Biz::rp($ch['base_fee']) ?><?= $guests ? " + {$guests} tamu × " . Biz::rp($ch['per_guest_fee']) : '' ?><?= (float)$ch['adjustment'] != 0 ? ' ' . ((float)$ch['adjustment'] > 0 ? '+' : '−') . ' ' . Biz::rp(abs((float)$ch['adjustment'])) : '' ?><?= $ch['note'] ? ' · ' . e($ch['note']) : '' ?></td>
                                 <td><?= $ch['due_date'] ? e(date('d M Y', strtotime($ch['due_date']))) : '-' ?></td>
-                                <td><span class="pill <?= $ch['status'] === 'paid' ? 'ok' : ($ch['status'] === 'unpaid' ? 'warn' : '') ?>"><?= ['paid' => 'Lunas', 'unpaid' => 'Belum lunas', 'cancelled' => 'Batal'][$ch['status']] ?? e($ch['status']) ?></span></td>
+                                <td><span class="pill <?= $ch['status'] === 'paid' ? 'ok' : ($ch['status'] === 'unpaid' ? 'warn' : '') ?>"><?= ['paid' => 'Lunas', 'unpaid' => 'Belum lunas', 'cancelled' => 'Batal'][$ch['status']] ?? e($ch['status']) ?></span><?= !empty($ch['edited']) ? ' <span class="pill" title="Diubah manual — tidak dihitung ulang otomatis">diedit</span>' : '' ?></td>
                                 <td style="text-align:right;font-weight:600"><?= Biz::rp(Biz::chargeTotal($ch)) ?></td>
+                                <?php if ($isAdmin): ?><td style="text-align:right"><button type="button" class="btn ghost sm" onclick="var r=this.closest('tr').nextElementSibling;r.hidden=!r.hidden">Ubah</button></td><?php endif; ?>
                             </tr>
+                            <?php if ($isAdmin): ?>
+                                <tr hidden>
+                                    <td colspan="6" style="background:var(--bg2,rgba(255,255,255,.02))">
+                                        <form method="post" style="padding:6px 2px">
+                                            <?= csrf_field() ?><input type="hidden" name="action" value="charge_save"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="charge_id" value="<?= (int)$ch['id'] ?>">
+                                            <div class="row2">
+                                                <div class="field"><label>Biaya dasar (Rp)</label><input name="base_fee" inputmode="numeric" value="<?= e(number_format((float)$ch['base_fee'], 0, ',', '.')) ?>"></div>
+                                                <div class="field"><label>Jumlah tamu<?= (int)$ch['carry_guests'] ? ' (+' . (int)$ch['carry_guests'] . ' susulan)' : '' ?></label><input name="guest_count" inputmode="numeric" value="<?= (int)$ch['guest_count'] ?>"></div>
+                                                <div class="field"><label>Tarif per tamu (Rp)</label><input name="per_guest_fee" inputmode="numeric" value="<?= e(number_format((float)$ch['per_guest_fee'], 0, ',', '.')) ?>"></div>
+                                                <div class="field"><label>Penyesuaian (Rp, minus = potongan)</label><input name="adjustment" inputmode="numeric" value="<?= e(((float)$ch['adjustment'] < 0 ? '-' : '') . number_format(abs((float)$ch['adjustment']), 0, ',', '.')) ?>"></div>
+                                                <div class="field"><label>Jatuh tempo</label><input type="date" name="due_date" value="<?= e((string)$ch['due_date']) ?>"></div>
+                                                <div class="field"><label>Status</label><select name="status"><?php foreach (['unpaid' => 'Belum lunas', 'paid' => 'Lunas', 'cancelled' => 'Batal'] as $sv => $sl): ?><option value="<?= $sv ?>" <?= $ch['status'] === $sv ? 'selected' : '' ?>><?= $sl ?></option><?php endforeach; ?></select></div>
+                                            </div>
+                                            <div class="field"><label>Catatan (tampil di rincian)</label><input name="note" value="<?= e((string)$ch['note']) ?>" maxlength="300"></div>
+                                            <?php if (!empty($ch['locked'])): ?><p style="margin:0 0 8px;font-size:12px;color:var(--warn)">Link bayar untuk tagihan ini sudah dibuat di sistem klien dengan total lama — kalau total diubah, minta klien membuat link bayar baru.</p><?php endif; ?>
+                                            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                                                <button class="btn sm">Simpan tagihan</button>
+                                                <?php if (!empty($ch['edited'])): ?><label style="display:flex;gap:5px;align-items:center;font-size:12px;margin:0"><input type="checkbox" name="auto" value="1" style="width:auto"> hitung otomatis lagi dari jumlah tamu</label><?php endif; ?>
+                                            </div>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </tbody>
                 </table>

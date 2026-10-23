@@ -294,6 +294,7 @@ final class View
             .bnav a.on { color: var(--brand); }
             .bnav a.on .ico { filter: drop-shadow(0 0 6px rgba(255, 106, 26, .45)); }
             table.stack thead { display: none; }
+            table.stack tr[hidden] { display: none; }
             table.stack td { display: block; border: 0; padding: 4px 0; }
             table.stack tr { display: block; border-top: 1px solid var(--line2); padding: 10px 0; }
             tbody tr:hover td { background: none; }
