@@ -3982,6 +3982,36 @@ header('Expires: 0');
         /* Tombol kembali ke Beranda di halaman lain */
         .sp-back { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 12px; padding: 7px 14px 7px 10px; border: 0; border-radius: 99px; background: #fff; color: var(--sp-ink); font-size: 13px; font-weight: 600; box-shadow: 0 2px 8px rgba(20, 50, 110, .1); cursor: pointer; }
         .sp-back span { font-size: 18px; line-height: 1; color: var(--sp-blue); }
+        /* ── Absen satu ketuk: loading logo ADF → centang ── */
+        #spAbsenOverlay { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 23, 42, .55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; visibility: hidden; transition: opacity .2s ease; }
+        #spAbsenOverlay.show { opacity: 1; visibility: visible; }
+        .spa-box { width: 100%; max-width: 300px; background: #fff; border-radius: 24px; padding: 26px 22px 22px; text-align: center; box-shadow: 0 24px 50px rgba(15, 23, 42, .35); transform: scale(.94); transition: transform .25s cubic-bezier(.34, 1.56, .64, 1); }
+        #spAbsenOverlay.show .spa-box { transform: scale(1); }
+        .spa-box.is-loading { background: none; box-shadow: none; }
+        .spa-title { font-size: 16px; font-weight: 800; color: var(--sp-ink); margin-top: 14px; }
+        .is-loading .spa-title { color: #fff; font-weight: 700; font-size: 14px; }
+        .spa-text { font-size: 12.5px; color: #64748b; margin-top: 6px; line-height: 1.5; }
+        .is-loading .spa-text { color: #cbd5e1; font-size: 11.5px; }
+        .spa-acts { display: flex; gap: 8px; margin-top: 18px; }
+        .spa-btn { flex: 1; height: 42px; border: 0; border-radius: 13px; background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)); color: #fff; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+        .spa-btn.ghost { background: #eef3fb; color: var(--sp-ink); }
+        /* spinner logo ADF (sama dengan loader sistem) */
+        .spa-spin { position: relative; width: 76px; height: 76px; margin: 0 auto; display: grid; place-items: center; }
+        .spa-spin::before, .spa-spin::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; }
+        .spa-spin::before { border-top-color: #4f8df5; border-right-color: #4f8df5; animation: spa-rot .9s linear infinite; }
+        .spa-spin::after { inset: 7px; border-bottom-color: #38bdf8; animation: spa-rot 1.3s linear infinite reverse; }
+        .spa-spin img { position: relative; z-index: 1; width: 42px; height: 42px; object-fit: contain; animation: spa-pulse 1.4s ease-in-out infinite; filter: brightness(0) saturate(100%) invert(53%) sepia(82%) saturate(776%) hue-rotate(8deg) brightness(95%) drop-shadow(0 0 6px rgba(251, 191, 36, .6)); }
+        .spa-glow { position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(circle, rgba(251, 191, 36, .5), transparent 70%); animation: spa-pulse 1.4s ease-in-out infinite; }
+        @keyframes spa-rot { to { transform: rotate(360deg); } }
+        @keyframes spa-pulse { 0%, 100% { transform: scale(.86); opacity: .85; } 50% { transform: scale(1.1); opacity: 1; } }
+        /* centang berhasil */
+        .spa-ok { width: 72px; height: 72px; margin: 0 auto; }
+        .spa-ok svg { width: 100%; height: 100%; }
+        .spa-ok circle { fill: #dcfce7; stroke: #22c55e; stroke-width: 3; stroke-dasharray: 151; stroke-dashoffset: 151; animation: spa-draw .45s ease forwards; }
+        .spa-ok path { fill: none; stroke: #16a34a; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40; animation: spa-draw .35s .35s ease forwards; }
+        @keyframes spa-draw { to { stroke-dashoffset: 0; } }
+        .spa-err { width: 64px; height: 64px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; background: #fee2e2; color: #dc2626; font-size: 30px; font-weight: 900; }
+        .is-lock .spa-err { background: #fef3c7; font-size: 26px; }
     </style>
 </head>
 
@@ -4830,6 +4860,7 @@ header('Expires: 0');
         const LOGO_URL = '<?php echo $appLogo ?: ''; ?>';
         const SLIP_LOGO_URL = '<?php echo $slipLogo ?: ($appLogo ?: ''); ?>';
         const BIZ_NAME = '<?php echo $bizName; ?>';
+        const SP_LOADER_LOGO = '<?php echo $baseUrl; ?>/assets/img/developer-logo.png';
 
         // ═══ PASSWORD TOGGLE ═══
         function togglePw(inputId, btn) {
@@ -5050,6 +5081,7 @@ header('Expires: 0');
             loadHome();
             startLiveClock();
             initStockAccess();
+            setTimeout(spPrimeLocation, 800);
         }
 
         let liveClockTimer = null;
@@ -8297,7 +8329,142 @@ header('Expires: 0');
         let manualGps = null;
         let manualGpsWatcher = null;
 
+        // ═══ ABSEN SATU KETUK ═══
+        // Tombol Absen → loading logo ADF ("Mencari lokasi…" / "Menyimpan absen…") → centang "Absen berhasil".
+        // Lokasi GPS wajib berada di area kantor (server memeriksa lagi). Popup lama (openManualAttendanceLegacy) tidak dipakai.
+        let spAbsenBusy = false;
+
+        function spAbsenUi(state, title, text, actions) {
+            let ov = document.getElementById('spAbsenOverlay');
+            if (!ov) {
+                ov = document.createElement('div');
+                ov.id = 'spAbsenOverlay';
+                document.body.appendChild(ov);
+            }
+            const icon = state === 'loading'
+                ? '<div class="spa-spin"><span class="spa-glow"></span><img src="' + SP_LOADER_LOGO + '" alt=""></div>'
+                : state === 'ok'
+                    ? '<div class="spa-ok"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg></div>'
+                    : '<div class="spa-err">' + (state === 'lock' ? '🔒' : '!') + '</div>';
+            ov.innerHTML = '<div class="spa-box is-' + state + '">' + icon +
+                '<div class="spa-title">' + title + '</div>' +
+                (text ? '<div class="spa-text">' + text + '</div>' : '') +
+                (actions ? '<div class="spa-acts">' + actions + '</div>' : '') + '</div>';
+            ov.className = 'show';
+        }
+
+        function spAbsenClose() {
+            const ov = document.getElementById('spAbsenOverlay');
+            if (ov) ov.className = '';
+        }
+
+        // Posisi terbaik dalam beberapa detik (berhenti lebih cepat bila akurasi sudah baik)
+        function spGetPosition(maxMs) {
+            return new Promise((resolve, reject) => {
+                let best = null;
+                const done = () => {
+                    navigator.geolocation.clearWatch(wid);
+                    clearTimeout(t);
+                    best ? resolve(best) : reject({ code: 3 });
+                };
+                const wid = navigator.geolocation.watchPosition(pos => {
+                    if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+                    if (pos.coords.accuracy <= 30) done();
+                }, err => {
+                    navigator.geolocation.clearWatch(wid);
+                    clearTimeout(t);
+                    best ? resolve(best) : reject(err);
+                }, { enableHighAccuracy: true, maximumAge: 10000, timeout: maxMs });
+                const t = setTimeout(done, maxMs);
+            });
+        }
+
         async function openManualAttendance() {
+            if (spAbsenBusy) return;
+            spAbsenBusy = true;
+            const retry = '<button type="button" class="spa-btn" onclick="spAbsenClose();openManualAttendance()">Coba lagi</button><button type="button" class="spa-btn ghost" onclick="spAbsenClose()">Tutup</button>';
+            try {
+                spAbsenUi('loading', 'Mencari lokasi…', 'Pastikan Anda berada di area kantor');
+                if (!faceConfig) {
+                    try {
+                        const r = await fetch(API + '&action=face_data');
+                        const d = await r.json();
+                        if (d.success) faceConfig = d.config;
+                    } catch (e) {}
+                }
+                if (!navigator.geolocation) throw { kind: 'nogps' };
+                const pos = await spGetPosition(9000);
+                const lat = pos.coords.latitude, lng = pos.coords.longitude, acc = Math.round(pos.coords.accuracy);
+
+                // Pemeriksaan radius di HP (sama dengan server) supaya pesan jelas sebelum menyimpan
+                const locs = faceConfig?.locations || [];
+                if (locs.length && !faceConfig?.allow_outside) {
+                    let near = null, dist = Infinity;
+                    locs.forEach(l => {
+                        const d = haversineDist(lat, lng, l.lat, l.lng);
+                        if (d < dist) { dist = d; near = l; }
+                    });
+                    if (dist > near.radius + Math.min(acc, 50)) {
+                        spAbsenUi('err', 'Di luar area kantor', 'Anda ' + dist + ' m dari ' + rmEsc(near.name) + '. Absen hanya bisa dalam ' + near.radius + ' m.', retry);
+                        return;
+                    }
+                }
+
+                spAbsenUi('loading', 'Menyimpan absen…', '');
+                let address = '';
+                try {
+                    const ctl = new AbortController();
+                    const tm = setTimeout(() => ctl.abort(), 2500);
+                    const g = await (await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lng + '&format=json', { signal: ctl.signal })).json();
+                    clearTimeout(tm);
+                    address = g.display_name || '';
+                } catch (e) {}
+                const fd = new FormData();
+                fd.append('action', 'face_clock');
+                fd.append('mode', 'manual');
+                fd.append('lat', lat);
+                fd.append('lng', lng);
+                fd.append('accuracy', acc);
+                fd.append('address', address);
+                const data = await (await fetch(API, { method: 'POST', body: fd })).json();
+                if (!data.success) {
+                    spAbsenUi('err', 'Absen belum tersimpan', rmEsc(data.message || 'Coba lagi.'), retry);
+                    return;
+                }
+                if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+                spAbsenUi('ok', 'Absen berhasil', rmEsc(data.message || ''), '');
+                loadAbsen();
+                if (document.getElementById('monitorSection')?.style.display !== 'none') {
+                    loadMonitoring();
+                    loadMonitorLembur();
+                }
+                setTimeout(spAbsenClose, 2400);
+            } catch (e) {
+                if (e && e.code === 1) {
+                    spAbsenUi('lock', 'Izin lokasi belum aktif', 'Aktifkan lokasi untuk aplikasi ini: ikon 🔒/ⓘ di samping alamat → Izin → Lokasi → Izinkan. Di iPhone: Pengaturan → Privasi → Layanan Lokasi → Safari → Saat Digunakan.', retry);
+                } else if (e && e.kind === 'nogps') {
+                    spAbsenUi('err', 'GPS tidak tersedia', 'HP / browser ini tidak mendukung lokasi.', '<button type="button" class="spa-btn ghost" onclick="spAbsenClose()">Tutup</button>');
+                } else if (e && e.code === 3) {
+                    spAbsenUi('err', 'Sinyal GPS lemah', 'Pastikan Lokasi/GPS HP aktif, lalu coba lagi (lebih cepat di dekat jendela / luar ruangan).', retry);
+                } else {
+                    spAbsenUi('err', 'Absen gagal', 'Periksa internet / GPS lalu coba lagi.', retry);
+                }
+            } finally {
+                spAbsenBusy = false;
+            }
+        }
+
+        // Saat aplikasi dibuka: minta izin lokasi sekali per sesi (prompt muncul lebih awal + GPS siap saat absen)
+        function spPrimeLocation() {
+            if (!navigator.geolocation) return;
+            try {
+                if (sessionStorage.getItem('sp_loc_primed')) return;
+                sessionStorage.setItem('sp_loc_primed', '1');
+            } catch (e) {}
+            navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: true, maximumAge: 60000, timeout: 15000 });
+        }
+
+        async function openManualAttendanceLegacy() {
             document.getElementById('manualOverlay').style.display = 'block';
             document.getElementById('manualPopup').style.display = 'block';
             const statusEl = document.getElementById('manualStatus');
