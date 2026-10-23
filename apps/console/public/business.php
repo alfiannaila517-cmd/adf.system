@@ -361,6 +361,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $biz = Biz::business($id);
 $sub = Biz::subscription($id);
+// Bisnis bertarif tetap: tagihan bulanan juga dibuat di Console (aturan sama dengan sistem bisnis) supaya riwayatnya terlihat
+$nextBill = $sub ? Biz::ensureFlatCharges($id) : null;
 $charges = $sub ? Biz::charges($id) : [];
 $clients = $db->query('SELECT id, name FROM clients ORDER BY name')->fetchAll();
 [$typeLabel, $typeIcon] = Biz::type((string)$biz['type']);
@@ -579,7 +581,14 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
         <div class="soonbox">Bisnis ini belum punya langganan.
             <?php if ($isAdmin): ?><form method="post" style="margin-top:12px"><?= csrf_field() ?><input type="hidden" name="action" value="create_subscription"><input type="hidden" name="id" value="<?= $id ?>"><button class="btn">Buat langganan</button></form><?php endif; ?>
         </div>
-    <?php else: ?>
+    <?php else: $lastSync = $sub['last_sync_at'] ? strtotime((string)$sub['last_sync_at']) : 0; ?>
+        <?php if ($lastSync < time() - 3600): ?>
+            <div class="card" style="border-color:var(--bad);background:var(--badbg)">
+                <b style="color:var(--bad)">⚠ Sistem <?= e($biz['name']) ?> belum tersambung ke Console</b>
+                <p style="margin:4px 0 0;font-size:12.5px">Sinkron terakhir: <b><?= $lastSync ? e(date('d M Y H:i', $lastSync)) : 'belum pernah' ?></b>. Selama belum tersambung, tagihan bulanan, tagihan manual, kunci sistem, dan pembayaran dari Console <b>tidak sampai</b> ke sistem bisnisnya (sistem itu masih membaca alamat lama). Sambungkan di bagian <a href="#sambungan">Sambungan sistem bisnis</a> di bawah.</p>
+            </div>
+        <?php endif; ?>
+        <p class="muted" style="margin:0 0 10px;font-size:12px"><b>Tagihan bulanan</b> = biaya langganan otomatis tiap bulan dari tarif di bawah. <b>Tagihan manual</b> = tagihan tambahan sekali bayar (setup, website, fitur). Keduanya muncul di menu Langganan sistem bisnis dan bisa dibayar online (Mayar). Ringkasan semua bisnis: menu <a href="/billing.php">Klien Langganan</a>; semua invoice: menu <a href="/invoices.php">Invoice</a>.</p>
         <div class="row2" style="margin-bottom:14px">
             <div class="card"><h2>Status sistem</h2>
                 <div style="font-size:15px;font-weight:600;color:<?= $sub['locked'] ? 'var(--bad)' : 'var(--ok)' ?>"><?= $sub['locked'] ? '🔒 Terkunci sejak ' . e(date('d M Y H:i', strtotime((string)$sub['locked_at']))) : '● Aktif' ?></div>
@@ -597,9 +606,10 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
         </div>
 
         <div class="card">
-            <h2>Riwayat tagihan</h2>
+            <h2>Tagihan bulanan</h2>
+            <?php if ($nextBill): ?><p class="muted" style="margin:-4px 0 10px;font-size:12px">Tagihan berikutnya: <b><?= e($nextBill['period']) ?></b> · <?= Biz::rp($nextBill['amount']) ?> · jatuh tempo <?= e(date('d M Y', strtotime($nextBill['due']))) ?> (muncul H-7).</p><?php endif; ?>
             <?php if (!$charges): ?>
-                <p class="muted" style="margin:0">Belum ada tagihan.</p>
+                <p class="muted" style="margin:0">Belum ada tagihan<?= $nextBill ? ' — tagihan pertama muncul 7 hari sebelum jatuh tempo' : '' ?>.</p>
             <?php else: ?>
                 <table class="stack">
                     <thead><tr><th>Periode</th><th>Rincian</th><th>Jatuh tempo</th><th>Status</th><th style="text-align:right">Total</th><?php if ($isAdmin): ?><th></th><?php endif; ?></tr></thead>
@@ -652,7 +662,7 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                 <span>Tagihan manual</span>
                 <?php if ($isAdmin): ?><a class="btn sm" href="/invoice-edit.php?bill=<?= $id ?>">+ Buat tagihan manual</a><?php endif; ?>
             </h2>
-            <p class="muted" style="margin:-4px 0 10px;font-size:12px">Tagihan di luar langganan bulanan (mis. pembuatan website, setup, tambahan fitur). Muncul di menu <b>Langganan</b> sistem <?= e($biz['name']) ?> setelah sinkron berikutnya dan bisa dibayar lewat Pakasir; lunas tercatat otomatis di Keuangan.</p>
+            <p class="muted" style="margin:-4px 0 10px;font-size:12px">Tagihan di luar langganan bulanan (mis. pembuatan website, setup, tambahan fitur). Muncul di menu <b>Langganan</b> sistem <?= e($biz['name']) ?> setelah sinkron berikutnya dan bisa dibayar online lewat Mayar; lunas tercatat otomatis di Keuangan.</p>
             <?php if (!$manualInv): ?>
                 <p class="muted" style="margin:0">Belum ada tagihan manual.</p>
             <?php else: ?>
@@ -697,7 +707,7 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
         </details>
 
         <?php $syncUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'console.adfsystem.store') . '/api/subscription-config.php'; ?>
-        <div class="card">
+        <div class="card" id="sambungan">
             <h2>Sambungan sistem bisnis</h2>
             <p class="muted" style="margin:0 0 8px;font-size:12px">Di sistem bisnis: menu <b>Langganan → Pengaturan koneksi</b>, isi alamat sinkron, client key & token di bawah. Status, tagihan, dan pembayaran lalu tersinkron ke Console.</p>
             <dl class="kv">

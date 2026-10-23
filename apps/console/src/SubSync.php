@@ -74,6 +74,7 @@ final class SubSync
     /** Jawaban subscription-config.php (field & tipe sama dengan Store). */
     public static function config(array $sub): array
     {
+        Biz::ensureFlatCharges((int)$sub['business_id']); // tagihan bulanan tarif tetap ikut tercatat di Console
         $s = Invoice::settings();
         return [
             'client_name' => self::clientName($sub),

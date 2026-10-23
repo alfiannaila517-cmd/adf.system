@@ -81,6 +81,68 @@ final class Biz
         return $st->fetchAll();
     }
 
+    /**
+     * Tanggal patokan & jatuh tempo tagihan bulanan — aturan SAMA dengan sistem bisnis (adfsub_anchor_due_date /
+     * adfsub_due_date): tanggal "Jatuh tempo" bila diisi, selain itu tanggal mulai + 1 bulan; diulang tiap bulan.
+     * @return array{first:string, day:int}|null
+     */
+    public static function dueRule(array $sub): ?array
+    {
+        $ov = (string)($sub['due_date_override'] ?? '');
+        $start = (string)($sub['start_date'] ?? '');
+        if ($ov !== '' && strtotime($ov)) {
+            return ['first' => date('Y-m', strtotime($ov)), 'day' => (int)date('j', strtotime($ov))];
+        }
+        if ($start !== '' && strtotime($start)) {
+            return ['first' => date('Y-m', strtotime(date('Y-m-01', strtotime($start)) . ' +1 month')), 'day' => (int)date('j', strtotime($start))];
+        }
+        return null;
+    }
+
+    public static function dueDate(int $day, string $period): string
+    {
+        return sprintf('%s-%02d', $period, min(max($day, 1), (int)date('t', strtotime($period . '-01'))));
+    }
+
+    /**
+     * Tagihan bulanan bisnis bertarif tetap (tanpa tarif per tamu & tanpa buku tagihan sistem) dibuat di Console juga,
+     * mengikuti sistem bisnis: bulan berjalan (sejak periode pertama), + bulan depan bila jatuh tempo ≤ 7 hari. Tagihan yang
+     * belum dibayar & tidak diedit mengikuti tarif / jatuh tempo terbaru. Return info tagihan berikutnya.
+     */
+    public static function ensureFlatCharges(int $businessId): ?array
+    {
+        $sub = self::subscription($businessId);
+        if (!$sub || (float)$sub['base_fee'] <= 0 || (float)$sub['per_guest_fee'] > 0 || !empty($sub['ledger_from']) || !($rule = self::dueRule($sub))) {
+            return null;
+        }
+        $db = self::db();
+        $periods = [];
+        // Hanya bulan berjalan (tidak mundur): bulan-bulan lama mungkin sudah dibayar lewat sistem lama → jangan buat tunggakan palsu
+        if (date('Y-m') >= $rule['first']) {
+            $periods[] = date('Y-m');
+        }
+        $next = date('Y-m', strtotime(date('Y-m-01') . ' +1 month'));
+        if ($next >= $rule['first'] && strtotime(self::dueDate($rule['day'], $next)) - strtotime(date('Y-m-d')) <= 7 * 86400) {
+            $periods[] = $next;
+        }
+        $fee = (float)$sub['base_fee'];
+        $find = $db->prepare('SELECT * FROM subscription_charges WHERE business_id = ? AND ref = ?');
+        foreach ($periods as $p) {
+            $due = self::dueDate($rule['day'], $p);
+            $find->execute([$businessId, $p]);
+            $row = $find->fetch();
+            if (!$row) {
+                $db->prepare("INSERT INTO subscription_charges (business_id, kind, ref, period, base_fee, status, due_date) VALUES (?, 'recurring', ?, ?, ?, 'unpaid', ?)")
+                    ->execute([$businessId, $p, $p, $fee, $due]);
+            } elseif ($row['status'] === 'unpaid' && empty($row['edited']) && empty($row['locked']) && ((float)$row['base_fee'] !== $fee || $row['due_date'] !== $due)) {
+                $db->prepare('UPDATE subscription_charges SET base_fee = ?, due_date = ? WHERE id = ?')->execute([$fee, $due, (int)$row['id']]);
+            }
+        }
+        // Tagihan berikutnya yang belum dibuat (untuk ditampilkan)
+        $up = max($rule['first'], $periods ? date('Y-m', strtotime(end($periods) . '-01 +1 month')) : $rule['first']);
+        return ['period' => $up, 'due' => self::dueDate($rule['day'], $up), 'amount' => $fee];
+    }
+
     /** Tagihan langganan belum lunas untuk semua bisnis milik client. */
     public static function unpaidChargesOfClient(int $clientId): array
     {
