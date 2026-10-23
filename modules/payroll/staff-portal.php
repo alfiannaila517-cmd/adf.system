@@ -3876,6 +3876,51 @@ header('Expires: 0');
         .sp-fab { width: 62px; height: 62px; margin-top: -34px; border-radius: 50%; border: 5px solid #fff; background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)); color: #fff; display: grid; place-items: center; box-shadow: 0 10px 22px rgba(47, 111, 224, .45); cursor: pointer; }
         .sp-fab svg { width: 26px; height: 26px; }
         .sp-fab:active { transform: scale(.94); }
+        /* ── Skala teks & logo (rapi di layar HP / iPhone) ── */
+        .sp-av { width: 50px !important; height: 50px !important; border: 2px solid rgba(255, 255, 255, .9) !important; background: #0f1b33 !important; box-shadow: 0 4px 12px rgba(15, 27, 51, .3); }
+        .sp-av img { width: 100% !important; height: 100% !important; object-fit: cover !important; object-position: center !important; transform: scale(1.08); display: block; }
+        .sp-head .title { font-size: 16.5px !important; font-weight: 700 !important; letter-spacing: -.01em; }
+        .sp-head .subtitle { font-size: 11.5px !important; opacity: .9; margin-top: 1px; }
+        .sp-head .notif-bell, .sp-head .chat-fab { width: 36px !important; height: 36px !important; border-radius: 11px !important; font-size: 15px !important; }
+        .sp-head .logout-btn { width: 32px !important; height: 32px !important; font-size: 14px !important; }
+        .sp-head .app-header-actions { gap: 7px !important; }
+
+        .sp-hero { padding: 16px 15px 68px !important; }
+        .sp-hero-main { gap: 13px !important; }
+        .sp-ring { width: 78px !important; height: 78px !important; }
+        .sp-ring circle { stroke-width: 10 !important; }
+        .sp-ring span { font-size: 16px !important; }
+        .sp-hero-lbl { font-size: 10.5px !important; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #9fb3d9 !important; }
+        .sp-hero-big { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 5px; margin: 4px 0 8px !important; font-weight: 400 !important; }
+        .sp-hero-big b { font-size: 24px; font-weight: 800; color: #fff !important; letter-spacing: -.02em; line-height: 1.1; }
+        .sp-hero-big > span { font-size: 13px; font-weight: 600; color: #dbe6ff; }
+        .sp-hero-big small { flex-basis: 100%; font-size: 11.5px; color: #94a3b8; margin-top: 2px; }
+        .sp-hero-big small span { color: #dbe6ff; font-weight: 600; }
+        .sp-hero-bar { max-width: none !important; height: 6px !important; }
+        /* tiga angka kecil: hari hadir · terlambat · sisa jam */
+        .sp-hero-stats { display: grid !important; grid-template-columns: repeat(3, 1fr); gap: 6px !important; margin-top: 14px !important; }
+        .sp-hero-stats div { background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .08); border-radius: 12px; padding: 8px 6px; text-align: center; }
+        .sp-hero-stats b { display: block; font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2; }
+        .sp-hero-stats span { display: block; font-size: 10px; color: #94a3b8; margin-top: 1px; }
+        .sp-today { margin-top: 12px !important; padding-top: 11px !important; }
+        .sp-today-head { font-size: 11.5px !important; }
+        .sp-today-clock { font-size: 10.5px !important; }
+        .sp-hero-slots .ab-slot { padding: 7px 4px !important; }
+        .sp-hero-slots .ab-slot span { font-size: 9px !important; letter-spacing: .05em; }
+        .sp-hero-slots .ab-slot b { font-size: 14px !important; }
+        .sp-hero-slots .ab-extra { font-size: 11px !important; }
+        .sp-hero-btn { height: 44px !important; font-size: 14px !important; padding-left: 18px !important; border-radius: 15px !important; }
+        .sp-hero-btn i { width: 44px !important; height: 44px !important; border-radius: 15px !important; }
+        .sp-sec-title { font-size: 15.5px !important; font-weight: 700 !important; }
+        .sp-tile-lb { font-size: 11px !important; }
+        .sp-tile-ic { font-size: 28px !important; }
+        @media (max-width: 380px) {
+            .sp-ring { width: 70px !important; height: 70px !important; }
+            .sp-ring span { font-size: 14.5px !important; }
+            .sp-hero-big b { font-size: 21px; }
+            .sp-tile-lb { font-size: 10.5px !important; }
+            .sp-tile-ic { font-size: 25px !important; }
+        }
     </style>
 </head>
 
@@ -4091,10 +4136,14 @@ header('Expires: 0');
                         </div>
                         <div class="sp-hero-txt">
                             <div class="sp-hero-lbl">Absensi Bulan Ini · <span id="heroMonth"></span></div>
-                            <div class="sp-hero-big"><b id="heroHours">0</b> dari <span id="heroTarget">208</span> Jam <em>Kerja</em></div>
+                            <div class="sp-hero-big"><b id="heroHours">0</b><span>jam</span><small>dari target <span id="heroTarget">208</span> jam</small></div>
                             <div class="sp-hero-bar"><i id="heroBar"></i></div>
-                            <div class="sp-hero-stats"><span>Hadir <b id="heroDays">0</b> hari</span><span>Terlambat <b id="heroLate">0</b>×</span><span>Sisa <b id="heroRemain">0</b> jam</span></div>
                         </div>
+                    </div>
+                    <div class="sp-hero-stats">
+                        <div><b id="heroDays">0</b><span>Hari hadir</span></div>
+                        <div><b id="heroLate">0</b><span>Terlambat</span></div>
+                        <div><b id="heroRemain">0</b><span>Sisa jam</span></div>
                     </div>
                     <div class="sp-today">
                         <div class="sp-today-head"><span>Hari ini <span id="todayBadge"></span></span><span class="sp-today-clock"><span id="liveClockTime">--:--</span><span id="liveClockSec">:--</span> · <span id="liveClockDate"></span></span></div>
