@@ -21,12 +21,12 @@ if ($bizSlug) {
     }
 }
 
-// Ikon khusus per bisnis (staff-app-icon.php): PNG persegi berukuran persis — syarat Chrome agar tombol Install muncul.
+// Ikon ADF Staff Portal (staff-app-icon.php): PNG persegi berukuran persis — syarat Chrome agar tombol Install muncul.
 // Ikon lama (pwa_app_icon / login_logo di DB utama) sama untuk semua bisnis dan sering bukan PNG persegi → tidak dipakai lagi.
 // Semua alamat ABSOLUT (dibutuhkan Android untuk membuat WebAPK)
 $baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
 $moduleUrl = $baseHttpUrl . '/modules/payroll';
-$iconBase = $moduleUrl . '/staff-app-icon.php?b=' . urlencode($bizSlug) . '&v=3&size=';
+$iconBase = $moduleUrl . '/staff-app-icon.php?v=4&size=';
 $startUrl = $moduleUrl . '/staff-portal.php' . ($bizSlug ? '?b=' . urlencode($bizSlug) : '');
 $scopeUrl = $moduleUrl . '/';
 $manifestId = '/modules/payroll/staff-portal' . ($bizSlug ? '?b=' . $bizSlug : '');
@@ -35,15 +35,15 @@ while (ob_get_level()) ob_end_clean();
 echo json_encode([
     'id'               => $manifestId,
     'name'             => $bizName . ' — Staff',
-    // nama di bawah ikon HP (Android memotong setelah ±12 huruf)
-    'short_name'       => mb_strlen($bizName) <= 12 ? $bizName : (explode(' ', $bizName)[0] ?: 'Staff Portal'),
+    // nama di bawah ikon HP
+    'short_name'       => 'Staff Portal',
     'description'      => 'Portal karyawan: absensi, monitoring, cuti, occupancy, breakfast',
     'start_url'        => $startUrl,
     'scope'            => $scopeUrl,
     'display'          => 'standalone',
     'orientation'      => 'portrait',
-    'theme_color'      => '#0d1f3c',
-    'background_color' => '#0d1f3c',
+    'theme_color'      => '#0b0e14',
+    'background_color' => '#0b0e14',
     'lang'             => 'id',
     'categories'       => ['business', 'productivity'],
     'prefer_related_applications' => false,

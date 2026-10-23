@@ -129,8 +129,8 @@ header('Expires: 0');
     <meta name="theme-color" content="<?php echo htmlspecialchars($themeColor); ?>">
     <title>Staff Portal - <?php echo $bizName; ?></title>
     <link rel="manifest" href="staff-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
-    <?php $appIconUrl = 'staff-app-icon.php?b=' . urlencode($bizSlug) . '&v=3&size='; ?>
-    <meta name="apple-mobile-web-app-title" content="<?php echo $bizName; ?>">
+    <?php $appIconUrl = 'staff-app-icon.php?v=4&size='; ?>
+    <meta name="apple-mobile-web-app-title" content="Staff Portal">
     <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($appIconUrl . '180'); ?>">
     <link rel="icon" type="image/png" sizes="192x192" href="<?php echo htmlspecialchars($appIconUrl . '192'); ?>">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
