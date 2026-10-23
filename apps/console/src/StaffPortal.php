@@ -54,7 +54,7 @@ final class StaffPortal
         }
         self::ensureTable($db);
         $rows = $db->query('SELECT e.id, e.employee_code, e.full_name, e.position, e.department, e.phone, e.is_active,
-                sa.id AS account_id, sa.email AS username, sa.last_login
+                sa.id AS account_id, sa.email AS username, sa.last_login, sa.plain_password AS old_password
             FROM payroll_employees e LEFT JOIN staff_accounts sa ON sa.employee_id = e.id
             WHERE e.is_active = 1 ORDER BY e.full_name')->fetchAll();
         $out = [];
