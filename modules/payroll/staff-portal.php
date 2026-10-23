@@ -3878,7 +3878,7 @@ header('Expires: 0');
         .sp-fab:active { transform: scale(.94); }
         /* ── Skala teks & logo (rapi di layar HP / iPhone) ── */
         .sp-av { width: 50px !important; height: 50px !important; border: 2px solid rgba(255, 255, 255, .9) !important; background: #0f1b33 !important; box-shadow: 0 4px 12px rgba(15, 27, 51, .3); }
-        .sp-av img { width: 100% !important; height: 100% !important; object-fit: cover !important; object-position: center !important; transform: scale(1.08); display: block; }
+        .sp-av img { width: 100% !important; height: 100% !important; object-fit: cover; object-position: center; display: block; transition: transform .2s ease; }
         .sp-head .title { font-size: 16.5px !important; font-weight: 700 !important; letter-spacing: -.01em; }
         .sp-head .subtitle { font-size: 11.5px !important; opacity: .9; margin-top: 1px; }
         .sp-head .notif-bell, .sp-head .chat-fab { width: 36px !important; height: 36px !important; border-radius: 11px !important; font-size: 15px !important; }
@@ -3920,6 +3920,37 @@ header('Expires: 0');
             .sp-hero-big b { font-size: 21px; }
             .sp-tile-lb { font-size: 10.5px !important; }
             .sp-tile-ic { font-size: 25px !important; }
+        }
+        /* ── Lingkaran kaca digital + kotak kecil (revisi 2) ── */
+        .sp-hero-main { gap: 16px !important; }
+        .sp-ring { width: 108px !important; height: 108px !important; filter: drop-shadow(0 0 10px rgba(56, 189, 248, .25)); }
+        .sp-ring circle { stroke-width: 8 !important; }
+        .sp-ring .trk { stroke: rgba(255, 255, 255, .12) !important; opacity: 1 !important; }
+        .sp-ring .val { stroke: url(#spRingGrad) !important; filter: drop-shadow(0 0 4px rgba(34, 197, 94, .55)); }
+        .sp-ring-glass { position: absolute; inset: 15px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, .22), rgba(255, 255, 255, .05) 60%); border: 1px solid rgba(255, 255, 255, .18); box-shadow: inset 0 1px 1px rgba(255, 255, 255, .25), 0 6px 14px rgba(0, 0, 0, .25); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+        .sp-ring-glass b { font-size: 21px; font-weight: 800; letter-spacing: -.02em; color: #fff; line-height: 1; }
+        .sp-ring-glass small { font-size: 9px; color: #9fb3d9; text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }
+        .sp-hero-big { margin: 5px 0 9px !important; }
+        .sp-hero-big b { font-size: 26px !important; }
+        .sp-hero-big > span { font-size: 12px !important; color: #9fb3d9 !important; font-weight: 500 !important; }
+        /* tiga angka: lebih kecil */
+        .sp-hero-stats { gap: 5px !important; margin-top: 12px !important; }
+        .sp-hero-stats div { padding: 5px 4px !important; border-radius: 10px !important; }
+        .sp-hero-stats b { font-size: 13px !important; }
+        .sp-hero-stats span { font-size: 9px !important; }
+        /* jam scan hari ini: lebih kecil */
+        .sp-hero-slots .ab-slots { gap: 5px !important; }
+        .sp-hero-slots .ab-slot { padding: 5px 3px 6px !important; border-radius: 9px !important; }
+        .sp-hero-slots .ab-slot span { font-size: 8px !important; }
+        .sp-hero-slots .ab-slot b { font-size: 12px !important; }
+        .sp-hero-slots .ab-slot i { height: 2px !important; }
+        .sp-hero-slots .ab-extra { font-size: 10.5px !important; padding-top: 6px !important; }
+        .sp-today-head { font-size: 11px !important; margin-bottom: 6px !important; }
+        @media (max-width: 380px) {
+            .sp-ring { width: 96px !important; height: 96px !important; }
+            .sp-ring-glass { inset: 13px; }
+            .sp-ring-glass b { font-size: 18px; }
+            .sp-hero-big b { font-size: 23px !important; }
         }
     </style>
 </head>
@@ -4054,7 +4085,7 @@ header('Expires: 0');
             <div class="app-header-brand">
                 <?php
                 $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null); ?>
-                <span class="sp-av"><?php if ($headerLogo): ?><img src="<?php echo htmlspecialchars($headerLogo); ?>" alt=""><?php else: ?><?php echo mb_substr(strip_tags($bizName), 0, 1); ?><?php endif; ?></span>
+                <span class="sp-av"><?php if ($headerLogo): ?><img class="sp-fit" src="<?php echo htmlspecialchars($headerLogo); ?>" alt=""><?php else: ?><?php echo mb_substr(strip_tags($bizName), 0, 1); ?><?php endif; ?></span>
                 <div class="app-header-text">
                     <span class="title">Halo, <span id="helloName">Staff</span></span>
                     <span class="subtitle" id="helloRole"><?php echo $bizName; ?></span>
@@ -4129,14 +4160,15 @@ header('Expires: 0');
                     <div class="sp-hero-main">
                         <div class="sp-ring" id="heroRing" style="--p:0">
                             <svg viewBox="0 0 120 120" aria-hidden="true">
+                                <defs><linearGradient id="spRingGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8" /><stop offset="100%" stop-color="#22c55e" /></linearGradient></defs>
                                 <circle cx="60" cy="60" r="50" class="trk"></circle>
                                 <circle cx="60" cy="60" r="50" class="val"></circle>
                             </svg>
-                            <span id="heroRingPct">0%</span>
+                            <div class="sp-ring-glass"><b id="heroRingPct">0%</b><small>target</small></div>
                         </div>
                         <div class="sp-hero-txt">
                             <div class="sp-hero-lbl">Absensi Bulan Ini · <span id="heroMonth"></span></div>
-                            <div class="sp-hero-big"><b id="heroHours">0</b><span>jam</span><small>dari target <span id="heroTarget">208</span> jam</small></div>
+                            <div class="sp-hero-big"><b id="heroHours">0</b><span>jam kerja</span></div>
                             <div class="sp-hero-bar"><i id="heroBar"></i></div>
                         </div>
                     </div>
@@ -7015,6 +7047,40 @@ header('Expires: 0');
             };
             document.body.appendChild(sheet);
         }
+
+        // ═══ LOGO BULAT ═══ file logo sering punya margin / lingkaran tidak di tengah → deteksi kotak lingkaran
+        // dari piksel lalu skala + geser supaya pas mengisi bingkai bulat (sama dengan sidebar sistem, includes/header.php)
+        (function () {
+            function fit(img) {
+                try {
+                    const N = 160, cv = document.createElement('canvas');
+                    cv.width = cv.height = N;
+                    const ctx = cv.getContext('2d', { willReadFrequently: true });
+                    const iw = img.naturalWidth, ih = img.naturalHeight;
+                    if (!iw || !ih) return;
+                    const k = Math.min(N / iw, N / ih), dw = iw * k, dh = ih * k;
+                    ctx.drawImage(img, (N - dw) / 2, (N - dh) / 2, dw, dh);
+                    const d = ctx.getImageData(0, 0, N, N).data;
+                    let minX = N, minY = N, maxX = -1, maxY = -1, cnt = 0;
+                    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+                        const i = (y * N + x) * 4, a = d[i + 3];
+                        const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+                        if (a > 60 && lum < 215) { cnt++; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+                    }
+                    if (maxX < 0) return;
+                    const w = maxX - minX + 1, h = maxY - minY + 1, fill = cnt / (w * h);
+                    // hanya untuk logo berbentuk lingkaran (kotak ±persegi, isi ±π/4)
+                    if (Math.abs(w - h) > 0.12 * Math.max(w, h) || fill < 0.68 || fill > 0.9) return;
+                    const size = Math.max(w, h), cx = (minX + maxX + 1) / 2, cy = (minY + maxY + 1) / 2;
+                    const scale = (N / size) * 1.04;
+                    img.style.objectFit = 'contain';
+                    img.style.transform = 'scale(' + scale.toFixed(4) + ') translate(' + (((N / 2 - cx) / N) * 100).toFixed(3) + '%,' + (((N / 2 - cy) / N) * 100).toFixed(3) + '%)';
+                } catch (e) { /* logo lintas-domain: biarkan tampilan bawaan */ }
+            }
+            document.querySelectorAll('img.sp-fit').forEach(img => {
+                if (img.complete) fit(img); else img.addEventListener('load', () => fit(img));
+            });
+        })();
 
         // ═══ AUTO-LOGIN CHECK ═══
         loadCredentials();
