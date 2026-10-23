@@ -110,6 +110,108 @@ final class StoreSite
         }
     }
 
+    /* ---------------- Pesanan (data/orders.json — ditulis checkout & webhook Pakasir website) ---------------- */
+
+    public static function orders(): array
+    {
+        $f = self::dir() . '/data/orders.json';
+        $data = is_file($f) ? json_decode((string)file_get_contents($f), true) : [];
+        return is_array($data) ? $data : [];
+    }
+
+    private static function saveOrders(array $orders): void
+    {
+        $json = json_encode(array_values($orders), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($json === false || file_put_contents(self::dir() . '/data/orders.json', $json, LOCK_EX) === false) {
+            throw new RuntimeException('Gagal menyimpan orders.json (cek izin folder data/).');
+        }
+    }
+
+    /** Jenis transaksi (sama dengan admin lama): bulanan / manual (tagihan klien langganan) / website */
+    public static function orderType(array $o): string
+    {
+        if (($o['source'] ?? '') !== 'subscription') {
+            return 'website';
+        }
+        $s = strtolower((string)($o['order_id'] ?? '') . ' ' . (string)($o['product_title'] ?? ''));
+        return str_contains($s, 'manual') ? 'manual' : 'bulanan';
+    }
+
+    /** Tanya status transaksi ke Pakasir lalu simpan; kembalikan status baru */
+    public static function refreshOrder(string $orderId, string $txnId): string
+    {
+        $p = self::load()['payment'];
+        if ($p['project_slug'] === '' || $p['api_key'] === '') {
+            throw new RuntimeException('Pakasir belum diatur (tab Pembayaran).');
+        }
+        $ch = curl_init('https://app.pakasir.com/api/v2/transaction-status/' . rawurlencode($p['project_slug']) . '/' . rawurlencode($txnId));
+        curl_setopt_array($ch, [CURLOPT_HTTPHEADER => ['X-Api-Key: ' . $p['api_key']], CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15]);
+        $res = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $data = is_string($res) ? json_decode($res, true) : null;
+        if ($code < 200 || $code >= 300 || empty($data['status'])) {
+            throw new RuntimeException('Gagal mengambil status dari Pakasir.');
+        }
+        $orders = self::orders();
+        foreach ($orders as &$o) {
+            if (($o['order_id'] ?? '') === $orderId) {
+                $o['status'] = (string)$data['status'];
+                if (!empty($data['completed_at'])) {
+                    $o['completed_at'] = (string)$data['completed_at'];
+                }
+            }
+        }
+        unset($o);
+        self::saveOrders($orders);
+        return (string)$data['status'];
+    }
+
+    /** Hapus pesanan yang belum lunas (yang lunas tidak boleh dihapus) */
+    public static function deleteOrder(string $orderId): void
+    {
+        $orders = self::orders();
+        $keep = array_filter($orders, function ($o) use ($orderId) {
+            if (($o['order_id'] ?? '') !== $orderId) {
+                return true;
+            }
+            if (strtolower((string)($o['status'] ?? '')) === 'completed') {
+                throw new RuntimeException('Transaksi yang sudah lunas tidak bisa dihapus.');
+            }
+            return false;
+        });
+        if (count($keep) === count($orders)) {
+            throw new RuntimeException('Pesanan tidak ditemukan.');
+        }
+        self::saveOrders($keep);
+    }
+
+    /** Pelanggan = pesanan dikelompokkan per nomor WhatsApp (atau nama) */
+    public static function customers(): array
+    {
+        $out = [];
+        foreach (self::orders() as $o) {
+            $key = trim((string)($o['whatsapp'] ?? '')) ?: trim((string)($o['name'] ?? ''));
+            if ($key === '' || $key === '-') {
+                continue;
+            }
+            $c = &$out[$key];
+            $c ??= ['name' => (string)($o['name'] ?? '-'), 'whatsapp' => (string)($o['whatsapp'] ?? ''), 'email' => '', 'count' => 0, 'paid' => 0, 'last' => '', 'status' => ''];
+            $c['count']++;
+            if (strtolower((string)($o['status'] ?? '')) === 'completed') {
+                $c['paid'] += (int)($o['amount'] ?? 0);
+            }
+            $c['email'] = $c['email'] ?: (string)($o['email'] ?? '');
+            $at = (string)($o['created_at'] ?? '');
+            if ($at >= $c['last']) {
+                [$c['last'], $c['status']] = [$at, (string)($o['status'] ?? '')];
+            }
+            unset($c);
+        }
+        uasort($out, fn ($a, $b) => strcmp($b['last'], $a['last']));
+        return $out;
+    }
+
     /** Teks multi-baris → daftar (baris kosong dibuang) */
     public static function lines(string $text): array
     {

@@ -34,10 +34,10 @@ $LISTS = [
         'name' => ['Nama perusahaan', 'text'], 'link' => ['Link (opsional)', 'text'], 'logo' => ['Logo (opsional)', 'image', 'clients'],
     ], 'Logo klien yang tampil di website.'],
 ];
-$TABS = ['beranda' => 'Beranda'] + array_map(fn ($l) => $l[0], $LISTS) + ['bayar' => 'Pembayaran'];
-$tab = (string)($_GET['tab'] ?? 'beranda');
+$TABS = ['pesanan' => 'Pesanan', 'pelanggan' => 'Pelanggan', 'beranda' => 'Beranda'] + array_map(fn ($l) => $l[0], $LISTS) + ['bayar' => 'Pembayaran'];
+$tab = (string)($_GET['tab'] ?? 'pesanan');
 if (!isset($TABS[$tab])) {
-    $tab = 'beranda';
+    $tab = 'pesanan';
 }
 $problem = StoreSite::problem();
 
@@ -64,6 +64,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$problem) {
     }
     $c = StoreSite::load();
     $action = (string)($_POST['action'] ?? '');
+    // Pesanan: tidak menyentuh content.json
+    if ($action === 'order_refresh' || $action === 'order_delete') {
+        $oid = trim((string)($_POST['order_id'] ?? ''));
+        try {
+            if ($action === 'order_refresh') {
+                $st = StoreSite::refreshOrder($oid, trim((string)($_POST['txn_id'] ?? '')));
+                flash("Status {$oid} dari Pakasir: {$st}");
+            } else {
+                StoreSite::deleteOrder($oid);
+                flash("Pesanan {$oid} dihapus.");
+            }
+            Auth::audit('site.order', "{$action} {$oid}");
+        } catch (Throwable $e) {
+            flash($e->getMessage(), 'err');
+        }
+        redirect($back . (isset($_GET['type']) ? '&type=' . urlencode((string)$_GET['type']) : ''));
+    }
     try {
         if ($action === 'hero') {
             $c['hero']['title'] = trim((string)($_POST['title'] ?? ''));
@@ -240,6 +257,82 @@ View::start('Website', 'site', $me);
                 <button class="btn sm">Simpan</button>
             </form>
         </div>
+    </div>
+
+<?php elseif ($tab === 'pesanan'):
+    $all = StoreSite::orders();
+    $TYPES = ['all' => 'Semua', 'website' => 'Website', 'bulanan' => 'Tagihan bulanan', 'manual' => 'Tagihan manual'];
+    $type = isset($TYPES[$_GET['type'] ?? '']) ? (string)$_GET['type'] : 'all';
+    $cnt = array_fill_keys(array_keys($TYPES), 0);
+    $sum = $cnt;
+    foreach ($all as $o) {
+        $t = StoreSite::orderType($o);
+        $cnt[$t]++;
+        $cnt['all']++;
+        if (strtolower((string)($o['status'] ?? '')) === 'completed') {
+            $sum[$t] += (int)($o['amount'] ?? 0);
+            $sum['all'] += (int)($o['amount'] ?? 0);
+        }
+    }
+    $list = array_values(array_filter($all, fn ($o) => $type === 'all' || StoreSite::orderType($o) === $type));
+    usort($list, fn ($a, $b) => strcmp((string)($b['completed_at'] ?? $b['created_at'] ?? ''), (string)($a['completed_at'] ?? $a['created_at'] ?? '')));
+    $pending = array_sum(array_map(fn ($o) => strtolower((string)($o['status'] ?? '')) === 'pending' ? (int)($o['amount'] ?? 0) : 0, $list));
+    $rp = fn ($n) => 'Rp ' . number_format((int)$n, 0, ',', '.');
+    $dt = function ($d) {
+        $ts = $d ? strtotime((string)$d) : false;
+        return $ts ? date('d M Y H:i', $ts) : '-';
+    }; ?>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-bottom:12px">
+        <?php foreach ($TYPES as $k => $label): ?>
+            <a class="card" href="/site.php?tab=pesanan<?= $k === 'all' ? '' : '&type=' . $k ?>" style="margin:0;padding:10px 12px;<?= $type === $k ? 'border-color:var(--brand)' : '' ?>">
+                <small class="muted"><?= e($label) ?> · <?= $cnt[$k] ?></small><br><b><?= $rp($sum[$k]) ?></b>
+            </a>
+        <?php endforeach; ?>
+    </div>
+    <p class="muted" style="margin:0 0 10px;font-size:12px">Jumlah = uang yang sudah masuk (completed). Menunggu bayar di daftar ini: <b><?= $rp($pending) ?></b>. Penarikan saldo di <a href="https://app.pakasir.com/" target="_blank" rel="noopener">dashboard Pakasir ↗</a>.</p>
+    <div class="card" style="padding:0;overflow-x:auto">
+        <table>
+            <thead><tr><th>Waktu</th><th>Keterangan</th><th>Nama</th><th style="text-align:right">Jumlah</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                <?php foreach ($list as $o): $st = strtolower((string)($o['status'] ?? '')); ?>
+                    <tr>
+                        <td style="white-space:nowrap"><?= e($dt($o['completed_at'] ?? $o['created_at'] ?? '')) ?><br><small class="muted"><?= e((string)($o['order_id'] ?? '')) ?></small></td>
+                        <td><?= e((string)($o['product_title'] ?? '-')) ?><br><small class="muted"><?= e(['website' => ($o['source'] ?? '') === 'pakasir' ? 'Pakasir' : 'Checkout website', 'bulanan' => 'Tagihan bulanan', 'manual' => 'Tagihan manual'][StoreSite::orderType($o)]) ?></small></td>
+                        <td><?= e((string)($o['name'] ?? '-')) ?><?php if (!empty($o['whatsapp'])): ?><br><a href="https://wa.me/<?= e(preg_replace('/\D/', '', (string)$o['whatsapp'])) ?>" target="_blank" rel="noopener"><small><?= e((string)$o['whatsapp']) ?></small></a><?php endif; ?></td>
+                        <td style="text-align:right;white-space:nowrap"><b><?= $rp($o['amount'] ?? 0) ?></b></td>
+                        <td><span class="pill <?= $st === 'completed' ? 'ok' : ($st === 'pending' ? 'warn' : 'bad') ?>"><?= e($st === 'completed' ? 'lunas' : ($st === 'pending' ? 'menunggu' : ($st ?: '-'))) ?></span></td>
+                        <td style="white-space:nowrap">
+                            <form method="post" style="display:inline-flex;gap:4px">
+                                <?= csrf_field() ?><input type="hidden" name="order_id" value="<?= e((string)($o['order_id'] ?? '')) ?>"><input type="hidden" name="txn_id" value="<?= e((string)($o['txn_id'] ?? '')) ?>">
+                                <?php if (!empty($o['txn_id'])): ?><button class="btn ghost sm" name="action" value="order_refresh">Cek status</button><?php endif; ?>
+                                <?php if ($st !== 'completed'): ?><button class="btn ghost sm" name="action" value="order_delete" onclick="return confirm('Hapus pesanan ini?')">Hapus</button><?php endif; ?>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$list): ?><tr><td colspan="6" class="muted" style="text-align:center;padding:18px">Belum ada pesanan.</td></tr><?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+<?php elseif ($tab === 'pelanggan'): $cs = StoreSite::customers(); ?>
+    <p class="muted" style="margin:0 0 10px;font-size:12px">Orang yang pernah memesan / membayar lewat website, dirangkum dari Pesanan (per nomor WhatsApp).</p>
+    <div class="card" style="padding:0;overflow-x:auto">
+        <table>
+            <thead><tr><th>Nama</th><th>Kontak</th><th style="text-align:right">Pesanan</th><th style="text-align:right">Sudah bayar</th><th>Terakhir</th></tr></thead>
+            <tbody>
+                <?php foreach ($cs as $cu): ?>
+                    <tr>
+                        <td><b><?= e($cu['name']) ?></b></td>
+                        <td><?php if ($cu['whatsapp'] !== ''): ?><a href="https://wa.me/<?= e(preg_replace('/\D/', '', $cu['whatsapp'])) ?>" target="_blank" rel="noopener"><?= e($cu['whatsapp']) ?></a><?php endif; ?><?= $cu['email'] !== '' ? '<br><small class="muted">' . e($cu['email']) . '</small>' : '' ?></td>
+                        <td style="text-align:right"><?= (int)$cu['count'] ?></td>
+                        <td style="text-align:right;white-space:nowrap">Rp <?= number_format((int)$cu['paid'], 0, ',', '.') ?></td>
+                        <td style="white-space:nowrap"><?= e($cu['last'] ? date('d M Y', (int)strtotime($cu['last'])) : '-') ?> <small class="muted"><?= e($cu['status']) ?></small></td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$cs): ?><tr><td colspan="5" class="muted" style="text-align:center;padding:18px">Belum ada pelanggan.</td></tr><?php endif; ?>
+            </tbody>
+        </table>
     </div>
 
 <?php elseif ($tab === 'bayar'): $p = $c['payment']; ?>
