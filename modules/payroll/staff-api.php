@@ -1415,7 +1415,7 @@ if ($action === 'face_clock') {
         if ($scan1 && !$scan2) {
             $diffMin = abs(strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan1)) / 60;
             if ($diffMin < 15) {
-                echo json_encode(['success' => false, 'message' => 'Baru saja absen masuk ' . substr($scan1, 0, 5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 15 menit.']);
+                echo json_encode(['success' => false, 'already' => true, 'last_scan' => substr($scan1, 0, 5), 'next_at' => date('H:i', strtotime($today . ' ' . $scan1) + 15 * 60), 'message' => 'Baru saja absen masuk ' . substr($scan1, 0, 5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 15 menit.']);
                 exit;
             }
         }
@@ -1508,7 +1508,7 @@ if ($action === 'face_clock') {
             $lastScan = end($filledScans);
             $diffMin = abs(strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $lastScan)) / 60;
             if ($diffMin < 5) {
-                echo json_encode(['success' => false, 'message' => 'Scan terakhir ' . substr($lastScan, 0, 5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 5 menit.']);
+                echo json_encode(['success' => false, 'already' => true, 'last_scan' => substr($lastScan, 0, 5), 'next_at' => date('H:i', strtotime($today . ' ' . $lastScan) + 5 * 60), 'message' => 'Scan terakhir ' . substr($lastScan, 0, 5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 5 menit.']);
                 exit;
             }
         }

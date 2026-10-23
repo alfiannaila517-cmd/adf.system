@@ -4031,6 +4031,15 @@ header('Expires: 0');
         .sp-navbtn span { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: #fff; color: var(--sp-blue); border: 1px solid #e3ebf8; box-shadow: 0 4px 12px rgba(20, 50, 110, .12); transition: transform .15s; }
         .sp-navbtn span svg { width: 20px; height: 20px; }
         .sp-navbtn:active span { transform: scale(.92); }
+        /* Label status hari ini di ruang kosong kiri bawah (sejajar tombol Absen) */
+        .sp-hero-foot { position: absolute; left: 16px; bottom: 14px; right: 215px; min-height: 30px; display: flex; align-items: center; justify-content: center; }
+        .sp-hero-foot .ab-badge { font-size: 11px !important; padding: 4px 12px !important; border-radius: 99px !important; font-weight: 700 !important; box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+        @media (max-width: 380px) { .sp-hero-foot { right: 200px; left: 12px; } }
+        /* Info "sudah absen": kartu hijau lembut */
+        .spa-box.is-done { background: linear-gradient(180deg, #f0fdf4, #fff 55%); border: 1px solid #bbf7d0; }
+        .is-done .spa-title { color: #166534; }
+        .is-done .spa-text b { color: #15803d; }
+        .is-done .spa-btn { background: linear-gradient(135deg, #16a34a, #22c55e); }
     </style>
 </head>
 
@@ -4260,11 +4269,12 @@ header('Expires: 0');
                         <div><b id="heroRemain">0</b><span>Sisa jam</span></div>
                     </div>
                     <div class="sp-today">
-                        <div class="sp-today-head"><span>Hari ini <span id="todayBadge"></span></span><span class="sp-today-clock"><span id="liveClockTime">--:--</span><span id="liveClockSec">:--</span> · <span id="liveClockDate"></span></span></div>
+                        <div class="sp-today-head"><span>Hari ini</span><span class="sp-today-clock"><span id="liveClockTime">--:--</span><span id="liveClockSec">:--</span> · <span id="liveClockDate"></span></span></div>
                         <div id="todayStatus" class="sp-hero-slots">
                             <div class="loading"><span class="spin"></span> Memuat...</div>
                         </div>
                     </div>
+                    <div class="sp-hero-foot" id="todayBadge"></div>
                     <div class="sp-hero-notch">
                         <button type="button" class="sp-hero-btn" id="heroAbsenBtn" onclick="openManualAttendance()">
                             <span>Absen Sekarang</span><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i>
@@ -6141,7 +6151,9 @@ header('Expires: 0');
                     const regular = wh > 0 ? Math.min(wh, 8) : 0;
                     if (regular > 0) extra += `<span>Jam kerja <b>${fmtH(regular)} jam</b></span>`;
                     if (ot > 0) extra += `<span style="color:#c2410c">Lembur <b>${fmtH(ot)} jam</b></span>`;
-                    const doneN = (IS_CAFE ? [a.check_in_time, a.check_out_time] : [a.check_in_time, a.check_out_time, a.scan_3, a.scan_4]).filter(Boolean).length;
+                    const scansToday = (IS_CAFE ? [a.check_in_time, a.check_out_time] : [a.check_in_time, a.check_out_time, a.scan_3, a.scan_4]).filter(Boolean);
+                    const doneN = scansToday.length;
+                    SP_SCAN = { done: doneN, last: doneN ? String(scansToday[doneN - 1]).substring(0, 5) : '' };
                     setHeroProgress(doneN);
                     document.getElementById('todayStatus').innerHTML =
                         `<div class="ab-slots" style="grid-template-columns:repeat(${IS_CAFE ? 2 : 4},1fr)">${slots}</div>` +
@@ -6149,6 +6161,7 @@ header('Expires: 0');
                 } else {
                     if (badgeEl) badgeEl.innerHTML = '<span class="ab-badge" style="background:#f1f5f9;color:#475569">Belum absen</span>';
                     setHeroProgress(0);
+                    SP_SCAN = { done: 0, last: '' };
                     document.getElementById('todayStatus').innerHTML = '<div class="ab-empty">Belum ada absen hari ini. Tekan <b>Absen Sekarang</b> saat sudah di area kantor.</div>';
                 }
             } catch (e) {
@@ -8393,7 +8406,7 @@ header('Expires: 0');
             }
             const icon = state === 'loading'
                 ? '<div class="spa-spin"><span class="spa-glow"></span><img src="' + SP_LOADER_LOGO + '" alt=""></div>'
-                : state === 'ok'
+                : (state === 'ok' || state === 'done')
                     ? '<div class="spa-ok"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg></div>'
                     : '<div class="spa-err">' + (state === 'lock' ? '🔒' : '!') + '</div>';
             ov.innerHTML = '<div class="spa-box is-' + state + '">' + icon +
@@ -8429,8 +8442,33 @@ header('Expires: 0');
             });
         }
 
+        // Scan hari ini (diisi loadAbsen): dipakai untuk info "sudah absen" tanpa menunggu GPS.
+        // Jeda minimal antar-scan sama dengan server: hotel 5 menit, kafe 15 menit (ubah di staff-api.php face_clock bila perlu 1 jam).
+        let SP_SCAN = { done: 0, last: '' };
+        const SP_SCAN_GAP_MIN = IS_CAFE ? 15 : 5;
+
+        function spAbsenAlready(last, nextAt) {
+            const t = 'Absen tercatat pukul <b>' + rmEsc(last) + '</b>.' + (nextAt ? '<br>Absen berikutnya bisa mulai pukul ' + rmEsc(nextAt) + '.' : '');
+            spAbsenUi('done', 'Kamu sudah absen', t, '<button type="button" class="spa-btn" onclick="spAbsenClose()">Oke</button>');
+        }
+
         async function openManualAttendance() {
             if (spAbsenBusy) return;
+            // Sudah lengkap / baru saja absen → info hijau seketika (tanpa GPS)
+            const total = IS_CAFE ? 2 : 4;
+            if (SP_SCAN.done >= total) {
+                spAbsenUi('done', 'Absen hari ini sudah lengkap', 'Semua ' + total + ' scan hari ini sudah tercatat. Terakhir pukul <b>' + rmEsc(SP_SCAN.last) + '</b>.', '<button type="button" class="spa-btn" onclick="spAbsenClose()">Oke</button>');
+                return;
+            }
+            if (SP_SCAN.last) {
+                const [h, m] = SP_SCAN.last.split(':').map(Number);
+                const lastAt = new Date(); lastAt.setHours(h, m, 0, 0);
+                const nextAt = new Date(lastAt.getTime() + SP_SCAN_GAP_MIN * 60000);
+                if (Date.now() < nextAt.getTime()) {
+                    spAbsenAlready(SP_SCAN.last, String(nextAt.getHours()).padStart(2, '0') + ':' + String(nextAt.getMinutes()).padStart(2, '0'));
+                    return;
+                }
+            }
             spAbsenBusy = true;
             const retry = '<button type="button" class="spa-btn" onclick="spAbsenClose();openManualAttendance()">Coba lagi</button><button type="button" class="spa-btn ghost" onclick="spAbsenClose()">Tutup</button>';
             try {
@@ -8477,6 +8515,11 @@ header('Expires: 0');
                 fd.append('accuracy', acc);
                 fd.append('address', address);
                 const data = await (await fetch(API, { method: 'POST', body: fd })).json();
+                if (!data.success && data.already) {
+                    spAbsenAlready(data.last_scan || '', data.next_at || '');
+                    loadAbsen();
+                    return;
+                }
                 if (!data.success) {
                     spAbsenUi('err', 'Absen belum tersimpan', rmEsc(data.message || 'Coba lagi.'), retry);
                     return;
