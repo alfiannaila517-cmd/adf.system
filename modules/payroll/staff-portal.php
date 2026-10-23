@@ -4025,6 +4025,12 @@ header('Expires: 0');
         .sp-refresh { width: 36px; height: 36px; border-radius: 11px; border: 0; display: grid; place-items: center; background: rgba(255, 255, 255, .18); color: #fff; cursor: pointer; padding: 0; }
         .sp-refresh svg { width: 17px; height: 17px; }
         .sp-refresh.spin svg { animation: spa-rot .6s linear infinite; }
+        /* Footer: Kembali · Absen · Beranda */
+        .bottom-nav.sp-nav { justify-content: space-between !important; align-items: flex-end !important; padding: 26px 22px calc(12px + env(safe-area-inset-bottom)) !important; background: linear-gradient(to top, var(--sp-bg) 62%, rgba(238, 243, 251, 0)) !important; }
+        .sp-navbtn { pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: none; padding: 0; color: #475569; font-size: 10.5px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .sp-navbtn span { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: #fff; color: var(--sp-blue); border: 1px solid #e3ebf8; box-shadow: 0 4px 12px rgba(20, 50, 110, .12); transition: transform .15s; }
+        .sp-navbtn span svg { width: 20px; height: 20px; }
+        .sp-navbtn:active span { transform: scale(.92); }
     </style>
 </head>
 
@@ -4751,9 +4757,11 @@ header('Expires: 0');
 
         </div>
 
-        <!-- Bawah: hanya tombol bulat Absen. Semua menu ada di Menu Utama; halaman lain punya tombol "‹ Beranda" -->
+        <!-- Bawah: Kembali · tombol bulat Absen · Beranda. Semua menu ada di Menu Utama -->
         <div class="bottom-nav sp-nav">
+            <button type="button" class="sp-navbtn" onclick="spBack()" aria-label="Kembali"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span>Kembali</button>
             <div class="sp-fab-wrap"><button type="button" class="sp-fab" onclick="openManualAttendance()" aria-label="Absen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button><span class="nav-label">Absen</span></div>
+            <button type="button" class="sp-navbtn" onclick="goPage('home')" aria-label="Beranda"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg></span>Beranda</button>
         </div>
     </div>
 
@@ -6018,15 +6026,21 @@ header('Expires: 0');
             item.addEventListener('click', () => goPage(item.dataset.page));
         });
 
-        // Tombol "‹ Beranda" di setiap halaman selain Beranda (footer hanya berisi tombol Absen)
-        document.querySelectorAll('.page:not(#page-home)').forEach(p => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'sp-back';
-            b.innerHTML = '<span>‹</span> Beranda';
-            b.onclick = () => goPage('home');
-            p.insertBefore(b, p.firstChild);
-        });
+        // Footer: Kembali → tutup sub-bagian (lembur, cuti, ...) atau kembali ke Beranda; Beranda → halaman utama
+        function spBack() {
+            const open = ['lemburSection', 'cutiSection', 'teamSchedSection', 'monitorSection', 'uniformSection']
+                .find(id => { const el = document.getElementById(id); return el && el.style.display === 'block'; });
+            if (open) {
+                closeStaffSection(open);
+                return;
+            }
+            const home = document.getElementById('page-home');
+            if (home && !home.classList.contains('active')) {
+                goPage('home');
+                return;
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
 
         // Jadwal di navigasi bawah: kafe → halaman Jadwal & Ketepatan Waktu, lainnya → Jadwal Kerja tim
         function openJadwal() {
