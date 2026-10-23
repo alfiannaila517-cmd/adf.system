@@ -61,10 +61,10 @@ foreach ($rows as $r) {
 }
 $clients = $db->query('SELECT id, name FROM clients WHERE is_demo = 0 ORDER BY name')->fetchAll();
 
-View::start('Invoice', 'billing', $me);
+View::start('Invoice', 'invoices', $me);
 ?>
 <div class="pagehead">
-    <div><h1>Tagihan</h1><p>Langganan per bisnis dan invoice yang dikirim ke pelanggan.</p></div>
+    <div><h1>Invoice</h1><p>Invoice manual, mis. registrasi pelanggan baru, biaya setup, tambah modul, atau custom development. Pelanggan menerima link invoice yang bisa dicetak / disimpan PDF.</p></div>
     <?php if ($isAdmin): ?>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
             <a class="btn ghost" href="/invoice-settings.php">Pengaturan invoice</a>
@@ -72,7 +72,6 @@ View::start('Invoice', 'billing', $me);
         </div>
     <?php endif; ?>
 </div>
-<nav class="tabs" style="margin-top:0"><a href="/billing.php">Langganan</a><a class="on" href="/invoices.php">Invoice</a></nav>
 
 <div class="row2" style="margin-bottom:14px">
     <div class="card" style="margin:0"><h2>Belum dibayar</h2><div class="stat" style="color:<?= $sum['unpaid'] > 0 ? 'var(--warn)' : 'var(--ink)' ?>"><?= Invoice::rp($sum['unpaid']) ?></div><p class="muted" style="margin:4px 0 0;font-size:12px"><?= $sum['overdue'] > 0 ? Invoice::rp($sum['overdue']) . ' sudah lewat jatuh tempo' : 'tidak ada yang lewat jatuh tempo' ?></p></div>

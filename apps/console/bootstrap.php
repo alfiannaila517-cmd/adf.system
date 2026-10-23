@@ -23,9 +23,13 @@ require_once __DIR__ . '/src/Invoice.php';
 require_once __DIR__ . '/src/Website.php';
 require_once __DIR__ . '/src/SubSync.php';
 require_once __DIR__ . '/src/Google.php';
+require_once __DIR__ . '/src/SecureSettings.php';
 require_once ADF_CORE . '/ServerHealth.php';
 
 const CONSOLE_DB = 'adf_console';
+
+// Telegram & Login Google yang diatur dari halaman Console menimpa secrets/*.env
+SecureSettings::apply();
 
 if (PHP_SAPI !== 'cli') {
     header('X-Frame-Options: DENY');

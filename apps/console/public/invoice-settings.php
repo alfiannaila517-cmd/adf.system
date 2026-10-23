@@ -38,7 +38,7 @@ $banks = $s['banks'];
 while (count($banks) < 3) {
     $banks[] = ['bank' => '', 'number' => '', 'holder' => ''];
 }
-View::start('Pengaturan invoice', 'billing', $me);
+View::start('Pengaturan invoice', 'invoices', $me);
 ?>
 <div class="crumb"><a href="/invoices.php">Invoice</a> ›</div>
 <div class="pagehead"><div><h1>Pengaturan invoice</h1><p>Muncul di kop, bagian pembayaran, dan kaki setiap invoice.</p></div></div>

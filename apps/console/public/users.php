@@ -75,10 +75,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $users = $db->query('SELECT id, username, email, role, created_at FROM console_users ORDER BY role, username')->fetchAll();
 
-View::start('Tim ADF', 'users', $me);
+View::start('Pengguna', 'users', $me);
 echo '<div class="crumb"><a href="/settings.php">Pengaturan</a> ›</div>';
 ?>
-<h1>Tim ADF</h1>
+<h1>Pengguna</h1>
 <p class="muted" style="margin:0 0 12px">Akun yang bisa masuk ke Console. Setiap perubahan meminta password Anda sebagai konfirmasi.</p>
 
 <div class="card">

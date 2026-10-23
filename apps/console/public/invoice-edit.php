@@ -82,7 +82,7 @@ if (!empty($f['bill_business_id']) && !in_array((int)$f['bill_business_id'], arr
 $money = static fn ($v) => $v === '' || $v === null ? '' : number_format((float)$v, 0, ',', '.');
 $qtyFmt = static fn ($v) => rtrim(rtrim(number_format((float)$v, 2, '.', ''), '0'), '.');
 
-View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'billing', $me);
+View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'invoices', $me);
 ?>
 <style>
     /* Form invoice ringkas: muat satu layar */

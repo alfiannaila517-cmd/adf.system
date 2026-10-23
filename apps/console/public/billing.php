@@ -92,7 +92,7 @@ foreach ($rows as $r) {
 }
 
 $showDemo = !empty($_GET['demo']);
-View::start('Tagihan', 'billing', $me);
+View::start('Klien Langganan', 'billing', $me);
 ?>
 <style>
     /* Tagihan ringkas: satu tabel, grup = baris judul tipis, isian muncul saat diklik */
@@ -113,10 +113,9 @@ View::start('Tagihan', 'billing', $me);
 </style>
 
 <div class="pagehead" style="margin-bottom:10px">
-    <div><h1>Tagihan</h1><p>Biaya langganan tiap bisnis per bulan, dikelompokkan per grup.</p></div>
+    <div><h1>Klien Langganan</h1><p>Tarif & tagihan bulanan tiap sistem bisnis, dikelompokkan per grup. Klik bisnis untuk tarif, riwayat tagihan, tagihan manual & koneksi sistem.</p></div>
     <?php if ($isAdmin): ?><a class="btn" href="/invoice-edit.php">+ Invoice baru</a><?php endif; ?>
 </div>
-<nav class="tabs" style="margin-top:0"><a class="on" href="/billing.php">Langganan</a><a href="/invoices.php">Invoice</a></nav>
 
 <div class="kpis">
     <div><small>Pendapatan / bulan</small><b><?= Biz::rp($sum['monthly']) ?></b></div>

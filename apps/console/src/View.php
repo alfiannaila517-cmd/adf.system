@@ -7,21 +7,49 @@ declare(strict_types=1);
  */
 final class View
 {
-    /** Menu utama: [kunci, label, ikon SVG, url] — hanya yang sudah jadi; sisanya di Pengaturan */
-    private const MENU = [
-        ['dashboard', 'Beranda', 'home', '/'],
-        ['clients', 'Bisnis', 'grid', '/clients.php'],
-        ['people', 'User', 'user', '/people.php'],
-        ['billing', 'Tagihan', 'card', '/billing.php'],
-        ['finance', 'Keuangan', 'wallet', '/finance.php'],
-        ['site', 'Website', 'globe', '/site.php'],
+    /**
+     * Menu samping — susunan sama dengan admin adfsystem.store lama; "Developer" = pengelolaan sistem bisnis
+     * (pengganti Developer Panel lama). String = judul kelompok; array = [kunci, label, ikon, url, khusus admin].
+     */
+    private const NAV = [
+        ['dashboard', 'Dashboard', 'home', '/', false],
+        'Bisnis',
+        ['orders', 'Transaksi', 'receipt', '/site.php?tab=pesanan', true],
+        ['customers', 'Pelanggan', 'team', '/site.php?tab=pelanggan', true],
+        ['invoices', 'Invoice', 'file', '/invoices.php', true],
+        ['billing', 'Klien Langganan', 'link', '/billing.php', false],
+        ['finance', 'Keuangan', 'wallet', '/finance.php', true],
+        'Website',
+        ['site', 'Konten Website', 'globe', '/site.php?tab=beranda', true],
+        'Pengaturan',
+        ['payment', 'Payment Gateway', 'card', '/site.php?tab=bayar', true],
+        ['users', 'Pengguna', 'user', '/users.php', true],
+        ['google', 'Login Google', 'key', '/google-settings.php', true],
+        ['telegram', 'Notifikasi Telegram', 'send', '/telegram-settings.php', true],
+        'Developer',
+        ['clients', 'Bisnis & Sistem', 'grid', '/clients.php', false],
+        ['people', 'User & Akses', 'team', '/people.php', false],
+        ['server', 'Server', 'server', '/server.php', false],
+        ['audit', 'Audit log', 'list', '/audit.php', true],
+    ];
+
+    /** Menu bawah di HP: [kunci, label, ikon, url] + "Lainnya" (semua menu) */
+    private const BNAV = [
+        ['dashboard', 'Dashboard', 'home', '/'],
+        ['orders', 'Transaksi', 'receipt', '/site.php?tab=pesanan'],
+        ['invoices', 'Invoice', 'file', '/invoices.php'],
+        ['billing', 'Langganan', 'link', '/billing.php'],
     ];
 
     /** Menu aktif halaman ini (dipakai juga oleh menu bawah di HP) */
     private static string $active = '';
 
-    /** Halaman yang termasuk menu Pengaturan (di bawah sidebar) */
-    private const SETTINGS_KEYS = ['settings', 'server', 'users', 'audit', 'account'];
+    /** Menu untuk daftar "Lainnya" (HP) — kelompok + item yang boleh dilihat peran ini */
+    public static function navFor(array $user): array
+    {
+        $isAdmin = ($user['role'] ?? '') === 'admin';
+        return array_values(array_filter(self::NAV, fn ($n) => is_string($n) || $isAdmin || !$n[4]));
+    }
 
     /** Ikon garis sederhana (inline SVG, ikut warna teks) */
     public static function icon(string $name): string
@@ -45,6 +73,10 @@ final class View
             'globe' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
             'book' => '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v16H6.5A1.5 1.5 0 0 0 5 20.5z"/><path d="M5 20.5A1.5 1.5 0 0 0 6.5 22H19v-3"/><circle cx="12" cy="9" r="2.2"/><path d="M8.5 15c.4-1.8 1.8-2.8 3.5-2.8s3.1 1 3.5 2.8"/>',
             'wallet' => '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H18v4"/><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M16 13.5h2"/>',
+            'receipt' => '<path d="M5 3v18l2.5-1.5L10 21l2-1.5 2 1.5 2.5-1.5L19 21V3l-2.5 1.5L14 3l-2 1.5L10 3 7.5 4.5z"/><path d="M8.5 9h7M8.5 13h7"/>',
+            'file' => '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+            'link' => '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
+            'send' => '<path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>',
             'chev' => '<path d="m9 6 6 6-6 6"/>',
         ][$name] ?? '';
         return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
@@ -322,11 +354,16 @@ final class View
         self::head($title);
         echo '<body><div class="shell" id="shell">';
         echo '<aside class="side"><a class="brand" href="/"><img class="mark" src="/logo.png" alt=""><div><b>ADF<em>system</em></b><span>Console · ' . e(Secrets::get('SERVER_NAME', 'ADF Platform')) . '</span></div></a><nav class="nav">';
-        foreach (self::MENU as [$key, $label, $icon, $url]) {
+        foreach (self::navFor($user) as $n) {
+            if (is_string($n)) {
+                echo '<div class="nav-label">' . e($n) . '</div>';
+                continue;
+            }
+            [$key, $label, $icon, $url] = $n;
             echo '<a class="' . ($key === $active ? 'on' : '') . '" href="' . e($url) . '">' . self::icon($icon) . e($label) . '</a>';
         }
         echo '</nav><div class="side-foot"><nav class="nav">'
-            . '<a class="' . (in_array($active, self::SETTINGS_KEYS, true) ? 'on' : '') . '" href="/settings.php">' . self::icon('gear') . 'Pengaturan</a></nav>'
+            . '<a class="' . ($active === 'account' ? 'on' : '') . '" href="/account.php">' . self::icon('key') . 'Ubah password</a></nav>'
             . '<div class="me"><span class="av">' . e(mb_strtoupper(mb_substr((string)$user['username'], 0, 1))) . '</span>'
             . '<span class="who"><b>' . e($user['username']) . '</b><br><small>' . e($user['role'] === 'admin' ? 'Admin' : 'Staf ADF') . '</small></span>'
             . '<a href="/logout.php" title="Keluar" aria-label="Keluar">' . self::icon('out') . '</a></div></div></aside>';
@@ -341,12 +378,13 @@ final class View
 
     public static function end(): void
     {
-        // Menu bawah (HP): menu utama + Lainnya (= Pengaturan)
-        echo '</main></div></div><nav class="bnav" style="grid-template-columns:repeat(' . (count(self::MENU) + 1) . ',1fr)">';
-        foreach (self::MENU as [$key, $label, $icon, $url]) {
+        // Menu bawah (HP): 4 menu yang paling sering + Lainnya (semua menu di settings.php)
+        echo '</main></div></div><nav class="bnav" style="grid-template-columns:repeat(' . (count(self::BNAV) + 1) . ',1fr)">';
+        $inBnav = array_column(self::BNAV, 0);
+        foreach (self::BNAV as [$key, $label, $icon, $url]) {
             echo '<a class="' . ($key === self::$active ? 'on' : '') . '" href="' . e($url) . '">' . self::icon($icon) . e($label) . '</a>';
         }
-        echo '<a class="' . (in_array(self::$active, self::SETTINGS_KEYS, true) ? 'on' : '') . '" href="/settings.php">' . self::icon('gear') . 'Lainnya</a></nav>';
+        echo '<a class="' . (!in_array(self::$active, $inBnav, true) ? 'on' : '') . '" href="/settings.php">' . self::icon('gear') . 'Lainnya</a></nav>';
         echo <<<'JS'
 <script>
 // Aplikasi (PWA): daftarkan service worker + tombol "Pasang aplikasi"

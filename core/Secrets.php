@@ -29,6 +29,13 @@ final class Secrets
         return $value;
     }
 
+    /** Nilai dari tempat lain (mis. pengaturan Console terenkripsi di DB) menimpa file untuk proses ini saja. */
+    public static function override(string $key, string $value): void
+    {
+        self::load();
+        self::$values[$key] = $value;
+    }
+
     /** Nama kunci yang tersedia (tanpa nilainya) — aman untuk ditampilkan di halaman diagnosa. */
     public static function keys(): array
     {

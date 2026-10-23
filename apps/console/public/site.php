@@ -210,17 +210,25 @@ $fieldHtml = function (string $f, array $def, $val) use ($img): string {
     };
 };
 
-View::start('Website', 'site', $me);
+// Satu file, beberapa menu: Transaksi · Pelanggan · Konten Website (tab) · Payment Gateway
+$SECTION = [
+    'pesanan' => ['orders', 'Transaksi', 'Semua pembayaran yang masuk lewat Pakasir: checkout website, tagihan klien langganan, dan pembayaran lain. Status lunas = uang sudah diterima.'],
+    'pelanggan' => ['customers', 'Pelanggan', 'Daftar pelanggan yang pernah memesan / berlangganan, dirangkum dari Transaksi.'],
+    'bayar' => ['payment', 'Payment Gateway', 'Koneksi Pakasir untuk pembayaran di website jualan.'],
+][$tab] ?? ['site', 'Konten Website', 'Isi halaman website jualan — perubahan langsung tampil.'];
+View::start($SECTION[1], $SECTION[0], $me);
 ?>
 <div class="pagehead">
-    <div><h1>Website jualan</h1><p>Isi halaman <a href="<?= e(StoreSite::url()) ?>" target="_blank" rel="noopener"><?= e(preg_replace('#^https?://#', '', StoreSite::url())) ?></a> — perubahan langsung tampil.</p></div>
+    <div><h1><?= e($SECTION[1]) ?></h1><p><?= e($SECTION[2]) ?></p></div>
     <a class="btn ghost sm" href="<?= e(StoreSite::url()) ?>" target="_blank" rel="noopener">Lihat website</a>
 </div>
-<nav class="tabs">
-    <?php foreach ($TABS as $k => $label): ?>
-        <a class="<?= $tab === $k ? 'on' : '' ?>" href="/site.php?tab=<?= e($k) ?>"><?= e($label) ?></a>
-    <?php endforeach; ?>
-</nav>
+<?php if ($SECTION[0] === 'site'): ?>
+    <nav class="tabs">
+        <?php foreach ($TABS as $k => $label): if (in_array($k, ['pesanan', 'pelanggan', 'bayar'], true)) continue; ?>
+            <a class="<?= $tab === $k ? 'on' : '' ?>" href="/site.php?tab=<?= e($k) ?>"><?= e($label) ?></a>
+        <?php endforeach; ?>
+    </nav>
+<?php endif; ?>
 
 <?php if ($problem): ?>
     <div class="soonbox" style="border-color:var(--bad)"><?= e($problem) ?></div>
@@ -260,7 +268,14 @@ View::start('Website', 'site', $me);
     </div>
 
 <?php elseif ($tab === 'pesanan'):
+    // Transaksi = orders.json website + pembayaran yang tercatat di Console (klien yang sudah sinkron ke Console), tanpa dobel
     $all = StoreSite::orders();
+    $seen = array_flip(array_map(fn ($o) => (string)($o['order_id'] ?? ''), $all));
+    foreach (Auth::db()->query('SELECT order_id, txn_id, product_title, amount, name, email, whatsapp, status, source, created_at, completed_at FROM orders') as $co) {
+        if (!isset($seen[$co['order_id']])) {
+            $all[] = $co + ['_console' => true];
+        }
+    }
     $TYPES = ['all' => 'Semua', 'website' => 'Website', 'bulanan' => 'Tagihan bulanan', 'manual' => 'Tagihan manual'];
     $type = isset($TYPES[$_GET['type'] ?? '']) ? (string)$_GET['type'] : 'all';
     $cnt = array_fill_keys(array_keys($TYPES), 0);
@@ -304,8 +319,9 @@ View::start('Website', 'site', $me);
                         <td style="white-space:nowrap">
                             <form method="post" style="display:inline-flex;gap:4px">
                                 <?= csrf_field() ?><input type="hidden" name="order_id" value="<?= e((string)($o['order_id'] ?? '')) ?>"><input type="hidden" name="txn_id" value="<?= e((string)($o['txn_id'] ?? '')) ?>">
+                                <?php if (!empty($o['_console'])): ?><small class="muted">Console</small><?php else: ?>
                                 <?php if (!empty($o['txn_id'])): ?><button class="btn ghost sm" name="action" value="order_refresh">Cek status</button><?php endif; ?>
-                                <?php if ($st !== 'completed'): ?><button class="btn ghost sm" name="action" value="order_delete" onclick="return confirm('Hapus pesanan ini?')">Hapus</button><?php endif; ?>
+                                <?php if ($st !== 'completed'): ?><button class="btn ghost sm" name="action" value="order_delete" onclick="return confirm('Hapus pesanan ini?')">Hapus</button><?php endif; ?><?php endif; ?>
                             </form>
                         </td>
                     </tr>
