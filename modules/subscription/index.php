@@ -69,6 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Halaman ini dibuka untuk melihat tagihan terbaru → sinkron dulu ke ADF (tanpa menunggu jeda 1 menit)
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && adfsub_is_connected(adfsub_config($pdo))) {
+    adfsub_sync($pdo, true);
+}
 $state = adfsub_tick();
 $cfg = adfsub_config($pdo);
 $invoices = adfsub_all_invoices($pdo);

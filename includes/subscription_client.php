@@ -311,9 +311,21 @@ function adfsub_sync_manual_invoices(PDO $pdo): void
             continue;
         }
         $remoteIds[] = 'MANUAL-' . $id;
-        $exists = $pdo->prepare("SELECT id FROM adf_subscription_invoices WHERE period = ?");
+        $exists = $pdo->prepare("SELECT * FROM adf_subscription_invoices WHERE period = ?");
         $exists->execute(['MANUAL-' . $id]);
-        if ($exists->fetchColumn()) {
+        if ($row = $exists->fetch(PDO::FETCH_ASSOC)) {
+            // Diubah admin ADF (jumlah / keterangan / jatuh tempo) selama belum dibayar → ikuti; link bayar lama
+            // (jumlah lama) dibuang supaya pembayaran berikutnya memakai jumlah baru
+            $desc = (string) ($mi['description'] ?? 'Tagihan Manual');
+            $amount = (float) ($mi['amount'] ?? 0);
+            $due = ($mi['due_date'] ?? null) ?: null;
+            if ($row['status'] === 'unpaid' && ((float) $row['total_amount'] !== $amount || $row['description'] !== $desc || $row['due_date'] !== $due)) {
+                $pdo->prepare("UPDATE adf_subscription_invoices SET description = ?, total_amount = ?, due_date = ?, payment_link = NULL, pay_code = NULL WHERE id = ? AND status = 'unpaid'")
+                    ->execute([$desc, $amount, $due, $row['id']]);
+                if ((float) $row['total_amount'] !== $amount) {
+                    adfsub_push($pdo, '🧾 Tagihan diperbarui', $desc . ' sekarang Rp ' . number_format($amount, 0, ',', '.'));
+                }
+            }
             continue;
         }
         $pdo->prepare("INSERT INTO adf_subscription_invoices (period, type, description, total_amount, status, due_date) VALUES (?, 'manual', ?, ?, 'unpaid', ?)")
