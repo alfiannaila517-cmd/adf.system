@@ -900,14 +900,40 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
     }
     $shownStaff = ($_SESSION['shown_staff_pw']['biz'] ?? 0) === $id ? $_SESSION['shown_staff_pw'] : null;
     unset($_SESSION['shown_staff_pw']); ?>
-    <p class="muted" style="margin:0 0 12px;font-size:12px">Akun <b>karyawan</b> untuk Staff Portal (absen GPS/wajah, slip gaji, cuti, lembur, chat, tugas kamar). Terpisah dari user sistem — satu akun per karyawan di menu Payroll.</p>
+    <style>
+        /* Staff Portal: link ringkas + daftar karyawan */
+        .plink { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .plink .host { flex: 1; min-width: 0; }
+        .plink .host b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .plink .host small { color: var(--mu); font-size: 11.5px; }
+        .pstats { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+        .emp { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line2); }
+        .emp:first-child { border-top: 0; padding-top: 2px; }
+        .emp .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #1a1f2b; color: var(--ink2); font-weight: 700; font-size: 13px; }
+        .emp .nm { font-weight: 600; font-size: 13px; }
+        .emp .meta { color: var(--mu); font-size: 11.5px; display: flex; gap: 4px 10px; flex-wrap: wrap; align-items: center; margin-top: 2px; }
+        .emp .meta code { font-size: 11.5px; }
+        .emp .acts { display: flex; gap: 4px; }
+        .ibtn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line3); background: transparent; color: var(--ink2); cursor: pointer; font-size: 13px; padding: 0; }
+        .ibtn:hover { color: #fff; border-color: var(--gold2); }
+        .ibtn.bad:hover { color: var(--bad); border-color: rgba(248, 113, 113, .5); }
+        .pwv { font-family: ui-monospace, Consolas, monospace; color: var(--gold); }
+        .newacc { display: flex; gap: 6px; }
+        .newacc input { width: 130px; }
+        @media (max-width: 860px) { .emp:has(.newacc) { grid-template-columns: 34px minmax(0, 1fr); } .emp .newacc { grid-column: 2; } .plink .host { flex: 1 1 calc(100% - 50px); } }
+    </style>
+    <p class="muted" style="margin:0 0 12px;font-size:12px">Akun <b>karyawan</b> untuk absen GPS/wajah, slip gaji, cuti, lembur & chat di HP. Terpisah dari user sistem.</p>
     <?php if (!$sdb): ?>
         <div class="soonbox"><?= $err ? e($err) : 'Bisnis ini belum terhubung ke sistem yang berjalan (database bisnis belum diatur).' ?></div>
-    <?php else: $url = StaffPortal::url($biz); $emps = StaffPortal::employees($sdb); ?>
-        <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <span class="muted" style="font-size:12px">Link portal untuk staf:</span>
-            <code id="portal-url" style="font-size:12px"><?= e($url) ?></code>
-            <button class="btn ghost sm" type="button" onclick="navigator.clipboard.writeText(document.getElementById('portal-url').textContent);this.textContent='Tersalin ✓'">Salin</button>
+    <?php else: $url = StaffPortal::url($biz); $emps = StaffPortal::employees($sdb);
+        $withAcc = count(array_filter($emps, fn ($x) => $x['account_id']));
+        $waShare = 'https://wa.me/?text=' . rawurlencode("Staff Portal {$biz['name']}: {$url}"); ?>
+        <div class="card plink">
+            <span class="hi" style="width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--goldbg);color:var(--brand)"><?= View::icon('phone') ?></span>
+            <span class="host"><b><?= e((string)parse_url($url, PHP_URL_HOST)) ?></b><small>Link Staff Portal <?= e($biz['name']) ?></small></span>
+            <input type="hidden" id="portal-url" value="<?= e($url) ?>">
+            <button class="btn ghost sm" type="button" onclick="navigator.clipboard.writeText(document.getElementById('portal-url').value);this.textContent='Tersalin ✓'">Salin link</button>
+            <a class="btn ghost sm" target="_blank" rel="noopener" href="<?= e($waShare) ?>">WhatsApp</a>
             <a class="btn ghost sm" target="_blank" rel="noopener" href="<?= e($url) ?>">Buka</a>
         </div>
         <?php if ($shownStaff && isset($emps[$shownStaff['emp']])): $se = $emps[$shownStaff['emp']]; ?>
@@ -925,37 +951,49 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
             </div>
         <?php endif; ?>
         <div class="card">
-            <h2>Karyawan aktif (<?= count($emps) ?>)</h2>
+            <h2>Karyawan aktif</h2>
             <?php if (!$emps): ?>
-                <p class="muted" style="margin:0;font-size:12px">Belum ada karyawan. Tambahkan karyawan di menu <b>Payroll</b> sistem <?= e($biz['name']) ?> (nyalakan Payroll di Modul & Fitur bila belum tampil), lalu buat akun portalnya di sini.</p>
+                <p class="muted" style="margin:0;font-size:12px">Belum ada karyawan. Tambahkan karyawan di menu <b>Payroll</b> sistem <?= e($biz['name']) ?> (nyalakan Payroll di Menu & Fitur bila belum tampil), lalu buat akun portalnya di sini.</p>
             <?php else: ?>
-                <table class="sm stack">
-                    <thead><tr><th>Karyawan</th><th>Akun portal</th><th></th></tr></thead>
-                    <tbody>
-                        <?php foreach ($emps as $eid => $em): ?>
-                            <tr>
-                                <td><b><?= e($em['full_name']) ?></b><br><span class="muted" style="font-size:11px"><?= e($em['employee_code']) ?><?= $em['position'] ? ' · ' . e($em['position']) : '' ?></span></td>
-                                <td><?php if ($em['account_id']): ?><code><?= e($em['username']) ?></code><br><span class="muted" style="font-size:11px"><?= $em['last_login'] ? 'login terakhir ' . e(date('d M Y H:i', strtotime((string)$em['last_login']))) : 'belum pernah login' ?></span>
+                <div class="pstats">
+                    <span class="pill"><?= count($emps) ?> karyawan</span>
+                    <span class="pill ok"><?= $withAcc ?> punya akun</span>
+                    <?php if (count($emps) - $withAcc): ?><span class="pill warn"><?= count($emps) - $withAcc ?> belum punya akun</span><?php endif; ?>
+                </div>
+                <?php foreach ($emps as $eid => $em):
+                    $ini = mb_strtoupper(mb_substr(trim((string)$em['full_name']), 0, 1)); ?>
+                    <div class="emp">
+                        <span class="av"><?= e($ini) ?></span>
+                        <div style="min-width:0">
+                            <div class="nm"><?= e($em['full_name']) ?> <span class="muted" style="font-weight:400;font-size:11.5px">· <?= e($em['position'] ?: $em['employee_code']) ?></span></div>
+                            <div class="meta">
+                                <?php if ($em['account_id']): ?>
+                                    <span>👤 <code><?= e($em['username']) ?></code></span>
                                     <?php if ($isAdmin && !empty($em['old_password'])): // password lama dari panel developer lama (password baru dari Console tidak disimpan teks aslinya) ?>
-                                        <details style="margin-top:2px"><summary class="muted" style="font-size:11px;cursor:pointer">lihat password</summary><code style="user-select:all"><?= e($em['old_password']) ?></code></details>
+                                        <span>🔒 <span class="pwv" data-pw="<?= e($em['old_password']) ?>">••••••</span>
+                                            <a href="#" onclick="var s=this.previousElementSibling,h=s.textContent.indexOf('•')===0;s.textContent=h?s.dataset.pw:'••••••';this.textContent=h?'sembunyi':'lihat';return false">lihat</a></span>
                                     <?php endif; ?>
-                                <?php else: ?><span class="pill">belum punya akun</span><?php endif; ?></td>
-                                <td style="text-align:right">
-                                    <?php if (!$isAdmin): ?>
-                                    <?php elseif ($em['account_id']): ?>
-                                        <form method="post" style="display:inline" onsubmit="return confirm('Buat password portal baru untuk <?= e($em['full_name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="staff_reset"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>"><input type="hidden" name="mode" value="auto"><button class="btn ghost sm">🔑 Password baru</button></form>
-                                        <form method="post" style="display:inline" onsubmit="return confirm('Hapus akun portal <?= e($em['full_name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="staff_delete"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>"><button class="btn danger sm">Hapus</button></form>
-                                    <?php else: ?>
-                                        <form method="post" style="display:inline-flex;gap:6px" novalidate><?= csrf_field() ?><input type="hidden" name="action" value="staff_create"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>">
-                                            <input name="username" class="sm" placeholder="username" value="<?= e(strtolower(preg_replace('/[^a-z0-9]+/i', '.', trim((string)$em['full_name'])))) ?>" style="width:140px">
-                                            <button class="btn sm">Buat akun</button></form>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-                <p class="muted" style="margin:10px 0 0;font-size:11px">Password dibuat acak dan ditampilkan sekali. Password lama tidak bisa dilihat — buat yang baru bila karyawan lupa.</p>
+                                    <span><?= $em['last_login'] ? 'login ' . e(date('d M H:i', strtotime((string)$em['last_login']))) : 'belum pernah login' ?></span>
+                                <?php else: ?>
+                                    <span class="pill warn">belum punya akun</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php if (!$isAdmin): ?>
+                            <span></span>
+                        <?php elseif ($em['account_id']): ?>
+                            <div class="acts">
+                                <form method="post" onsubmit="return confirm('Buat password portal baru untuk <?= e($em['full_name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="staff_reset"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>"><input type="hidden" name="mode" value="auto"><button class="ibtn" title="Password baru">🔑</button></form>
+                                <form method="post" onsubmit="return confirm('Hapus akun portal <?= e($em['full_name']) ?>?')"><?= csrf_field() ?><input type="hidden" name="action" value="staff_delete"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>"><button class="ibtn bad" title="Hapus akun">✕</button></form>
+                            </div>
+                        <?php else: ?>
+                            <form method="post" class="newacc" novalidate><?= csrf_field() ?><input type="hidden" name="action" value="staff_create"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="employee_id" value="<?= $eid ?>">
+                                <input name="username" class="sm" placeholder="username" value="<?= e(strtolower(preg_replace('/[^a-z0-9]+/i', '.', trim((string)$em['full_name'])))) ?>">
+                                <button class="btn sm">Buat akun</button></form>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+                <p class="muted" style="margin:10px 0 0;font-size:11px">🔑 = password baru (acak, tampil sekali + bisa dikirim WA) · ✕ = hapus akun portal. Password dari panel lama bisa dilihat; password baru tidak disimpan teks aslinya.</p>
             <?php endif; ?>
         </div>
     <?php endif; ?>

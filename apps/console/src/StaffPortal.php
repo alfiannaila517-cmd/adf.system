@@ -18,12 +18,23 @@ final class StaffPortal
         return Db::legacyBusiness((string)$biz['db_name']);
     }
 
-    /** Alamat portal untuk dibagikan ke staf. */
+    /**
+     * Alamat portal untuk dibagikan ke staf: domain login grup (Login & Domain, mis. nasita.biz.id) bila ada,
+     * selain itu LEGACY_BASE_URL (secrets/legacy.env).
+     */
     public static function url(array $biz): string
     {
         $st = Legacy::db()->prepare('SELECT slug FROM businesses WHERE id = ?');
         $st->execute([(int)$biz['legacy_business_id']]);
-        $base = rtrim((string)Secrets::get('LEGACY_BASE_URL', 'https://staging.adfsystem.online'), '/');
+        $base = rtrim((string)Secrets::get('LEGACY_BASE_URL', 'https://adfsystem.online'), '/');
+        try {
+            $domain = (string)(Branding::forClient((int)$biz['client_id'])['domain'] ?? '');
+            if ($domain !== '') {
+                $base = 'https://' . $domain;
+            }
+        } catch (Throwable) {
+            // tanpa domain grup: pakai LEGACY_BASE_URL
+        }
         return $base . '/modules/payroll/staff-portal.php?b=' . rawurlencode((string)$st->fetchColumn());
     }
 
