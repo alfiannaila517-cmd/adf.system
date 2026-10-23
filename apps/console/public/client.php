@@ -123,9 +123,25 @@ $businesses = Biz::businessesOf($id);
 
 View::start($client['name'], 'clients', $me);
 ?>
+<?php
+$gLogo = null;
+try {
+    if (Branding::available()) {
+        $gbr = Branding::forClient($id);
+        $gLogo = Branding::publicUrl($gbr, 'favicon') ?? Branding::publicUrl($gbr, 'logo');
+    }
+} catch (Throwable) {
+    // tanpa logo: pakai inisial
+}
+?>
 <div class="crumb"><a href="/clients.php">Bisnis</a> ›</div>
-<h1><?= e($client['name']) ?> <?php if ($client['is_demo']): ?><span class="pill gold">DEMO</span><?php endif; ?></h1>
-<p class="muted" style="margin:0"><?= e(implode(' · ', array_filter([$client['contact_name'], $client['email'], $client['phone']])) ?: 'Kontak belum diisi') ?></p>
+<div class="bizhead">
+    <?= View::groupAvatar((string)$client['name'], $gLogo, 'sm') ?>
+    <div style="min-width:0">
+        <h1 style="margin:0"><?= e($client['name']) ?> <?php if ($client['is_demo']): ?><span class="pill gold">DEMO</span><?php endif; ?></h1>
+        <p class="muted" style="margin:0;font-size:12px"><?= e(implode(' · ', array_filter([$client['contact_name'], $client['email'], $client['phone']])) ?: 'Kontak belum diisi') ?></p>
+    </div>
+</div>
 
 <nav class="tabs">
     <?php foreach (['bisnis' => 'Bisnis (' . count($businesses) . ')', 'orang' => 'Akses', 'login' => 'Login & Domain', 'ringkasan' => 'Data grup'] as $k => $label): ?>
@@ -134,36 +150,18 @@ View::start($client['name'], 'clients', $me);
 </nav>
 
 <?php if ($tab === 'bisnis'): ?>
-    <div class="grid">
-        <?php foreach ($businesses as $b): [$tLabel, $tIcon] = Biz::type((string)$b['type']); ?>
-            <a class="tile" href="/business.php?id=<?= (int)$b['id'] ?>">
-                <div class="ic"><?= $tIcon ?></div>
-                <b><?= e($b['name']) ?></b>
-                <small><?= e($tLabel) ?><?= $b['domain'] ? ' · ' . e($b['domain']) : '' ?></small>
-                <div class="meta">
-                    <?php if ($b['status'] !== 'active'): ?>
-                        <span class="pill"><?= e(Biz::STATUS[$b['status']] ?? $b['status']) ?></span>
-                    <?php elseif ($b['locked']): ?>
-                        <span class="pill bad">🔒 terkunci</span>
-                    <?php else: ?>
-                        <span class="pill ok">● aktif</span>
-                    <?php endif; ?>
-                    <?php if (!$b['sub_id']): ?>
-                        <span class="pill">belum ada langganan</span>
-                    <?php elseif ((int)$b['unpaid_count'] > 0): ?>
-                        <span class="pill warn"><?= (int)$b['unpaid_count'] ?> belum lunas · jatuh tempo <?= e(date('d M', strtotime((string)$b['next_due']))) ?></span>
-                    <?php else: ?>
-                        <span class="pill ok">lunas</span>
-                    <?php endif; ?>
-                </div>
-            </a>
-        <?php endforeach; ?>
-        <?php if (!$businesses): ?><div class="soonbox">Belum ada bisnis di grup ini.</div><?php endif; ?>
-    </div>
+    <?php if ($businesses): ?>
+        <div class="blist"><?php foreach ($businesses as $b) {
+            echo View::bizRow($b, !$b['sub_id'] ? 'belum ada langganan' : ((int)$b['unpaid_count'] > 0 ? 'jatuh tempo ' . date('d M', strtotime((string)$b['next_due'])) : ''));
+        } ?></div>
+    <?php else: ?>
+        <div class="soonbox">Belum ada bisnis di grup ini.</div>
+    <?php endif; ?>
 
     <?php if ($isAdmin): ?>
-        <div class="card" id="tambah" style="margin-top:18px">
-            <h2>Tambah bisnis ke <?= e($client['name']) ?></h2>
+        <details class="card" id="tambah" style="margin-top:12px" <?= isset($_GET['add']) || !$businesses ? 'open' : '' ?>>
+            <summary style="cursor:pointer;font-weight:600">＋ Tambah bisnis ke <?= e($client['name']) ?></summary>
+            <div style="height:10px"></div>
             <form method="post" class="row2" style="align-items:end">
                 <?= csrf_field() ?><input type="hidden" name="action" value="add_business"><input type="hidden" name="id" value="<?= $id ?>">
                 <div><label>Nama bisnis</label><input name="name" required placeholder="mis. Eatmeet"></div>
@@ -173,7 +171,7 @@ View::start($client['name'], 'clients', $me);
                 <div><label style="display:flex;gap:6px;align-items:center;margin:0 0 8px;color:var(--ink)"><input type="checkbox" name="hosted_elsewhere" value="1" style="width:auto"> Sistemnya di server lain</label><span class="muted" style="font-size:11px">mis. hosting sendiri — tidak dibuat di VPS, tetap ditagih &amp; sinkron dari Console</span></div>
                 <div><button class="btn" style="width:100%">Tambah bisnis</button></div>
             </form>
-        </div>
+        </details>
     <?php endif; ?>
 
 <?php elseif ($tab === 'orang'):

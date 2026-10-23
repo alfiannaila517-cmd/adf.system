@@ -1,6 +1,9 @@
 <?php
 
-/** Satu bisnis: tab Ringkasan · Orang & Akses · Menu & Fitur · Staff Portal · Integrasi · Langganan · Data & Backup. */
+/**
+ * Satu bisnis. Halaman depan = menu pengaturan berikon (tab=menu); tiap bagian: Data bisnis · Orang & Akses · Menu & Fitur ·
+ * Staff Portal · Integrasi · Langganan · Data & Backup (bisnis Website: Data bisnis · Pengaturan website · Langganan · Data & Backup).
+ */
 
 declare(strict_types=1);
 
@@ -14,7 +17,7 @@ if (!$biz) {
     flash('Bisnis tidak ditemukan.', 'err');
     redirect('/clients.php');
 }
-$tab = (string)($_GET['tab'] ?? 'ringkasan');
+$tab = (string)($_GET['tab'] ?? 'menu');
 $isAdmin = $me['role'] === 'admin';
 $money = fn ($v) => (float)str_replace(['.', ','], ['', '.'], preg_replace('/[^\d,.\-]/', '', (string)$v));
 $dateOrNull = fn ($v) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$v) ? (string)$v : null;
@@ -292,21 +295,66 @@ $dis = $isAdmin ? '' : 'disabled';
 
 View::start($biz['name'], 'clients', $me);
 ?>
-<div class="crumb"><a href="/clients.php">Bisnis</a> › <a href="/client.php?id=<?= (int)$biz['client_id'] ?>"><?= e($biz['client_name']) ?></a> ›</div>
-<h1><?= $typeIcon ?> <?= e($biz['name']) ?></h1>
-<p class="muted" style="margin:0"><?= e($typeLabel) ?> · kode <code><?= e($biz['slug']) ?></code><?= $biz['domain'] ? ' · ' . e($biz['domain']) : '' ?></p>
+<?php
+// Bagian pengaturan: [judul, ikon, penjelasan singkat]. Bisnis jenis Website tidak punya login staf → hanya yang relevan.
+$sections = $biz['type'] === 'website'
+    ? ['ringkasan' => ['Data bisnis', 'store', 'Nama, status, domain & sumber data website'],
+        'website' => ['Pengaturan website', 'globe', 'Isi halaman, kontak, kamar & tampilan website'],
+        'langganan' => ['Langganan', 'card', 'Paket, tagihan bulanan & pembayaran'],
+        'database' => ['Data & Backup', 'db', 'Database, cadangan & ekspor data']]
+    : ['ringkasan' => ['Data bisnis', 'store', 'Nama, jenis, status & domain sendiri'],
+        'orang' => ['Orang & Akses', 'team', 'Siapa yang boleh login & perannya'],
+        'modul' => ['Menu & Fitur', 'sliders', 'Menu yang tampil di sistem & fitur yang menyala'],
+        'portal' => ['Staff Portal', 'phone', 'Akun karyawan untuk absen & slip gaji di HP'],
+        'integrasi' => ['Integrasi', 'plug', 'Cloudbeds, WhatsApp, fingerprint & layanan lain'],
+        'langganan' => ['Langganan', 'card', 'Paket, tagihan bulanan & pembayaran'],
+        'database' => ['Data & Backup', 'db', 'Database, cadangan & ekspor data']];
+$tabs = array_map(fn ($s) => $s[0], $sections);
+if ($tab !== 'menu' && !isset($sections[$tab])) {
+    $tab = 'menu';
+}
+?>
+<div class="crumb"><a href="/clients.php">Bisnis</a> › <a href="/client.php?id=<?= (int)$biz['client_id'] ?>"><?= e($biz['client_name']) ?></a> ›<?php if ($tab !== 'menu'): ?> <a href="/business.php?id=<?= $id ?>"><?= e($biz['name']) ?></a> ›<?php endif; ?></div>
+<div class="bizhead">
+    <span class="ic"><?= $typeIcon ?></span>
+    <div style="min-width:0">
+        <h1 style="margin:0"><?= $tab === 'menu' ? e($biz['name']) : e($tabs[$tab]) ?></h1>
+        <p class="muted" style="margin:0;font-size:12px"><?= $tab === 'menu' ? e($typeLabel) . ' · kode <code>' . e($biz['slug']) . '</code>' . ($biz['domain'] ? ' · ' . e($biz['domain']) : '') : e($biz['name']) ?></p>
+    </div>
+</div>
 
-<nav class="tabs">
-    <?php // Bisnis jenis Website tidak punya login staf → hanya tab yang relevan
-    $tabs = $biz['type'] === 'website'
-        ? ['ringkasan' => 'Ringkasan', 'website' => 'Pengaturan website', 'langganan' => 'Langganan', 'database' => 'Data & Backup']
-        : ['ringkasan' => 'Ringkasan', 'orang' => 'Orang & Akses', 'modul' => 'Menu & Fitur', 'portal' => 'Staff Portal', 'integrasi' => 'Integrasi', 'langganan' => 'Langganan', 'database' => 'Data & Backup'];
-    foreach ($tabs as $k => $label): ?>
-        <a class="<?= $tab === $k ? 'on' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
-    <?php endforeach; ?>
-</nav>
+<?php if ($tab !== 'menu'): ?>
+    <nav class="tabs">
+        <a href="/business.php?id=<?= $id ?>">‹ Semua</a>
+        <?php foreach ($tabs as $k => $label): ?>
+            <a class="<?= $tab === $k ? 'on' : '' ?>" href="/business.php?id=<?= $id ?>&tab=<?= $k ?>"><?= e($label) ?></a>
+        <?php endforeach; ?>
+    </nav>
+<?php endif; ?>
 
-<?php if ($tab === 'ringkasan'): ?>
+<?php if ($tab === 'menu'): ?>
+    <?php
+    // Status singkat di bawah beberapa menu, supaya terlihat tanpa membuka
+    $hint = [];
+    $hint['ringkasan'] = Biz::STATUS[$biz['status']] ?? $biz['status'];
+    if ($sub) {
+        $unpaidN = count(array_filter($charges, fn ($c) => ($c['status'] ?? '') === 'unpaid'));
+        $hint['langganan'] = $unpaidN ? "{$unpaidN} tagihan belum lunas" : 'lunas';
+    } else {
+        $hint['langganan'] = 'belum ada langganan';
+    }
+    ?>
+    <div class="hub">
+        <?php foreach ($sections as $k => [$label, $icon, $desc]): ?>
+            <a href="/business.php?id=<?= $id ?>&tab=<?= $k ?>">
+                <span class="hi"><?= View::icon($icon) ?></span>
+                <span style="min-width:0"><b><?= e($label) ?></b><small><?= e($desc) ?><?php if (isset($hint[$k])): ?> · <span style="color:<?= str_contains($hint[$k], 'belum') ? 'var(--warn)' : 'var(--ink2)' ?>"><?= e($hint[$k]) ?></span><?php endif; ?></small></span>
+                <span class="go"><?= View::icon('chev') ?></span>
+            </a>
+        <?php endforeach; ?>
+    </div>
+
+<?php elseif ($tab === 'ringkasan'): ?>
     <div class="card" style="max-width:760px">
         <h2>Data bisnis</h2>
         <form method="post">

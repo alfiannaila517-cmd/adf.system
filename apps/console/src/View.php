@@ -35,8 +35,47 @@ final class View
             'team' => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2c2.1.7 3.5 2.6 3.5 5.8"/>',
             'list' => '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
             'key' => '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
+            'store' => '<path d="M4 9.5 5.5 4h13L20 9.5"/><path d="M4 9.5h16v1a3 3 0 0 1-5.3 1.9A3 3 0 0 1 12 13.5a3 3 0 0 1-2.7-1.1A3 3 0 0 1 4 10.5z"/><path d="M5.5 13v7h13v-7M10 20v-4h4v4"/>',
+            'sliders' => '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+            'phone' => '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>',
+            'plug' => '<path d="M9 7V3M15 7V3"/><path d="M6.5 7h11v4a5.5 5.5 0 0 1-11 0z"/><path d="M12 16.5V21"/>',
+            'db' => '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
+            'globe' => '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
+            'chev' => '<path d="m9 6 6 6-6 6"/>',
         ][$name] ?? '';
         return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
+    }
+
+    /** Avatar grup: logo/favicon login perusahaan bila ada, selain itu inisial nama. */
+    public static function groupAvatar(string $name, ?string $logoUrl, string $cls = ''): string
+    {
+        if ($logoUrl) {
+            return '<span class="gav ' . $cls . '"><img src="' . e($logoUrl) . '" alt="" loading="lazy"></span>';
+        }
+        $words = preg_split('/\s+/', trim($name)) ?: [];
+        $ini = mb_strtoupper(mb_substr($words[0] ?? '?', 0, 1) . (isset($words[1]) ? mb_substr($words[1], 0, 1) : ''));
+        return '<span class="gav ' . $cls . '">' . e($ini) . '</span>';
+    }
+
+    /** Satu baris bisnis (ikon jenis, nama, jenis · domain, status, ›) — dipakai daftar bisnis grup & hasil cari. */
+    public static function bizRow(array $b, string $extraSub = ''): string
+    {
+        [$tLabel, $tIcon] = Biz::type((string)$b['type']);
+        $pills = '';
+        if ((int)($b['unpaid_count'] ?? 0) > 0) {
+            $pills .= '<span class="pill warn">' . (int)$b['unpaid_count'] . ' tagihan belum lunas</span>';
+        }
+        if (!empty($b['hosted_elsewhere'])) {
+            $pills .= '<span class="pill">server lain</span>';
+        } elseif (empty($b['legacy_business_id']) && $b['type'] !== 'website') {
+            $pills .= '<span class="pill">belum dibuat di sistem</span>';
+        }
+        $pills .= $b['status'] !== 'active' ? '<span class="pill">' . e(Biz::STATUS[$b['status']] ?? $b['status']) . '</span>'
+            : (!empty($b['locked']) ? '<span class="pill bad">terkunci</span>' : '<span class="pill ok">aktif</span>');
+        $sub = $tLabel . ($b['domain'] ? ' · ' . $b['domain'] : '') . ($extraSub !== '' ? ' · ' . $extraSub : '');
+        return '<a class="biz" href="/business.php?id=' . (int)$b['id'] . '"><span class="ic">' . $tIcon . '</span>'
+            . '<span style="min-width:0"><div class="nm">' . e($b['name']) . '</div><div class="sub">' . e($sub) . '</div></span>'
+            . '<span class="st">' . $pills . '</span><span class="go">' . self::icon('chev') . '</span></a>';
     }
 
     public static function head(string $title): void
@@ -150,6 +189,48 @@ final class View
         .kv { display: grid; grid-template-columns: 150px 1fr; gap: 7px 14px; font-size: 13px; } .kv dt { color: var(--mu); } .kv dd { margin: 0; }
         .soonbox { border: 1px dashed var(--line3); background: #0f131b; border-radius: 12px; padding: 12px 14px; color: var(--mu); }
         .soonbox b { color: var(--ink); }
+
+        /* Grup bisnis: ubin berikon (halaman Bisnis) */
+        .gtiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+        .gtile { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 16px 12px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; color: var(--ink); transition: border-color .2s, transform .2s, box-shadow .2s; }
+        a.gtile:hover { border-color: var(--gold2); color: var(--ink); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+        .gav { width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; font-weight: 800; font-size: 18px; color: #fff; background: linear-gradient(135deg, #ff6a1a, #b8410a); overflow: hidden; flex-shrink: 0; }
+        .gav img { width: 100%; height: 100%; object-fit: cover; background: #fff; }
+        .gav.sm { width: 34px; height: 34px; border-radius: 10px; font-size: 13px; }
+        .gtile b { font-size: 13.5px; font-weight: 650; line-height: 1.3; }
+        .gtile .sub { color: var(--mu); font-size: 11.5px; }
+        .gtile .types { font-size: 14px; letter-spacing: 2px; min-height: 18px; }
+        .gtile .flag { position: absolute; top: 9px; right: 9px; }
+
+        /* Daftar bisnis: satu baris tipis per bisnis (halaman grup & hasil cari) */
+        .blist { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+        .biz { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 14px; align-items: center; gap: 11px; padding: 10px 14px; color: var(--ink); border-top: 1px solid var(--line2); }
+        .biz:first-child { border-top: 0; }
+        .biz:hover { background: rgba(255, 255, 255, .025); color: var(--ink); }
+        .biz .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: #1a1f2b; font-size: 17px; }
+        .biz .nm { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .biz .sub { color: var(--mu); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .biz .st { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+        .biz .go { color: var(--mu); } .biz:hover .go { color: var(--brand); }
+
+        /* Menu pengaturan bisnis (halaman depan detail bisnis) */
+        .hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+        .hub a { display: grid; grid-template-columns: 40px minmax(0, 1fr) 14px; align-items: center; gap: 12px; padding: 13px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); transition: border-color .2s; }
+        .hub a:hover { border-color: var(--gold2); color: var(--ink); }
+        .hub .hi { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: var(--goldbg); color: var(--brand); }
+        .hub .hi .ico { width: 19px; height: 19px; }
+        .hub b { display: block; font-size: 13px; font-weight: 600; }
+        .hub small { display: block; color: var(--mu); font-size: 11.5px; line-height: 1.4; margin-top: 1px; }
+        .hub .go { color: var(--mu); } .hub a:hover .go { color: var(--brand); }
+        .bizhead { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
+        .bizhead .ic { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; background: #1a1f2b; font-size: 22px; flex-shrink: 0; }
+        @media (max-width: 860px) {
+            .gtiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .hub { grid-template-columns: 1fr; }
+            .biz { grid-template-columns: 36px minmax(0, 1fr) 14px; }
+            .biz .st { grid-column: 2; justify-content: flex-start; }
+            .biz .go { grid-row: 1; grid-column: 3; }
+        }
         code { background: #1a1f2b; padding: 1px 6px; border-radius: 6px; color: var(--gold); font-size: 12px; }
         details > summary { list-style: none; } details > summary::-webkit-details-marker { display: none; }
         details > summary::before { content: '›'; display: inline-block; margin-right: 8px; transition: transform .15s; color: var(--mu); }
