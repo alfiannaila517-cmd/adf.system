@@ -196,12 +196,15 @@ final class Integration
      * tidak ditulis; kembalikan daftar labelnya agar admin mengubahnya dari sistem.
      * @return string[] label field yang dilewati
      */
-    public static function pushLive(array $biz, string $code, array $input, bool $enabled, array $clear = []): array
+    public static function pushLive(array $biz, string $code, array $input, bool $enabled, array $clear = [], bool $onlyGiven = false): array
     {
         $db = StaffPortal::db($biz) ?? throw new RuntimeException('Bisnis ini belum terhubung ke database sistem.');
         $def = Integrations::DEFS[$code] ?? throw new InvalidArgumentException('Integrasi tidak dikenal');
         $skipped = [];
         foreach ($def['fields'] as $field => [$label, $kind, $target, $opt]) {
+            if ($onlyGiven && !array_key_exists($field, $input)) {
+                continue; // terapkan sebagian: kolom lain di sistem tidak disentuh
+            }
             $val = trim((string)($input[$field] ?? ''));
             if ($kind === 'secret') {
                 $cleared = in_array($field, $clear, true);
@@ -227,6 +230,54 @@ final class Integration
             self::writeTarget($db, $def['enabled_target'], $enabled ? '1' : '0');
         }
         return $skipped;
+    }
+
+    /**
+     * Isian yang pernah disimpan di Console (business_integrations) tapi KOSONG di sistem bisnis — mis. diketik sebelum
+     * tab Integrasi membaca sistem langsung. Rahasia terenkripsi format sistem (Cloudbeds key, password email) dilewati.
+     * @return array<string,string> field => nilai (rahasia sudah dibuka)
+     */
+    public static function pending(array $biz, string $code, array $live): array
+    {
+        $def = Integrations::DEFS[$code] ?? [];
+        $cur = self::all($biz)[$code] ?? null;
+        if (!$cur || !$cur['row']) {
+            return [];
+        }
+        $out = [];
+        foreach ($def['fields'] ?? [] as $field => [, $kind, $target]) {
+            if ($kind === 'secret') {
+                if (empty($cur['secrets'][$field]) || !empty($live['secrets'][$field]['set']) || self::target($target)[2] !== '') {
+                    continue;
+                }
+                try {
+                    $v = Vault::decrypt((string)$cur['secrets'][$field], self::ctx($biz, $code, $field));
+                } catch (Throwable) {
+                    continue;
+                }
+            } else {
+                $v = trim((string)($cur['config'][$field] ?? ''));
+                if (($live['config'][$field] ?? '') !== '') {
+                    continue;
+                }
+            }
+            if ($v !== '') {
+                $out[$field] = $v;
+            }
+        }
+        return $out;
+    }
+
+    /** Tulis isian pending() ke sistem bisnis — hanya kolom yang masih kosong di sistem; return jumlah kolom */
+    public static function applyPending(array $biz, string $code): int
+    {
+        $live = self::live($biz, $code) ?? throw new RuntimeException('Bisnis ini belum terhubung ke database sistem.');
+        $vals = self::pending($biz, $code, $live);
+        if ($vals) {
+            $cur = self::all($biz)[$code];
+            self::pushLive($biz, $code, $vals, (bool)$live['flag'] || $cur['enabled'], [], true);
+        }
+        return count($vals);
     }
 
     /** Catat hasil tes; nilai "auto" (mis. property ID Cloudbeds) diisi bila integrasi sudah tersimpan. */

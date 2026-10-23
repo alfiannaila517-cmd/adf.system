@@ -278,6 +278,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Gagal: ' . $e->getMessage(), 'err');
         }
         redirect("/business.php?id={$id}&tab=integrasi#i-{$code}");
+    } elseif ($action === 'integ_apply') {
+        $code = (string)($_POST['provider'] ?? '');
+        try {
+            $n = Integration::applyPending($biz, $code);
+            Auth::audit('integration.apply', "{$biz['name']}: {$code} ({$n} kolom)");
+            flash(Integrations::DEFS[$code]['label'] . ": {$n} isian diterapkan ke sistem.");
+        } catch (Throwable $e) {
+            flash('Gagal: ' . $e->getMessage(), 'err');
+        }
+        redirect("/business.php?id={$id}&tab=integrasi#i-{$code}");
     } elseif ($action === 'website_source') {
         // Bisnis Website: data website diambil dari database bisnis hotel yang dipilih
         $src = (int)($_POST['source_id'] ?? 0);
@@ -1189,7 +1199,8 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                 $lv = null;
             }
             // Sistem terhubung → status & isian dari sistem (sumber kebenaran), bukan dari salinan Console
-            $isOn = $lv ? $lv['active'] : $it['enabled']; ?>
+            $isOn = $lv ? $lv['active'] : $it['enabled'];
+            $pend = $lv ? Integration::pending($biz, $code, $lv) : []; ?>
             <div class="card" id="i-<?= e($code) ?>" style="margin:0">
                 <h2 style="display:flex;justify-content:space-between;gap:8px;align-items:center">
                     <span><?= e($def['label']) ?></span>
@@ -1198,6 +1209,15 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                 <p class="muted" style="margin:-4px 0 10px;font-size:12px"><?= e($def['desc']) ?></p>
                 <?php if ($def['feature'] && empty($feat[$def['feature']])): ?>
                     <p style="margin:0 0 10px;font-size:12px;color:var(--warn)">Fitur "<?= e(Catalog::FEATURES[$def['feature']][0]) ?>" mati di <a href="/business.php?id=<?= $id ?>&tab=modul">Modul & Fitur</a> — kunci tersimpan tapi belum dipakai.</p>
+                <?php endif; ?>
+                <?php if ($pend): $pl = array_map(fn ($k) => $def['fields'][$k][0], array_keys($pend)); ?>
+                    <div style="margin:0 0 10px;padding:8px 10px;border-radius:8px;border:1px solid var(--warn);background:var(--warnbg);font-size:12px">
+                        Isian yang pernah Anda simpan di Console belum dipakai sistem: <b><?= e(implode(', ', $pl)) ?></b>.
+                        <?php if ($isAdmin): ?>
+                            <form method="post" style="margin:6px 0 0"><?= csrf_field() ?><input type="hidden" name="action" value="integ_apply"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="provider" value="<?= e($code) ?>">
+                                <button class="btn sm" onclick="return confirm('Tulis isian ini ke sistem <?= e($biz['name']) ?>? Kolom yang sudah terisi di sistem tidak diubah.')">Terapkan ke sistem</button></form>
+                        <?php endif; ?>
+                    </div>
                 <?php endif; ?>
                 <?php if ($row && $row['last_test_at']): ?>
                     <p style="margin:0 0 10px;font-size:12px;color:<?= $row['last_test_ok'] ? 'var(--ok)' : 'var(--bad)' ?>"><?= $row['last_test_ok'] ? '● ' : '✕ ' ?><?= e($row['last_test_msg']) ?> <span class="muted">· tes <?= e(date('d M H:i', strtotime((string)$row['last_test_at']))) ?></span></p>
@@ -1215,7 +1235,7 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                                     <input type="password" name="<?= $name ?>" placeholder="<?= $hint ? 'kosongkan = tetap' : e((string)$opt) ?>" autocomplete="new-password" <?= $dis ?>>
                                     <?php if ($hint && $isAdmin): ?><label style="display:flex;gap:4px;align-items:center;margin:4px 0 0;font-size:12px"><input type="checkbox" name="clear[]" value="<?= e($field) ?>" style="width:auto"> hapus</label><?php endif; ?>
                                 <?php endif; ?>
-                            <?php else: $val = (string)($lv ? ($lv['config'][$field] ?? '') : ($it['config'][$field] ?? '')); ?>
+                            <?php else: $val = (string)($lv ? (($lv['config'][$field] ?? '') !== '' ? $lv['config'][$field] : ($pend[$field] ?? '')) : ($it['config'][$field] ?? '')); ?>
                                 <label><?= e($label) ?></label>
                                 <?php if ($kind === 'textarea'): ?>
                                     <textarea name="<?= $name ?>" rows="3" placeholder="<?= e((string)$opt) ?>" <?= $dis ?>><?= e($val) ?></textarea>
