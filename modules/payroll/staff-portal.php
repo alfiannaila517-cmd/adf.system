@@ -4229,6 +4229,11 @@ header('Expires: 0');
         .sps-dots i:nth-child(3) { animation-delay: .3s; }
         .sps-status { min-height: 14px; font-size: 11px; color: rgba(255, 255, 255, .45); letter-spacing: .03em; }
         @keyframes sps-dot { 0%, 80%, 100% { opacity: .25; transform: scale(.75); } 40% { opacity: 1; transform: scale(1.15); } }
+        /* Hak cipta pengembang — kecil di bawah footer & layar login */
+        .bottom-nav.sp-nav { padding-bottom: calc(26px + env(safe-area-inset-bottom)) !important; }
+        .sp-credit { position: absolute; left: 0; right: 0; bottom: calc(7px + env(safe-area-inset-bottom)); text-align: center; font-size: 9.5px; line-height: 1.2; color: #94a3b8; letter-spacing: .02em; pointer-events: auto; }
+        .sp-credit a { color: #2f6fe0; font-weight: 600; text-decoration: none; }
+        .sp-credit.on-auth { position: fixed; z-index: 5; }
     </style>
 </head>
 
@@ -4274,6 +4279,7 @@ header('Expires: 0');
     <!-- AUTH SCREEN                            -->
     <!-- ═══════════════════════════════════════ -->
     <div class="auth-wrap" id="authScreen">
+        <div class="sp-credit on-auth">© <?php echo date('Y'); ?> Arief DSY System Management · <a href="https://adfsystem.store" target="_blank" rel="noopener">adfsystem.store</a></div>
         <div class="auth-card">
             <div class="auth-logo">
                 <?php
@@ -4992,6 +4998,7 @@ header('Expires: 0');
         <div class="bottom-nav sp-nav">
             <button type="button" class="sp-navbtn" onclick="spBack()" aria-label="Kembali"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span></button>
             <div class="sp-fab-wrap"><button type="button" class="sp-fab" onclick="openManualAttendance()" aria-label="Absen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button><span class="nav-label">Absen</span></div>
+            <div class="sp-credit">© <?php echo date('Y'); ?> Arief DSY System Management · <a href="https://adfsystem.store" target="_blank" rel="noopener">adfsystem.store</a></div>
             <button type="button" class="sp-navbtn" onclick="goPage('home')" aria-label="Beranda"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg></span></button>
         </div>
     </div>
