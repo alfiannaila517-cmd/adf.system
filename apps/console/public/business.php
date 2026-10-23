@@ -935,7 +935,11 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                         <?php foreach ($emps as $eid => $em): ?>
                             <tr>
                                 <td><b><?= e($em['full_name']) ?></b><br><span class="muted" style="font-size:11px"><?= e($em['employee_code']) ?><?= $em['position'] ? ' · ' . e($em['position']) : '' ?></span></td>
-                                <td><?php if ($em['account_id']): ?><code><?= e($em['username']) ?></code><br><span class="muted" style="font-size:11px"><?= $em['last_login'] ? 'login terakhir ' . e(date('d M Y H:i', strtotime((string)$em['last_login']))) : 'belum pernah login' ?></span><?php else: ?><span class="pill">belum punya akun</span><?php endif; ?></td>
+                                <td><?php if ($em['account_id']): ?><code><?= e($em['username']) ?></code><br><span class="muted" style="font-size:11px"><?= $em['last_login'] ? 'login terakhir ' . e(date('d M Y H:i', strtotime((string)$em['last_login']))) : 'belum pernah login' ?></span>
+                                    <?php if ($isAdmin && !empty($em['old_password'])): // password lama dari panel developer lama (password baru dari Console tidak disimpan teks aslinya) ?>
+                                        <details style="margin-top:2px"><summary class="muted" style="font-size:11px;cursor:pointer">lihat password</summary><code style="user-select:all"><?= e($em['old_password']) ?></code></details>
+                                    <?php endif; ?>
+                                <?php else: ?><span class="pill">belum punya akun</span><?php endif; ?></td>
                                 <td style="text-align:right">
                                     <?php if (!$isAdmin): ?>
                                     <?php elseif ($em['account_id']): ?>
