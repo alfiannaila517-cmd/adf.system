@@ -158,7 +158,17 @@ final class View
 
         /* Halaman tamu (login) */
         .guest { min-height: 100vh; display: grid; place-items: center; padding: 20px; background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255, 106, 26, .10) 0%, var(--bg) 70%); }
-        .guest .box { width: 100%; max-width: 400px; }
+        .guest .box { width: 100%; max-width: 380px; }
+        /* iPhone memperbesar layar bila teks input < 16px → di halaman masuk semua input 16px */
+        .guest input, .guest select, .guest textarea { font-size: 16px; padding: 10px 12px; border-radius: 9px; }
+        .guest .card { padding: 20px 18px; border-radius: 14px; }
+        .guest .btn { padding: 10px 14px; font-size: 14px; border-radius: 9px; }
+        .gbtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 10px 14px; border-radius: 9px; background: #fff; color: #1f2937; font-weight: 600; font-size: 14px; border: 1px solid #e5e7eb; }
+        .gbtn:hover { background: #f3f4f6; color: #111827; }
+        .or { display: flex; align-items: center; gap: 10px; color: var(--mu); font-size: 11.5px; margin: 16px 0; }
+        .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+        .pw { position: relative; } .pw input { padding-right: 64px; }
+        .pw button { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: 0; color: var(--mu); font: inherit; font-size: 12px; cursor: pointer; padding: 6px 8px; }
         .brand { text-align: center; margin-bottom: 20px; }
         .brand .mark { display: block; width: 44px; height: 44px; object-fit: contain; margin: 0 auto 10px; }
         .brand b { display: block; font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: #fff; } .brand b em { font-style: normal; color: var(--brand); font-weight: 700; }
