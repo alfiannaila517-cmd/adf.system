@@ -4052,6 +4052,18 @@ header('Expires: 0');
         .sp-badge { position: absolute; top: 7px; right: 9px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 99px; background: #ef4444; color: #fff; font-size: 10.5px; font-weight: 800; line-height: 19px; text-align: center; box-shadow: 0 2px 6px rgba(239, 68, 68, .45); display: none; }
         .sp-badge.show { display: block; animation: sp-pop .3s ease; }
         @keyframes sp-pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        /* Pengumuman: gelembung di atas ubin */
+        .chat-popup.sp-bubble { right: auto !important; margin: 0 !important; max-width: none !important; max-height: 52vh !important; border-radius: 18px !important; border: 1px solid #dbe6fb !important; box-shadow: 0 18px 40px rgba(20, 50, 110, .25) !important; overflow: visible !important; transform-origin: var(--tail, 50%) 100%; }
+        .chat-popup.sp-bubble.open { animation: sp-bubble-in .22s cubic-bezier(.34, 1.56, .64, 1); }
+        @keyframes sp-bubble-in { from { opacity: 0; transform: translateY(8px) scale(.94); } to { opacity: 1; transform: none; } }
+        .chat-popup.sp-bubble::after { content: ''; position: absolute; bottom: -8px; left: calc(var(--tail, 50%) - 8px); width: 16px; height: 16px; background: #fff; border-right: 1px solid #dbe6fb; border-bottom: 1px solid #dbe6fb; transform: rotate(45deg); border-radius: 0 0 4px 0; }
+        .chat-popup.sp-bubble.no-tail::after { display: none; }
+        .chat-popup.sp-bubble .cp-head { background: #fff !important; color: var(--sp-ink) !important; border-bottom: 1px solid #eef2f8 !important; border-radius: 18px 18px 0 0; padding: 11px 14px !important; font-size: 13.5px !important; font-weight: 700 !important; }
+        .chat-popup.sp-bubble .cp-close { color: #94a3b8 !important; font-size: 15px !important; }
+        .chat-popup.sp-bubble .cp-body { max-height: calc(52vh - 46px); overflow-y: auto; padding: 10px 12px 12px !important; border-radius: 0 0 18px 18px; background: #fff; }
+        .chat-popup.sp-bubble .cp-msg { background: #f3f7ff !important; border: 0 !important; border-radius: 14px 14px 14px 4px !important; padding: 9px 12px !important; margin-bottom: 8px !important; }
+        .chat-popup.sp-bubble .cp-meta { font-size: 10px !important; color: #64748b !important; }
+        .chat-popup.sp-bubble .cp-text { font-size: 13px !important; color: var(--sp-ink) !important; line-height: 1.45; }
     </style>
 </head>
 
@@ -7715,11 +7727,40 @@ header('Expires: 0');
         let chatMsgsCache = [];
         let chatLastPolledId = null;
 
+        // Pengumuman tampil sebagai gelembung tepat di atas ubin Pengumuman (ekor menunjuk ke ubin).
+        // Tanpa ubin terlihat (mis. dibuka dari notifikasi di halaman lain) → gelembung di tengah atas.
+        function spPlaceChatBubble() {
+            const popup = document.getElementById('chatPopup');
+            const tile = document.querySelector('.sp-tile[onclick*="toggleChat"]');
+            const r = tile ? tile.getBoundingClientRect() : null;
+            const vw = window.innerWidth, vh = window.innerHeight;
+            const w = Math.min(320, vw - 24);
+            popup.classList.add('sp-bubble');
+            popup.style.width = w + 'px';
+            if (!r || r.width === 0 || r.top < 80 || r.top > vh) {
+                popup.classList.add('no-tail');
+                popup.style.left = ((vw - w) / 2) + 'px';
+                popup.style.top = '86px';
+                popup.style.bottom = 'auto';
+                return;
+            }
+            popup.classList.remove('no-tail');
+            const cx = r.left + r.width / 2;
+            const left = Math.max(12, Math.min(cx - w / 2, vw - w - 12));
+            popup.style.left = left + 'px';
+            popup.style.top = 'auto';
+            popup.style.bottom = (vh - r.top + 12) + 'px';
+            popup.style.setProperty('--tail', (cx - left) + 'px');
+        }
+        window.addEventListener('scroll', () => { if (chatOpen) spPlaceChatBubble(); }, { passive: true });
+        window.addEventListener('resize', () => { if (chatOpen) spPlaceChatBubble(); });
+
         function toggleChat() {
             chatOpen = !chatOpen;
             const popup = document.getElementById('chatPopup');
             if (chatOpen) {
                 popup.classList.add('open');
+                spPlaceChatBubble();
                 loadChatMessages();
             } else {
                 popup.classList.remove('open');
