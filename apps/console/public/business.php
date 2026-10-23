@@ -632,6 +632,38 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
             <?php endif; ?>
         </div>
 
+        <?php
+        // Tagihan manual = invoice Console yang "ditagih lewat sistem" bisnis ini (muncul di menu Langganan sistem bisnis, bisa dibayar via Pakasir)
+        $mi = $db->prepare("SELECT * FROM invoices WHERE business_id = ? AND kind = 'manual' ORDER BY status = 'unpaid' DESC, issue_date DESC, id DESC LIMIT 20");
+        $mi->execute([$id]);
+        $manualInv = $mi->fetchAll(); ?>
+        <div class="card">
+            <h2 style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                <span>Tagihan manual</span>
+                <?php if ($isAdmin): ?><a class="btn sm" href="/invoice-edit.php?bill=<?= $id ?>">+ Buat tagihan manual</a><?php endif; ?>
+            </h2>
+            <p class="muted" style="margin:-4px 0 10px;font-size:12px">Tagihan di luar langganan bulanan (mis. pembuatan website, setup, tambahan fitur). Muncul di menu <b>Langganan</b> sistem <?= e($biz['name']) ?> setelah sinkron berikutnya dan bisa dibayar lewat Pakasir; lunas tercatat otomatis di Keuangan.</p>
+            <?php if (!$manualInv): ?>
+                <p class="muted" style="margin:0">Belum ada tagihan manual.</p>
+            <?php else: ?>
+                <table class="stack">
+                    <thead><tr><th>Nomor</th><th>Keterangan</th><th>Jatuh tempo</th><th>Status</th><th style="text-align:right">Total</th><th></th></tr></thead>
+                    <tbody>
+                        <?php foreach ($manualInv as $iv): $full = Invoice::find((int)$iv['id']); $ds = Invoice::displayStatus($iv); ?>
+                            <tr>
+                                <td><?= e($iv['number']) ?></td>
+                                <td class="muted" style="font-size:13px"><?= e((string)($full['items'][0]['description'] ?? '')) ?><?= count($full['items']) > 1 ? ' (+' . (count($full['items']) - 1) . ')' : '' ?></td>
+                                <td><?= e(date('d M Y', strtotime((string)$iv['due_date']))) ?></td>
+                                <td><span class="pill <?= Invoice::tone($ds) ?>"><?= ['paid' => 'Lunas', 'unpaid' => 'Belum lunas', 'overdue' => 'Lewat tempo', 'draft' => 'Draft (belum dikirim)', 'cancelled' => 'Batal'][$ds] ?? e($ds) ?></span></td>
+                                <td style="text-align:right;font-weight:600"><?= Biz::rp(Invoice::totals($full)['total']) ?></td>
+                                <td style="text-align:right"><a class="btn ghost sm" href="/invoice-view.php?id=<?= (int)$iv['id'] ?>">Buka</a></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+
         <details class="card">
             <summary style="cursor:pointer;font-weight:600">Pengaturan langganan</summary>
             <form method="post" style="margin-top:14px">

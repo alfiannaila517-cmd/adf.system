@@ -64,10 +64,21 @@ if ($old) {
             $items[] = ['description' => $l['desc'], 'note' => $l['note'], 'qty' => $l['qty'], 'unit_price' => $l['unit_price'], 'business_id' => $l['business_id']];
         }
         // Grup tanpa paket berbiaya → baris kosong; form tetap bisa diisi manual
+    } elseif (($billId = (int)($_GET['bill'] ?? 0)) && ($bb = Biz::business($billId)) && Biz::subscription($billId)) {
+        // Dari tab Langganan bisnis: tagihan manual yang ditagih lewat sistem bisnis itu, pelanggan = data grup
+        $c = Biz::client((int)$bb['client_id']);
+        $f += ['cust_name' => ($c['contact_name'] ?? '') ?: $bb['name'], 'cust_company' => $c['name'] ?? '', 'cust_email' => $c['email'] ?? '', 'cust_phone' => $c['phone'] ?? '', 'cust_address' => $c['address'] ?? ''];
+        $f['client_id'] = (int)$bb['client_id'];
+        $f['bill_business_id'] = $billId;
+        $items = [['description' => '', 'note' => $bb['name'], 'qty' => 1, 'unit_price' => '', 'business_id' => $billId]];
     }
 }
 $items = $items ?: [['description' => '', 'note' => '', 'qty' => 1, 'unit_price' => '', 'business_id' => '']];
 $subBiz = $db->query('SELECT b.id, b.name FROM businesses b JOIN subscriptions s ON s.business_id = b.id JOIN clients c ON c.id = b.client_id WHERE c.is_demo = 0 ORDER BY b.name')->fetchAll();
+// bisnis yang sedang ditagih selalu ada di pilihan (mis. bisnis di grup demo)
+if (!empty($f['bill_business_id']) && !in_array((int)$f['bill_business_id'], array_map('intval', array_column($subBiz, 'id')), true) && ($bb = Biz::business((int)$f['bill_business_id']))) {
+    $subBiz[] = ['id' => $bb['id'], 'name' => $bb['name']];
+}
 $money = static fn ($v) => $v === '' || $v === null ? '' : number_format((float)$v, 0, ',', '.');
 $qtyFmt = static fn ($v) => rtrim(rtrim(number_format((float)$v, 2, '.', ''), '0'), '.');
 
