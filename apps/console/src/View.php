@@ -13,6 +13,7 @@ final class View
         ['clients', 'Bisnis', 'grid', '/clients.php'],
         ['people', 'User', 'user', '/people.php'],
         ['billing', 'Tagihan', 'card', '/billing.php'],
+        ['site', 'Website', 'globe', '/site.php'],
     ];
 
     /** Menu aktif halaman ini (dipakai juga oleh menu bawah di HP) */
@@ -287,7 +288,7 @@ final class View
             .top a.out { color: var(--mu); display: grid; place-items: center; padding: 4px; }
             .install.show { display: inline-flex; }
             .main { padding: 16px 14px calc(80px + env(safe-area-inset-bottom)); }
-            .bnav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: rgba(14, 18, 26, .96); backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+            .bnav { display: grid; grid-template-columns: repeat(6, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: rgba(14, 18, 26, .96); backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
             .bnav a { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--mu); font-size: 10.5px; font-weight: 500; padding: 4px 0; border-radius: 8px; }
             .bnav a .ico { width: 20px; height: 20px; }
             .bnav a.on { color: var(--brand); }
@@ -337,7 +338,7 @@ final class View
 
     public static function end(): void
     {
-        // Menu bawah (HP): 4 menu utama + Lainnya (= Pengaturan)
+        // Menu bawah (HP): menu utama + Lainnya (= Pengaturan)
         echo '</main></div></div><nav class="bnav">';
         foreach (self::MENU as [$key, $label, $icon, $url]) {
             echo '<a class="' . ($key === self::$active ? 'on' : '') . '" href="' . e($url) . '">' . self::icon($icon) . e($label) . '</a>';
