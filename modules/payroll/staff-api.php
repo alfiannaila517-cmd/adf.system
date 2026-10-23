@@ -697,6 +697,22 @@ if ($action === 'occupancy') {
             AND b.status IN ('pending','confirmed','checked_in','checked_out')
             ORDER BY b.check_in_date ASC", [$endDate, $startDate]) ?: [];
 
+        // Okupansi 7 hari: kamar terpesan per malam (rumus sama dengan dashboard Front Desk, includes/frontdesk_today.php)
+        $fc = $db->fetchAll("SELECT room_id, DATE(check_in_date) ci, DATE(check_out_date) co, status FROM bookings
+            WHERE status IN ('pending','confirmed','checked_in') AND DATE(check_in_date) < ? AND (DATE(check_out_date) > ? OR status = 'checked_in')",
+            [date('Y-m-d', strtotime('+7 days')), $today]) ?: [];
+        $forecast = [];
+        for ($i = 0; $i < 7; $i++) {
+            $day = date('Y-m-d', strtotime("+$i days"));
+            $booked = [];
+            foreach ($fc as $f) {
+                // Tamu in-house yang lewat tanggal check-out tetap menempati kamar hari ini
+                $co = ($f['status'] === 'checked_in' && $f['co'] <= $today) ? date('Y-m-d', strtotime($today . ' +1 day')) : $f['co'];
+                if ($f['ci'] <= $day && $co > $day) $booked[(int)$f['room_id']] = true;
+            }
+            $forecast[] = ['date' => $day, 'rooms' => count($booked), 'pct' => $totalRooms > 0 ? (int)round(count($booked) / $totalRooms * 100) : 0];
+        }
+
         echo json_encode(['success' => true, 'data' => [
             'total_rooms' => $totalRooms,
             'occupied' => $occupied,
@@ -707,7 +723,8 @@ if ($action === 'occupancy') {
             'departures_today' => $departures,
             'bookings' => $bookings,
             'calendar_start' => $startDate,
-            'calendar_end' => $endDate
+            'calendar_end' => $endDate,
+            'forecast' => $forecast
         ]]);
     } catch (Exception $e) {
         echo json_encode(['success' => true, 'data' => ['total_rooms' => 0, 'occupied' => 0, 'available' => 0, 'occupancy_rate' => 0, 'rooms' => [], 'arrivals_today' => 0, 'departures_today' => 0, 'bookings' => []]]);

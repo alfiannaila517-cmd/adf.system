@@ -4064,6 +4064,35 @@ header('Expires: 0');
         .chat-popup.sp-bubble .cp-msg { background: #f3f7ff !important; border: 0 !important; border-radius: 14px 14px 14px 4px !important; padding: 9px 12px !important; margin-bottom: 8px !important; }
         .chat-popup.sp-bubble .cp-meta { font-size: 10px !important; color: #64748b !important; }
         .chat-popup.sp-bubble .cp-text { font-size: 13px !important; color: var(--sp-ink) !important; line-height: 1.45; }
+        /* ── Status Kamar: ringkas & rapi ── */
+        #page-occupancy .rm-card { border-radius: 18px !important; padding: 14px !important; }
+        #page-occupancy .rm-occ-num { font-size: 30px !important; }
+        #page-occupancy .rm-kpi { padding: 7px 4px !important; border-radius: 12px !important; }
+        #page-occupancy .rm-kpi-val { font-size: 17px !important; }
+        #page-occupancy .rm-kpi-lbl { font-size: 9.5px !important; }
+        #page-occupancy .rm-legend { gap: 4px 10px !important; font-size: 10px !important; margin-bottom: 10px !important; }
+        #page-occupancy .room-grid { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: 6px !important; }
+        #page-occupancy .room-box { padding: 7px 3px 6px !important; min-height: 0 !important; border-radius: 11px !important; font-size: 13px !important; line-height: 1.15; text-align: center; overflow: hidden; border-width: 1px !important; }
+        #page-occupancy .room-box .room-type { font-size: 8.5px !important; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #page-occupancy .room-box .room-guest { font-size: 8.5px !important; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #page-occupancy .room-box .room-next { font-size: 8px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #page-occupancy .room-box.b2b::after { font-size: 7px !important; padding: 1px 4px !important; top: 3px !important; right: 3px !important; }
+        #page-occupancy .room-box.dirty { padding-top: 13px !important; }
+        #page-occupancy .room-box.dirty::before { font-size: 7px !important; padding: 1px 5px !important; }
+        #page-occupancy .room-box.dirty .btn-clean { font-size: 9px !important; padding: 3px 6px !important; margin-top: 4px !important; border-radius: 7px !important; }
+        @media (max-width: 380px) { #page-occupancy .room-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } }
+        /* Grafik okupansi 7 hari */
+        .fc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; }
+        .fc-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .fc-pct { font-size: 10px; font-weight: 800; color: var(--sp-ink); font-variant-numeric: tabular-nums; }
+        .fc-track { width: 100%; max-width: 28px; height: 64px; border-radius: 8px; background: #f1f5fb; border: 1px solid #e3ebf8; display: flex; align-items: flex-end; overflow: hidden; }
+        .fc-fill { width: 100%; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #60a5fa, #2563eb); min-height: 3px; transition: height .6s ease; }
+        .fc-fill.hi { background: linear-gradient(180deg, #4ade80, #16a34a); }
+        .fc-fill.lo { background: linear-gradient(180deg, #fcd34d, #f59e0b); }
+        .fc-day { font-size: 9.5px; font-weight: 700; color: #64748b; line-height: 1.15; text-align: center; }
+        .fc-day small { display: block; font-weight: 600; color: #94a3b8; font-size: 8.5px; }
+        .fc-col.today .fc-day { color: var(--sp-blue); }
+        .fc-col.today .fc-track { border-color: #bfd4fb; }
     </style>
 </head>
 
@@ -4554,6 +4583,8 @@ header('Expires: 0');
                 <div id="occStats">
                     <div class="loading"><span class="spin"></span> Memuat...</div>
                 </div>
+                <!-- Okupansi 7 hari (sama dengan dashboard Front Desk) -->
+                <div class="rm-card" id="occForecast" style="display:none"></div>
                 <div class="rm-card">
                     <div class="rm-head">
                         <div>
@@ -6707,6 +6738,24 @@ header('Expires: 0');
                     <div class="rm-kpi"><div class="rm-kpi-val">${departures}</div><div class="rm-kpi-lbl"><i class="rm-dot" style="background:#ea580c"></i>Check-out</div></div>
                 </div>
             </div>`;
+
+                // ── Okupansi 7 hari: batang persentase kamar terpesan per malam ──
+                const fcEl = document.getElementById('occForecast');
+                const fc = d.forecast || [];
+                if (fcEl && fc.length) {
+                    const cols = fc.map((x, i) => {
+                        const dd = new Date(x.date + 'T00:00:00');
+                        const lvl = x.pct >= 80 ? 'hi' : (x.pct < 40 ? 'lo' : '');
+                        const dow = i === 0 ? 'Hari ini' : RM_DOW[dd.getDay()].charAt(0) + RM_DOW[dd.getDay()].slice(1, 3).toLowerCase();
+                        return `<div class="fc-col${i === 0 ? ' today' : ''}" title="${parseInt(x.rooms) || 0} kamar terpesan">
+                            <span class="fc-pct">${parseInt(x.pct) || 0}%</span>
+                            <div class="fc-track"><div class="fc-fill ${lvl}" style="height:${Math.max(3, Math.min(100, parseInt(x.pct) || 0))}%"></div></div>
+                            <span class="fc-day">${dow}<small>${dd.getDate()} ${RM_MONTHS[dd.getMonth()]}</small></span>
+                        </div>`;
+                    }).join('');
+                    fcEl.innerHTML = `<div class="rm-head" style="margin-bottom:10px"><div><div class="rm-title">Okupansi 7 Hari</div><div class="rm-sub">Kamar terpesan per malam</div></div></div><div class="fc-grid">${cols}</div>`;
+                    fcEl.style.display = '';
+                }
 
                 // ── Status kamar (per tipe) ──
                 const arrivalByRoom = {};
