@@ -3806,38 +3806,47 @@ header('Expires: 0');
         .sp-head .notif-bell, .sp-head .chat-fab { width: 38px !important; height: 38px !important; border-radius: 12px !important; background: #1b2f5c !important; color: #fff !important; display: grid !important; place-items: center !important; box-shadow: 0 4px 10px rgba(15, 27, 51, .3) !important; border: 0 !important; }
         .sp-head .logout-btn { background: rgba(255, 255, 255, .18) !important; color: #fff !important; border: 0 !important; border-radius: 10px !important; width: 30px; height: 30px; }
 
-        /* ── Beranda: pita biru + kotak absen gelap ── */
+        /* ── Beranda: pita biru + kotak utama gelap (ringkasan bulan ini) ── */
         .page { background: transparent; }
         #page-home { padding-top: 0 !important; }
         .sp-strip { height: 74px; margin: 0 -16px; background: linear-gradient(135deg, #2f6fe0, #4f8df5); border-radius: 0 0 30px 30px; }
-        .sp-hero { position: relative; margin: -62px 0 18px; background: linear-gradient(145deg, var(--sp-navy2), var(--sp-navy)); border-radius: 26px; padding: 18px 16px 58px; color: #fff; box-shadow: 0 14px 30px rgba(20, 33, 61, .35); }
+        .sp-hero { position: relative; margin: -62px 0 20px; background: linear-gradient(145deg, var(--sp-navy2), var(--sp-navy)); border-radius: 26px; padding: 18px 16px 70px; color: #fff; box-shadow: 0 14px 30px rgba(20, 33, 61, .3); }
         .sp-hero-main { display: flex; align-items: center; gap: 14px; }
         .sp-ring { position: relative; width: 92px; height: 92px; flex-shrink: 0; }
         .sp-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
         .sp-ring circle { fill: none; stroke-width: 11; }
         .sp-ring .trk { stroke: #cbd5e1; opacity: .9; }
-        .sp-ring .val { stroke: var(--sp-green); stroke-linecap: round; stroke-dasharray: 314.16; stroke-dashoffset: calc(314.16 - 314.16 * var(--p) / 100); transition: stroke-dashoffset .6s ease; }
+        .sp-ring .val { stroke: var(--sp-green); stroke-linecap: round; stroke-dasharray: 314.16; stroke-dashoffset: calc(314.16 - 314.16 * var(--p) / 100); transition: stroke-dashoffset .8s ease; }
         .sp-ring span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: 20px; }
         .sp-hero-txt { min-width: 0; flex: 1; }
-        .sp-hero-lbl { font-size: 13px; color: #dbe6ff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-        .sp-hero-lbl .ab-badge { font-size: 10.5px !important; padding: 2px 8px !important; }
+        .sp-hero-lbl { font-size: 13px; color: #dbe6ff; }
         .sp-hero-big { font-size: 19px; font-weight: 800; margin: 3px 0 8px; line-height: 1.25; }
         .sp-hero-big b { color: var(--sp-green); }
         .sp-hero-big em { font-style: normal; color: #94a3b8; }
-        .sp-hero-bar { height: 7px; border-radius: 99px; background: #64748b; overflow: hidden; width: 100%; max-width: 170px; }
-        .sp-hero-bar i { display: block; height: 100%; width: 0; background: var(--sp-green); border-radius: 99px; transition: width .6s ease; }
-        .sp-hero-clock { margin-top: 8px; font-size: 11.5px; color: #b8c6e3; }
-        .sp-hero-slots { margin-top: 14px; }
+        .sp-hero-bar { height: 7px; border-radius: 99px; background: #64748b; overflow: hidden; width: 100%; max-width: 180px; }
+        .sp-hero-bar i { display: block; height: 100%; width: 0; background: var(--sp-green); border-radius: 99px; transition: width .8s ease; }
+        .sp-hero-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 9px; font-size: 11.5px; color: #b8c6e3; }
+        .sp-hero-stats b { color: #fff; }
+        /* Hari ini: status + jam scan */
+        .sp-today { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .1); }
+        .sp-today-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: #dbe6ff; margin-bottom: 8px; flex-wrap: wrap; }
+        .sp-today-head .ab-badge { font-size: 10.5px !important; padding: 2px 8px !important; margin-left: 4px; }
+        .sp-today-clock { color: #94a3b8; font-size: 11px; }
         .sp-hero-slots .ab-slots { gap: 6px !important; }
-        .sp-hero-slots .ab-slot { background: rgba(255, 255, 255, .08) !important; border: 1px solid rgba(255, 255, 255, .1) !important; color: #fff !important; border-radius: 12px !important; }
+        .sp-hero-slots .ab-slot { background: rgba(255, 255, 255, .07) !important; border: 1px solid rgba(255, 255, 255, .1) !important; color: #fff !important; border-radius: 12px !important; }
         .sp-hero-slots .ab-slot span { color: #b8c6e3 !important; }
         .sp-hero-slots .ab-slot b { color: #fff !important; }
         .sp-hero-slots .ab-extra, .sp-hero-slots .ab-empty { color: #dbe6ff !important; background: none !important; border: 0 !important; padding: 8px 0 0 !important; font-size: 12px; }
         .sp-hero-slots .loading { color: #dbe6ff; }
-        /* takik di kanan bawah tempat tombol Absen (seperti "Lanjut Belajar" pada contoh) */
-        .sp-hero-notch { position: absolute; right: 0; bottom: -14px; background: var(--sp-bg); border-radius: 22px 0 22px 0; padding: 10px 0 6px 12px; }
-        .sp-hero-btn { display: flex; align-items: center; gap: 14px; border: 0; cursor: pointer; padding: 0 0 0 18px; height: 46px; border-radius: 15px; background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)); color: #fff; font-size: 15px; font-weight: 700; box-shadow: 0 8px 18px rgba(47, 111, 224, .4); overflow: hidden; }
-        .sp-hero-btn i { font-style: normal; display: grid; place-items: center; width: 46px; height: 46px; background: var(--sp-navy); font-size: 20px; border-radius: 15px; }
+        /* Takik tombol Absen di kanan bawah, dengan sudut cekung melengkung (seperti "Lanjut Belajar" pada contoh) */
+        .sp-hero-notch { position: absolute; right: 0; bottom: 0; padding: 9px 0 0 9px; background: var(--sp-bg); border-top-left-radius: 22px; }
+        .sp-hero-notch::before, .sp-hero-notch::after { content: ''; position: absolute; width: 22px; height: 22px; background: radial-gradient(circle at 0 0, transparent 21.5px, var(--sp-bg) 22px); }
+        .sp-hero-notch::before { left: -22px; bottom: 0; }
+        .sp-hero-notch::after { right: 0; top: -22px; }
+        .sp-hero-btn { display: flex; align-items: center; gap: 12px; border: 0; cursor: pointer; padding: 0 0 0 20px; height: 48px; border-radius: 16px; background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)); color: #fff; font-size: 14.5px; font-weight: 700; letter-spacing: .01em; box-shadow: 0 8px 18px rgba(47, 111, 224, .35); -webkit-tap-highlight-color: transparent; transition: transform .15s ease; }
+        .sp-hero-btn:active { transform: scale(.97); }
+        .sp-hero-btn i { display: grid; place-items: center; width: 48px; height: 48px; background: var(--sp-navy); border-radius: 16px; }
+        .sp-hero-btn i svg { width: 20px; height: 20px; }
 
         /* ── Menu Utama: ubin berikon ── */
         .sp-sec-title { font-size: 17px; font-weight: 800; color: var(--sp-ink); margin: 6px 4px 10px; }
@@ -4070,29 +4079,32 @@ header('Expires: 0');
                 <!-- Pita biru di bawah kepala halaman (kotak absen menumpang di atasnya, seperti contoh desain) -->
                 <div class="sp-strip"></div>
 
-                <!-- Absensi hari ini: lingkaran progres scan, jam, status + tombol Absen Sekarang (GPS, wajib di area kantor) -->
+                <!-- Kotak utama: ringkasan absen BULAN INI (lingkaran = jam kerja terhadap target) + jam scan hari ini + tombol Absen -->
                 <div class="sp-hero">
                     <div class="sp-hero-main">
                         <div class="sp-ring" id="heroRing" style="--p:0">
                             <svg viewBox="0 0 120 120" aria-hidden="true">
                                 <circle cx="60" cy="60" r="50" class="trk"></circle>
-                                <circle cx="60" cy="60" r="50" class="val" id="heroRingVal"></circle>
+                                <circle cx="60" cy="60" r="50" class="val"></circle>
                             </svg>
                             <span id="heroRingPct">0%</span>
                         </div>
                         <div class="sp-hero-txt">
-                            <div class="sp-hero-lbl">Absensi Hari Ini <span id="todayBadge"></span></div>
-                            <div class="sp-hero-big"><b id="heroDone">0</b> dari <span id="heroTotal"><?php echo $isCafe ? 2 : 4; ?></span> Scan <em id="heroWord">Belum</em></div>
+                            <div class="sp-hero-lbl">Absensi Bulan Ini · <span id="heroMonth"></span></div>
+                            <div class="sp-hero-big"><b id="heroHours">0</b> dari <span id="heroTarget">208</span> Jam <em>Kerja</em></div>
                             <div class="sp-hero-bar"><i id="heroBar"></i></div>
-                            <div class="sp-hero-clock"><span id="liveClockTime">--:--</span><span id="liveClockSec">:--</span> · <span id="liveClockDate"></span></div>
+                            <div class="sp-hero-stats"><span>Hadir <b id="heroDays">0</b> hari</span><span>Terlambat <b id="heroLate">0</b>×</span><span>Sisa <b id="heroRemain">0</b> jam</span></div>
                         </div>
                     </div>
-                    <div id="todayStatus" class="sp-hero-slots">
-                        <div class="loading"><span class="spin"></span> Memuat...</div>
+                    <div class="sp-today">
+                        <div class="sp-today-head"><span>Hari ini <span id="todayBadge"></span></span><span class="sp-today-clock"><span id="liveClockTime">--:--</span><span id="liveClockSec">:--</span> · <span id="liveClockDate"></span></span></div>
+                        <div id="todayStatus" class="sp-hero-slots">
+                            <div class="loading"><span class="spin"></span> Memuat...</div>
+                        </div>
                     </div>
                     <div class="sp-hero-notch">
                         <button type="button" class="sp-hero-btn" id="heroAbsenBtn" onclick="openManualAttendance()">
-                            <span>Absen Sekarang</span><i>→</i>
+                            <span>Absen Sekarang</span><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i>
                         </button>
                     </div>
                 </div>
@@ -4135,14 +4147,8 @@ header('Expires: 0');
                     <div class="sp-dots" id="spDots"><?php foreach ($spPages as $pi => $_): ?><i class="<?php echo $pi === 0 ? 'on' : ''; ?>"></i><?php endforeach; ?></div>
                 <?php endif; ?>
 
-                <!-- Ringkasan bulan ini -->
-                <div class="sp-sec-title">Ringkasan Bulan Ini</div>
-                <div class="rm-card sp-card">
-                    <div id="monthlySummary">
-                        <div class="loading"><span class="spin"></span> Memuat...</div>
-                    </div>
-                </div>
-
+                <!-- Ringkasan bulan ini sudah tampil di kotak utama; elemen ini tetap ada (tersembunyi) karena diisi loadAbsen() -->
+                <div id="monthlySummary" style="display:none"></div>
             </div><!-- /homeMainContent -->
 
             <!-- Ajukan Lembur (toggled via Menu Cepat) -->
@@ -5869,20 +5875,28 @@ header('Expires: 0');
         })();
 
         // ═══ ABSEN PAGE ═══
-        // Lingkaran & batang progres di kotak Absensi Hari Ini: jumlah scan tercatat dari jumlah yang dibutuhkan
+        // Tombol Absen di kotak utama mengikuti jumlah scan hari ini
         function setHeroProgress(done) {
             const total = IS_CAFE ? 2 : 4;
-            const pct = Math.round(Math.min(done, total) / total * 100);
+            const btn = document.getElementById('heroAbsenBtn');
+            if (btn) btn.querySelector('span').textContent = done >= total ? 'Absen Selesai ✓' : (IS_CAFE ? (done ? 'Absen Pulang' : 'Absen Masuk') : 'Absen Sekarang');
+        }
+
+        // Kotak utama: ringkasan bulan ini (lingkaran = jam kerja terhadap target)
+        function setHeroMonth(hours, target, days, late, remain, fmtH) {
+            const pct = target > 0 ? Math.min(Math.round(hours / target * 100), 100) : 0;
             const ring = document.getElementById('heroRing');
             if (ring) ring.style.setProperty('--p', pct);
             const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
             set('heroRingPct', pct + '%');
-            set('heroDone', done);
-            set('heroWord', done >= total ? 'Selesai' : (done ? 'Tercatat' : 'Belum'));
+            set('heroHours', fmtH(hours));
+            set('heroTarget', fmtH(target));
+            set('heroDays', days);
+            set('heroLate', late);
+            set('heroRemain', fmtH(remain));
+            set('heroMonth', ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][new Date().getMonth()]);
             const bar = document.getElementById('heroBar');
             if (bar) bar.style.width = pct + '%';
-            const btn = document.getElementById('heroAbsenBtn');
-            if (btn) btn.querySelector('span').textContent = done >= total ? 'Absen Selesai ✓' : (IS_CAFE ? (done ? 'Absen Pulang' : 'Absen Masuk') : 'Absen Sekarang');
         }
 
         // Face ID dilepas: panggilan lama ke Face Scan diarahkan ke absen GPS
@@ -5962,6 +5976,7 @@ header('Expires: 0');
                     C = 2 * Math.PI * R;
                 const off = C - (pct / 100) * C;
                 const remain = Math.max(0, target - totalHours);
+                setHeroMonth(totalHours, target, parseInt(s.days_present) || 0, parseInt(s.days_late) || 0, remain, fmtH);
                 document.getElementById('monthlySummary').innerHTML = `
             <div class="tj-wrap">
                 <div class="tj-donut">
