@@ -90,6 +90,10 @@ final class SubSync
             'provider_address' => (string)$s['address'],
             'provider_email' => (string)$s['email'],
             'updated_at' => $sub['updated_at'] ? date('c', strtotime((string)$sub['updated_at'])) : null,
+            // Pembayaran online lewat Console (Mayar): sistem bisnis minta link ke api/subscription-pay.php, bukan ke Pakasir
+            'payment_gateway' => Mayar::configured() ? 'console' : 'pakasir',
+            // Tagihan yang sudah lunas di Console (dibayar online / ditandai lunas admin) → ikut lunas di sistem bisnis
+            'paid_periods' => Pay::paidPeriods((int)$sub['business_id']),
         ];
     }
 

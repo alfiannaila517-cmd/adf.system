@@ -9,7 +9,7 @@ declare(strict_types=1);
  */
 final class SecureSettings
 {
-    public const KEYS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+    public const KEYS = ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'MAYAR_API_KEY', 'MAYAR_MODE'];
 
     /** @var array<string,string>|null */
     private static ?array $cache = null;

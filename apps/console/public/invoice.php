@@ -14,4 +14,16 @@ if (!$inv) {
         . '<div style="text-align:center"><b style="font-size:18px">Invoice tidak ditemukan</b><p style="color:#7d8696">Periksa kembali link dari kami.</p></div>';
     exit;
 }
-Invoice::render($inv, ['public' => true]);
+// Bayar online (Mayar): cek dulu link yang masih menunggu (maks. 1×/menit), lalu tampilkan tombol bila belum lunas
+$actions = '';
+if (Mayar::configured() && $inv['status'] === 'unpaid') {
+    $st = Biz::db()->prepare("SELECT * FROM payment_links WHERE ref_type = 'invoice' AND ref = ? AND status = 'pending' AND (checked_at IS NULL OR checked_at < DATE_SUB(NOW(), INTERVAL 1 MINUTE)) ORDER BY id DESC LIMIT 1");
+    $st->execute([(string)$inv['id']]);
+    if (($pl = $st->fetch()) && (function () use ($pl) { try { return Pay::check($pl); } catch (Throwable) { return false; } })()) {
+        $inv = Invoice::find((int)$inv['id']);
+    }
+    if ($inv['status'] === 'unpaid') {
+        $actions = '<a class="pri" href="/pay.php?t=' . e(rawurlencode((string)$inv['token'])) . '" style="text-decoration:none;display:inline-flex;align-items:center">Bayar sekarang (QRIS / VA / e-wallet)</a>';
+    }
+}
+Invoice::render($inv, ['public' => true, 'actions' => $actions]);

@@ -57,7 +57,7 @@ $f = $edit ?? ['id' => 0, 'entry_date' => date('Y-m') === $m ? date('Y-m-d') : $
 
 $monthName = fn (string $ym) => ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][(int)substr($ym, 5, 2)] . ' ' . substr($ym, 0, 4);
 $shift = fn (int $d) => date('Y-m', strtotime($from . " {$d} month"));
-$SRC = ['pakasir' => ['Pakasir', 'gold'], 'website' => ['Website', 'gold'], 'manual' => ['Manual', '']];
+$SRC = ['pakasir' => ['Online', 'gold'], 'website' => ['Website', 'gold'], 'manual' => ['Manual', '']];
 
 View::start('Keuangan', 'finance', $me);
 ?>
@@ -73,7 +73,7 @@ View::start('Keuangan', 'finance', $me);
     .fin-in { color: var(--ok); } .fin-out { color: var(--bad); }
 </style>
 <div class="pagehead">
-    <div><h1>Keuangan</h1><p>Pembukuan ADF: pembayaran Pakasir & website tercatat otomatis, ditambah catatan manual.</p></div>
+    <div><h1>Keuangan</h1><p>Pembukuan ADF: pembayaran online (Mayar / Pakasir) & website tercatat otomatis, ditambah catatan manual.</p></div>
     <div class="fin-month">
         <a class="btn ghost sm" href="/finance.php?m=<?= $shift(-1) ?>" aria-label="Bulan sebelumnya">‹</a>
         <b><?= e($monthName($m)) ?></b>
@@ -86,7 +86,7 @@ View::start('Keuangan', 'finance', $me);
     <div class="card" style="margin:0;padding:12px 14px"><small>Uang masuk</small><div class="stat fin-in" style="margin-top:3px"><?= Biz::rp($in) ?></div><small><?= Biz::rp($auto) ?> otomatis · <?= Biz::rp($in - $auto) ?> manual</small></div>
     <div class="card" style="margin:0;padding:12px 14px"><small>Pengeluaran</small><div class="stat fin-out" style="margin-top:3px"><?= Biz::rp($out) ?></div></div>
     <div class="card" style="margin:0;padding:12px 14px"><small>Bersih bulan ini</small><div class="stat" style="margin-top:3px;color:<?= $in - $out >= 0 ? 'var(--ok)' : 'var(--bad)' ?>"><?= Biz::rp($in - $out) ?></div></div>
-    <div class="card" style="margin:0;padding:12px 14px"><small>Saldo di Pakasir (perkiraan)</small><div class="stat" style="margin-top:3px"><?= Biz::rp($pk['balance']) ?></div><small>masuk <?= Biz::rp($pk['in']) ?> − ditarik <?= Biz::rp($pk['withdrawn']) ?></small></div>
+    <div class="card" style="margin:0;padding:12px 14px"><small>Saldo di payment gateway (perkiraan)</small><div class="stat" style="margin-top:3px"><?= Biz::rp($pk['balance']) ?></div><small>masuk <?= Biz::rp($pk['in']) ?> − ditarik <?= Biz::rp($pk['withdrawn']) ?></small></div>
 </div>
 
 <div class="card">
@@ -139,7 +139,7 @@ View::start('Keuangan', 'finance', $me);
         <div class="field"><label>Catatan</label><input name="note" value="<?= e((string)$f['note']) ?>" maxlength="300"></div>
         <button class="btn sm">Simpan</button>
         <?php if ($edit): ?><a class="btn ghost sm" href="/finance.php?m=<?= $m ?>">Batal</a><?php endif; ?>
-        <p class="muted" style="margin:10px 0 0;font-size:11.5px;line-height:1.5">Pembayaran lewat Pakasir & website <b>tidak perlu dicatat</b> — sudah otomatis. Catat di sini: uang masuk tunai/transfer, pengeluaran, dan <b>Tarik dana Pakasir</b> (saat saldo Pakasir dipindah ke rekening — tidak dihitung pendapatan).</p>
+        <p class="muted" style="margin:10px 0 0;font-size:11.5px;line-height:1.5">Pembayaran online (Mayar / Pakasir) & website <b>tidak perlu dicatat</b> — sudah otomatis. Catat di sini: uang masuk tunai/transfer, pengeluaran, dan <b>Tarik dana</b> (saat saldo Mayar / Pakasir dipindah ke rekening — tidak dihitung pendapatan).</p>
     </form>
 </div>
 <script>

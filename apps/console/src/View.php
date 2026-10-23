@@ -22,7 +22,7 @@ final class View
         'Website',
         ['site', 'Konten Website', 'globe', '/site.php?tab=beranda', true],
         'Pengaturan',
-        ['payment', 'Payment Gateway', 'card', '/site.php?tab=bayar', true],
+        ['payment', 'Payment Gateway', 'card', '/payment.php', true],
         ['users', 'Pengguna', 'user', '/users.php', true],
         ['google', 'Login Google', 'key', '/google-settings.php', true],
         ['telegram', 'Notifikasi Telegram', 'send', '/telegram-settings.php', true],

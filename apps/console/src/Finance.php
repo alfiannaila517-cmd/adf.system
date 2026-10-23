@@ -12,11 +12,11 @@ declare(strict_types=1);
  */
 final class Finance
 {
-    public const KINDS = ['in' => 'Uang masuk', 'out' => 'Pengeluaran', 'withdraw' => 'Tarik dana Pakasir'];
+    public const KINDS = ['in' => 'Uang masuk', 'out' => 'Pengeluaran', 'withdraw' => 'Tarik dana (Mayar / Pakasir)'];
     public const CATEGORIES = [
         'in' => ['Langganan', 'Jasa / proyek', 'Website', 'Lainnya'],
         'out' => ['Server / VPS', 'Domain', 'Email & layanan', 'Gaji / honor', 'Iklan / promosi', 'Peralatan', 'Lainnya'],
-        'withdraw' => ['Tarik dana Pakasir'],
+        'withdraw' => ['Tarik dana Mayar', 'Tarik dana Pakasir'],
     ];
 
     private static function db(): PDO
@@ -50,7 +50,7 @@ final class Finance
             LEFT JOIN invoices i ON i.id = p.invoice_id
             LEFT JOIN subscription_charges ch ON ch.id = p.charge_id
             LEFT JOIN businesses b ON b.id = COALESCE(p.business_id, i.business_id, ch.business_id)
-            WHERE COALESCE(p.method, '') <> 'pakasir' AND p.paid_at BETWEEN ? AND ?");
+            WHERE COALESCE(p.method, '') NOT IN ('pakasir', 'mayar') AND p.paid_at BETWEEN ? AND ?");
         $st->execute([$from, $end]);
         foreach ($st as $p) {
             $title = $p['number'] ? 'Invoice ' . $p['number'] : 'Langganan ' . $p['period'];

@@ -24,6 +24,8 @@ require_once __DIR__ . '/src/Website.php';
 require_once __DIR__ . '/src/SubSync.php';
 require_once __DIR__ . '/src/Google.php';
 require_once __DIR__ . '/src/SecureSettings.php';
+require_once __DIR__ . '/src/Mayar.php';
+require_once __DIR__ . '/src/Pay.php';
 require_once ADF_CORE . '/ServerHealth.php';
 
 const CONSOLE_DB = 'adf_console';
