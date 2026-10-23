@@ -23,7 +23,13 @@ function staffGoogleBack(string $slug, string $msg = '', string $type = 'error')
     exit;
 }
 
-$redirectUri = rtrim((string)(defined('BASE_URL') ? BASE_URL : ''), '/') . '/modules/payroll/staff-google.php';
+// Alamat kembalian yang dikirim ke Google harus SAMA PERSIS dengan yang didaftarkan di Google Cloud:
+// di server selalu https + domain tanpa "www" (mis. https://nasita.biz.id/modules/payroll/staff-google.php).
+$cbHost = strtolower((string)preg_replace(['/^www\./', '/:\d+$/'], '', (string)($_SERVER['HTTP_HOST'] ?? '')));
+$isLocal = $cbHost === '' || str_contains($cbHost, 'localhost') || str_contains($cbHost, '127.0.0.1');
+$redirectUri = $isLocal
+    ? rtrim((string)(defined('BASE_URL') ? BASE_URL : ''), '/') . '/modules/payroll/staff-google.php'
+    : 'https://' . $cbHost . '/modules/payroll/staff-google.php';
 
 // ── Mulai: simpan konteks (bisnis, tujuan, akun yang sedang login) lalu ke Google ──
 if (isset($_GET['do'])) {
