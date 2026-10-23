@@ -4040,6 +4040,12 @@ header('Expires: 0');
         .is-done .spa-title { color: #166534; }
         .is-done .spa-text b { color: #15803d; }
         .is-done .spa-btn { background: linear-gradient(135deg, #16a34a, #22c55e); }
+        /* iPhone: footer tetap diam saat halaman digulir (matikan pantulan/rubber-band iOS, lapisan sendiri, tanpa geser samping) */
+        html, body { overscroll-behavior: none; }
+        .app-wrap { min-height: 100vh; min-height: 100dvh; overflow-x: clip; }
+        .bottom-nav.sp-nav { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; transform: translate3d(0, 0, 0); -webkit-transform: translate3d(0, 0, 0); will-change: transform; }
+        /* Tombol Kembali & Beranda: ikon saja */
+        .sp-navbtn { gap: 0 !important; margin-bottom: 6px; }
     </style>
 </head>
 
@@ -4769,9 +4775,9 @@ header('Expires: 0');
 
         <!-- Bawah: Kembali · tombol bulat Absen · Beranda. Semua menu ada di Menu Utama -->
         <div class="bottom-nav sp-nav">
-            <button type="button" class="sp-navbtn" onclick="spBack()" aria-label="Kembali"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span>Kembali</button>
+            <button type="button" class="sp-navbtn" onclick="spBack()" aria-label="Kembali"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span></button>
             <div class="sp-fab-wrap"><button type="button" class="sp-fab" onclick="openManualAttendance()" aria-label="Absen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button><span class="nav-label">Absen</span></div>
-            <button type="button" class="sp-navbtn" onclick="goPage('home')" aria-label="Beranda"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg></span>Beranda</button>
+            <button type="button" class="sp-navbtn" onclick="goPage('home')" aria-label="Beranda"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg></span></button>
         </div>
     </div>
 
