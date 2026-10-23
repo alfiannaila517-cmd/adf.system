@@ -4260,6 +4260,35 @@ header('Expires: 0');
         .rm-fold.open .rm-chev { transform: rotate(180deg); }
         .rm-fold-body { display: none; margin-top: 12px; }
         .rm-fold.open .rm-fold-body { display: block; }
+        /* ═══ Detail Absensi — ringkas & pas layar HP ═══ */
+        .ab-card { padding: 12px !important; }
+        .ab-month { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 10px; }
+        .ab-arrow { width: 30px; height: 30px; border: 0; border-radius: 10px; background: #eef3fb; color: #2f6fe0; display: grid; place-items: center; cursor: pointer; flex-shrink: 0; }
+        .ab-arrow svg { width: 15px; height: 15px; }
+        .ab-mlabel { position: relative; min-width: 128px; height: 30px; padding: 0 12px; border-radius: 10px; background: #fff; border: 1px solid #e2e8f0; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; color: #0f172a; cursor: pointer; }
+        .ab-mlabel input, .ab-mlabel #monitorMonth { position: absolute; inset: 0; width: 100%; height: 100% !important; min-height: 0 !important; opacity: 0; cursor: pointer; border: 0 !important; padding: 0 !important; }
+        .ab-now { height: 30px; padding: 0 10px; border: 0; border-radius: 10px; background: #2f6fe0; color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .ab-stats { display: grid; grid-template-columns: 1fr 1fr 2.2fr; gap: 6px; }
+        .ab-stats > div { padding: 7px 8px; border-radius: 12px; background: #f4f7fc; min-width: 0; }
+        .ab-stats b { display: block; font-size: 16px; font-weight: 800; color: #0f172a; line-height: 1.1; }
+        .ab-stats b small { font-size: 10.5px; font-weight: 600; color: #94a3b8; }
+        .ab-stats span { display: block; font-size: 10px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ab-stats em { font-style: normal; font-weight: 800; }
+        .ab-bar { height: 4px; border-radius: 99px; background: #e2e8f0; margin: 7px 2px 10px; overflow: hidden; }
+        .ab-bar i { display: block; height: 100%; border-radius: 99px; }
+        .ab-list { display: flex; flex-direction: column; gap: 5px; }
+        .ab-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 12px; background: #fff; border: 1px solid #eef2f7; }
+        .ab-date { text-align: center; line-height: 1.05; }
+        .ab-date b { display: block; font-size: 15px; font-weight: 800; color: #0f172a; }
+        .ab-date span { font-size: 9.5px; color: #94a3b8; text-transform: capitalize; }
+        .ab-scans { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: center; min-width: 0; font-size: 11px; color: #334155; font-variant-numeric: tabular-nums; }
+        .ab-pair { white-space: nowrap; color: #cbd5e1; }
+        .ab-pair i { font-style: normal; color: #334155; font-weight: 600; margin: 0 2px; }
+        .ab-pair i.in { color: var(--green); }
+        .ab-ot { font-size: 9.5px; font-weight: 700; white-space: nowrap; }
+        .ab-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+        .ab-right b { font-size: 12px; font-weight: 800; color: #0f172a; }
+        .ab-badge { font-size: 8.5px !important; padding: 1px 6px !important; white-space: nowrap; }
     </style>
 </head>
 
@@ -4756,15 +4785,15 @@ header('Expires: 0');
                         <div class="sec-head-s">Riwayat absen & lembur per bulan</div>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="rm-head" style="margin-bottom:10px;">
-                        <div class="rm-title">Absensi &amp; Lembur</div>
-                        <input type="month" id="monitorMonth" class="fi" style="width:138px;height:36px;padding:0 10px;font-size:12px;border-radius:10px;border-width:1px;" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()">
-                    </div>
-                    <div class="mon-nav">
-                        <button type="button" onclick="shiftMonitorMonth(-1)">‹ Bulan lalu</button>
-                        <button type="button" class="mid" onclick="shiftMonitorMonth(0)">Bulan ini</button>
-                        <button type="button" onclick="shiftMonitorMonth(1)">Bulan depan ›</button>
+                <div class="card ab-card">
+                    <div class="ab-month">
+                        <button type="button" class="ab-arrow" onclick="shiftMonitorMonth(-1)" aria-label="Bulan sebelumnya"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+                        <label class="ab-mlabel">
+                            <span id="monitorMonthLbl"></span>
+                            <input type="month" id="monitorMonth" value="<?php echo date('Y-m'); ?>" onchange="onMonitorMonthChange()" onclick="try{this.showPicker()}catch(e){}" aria-label="Pilih bulan">
+                        </label>
+                        <button type="button" class="ab-arrow" onclick="shiftMonitorMonth(1)" aria-label="Bulan berikutnya"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+                        <button type="button" class="ab-now" id="monitorNowBtn" onclick="shiftMonitorMonth(0)">Bulan ini</button>
                     </div>
                     <div id="monitorStats"></div>
                     <div id="monitorTable">
@@ -6480,6 +6509,7 @@ header('Expires: 0');
 
         // ═══ MONITORING PAGE ═══
         async function loadMonitoring() {
+            updateMonitorMonthLabel();
             const month = document.getElementById('monitorMonth').value || new Date().toISOString().substring(0, 7);
             try {
                 const res = await fetch(API + '&action=attendance_history&month=' + month);
@@ -6488,26 +6518,14 @@ header('Expires: 0');
                 const pct = s.target > 0 ? Math.min(Math.round(s.total_hours / s.target * 100), 100) : 0;
                 const barColor = pct >= 90 ? 'var(--green)' : pct >= 60 ? 'var(--orange)' : 'var(--red)';
 
+                const totalH = (parseFloat(s.total_hours) || 0).toFixed(1).replace(/\.0$/, '');
                 document.getElementById('monitorStats').innerHTML = `
-            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px;">
-                <div style="background:#eef4f9;border:1px solid #9fb8cc;border-radius:8px;padding:5px;text-align:center;">
-                    <div style="font-size:9px;margin-bottom:1px;">✅</div>
-                    <div style="font-size:7px;font-weight:700;color:#0c2d48;text-transform:uppercase;letter-spacing:.3px;">Hadir</div>
-                    <div style="font-size:11px;font-weight:800;color:var(--green);margin-top:0;">${s.days_present||0}</div>
-                </div>
-                <div style="background:#eef4f9;border:1px solid #9fb8cc;border-radius:8px;padding:5px;text-align:center;">
-                    <div style="font-size:9px;margin-bottom:1px;">⏰</div>
-                    <div style="font-size:7px;font-weight:700;color:#0c2d48;text-transform:uppercase;letter-spacing:.3px;">Terlambat</div>
-                    <div style="font-size:11px;font-weight:800;color:var(--orange);margin-top:0;">${s.days_late||0}</div>
-                </div>
+            <div class="ab-stats">
+                <div><b style="color:var(--green)">${s.days_present||0}</b><span>Hadir</span></div>
+                <div><b style="color:var(--orange)">${s.days_late||0}</b><span>Telat</span></div>
+                <div class="wide"><b>${totalH}<small>/${s.target||208} jam</small></b><span>Target bulan ini · <em style="color:${barColor}">${pct}%</em></span></div>
             </div>
-            <div style="background:#fff;border:1px solid #9fb8cc;border-radius:10px;padding:10px;margin-bottom:10px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;margin-bottom:5px;">
-                    <span style="color:#0c2d48;font-weight:600;">🎯 Target ${s.target||208} jam</span>
-                    <span style="font-weight:800;color:${barColor};">${pct}%</span>
-                </div>
-                <div class="progress" style="background:#c8d8e4;"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>
-            </div>`;
+            <div class="ab-bar"><i style="width:${pct}%;background:${barColor}"></i></div>`;
 
                 const rows = data.data || [];
                 if (rows.length === 0) {
@@ -6515,12 +6533,7 @@ header('Expires: 0');
                     return;
                 }
 
-                let html;
-                if (IS_CAFE) {
-                    html = '<div style="overflow-x:auto;font-size:11px;line-height:1.35;"><table class="tbl"><thead><tr><th>Tgl</th><th>Masuk</th><th>Pulang</th><th>Jam</th><th>Ket</th><th>Status</th></tr></thead><tbody>';
-                } else {
-                    html = '<div style="overflow-x:auto;font-size:11px;line-height:1.35;"><table class="tbl"><thead><tr><th>Tgl</th><th>S1</th><th>S2</th><th>S3</th><th>S4</th><th>Jam</th><th>Ket</th><th>Status</th></tr></thead><tbody>';
-                }
+                let html = '<div class="ab-list">';
                 const statusMap = {
                     present: 'Hadir',
                     late: 'Terlambat',
@@ -6540,12 +6553,9 @@ header('Expires: 0');
                     half_day: '½Hr'
                 };
                 rows.forEach(r => {
-                    const dt = new Date(r.attendance_date);
-                    const day = dt.toLocaleDateString('id-ID', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short'
-                    });
+                    const dt = new Date(String(r.attendance_date).substring(0, 10) + 'T00:00:00');
+                    const dNum = dt.getDate();
+                    const dWd = dt.toLocaleDateString('id-ID', { weekday: 'short' });
                     const s1 = r.check_in_time ? r.check_in_time.substring(0, 5) : '—';
                     const s2 = r.check_out_time ? r.check_out_time.substring(0, 5) : '—';
                     const wh = parseFloat(r.work_hours) || 0;
@@ -6562,20 +6572,22 @@ header('Expires: 0');
                     const hadir = (wh > 0) || r.status === 'present' || r.status === 'late';
                     const regularHours = wh > 0 ? Math.min(wh, 8) : 0;
                     const whTxt = regularHours > 0 ? `${regularHours.toFixed(1).replace(/\.0$/, '')}j` : (hadir ? '0j' : '—');
-                    const ketTxt = ot > 0 ?
-                        `<span style="color:${otColor};font-weight:700;">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</span>` :
-                        (hadir ? '<span style="color:var(--muted);">-</span>' : '—');
 
-                    const statusBadge = `<span class="badge ${bc}" style="font-size:8.5px;padding:1px 5px;white-space:nowrap;">${monitorStatusMap[statusKey]||statusKey}</span>`;
-                    if (IS_CAFE) {
-                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-weight:600;color:var(--navy);font-size:10px;">${s2}</td><td style="font-weight:700;font-size:10px;">${whTxt}</td><td style="font-size:10px;">${ketTxt}</td><td>${statusBadge}</td></tr>`;
-                    } else {
-                        const s3 = r.scan_3 ? r.scan_3.substring(0, 5) : '—';
-                        const s4 = r.scan_4 ? r.scan_4.substring(0, 5) : '—';
-                        html += `<tr><td style="white-space:nowrap;font-size:10px;">${day}</td><td style="font-weight:600;color:var(--green);font-size:10px;">${s1}</td><td style="font-size:10px;">${s2}</td><td style="color:var(--green);font-size:10px;">${s3}</td><td style="font-size:10px;">${s4}</td><td style="font-weight:700;font-size:10px;">${whTxt}</td><td style="font-size:10px;">${ketTxt}</td><td>${statusBadge}</td></tr>`;
+                    const statusBadge = `<span class="badge ${bc} ab-badge">${monitorStatusMap[statusKey]||statusKey}</span>`;
+                    // Jam scan per shift: masuk → pulang (hotel: 2 shift, kafe: 1)
+                    const pair = (a, b) => `<span class="ab-pair"><i class="in">${a}</i>→<i>${b}</i></span>`;
+                    let scans = pair(s1, s2);
+                    if (!IS_CAFE && (r.scan_3 || r.scan_4)) {
+                        scans += pair(r.scan_3 ? r.scan_3.substring(0, 5) : '—', r.scan_4 ? r.scan_4.substring(0, 5) : '—');
                     }
+                    const otTxt = ot > 0 ? `<span class="ab-ot" style="color:${otColor}">${otLabel} +${ot.toFixed(1).replace(/\.0$/, '')}j</span>` : '';
+                    html += `<div class="ab-row">
+                        <div class="ab-date"><b>${dNum}</b><span>${dWd}</span></div>
+                        <div class="ab-scans">${scans}${otTxt}</div>
+                        <div class="ab-right"><b>${whTxt}</b>${statusBadge}</div>
+                    </div>`;
                 });
-                html += '</tbody></table></div>';
+                html += '</div>';
                 document.getElementById('monitorTable').innerHTML = html;
             } catch (e) {
                 document.getElementById('monitorTable').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>';
@@ -6600,7 +6612,21 @@ header('Expires: 0');
             onMonitorMonthChange();
         }
 
+        // Label "Oktober 2026" + tombol "Bulan ini" hanya saat melihat bulan lain
+        function updateMonitorMonthLabel() {
+            const inp = document.getElementById('monitorMonth');
+            const lbl = document.getElementById('monitorMonthLbl');
+            if (!inp || !lbl) return;
+            const [y, m] = (inp.value || new Date().toISOString().substring(0, 7)).split('-').map(Number);
+            lbl.textContent = new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            const now = new Date();
+            const isNow = y === now.getFullYear() && m === now.getMonth() + 1;
+            const btn = document.getElementById('monitorNowBtn');
+            if (btn) btn.style.display = isNow ? 'none' : '';
+        }
+
         function onMonitorMonthChange() {
+            updateMonitorMonthLabel();
             loadMonitoring();
             loadMonitorLembur();
         }
