@@ -21,44 +21,12 @@ if ($bizSlug) {
     }
 }
 
-// Resolve icon: pwa_app_icon > login_logo > fallback GD icon
-// All URLs must be ABSOLUTE for Android WebAPK generation
+// Ikon khusus per bisnis (staff-app-icon.php): PNG persegi berukuran persis — syarat Chrome agar tombol Install muncul.
+// Ikon lama (pwa_app_icon / login_logo di DB utama) sama untuk semua bisnis dan sering bukan PNG persegi → tidak dipakai lagi.
+// Semua alamat ABSOLUT (dibutuhkan Android untuk membuat WebAPK)
 $baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
 $moduleUrl = $baseHttpUrl . '/modules/payroll';
-$iconUrl192 = $moduleUrl . '/absen-icon.php?size=192';
-$iconUrl512 = $moduleUrl . '/absen-icon.php?size=512';
-$iconType = 'image/png';
-$rootDir = dirname(dirname(__DIR__));
-try {
-    $mdb = Database::getInstance();
-    $iconKeys = [
-        'pwa_app_icon' => 'uploads/icons/',
-        'login_logo'   => 'uploads/logos/',
-    ];
-    foreach ($iconKeys as $iconKey => $localPrefix) {
-        $iconRow = $mdb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
-        $iconVal = $iconRow['setting_value'] ?? null;
-        if (!$iconVal) continue;
-        if (strpos($iconVal, 'http') === 0) {
-            $iconUrl192 = $iconVal;
-            $iconUrl512 = $iconVal;
-            if (preg_match('/\.(png)$/i', $iconVal)) $iconType = 'image/png';
-            elseif (preg_match('/\.(jpe?g)$/i', $iconVal)) $iconType = 'image/jpeg';
-            else $iconType = 'image/png';
-            break;
-        } else {
-            $fullPath = $rootDir . '/' . $localPrefix . $iconVal;
-            if (file_exists($fullPath)) {
-                $iconUrl192 = $baseHttpUrl . '/' . $localPrefix . $iconVal;
-                $iconUrl512 = $iconUrl192;
-                $ext = strtolower(pathinfo($iconVal, PATHINFO_EXTENSION));
-                $iconType = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : 'image/png';
-                break;
-            }
-        }
-    }
-} catch (Exception $e) {}
-
+$iconBase = $moduleUrl . '/staff-app-icon.php?b=' . urlencode($bizSlug) . '&v=3&size=';
 $startUrl = $moduleUrl . '/staff-portal.php' . ($bizSlug ? '?b=' . urlencode($bizSlug) : '');
 $scopeUrl = $moduleUrl . '/';
 $manifestId = '/modules/payroll/staff-portal' . ($bizSlug ? '?b=' . $bizSlug : '');
@@ -66,8 +34,9 @@ $manifestId = '/modules/payroll/staff-portal' . ($bizSlug ? '?b=' . $bizSlug : '
 while (ob_get_level()) ob_end_clean();
 echo json_encode([
     'id'               => $manifestId,
-    'name'             => $bizName . ' — Staff Portal',
-    'short_name'       => 'Staff Portal',
+    'name'             => $bizName . ' — Staff',
+    // nama di bawah ikon HP (Android memotong setelah ±12 huruf)
+    'short_name'       => mb_strlen($bizName) <= 12 ? $bizName : (explode(' ', $bizName)[0] ?: 'Staff Portal'),
     'description'      => 'Portal karyawan: absensi, monitoring, cuti, occupancy, breakfast',
     'start_url'        => $startUrl,
     'scope'            => $scopeUrl,
@@ -79,29 +48,10 @@ echo json_encode([
     'categories'       => ['business', 'productivity'],
     'prefer_related_applications' => false,
     'icons'            => [
-        [
-            'src'     => $iconUrl192,
-            'sizes'   => '192x192',
-            'type'    => $iconType,
-            'purpose' => 'any',
-        ],
-        [
-            'src'     => $iconUrl512,
-            'sizes'   => '512x512',
-            'type'    => $iconType,
-            'purpose' => 'any',
-        ],
-        [
-            'src'     => $iconUrl512,
-            'sizes'   => '512x512',
-            'type'    => $iconType,
-            'purpose' => 'maskable',
-        ],
-        [
-            'src'     => $iconUrl192,
-            'sizes'   => '192x192',
-            'type'    => $iconType,
-            'purpose' => 'maskable',
-        ],
+        ['src' => $iconBase . '192', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+        ['src' => $iconBase . '512', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
+        // isi ikon berada di zona aman 80% → aman dipotong bulat/kotak oleh Android
+        ['src' => $iconBase . '192', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'maskable'],
+        ['src' => $iconBase . '512', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
     ],
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);

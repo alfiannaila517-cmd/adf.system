@@ -129,7 +129,10 @@ header('Expires: 0');
     <meta name="theme-color" content="<?php echo htmlspecialchars($themeColor); ?>">
     <title>Staff Portal - <?php echo $bizName; ?></title>
     <link rel="manifest" href="staff-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
-    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($pwaIconUrl); ?>">
+    <?php $appIconUrl = 'staff-app-icon.php?b=' . urlencode($bizSlug) . '&v=3&size='; ?>
+    <meta name="apple-mobile-web-app-title" content="<?php echo $bizName; ?>">
+    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($appIconUrl . '180'); ?>">
+    <link rel="icon" type="image/png" sizes="192x192" href="<?php echo htmlspecialchars($appIconUrl . '192'); ?>">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <style>
@@ -4465,6 +4468,7 @@ header('Expires: 0');
                     'seragam' => '<path d="M20.4 6.6 16 4a4 4 0 0 1-8 0L3.6 6.6a1 1 0 0 0-.5 1.2l1 3a1 1 0 0 0 1.3.6L7 10.8V20a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9.2l1.6.6a1 1 0 0 0 1.3-.6l1-3a1 1 0 0 0-.5-1.2z"/>',
                     'info' => '<path d="M3 11v3a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M17 9a4 4 0 0 1 0 6"/><path d="M19.5 6.5a8 8 0 0 1 0 11"/>',
                     'stock' => '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>',
+                    'install' => '<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 7v7M9 11l3 3 3-3"/><path d="M10.5 18.5h3"/>',
                 ];
                 // Urutan = yang paling sering dipakai lebih dulu: absensi, (hotel: kamar, HK, breakfast), izin/cuti, lembur, lalu lainnya
                 $spMenu = [['absensi', 'Detail Absensi', "openStaffSection('monitorSection')", '']];
@@ -4483,6 +4487,7 @@ header('Expires: 0');
                 $spMenu[] = ['seragam', 'Jadwal Seragam', "openStaffSection('uniformSection')", ''];
                 $spMenu[] = ['info', 'Pengumuman', 'toggleChat()', ''];
                 $spMenu[] = ['stock', 'Stock', 'goToStockPage()', 'quickMenuStock'];
+                $spMenu[] = ['install', 'Pasang Aplikasi', 'spInstallApp()', 'spInstallTile'];
                 $spPages = array_chunk($spMenu, 12);
                 ?>
                 <div class="sp-sec-title">Menu Utama</div>
@@ -5041,7 +5046,7 @@ header('Expires: 0');
 
     <!-- Install Progress Overlay -->
     <div class="install-progress" id="installProgress">
-        <img class="ip-icon" id="ipIcon" src="<?php echo htmlspecialchars($pwaIconUrl); ?>" alt="App">
+        <img class="ip-icon" id="ipIcon" src="<?php echo htmlspecialchars($appIconUrl . '192'); ?>" alt="App">
         <div class="ip-title"><?php echo $bizName; ?></div>
         <div class="ip-sub" id="ipSub">Installing Staff Portal...</div>
         <div class="ip-bar">
@@ -9029,7 +9034,7 @@ header('Expires: 0');
             <div class="ib-sub">Akses lebih cepat dari home screen</div>
         </div>
         <button class="ib-action" id="ibAction">Install</button>
-        <button class="ib-close" onclick="event.stopPropagation();this.parentElement.classList.remove('show');localStorage.setItem('ib_dismissed','1');">✕</button>
+        <button class="ib-close" onclick="event.stopPropagation();this.parentElement.classList.remove('show');localStorage.setItem('ib_dismissed',String(Date.now()));">✕</button>
     </div>
 
     <!-- PWA Install Logic — MUST be after banner HTML -->
@@ -9047,7 +9052,8 @@ header('Expires: 0');
             let deferredPrompt = null;
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-            const wasDismissed = localStorage.getItem('ib_dismissed') === '1';
+            const dismissedAt = parseInt(localStorage.getItem('ib_dismissed') || '0', 10);
+            const wasDismissed = dismissedAt > 1 && Date.now() - dismissedAt < 3 * 86400000;
             const banner = document.getElementById('installBanner');
             const ibBtn = document.getElementById('ibAction');
 
@@ -9055,6 +9061,17 @@ header('Expires: 0');
 
             // Already installed as PWA — hide everything
             if (isStandalone) return;
+            const installTile = document.getElementById('spInstallTile');
+            if (installTile) installTile.style.display = '';
+            // Tile "Pasang Aplikasi": dialog install asli Chrome bila tersedia, selain itu panduan langkah (Android/iPhone)
+            window.spInstallApp = function() {
+                if (deferredPrompt) {
+                    ibBtn.dataset.mode = 'native';
+                    ibBtn.click();
+                } else {
+                    showManualGuide();
+                }
+            };
 
             function showBanner(mode) {
                 if (wasDismissed || !banner) return;
@@ -9185,34 +9202,44 @@ header('Expires: 0');
             });
 
             function showManualGuide() {
+                // Langkah berbeda: iPhone (Safari) vs Android (Chrome)
+                const st = isIOS ? [
+                    ['Tap tombol Bagikan', 'Kotak dengan panah ke atas di bawah layar Safari'],
+                    ['Pilih "Tambah ke Layar Utama"', 'Geser ke bawah bila belum terlihat'],
+                    ['Tap "Tambah"', 'Ikon aplikasi muncul di layar HP']
+                ] : [
+                    ['Tap menu ⋮', '3 titik di kanan atas Chrome'],
+                    ['Pilih "Instal aplikasi"', 'Atau "Tambahkan ke layar utama"'],
+                    ['Tap "Instal"', 'Ikon aplikasi muncul di layar HP']
+                ];
                 // Create fullscreen guide overlay
                 const ov = document.createElement('div');
                 ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(5,10,24,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;animation:faceIn .3s ease;';
                 ov.innerHTML = `
             <div style="text-align:center;max-width:320px;">
                 <div style="font-size:56px;margin-bottom:16px;">📲</div>
-                <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 8px;">Install Staff Portal</h3>
-                <p style="color:rgba(255,255,255,.5);font-size:12px;margin:0 0 28px;">Ikuti langkah berikut di browser Chrome:</p>
+                <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 8px;">Pasang Aplikasi</h3>
+                <p style="color:rgba(255,255,255,.5);font-size:12px;margin:0 0 28px;">Ikuti langkah berikut di ${isIOS ? 'Safari' : 'Chrome'}:</p>
                 <div style="text-align:left;">
                     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:20px;">
                         <div style="width:32px;height:32px;background:linear-gradient(135deg,#f0b429,#e09800);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#0d1f3c;flex-shrink:0;">1</div>
                         <div>
-                            <div style="color:#fff;font-size:14px;font-weight:600;">Tap menu ⋮</div>
-                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">3 titik di kanan atas Chrome</div>
+                            <div style="color:#fff;font-size:14px;font-weight:600;">${st[0][0]}</div>
+                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">${st[0][1]}</div>
                         </div>
                     </div>
                     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:20px;">
                         <div style="width:32px;height:32px;background:linear-gradient(135deg,#f0b429,#e09800);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#0d1f3c;flex-shrink:0;">2</div>
                         <div>
-                            <div style="color:#fff;font-size:14px;font-weight:600;">Pilih "Install app"</div>
-                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">Atau "Add to Home screen"</div>
+                            <div style="color:#fff;font-size:14px;font-weight:600;">${st[1][0]}</div>
+                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">${st[1][1]}</div>
                         </div>
                     </div>
                     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:28px;">
                         <div style="width:32px;height:32px;background:linear-gradient(135deg,#34d399,#059669);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0;">3</div>
                         <div>
-                            <div style="color:#fff;font-size:14px;font-weight:600;">Tap "Install"</div>
-                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">App muncul di home screen!</div>
+                            <div style="color:#fff;font-size:14px;font-weight:600;">${st[2][0]}</div>
+                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">${st[2][1]}</div>
                         </div>
                     </div>
                 </div>
