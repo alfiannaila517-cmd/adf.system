@@ -15,7 +15,6 @@ final class View
         ['dashboard', 'Dashboard', 'home', '/', false],
         'Bisnis',
         ['orders', 'Transaksi', 'receipt', '/site.php?tab=pesanan', true],
-        ['customers', 'Pelanggan', 'team', '/site.php?tab=pelanggan', true],
         ['invoices', 'Invoice', 'file', '/invoices.php', true],
         ['billing', 'Klien Langganan', 'link', '/billing.php', false],
         ['finance', 'Keuangan', 'wallet', '/finance.php', true],
@@ -305,6 +304,15 @@ final class View
         .nav a.on { background: var(--goldbg); color: #fff; font-weight: 600; box-shadow: inset 2px 0 0 var(--brand); }
         .nav a.on .ico { color: var(--brand); }
         .nav-label { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--mu); padding: 18px 11px 6px; font-weight: 600; }
+        .nav-grp { margin-top: 6px; }
+        .nav-grp > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--mu); padding: 8px 11px 6px; font-weight: 600; border-radius: 7px; user-select: none; }
+        .nav-grp > summary::-webkit-details-marker { display: none; }
+        .nav-grp > summary::before, .nav-grp > summary::marker { display: none; content: none; }
+        .nav-grp > summary:hover { color: var(--ink2); background: rgba(255, 255, 255, .03); }
+        .nav-grp > summary .chev { display: inline-flex; transition: transform .15s ease; }
+        .nav-grp > summary .chev .ico { width: 13px; height: 13px; }
+        .nav-grp[open] > summary .chev { transform: rotate(90deg); }
+        .nav-grp-body { display: flex; flex-direction: column; gap: 2px; padding-bottom: 2px; }
         .side-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line2); }
         .me { display: flex; align-items: center; gap: 10px; padding: 10px 8px 0; font-size: 13px; }
         .me .av { width: 28px; height: 28px; border-radius: 50%; background: var(--goldbg); color: var(--gold); display: grid; place-items: center; font-weight: 700; flex-shrink: 0; }
@@ -354,13 +362,29 @@ final class View
         self::head($title);
         echo '<body><div class="shell" id="shell">';
         echo '<aside class="side"><a class="brand" href="/"><img class="mark" src="/logo.png" alt=""><div><b>ADF<em>system</em></b><span>Console · ' . e(Secrets::get('SERVER_NAME', 'ADF Platform')) . '</span></div></a><nav class="nav">';
+        // Kelompok menu = dropdown (<details>): terbuka bila berisi halaman aktif; buka/tutup lain diingat browser (skrip di end())
+        $groups = [];
+        $cur = '';
         foreach (self::navFor($user) as $n) {
             if (is_string($n)) {
-                echo '<div class="nav-label">' . e($n) . '</div>';
+                $cur = $n;
                 continue;
             }
-            [$key, $label, $icon, $url] = $n;
-            echo '<a class="' . ($key === $active ? 'on' : '') . '" href="' . e($url) . '">' . self::icon($icon) . e($label) . '</a>';
+            $groups[$cur][] = $n;
+        }
+        foreach ($groups as $title => $items) {
+            $links = '';
+            $hasActive = false;
+            foreach ($items as [$key, $label, $icon, $url]) {
+                $hasActive = $hasActive || $key === $active;
+                $links .= '<a class="' . ($key === $active ? 'on' : '') . '" href="' . e($url) . '">' . self::icon($icon) . e($label) . '</a>';
+            }
+            if ($title === '') {
+                echo $links;
+                continue;
+            }
+            echo '<details class="nav-grp" data-grp="' . e($title) . '"' . ($hasActive ? ' open data-active="1"' : '') . '><summary>' . e($title)
+                . '<span class="chev">' . self::icon('chev') . '</span></summary><div class="nav-grp-body">' . $links . '</div></details>';
         }
         echo '</nav><div class="side-foot"><nav class="nav">'
             . '<a class="' . ($active === 'account' ? 'on' : '') . '" href="/account.php">' . self::icon('key') . 'Ubah password</a></nav>'
@@ -387,6 +411,19 @@ final class View
         echo '<a class="' . (!in_array(self::$active, $inBnav, true) ? 'on' : '') . '" href="/settings.php">' . self::icon('gear') . 'Lainnya</a></nav>';
         echo <<<'JS'
 <script>
+// Menu samping: ingat kelompok yang dibuka / ditutup (kelompok berisi halaman aktif selalu terbuka)
+(function () {
+    var key = "adf_nav_open", saved = {};
+    try { saved = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch (e) {}
+    document.querySelectorAll("details.nav-grp").forEach(function (d) {
+        var g = d.getAttribute("data-grp");
+        if (!d.hasAttribute("data-active") && saved[g] === 1) d.open = true;
+        d.addEventListener("toggle", function () {
+            saved[g] = d.open ? 1 : 0;
+            try { localStorage.setItem(key, JSON.stringify(saved)); } catch (e) {}
+        });
+    });
+})();
 // Aplikasi (PWA): daftarkan service worker + tombol "Pasang aplikasi"
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(function () {}); }
 (function () {
