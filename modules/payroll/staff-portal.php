@@ -122,7 +122,6 @@ header('Expires: 0');
     <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($pwaIconUrl); ?>">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-    <link rel="preload" href="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js" as="script" crossorigin>
     <style>
         * {
             margin: 0;
@@ -3761,6 +3760,113 @@ header('Expires: 0');
             .hk-codes { grid-template-columns: repeat(2, 1fr); }
             .rmc { --col: 52px; --lbl: 54px; }
         }
+
+        /* ═══════════ REDESIGN 2026-10 (gaya biru seperti contoh, semua bisnis) ═══════════
+           Lapisan terakhir: menimpa gaya lama tanpa mengubah fungsi. */
+        :root {
+            --sp-blue: #2f6fe0;
+            --sp-blue2: #4f8df5;
+            --sp-sky: #e7f0ff;
+            --sp-tile: #dce8fd;
+            --sp-tile2: #c9dbfb;
+            --sp-ink: #13213f;
+            --sp-navy: #14213d;
+            --sp-navy2: #1d3461;
+            --sp-bg: #eef3fb;
+            --sp-green: #22c55e;
+        }
+        body { background: var(--sp-bg); }
+
+        /* ── Login ── */
+        .auth-wrap { background: linear-gradient(180deg, #2f6fe0 0%, #4f8df5 42%, #eef3fb 42.1%) !important; align-items: flex-start; padding-top: 48px; }
+        .auth-wrap::before, .auth-wrap::after { display: none !important; }
+        .auth-card { max-width: 380px !important; width: calc(100% - 32px) !important; margin: 0 auto; background: #fff !important; backdrop-filter: none !important; border: 0 !important; border-radius: 26px !important; box-shadow: 0 18px 40px rgba(20, 50, 110, .18) !important; padding: 26px 22px 24px !important; color: var(--sp-ink); }
+        .auth-logo img { width: 72px !important; height: 72px !important; border-radius: 50% !important; background: #fff; box-shadow: 0 6px 18px rgba(47, 111, 224, .25); object-fit: contain; }
+        .auth-logo h1 { color: var(--sp-ink) !important; font-size: 19px !important; font-weight: 800 !important; text-shadow: none !important; }
+        .auth-logo p { color: #64748b !important; }
+        .auth-tabs { background: var(--sp-sky) !important; border-radius: 14px !important; padding: 4px !important; border: 0 !important; }
+        .auth-tab { color: #475569 !important; border-radius: 11px !important; font-weight: 600 !important; }
+        .auth-tab.active { background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)) !important; color: #fff !important; box-shadow: 0 4px 12px rgba(47, 111, 224, .35) !important; }
+        .auth-wrap .fl { color: #475569 !important; text-shadow: none !important; }
+        .auth-wrap .fi { background: #f3f7ff !important; border: 1.5px solid #dbe6fb !important; color: var(--sp-ink) !important; border-radius: 13px !important; font-size: 16px !important; padding: 12px 14px !important; }
+        .auth-wrap .fi:focus { border-color: var(--sp-blue) !important; box-shadow: 0 0 0 3px rgba(47, 111, 224, .15) !important; }
+        .auth-wrap .remember-row label { color: #475569 !important; }
+        .btn-auth { background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)) !important; color: #fff !important; border-radius: 14px !important; padding: 13px !important; font-weight: 700 !important; box-shadow: 0 8px 18px rgba(47, 111, 224, .35) !important; border: 0 !important; }
+        .auth-msg { border-radius: 12px; }
+
+        /* ── Kepala halaman ── */
+        .app-wrap { background: var(--sp-bg) !important; padding-bottom: 104px !important; }
+        .app-header.sp-head { background: linear-gradient(135deg, #2f6fe0, #4f8df5) !important; padding: 14px 16px 10px !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; }
+        .sp-head .app-header-brand { gap: 11px; min-width: 0; }
+        .sp-av { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: #0f1b33; color: #fff; font-weight: 800; font-size: 18px; border: 2px solid rgba(255, 255, 255, .8); overflow: hidden; }
+        .sp-av img { width: 100%; height: 100%; object-fit: cover; }
+        .sp-head .title { font-size: 18px !important; font-weight: 800 !important; color: #fff !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .sp-head .subtitle { text-transform: none !important; letter-spacing: 0 !important; font-weight: 500 !important; font-size: 12px !important; color: rgba(255, 255, 255, .85) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .sp-head .user-badge { display: none !important; }
+        .sp-head .notif-bell, .sp-head .chat-fab { width: 38px !important; height: 38px !important; border-radius: 12px !important; background: #1b2f5c !important; color: #fff !important; display: grid !important; place-items: center !important; box-shadow: 0 4px 10px rgba(15, 27, 51, .3) !important; border: 0 !important; }
+        .sp-head .logout-btn { background: rgba(255, 255, 255, .18) !important; color: #fff !important; border: 0 !important; border-radius: 10px !important; width: 30px; height: 30px; }
+
+        /* ── Beranda: pita biru + kotak absen gelap ── */
+        .page { background: transparent; }
+        #page-home { padding-top: 0 !important; }
+        .sp-strip { height: 74px; margin: 0 -16px; background: linear-gradient(135deg, #2f6fe0, #4f8df5); border-radius: 0 0 30px 30px; }
+        .sp-hero { position: relative; margin: -62px 0 18px; background: linear-gradient(145deg, var(--sp-navy2), var(--sp-navy)); border-radius: 26px; padding: 18px 16px 58px; color: #fff; box-shadow: 0 14px 30px rgba(20, 33, 61, .35); }
+        .sp-hero-main { display: flex; align-items: center; gap: 14px; }
+        .sp-ring { position: relative; width: 92px; height: 92px; flex-shrink: 0; }
+        .sp-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .sp-ring circle { fill: none; stroke-width: 11; }
+        .sp-ring .trk { stroke: #cbd5e1; opacity: .9; }
+        .sp-ring .val { stroke: var(--sp-green); stroke-linecap: round; stroke-dasharray: 314.16; stroke-dashoffset: calc(314.16 - 314.16 * var(--p) / 100); transition: stroke-dashoffset .6s ease; }
+        .sp-ring span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: 20px; }
+        .sp-hero-txt { min-width: 0; flex: 1; }
+        .sp-hero-lbl { font-size: 13px; color: #dbe6ff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .sp-hero-lbl .ab-badge { font-size: 10.5px !important; padding: 2px 8px !important; }
+        .sp-hero-big { font-size: 19px; font-weight: 800; margin: 3px 0 8px; line-height: 1.25; }
+        .sp-hero-big b { color: var(--sp-green); }
+        .sp-hero-big em { font-style: normal; color: #94a3b8; }
+        .sp-hero-bar { height: 7px; border-radius: 99px; background: #64748b; overflow: hidden; width: 100%; max-width: 170px; }
+        .sp-hero-bar i { display: block; height: 100%; width: 0; background: var(--sp-green); border-radius: 99px; transition: width .6s ease; }
+        .sp-hero-clock { margin-top: 8px; font-size: 11.5px; color: #b8c6e3; }
+        .sp-hero-slots { margin-top: 14px; }
+        .sp-hero-slots .ab-slots { gap: 6px !important; }
+        .sp-hero-slots .ab-slot { background: rgba(255, 255, 255, .08) !important; border: 1px solid rgba(255, 255, 255, .1) !important; color: #fff !important; border-radius: 12px !important; }
+        .sp-hero-slots .ab-slot span { color: #b8c6e3 !important; }
+        .sp-hero-slots .ab-slot b { color: #fff !important; }
+        .sp-hero-slots .ab-extra, .sp-hero-slots .ab-empty { color: #dbe6ff !important; background: none !important; border: 0 !important; padding: 8px 0 0 !important; font-size: 12px; }
+        .sp-hero-slots .loading { color: #dbe6ff; }
+        /* takik di kanan bawah tempat tombol Absen (seperti "Lanjut Belajar" pada contoh) */
+        .sp-hero-notch { position: absolute; right: 0; bottom: -14px; background: var(--sp-bg); border-radius: 22px 0 22px 0; padding: 10px 0 6px 12px; }
+        .sp-hero-btn { display: flex; align-items: center; gap: 14px; border: 0; cursor: pointer; padding: 0 0 0 18px; height: 46px; border-radius: 15px; background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)); color: #fff; font-size: 15px; font-weight: 700; box-shadow: 0 8px 18px rgba(47, 111, 224, .4); overflow: hidden; }
+        .sp-hero-btn i { font-style: normal; display: grid; place-items: center; width: 46px; height: 46px; background: var(--sp-navy); font-size: 20px; border-radius: 15px; }
+
+        /* ── Menu Utama: ubin berikon ── */
+        .sp-sec-title { font-size: 17px; font-weight: 800; color: var(--sp-ink); margin: 6px 4px 10px; }
+        .sp-menu { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -4px; }
+        .sp-menu::-webkit-scrollbar { display: none; }
+        .sp-menu-page { flex: 0 0 100%; scroll-snap-align: start; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 2px 4px 6px; align-content: start; }
+        .sp-tile { aspect-ratio: 1 / 1.05; border-radius: 18px; background: linear-gradient(160deg, var(--sp-tile), var(--sp-tile2)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 6px 4px; cursor: pointer; box-shadow: 0 4px 10px rgba(47, 111, 224, .12), inset 0 1px 0 rgba(255, 255, 255, .7); transition: transform .15s ease; -webkit-tap-highlight-color: transparent; }
+        .sp-tile:active { transform: scale(.95); }
+        .sp-tile-ic { font-size: 30px; line-height: 1; filter: drop-shadow(0 3px 3px rgba(20, 50, 110, .25)); }
+        .sp-tile-lb { font-size: 11.5px; font-weight: 600; color: var(--sp-ink); text-align: center; line-height: 1.2; }
+        .sp-tile.dark { background: linear-gradient(160deg, var(--sp-navy2), var(--sp-navy)); box-shadow: 0 8px 16px rgba(20, 33, 61, .35); }
+        .sp-tile.dark .sp-tile-lb { color: #fff; }
+        .sp-dots { display: flex; justify-content: center; gap: 6px; margin: 6px 0 14px; }
+        .sp-dots i { width: 14px; height: 6px; border-radius: 99px; background: #c7d4ea; transition: width .2s, background .2s; }
+        .sp-dots i.on { width: 32px; background: #8fa3c7; }
+        .sp-card { border-radius: 20px !important; }
+
+        /* ── Navigasi bawah dengan tombol bulat Absen ── */
+        .bottom-nav.sp-nav { background: #fff !important; border-top: 0 !important; border-radius: 26px 26px 0 0 !important; box-shadow: 0 -8px 24px rgba(20, 50, 110, .1) !important; height: auto !important; padding: 8px 6px calc(8px + env(safe-area-inset-bottom)) !important; display: grid !important; grid-template-columns: repeat(5, 1fr); align-items: end; }
+        .sp-nav .nav-item { border: 0 !important; color: #94a3b8 !important; padding: 4px 0 !important; }
+        .sp-nav .nav-item::before, .sp-nav .nav-item::after { display: none !important; }
+        .sp-nav .nav-item .nav-icon { font-size: 21px !important; filter: grayscale(1) opacity(.55); }
+        .sp-nav .nav-item.active { color: var(--sp-ink) !important; background: none !important; }
+        .sp-nav .nav-item.active .nav-icon { filter: none; }
+        .sp-nav .nav-label { font-size: 10.5px !important; font-weight: 600 !important; }
+        .sp-fab-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--sp-blue); }
+        .sp-fab { width: 62px; height: 62px; margin-top: -34px; border-radius: 50%; border: 5px solid #fff; background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)); color: #fff; display: grid; place-items: center; box-shadow: 0 10px 22px rgba(47, 111, 224, .45); cursor: pointer; }
+        .sp-fab svg { width: 26px; height: 26px; }
+        .sp-fab:active { transform: scale(.94); }
     </style>
 </head>
 
@@ -3890,14 +3996,14 @@ header('Expires: 0');
     <!-- ═══════════════════════════════════════ -->
     <div class="app-wrap" id="appShell">
         <!-- Header -->
-        <div class="app-header">
+        <div class="app-header sp-head">
             <div class="app-header-brand">
                 <?php
-                $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null);
-                if ($headerLogo): ?><img src="<?php echo htmlspecialchars($headerLogo); ?>" class="logo"><?php endif; ?>
+                $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null); ?>
+                <span class="sp-av"><?php if ($headerLogo): ?><img src="<?php echo htmlspecialchars($headerLogo); ?>" alt=""><?php else: ?><?php echo mb_substr(strip_tags($bizName), 0, 1); ?><?php endif; ?></span>
                 <div class="app-header-text">
-                    <span class="title"><?php echo $bizName; ?></span>
-                    <span class="subtitle">Staff Portal</span>
+                    <span class="title">Halo, <span id="helloName">Staff</span></span>
+                    <span class="subtitle" id="helloRole"><?php echo $bizName; ?></span>
                 </div>
             </div>
             <div class="app-header-actions">
@@ -3961,114 +4067,79 @@ header('Expires: 0');
                     </div>
                 </div>
 
-                <!-- Absensi hari ini: jam, status, jam scan + tombol Face Scan (utama) & Absen Manual (cadangan) -->
-                <div class="rm-card ab-card">
-                    <div class="ab-top">
-                        <div>
-                            <div class="rm-occ-label"><span class="ab-dot"></span>Absensi hari ini</div>
-                            <div class="ab-clock"><span id="liveClockTime">--:--</span><span class="ab-sec" id="liveClockSec">:--</span></div>
-                            <div class="rm-sub" id="liveClockDate"></div>
+                <!-- Pita biru di bawah kepala halaman (kotak absen menumpang di atasnya, seperti contoh desain) -->
+                <div class="sp-strip"></div>
+
+                <!-- Absensi hari ini: lingkaran progres scan, jam, status + tombol Absen Sekarang (GPS, wajib di area kantor) -->
+                <div class="sp-hero">
+                    <div class="sp-hero-main">
+                        <div class="sp-ring" id="heroRing" style="--p:0">
+                            <svg viewBox="0 0 120 120" aria-hidden="true">
+                                <circle cx="60" cy="60" r="50" class="trk"></circle>
+                                <circle cx="60" cy="60" r="50" class="val" id="heroRingVal"></circle>
+                            </svg>
+                            <span id="heroRingPct">0%</span>
                         </div>
-                        <div id="todayBadge"></div>
+                        <div class="sp-hero-txt">
+                            <div class="sp-hero-lbl">Absensi Hari Ini <span id="todayBadge"></span></div>
+                            <div class="sp-hero-big"><b id="heroDone">0</b> dari <span id="heroTotal"><?php echo $isCafe ? 2 : 4; ?></span> Scan <em id="heroWord">Belum</em></div>
+                            <div class="sp-hero-bar"><i id="heroBar"></i></div>
+                            <div class="sp-hero-clock"><span id="liveClockTime">--:--</span><span id="liveClockSec">:--</span> · <span id="liveClockDate"></span></div>
+                        </div>
                     </div>
-                    <div id="todayStatus">
+                    <div id="todayStatus" class="sp-hero-slots">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
-                    <div class="ab-btns">
-                        <button type="button" class="ab-btn ab-face" onclick="openFaceScan()">
-                            <span class="ab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7" />
-                                    <path d="M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7" />
-                                    <path d="M4 17v1.5A1.5 1.5 0 0 0 5.5 20H7" />
-                                    <path d="M17 20h1.5a1.5 1.5 0 0 0 1.5-1.5V17" />
-                                    <circle cx="9" cy="10" r="1" fill="currentColor" />
-                                    <circle cx="15" cy="10" r="1" fill="currentColor" />
-                                    <path d="M9 15c.9.8 2 1.2 3 1.2s2.1-.4 3-1.2" />
-                                </svg></span>
-                            <span class="ab-txt"><b>Face Scan</b><small>Absen dengan wajah</small></span>
-                        </button>
-                        <button type="button" class="ab-btn ab-manual" onclick="openManualAttendance()">
-                            <span class="ab-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z" />
-                                    <circle cx="12" cy="9.5" r="2.5" />
-                                </svg></span>
-                            <span class="ab-txt"><b>Absen Manual</b><small>Pakai lokasi GPS</small></span>
+                    <div class="sp-hero-notch">
+                        <button type="button" class="sp-hero-btn" id="heroAbsenBtn" onclick="openManualAttendance()">
+                            <span>Absen Sekarang</span><i>→</i>
                         </button>
                     </div>
                 </div>
 
-                <!-- Target jam bulan ini -->
-                <div class="rm-card">
-                    <div class="rm-head" style="margin-bottom:8px;">
-                        <div>
-                            <div class="rm-title">Target Jam Bulan Ini</div>
-                            <div class="rm-sub">Akumulasi jam kerja terhadap target</div>
+                <!-- Menu Utama: ubin berikon 4 kolom × 2 baris per halaman, geser ke samping (titik di bawah) -->
+                <?php
+                $spMenu = [
+                    ['📊', 'Detail Absensi', "openStaffSection('monitorSection')", ''],
+                    ['🗓️', 'Jadwal Kerja', "openStaffSection('teamSchedSection')", ''],
+                    ['⏱️', 'Ajukan Lembur', "openStaffSection('lemburSection')", ''],
+                    ['🏖️', 'Ajukan Cuti', "openStaffSection('cutiSection')", ''],
+                    ['💰', 'Slip Gaji', "goPage('slipgaji')", ''],
+                    ['👔', 'Jadwal Seragam', "openStaffSection('uniformSection')", ''],
+                ];
+                if ($isHotel) {
+                    $spMenu[] = ['🏨', 'Status Kamar', "goPage('occupancy')", ''];
+                    $spMenu[] = ['🧹', 'Tugas HK', "goPage('hk')", ''];
+                    $spMenu[] = ['☕', 'Breakfast', "goPage('breakfast')", ''];
+                } elseif ($isCafe) {
+                    $spMenu[] = ['⏰', 'Ketepatan Waktu', "goPage('schedule')", ''];
+                }
+                $spMenu[] = ['📣', 'Pengumuman', 'toggleChat()', ''];
+                $spMenu[] = ['📦', 'Stock', 'goToStockPage()', 'quickMenuStock'];
+                $spPages = array_chunk($spMenu, 8);
+                ?>
+                <div class="sp-sec-title">Menu Utama</div>
+                <div class="sp-menu" id="spMenu">
+                    <?php foreach ($spPages as $pi => $page): ?>
+                        <div class="sp-menu-page">
+                            <?php foreach ($page as $i => [$ic, $label, $act, $mid]): ?>
+                                <div class="sp-tile<?php echo $pi === 0 && $i === 0 ? ' dark' : ''; ?>" onclick="<?php echo $act; ?>"<?php echo $mid ? ' id="' . $mid . '" style="display:none"' : ''; ?>>
+                                    <span class="sp-tile-ic"><?php echo $ic; ?></span>
+                                    <span class="sp-tile-lb"><?php echo htmlspecialchars($label); ?></span>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
-                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php if (count($spPages) > 1): ?>
+                    <div class="sp-dots" id="spDots"><?php foreach ($spPages as $pi => $_): ?><i class="<?php echo $pi === 0 ? 'on' : ''; ?>"></i><?php endforeach; ?></div>
+                <?php endif; ?>
+
+                <!-- Ringkasan bulan ini -->
+                <div class="sp-sec-title">Ringkasan Bulan Ini</div>
+                <div class="rm-card sp-card">
                     <div id="monthlySummary">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
-                    </div>
-                </div>
-
-                <!-- Menu Cepat: Lembur / Cuti / Jadwal Kerja / Detail Absensi / Jadwal Seragam / Stock -->
-                <div class="rm-card">
-                    <div class="rm-title" style="margin-bottom:10px;">Menu</div>
-                    <div class="qm-grid">
-                        <div class="qm-item" onclick="openStaffSection('lemburSection')">
-                            <div class="qm-icon qm-icon-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="13" r="8"></circle>
-                                    <path d="M12 9v4l2.5 2.5"></path>
-                                    <path d="M9 2h6"></path>
-                                </svg></div>
-                            <div class="qm-label">Ajukan<br>Lembur</div>
-                        </div>
-                        <div class="qm-item" onclick="openStaffSection('cutiSection')">
-                            <div class="qm-icon qm-icon-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect>
-                                    <path d="M3 9.5h18"></path>
-                                    <path d="M8 2.5v4"></path>
-                                    <path d="M16 2.5v4"></path>
-                                    <path d="M7.5 14l2 2 3-3.5"></path>
-                                </svg></div>
-                            <div class="qm-label">Ajukan<br>Cuti</div>
-                        </div>
-                        <div class="qm-item" onclick="openStaffSection('teamSchedSection')">
-                            <div class="qm-icon qm-icon-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect>
-                                    <path d="M3 9.5h18"></path>
-                                    <path d="M8 2.5v4"></path>
-                                    <path d="M16 2.5v4"></path>
-                                    <path d="M7.5 14h2"></path>
-                                    <path d="M11.5 14h2"></path>
-                                    <path d="M15.5 14h2"></path>
-                                    <path d="M7.5 17.5h2"></path>
-                                    <path d="M11.5 17.5h2"></path>
-                                </svg></div>
-                            <div class="qm-label">Jadwal<br>Kerja</div>
-                        </div>
-                        <div class="qm-item" onclick="openStaffSection('monitorSection')">
-                            <div class="qm-icon qm-icon-navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M4 20V10"></path>
-                                    <path d="M10 20V4"></path>
-                                    <path d="M16 20v-7"></path>
-                                    <path d="M20 20v-4"></path>
-                                </svg></div>
-                            <div class="qm-label">Detail<br>Absensi</div>
-                        </div>
-                        <div class="qm-item" onclick="openStaffSection('uniformSection')">
-                            <div class="qm-icon qm-icon-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M8 3.5 5 6l1.5 3L9 7.5V20h6V7.5l2.5 1.5L19 6l-3-2.5-2.3 1.4a3 3 0 0 1-3.4 0L8 3.5z"></path>
-                                </svg></div>
-                            <div class="qm-label">Jadwal<br>Seragam</div>
-                        </div>
-                        <div id="quickMenuStock" class="qm-item" onclick="goToStockPage()" style="display:none;">
-                            <div class="qm-icon qm-icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"></path>
-                                    <path d="M3 8l9 5 9-5"></path>
-                                    <path d="M12 13v8"></path>
-                                </svg></div>
-                            <div class="qm-label">Stock</div>
-                        </div>
                     </div>
                 </div>
 
@@ -4502,17 +4573,13 @@ header('Expires: 0');
 
         </div>
 
-        <!-- Bottom Navigation -->
-        <div class="bottom-nav">
-            <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
-            <?php if ($isHotel): ?>
-                <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room Monitor</span></div>
-                <div class="nav-item" data-page="hk"><span class="nav-icon">🧹</span><span class="nav-label">Tugas HK</span></div>
-                <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
-            <?php elseif ($isCafe): ?>
-                <div class="nav-item" data-page="schedule"><span class="nav-icon">⏰</span><span class="nav-label">Jadwal</span></div>
-            <?php endif; ?>
+        <!-- Navigasi bawah: Beranda · Jadwal · (Absen, tombol bulat) · Slip Gaji · Pengumuman. Halaman hotel/kafe dibuka dari Menu Utama -->
+        <div class="bottom-nav sp-nav">
+            <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Beranda</span></div>
+            <div class="nav-item nav-act" onclick="openJadwal()"><span class="nav-icon">🗓️</span><span class="nav-label">Jadwal</span></div>
+            <div class="sp-fab-wrap"><button type="button" class="sp-fab" onclick="openManualAttendance()" aria-label="Absen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button><span class="nav-label">Absen</span></div>
             <div class="nav-item" data-page="slipgaji"><span class="nav-icon">💰</span><span class="nav-label">Slip Gaji</span></div>
+            <div class="nav-item nav-act" onclick="toggleChat()"><span class="nav-icon">📣</span><span class="nav-label">Info</span></div>
         </div>
     </div>
 
@@ -4636,7 +4703,7 @@ header('Expires: 0');
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js"></script>
+    <!-- Face ID dilepas (2026-10): absen cukup tombol + lokasi GPS di area kantor; library wajah tidak dimuat lagi -->
     <script>
         const API = '<?php echo $apiUrl; ?>';
         const CRED_KEY = 'staff_saved_cred_<?php echo md5($bizSlug); ?>';
@@ -4859,6 +4926,12 @@ header('Expires: 0');
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('appShell').style.display = 'block';
             document.getElementById('headerName').textContent = name || 'Staff';
+            const hn = document.getElementById('helloName');
+            if (hn) hn.textContent = String(name || 'Staff').trim().split(/\s+/)[0];
+            fetch(API + '&action=profile').then(r => r.json()).then(p => {
+                const role = document.getElementById('helloRole');
+                if (role && p.success && p.data) role.textContent = [p.data.position, BIZ_NAME].filter(Boolean).join(' · ');
+            }).catch(() => {});
             loadHome();
             startLiveClock();
             initStockAccess();
@@ -4893,8 +4966,6 @@ header('Expires: 0');
             loadMonitorLembur();
             loadTeamSchedule();
             if (IS_CAFE) loadSchedule();
-            // Preload face models in background so Face Scan opens instantly
-            preloadFaceModels();
         }
 
         // ═══ STOCK TAB (cross-business stock access, gated by admin-granted permission) ═══
@@ -5742,33 +5813,83 @@ header('Expires: 0');
             }
         }
 
-        // ── Navigation ──
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-                item.classList.add('active');
-                const page = item.dataset.page;
-                document.getElementById('page-' + page).classList.add('active');
-                if (page === 'home') loadHome();
-                if (page === 'slipgaji') loadSlipGaji();
-                if (page === 'occupancy' && IS_HOTEL) loadOccupancy();
-                if (page === 'hk' && IS_HOTEL) loadHkTasks();
-                if (page === 'breakfast' && IS_HOTEL) loadBreakfast();
-                if (page === 'schedule' && IS_CAFE) loadSchedule();
-                if (page === 'stock') loadStockTab();
-            });
+        // ── Navigation ── (bottom nav [data-page] + ubin Menu Utama memakai goPage)
+        function goPage(page) {
+            const target = document.getElementById('page-' + page);
+            if (!target) return;
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.page === page));
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            target.classList.add('active');
+            if (page === 'home') {
+                // Kembali ke Beranda: tutup sub-bagian (lembur, cuti, ...) yang mungkin masih terbuka
+                ['lemburSection', 'cutiSection', 'teamSchedSection', 'monitorSection', 'uniformSection'].forEach(sid => {
+                    const el = document.getElementById(sid);
+                    if (el) el.style.display = 'none';
+                });
+                const homeMain = document.getElementById('homeMainContent');
+                if (homeMain) homeMain.style.display = '';
+                loadHome();
+            }
+            if (page === 'slipgaji') loadSlipGaji();
+            if (page === 'occupancy' && IS_HOTEL) loadOccupancy();
+            if (page === 'hk' && IS_HOTEL) loadHkTasks();
+            if (page === 'breakfast' && IS_HOTEL) loadBreakfast();
+            if (page === 'schedule' && IS_CAFE) loadSchedule();
+            if (page === 'stock') loadStockTab();
+            window.scrollTo(0, 0);
+        }
+        document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+            item.addEventListener('click', () => goPage(item.dataset.page));
         });
 
-        // Stock tab lives as a header icon (not bottom-nav) since it's only for staff with granted access
-        function goToStockPage() {
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById('page-stock').classList.add('active');
-            loadStockTab();
+        // Jadwal di navigasi bawah: kafe → halaman Jadwal & Ketepatan Waktu, lainnya → Jadwal Kerja tim
+        function openJadwal() {
+            if (IS_CAFE) {
+                goPage('schedule');
+                return;
+            }
+            goPage('home');
+            openStaffSection('teamSchedSection');
         }
 
+        // Stock hanya untuk staf yang diberi akses (ubin Stock di Menu Utama)
+        function goToStockPage() {
+            goPage('stock');
+        }
+
+        // Titik halaman Menu Utama mengikuti posisi geser
+        (function () {
+            const menu = document.getElementById('spMenu');
+            const dots = document.querySelectorAll('#spDots i');
+            if (!menu || !dots.length) return;
+            menu.addEventListener('scroll', () => {
+                const idx = Math.round(menu.scrollLeft / menu.clientWidth);
+                dots.forEach((d, i) => d.classList.toggle('on', i === idx));
+            }, { passive: true });
+        })();
+
         // ═══ ABSEN PAGE ═══
+        // Lingkaran & batang progres di kotak Absensi Hari Ini: jumlah scan tercatat dari jumlah yang dibutuhkan
+        function setHeroProgress(done) {
+            const total = IS_CAFE ? 2 : 4;
+            const pct = Math.round(Math.min(done, total) / total * 100);
+            const ring = document.getElementById('heroRing');
+            if (ring) ring.style.setProperty('--p', pct);
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+            set('heroRingPct', pct + '%');
+            set('heroDone', done);
+            set('heroWord', done >= total ? 'Selesai' : (done ? 'Tercatat' : 'Belum'));
+            const bar = document.getElementById('heroBar');
+            if (bar) bar.style.width = pct + '%';
+            const btn = document.getElementById('heroAbsenBtn');
+            if (btn) btn.querySelector('span').textContent = done >= total ? 'Absen Selesai ✓' : (IS_CAFE ? (done ? 'Absen Pulang' : 'Absen Masuk') : 'Absen Sekarang');
+        }
+
+        // Face ID dilepas: panggilan lama ke Face Scan diarahkan ke absen GPS
+        function openFaceScan() {
+            openManualAttendance();
+        }
+
         async function loadAbsen() {
             // Status & jam scan hari ini
             const fmtH = h => (Math.round(h * 10) / 10).toString().replace('.', ',');
@@ -5812,12 +5933,15 @@ header('Expires: 0');
                     const regular = wh > 0 ? Math.min(wh, 8) : 0;
                     if (regular > 0) extra += `<span>Jam kerja <b>${fmtH(regular)} jam</b></span>`;
                     if (ot > 0) extra += `<span style="color:#c2410c">Lembur <b>${fmtH(ot)} jam</b></span>`;
+                    const doneN = (IS_CAFE ? [a.check_in_time, a.check_out_time] : [a.check_in_time, a.check_out_time, a.scan_3, a.scan_4]).filter(Boolean).length;
+                    setHeroProgress(doneN);
                     document.getElementById('todayStatus').innerHTML =
                         `<div class="ab-slots" style="grid-template-columns:repeat(${IS_CAFE ? 2 : 4},1fr)">${slots}</div>` +
                         (extra ? `<div class="ab-extra">${extra}</div>` : '');
                 } else {
                     if (badgeEl) badgeEl.innerHTML = '<span class="ab-badge" style="background:#f1f5f9;color:#475569">Belum absen</span>';
-                    document.getElementById('todayStatus').innerHTML = '<div class="ab-empty">Belum ada absen hari ini. Tekan <b>Face Scan</b> untuk mulai.</div>';
+                    setHeroProgress(0);
+                    document.getElementById('todayStatus').innerHTML = '<div class="ab-empty">Belum ada absen hari ini. Tekan <b>Absen Sekarang</b> saat sudah di area kantor.</div>';
                 }
             } catch (e) {
                 document.getElementById('todayStatus').innerHTML = '<div class="ab-empty" style="color:var(--red)">Gagal memuat data absen</div>';
@@ -7532,7 +7656,7 @@ header('Expires: 0');
             document.getElementById('verifiedOverlay').classList.add('show');
         }
 
-        async function openFaceScan() {
+        async function openFaceScanLegacy() { // Face ID dilepas — tidak dipanggil lagi (lihat openFaceScan → absen GPS)
             const overlay = document.getElementById('faceOverlay');
             overlay.classList.add('show');
             faceScanActive = true;

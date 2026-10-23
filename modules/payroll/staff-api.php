@@ -1346,6 +1346,11 @@ if ($action === 'face_clock') {
     $locRows = $db->fetchAll("SELECT * FROM payroll_attendance_locations WHERE is_active = 1") ?: [];
     $distance = 0;
     $isOutside = false;
+    // Wajib di area kantor: tanpa lokasi GPS absen ditolak (dulu lokasi kosong melewati pemeriksaan radius)
+    if (!empty($locRows) && (!$lat || !$lng) && !$allowOutside) {
+        echo json_encode(['success' => false, 'message' => 'Lokasi tidak terbaca. Aktifkan GPS / izinkan lokasi, lalu coba lagi di area kantor.']);
+        exit;
+    }
     if (!empty($locRows) && $lat && $lng) {
         $nearest = null;
         $nearestDist = PHP_INT_MAX;

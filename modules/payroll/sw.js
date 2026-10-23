@@ -3,24 +3,15 @@
  * Handles caching for offline / slow-network support
  */
 
-const CACHE_NAME = 'staff-portal-v12'
+const CACHE_NAME = 'staff-portal-v13'
 const APP_SHELL = [
   './staff-portal.php',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ]
 
-// Face-API models to pre-cache for instant Face ID
-const FACE_MODELS = [
-  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js',
-  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-weights_manifest.json',
-  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-shard1',
-  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-weights_manifest.json',
-  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-shard1',
-  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-weights_manifest.json',
-  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard1',
-  'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard2'
-]
+// Face ID dilepas (2026-10): model wajah tidak lagi diunduh
+const FACE_MODELS = []
 
 // CDN assets that can be cached on first use (cache-first)
 const CDN_PREFIXES = [
