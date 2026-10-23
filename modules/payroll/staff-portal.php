@@ -4141,6 +4141,70 @@ header('Expires: 0');
         #page-breakfast .bfx-price { font-size: 11px !important; }
         #page-breakfast .bfx-btn { font-size: 11px !important; padding: 5px 12px !important; border-radius: 9px !important; }
         #page-breakfast .bfx-tabs button { font-size: 11px !important; padding: 5px 10px !important; }
+        /* ═══ Tema seragam sub-menu (Detail Absensi, Izin/Cuti, Lembur, Jadwal, Seragam, Ketepatan Waktu) ═══ */
+        .sec-head { display: flex !important; align-items: center !important; gap: 12px !important; margin: 4px 0 14px !important; padding: 0 !important; background: none !important; border: 0 !important; }
+        .section-back-btn { width: 40px !important; height: 40px !important; flex-shrink: 0; border-radius: 13px !important; border: 1px solid #e3ebf8 !important; background: #fff !important; color: var(--sp-blue) !important; font-size: 22px !important; line-height: 1 !important; display: grid !important; place-items: center !important; box-shadow: 0 2px 8px rgba(20, 50, 110, .08) !important; padding: 0 0 2px !important; }
+        .sec-head-t { font-size: 17px !important; font-weight: 800 !important; color: var(--sp-ink) !important; letter-spacing: -.01em; }
+        .sec-head-s { font-size: 11.5px !important; color: #64748b !important; }
+        #lemburSection .card, #cutiSection .card, #teamSchedSection .card, #uniformSection .card, #monitorSection .card, #page-schedule .card { background: #fff !important; border: 1px solid #e3ebf8 !important; border-radius: 18px !important; box-shadow: 0 2px 10px rgba(20, 50, 110, .06) !important; padding: 14px !important; margin-bottom: 12px !important; }
+        #lemburSection .card-title, #cutiSection .card-title, #teamSchedSection .card-title, #uniformSection .card-title, #monitorSection .card-title, #page-schedule .card-title { font-size: 13.5px !important; font-weight: 800 !important; color: var(--sp-ink) !important; margin-bottom: 10px !important; }
+        /* form */
+        .compact-form .fl { font-size: 10px !important; font-weight: 700 !important; letter-spacing: .06em !important; text-transform: uppercase !important; color: #64748b !important; margin-bottom: 5px !important; }
+        .compact-form .fi, #monitorMonth { background: #f5f8fe !important; border: 1px solid #dbe6fb !important; border-radius: 12px !important; color: var(--sp-ink) !important; font-size: 14px !important; height: auto !important; min-height: 42px; padding: 10px 12px !important; }
+        .compact-form textarea.fi { min-height: 70px; }
+        .compact-form .fi:focus, #monitorMonth:focus { border-color: var(--sp-blue) !important; box-shadow: 0 0 0 3px rgba(47, 111, 224, .12) !important; outline: none; }
+        .compact-form .btn-auth { margin-top: 2px; }
+        /* jenis cuti */
+        .cuti-type-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 8px !important; }
+        .cuti-type { border: 1px solid #e3ebf8 !important; background: #fff !important; border-radius: 14px !important; padding: 10px 4px !important; display: flex; flex-direction: column; align-items: center; gap: 5px; box-shadow: none !important; }
+        .cuti-type .ct-icon { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; background: #eaf1fe; color: var(--sp-blue); font-size: 0 !important; }
+        .cuti-type .ct-icon svg { width: 18px; height: 18px; }
+        .cuti-type .ct-label { font-size: 11px !important; font-weight: 700 !important; color: #334155 !important; }
+        .cuti-type.selected { background: linear-gradient(160deg, var(--sp-navy2), var(--sp-navy)) !important; border-color: transparent !important; }
+        .cuti-type.selected .ct-icon { background: rgba(255, 255, 255, .14); color: #fff; }
+        .cuti-type.selected .ct-label { color: #fff !important; }
+        /* riwayat */
+        .btn-riwayat { width: 100%; display: flex !important; align-items: center; gap: 8px; justify-content: flex-start !important; background: #fff !important; border: 1px solid #e3ebf8 !important; border-radius: 14px !important; padding: 12px 14px !important; font-size: 13px !important; font-weight: 700 !important; color: var(--sp-ink) !important; box-shadow: 0 2px 8px rgba(20, 50, 110, .05) !important; }
+        .btn-riwayat .riwayat-arrow { margin-left: auto; color: #94a3b8; font-size: 10px; }
+        .riwayat-badge { background: #ef4444 !important; color: #fff !important; border-radius: 99px !important; font-size: 10px !important; padding: 1px 7px !important; }
+        .riwayat-panel { margin-top: 8px; }
+        .rq-stats { gap: 6px !important; }
+        .rq-stat { background: #f5f8fe !important; border: 1px solid #e3ebf8 !important; border-radius: 12px !important; padding: 7px 4px !important; text-align: center; }
+        .rq-stat b { font-size: 15px !important; color: var(--sp-ink) !important; }
+        .rq-stat span { font-size: 9.5px !important; color: #64748b !important; }
+        .rq-item { background: #fff !important; border: 1px solid #e3ebf8 !important; border-radius: 14px !important; padding: 10px 12px !important; margin-bottom: 8px !important; box-shadow: none !important; }
+        .rq-top b { font-size: 13px !important; color: var(--sp-ink) !important; }
+        .rq-chip { font-size: 10px !important; padding: 2px 9px !important; border-radius: 99px !important; font-weight: 700 !important; }
+        .rq-when { font-size: 11px !important; color: #64748b !important; margin-top: 2px; }
+        .rq-reason { font-size: 12px !important; color: #334155 !important; margin-top: 6px; }
+        .rq-note { font-size: 11px !important; background: #f5f8fe !important; border-radius: 10px !important; padding: 6px 9px !important; margin-top: 6px; color: #475569 !important; }
+        /* jadwal kerja: pilihan Saya / Semua + navigasi bulan */
+        #teamSchedModeMineBtn, #teamSchedModeAllBtn { border-radius: 12px !important; padding: 9px !important; font-size: 12px !important; background: #f1f5fb !important; color: #475569 !important; }
+        #teamSchedModeMineBtn[style*="var(--blue)"], #teamSchedModeAllBtn[style*="var(--blue)"] { background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)) !important; color: #fff !important; box-shadow: 0 4px 10px rgba(47, 111, 224, .25); }
+        .sc-cal-nav-btn, .mon-nav button { border: 1px solid #e3ebf8 !important; background: #fff !important; color: var(--sp-blue) !important; border-radius: 99px !important; padding: 6px 12px !important; font-size: 11px !important; font-weight: 700 !important; }
+        .mon-nav button.mid { background: #eaf1fe !important; }
+        .sc-cal-title { font-size: 13px !important; font-weight: 800 !important; color: var(--sp-ink) !important; }
+        .sc-cal-legend { font-size: 10px !important; color: #64748b !important; }
+        /* jadwal seragam */
+        .uf-list { border: 1px solid #e3ebf8; border-radius: 14px; overflow: hidden; }
+        .uf-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-top: 1px solid #eef2f8; background: #fff; }
+        .uf-row:first-child { border-top: 0; }
+        .uf-row.today { background: #f0f6ff; }
+        .uf-day { font-size: 12.5px; font-weight: 700; color: var(--sp-ink); }
+        .uf-day small { margin-left: 6px; font-size: 9.5px; font-weight: 700; color: var(--sp-blue); background: #dfe9fd; padding: 1px 7px; border-radius: 99px; }
+        .uf-tag { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+        .uf-tag.on { background: #dcfce7; color: #15803d; }
+        .uf-tag.off { background: #fee2e2; color: #b91c1c; }
+        .uf-tag.none { background: #f1f5f9; color: #64748b; font-weight: 600; }
+        /* halaman kafe: Jadwal & Ketepatan Waktu */
+        #page-schedule .stat-card { background: #f5f8fe !important; border: 1px solid #e3ebf8 !important; border-radius: 12px !important; box-shadow: none !important; }
+        /* Sub-menu: tombol kirim biru tema; kalender jadwal muat di layar HP */
+        #page-home #lemburSection .btn-auth, #page-home #cutiSection .btn-auth { background: linear-gradient(135deg, var(--sp-blue), var(--sp-blue2)) !important; border-radius: 14px !important; box-shadow: 0 8px 18px rgba(47, 111, 224, .3) !important; }
+        #teamSchedCalGrid, #teamSchedDowHeader { gap: 4px !important; }
+        #teamSchedCalGrid > * { min-width: 0; }
+        #teamSchedSection .sc-cal-cell { padding: 6px 2px !important; min-height: 56px !important; border-radius: 11px !important; border-color: #e3ebf8 !important; }
+        #teamSchedSection .sc-cal-daynum { font-size: 14px !important; }
+        #teamSchedCalGrid .sc-cal-badge { font-size: 8px !important; padding: 1px 4px !important; white-space: normal !important; text-align: center; line-height: 1.15; justify-content: center; }
     </style>
 </head>
 
@@ -4466,7 +4530,7 @@ header('Expires: 0');
 
                 <!-- Riwayat Lembur (collapsed) -->
                 <div style="margin-bottom:12px;">
-                    <button onclick="toggleRiwayat('lembur')" class="btn-riwayat" id="btnRiwayatLembur">📋 Riwayat Lembur <span id="lemburBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowLembur">▼</span></button>
+                    <button onclick="toggleRiwayat('lembur')" class="btn-riwayat" id="btnRiwayatLembur">Riwayat Lembur <span id="lemburBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowLembur">▼</span></button>
                     <div id="panelRiwayatLembur" class="riwayat-panel">
                         <div id="lemburStats" style="margin-bottom:10px;"></div>
                         <div id="lemburHistory">
@@ -4490,19 +4554,19 @@ header('Expires: 0');
                         <div style="margin-bottom:8px;">
                             <div class="cuti-type-grid">
                                 <div class="cuti-type selected" data-type="cuti" onclick="selectCutiType(this)">
-                                    <div class="ct-icon">🏖️</div>
+                                    <div class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9z"/><path d="M12 12v7a2 2 0 0 0 4 0"/></svg></div>
                                     <div class="ct-label">Cuti</div>
                                 </div>
                                 <div class="cuti-type" data-type="sakit" onclick="selectCutiType(this)">
-                                    <div class="ct-icon">🩺</div>
+                                    <div class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.5-1.5 3-3.4 3-5.5A5.5 5.5 0 0 0 12 6a5.5 5.5 0 0 0-10 2.5c0 2.1 1.5 4 3 5.5l7 7z"/><path d="M3.5 12h4l2-3 3 6 2-3h6"/></svg></div>
                                     <div class="ct-label">Sakit</div>
                                 </div>
                                 <div class="cuti-type" data-type="izin" onclick="selectCutiType(this)">
-                                    <div class="ct-icon">📋</div>
+                                    <div class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div>
                                     <div class="ct-label">Izin</div>
                                 </div>
                                 <div class="cuti-type" data-type="cuti_khusus" onclick="selectCutiType(this)">
-                                    <div class="ct-icon">⭐</div>
+                                    <div class="ct-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3l-5.5 2.9 1-6.2L3 9.6l6.2-.9z"/></svg></div>
                                     <div class="ct-label">Khusus</div>
                                 </div>
                             </div>
@@ -4521,13 +4585,13 @@ header('Expires: 0');
                             <label class="fl">Alasan</label>
                             <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan cuti/izin..." required style="resize:vertical;"></textarea>
                         </div>
-                        <button type="submit" class="btn-auth" id="cutiBtn">📨 Kirim Pengajuan</button>
+                        <button type="submit" class="btn-auth" id="cutiBtn">Kirim Pengajuan</button>
                     </form>
                 </div>
 
                 <!-- Riwayat Cuti (collapsed) -->
                 <div style="margin-bottom:12px;">
-                    <button onclick="toggleRiwayat('cuti')" class="btn-riwayat" id="btnRiwayatCuti">📅 Riwayat Cuti <span id="cutiBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowCuti">▼</span></button>
+                    <button onclick="toggleRiwayat('cuti')" class="btn-riwayat" id="btnRiwayatCuti">Riwayat Cuti <span id="cutiBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowCuti">▼</span></button>
                     <div id="panelRiwayatCuti" class="riwayat-panel">
                         <div id="cutiStats" style="margin-bottom:10px;"></div>
                         <div id="cutiHistory">
@@ -4549,13 +4613,13 @@ header('Expires: 0');
                 <div class="card">
                     <div class="card-title" id="teamSchedCardTitle">Jadwal Kerja Saya</div>
                     <div style="display:flex;gap:6px;margin-bottom:10px;">
-                        <button type="button" id="teamSchedModeMineBtn" onclick="setTeamSchedViewMode('mine')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;">👤 Jadwal Saya</button>
-                        <button type="button" id="teamSchedModeAllBtn" onclick="setTeamSchedViewMode('all')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:#e2e8f0;color:var(--navy);">👥 Semua Staff</button>
+                        <button type="button" id="teamSchedModeMineBtn" onclick="setTeamSchedViewMode('mine')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff;">Jadwal Saya</button>
+                        <button type="button" id="teamSchedModeAllBtn" onclick="setTeamSchedViewMode('all')" style="flex:1;border:none;border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;background:#e2e8f0;color:var(--navy);">Semua Staff</button>
                     </div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                        <button type="button" class="sc-cal-nav-btn" onclick="changeTeamSchedMonth(-1)">◀ Bulan Lalu</button>
+                        <button type="button" class="sc-cal-nav-btn" onclick="changeTeamSchedMonth(-1)">‹ Bulan lalu</button>
                         <div id="teamSchedCalTitle" class="sc-cal-title"></div>
-                        <button type="button" class="sc-cal-nav-btn" onclick="changeTeamSchedMonth(1)">Bulan Depan ▶</button>
+                        <button type="button" class="sc-cal-nav-btn" onclick="changeTeamSchedMonth(1)">Bulan depan ›</button>
                     </div>
                     <div id="teamSchedDowHeader" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;"></div>
                     <div id="teamSchedCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;touch-action:pan-y;"></div>
@@ -4757,13 +4821,13 @@ header('Expires: 0');
             <!-- ═══ PAGE: JADWAL (Cafe only) ═══ -->
             <div class="page" id="page-schedule">
                 <div class="card">
-                    <div class="card-title">⏰ Jadwal Kerja Saya</div>
+                    <div class="card-title">Jadwal Kerja Saya</div>
                     <div id="scheduleInfo">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
                 </div>
                 <div class="card">
-                    <div class="card-title">📊 Ketepatan Waktu Bulan Ini</div>
+                    <div class="card-title">Ketepatan Waktu Bulan Ini</div>
                     <div id="punctualityStats">
                         <div class="loading"><span class="spin"></span> Memuat...</div>
                     </div>
@@ -5808,26 +5872,16 @@ header('Expires: 0');
             }
             const today = new Date();
             const todayDow = today.getDay();
-            let html = '<div style="display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden;">';
+            let html = '<div class="uf-list">';
             for (let d = 0; d <= 6; d++) {
                 const w = (teamSchedData.weeklyByEmp[myEmp.id] || {})[d];
                 const isOff = w ? parseInt(w.is_off) === 1 : d === 0;
                 const uniform = w && w.uniform ? w.uniform : null;
                 const isToday = d === todayDow;
-                let rightHtml;
-                if (isOff) {
-                    rightHtml = '<span style="color:var(--red);font-weight:700;font-size:11px;">🔴 Libur</span>';
-                } else if (uniform) {
-                    rightHtml = '<span style="color:var(--green);font-weight:700;font-size:11px;">👔 ' + uniform + '</span>';
-                } else {
-                    rightHtml = '<span style="color:var(--muted);font-size:11px;">Belum diatur</span>';
-                }
-                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;' +
-                    (d < 6 ? 'border-bottom:1px solid var(--border);' : '') +
-                    (isToday ? 'background:#eff6ff;' : (d % 2 === 0 ? 'background:#fff;' : 'background:#fafbfc;')) + '">' +
-                    '<span style="font-weight:700;font-size:12px;color:var(--navy);">' + UNIFORM_DAY_FULL[d] + (isToday ? ' <span style="font-weight:600;color:var(--blue);font-size:9px;">(Hari ini)</span>' : '') + '</span>' +
-                    rightHtml +
-                    '</div>';
+                const right = isOff ? '<span class="uf-tag off">Libur</span>'
+                    : (uniform ? '<span class="uf-tag on">' + rmEsc(uniform) + '</span>' : '<span class="uf-tag none">Belum diatur</span>');
+                html += '<div class="uf-row' + (isToday ? ' today' : '') + '"><span class="uf-day">' + UNIFORM_DAY_FULL[d] +
+                    (isToday ? '<small>Hari ini</small>' : '') + '</span>' + right + '</div>';
             }
             html += '</div>';
             wrap.innerHTML = html;
