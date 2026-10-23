@@ -147,6 +147,8 @@ function adfsub_config(PDO $pdo): array
         'locked' => adfsub_setting($pdo, 'subscription_locked', '0') === '1',
         'pakasir_slug' => adfsub_setting($pdo, 'subscription_pakasir_slug'),
         'pakasir_api_key' => adfsub_setting($pdo, 'subscription_pakasir_api_key'),
+        // 'console' = bayar online lewat ADF Console (Mayar); 'pakasir' = cara lama
+        'gateway' => adfsub_setting($pdo, 'subscription_gateway', 'pakasir'),
         'provider_name' => adfsub_setting($pdo, 'subscription_provider_name', 'ADF System'),
         'provider_email' => adfsub_setting($pdo, 'subscription_provider_email'),
         'last_sync_at' => adfsub_setting($pdo, 'subscription_last_sync_at'),
@@ -229,15 +231,68 @@ function adfsub_sync(PDO $pdo, bool $force = false): bool
         'subscription_pakasir_api_key' => (string) ($data['pakasir_api_key'] ?? ''),
         'subscription_provider_name' => (string) ($data['provider_name'] ?? 'ADF System'),
         'subscription_provider_email' => (string) ($data['provider_email'] ?? ''),
+        'subscription_gateway' => (string) ($data['payment_gateway'] ?? 'pakasir'),
         'subscription_last_sync_error' => '',
     ];
     foreach ($map as $key => $value) {
         adfsub_set_setting($pdo, $key, $value);
     }
 
+    // Lunas di ADF (dibayar online lewat Console / ditandai lunas admin) → ikut lunas di sini, sebelum daftar tagihan manual disinkron
+    adfsub_apply_paid_periods($pdo, (array) ($data['paid_periods'] ?? []));
     adfsub_sync_manual_invoices($pdo);
     adfsub_send_pending_emails($pdo);
     return true;
+}
+
+/** Tagihan yang sudah lunas di ADF Console → tandai lunas di sini (+ push). */
+function adfsub_apply_paid_periods(PDO $pdo, array $periods): void
+{
+    if (!$periods) {
+        return;
+    }
+    adfsub_ensure_schema($pdo);
+    $find = $pdo->prepare("SELECT * FROM adf_subscription_invoices WHERE period = ? AND status = 'unpaid'");
+    $upd = $pdo->prepare("UPDATE adf_subscription_invoices SET status = 'paid', paid_at = NOW() WHERE id = ? AND status = 'unpaid'");
+    foreach ($periods as $period) {
+        $find->execute([(string) $period]);
+        if (!($inv = $find->fetch(PDO::FETCH_ASSOC))) {
+            continue;
+        }
+        $upd->execute([$inv['id']]);
+        adfsub_push($pdo, '✅ Pembayaran Berhasil', 'Tagihan ADF System (' . ($inv['description'] ?: $inv['period']) . ') sebesar Rp ' . number_format((float) $inv['total_amount'], 0, ',', '.') . ' sudah lunas.');
+    }
+}
+
+/** Minta link bayar online ke ADF Console (Mayar). Return URL atau null (alasan di $GLOBALS['adfsub_pay_error']). */
+function adfsub_console_payment(PDO $pdo, string $period): ?string
+{
+    adfsub_ensure_schema($pdo);
+    $stmt = $pdo->prepare("SELECT * FROM adf_subscription_invoices WHERE period = ? AND status = 'unpaid'");
+    $stmt->execute([$period]);
+    $inv = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$inv) {
+        return null;
+    }
+    $cfg = adfsub_config($pdo);
+    $url = str_replace('subscription-config.php', 'subscription-pay.php', $cfg['sync_url']);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode(['client_key' => $cfg['client_key'], 'client_token' => $cfg['client_token'], 'period' => $period, 'description' => (string) ($inv['description'] ?: 'Langganan ' . $period)]),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+    ]);
+    $resp = curl_exec($ch);
+    curl_close($ch);
+    $data = json_decode((string) $resp, true);
+    if (empty($data['payment_url'])) {
+        $GLOBALS['adfsub_pay_error'] = (string) ($data['error'] ?? 'ADF Console tidak bisa dihubungi');
+        return null;
+    }
+    $pdo->prepare("UPDATE adf_subscription_invoices SET payment_link = ?, pay_method = 'mayar', pay_code = NULL WHERE id = ?")->execute([(string) $data['payment_url'], $inv['id']]);
+    return (string) $data['payment_url'];
 }
 
 /** Tarik tagihan manual (di luar bulanan) yang dibuat admin ADF untuk klien ini. */
@@ -505,7 +560,17 @@ function adfsub_create_payment(PDO $pdo, string $period): ?string
 /** Cek ke Pakasir apakah tagihan yang punya transaksi sudah lunas; kalau ya tandai lunas + catat ke ADF. */
 function adfsub_reconcile(PDO $pdo, array $inv): bool
 {
-    if (($inv['status'] ?? '') !== 'unpaid' || empty($inv['txn_id'])) {
+    if (($inv['status'] ?? '') !== 'unpaid') {
+        return false;
+    }
+    if (adfsub_config($pdo)['gateway'] === 'console') {
+        // Dibayar lewat Console (Mayar): Console yang mengecek ke Mayar; status lunas datang lewat sinkron
+        adfsub_sync($pdo, true);
+        $st = $pdo->prepare("SELECT status FROM adf_subscription_invoices WHERE id = ?");
+        $st->execute([$inv['id']]);
+        return $st->fetchColumn() === 'paid';
+    }
+    if (empty($inv['txn_id'])) {
         return false;
     }
     $cfg = adfsub_config($pdo);

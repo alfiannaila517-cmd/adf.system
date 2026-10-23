@@ -54,6 +54,21 @@ if (!$inv) {
     exit;
 }
 
+// Bayar lewat ADF Console (Mayar): langsung ke halaman bayar Mayar (QRIS, VA, e-wallet)
+if ($inv['status'] === 'unpaid' && adfsub_config($pdo)['gateway'] === 'console') {
+    $link = adfsub_console_payment($pdo, $period);
+    if ($link) {
+        header('Location: ' . $link);
+        exit;
+    }
+    http_response_code(502);
+    echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pembayaran</title>'
+        . '<body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;background:#f4f6fa">'
+        . '<div style="text-align:center;max-width:420px"><b style="font-size:17px">Halaman pembayaran belum bisa dibuka</b><p style="color:#64748b">'
+        . htmlspecialchars((string) ($GLOBALS['adfsub_pay_error'] ?? '')) . '. Coba lagi beberapa saat, atau hubungi ADF System.</p><a href="index.php">‹ Kembali ke Tagihan</a></div>';
+    exit;
+}
+
 if (empty($_SESSION['adfsub_pay_csrf'])) {
     $_SESSION['adfsub_pay_csrf'] = bin2hex(random_bytes(16));
 }
