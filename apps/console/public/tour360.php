@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('Musik latar disimpan — tampil di website setelah halaman tour dimuat ulang.');
             } elseif ($action === 'music_reset') {
                 Tour360::setMusic($pdo, null);
-                flash('Musik latar kembali ke musik bawaan (ombak + petikan santai).');
+                flash('Musik latar kembali ke musik bawaan (gamelan gaya Bali/Jawa).');
             } elseif ($action === 'ball_reset') {
                 Tour360::setBall($pdo, $cur, null);
                 flash('Bola kembali memakai foto lokasi.');
@@ -174,7 +174,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
                 <?= csrf_field() ?><input type="hidden" name="action" value="music"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>">
                 <p class="muted" style="margin:0 0 8px;font-size:12px">
                     <?= $musicUrl === ''
-                        ? 'Sekarang: <b>musik bawaan</b> — suara ombak pantai + pad hangat + petikan santai mirip kalimba (dibuat langsung di browser, bebas hak cipta).'
+                        ? 'Sekarang: <b>musik bawaan</b> — gamelan gaya Bali/Jawa (laras pelog: saron, gangsa, gong, kenong, suling) dengan ombak samar; dibuat langsung di browser, bebas hak cipta.'
                         : 'Sekarang: <b>file sendiri</b> <code>' . e(basename($musicUrl)) . '</code>.' ?>
                     Pengunjung bisa mematikan lewat tombol 🔊; musik mulai pelan saat layar pertama kali disentuh.</p>
                 <input type="file" name="music" accept="audio/mpeg,.mp3" required style="margin-bottom:6px">
