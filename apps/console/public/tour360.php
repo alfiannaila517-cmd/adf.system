@@ -22,7 +22,10 @@ $cur = (string)($_GET['s'] ?? $_POST['s'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
-    if (!csrf_ok() || !$isAdmin) {
+    if (!$_POST && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        // melebihi post_max_size PHP → $_POST kosong (bukan sesi kedaluwarsa)
+        flash('Foto terlalu besar untuk batas unggah server (' . ini_get('post_max_size') . ').', 'err');
+    } elseif (!csrf_ok() || !$isAdmin) {
         flash(!$isAdmin ? 'Hanya admin yang bisa mengubah tour.' : 'Sesi form kedaluwarsa, silakan coba lagi.', 'err');
     } else {
         try {
@@ -54,7 +57,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash($e->getMessage(), 'err');
         }
     }
-    redirect('/tour360.php?id=' . $id . ($cur !== '' ? '&s=' . rawurlencode($cur) : ''));
+    $back = '/tour360.php?id=' . $id . ($cur !== '' ? '&s=' . rawurlencode($cur) : '');
+    if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest') {
+        // unggah dengan persentase (XHR): kirim alamat tujuan, pesan flash tetap tersimpan untuk halaman berikutnya
+        header('Content-Type: application/json');
+        echo json_encode(['url' => $back]);
+        exit;
+    }
+    redirect($back);
 }
 
 $scenes = Tour360::load($pdo);
@@ -66,6 +76,11 @@ $scene = array_values(array_filter($scenes, fn ($s) => $s['id'] === $cur))[0];
 $img = fn (string $s, string $z) => '/tour360-img.php?id=' . $id . '&s=' . rawurlencode($s) . '&z=' . $z;
 $problem = Tour360::problem();
 $limit = ini_get('upload_max_filesize') . ' / ' . ini_get('post_max_size');
+// batas unggah PHP dalam byte (mis. "64M") — dicek di browser sebelum mengunggah
+$limitBytes = (function (string $v): int {
+    $n = (int)$v;
+    return match (strtoupper(substr(trim($v), -1))) { 'G' => $n << 30, 'M' => $n << 20, 'K' => $n << 10, default => $n };
+})((string)ini_get('upload_max_filesize'));
 $site = $biz['domain'] ? 'https://' . $biz['domain'] . '/virtual-tour/' : null;
 
 View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
@@ -114,7 +129,10 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
                 <div class="field"><label>Foto 360° (JPG)</label><input type="file" name="photo" accept="image/jpeg" required>
                     <div class="muted" style="font-size:11px;margin-top:2px">Foto panorama penuh: lebar = 2 × tinggi (mis. 8192×4096 dari app DJI / kamera 360). Batas unggah server: <?= e($limit) ?>.</div></div>
                 <button class="btn" <?= $problem ? 'disabled' : '' ?>>Unggah & tambah</button>
-                <p class="muted" id="addWait" style="display:none;margin:6px 0 0;font-size:11.5px">Mengunggah & memproses foto… bisa 1–2 menit untuk foto besar.</p>
+                <div id="addProg" style="display:none;margin-top:8px">
+                    <div style="height:8px;border-radius:99px;background:var(--line);overflow:hidden"><div id="addBar" style="height:100%;width:0;background:var(--brand);transition:width .2s"></div></div>
+                    <div class="muted" id="addTxt" style="font-size:11.5px;margin-top:4px">Mengunggah… 0%</div>
+                </div>
             </form>
         <?php endif; ?>
     </div>
@@ -256,8 +274,39 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
         pano.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
+    // Unggah foto dengan persentase (XHR); server membalas JSON {url} lalu halaman pindah ke lokasi baru
     const af = document.getElementById('addForm');
-    if (af) af.addEventListener('submit', () => { document.getElementById('addWait').style.display = 'block'; af.querySelector('button').disabled = true; });
+    const LIMIT = <?= $limitBytes ?>;
+    if (af) af.addEventListener('submit', e => {
+        e.preventDefault();
+        const file = af.photo.files[0];
+        const btn = af.querySelector('button'), bar = document.getElementById('addBar'), txt = document.getElementById('addTxt');
+        const mb = n => (n / 1048576).toFixed(1) + ' MB';
+        if (file && LIMIT && file.size > LIMIT) { alert('Foto ' + mb(file.size) + ' lebih besar dari batas unggah server (' + mb(LIMIT) + ').'); return; }
+        const fail = msg => { txt.textContent = msg; txt.style.color = 'var(--bad)'; bar.style.background = 'var(--bad)'; btn.disabled = false; };
+        btn.disabled = true;
+        txt.style.color = ''; bar.style.background = ''; bar.style.width = '0';
+        document.getElementById('addProg').style.display = 'block';
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', location.pathname + location.search);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.upload.onprogress = ev => {
+            if (!ev.lengthComputable) return;
+            const p = Math.round(ev.loaded / ev.total * 100);
+            bar.style.width = p + '%';
+            txt.textContent = 'Mengunggah… ' + p + '% (' + mb(ev.loaded) + ' / ' + mb(ev.total) + ')';
+        };
+        xhr.upload.onload = () => { bar.style.width = '100%'; txt.textContent = 'Terunggah 100% — memproses foto (mengecilkan & membuat gambar kecil)… bisa 1–2 menit.'; };
+        xhr.onload = () => {
+            if (xhr.status === 413) return fail('Ditolak server: foto terlalu besar untuk batas unggah Nginx (client_max_body_size).');
+            let r = null;
+            try { r = JSON.parse(xhr.responseText); } catch (_) {}
+            if (xhr.status !== 200 || !r || !r.url) return fail('Gagal (HTTP ' + xhr.status + '). Coba lagi.');
+            location.href = r.url;
+        };
+        xhr.onerror = () => fail('Koneksi terputus saat mengunggah. Coba lagi.');
+        xhr.send(new FormData(af));
+    });
 })();
 </script>
 <?php View::end(); ?>
