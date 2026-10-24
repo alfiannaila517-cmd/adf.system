@@ -94,19 +94,17 @@ if (!$scenes) {
         .hs.lp-l .lb { left: auto; right: 100%; bottom: auto; top: 20px; transform: translateY(-50%); margin: 0 6px 0 0; }
         .hs.lp-r .lb { left: 100%; bottom: auto; top: 20px; transform: translateY(-50%); margin: 0 0 0 6px; }
 
-        /* volume musik (kanan atas, di bawah header) */
-        .vol { position: absolute; right: 18px; top: 78px; z-index: 6; display: flex; align-items: center; gap: 8px; flex-direction: row-reverse; }
-        .vol button { width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .25); background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: var(--gold2); display: grid; place-items: center; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
-        .vol button.on { color: #fff; border-color: var(--gold2); }
-        .vol button.on.playing { animation: volPulse 2.4s ease-in-out infinite; }
-        @keyframes volPulse { 50% { box-shadow: 0 0 0 6px rgba(236, 196, 107, .18), 0 6px 18px rgba(0, 0, 0, .35); } }
-        .vol svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-        .vol input { width: 0; opacity: 0; transition: width .25s, opacity .25s; accent-color: #ecc46b; }
-        .vol:hover input, .vol.open input { width: 110px; opacity: 1; }
-        .vtip { display: none; padding: 5px 10px; border-radius: 99px; background: var(--glass); font-size: 11px; white-space: nowrap; }
-        .vol.wait .vtip { display: block; }
-        .vol.open .vtip, .vol:hover .vtip { display: none; }
-        @media (max-width: 640px) { .vol { top: 68px; right: 12px; } .vol button { width: 38px; height: 38px; } }
+        /* volume musik di bar bawah: slider muncul di atas tombol (hover / ketuk), petunjuk saat musik belum jalan */
+        .vbox { position: relative; display: grid; }
+        .bar #bMusic.playing { animation: volPulse 2.4s ease-in-out infinite; }
+        @keyframes volPulse { 50% { background: rgba(236, 196, 107, .22); } }
+        .vpop { position: absolute; left: 50%; bottom: calc(100% + 12px); transform: translateX(-50%); display: none; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); white-space: nowrap; }
+        .vpop input { width: 120px; accent-color: #ecc46b; }
+        .vpop b { min-width: 34px; font-size: 11px; color: var(--gold2); text-align: right; }
+        .vpop .vtip { display: none; font-size: 11px; }
+        .vbox:hover .vpop, .vbox.open .vpop, .vbox.wait .vpop { display: flex; }
+        .vbox.wait:not(:hover):not(.open) .vpop input, .vbox.wait:not(:hover):not(.open) .vpop b { display: none; }
+        .vbox.wait:not(:hover):not(.open) .vpop .vtip { display: block; }
 
         /* efek pembuka: bola dunia (little planet) → tampilan biasa */
         #intro { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; transition: opacity .5s; cursor: pointer; }
@@ -146,13 +144,6 @@ if (!$scenes) {
         <a class="book" href="/booking.php" data-t="book">Pesan Sekarang</a>
     </div>
 
-    <!-- volume musik: tombol bulat kanan atas + slider -->
-    <div class="vol" id="vol">
-        <button type="button" id="bMusic" title="Musik" data-tt="music"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" /><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /><path class="x" d="M16 9l5 6M21 9l-5 6" style="display:none" /></svg></button>
-        <input type="range" id="volRange" min="0" max="100" step="1" aria-label="Volume">
-        <span class="vtip" id="volTip" data-t="tapmusic">Ketuk layar untuk musik</span>
-    </div>
-
     <div class="title"><small data-t="tour">Tour 360°</small><h1 id="sceneName"></h1></div>
 
     <div class="scenes" id="sceneList"></div>
@@ -166,6 +157,11 @@ if (!$scenes) {
         <button type="button" id="bIn" title="Perbesar" data-tt="zin"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M11 8v6M8 11h6M20 20l-4-4" /></svg></button>
         <button type="button" id="bOut" title="Perkecil" data-tt="zout"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M8 11h6M20 20l-4-4" /></svg></button>
         <button type="button" id="bGyro" title="Gerakkan HP" data-tt="gyro" style="display:none"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2" /><path d="M3 9a9 9 0 0 0 0 6M21 9a9 9 0 0 1 0 6" /></svg></button>
+        <!-- volume musik: tombol di bar + slider di atasnya; scroll di atas tombol = naik/turun volume -->
+        <span class="vbox" id="vol">
+            <button type="button" id="bMusic" title="Musik" data-tt="music"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" /><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /><path class="x" d="M16 9l5 6M21 9l-5 6" style="display:none" /></svg></button>
+            <span class="vpop"><input type="range" id="volRange" min="0" max="100" step="1" aria-label="Volume"><b id="volPct"></b><span class="vtip" data-t="tapmusic">Ketuk layar untuk musik</span></span>
+        </span>
         <button type="button" id="bFull" title="Layar penuh" data-tt="full"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg></button>
     </div>
 
@@ -253,8 +249,9 @@ if (!$scenes) {
             if (rotating && !introOn) { viewer.setIdleMovement(3000, autorotate); viewer.startMovement(autorotate); } }
 
         /*
-         * Pindah lokasi. Dari bola penghubung (from = {yaw, pitch}): kamera ZOOM MASUK ke arah bola (0,65 dtk), lalu lokasi
-         * baru tampil sedikit diperbesar dan pelan-pelan melebar ke tampilan awalnya — terasa seperti "masuk" ke tempat itu.
+         * Pindah lokasi dari bola penghubung (from = {yaw, pitch}): kamera MENOLEH pelan ke arah bola (zoom tetap), lalu maju
+         * sedikit sambil lokasi baru memudar masuk. Lokasi baru tampil di tampilan awalnya (tidak diperbesar — zoom besar saat
+         * tiba membuat gambar pecah/buram sebelum resolusi tinggi selesai dimuat).
          */
         let moving = false;
         function go(id, from) {
@@ -264,9 +261,11 @@ if (!$scenes) {
                 moving = true;
                 viewer.stopMovement();
                 viewer.setIdleMovement(Infinity);
-                built[current.id].scene.lookTo({ yaw: rad(from.yaw), pitch: rad(from.pitch), fov: rad(28) }, { transitionDuration: 650 }, () => {
-                    moving = false;
-                    show(s, true);
+                const cur = built[current.id], fov0 = cur.view.fov();
+                const face = { yaw: rad(from.yaw), pitch: Math.max(rad(-30), Math.min(rad(30), rad(from.pitch))) };
+                cur.scene.lookTo(Object.assign({ fov: fov0 }, face), { transitionDuration: 600 }, () => {
+                    cur.scene.lookTo(Object.assign({ fov: fov0 * 0.8 }, face), { transitionDuration: 900 }); // maju sedikit
+                    setTimeout(() => { moving = false; show(s, false); }, 300);
                 });
                 return;
             }
@@ -524,14 +523,31 @@ if (!$scenes) {
             volBox.classList.toggle('open', musicWanted);
             setTimeout(setMusicUi, 50);
         };
-        volRange.addEventListener('input', () => {
-            musicVol = volRange.value / 100;
-            try { localStorage.setItem('nrTourVol', String(volRange.value)); } catch (err) {}
+        const volPct = document.getElementById('volPct');
+        function applyVol(pct) {
+            pct = Math.max(0, Math.min(100, Math.round(pct)));
+            volRange.value = pct;
+            volPct.textContent = pct + '%';
+            musicVol = pct / 100;
+            try { localStorage.setItem('nrTourVol', String(pct)); } catch (err) {}
             if (musicVol > 0 && !musicWanted) { musicWanted = true; try { localStorage.setItem('nrTourMusic', '1'); } catch (err) {} musicStart(); }
             if (player) player.volume();
             setMusicUi();
-        });
+        }
+        volPct.textContent = volRange.value + '%';
+        // HP: slider tertutup lagi saat mengetuk di luar tombol volume
+        document.addEventListener('pointerdown', e => { if (!volBox.contains(e.target)) volBox.classList.remove('open'); }, true);
+        volRange.addEventListener('input', () => applyVol(+volRange.value));
         volRange.addEventListener('pointerdown', e => e.stopPropagation());
+        // scroll di atas tombol volume / slider: ke atas = lebih keras, ke bawah = lebih pelan (5% per langkah)
+        volBox.addEventListener('wheel', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            volBox.classList.add('open');
+            applyVol(+volRange.value + (e.deltaY < 0 ? 5 : -5));
+            clearTimeout(volBox._t);
+            volBox._t = setTimeout(() => volBox.classList.remove('open'), 1500);
+        }, { passive: false });
         setMusicUi();
         // Izin bunyi dari browser hanya pada ketukan yang SELESAI (pointerup/touchend/click/keydown — bukan touchstart).
         // Coba di setiap ketukan sampai musik benar-benar berbunyi, lalu berhenti mendengarkan.
