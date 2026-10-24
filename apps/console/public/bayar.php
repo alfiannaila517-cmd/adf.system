@@ -60,6 +60,54 @@ if (isset($_GET['renew']) && $link['status'] !== 'paid') {
     }
 }
 
+// Kembali setelah lunas: alamat dari sistem bisnis (&back=…, hanya http/https), atau halaman invoice untuk invoice
+$back = (string)($_GET['back'] ?? '');
+if (!preg_match('#^https?://[^\s"<>]{3,300}$#', $back)) {
+    $back = '';
+}
+$invRow = $link['ref_type'] === 'invoice' ? Invoice::find((int)$link['ref']) : null;
+if ($back === '' && $invRow) {
+    $back = Invoice::publicUrl($invRow);
+}
+// Cetak: invoice (sudah berstatus lunas) untuk tagihan invoice; kuitansi untuk tagihan bulanan
+$printUrl = $invRow ? Invoice::publicUrl($invRow) : $self . '&receipt=1';
+
+// Kuitansi pembayaran (siap cetak) untuk tagihan bulanan
+if (isset($_GET['receipt']) && $link['status'] === 'paid') {
+    $sx = Invoice::settings();
+    $bz = $link['business_id'] ? Biz::business((int)$link['business_id']) : null;
+    $rpx = fn ($n) => 'Rp ' . number_format((float)$n, 0, ',', '.');
+    ?>
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Kuitansi <?= e((string)$link['ref']) ?> · <?= e((string)$sx['company_name']) ?></title>
+<style>
+    body { font-family: Inter, 'Segoe UI', system-ui, sans-serif; color: #0f172a; background: #eef1f6; margin: 0; padding: 24px 12px; }
+    .doc { max-width: 560px; margin: 0 auto; background: #fff; border-radius: 14px; padding: 28px; box-shadow: 0 12px 30px -16px rgba(0, 0, 0, .3); }
+    h1 { font-size: 20px; letter-spacing: .14em; margin: 0; } .mu { color: #64748b; font-size: 12px; }
+    .row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #eef1f6; font-size: 13px; }
+    .tot { font-size: 22px; font-weight: 800; } .stamp { display: inline-block; border: 2px solid #10b981; color: #10b981; font-weight: 800; letter-spacing: .12em; padding: 3px 12px; border-radius: 8px; transform: rotate(-4deg); }
+    .bar { text-align: center; margin: 16px 0 0; } .bar button { border: 0; background: #ff6a1a; color: #fff; font-weight: 700; padding: 10px 18px; border-radius: 10px; cursor: pointer; }
+    @media print { body { background: #fff; padding: 0; } .doc { box-shadow: none; } .bar { display: none; } }
+</style></head>
+<body><div class="doc">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div><b style="font-size:16px"><?= e((string)$sx['company_name']) ?></b><div class="mu"><?= e(implode(' · ', array_filter([(string)$sx['email'], (string)$sx['whatsapp']]))) ?></div></div>
+        <div style="text-align:right"><h1>KUITANSI</h1><div class="mu"><?= e((string)$link['gateway_id']) ?></div></div>
+    </div>
+    <div style="margin:22px 0 10px"><span class="stamp">LUNAS</span></div>
+    <div class="row"><span class="mu">Diterima dari</span><b><?= e($bz['name'] ?? '-') ?></b></div>
+    <div class="row"><span class="mu">Untuk pembayaran</span><span><?= e((string)$link['description']) ?></span></div>
+    <div class="row"><span class="mu">Tanggal bayar</span><span><?= e(date('d M Y H:i', strtotime((string)$link['paid_at']))) ?> WIB</span></div>
+    <div class="row"><span class="mu">Metode</span><span>QRIS (Mayar)</span></div>
+    <?php if ((float)$link['base_amount'] && (float)$link['base_amount'] !== (float)$link['amount']): ?><div class="row"><span class="mu">Tagihan + kode unik</span><span><?= e($rpx($link['base_amount'])) ?> + <?= e($rpx((float)$link['amount'] - (float)$link['base_amount'])) ?></span></div><?php endif; ?>
+    <div class="row" style="border:0;padding-top:14px"><span class="mu">Jumlah</span><span class="tot"><?= e($rpx($link['amount'])) ?></span></div>
+    <p class="mu" style="margin:18px 0 0">Kuitansi ini dibuat otomatis dan sah tanpa tanda tangan. Terima kasih.</p>
+</div><div class="bar"><button onclick="window.print()">Cetak / Simpan PDF</button></div></body></html>
+<?php
+    exit;
+}
+
 $expired = $link['status'] === 'expired' || ($link['status'] === 'pending' && strtotime((string)$link['expires_at']) < time());
 $paid = $link['status'] === 'paid';
 $biz = $link['business_id'] ? Biz::business((int)$link['business_id']) : null;
@@ -163,6 +211,11 @@ $state = $paid ? 'paid' : ($expired ? 'expired' : 'pending');
                 <h1>Pembayaran diterima</h1>
                 <p><?= e($rp($link['amount'])) ?> · <?= e((string)$link['description']) ?></p>
                 <p style="margin-top:10px">Terima kasih! Tagihan otomatis tercatat lunas.</p>
+                <div class="acts" style="padding:18px 0 0">
+                    <a class="btn" id="btnPrint" href="<?= e($printUrl) ?>" target="_blank" rel="noopener"><?= $invRow ? 'Cetak invoice' : 'Cetak kuitansi' ?></a>
+                    <?php if ($back !== ''): ?><a class="btn pri" href="<?= e($back) ?>">Kembali</a><?php endif; ?>
+                </div>
+                <?php if ($back !== ''): ?><p id="autoBack" style="margin-top:12px;font-size:11.5px">Kembali otomatis dalam <b id="abN">8</b> detik…</p><?php endif; ?>
             </div>
 
             <div id="vExpired" class="done <?= $state === 'expired' ? '' : 'hide' ?>">
@@ -176,10 +229,28 @@ $state = $paid ? 'paid' : ($expired ? 'expired' : 'pending');
     <script>
         (function () {
             var state = <?= json_encode($state) ?>, exp = <?= (int)strtotime((string)$link['expires_at']) * 1000 ?>;
+            var back = <?= json_encode($back) ?>, abTimer = null;
+            var autoBack = function () {
+                if (!back || abTimer) return;
+                var n = 8, el = document.getElementById('abN');
+                abTimer = setInterval(function () {
+                    n--;
+                    if (el) el.textContent = n;
+                    if (n <= 0) { clearInterval(abTimer); location.href = back; }
+                }, 1000);
+            };
+            var pb = document.getElementById('btnPrint');
+            if (pb) pb.addEventListener('click', function () {
+                if (abTimer) clearInterval(abTimer);
+                var ab = document.getElementById('autoBack');
+                if (ab) ab.textContent = 'Kembali otomatis dibatalkan — tekan Kembali bila sudah selesai.';
+            });
             var show = function (s) {
                 ['Pending', 'Paid', 'Expired'].forEach(function (k) { document.getElementById('v' + k).classList.toggle('hide', k.toLowerCase() !== s); });
                 state = s;
+                if (s === 'paid') autoBack();
             };
+            if (state === 'paid') autoBack();
             // hitung mundur masa berlaku QR
             var cd = document.getElementById('cd');
             setInterval(function () {
