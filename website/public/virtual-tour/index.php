@@ -94,6 +94,20 @@ if (!$scenes) {
         .hs.lp-l .lb { left: auto; right: 100%; bottom: auto; top: 20px; transform: translateY(-50%); margin: 0 6px 0 0; }
         .hs.lp-r .lb { left: 100%; bottom: auto; top: 20px; transform: translateY(-50%); margin: 0 0 0 6px; }
 
+        /* volume musik (kanan atas, di bawah header) */
+        .vol { position: absolute; right: 18px; top: 78px; z-index: 6; display: flex; align-items: center; gap: 8px; flex-direction: row-reverse; }
+        .vol button { width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .25); background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: var(--gold2); display: grid; place-items: center; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, .35); }
+        .vol button.on { color: #fff; border-color: var(--gold2); }
+        .vol button.on.playing { animation: volPulse 2.4s ease-in-out infinite; }
+        @keyframes volPulse { 50% { box-shadow: 0 0 0 6px rgba(236, 196, 107, .18), 0 6px 18px rgba(0, 0, 0, .35); } }
+        .vol svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        .vol input { width: 0; opacity: 0; transition: width .25s, opacity .25s; accent-color: #ecc46b; }
+        .vol:hover input, .vol.open input { width: 110px; opacity: 1; }
+        .vtip { display: none; padding: 5px 10px; border-radius: 99px; background: var(--glass); font-size: 11px; white-space: nowrap; }
+        .vol.wait .vtip { display: block; }
+        .vol.open .vtip, .vol:hover .vtip { display: none; }
+        @media (max-width: 640px) { .vol { top: 68px; right: 12px; } .vol button { width: 38px; height: 38px; } }
+
         /* efek pembuka: bola dunia (little planet) → tampilan biasa */
         #intro { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; transition: opacity .5s; cursor: pointer; }
         #intro.off { opacity: 0; pointer-events: none; }
@@ -132,6 +146,13 @@ if (!$scenes) {
         <a class="book" href="/booking.php" data-t="book">Pesan Sekarang</a>
     </div>
 
+    <!-- volume musik: tombol bulat kanan atas + slider -->
+    <div class="vol" id="vol">
+        <button type="button" id="bMusic" title="Musik" data-tt="music"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" /><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /><path class="x" d="M16 9l5 6M21 9l-5 6" style="display:none" /></svg></button>
+        <input type="range" id="volRange" min="0" max="100" step="1" aria-label="Volume">
+        <span class="vtip" id="volTip" data-t="tapmusic">Ketuk layar untuk musik</span>
+    </div>
+
     <div class="title"><small data-t="tour">Tour 360°</small><h1 id="sceneName"></h1></div>
 
     <div class="scenes" id="sceneList"></div>
@@ -145,7 +166,6 @@ if (!$scenes) {
         <button type="button" id="bIn" title="Perbesar" data-tt="zin"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M11 8v6M8 11h6M20 20l-4-4" /></svg></button>
         <button type="button" id="bOut" title="Perkecil" data-tt="zout"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M8 11h6M20 20l-4-4" /></svg></button>
         <button type="button" id="bGyro" title="Gerakkan HP" data-tt="gyro" style="display:none"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2" /><path d="M3 9a9 9 0 0 0 0 6M21 9a9 9 0 0 1 0 6" /></svg></button>
-        <button type="button" id="bMusic" title="Musik" data-tt="music"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" /><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /><path class="x" d="M16 9l5 6M21 9l-5 6" style="display:none" /></svg></button>
         <button type="button" id="bFull" title="Layar penuh" data-tt="full"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg></button>
     </div>
 
@@ -158,8 +178,8 @@ if (!$scenes) {
         const SCENES = <?= json_encode(array_values($scenes), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
 
         const T = {
-            id: { book: 'Pesan Sekarang', tour: 'Tour 360°', hint: 'Geser untuk melihat sekeliling', prev: 'Sebelumnya', next: 'Berikutnya', list: 'Daftar lokasi', rotate: 'Putar otomatis', zin: 'Perbesar', zout: 'Perkecil', gyro: 'Gerakkan HP', full: 'Layar penuh', music: 'Musik' },
-            en: { book: 'Book Now', tour: '360° Tour', hint: 'Drag to look around', prev: 'Previous', next: 'Next', list: 'Locations', rotate: 'Auto rotate', zin: 'Zoom in', zout: 'Zoom out', gyro: 'Move your phone', full: 'Fullscreen', music: 'Music' },
+            id: { book: 'Pesan Sekarang', tour: 'Tour 360°', hint: 'Geser untuk melihat sekeliling', prev: 'Sebelumnya', next: 'Berikutnya', list: 'Daftar lokasi', rotate: 'Putar otomatis', zin: 'Perbesar', zout: 'Perkecil', gyro: 'Gerakkan HP', full: 'Layar penuh', music: 'Musik', tapmusic: 'Ketuk layar untuk musik' },
+            en: { book: 'Book Now', tour: '360° Tour', hint: 'Drag to look around', prev: 'Previous', next: 'Next', list: 'Locations', rotate: 'Auto rotate', zin: 'Zoom in', zout: 'Zoom out', gyro: 'Move your phone', full: 'Fullscreen', music: 'Music', tapmusic: 'Tap the screen for music' },
         };
         let lang = (localStorage.getItem('nrLang') || navigator.language || 'id').startsWith('en') ? 'en' : 'id';
 
@@ -311,6 +331,7 @@ if (!$scenes) {
         const MUSIC_URL = <?= json_encode($music, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
         const musicBtn = document.getElementById('bMusic');
         let musicWanted = (() => { try { return localStorage.getItem('nrTourMusic') !== '0'; } catch (e) { return true; } })();
+        let musicVol = (() => { try { const v = parseInt(localStorage.getItem('nrTourVol') ?? '', 10); return isNaN(v) ? 60 : v; } catch (e) { return 60; } })() / 100;
         let player = null;
 
         function islandMusic() {
@@ -391,13 +412,20 @@ if (!$scenes) {
                     nBeat += 60 / 72 * (Math.random() < 0.2 ? 0.5 : 1);
                 }
             }
+            const level = () => 1.0 * musicVol; // volume slider 0…1
             return {
+                running: () => ctx.state === 'running',
                 play() {
-                    ctx.resume();
+                    const p = ctx.resume(); // harus di dalam ketukan pengguna (aturan browser)
                     if (!timer) { tick(); timer = setInterval(tick, 250); }
                     master.gain.cancelScheduledValues(ctx.currentTime);
                     master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
-                    master.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 3);
+                    master.gain.linearRampToValueAtTime(level(), ctx.currentTime + 3);
+                    return p;
+                },
+                volume() {
+                    master.gain.cancelScheduledValues(ctx.currentTime);
+                    master.gain.setTargetAtTime(level(), ctx.currentTime, 0.08);
                 },
                 pause() {
                     master.gain.cancelScheduledValues(ctx.currentTime);
@@ -422,33 +450,63 @@ if (!$scenes) {
                 }, 50);
             };
             return {
-                play() { a.play().catch(() => {}); to(0.5, 2500); },
+                running: () => !a.paused,
+                play() { const p = a.play().catch(() => {}); to(musicVol, 2500); return p; },
+                volume() { to(musicVol, 200); },
                 pause() { to(0, 800, () => a.pause()); },
             };
         }
 
+        const volBox = document.getElementById('vol'), volRange = document.getElementById('volRange');
+        volRange.value = Math.round(musicVol * 100);
         function setMusicUi() {
+            const playing = !!(player && player.running() && musicWanted);
             musicBtn.classList.toggle('on', musicWanted);
-            musicBtn.querySelector('.w').style.display = musicWanted ? '' : 'none';
-            musicBtn.querySelector('.x').style.display = musicWanted ? 'none' : '';
+            musicBtn.classList.toggle('playing', playing);
+            musicBtn.querySelector('.w').style.display = musicWanted && musicVol > 0 ? '' : 'none';
+            musicBtn.querySelector('.x').style.display = musicWanted && musicVol > 0 ? 'none' : '';
+            volBox.classList.toggle('wait', musicWanted && !playing); // "Ketuk layar untuk musik"
         }
         function musicStart() {
             if (!musicWanted || document.hidden) return;
-            try { player = player || (MUSIC_URL ? filePlayer(MUSIC_URL) : islandMusic()); player.play(); } catch (e) { /* tanpa dukungan audio */ }
+            try {
+                player = player || (MUSIC_URL ? filePlayer(MUSIC_URL) : islandMusic());
+                Promise.resolve(player.play()).then(setMusicUi, setMusicUi);
+            } catch (e) { /* tanpa dukungan audio */ }
+            setTimeout(setMusicUi, 300);
         }
         musicBtn.onclick = e => {
             e.stopPropagation();
+            // ketuk pertama di tombol saat musik belum jalan = nyalakan (bukan matikan)
+            if (musicWanted && !(player && player.running())) { musicStart(); volBox.classList.add('open'); return; }
             musicWanted = !musicWanted;
             try { localStorage.setItem('nrTourMusic', musicWanted ? '1' : '0'); } catch (err) {}
-            setMusicUi();
-            if (musicWanted) musicStart(); else if (player) player.pause();
+            if (musicWanted) { if (musicVol === 0) { musicVol = 0.6; volRange.value = 60; } musicStart(); } else if (player) player.pause();
+            volBox.classList.toggle('open', musicWanted);
+            setTimeout(setMusicUi, 50);
         };
+        volRange.addEventListener('input', () => {
+            musicVol = volRange.value / 100;
+            try { localStorage.setItem('nrTourVol', String(volRange.value)); } catch (err) {}
+            if (musicVol > 0 && !musicWanted) { musicWanted = true; try { localStorage.setItem('nrTourMusic', '1'); } catch (err) {} musicStart(); }
+            if (player) player.volume();
+            setMusicUi();
+        });
+        volRange.addEventListener('pointerdown', e => e.stopPropagation());
         setMusicUi();
-        // sentuhan / geser / tombol pertama di halaman = izin browser untuk bunyi
-        const firstTouch = () => { ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.removeEventListener(ev, firstTouch, true)); musicStart(); };
-        ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, firstTouch, true));
+        // Izin bunyi dari browser hanya pada ketukan yang SELESAI (pointerup/touchend/click/keydown — bukan touchstart).
+        // Coba di setiap ketukan sampai musik benar-benar berbunyi, lalu berhenti mendengarkan.
+        const GESTURES = ['pointerup', 'touchend', 'click', 'keydown'];
+        const unlock = () => {
+            if (player && player.running()) {
+                GESTURES.forEach(ev => document.removeEventListener(ev, unlock, true));
+                return;
+            }
+            musicStart();
+        };
+        GESTURES.forEach(ev => document.addEventListener(ev, unlock, true));
         // tab disembunyikan → pelan-pelan diam; kembali → lanjut
-        document.addEventListener('visibilitychange', () => { if (!player) return; if (document.hidden) player.pause(); else if (musicWanted) player.play(); });
+        document.addEventListener('visibilitychange', () => { if (!player) return; if (document.hidden) player.pause(); else if (musicWanted) player.play(); setTimeout(setMusicUi, 400); });
 
         document.getElementById('bFull').onclick = () => {
             const d = document;
