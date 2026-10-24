@@ -7,7 +7,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('payroll'); // wajib izin menu Penggajian (bukan sekadar login)
 
 if (!isModuleEnabled('payroll')) {
     header('Location: ' . BASE_URL . '/index.php');

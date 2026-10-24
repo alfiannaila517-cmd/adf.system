@@ -7,7 +7,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/print-helper.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('payroll'); // wajib izin menu Penggajian (bukan sekadar login)
 
 $db = Database::getInstance();
 $slip_id = $_GET['id'] ?? 0;

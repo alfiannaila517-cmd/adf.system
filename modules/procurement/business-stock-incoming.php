@@ -7,7 +7,8 @@ require_once '../../includes/procurement_functions.php';
 require_once '../../includes/business_helper.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+// Wajib izin menu Stok (sama dengan sidebar) — halaman ini bisa menambah stok & mengirim suplai/retur ke Gudang yang bernilai uang
+$auth->requirePermission('procurement_stock');
 
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();

@@ -35,6 +35,7 @@ if (!$auth->isLoggedIn()) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
+$auth->requirePermission('bills'); // wajib izin menu Tagihan (bukan sekadar login)
 
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();

@@ -13,7 +13,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/print-helper.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('cashbook'); // wajib izin menu Buku Kas (bukan sekadar login)
 $currentUser = $auth->getCurrentUser();
 $db = Database::getInstance();
 

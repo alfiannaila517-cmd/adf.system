@@ -9,7 +9,16 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('sales_invoice', 'cqc-projects'); // wajib izin menu Invoice/Proyek
+// File ini SELALU membuka database CQC: hanya boleh dari bisnis CQC (dulu bisnis lain bisa membayar/menghapus invoice CQC
+// dan uangnya tercatat ke rekening bisnis pemanggil)
+if (!defined('ACTIVE_BUSINESS_ID') || ACTIVE_BUSINESS_ID !== 'cqc') {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        http_response_code(403);
+    }
+    header('Location: ' . BASE_URL . '/index.php');
+    exit;
+}
 
 require_once '../cqc-projects/db-helper.php';
 

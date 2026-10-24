@@ -363,6 +363,35 @@ class Auth
         }
     }
 
+    /**
+     * Penjaga halaman di server: wajib login + izin salah satu menu $modules (sama dengan yang dipakai sidebar).
+     * Tanpa izin: permintaan AJAX/POST/JSON → 403 JSON, halaman biasa → kembali ke Dashboard.
+     * (Dulu banyak halaman uang hanya requireLogin(); menu yang disembunyikan di sidebar masih bisa dibuka lewat alamat.)
+     */
+    public function requirePermission(string ...$modules): void
+    {
+        $this->requireLogin();
+        foreach ($modules as $m) {
+            if ($this->hasPermission($m)) {
+                return;
+            }
+        }
+        $msg = (($_SESSION['user_language'] ?? 'id') === 'en') ? 'Access denied: you do not have permission for this menu.' : 'Akses ditolak: Anda tidak punya izin untuk menu ini.';
+        $wantsJson = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
+            || strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest'
+            || str_contains(strtolower($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json')
+            || isset($_GET['ajax']) || isset($_GET['action']);
+        error_log('ACCESS DENIED: user=' . ($_SESSION['username'] ?? '?') . ' modules=' . implode(',', $modules) . ' uri=' . ($_SERVER['REQUEST_URI'] ?? ''));
+        if ($wantsJson) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => $msg]);
+        } else {
+            header('Location: ' . BASE_URL . '/index.php');
+        }
+        exit;
+    }
+
     public function hasPermission($module)
     {
         // Check if user is logged in

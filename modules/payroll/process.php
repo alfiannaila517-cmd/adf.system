@@ -51,7 +51,7 @@ function notifySlipProcessed($db, $periodId, $periodLabel)
 
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('payroll'); // wajib izin menu Penggajian (bukan sekadar login)
 
 if (!isModuleEnabled('payroll')) {
     header('Location: ' . BASE_URL . '/index.php');
@@ -1320,10 +1320,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
 // Handle Reset Period — delete period and all slips, remove cashbook entry
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_period']) && $period) {
     try {
-        $periodId = $period['id'];
-        // Delete cashbook entries for this period (non-blocking if table/entry doesn't exist)
+        $periodId = (int)$period['id'];
+        // Periode yang sudah disetujui/dibayar (uang sudah tercatat keluar) hanya boleh di-reset owner/admin/developer
+        $paidSlips = (int)($db->fetchOne("SELECT COUNT(*) AS c FROM payroll_slips WHERE period_id = ? AND is_paid = 1", [$periodId])['c'] ?? 0);
+        if ((in_array($period['status'] ?? '', ['approved', 'paid'], true) || $paidSlips > 0)
+            && !in_array($_SESSION['role'] ?? '', ['owner', 'admin', 'developer'], true)) {
+            setFlash('error', 'Periode ini sudah disetujui/dibayar — hanya owner/admin yang boleh me-reset.');
+            header("Location: process.php?month=$month&year=$year");
+            exit;
+        }
+        // Hapus catatan kas periode INI saja: "PAYROLL-<id>" dan bayar sebagian "PAYROLL-<id>-<slip ids>".
+        // (Dulu LIKE 'PAYROLL-<id>%' ikut menghapus periode 10–19, 100+ … saat me-reset periode 1.)
         try {
-            dbExec($db, "DELETE FROM cash_book WHERE reference_number LIKE ?", ['PAYROLL-' . $periodId . '%']);
+            dbExec($db, "DELETE FROM cash_book WHERE reference_number = ? OR reference_number LIKE ?", ['PAYROLL-' . $periodId, 'PAYROLL-' . $periodId . '-%']);
         } catch (\Throwable $cbErr) {
             error_log('Reset cashbook cleanup skipped: ' . $cbErr->getMessage());
         }

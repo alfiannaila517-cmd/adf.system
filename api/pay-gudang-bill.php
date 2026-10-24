@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('bills'); // bayar tagihan Gudang memindah uang dari rekening bisnis → wajib izin menu Tagihan
 
 $slug = gudangNormalizeBizSlug((string)($_SESSION['active_business_id'] ?? ''));
 $allowedSlugs = ['bens-cafe', 'eaat-meet', 'narayana-hotel'];

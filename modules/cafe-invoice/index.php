@@ -12,7 +12,7 @@ require_once '../../includes/functions.php';
 require_once '../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('cafe_invoice'); // wajib izin menu Invoice (termasuk aksi AJAX bayar/hapus)
 $db = Database::getInstance();
 $pdo = $db->getConnection();
 $currentUser = $auth->getCurrentUser();
@@ -185,8 +185,28 @@ if (isset($_GET['ajax'])) {
             echo json_encode(['success' => false, 'message' => 'Invoice tidak ditemukan']);
             exit;
         }
+        // Hapus invoice (apalagi yang sudah lunas = pemasukan kas ikut hilang) butuh izin hapus, bukan sekadar akses menu
+        if (!$auth->canDelete('cafe_invoice')) {
+            echo json_encode(['success' => false, 'message' => 'Anda tidak punya izin menghapus invoice.']);
+            exit;
+        }
         try {
             $db->beginTransaction();
+            // Jejak audit: siapa menghapus invoice apa (isi lengkap disimpan)
+            try {
+                $db->insert('audit_logs', [
+                    'table_name' => 'cafe_invoices',
+                    'record_id' => $invId,
+                    'action' => 'DELETE',
+                    'old_data' => json_encode($inv, JSON_UNESCAPED_UNICODE),
+                    'user_id' => $currentUser['id'] ?? null,
+                    'user_name' => $currentUser['full_name'] ?? ($_SESSION['username'] ?? ''),
+                    'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown',
+                    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown',
+                ]);
+            } catch (Exception $auditEx) {
+                error_log('Cafe invoice audit log: ' . $auditEx->getMessage());
+            }
             // If the invoice was already paid, reverse its cashbook entry & account balance
             // so deleting it never leaves stale/incorrect money in the bukukas.
             if ($inv['status'] === 'paid') {

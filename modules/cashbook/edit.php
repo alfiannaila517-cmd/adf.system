@@ -11,7 +11,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('cashbook'); // wajib izin menu Buku Kas (bukan sekadar login)
 $db = Database::getInstance();
 
 // Auto-fix: Convert payment_method ENUM to VARCHAR (ENUM misses edc, ota, etc.)
@@ -91,7 +91,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($division_id <= 0) $errors[] = 'Divisi wajib dipilih';
     if (empty($category_name_input)) $errors[] = 'Kategori/Nama wajib diisi';
     if ($amount <= 0) $errors[] = 'Jumlah harus lebih dari 0';
-    
+    // Rekening wajib milik bisnis aktif (cash_accounts di database master dipakai semua bisnis)
+    if ($cash_account_id) {
+        try {
+            $acctPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $acctChk = $acctPdo->prepare("SELECT 1 FROM cash_accounts WHERE id = ? AND business_id = ?");
+            $acctChk->execute([$cash_account_id, getMasterBusinessId()]);
+            if (!$acctChk->fetchColumn()) $errors[] = 'Rekening kas tidak valid untuk bisnis ini';
+        } catch (Throwable $e) {
+            error_log('Cash account ownership check: ' . $e->getMessage());
+            $errors[] = 'Rekening kas tidak bisa diperiksa, coba lagi';
+        }
+    }
+
     // Find or create category by name
     $category_id = 0;
     if (!empty($category_name_input)) {

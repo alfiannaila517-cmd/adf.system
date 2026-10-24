@@ -26,8 +26,8 @@ if (!in_array($currentUser['role'], ['owner', 'admin', 'manager', 'developer']))
     exit;
 }
 
-// Switch to hotel database
-$db = Database::switchDatabase(getDbName('adf_narayana_hotel'));
+// Database bisnis yang sedang aktif (dulu selalu database Narayana Hotel → bisnis lain melihat angka hotel)
+$db = Database::getInstance();
 $branchId = isset($_GET['branch_id']) ? (int)$_GET['branch_id'] : null;
 
 try {

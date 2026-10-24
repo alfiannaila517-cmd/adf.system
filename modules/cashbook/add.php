@@ -12,7 +12,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('cashbook'); // wajib izin menu Buku Kas (bukan sekadar login)
 $db = Database::getInstance();
 
 // Auto-drop FK constraint on cash_book.created_by (references users in master DB, not business DB)
@@ -65,6 +65,18 @@ $pageSubtitle = $hasProjectModule ? 'Catat pemasukan & pengeluaran proyek solar 
 // ============================================
 $action = $_GET['action'] ?? $_POST['action'] ?? null;
 
+// Menyimpan transaksi / rekening baru butuh izin "tambah" Buku Kas (bukan sekadar bisa melihat menunya)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$auth->canCreate('cashbook')) {
+    if ($action) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Anda tidak punya izin menambah transaksi kas.']);
+    } else {
+        setFlash('error', 'Anda tidak punya izin menambah transaksi kas.');
+        header('Location: ' . BASE_URL . '/modules/cashbook/index.php');
+    }
+    exit;
+}
+
 // AJAX: Add new bank account
 if ($action === 'add_bank_account' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json');
@@ -101,7 +113,7 @@ if ($action === 'add_bank_account' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($action === 'get_bank_accounts' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     header('Content-Type: application/json');
 
-    $bizId = $_GET['biz_id'] ?? getMasterBusinessId();
+    $bizId = getMasterBusinessId(); // selalu bisnis aktif (dulu ?biz_id= bisa membaca rekening bisnis lain)
 
     try {
         $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
@@ -234,6 +246,32 @@ if (isPost()) {
     $cashAccountId = sanitize(getPost('cash_account_id')) ?: null; // Optional: can be null for now
     $sourceType = sanitize(getPost('source_type'));
     $penyetor = sanitize(getPost('setor_penyetor')); // Nama penyetor for cash_transfer
+
+    // Rekening kas wajib milik bisnis aktif: cash_accounts ada di database master (dipakai semua bisnis),
+    // tanpa cek ini id rekening bisnis lain bisa dikirim lewat form dan saldonya ikut berubah.
+    // Nominal wajib angka bulat > 0 (nominal negatif dulu lolos dan membalik arah uang).
+    $badInput = null;
+    if ($amount !== '' && $amount !== null && (!ctype_digit((string)$amount) || (int)$amount <= 0)) {
+        $badInput = 'Nominal harus angka lebih dari 0.';
+    }
+    if (!$badInput && $cashAccountId) {
+        try {
+            $acctPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $acctChk = $acctPdo->prepare("SELECT 1 FROM cash_accounts WHERE id = ? AND business_id = ?");
+            $acctChk->execute([(int)$cashAccountId, getMasterBusinessId()]);
+            if (!$acctChk->fetchColumn()) {
+                $badInput = 'Rekening kas tidak valid untuk bisnis ini.';
+            }
+        } catch (Throwable $e) {
+            error_log('Cash account ownership check: ' . $e->getMessage());
+            $badInput = 'Rekening kas tidak bisa diperiksa, coba lagi.';
+        }
+    }
+    if ($badInput) {
+        setFlash('error', $badInput);
+        header('Location: ' . BASE_URL . '/modules/cashbook/add.php');
+        exit;
+    }
 
     // ============================================
     // EARLY RETURN: CASH TRANSFER (SETOR TUNAI)

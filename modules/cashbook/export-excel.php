@@ -12,7 +12,7 @@ require_once '../../includes/functions.php';
 
 // Auth check (same as index.php)
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('cashbook'); // wajib izin menu Buku Kas (bukan sekadar login)
 $db = Database::getInstance();
 $pdo = $db->getConnection();
 $pdo->exec("SET time_zone = '+07:00'");

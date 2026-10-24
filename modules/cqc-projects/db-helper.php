@@ -5,12 +5,11 @@
  */
 
 function getCQCDatabaseConnection() {
-    $isLocalhost = (strpos($_SERVER['HTTP_HOST'] ?? 'localhost', 'localhost') !== false);
-    
-    $dbHost = 'localhost';
-    $dbUser = $isLocalhost ? 'root' : 'adfb2574_adfsystem';
-    $dbPass = $isLocalhost ? '' : '@Nnoc2025';
-    $dbName = $isLocalhost ? 'adf_cqc' : 'adfb2574_cqc';
+    // Kredensial dari konfigurasi server (config.php / local-db-config.php), bukan ditulis di kode
+    $dbHost = DB_HOST;
+    $dbUser = DB_USER;
+    $dbPass = DB_PASS;
+    $dbName = getDbName('adf_cqc');
     
     try {
         // Create database if not exists

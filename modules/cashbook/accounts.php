@@ -9,7 +9,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('cashbook'); // wajib izin menu Buku Kas
 
 // Load business configuration
 $businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
@@ -27,7 +27,14 @@ $businessId = getMasterBusinessId();
 // Handle AJAX requests
 if (isset($_GET['ajax'])) {
     header('Content-Type: application/json');
-    
+
+    // Tambah/ubah rekening butuh izin ubah, hapus butuh izin hapus (mengubah jenis kas↔bank memindah saldo di laporan)
+    $needDelete = $_GET['ajax'] === 'delete';
+    if (in_array($_GET['ajax'], ['add', 'update', 'delete'], true) && !($needDelete ? $auth->canDelete('cashbook') : $auth->canEdit('cashbook'))) {
+        echo json_encode(['success' => false, 'message' => 'Anda tidak punya izin mengubah rekening.']);
+        exit;
+    }
+
     // ADD account
     if ($_GET['ajax'] === 'add' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = trim($_POST['account_name'] ?? '');

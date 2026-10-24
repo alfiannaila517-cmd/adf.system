@@ -6,7 +6,7 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 
 $auth = new Auth();
-$auth->requireLogin();
+$auth->requirePermission('payroll'); // wajib izin menu Penggajian (bukan sekadar login)
 
 header('Content-Type: application/json');
 
