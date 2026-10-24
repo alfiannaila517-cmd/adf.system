@@ -27,9 +27,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Secrets::override('MAYAR_API_KEY', $key);
             Secrets::override('MAYAR_MODE', $mode);
             Mayar::ping();
+            $changed = $key !== (string)(SecureSettings::all()['MAYAR_API_KEY'] ?? '');
             SecureSettings::save(['MAYAR_API_KEY' => $key, 'MAYAR_MODE' => $mode]);
+            // Key / akun Mayar berganti (mis. subdomain toko diubah) → link lama tidak berlaku: tutup yang belum dibayar
+            $closed = 0;
+            if ($changed) {
+                $closed = Auth::db()->exec("UPDATE payment_links SET status = 'expired' WHERE status = 'pending'");
+            }
             Auth::audit('payment.mayar', $mode);
-            flash('Mayar tersimpan dan terhubung (' . ($mode === 'sandbox' ? 'sandbox / uji coba' : 'production') . '). Sekarang klik "Daftarkan webhook".');
+            flash(($closed ? $closed . ' link bayar lama ditutup. ' : '') . 'Mayar tersimpan dan terhubung (' . ($mode === 'sandbox' ? 'sandbox / uji coba' : 'production') . '). Sekarang klik "Daftarkan webhook".');
         } elseif ($action === 'webhook') {
             Mayar::registerWebhook($hookUrl);
             Auth::audit('payment.webhook', $hookUrl);
