@@ -23,7 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newId = Invoice::saveFromPost($_POST, $id);
         $saved = Invoice::find($newId);
         Auth::audit($id ? 'invoice.update' : 'invoice.add', "{$saved['number']} · {$saved['customer_name']}");
-        $msg = $id ? 'Invoice disimpan.' : 'Invoice dibuat.';
+        $msg = ($saved['kind'] === 'manual' ? 'Tagihan manual ' : 'Invoice ') . $saved['number'] . ($id ? ' disimpan.' : ' dibuat.');
+        // Setelah simpan: kembali ke tempat asal (tab Langganan bisnis untuk tagihan manual, daftar Invoice selain itu) — tanpa pratinjau
+        $back = $saved['kind'] === 'manual' && $saved['business_id'] ? '/business.php?id=' . (int)$saved['business_id'] . '&tab=langganan' : '/invoices.php';
         // "Simpan & kirim tagihan": langsung kirim email ke pelanggan (draft ikut diterbitkan)
         if (!empty($_POST['send'])) {
             try {
@@ -32,11 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $msg .= " Tagihan terkirim ke {$to}.";
             } catch (Throwable $ex) {
                 flash($msg . ' Belum terkirim: ' . $ex->getMessage(), 'err');
-                redirect("/invoice-view.php?id={$newId}");
+                redirect($back);
             }
         }
         flash($msg);
-        redirect("/invoice-view.php?id={$newId}");
+        redirect($back);
     } catch (Throwable $e) {
         flash($e->getMessage(), 'err');
         $_SESSION['old_invoice'] = $_POST;
@@ -119,7 +121,7 @@ View::start($inv ? 'Ubah invoice' : 'Invoice baru', 'invoices', $me);
     <div class="pagehead" style="margin-bottom:10px;align-items:center">
         <div><div class="crumb" style="margin:0"><a href="/invoices.php">Invoice</a> ›</div>
             <h1><?= $inv ? 'Ubah invoice ' . e($inv['number']) : ($f['kind'] === 'monthly' ? 'Invoice bulanan · ' . e(Invoice::date($period . '-01', false)) : 'Invoice baru') ?></h1></div>
-        <div style="display:flex;gap:6px"><a class="btn ghost" href="<?= $inv ? '/invoice-view.php?id=' . $id : '/invoices.php' ?>">Batal</a><button class="btn ghost">Simpan</button><button class="btn" name="send" value="1" title="Simpan lalu kirim ke email pelanggan">Simpan &amp; kirim tagihan</button></div>
+        <div style="display:flex;gap:6px"><a class="btn ghost" href="<?= $inv ? '/invoice-view.php?id=' . $id : (!empty($f['bill_business_id']) ? '/business.php?id=' . (int)$f['bill_business_id'] . '&tab=langganan' : '/invoices.php') ?>">Batal</a><button class="btn ghost">Simpan</button><button class="btn" name="send" value="1" title="Simpan lalu kirim ke email pelanggan">Simpan &amp; kirim tagihan</button></div>
     </div>
 
     <div class="card" style="margin-bottom:10px">
