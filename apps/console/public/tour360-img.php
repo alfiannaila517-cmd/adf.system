@@ -11,7 +11,7 @@ require dirname(__DIR__) . '/bootstrap.php';
 
 Auth::requireLogin();
 $biz = Biz::business((int)($_GET['id'] ?? 0));
-$size = in_array($_GET['z'] ?? '', ['4096', '8192', 'thumb'], true) ? (string)$_GET['z'] : 'thumb';
+$size = in_array($_GET['z'] ?? '', ['4096', '8192', 'full', 'thumb'], true) ? (string)$_GET['z'] : 'thumb';
 $file = null;
 if ($biz && Website::available($biz)) {
     foreach (Tour360::load(Website::db($biz)) as $s) {

@@ -8,6 +8,8 @@ declare(strict_types=1);
  *   WEBSITE_DIR (secrets, opsional) bawaan /srv/adf/legacy/public_html/website/public  →  uploads/tour360/<id>-{4096,8192,thumb}.jpg
  * Lokasi: id, name {id,en}, base ("/uploads/tour360/<id>" atau "img/aerial" bawaan), view {yaw,pitch,fov},
  *         links [{to, yaw, pitch}] — derajat, pitch positif = ke bawah (konvensi Marzipano).
+ * Foto biasa (bukan 360°): type "flat", w, h, gambar <base>-full.jpg (sisi terpanjang ≤ 4096) + -thumb.jpg;
+ *         penghubungnya [{to, x, y}] — posisi di foto 0…1 dari kiri-atas.
  */
 final class Tour360
 {
@@ -67,8 +69,51 @@ final class Tour360
         return is_file($f) ? $f : null;
     }
 
+    public static function isFlat(array $scene): bool
+    {
+        return ($scene['type'] ?? '') === 'flat';
+    }
+
     /**
-     * Tambah lokasi dari foto 360° unggahan (JPG equirectangular ~2:1): disimpan 8192, 4096 & gambar kecil 480×240.
+     * Posisi bola kembali otomatis di lokasi $b menuju $a, dari penghubung $link (di $a menuju $b):
+     * 360°→360° arah berlawanan (yaw + 180°, pitch dibalik); menuju foto biasa → tengah bawah foto;
+     * dari foto biasa → di depan tampilan awal lokasi 360°, sedikit ke bawah. (Website menghitung dengan cara yang sama.)
+     */
+    public static function backPos(array $a, array $link, array $b): array
+    {
+        if (self::isFlat($b)) {
+            return ['x' => 0.5, 'y' => 0.85];
+        }
+        if (self::isFlat($a)) {
+            return ['yaw' => (float)($b['view']['yaw'] ?? 0), 'pitch' => min(40.0, (float)($b['view']['pitch'] ?? 0) + 15)];
+        }
+        return ['yaw' => round(fmod((float)$link['yaw'] + 360, 360) - 180, 1), 'pitch' => round(max(-40, min(40, -(float)$link['pitch'])), 1)];
+    }
+
+    /** Bola kembali yang tampil otomatis di lokasi $cur (lokasi lain menuju sini, sini belum punya penghubung ke sana) */
+    public static function implied(array $scenes, string $cur): array
+    {
+        $byId = array_column($scenes, null, 'id');
+        $here = $byId[$cur] ?? null;
+        if (!$here) {
+            return [];
+        }
+        $have = array_column($here['links'] ?? [], 'to');
+        $out = [];
+        foreach ($scenes as $o) {
+            foreach ($o['links'] ?? [] as $l) {
+                if ($l['to'] === $cur && $o['id'] !== $cur && !in_array($o['id'], $have, true)) {
+                    $out[] = ['to' => $o['id']] + self::backPos($o, $l, $here);
+                    $have[] = $o['id'];
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Tambah lokasi dari foto unggahan. Foto 360° (equirectangular ~2:1, JPG) → 8192, 4096 & gambar kecil 480×240.
+     * Foto lain (JPG/PNG/WEBP) → foto biasa: sisi terpanjang ≤ 4096 (rotasi EXIF dari HP diperbaiki) + gambar kecil.
      * @return string id lokasi baru
      */
     public static function add(PDO $pdo, array $file, string $nameId, string $nameEn): string
@@ -84,13 +129,11 @@ final class Tour360
             throw new RuntimeException($p);
         }
         $info = @getimagesize($file['tmp_name']);
-        if (!$info || $info[2] !== IMAGETYPE_JPEG) {
-            throw new RuntimeException('Foto harus JPG.');
+        if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true)) {
+            throw new RuntimeException('Foto harus JPG, PNG, atau WEBP.');
         }
         [$w, $h] = $info;
-        if (abs($w / max(1, $h) - 2) > 0.08) {
-            throw new RuntimeException("Foto bukan 360° (ukuran {$w}×{$h}; seharusnya lebar = 2 × tinggi, mis. 8192×4096).");
-        }
+        $pano = $info[2] === IMAGETYPE_JPEG && abs($w / max(1, $h) - 2) <= 0.08;
         $nameId = trim($nameId) ?: 'Lokasi';
         $id = trim((string)preg_replace('/[^a-z0-9]+/', '-', strtolower($nameId)), '-') ?: 'lokasi';
         $scenes = self::load($pdo);
@@ -101,11 +144,18 @@ final class Tour360
         // Ubah ukuran (foto 12000 px butuh memori besar)
         ini_set('memory_limit', '2048M');
         @set_time_limit(300);
-        $src = imagecreatefromjpeg($file['tmp_name']);
+        $src = match ($info[2]) {
+            IMAGETYPE_PNG => @imagecreatefrompng($file['tmp_name']),
+            IMAGETYPE_WEBP => @imagecreatefromwebp($file['tmp_name']),
+            default => @imagecreatefromjpeg($file['tmp_name']),
+        };
         if (!$src) {
             throw new RuntimeException('Foto tidak bisa dibaca.');
         }
         $dir = self::upDir();
+        if (!$pano) {
+            return self::addFlat($pdo, $src, $info[2], $file['tmp_name'], $id, $nameId, $nameEn, $scenes);
+        }
         foreach ([8192 => 84, 4096 => 82] as $size => $q) {
             $tw = min($size, $w);
             $im = imagecreatetruecolor($tw, (int)($tw / 2));
@@ -121,6 +171,36 @@ final class Tour360
 
         $scenes[] = ['id' => $id, 'name' => ['id' => $nameId, 'en' => trim($nameEn) ?: $nameId], 'base' => '/uploads/tour360/' . $id,
             'view' => ['yaw' => 0, 'pitch' => 0, 'fov' => 100], 'links' => []];
+        self::save($pdo, $scenes);
+        return $id;
+    }
+
+    /** Foto biasa: putar sesuai EXIF (foto HP), sisi terpanjang ≤ 4096, gambar kecil 480×240 dari tengah */
+    private static function addFlat(PDO $pdo, GdImage $src, int $type, string $tmp, string $id, string $nameId, string $nameEn, array $scenes): string
+    {
+        $ori = $type === IMAGETYPE_JPEG && function_exists('exif_read_data') ? (int)(@exif_read_data($tmp)['Orientation'] ?? 1) : 1;
+        $rot = [3 => 180, 6 => -90, 8 => 90][$ori] ?? 0; // imagerotate: sudut berlawanan arah jarum jam
+        if ($rot) {
+            $src = imagerotate($src, $rot, 0);
+        }
+        $w = imagesx($src);
+        $h = imagesy($src);
+        $k = min(1, 4096 / max($w, $h));
+        $fw = (int)round($w * $k);
+        $fh = (int)round($h * $k);
+        $dir = self::upDir();
+        $im = imagecreatetruecolor($fw, $fh);
+        imagecopyresampled($im, $src, 0, 0, 0, 0, $fw, $fh, $w, $h);
+        imagejpeg($im, "{$dir}/{$id}-full.jpg", 86);
+        // gambar kecil 2:1 dari tengah foto
+        $cw = min($w, $h * 2);
+        $ch = (int)($cw / 2);
+        $th = imagecreatetruecolor(480, 240);
+        imagecopyresampled($th, $src, 0, 0, (int)(($w - $cw) / 2), (int)(($h - $ch) / 2), 480, 240, (int)$cw, $ch);
+        imagejpeg($th, "{$dir}/{$id}-thumb.jpg", 82);
+
+        $scenes[] = ['id' => $id, 'type' => 'flat', 'w' => $fw, 'h' => $fh, 'name' => ['id' => $nameId, 'en' => trim($nameEn) ?: $nameId],
+            'base' => '/uploads/tour360/' . $id, 'view' => ['yaw' => 0, 'pitch' => 0, 'fov' => 100], 'links' => []];
         self::save($pdo, $scenes);
         return $id;
     }
@@ -178,30 +258,34 @@ final class Tour360
         unset($s);
         self::save($pdo, $scenes);
         if (str_starts_with((string)$gone['base'], '/uploads/tour360/')) {
-            foreach (['4096', '8192', 'thumb'] as $sz) {
+            foreach (['4096', '8192', 'full', 'thumb'] as $sz) {
                 @unlink(self::webDir() . $gone['base'] . '-' . $sz . '.jpg');
             }
         }
     }
 
     /**
-     * Tambah penghubung (bola foto) di lokasi $from menuju $to pada yaw/pitch. $back: lokasi tujuan yang belum punya
-     * bola ke $from otomatis diberi bola kembali di arah berlawanan (yaw + 180°, pitch dibalik) — bisa dipindah nanti.
+     * Tambah penghubung (bola foto) di lokasi $from menuju $to. $pos: lokasi 360° → yaw/pitch (derajat); foto biasa → x/y (0…1).
+     * $back: lokasi tujuan yang belum punya bola ke $from otomatis diberi bola kembali (posisi dari backPos) — bisa dipindah nanti.
      * @return bool true bila bola kembali ikut dibuat
      */
-    public static function addLink(PDO $pdo, string $from, string $to, float $yaw, float $pitch, bool $back = true): bool
+    public static function addLink(PDO $pdo, string $from, string $to, array $pos, bool $back = true): bool
     {
         $scenes = self::load($pdo);
-        if ($from === $to || !in_array($to, array_column($scenes, 'id'), true)) {
+        $byId = array_column($scenes, null, 'id');
+        if ($from === $to || !isset($byId[$to], $byId[$from])) {
             throw new RuntimeException('Pilih lokasi tujuan yang lain.');
         }
+        $link = self::isFlat($byId[$from])
+            ? ['to' => $to, 'x' => round(max(0, min(1, (float)($pos['x'] ?? .5))), 4), 'y' => round(max(0, min(1, (float)($pos['y'] ?? .5))), 4)]
+            : ['to' => $to, 'yaw' => round((float)($pos['yaw'] ?? 0), 1), 'pitch' => round((float)($pos['pitch'] ?? 0), 1)];
         $made = false;
         foreach ($scenes as &$s) {
             if ($s['id'] === $from) {
                 $s['links'] = array_values(array_filter($s['links'] ?? [], fn ($l) => $l['to'] !== $to)); // satu bola per tujuan
-                $s['links'][] = ['to' => $to, 'yaw' => round($yaw, 1), 'pitch' => round($pitch, 1)];
+                $s['links'][] = $link;
             } elseif ($back && $s['id'] === $to && !in_array($from, array_column($s['links'] ?? [], 'to'), true)) {
-                $s['links'][] = ['to' => $from, 'yaw' => round(fmod($yaw + 360, 360) - 180, 1), 'pitch' => round(max(-40, min(40, -$pitch)), 1)];
+                $s['links'][] = ['to' => $from] + self::backPos($byId[$from], $link, $s);
                 $made = true;
             }
         }

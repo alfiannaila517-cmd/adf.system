@@ -47,7 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('Lokasi dihapus.');
             } elseif ($action === 'link_add') {
                 $to = (string)($_POST['to'] ?? '');
-                $back = Tour360::addLink($pdo, $cur, $to, (float)($_POST['yaw'] ?? 0), (float)($_POST['pitch'] ?? 0), !empty($_POST['back']));
+                $pos = array_intersect_key($_POST, ['yaw' => 1, 'pitch' => 1, 'x' => 1, 'y' => 1]);
+                $back = Tour360::addLink($pdo, $cur, $to, $pos, !empty($_POST['back']));
                 $toName = array_column(array_map(fn ($s) => ['id' => $s['id'], 'n' => $s['name']['id']], Tour360::load($pdo)), 'n', 'id')[$to] ?? $to;
                 flash('Penghubung dipasang.' . ($back ? " Bola kembali juga dipasang di \"{$toName}\" — buka lokasi itu untuk memindah posisinya bila kurang pas." : ''));
             } elseif ($action === 'link_del') {
@@ -75,15 +76,9 @@ if (!isset($names[$cur])) {
     $cur = $scenes[0]['id'];
 }
 $scene = array_values(array_filter($scenes, fn ($s) => $s['id'] === $cur))[0];
-// Bola kembali otomatis di lokasi ini (dihitung juga oleh website): arah berlawanan dari penghubung lokasi lain ke sini
-$autoBack = [];
-foreach ($scenes as $o) {
-    foreach ($o['links'] ?? [] as $l) {
-        if ($l['to'] === $cur && $o['id'] !== $cur && !in_array($o['id'], array_column($scene['links'] ?? [], 'to'), true)) {
-            $autoBack[] = ['to' => $o['id'], 'yaw' => fmod((float)$l['yaw'] + 360, 360) - 180, 'pitch' => max(-40, min(40, -(float)$l['pitch']))];
-        }
-    }
-}
+// Bola kembali otomatis di lokasi ini (dihitung juga oleh website)
+$autoBack = Tour360::implied($scenes, $cur);
+$flat = Tour360::isFlat($scene);
 $img = fn (string $s, string $z) => '/tour360-img.php?id=' . $id . '&s=' . rawurlencode($s) . '&z=' . $z;
 $problem = Tour360::problem();
 $limit = ini_get('upload_max_filesize') . ' / ' . ini_get('post_max_size');
@@ -101,7 +96,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     <h1 style="margin:0">Tour 360°</h1>
     <?php if ($site): ?><a class="btn ghost sm" href="<?= e($site) ?>" target="_blank" rel="noopener">Lihat di website ↗</a><?php endif; ?>
 </div>
-<p class="muted" style="margin:4px 0 12px;font-size:12px">Halaman <b>/virtual-tour/</b> website (menu Explore → 360° Virtual Tour). Tiap lokasi = satu foto 360°; pengunjung pindah lokasi lewat bola foto yang Anda pasang.</p>
+<p class="muted" style="margin:4px 0 12px;font-size:12px">Halaman <b>/virtual-tour/</b> website (menu Explore → 360° Virtual Tour). Tiap lokasi = satu foto 360° atau foto biasa; pengunjung pindah lokasi lewat bola foto yang Anda pasang.</p>
 <?php if ($problem): ?><div class="soonbox" style="margin-bottom:12px"><?= e($problem) ?></div><?php endif; ?>
 
 <style>
@@ -127,7 +122,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
             <?php foreach ($scenes as $i => $s): ?>
                 <a class="<?= $s['id'] === $cur ? 'on' : '' ?>" href="/tour360.php?id=<?= $id ?>&s=<?= rawurlencode($s['id']) ?>">
                     <img src="<?= e($img($s['id'], 'thumb')) ?>" alt="" loading="lazy">
-                    <span style="min-width:0"><b><?= e($s['name']['id']) ?></b><small><?= $i === 0 ? 'dibuka pertama · ' : '' ?><?= count($s['links'] ?? []) ?> penghubung</small></span>
+                    <span style="min-width:0"><b><?= e($s['name']['id']) ?></b><small><?= $i === 0 ? 'dibuka pertama · ' : '' ?><?= Tour360::isFlat($s) ? 'foto biasa · ' : '' ?><?= count($s['links'] ?? []) ?> penghubung</small></span>
                 </a>
             <?php endforeach; ?>
         </div>
@@ -137,8 +132,8 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
                 <?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="id" value="<?= $id ?>">
                 <div class="field"><label>Nama (Indonesia)</label><input name="name_id" placeholder="mis. Bens Cafe" required></div>
                 <div class="field"><label>Nama (English)</label><input name="name_en" placeholder="opsional, mis. Bens Cafe"></div>
-                <div class="field"><label>Foto 360° (JPG)</label><input type="file" name="photo" accept="image/jpeg" required>
-                    <div class="muted" style="font-size:11px;margin-top:2px">Foto panorama penuh: lebar = 2 × tinggi (mis. 8192×4096 dari app DJI / kamera 360). Batas unggah server: <?= e($limit) ?>.</div></div>
+                <div class="field"><label>Foto 360° atau foto biasa</label><input type="file" name="photo" accept="image/jpeg,image/png,image/webp" required>
+                    <div class="muted" style="font-size:11px;margin-top:2px">Foto 360° (JPG, lebar = 2 × tinggi, mis. 8192×4096 dari app DJI / kamera 360) otomatis jadi panorama; foto lain (JPG/PNG/WEBP dari HP/kamera) jadi foto biasa yang bisa di-zoom. Batas unggah server: <?= e($limit) ?>.</div></div>
                 <button class="btn" <?= $problem ? 'disabled' : '' ?>>Unggah & tambah</button>
                 <div id="addProg" style="display:none;margin-top:8px">
                     <div style="height:8px;border-radius:99px;background:var(--line);overflow:hidden"><div id="addBar" style="height:100%;width:0;background:var(--brand);transition:width .2s"></div></div>
@@ -151,10 +146,10 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     <div>
         <div class="card" style="padding:10px">
             <div id="pano">
-                <span class="t3-hint"><?= $isAdmin ? 'Klik di foto untuk memasang penghubung · seret untuk melihat sekeliling' : 'Seret untuk melihat sekeliling' ?></span>
+                <span class="t3-hint"><?= $isAdmin ? 'Klik di foto untuk memasang penghubung · ' : '' ?><?= $flat ? 'foto biasa: gulir untuk zoom, seret untuk menggeser' : 'seret untuk melihat sekeliling' ?></span>
                 <form method="post" id="linkBox">
                     <?= csrf_field() ?><input type="hidden" name="action" value="link_add"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>">
-                    <input type="hidden" name="yaw"><input type="hidden" name="pitch">
+                    <input type="hidden" name="yaw"><input type="hidden" name="pitch"><input type="hidden" name="x"><input type="hidden" name="y">
                     <b style="font-size:13px">Penghubung di titik ini menuju:</b>
                     <div style="display:flex;gap:6px;margin-top:6px">
                         <select name="to" style="flex:1" required>
@@ -170,7 +165,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
             </div>
             <?php if ($isAdmin): ?>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-                    <form method="post" id="viewForm" style="margin:0">
+                    <form method="post" id="viewForm" style="margin:0;<?= $flat ? 'display:none' : '' ?>">
                         <?= csrf_field() ?><input type="hidden" name="action" value="view"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>">
                         <input type="hidden" name="yaw"><input type="hidden" name="pitch"><input type="hidden" name="fov">
                         <button class="btn ghost sm" title="Arah & zoom yang terlihat sekarang dipakai saat lokasi ini dibuka">Simpan tampilan sekarang sebagai awal</button>
@@ -193,9 +188,9 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
                 <table class="sm">
                     <?php foreach ($scene['links'] as $l): ?>
                         <tr>
-                            <td><b><?= e($names[$l['to']] ?? $l['to']) ?></b> <span class="muted" style="font-size:11px">arah <?= (int)$l['yaw'] ?>°, <?= (int)$l['pitch'] ?>°</span></td>
+                            <td><b><?= e($names[$l['to']] ?? $l['to']) ?></b> <span class="muted" style="font-size:11px"><?= $flat ? 'posisi ' . round((float)($l['x'] ?? 0) * 100) . '% dari kiri, ' . round((float)($l['y'] ?? 0) * 100) . '% dari atas' : 'arah ' . (int)($l['yaw'] ?? 0) . '°, ' . (int)($l['pitch'] ?? 0) . '°' ?></span></td>
                             <td style="text-align:right;white-space:nowrap">
-                                <button type="button" class="btn ghost sm" data-look="<?= (float)$l['yaw'] ?>,<?= (float)$l['pitch'] ?>">Lihat</button>
+                                <?php if (!$flat): ?><button type="button" class="btn ghost sm" data-look="<?= (float)$l['yaw'] ?>,<?= (float)$l['pitch'] ?>">Lihat</button><?php endif; ?>
                                 <?php if ($isAdmin): ?><form method="post" style="display:inline;margin:0"><?= csrf_field() ?><input type="hidden" name="action" value="link_del"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><input type="hidden" name="to" value="<?= e($l['to']) ?>"><button class="btn ghost sm" style="color:var(--bad)">Hapus</button></form><?php endif; ?>
                             </td>
                         </tr>
@@ -230,11 +225,24 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
     const pano = document.getElementById('pano');
 
+    const FLAT = SCENE.type === 'flat';
+    // posisi hotspot: foto biasa {x,y} (0…1), 360° {yaw,pitch} (radian)
+    const at = l => FLAT ? { x: +l.x, y: +l.y } : { yaw: rad(l.yaw), pitch: rad(l.pitch) };
+
     const viewer = new Marzipano.Viewer(pano, { controls: { mouseViewMode: 'drag' } });
-    const source = new Marzipano.ImageUrlSource(t => ({ url: IMG.replace('ZZ', t.z === 0 ? '4096' : '8192') }));
-    const geometry = new Marzipano.EquirectGeometry([{ width: 4096 }, { width: 8192 }]);
-    const view = new Marzipano.RectilinearView({ yaw: rad(SCENE.view.yaw), pitch: rad(SCENE.view.pitch), fov: rad(SCENE.view.fov) },
-        Marzipano.RectilinearView.limit.traditional(8192, rad(120)));
+    let source, geometry, view;
+    if (FLAT) {
+        // foto biasa: satu gambar utuh, muat penuh di layar (letterbox), zoom sampai resolusi asli
+        source = new Marzipano.ImageUrlSource(() => ({ url: IMG.replace('ZZ', 'full') }));
+        geometry = new Marzipano.FlatGeometry([{ width: SCENE.w, height: SCENE.h, tileWidth: SCENE.w, tileHeight: SCENE.h }]);
+        view = new Marzipano.FlatView({ x: .5, y: .5, zoom: 99, mediaAspectRatio: SCENE.w / SCENE.h },
+            Marzipano.util.compose(Marzipano.FlatView.limit.resolution(SCENE.w), Marzipano.FlatView.limit.letterbox()));
+    } else {
+        source = new Marzipano.ImageUrlSource(t => ({ url: IMG.replace('ZZ', t.z === 0 ? '4096' : '8192') }));
+        geometry = new Marzipano.EquirectGeometry([{ width: 4096 }, { width: 8192 }]);
+        view = new Marzipano.RectilinearView({ yaw: rad(SCENE.view.yaw), pitch: rad(SCENE.view.pitch), fov: rad(SCENE.view.fov) },
+            Marzipano.RectilinearView.limit.traditional(8192, rad(120)));
+    }
     const scene = viewer.createScene({ source, geometry, view, pinFirstLevel: true });
     scene.switchTo();
     const hc = scene.hotspotContainer();
@@ -251,7 +259,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
         el.querySelector('.ball').style.backgroundImage = 'url("' + THUMB(l.to) + '")';
         el.querySelector('.lb').textContent = (NAMES[l.to] || l.to) + (l.auto ? ' (otomatis)' : '');
         el.addEventListener('mousedown', e => e.stopPropagation());
-        hc.createHotspot(el, { yaw: rad(l.yaw), pitch: rad(l.pitch) });
+        hc.createHotspot(el, at(l));
     });
 
     // Klik (bukan seret) di foto → tanda titik baru + kotak pilih tujuan
@@ -262,14 +270,20 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
         if (!ADMIN || !down || box.contains(e.target) || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;
         const r = pano.getBoundingClientRect();
         const c = view.screenToCoordinates({ x: e.clientX - r.left, y: e.clientY - r.top });
-        if (!c) return;
+        if (!c || (FLAT && (c.x < 0 || c.x > 1 || c.y < 0 || c.y > 1))) return; // foto biasa: klik di luar foto diabaikan
         if (marker) hc.destroyHotspot(marker);
         const el = document.createElement('div');
         el.className = 't3-new';
         el.innerHTML = '<div></div>';
-        marker = hc.createHotspot(el, { yaw: c.yaw, pitch: c.pitch });
-        box.yaw.value = deg(c.yaw).toFixed(1);
-        box.pitch.value = deg(c.pitch).toFixed(1);
+        if (FLAT) {
+            marker = hc.createHotspot(el, { x: c.x, y: c.y });
+            box.x.value = c.x.toFixed(4);
+            box.y.value = c.y.toFixed(4);
+        } else {
+            marker = hc.createHotspot(el, { yaw: c.yaw, pitch: c.pitch });
+            box.yaw.value = deg(c.yaw).toFixed(1);
+            box.pitch.value = deg(c.pitch).toFixed(1);
+        }
         box.style.display = 'block';
     });
     document.getElementById('linkCancel').onclick = () => { box.style.display = 'none'; if (marker) { hc.destroyHotspot(marker); marker = null; } };
