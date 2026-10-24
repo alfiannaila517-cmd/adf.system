@@ -15,6 +15,7 @@
  *                                                     impor bisnis + orang + izin dari database master sistem lama
  *   php cli/console.php legacy-diff <kode-bisnis>     beda izin Console vs tabel sistem lama (kosong = identik)
  *   php cli/console.php mail-test <email>             kirim email uji lewat pengaturan secrets/smtp.env
+ *   php cli/console.php tour360-tiles <biz> <lokasi>  buat tiles HD Tour 360° (biasanya otomatis dari Console)
  */
 
 declare(strict_types=1);
@@ -40,11 +41,27 @@ try {
         'legacy-import' => legacyImport(array_slice($argv, 2)),
         'legacy-diff' => legacyDiff($argv[2] ?? ''),
         'mail-test' => mailTest($argv[2] ?? ''),
+        'tour360-tiles' => tour360Tiles((int)($argv[2] ?? 0), (string)($argv[3] ?? '')),
         default => print("Perintah: migrate | import-users <users.json> | create-admin | set-password <username> | users | demo seed|clear | vault-key | legacy-preview <kode> | legacy-import [--dry-run] | legacy-diff <kode> | mail-test <email>\n"),
     };
 } catch (Throwable $e) {
     fwrite(STDERR, 'GAGAL: ' . $e->getMessage() . PHP_EOL);
     exit(1);
+}
+
+/**
+ * Tiles HD satu lokasi Tour 360° (dijalankan otomatis di latar belakang oleh Console; bisa juga manual):
+ *   php cli/console.php tour360-tiles <id bisnis Website> <id lokasi>
+ */
+function tour360Tiles(int $bizId, string $sceneId): void
+{
+    $biz = Biz::business($bizId);
+    if (!$biz || !Website::available($biz) || $sceneId === '') {
+        throw new RuntimeException('pakai: tour360-tiles <id bisnis Website> <id lokasi>');
+    }
+    $t0 = microtime(true);
+    $meta = Tour360::buildTiles(Website::db($biz), $sceneId);
+    echo "OK {$sceneId}: sisi {$meta['face']} px, tingkat " . implode('/', $meta['levels']) . ' · ' . round(microtime(true) - $t0) . " dtk\n";
 }
 
 /** Uji pengiriman email (mis. setelah mengganti SMTP ke Brevo) tanpa harus logout dari Console. */

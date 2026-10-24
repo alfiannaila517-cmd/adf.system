@@ -31,7 +31,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             if ($action === 'add') {
                 $cur = Tour360::add($pdo, $_FILES['photo'] ?? [], (string)($_POST['name_id'] ?? ''), (string)($_POST['name_en'] ?? ''));
-                flash('Lokasi ditambahkan. Sekarang klik di foto untuk memasang penghubung ke lokasi lain.');
+                $hd = '';
+                $newScene = array_values(array_filter(Tour360::load($pdo), fn ($s) => $s['id'] === $cur))[0] ?? [];
+                if (!Tour360::isFlat($newScene) && Tour360Tiles::ffmpeg()) {
+                    try {
+                        Tour360::queueTiles($pdo, $id, $cur); // tiles HD dibuat di latar belakang
+                        $hd = ' Versi HD (tiles) sedang dibuat di latar belakang, 1–3 menit.';
+                    } catch (Throwable $e) {
+                        $hd = ' (Tiles HD belum bisa dibuat: ' . $e->getMessage() . ')';
+                    }
+                }
+                flash('Lokasi ditambahkan. Sekarang klik di foto untuk memasang penghubung ke lokasi lain.' . $hd);
+            } elseif ($action === 'tiles') {
+                Tour360::queueTiles($pdo, $id, $cur);
+                $sc = array_values(array_filter(Tour360::load($pdo), fn ($s) => $s['id'] === $cur))[0] ?? [];
+                flash(!empty($sc['tiles']) && empty($sc['tiles_status'])
+                    ? 'Tiles HD aktif.'
+                    : 'Tiles HD sedang dibuat di latar belakang (1–3 menit). Halaman ini memuat ulang sendiri sampai selesai.');
             } elseif ($action === 'rename') {
                 Tour360::update($pdo, $cur, ['name_id' => $_POST['name_id'] ?? '', 'name_en' => $_POST['name_en'] ?? '']);
                 flash('Nama disimpan.');
@@ -150,7 +166,11 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
             <?php foreach ($scenes as $i => $s): ?>
                 <a class="<?= $s['id'] === $cur ? 'on' : '' ?>" href="/tour360.php?id=<?= $id ?>&s=<?= rawurlencode($s['id']) ?>">
                     <img src="<?= e($img($s['id'], 'thumb')) ?>" alt="" loading="lazy">
-                    <span style="min-width:0"><b><?= e($s['name']['id']) ?></b><small><?= $i === 0 ? 'dibuka pertama · ' : '' ?><?= Tour360::isFlat($s) ? 'foto biasa · ' : '' ?><?= count($s['links'] ?? []) ?> penghubung</small></span>
+                    <span style="min-width:0"><b><?= e($s['name']['id']) ?></b><small><?= $i === 0 ? 'dibuka pertama · ' : '' ?><?= Tour360::isFlat($s) ? 'foto biasa · ' : '' ?><?= count($s['links'] ?? []) ?> penghubung<?php
+                        if (!Tour360::isFlat($s)) {
+                            $ts = (string)($s['tiles_status'] ?? '');
+                            echo str_starts_with($ts, 'processing') ? ' · <span style="color:var(--warn)">⏳ HD…</span>' : (str_starts_with($ts, 'error') ? ' · <span style="color:var(--bad)">⚠ HD gagal</span>' : (!empty($s['tiles']) ? ' · <span style="color:var(--ok)">HD</span>' : ''));
+                        } ?></small></span>
                 </a>
             <?php endforeach; ?>
         </div>
@@ -249,6 +269,32 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
                 </table>
             <?php endif; ?>
         </div>
+
+        <?php if ($isAdmin && !$flat):
+            $ts = (string)($scene['tiles_status'] ?? '');
+            $procAge = str_starts_with($ts, 'processing@') ? time() - (int)substr($ts, 11) : null;
+            $processing = $procAge !== null && $procAge < 900; // lebih dari 15 menit dianggap macet → boleh diulang
+            $ffOk = Tour360Tiles::ffmpeg() !== null || Tour360::hasPrebuiltTiles($scene); ?>
+            <form method="post" class="card">
+                <h2>Kualitas HD (tiles)</h2>
+                <?= csrf_field() ?><input type="hidden" name="action" value="tiles"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>">
+                <p class="muted" style="margin:0 0 8px;font-size:12px">Foto dipotong menjadi 6 sisi kubus × kotak 512 px (seperti Street View): website hanya memuat bagian yang dilihat, tetap tajam saat di-zoom — juga di HP.</p>
+                <?php if ($processing): ?>
+                    <p style="margin:0 0 8px;font-size:12.5px;color:var(--warn)">⏳ Sedang dibuat… (mulai <?= max(1, intdiv($procAge, 60)) ?> menit lalu). Halaman memuat ulang sendiri.</p>
+                    <script>setTimeout(() => location.reload(), 20000);</script>
+                <?php elseif (str_starts_with($ts, 'error')): ?>
+                    <p style="margin:0 0 8px;font-size:12.5px;color:var(--bad)">⚠ Gagal: <?= e(substr($ts, 7)) ?></p>
+                <?php elseif (!empty($scene['tiles'])): ?>
+                    <p style="margin:0 0 8px;font-size:12.5px;color:var(--ok)">✓ Aktif — sisi <?= (int)$scene['tiles']['face'] ?> px (setara foto <?= (int)$scene['tiles']['face'] * 4 ?> px), dibuat <?= date('d M Y H:i', (int)($scene['tiles']['v'] ?? 0)) ?>.</p>
+                <?php else: ?>
+                    <p style="margin:0 0 8px;font-size:12.5px">Belum ada — website memakai foto biasa (maks 8192 px, di HP 4096 px).</p>
+                <?php endif; ?>
+                <?php if (!$ffOk): ?>
+                    <p class="muted" style="margin:0 0 8px;font-size:11.5px">Server belum punya <b>ffmpeg</b>. Jalankan di VPS: <code>sudo apt install -y ffmpeg</code></p>
+                <?php endif; ?>
+                <button class="btn sm" <?= $processing || !$ffOk ? 'disabled' : '' ?>><?= !empty($scene['tiles']) ? 'Buat ulang tiles HD' : 'Buat tiles HD' ?></button>
+            </form>
+        <?php endif; ?>
 
         <?php if ($isAdmin): ?>
             <form method="post" enctype="multipart/form-data" class="card">

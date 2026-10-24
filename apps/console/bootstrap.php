@@ -22,6 +22,7 @@ require_once __DIR__ . '/src/Branding.php';
 require_once __DIR__ . '/src/Invoice.php';
 require_once __DIR__ . '/src/Website.php';
 require_once __DIR__ . '/src/Tour360.php';
+require_once __DIR__ . '/src/Tour360Tiles.php';
 require_once __DIR__ . '/src/SubSync.php';
 require_once __DIR__ . '/src/Google.php';
 require_once __DIR__ . '/src/SecureSettings.php';

@@ -42,7 +42,8 @@ final class Tour360
     /** Lokasi bawaan bila belum ada data: foto udara di virtual-tour/img */
     private static function defaults(): array
     {
-        return [['id' => 'aerial', 'name' => ['id' => 'Pemandangan Udara Karimunjawa', 'en' => 'Karimunjawa Aerial View'], 'base' => 'img/aerial', 'view' => ['yaw' => 25, 'pitch' => 12, 'fov' => 100], 'links' => []]];
+        return [['id' => 'aerial', 'name' => ['id' => 'Pemandangan Udara Karimunjawa', 'en' => 'Karimunjawa Aerial View'], 'base' => 'img/aerial', 'view' => ['yaw' => 25, 'pitch' => 12, 'fov' => 100], 'links' => [],
+            'tiles' => ['path' => 'img/aerial-tiles', 'face' => 3072, 'levels' => [512, 1536, 3072], 'v' => 1]]]; // tiles HD bawaan (ikut kode website)
     }
 
     public static function load(PDO $pdo): array
@@ -168,6 +169,8 @@ final class Tour360
         if (!$pano) {
             return self::addFlat($pdo, $src, $info[2], $file['tmp_name'], $id, $nameId, $nameEn, $scenes);
         }
+        // foto asli resolusi penuh disimpan: sumber tiles HD (8192/4096 di bawah hanya untuk editor & cadangan)
+        @copy($file['tmp_name'], "{$dir}/{$id}-src.jpg");
         // kualitas JPEG tinggi: detail tetap tajam saat di-zoom
         foreach ([8192 => 92, 4096 => 88] as $size => $q) {
             $tw = min($size, $w);
@@ -319,6 +322,86 @@ final class Tour360
         self::save($pdo, $scenes);
     }
 
+    /** Ubah satu lokasi dengan data TERBARU (dibaca ulang tepat sebelum simpan — proses latar belakang tidak menimpa edit admin) */
+    private static function patchScene(PDO $pdo, string $id, callable $fn): void
+    {
+        $scenes = self::load($pdo);
+        foreach ($scenes as &$s) {
+            if ($s['id'] === $id) {
+                $s = $fn($s);
+            }
+        }
+        unset($s);
+        self::save($pdo, $scenes);
+    }
+
+    /**
+     * Mulai pembuatan tiles HD di LATAR BELAKANG (1–3 menit; permintaan web tidak menunggu). Status di scene.tiles_status:
+     * "processing@<waktu>" → selesai: scene.tiles {path, face, levels, v}; gagal: "error: …".
+     */
+    /** Lokasi bawaan (img/…) yang tiles-nya sudah ikut kode website (foto udara dari foto asli 12.000 px) */
+    public static function hasPrebuiltTiles(array $scene): bool
+    {
+        return !str_starts_with((string)($scene['base'] ?? '/'), '/') && is_file(self::webDir() . '/virtual-tour/' . $scene['base'] . '-tiles/preview.jpg');
+    }
+
+    public static function queueTiles(PDO $pdo, int $bizId, string $id): void
+    {
+        $scene = array_values(array_filter(self::load($pdo), fn ($s) => $s['id'] === $id))[0] ?? [];
+        if ($scene && self::hasPrebuiltTiles($scene)) {
+            self::buildTiles($pdo, $id); // cukup dicatat, langsung selesai
+            return;
+        }
+        if (!Tour360Tiles::ffmpeg()) {
+            throw new RuntimeException('ffmpeg belum terpasang di server (sudo apt install ffmpeg).');
+        }
+        self::patchScene($pdo, $id, function (array $s) {
+            $s['tiles_status'] = 'processing@' . time();
+            return $s;
+        });
+        $php = is_executable(PHP_BINDIR . '/php') ? PHP_BINDIR . '/php' : 'php';
+        $cli = dirname(__DIR__, 3) . '/cli/console.php';
+        $log = sys_get_temp_dir() . '/tour360-tiles-' . preg_replace('/[^a-z0-9-]/', '', $id) . '.log';
+        exec('nohup ' . escapeshellarg($php) . ' ' . escapeshellarg($cli) . ' tour360-tiles ' . (int)$bizId . ' ' . escapeshellarg($id) . ' > ' . escapeshellarg($log) . ' 2>&1 &');
+    }
+
+    /** Dipanggil CLI (cli/console.php tour360-tiles): buat tiles dari foto sumber terbaik lalu catat di lokasi */
+    public static function buildTiles(PDO $pdo, string $id): array
+    {
+        $scene = array_values(array_filter(self::load($pdo), fn ($s) => $s['id'] === $id))[0] ?? null;
+        if (!$scene || self::isFlat($scene)) {
+            throw new RuntimeException('Lokasi 360° tidak ditemukan: ' . $id);
+        }
+        try {
+            // Foto udara bawaan: tiles sudah dibuat dari foto asli 12.000 px dan ikut kode website
+            if (self::hasPrebuiltTiles($scene)) {
+                $meta = ['path' => $scene['base'] . '-tiles', 'face' => 3072, 'levels' => [512, 1536, 3072]];
+            } else {
+                // sumber terbaik: foto asli unggahan (-src.jpg), kalau tidak ada versi 8192
+                $src = self::upDir() . '/' . $id . '-src.jpg';
+                if (!is_file($src)) {
+                    $src = self::file($scene, '8192') ?? throw new RuntimeException('Foto sumber tidak ditemukan');
+                }
+                $ff = Tour360Tiles::ffmpeg() ?? throw new RuntimeException('ffmpeg belum terpasang (sudo apt install ffmpeg)');
+                $meta = Tour360Tiles::build($src, self::upDir() . '/' . $id . '-tiles', $ff);
+                $meta = ['path' => '/uploads/tour360/' . $id . '-tiles'] + $meta;
+            }
+            $meta['v'] = time(); // versi → browser memuat tiles baru, bukan cache lama
+            self::patchScene($pdo, $id, function (array $s) use ($meta) {
+                $s['tiles'] = $meta;
+                unset($s['tiles_status']);
+                return $s;
+            });
+            return $meta;
+        } catch (Throwable $e) {
+            self::patchScene($pdo, $id, function (array $s) use ($e) {
+                $s['tiles_status'] = 'error: ' . mb_substr($e->getMessage(), 0, 200);
+                return $s;
+            });
+            throw $e;
+        }
+    }
+
     /** Alamat musik latar (settings web_tour360_music), '' = musik bawaan yang dibuat di browser */
     public static function music(PDO $pdo): string
     {
@@ -391,6 +474,8 @@ final class Tour360
         unset($s);
         self::save($pdo, $scenes);
         @unlink(self::upDir() . '/' . $id . '-ball.png');
+        @unlink(self::upDir() . '/' . $id . '-src.jpg');
+        Tour360Tiles::rmrf(self::upDir() . '/' . $id . '-tiles');
         if (str_starts_with((string)$gone['base'], '/uploads/tour360/')) {
             foreach (['4096', '8192', 'full', 'thumb'] as $sz) {
                 @unlink(self::webDir() . $gone['base'] . '-' . $sz . '.jpg');
