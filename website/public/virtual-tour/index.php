@@ -74,10 +74,14 @@ if (!$scenes) {
 
         /* hotspot pindah lokasi: bola foto + label */
         .hs { width: 0; height: 0; cursor: pointer; }
-        .hs > div { position: relative; left: -60px; top: -39px; width: 120px; text-align: center; }
-        .hs .ball { width: 78px; height: 78px; border-radius: 50%; border: 3px solid #fff; background-size: cover; background-position: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .45); transition: transform .2s; margin: 0 auto; }
-        .hs:hover .ball { transform: scale(1.12); }
-        .hs .lb { margin-top: 6px; display: inline-block; padding: 3px 10px; border-radius: 99px; background: rgba(0, 0, 0, .55); font-size: 12px; font-weight: 700; white-space: nowrap; }
+        .hs > div { position: relative; left: -60px; top: -24px; width: 120px; text-align: center; }
+        .hs .ball { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #fff; background-size: cover; background-position: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .45); transition: transform .2s; margin: 0 auto; }
+        .hs:hover .ball { transform: scale(1.15); }
+        .hs .lb { margin-top: 4px; display: inline-block; padding: 2px 8px; border-radius: 99px; background: rgba(0, 0, 0, .55); font-size: 11px; font-weight: 700; white-space: nowrap; }
+
+        /* efek pembuka: bola dunia (little planet) → tampilan biasa */
+        #intro { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; transition: opacity .5s; cursor: pointer; }
+        #intro.off { opacity: 0; pointer-events: none; }
 
         /* logo penutup bawah (nadir) */
         .nadir { width: 0; height: 0; pointer-events: none; }
@@ -93,6 +97,7 @@ if (!$scenes) {
             .book { padding: 8px 11px; font-size: 10.5px; letter-spacing: .08em; }
             .title { bottom: 84px; } .title h1 { font-size: 18px; }
             .bar button { width: 38px; }
+            .hs > div { top: -21px; } .hs .ball { width: 42px; height: 42px; }
             .credit { display: none; }
         }
     </style>
@@ -182,7 +187,8 @@ if (!$scenes) {
 
         const autorotate = Marzipano.autorotate({ yawSpeed: 0.03, targetPitch: 0, targetFov: Math.PI / 2 });
         let rotating = true;
-        function startRotate() { if (rotating) { viewer.setIdleMovement(3000, autorotate); viewer.startMovement(autorotate); } }
+        let introOn = false; // selama efek pembuka, putar otomatis ditunda
+        function startRotate() { if (rotating && !introOn) { viewer.setIdleMovement(3000, autorotate); viewer.startMovement(autorotate); } }
 
         function go(id) {
             const s = SCENES.find(x => x.id === id) || SCENES[0];
@@ -277,7 +283,106 @@ if (!$scenes) {
             rotating = false;
             document.getElementById('bRotate').classList.remove('on');
         }
-        go(location.hash.slice(1) || SCENES[0].id);
+        /*
+         * Efek pembuka: kanvas WebGL di atas Marzipano menggambar foto 360° dengan proyeksi "kamera mundur" —
+         * jarak kamera d dari pusat bola: d = 1 → stereografis (bola dunia / little planet), d = 0 → rectilinear (sama
+         * dengan Marzipano). d, arah (yaw/pitch) & zoom dianimasikan ke tampilan awal, lalu kanvas memudar.
+         * Lewati bila: link dengan ?yaw/pitch/fov, pengguna memilih kurangi animasi, atau WebGL tidak ada. Klik = lewati.
+         */
+        function intro(s) {
+            return new Promise(done => {
+                const cv = document.createElement('canvas');
+                cv.id = 'intro';
+                const gl = cv.getContext('webgl');
+                if (!gl) return done();
+                const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+                let W = cv.width = Math.round(innerWidth * dpr), H = cv.height = Math.round(innerHeight * dpr);
+                const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+                const pg = gl.createProgram();
+                gl.attachShader(pg, sh(gl.VERTEX_SHADER, 'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+                gl.attachShader(pg, sh(gl.FRAGMENT_SHADER, `precision highp float;
+                    uniform sampler2D tex; uniform vec2 res; uniform float d, S, yaw, pitch, unit;
+                    void main() {
+                        vec2 p = (gl_FragCoord.xy - res * .5) / (unit * .5) * S;
+                        vec3 D = normalize(vec3(p, 1.));
+                        float b = -d * D.z, t = -b + sqrt(max(b * b - d * d + 1., 0.));
+                        vec3 P = vec3(0., 0., -d) + t * D;                       // titik di bola satuan
+                        float cp = cos(pitch), sp = sin(pitch), cy = cos(yaw), sy = sin(yaw);
+                        vec3 v = vec3(P.x, P.y * cp - P.z * sp, P.y * sp + P.z * cp); // pitch positif = ke bawah
+                        v = vec3(v.x * cy + v.z * sy, v.y, -v.x * sy + v.z * cy);    // yaw positif = ke kanan
+                        gl_FragColor = texture2D(tex, vec2(.5 + atan(v.x, v.z) / 6.2831853, .5 - asin(clamp(v.y, -1., 1.)) / 3.1415927));
+                    }`));
+                gl.linkProgram(pg);
+                if (!gl.getProgramParameter(pg, gl.LINK_STATUS)) return done();
+                gl.useProgram(pg);
+                gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+                gl.enableVertexAttribArray(0);
+                gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+                const U = n => gl.getUniformLocation(pg, n);
+                const img = new Image();
+                const giveUp = setTimeout(() => { img.onload = null; done(); }, 6000); // foto lambat → langsung tampilan biasa
+                img.onerror = () => { clearTimeout(giveUp); done(); };
+                img.onload = () => {
+                    clearTimeout(giveUp);
+                    gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    gl.viewport(0, 0, W, H);
+                    gl.uniform2f(U('res'), W, H);
+                    document.getElementById('pano').after(cv);
+                    const end = { yaw: rad(s.view.yaw), pitch: rad(s.view.pitch), S: Math.tan(rad(s.view.fov) / 2) };
+                    const DUR = 4200, t0 = performance.now();
+                    const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+                    let stop = false;
+                    const finish = () => {
+                        if (stop) return;
+                        stop = true;
+                        cv.classList.add('off');
+                        setTimeout(() => cv.remove(), 600);
+                        done();
+                    };
+                    cv.addEventListener('pointerdown', finish);
+                    const frame = now => {
+                        if (stop) return;
+                        if (cv.clientWidth && (Math.round(cv.clientWidth * dpr) !== W || Math.round(cv.clientHeight * dpr) !== H)) {
+                            // ukuran layar berubah (HP diputar / jendela diubah) → ikuti, seperti Marzipano
+                            W = cv.width = Math.round(cv.clientWidth * dpr);
+                            H = cv.height = Math.round(cv.clientHeight * dpr);
+                            gl.viewport(0, 0, W, H);
+                            gl.uniform2f(U('res'), W, H);
+                        }
+                        const t = Math.min(1, (now - t0) / DUR);
+                        const e = ease(Math.max(0, (t - .2) / .8)); // 20% pertama: bola dunia berputar
+                        gl.uniform1f(U('d'), 1 - e);
+                        gl.uniform1f(U('S'), Math.exp(Math.log(2.4) * (1 - e) + Math.log(end.S) * e));
+                        gl.uniform1f(U('yaw'), end.yaw - rad(200) * (1 - ease(t)));
+                        gl.uniform1f(U('pitch'), Math.PI / 2 * (1 - e) + end.pitch * e);
+                        gl.uniform1f(U('unit'), Math.min(W, H) * (1 - e) + H * e); // akhir: fov vertikal seperti Marzipano
+                        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+                        if (t < 1) requestAnimationFrame(frame); else finish();
+                    };
+                    requestAnimationFrame(frame);
+                };
+                img.src = s.base + '-4096.jpg';
+            });
+        }
+
+        const first = SCENES.find(x => x.id === location.hash.slice(1)) || SCENES[0];
+        const wantIntro = !(q.has('yaw') || q.has('pitch') || q.has('fov')) && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+        introOn = wantIntro;
+        go(first.id);
+        if (wantIntro) {
+            hint.classList.add('off');
+            intro(first).then(() => {
+                built[first.id].view.setParameters({ yaw: rad(first.view.yaw), pitch: rad(first.view.pitch), fov: rad(first.view.fov) });
+                introOn = false;
+                startRotate();
+            });
+        }
     </script>
 </body>
 
