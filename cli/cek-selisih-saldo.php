@@ -34,8 +34,18 @@ foreach ($slugs as $slug) {
         echo "Bisnis tidak ditemukan di database master.\n";
         continue;
     }
-    echo "{$biz['business_name']} · id master {$biz['id']} · database {$biz['database_name']}\n";
-    $bdb = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $biz['database_name'] . ';charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    // Database yang BENAR-BENAR dipakai sistem = 'database' di config/businesses/<slug>.php (lewat getDbName);
+    // businesses.database_name di master bisa beda (mis. Bens: master "adfb2574_benscafe", dipakai "adfb2574_Adf_Bens")
+    $cfgFile = __DIR__ . '/../config/businesses/' . basename($slug) . '.php';
+    $cfgDb = is_file($cfgFile) ? ((require $cfgFile)['database'] ?? '') : '';
+    $dbName = $cfgDb !== '' ? getDbName($cfgDb) : $biz['database_name'];
+    echo "{$biz['business_name']} · id master {$biz['id']} · database {$dbName}" . ($dbName !== $biz['database_name'] ? " (di master tercatat {$biz['database_name']})" : '') . "\n";
+    try {
+        $bdb = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $dbName . ';charset=utf8mb4', DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    } catch (Throwable $e) {
+        echo "Tidak bisa membuka database {$dbName}: " . $e->getMessage() . "\n";
+        continue;
+    }
 
     // Buku Kas per rekening
     $book = [];
