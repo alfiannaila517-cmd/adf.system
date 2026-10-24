@@ -2,7 +2,7 @@
 
 /**
  * Cek selisih saldo rekening (HANYA MEMBACA, tidak mengubah data). Jalankan dari terminal VPS:
- *   sudo -u www-data php /srv/adf/legacy/public_html/tools/cek-selisih-saldo.php [slug ...]
+ *   sudo -u www-data php /srv/adf/legacy/public_html/cli/cek-selisih-saldo.php [slug ...]
  * Bawaan: bens-cafe eaat-meet.
  *
  * Per rekening (cash_accounts, database master) dibandingkan:
