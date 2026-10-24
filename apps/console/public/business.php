@@ -373,7 +373,7 @@ View::start($biz['name'], 'clients', $me);
 // Bagian pengaturan: [judul, ikon, penjelasan singkat]. Bisnis jenis Website tidak punya login staf → hanya yang relevan.
 $sections = $biz['type'] === 'website'
     ? ['ringkasan' => ['Data bisnis', 'store', 'Nama, status, domain & sumber data website'],
-        'website' => ['Pengaturan website', 'globe', 'Isi halaman, kontak, kamar & tampilan website'],
+        'website' => ['Pengaturan website', 'globe', 'Isi halaman, kontak, kamar, tampilan & Tour 360°'],
         'langganan' => ['Langganan', 'card', 'Paket, tagihan bulanan & pembayaran'],
         'database' => ['Data & Backup', 'db', 'Database, cadangan & ekspor data']]
     : ['ringkasan' => ['Data bisnis', 'store', 'Nama, jenis, status & domain sendiri'],
@@ -531,6 +531,7 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                 <?php foreach (array_map(fn ($s) => $s[0], Website::SECTIONS) as $k => $l): ?>
                     <a class="<?= $sec === $k ? 'on' : '' ?>" href="/business.php?id=<?= $id ?>&tab=website&sec=<?= $k ?>"><?= e($l) ?></a>
                 <?php endforeach; ?>
+                <a href="/tour360.php?id=<?= $id ?>">Tour 360°</a>
             </div>
             <span class="pill <?= $w['web_enabled'] === '1' ? 'ok' : 'warn' ?>"><?= $w['web_enabled'] === '1' ? 'website aktif' : 'website dimatikan' ?></span>
         </div>
