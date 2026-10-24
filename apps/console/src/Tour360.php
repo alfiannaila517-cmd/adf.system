@@ -10,6 +10,8 @@ declare(strict_types=1);
  *         links [{to, yaw, pitch}] — derajat, pitch positif = ke bawah (konvensi Marzipano).
  * Foto biasa (bukan 360°): type "flat", w, h, gambar <base>-full.jpg (sisi terpanjang ≤ 4096) + -thumb.jpg;
  *         penghubungnya [{to, x, y}] — posisi di foto 0…1 dari kiri-atas.
+ * Opsional: ball = alamat gambar bola sendiri "/uploads/tour360/<id>-ball.png?v=…" (mis. logo) — tanpa ini bola memakai gambar kecil;
+ *         link.lp = letak nama di sebelah bola: t (atas) / l (kiri) / r (kanan); kosong = bawah.
  */
 final class Tour360
 {
@@ -62,6 +64,14 @@ final class Tour360
     {
         $base = (string)$scene['base'];
         $path = str_starts_with($base, '/') ? self::webDir() . $base : self::webDir() . '/virtual-tour/' . $base;
+        if ($size === 'ball') {
+            // gambar bola sendiri, bila tidak ada → gambar kecil
+            $png = self::upDir() . '/' . $scene['id'] . '-ball.png';
+            if (!empty($scene['ball']) && is_file($png)) {
+                return $png;
+            }
+            $size = 'thumb';
+        }
         $f = $path . '-' . $size . '.jpg';
         if (!is_file($f) && $size === 'thumb') {
             $f = $path . '-4096.jpg';
@@ -227,6 +237,85 @@ final class Tour360
         self::save($pdo, $scenes);
     }
 
+    /**
+     * Gambar bola lokasi (mis. logo): potong persegi dari tengah, 256×256 PNG (transparan tetap transparan).
+     * $file null = kembali ke gambar kecil foto lokasi.
+     */
+    public static function setBall(PDO $pdo, string $id, ?array $file): void
+    {
+        $scenes = self::load($pdo);
+        $k = array_search($id, array_column($scenes, 'id'), true);
+        if ($k === false) {
+            throw new RuntimeException('Lokasi tidak ditemukan.');
+        }
+        $png = self::upDir() . '/' . $id . '-ball.png';
+        if ($file === null) {
+            @unlink($png);
+            unset($scenes[$k]['ball']);
+            self::save($pdo, $scenes);
+            return;
+        }
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            throw new RuntimeException(($file['error'] ?? 4) === UPLOAD_ERR_NO_FILE ? 'Pilih gambar bola dulu.' : 'Unggahan gagal (kode ' . (int)$file['error'] . ').');
+        }
+        if ($p = self::problem()) {
+            throw new RuntimeException($p);
+        }
+        $info = @getimagesize($file['tmp_name']);
+        $src = match ($info[2] ?? 0) {
+            IMAGETYPE_PNG => @imagecreatefrompng($file['tmp_name']),
+            IMAGETYPE_WEBP => @imagecreatefromwebp($file['tmp_name']),
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($file['tmp_name']),
+            default => false,
+        };
+        if (!$src) {
+            throw new RuntimeException('Gambar bola harus JPG, PNG, atau WEBP.');
+        }
+        [$w, $h] = [imagesx($src), imagesy($src)];
+        $side = min($w, $h);
+        $im = imagecreatetruecolor(256, 256);
+        imagealphablending($im, false);
+        imagesavealpha($im, true);
+        imagefill($im, 0, 0, imagecolorallocatealpha($im, 0, 0, 0, 127));
+        imagecopyresampled($im, $src, 0, 0, (int)(($w - $side) / 2), (int)(($h - $side) / 2), 256, 256, $side, $side);
+        imagepng($im, $png, 6);
+        $scenes[$k]['ball'] = '/uploads/tour360/' . $id . '-ball.png?v=' . time(); // ?v → browser memuat gambar baru
+        self::save($pdo, $scenes);
+    }
+
+    /** Letak nama di sebelah bola penghubung $from→$to: t / l / r / '' (bawah). Bola kembali otomatis ikut disimpan jadi tetap. */
+    public static function setLabel(PDO $pdo, string $from, string $to, string $lp): void
+    {
+        $lp = in_array($lp, ['t', 'l', 'r'], true) ? $lp : '';
+        $scenes = self::load($pdo);
+        foreach ($scenes as &$s) {
+            if ($s['id'] !== $from) {
+                continue;
+            }
+            $found = false;
+            foreach ($s['links'] as &$l) {
+                if ($l['to'] === $to) {
+                    $found = true;
+                    if ($lp === '') {
+                        unset($l['lp']);
+                    } else {
+                        $l['lp'] = $lp;
+                    }
+                }
+            }
+            unset($l);
+            if (!$found) {
+                foreach (self::implied($scenes, $from) as $l) {
+                    if ($l['to'] === $to) {
+                        $s['links'][] = $l + ($lp !== '' ? ['lp' => $lp] : []);
+                    }
+                }
+            }
+        }
+        unset($s);
+        self::save($pdo, $scenes);
+    }
+
     /** Jadikan lokasi pertama (dibuka saat tour dimuat) */
     public static function makeFirst(PDO $pdo, string $id): void
     {
@@ -257,6 +346,7 @@ final class Tour360
         }
         unset($s);
         self::save($pdo, $scenes);
+        @unlink(self::upDir() . '/' . $id . '-ball.png');
         if (str_starts_with((string)$gone['base'], '/uploads/tour360/')) {
             foreach (['4096', '8192', 'full', 'thumb'] as $sz) {
                 @unlink(self::webDir() . $gone['base'] . '-' . $sz . '.jpg');

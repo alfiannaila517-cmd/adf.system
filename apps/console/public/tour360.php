@@ -51,6 +51,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $back = Tour360::addLink($pdo, $cur, $to, $pos, !empty($_POST['back']));
                 $toName = array_column(array_map(fn ($s) => ['id' => $s['id'], 'n' => $s['name']['id']], Tour360::load($pdo)), 'n', 'id')[$to] ?? $to;
                 flash('Penghubung dipasang.' . ($back ? " Bola kembali juga dipasang di \"{$toName}\" — buka lokasi itu untuk memindah posisinya bila kurang pas." : ''));
+            } elseif ($action === 'ball') {
+                Tour360::setBall($pdo, $cur, $_FILES['ball'] ?? []);
+                flash('Gambar bola disimpan — tampil di semua bola yang menuju lokasi ini.');
+            } elseif ($action === 'ball_reset') {
+                Tour360::setBall($pdo, $cur, null);
+                flash('Bola kembali memakai foto lokasi.');
+            } elseif ($action === 'link_label') {
+                Tour360::setLabel($pdo, $cur, (string)($_POST['to'] ?? ''), (string)($_POST['lp'] ?? ''));
+                flash('Letak nama disimpan.');
             } elseif ($action === 'link_del') {
                 Tour360::removeLink($pdo, $cur, (string)($_POST['to'] ?? ''));
                 flash('Penghubung dihapus.');
@@ -79,6 +88,12 @@ $scene = array_values(array_filter($scenes, fn ($s) => $s['id'] === $cur))[0];
 // Bola kembali otomatis di lokasi ini (dihitung juga oleh website)
 $autoBack = Tour360::implied($scenes, $cur);
 $flat = Tour360::isFlat($scene);
+// gambar bola tiap lokasi (gambar sendiri / gambar kecil); &v berganti saat gambar bola diganti
+$balls = [];
+foreach ($scenes as $s) {
+    $balls[$s['id']] = '/tour360-img.php?id=' . $id . '&s=' . rawurlencode($s['id']) . '&z=ball&v=' . substr(md5((string)($s['ball'] ?? '')), 0, 8);
+}
+const T3_LP = ['' => 'Nama di bawah', 't' => 'Nama di atas', 'l' => 'Nama di kiri', 'r' => 'Nama di kanan'];
 $img = fn (string $s, string $z) => '/tour360-img.php?id=' . $id . '&s=' . rawurlencode($s) . '&z=' . $z;
 $problem = Tour360::problem();
 $limit = ini_get('upload_max_filesize') . ' / ' . ini_get('post_max_size');
@@ -108,9 +123,14 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     .t3-list img { width: 64px; height: 40px; object-fit: cover; border-radius: 6px; flex: none; background: #ccc; }
     .t3-list small { display: block; color: var(--ink2); font-size: 11px; }
     #pano { position: relative; width: 100%; height: min(62vh, 560px); border-radius: 10px; overflow: hidden; background: #111; cursor: crosshair; }
-    .t3-hs > div { transform: translate(-50%, -50%); text-align: center; cursor: default; }
-    .t3-hs .ball { width: 46px; height: 46px; margin: 0 auto; border-radius: 50%; border: 3px solid #fff; background: #555 center/cover; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
-    .t3-hs .lb { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 99px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    /* bola = titik tengah; nama menempel di bawah / atas (lp-t) / kiri (lp-l) / kanan (lp-r) — sama dengan website */
+    .t3-hs > div { position: relative; width: 46px; height: 46px; transform: translate(-50%, -50%); cursor: default; }
+    .t3-hs .ball { width: 100%; height: 100%; border-radius: 50%; border: 3px solid #fff; background: #fff center/cover no-repeat; box-shadow: 0 2px 8px rgba(0,0,0,.5); box-sizing: border-box; }
+    .t3-hs .lb { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 4px; padding: 2px 8px; border-radius: 99px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .t3-hs.lp-t .lb { top: auto; bottom: 100%; margin: 0 0 4px; }
+    .t3-hs.lp-l .lb { left: auto; right: 100%; top: 50%; transform: translateY(-50%); margin: 0 6px 0 0; }
+    .t3-hs.lp-r .lb { left: 100%; top: 50%; transform: translateY(-50%); margin: 0 0 0 6px; }
+    .t3-ballprev { width: 64px; height: 64px; border-radius: 50%; border: 3px solid #fff; background: #fff center/cover no-repeat; box-shadow: 0 2px 8px rgba(0,0,0,.35); flex: none; }
     .t3-new > div { transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 50%; border: 3px solid #fff; background: var(--brand); box-shadow: 0 0 0 4px rgba(255,255,255,.35); }
     #linkBox { display: none; position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 5; background: var(--card, #fff); color: var(--ink); padding: 10px; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.35); width: min(420px, calc(100% - 24px)); }
     .t3-hint { position: absolute; left: 10px; top: 10px; z-index: 4; padding: 4px 10px; border-radius: 99px; background: rgba(0,0,0,.6); color: #fff; font-size: 11.5px; pointer-events: none; }
@@ -180,24 +200,51 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
             <?php endif; ?>
         </div>
 
+        <?php $rows = array_merge($scene['links'] ?? [], array_map(fn ($l) => $l + ['auto' => true], $autoBack)); ?>
         <div class="card">
-            <h2>Penghubung dari lokasi ini <span class="muted" style="text-transform:none;letter-spacing:0">· <?= count($scene['links'] ?? []) ?></span></h2>
-            <?php if (empty($scene['links'])): ?>
+            <h2>Penghubung dari lokasi ini <span class="muted" style="text-transform:none;letter-spacing:0">· <?= count($rows) ?></span></h2>
+            <?php if (!$rows): ?>
                 <p class="muted" style="margin:0;font-size:12px">Belum ada. Klik di foto (mis. di arah kolam atau resto) lalu pilih lokasi tujuannya. Bola kembali di lokasi tujuan dibuat otomatis; untuk memindahnya, buka lokasi itu, klik di titik yang pas, lalu pilih lokasi ini lagi.</p>
             <?php else: ?>
                 <table class="sm">
-                    <?php foreach ($scene['links'] as $l): ?>
+                    <?php foreach ($rows as $l): ?>
                         <tr>
-                            <td><b><?= e($names[$l['to']] ?? $l['to']) ?></b> <span class="muted" style="font-size:11px"><?= $flat ? 'posisi ' . round((float)($l['x'] ?? 0) * 100) . '% dari kiri, ' . round((float)($l['y'] ?? 0) * 100) . '% dari atas' : 'arah ' . (int)($l['yaw'] ?? 0) . '°, ' . (int)($l['pitch'] ?? 0) . '°' ?></span></td>
+                            <td><b><?= e($names[$l['to']] ?? $l['to']) ?></b><?= !empty($l['auto']) ? ' <span class="pill">otomatis</span>' : '' ?> <span class="muted" style="font-size:11px"><?= $flat ? 'posisi ' . round((float)($l['x'] ?? 0) * 100) . '% dari kiri, ' . round((float)($l['y'] ?? 0) * 100) . '% dari atas' : 'arah ' . (int)($l['yaw'] ?? 0) . '°, ' . (int)($l['pitch'] ?? 0) . '°' ?></span></td>
                             <td style="text-align:right;white-space:nowrap">
+                                <?php if ($isAdmin): ?>
+                                    <form method="post" style="display:inline;margin:0"><?= csrf_field() ?><input type="hidden" name="action" value="link_label"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><input type="hidden" name="to" value="<?= e($l['to']) ?>">
+                                        <select name="lp" onchange="this.form.submit()" style="width:auto;padding:3px 6px;font-size:12px" title="Letak nama di sebelah bola (supaya tidak bertumpuk)">
+                                            <?php foreach (T3_LP as $k => $lbl): ?><option value="<?= $k ?>" <?= ($l['lp'] ?? '') === $k ? 'selected' : '' ?>><?= $lbl ?></option><?php endforeach; ?>
+                                        </select></form>
+                                <?php endif; ?>
                                 <?php if (!$flat): ?><button type="button" class="btn ghost sm" data-look="<?= (float)$l['yaw'] ?>,<?= (float)$l['pitch'] ?>">Lihat</button><?php endif; ?>
-                                <?php if ($isAdmin): ?><form method="post" style="display:inline;margin:0"><?= csrf_field() ?><input type="hidden" name="action" value="link_del"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><input type="hidden" name="to" value="<?= e($l['to']) ?>"><button class="btn ghost sm" style="color:var(--bad)">Hapus</button></form><?php endif; ?>
+                                <?php if ($isAdmin && empty($l['auto'])): ?><form method="post" style="display:inline;margin:0"><?= csrf_field() ?><input type="hidden" name="action" value="link_del"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><input type="hidden" name="to" value="<?= e($l['to']) ?>"><button class="btn ghost sm" style="color:var(--bad)">Hapus</button></form><?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 </table>
             <?php endif; ?>
         </div>
+
+        <?php if ($isAdmin): ?>
+            <form method="post" enctype="multipart/form-data" class="card">
+                <h2>Gambar bola</h2>
+                <?= csrf_field() ?><input type="hidden" name="action" value="ball"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                    <span class="t3-ballprev" style="background-image:url('<?= e($balls[$cur]) ?>')"></span>
+                    <div style="flex:1;min-width:220px">
+                        <p class="muted" style="margin:0 0 6px;font-size:12px">Gambar di bola yang <b>menuju</b> "<?= e($scene['name']['id']) ?>" dari lokasi lain. <?= !empty($scene['ball']) ? 'Sekarang: gambar sendiri.' : 'Sekarang: potongan foto lokasi.' ?> Bisa logo (PNG transparan) atau foto apa saja — dipotong bulat dari tengah.</p>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap">
+                            <input type="file" name="ball" accept="image/png,image/jpeg,image/webp" required style="flex:1;min-width:180px">
+                            <button class="btn sm">Simpan gambar</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            <?php if (!empty($scene['ball'])): ?>
+                <form method="post" style="margin:-8px 0 14px;text-align:right"><?= csrf_field() ?><input type="hidden" name="action" value="ball_reset"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><button class="btn ghost sm">Kembalikan bola ke foto lokasi</button></form>
+            <?php endif; ?>
+        <?php endif; ?>
 
         <?php if ($isAdmin): ?>
             <form method="post" class="card">
@@ -219,7 +266,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     const SCENE = <?= json_encode($scene, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
     const NAMES = <?= json_encode($names, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
     const IMG = <?= json_encode($img($cur, 'ZZ'), JSON_UNESCAPED_SLASHES) ?>;
-    const THUMB = id => <?= json_encode('/tour360-img.php?id=' . $id . '&z=thumb&s=', JSON_UNESCAPED_SLASHES) ?> + encodeURIComponent(id);
+    const BALLS = <?= json_encode($balls, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
     const ADMIN = <?= $isAdmin ? 'true' : 'false' ?>;
     const BACK = <?= json_encode($autoBack, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
     const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
@@ -253,10 +300,10 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     BACK.forEach(l => { if (!links.some(x => x.to === l.to)) links.push(Object.assign({ auto: true }, l)); });
     links.forEach(l => {
         const el = document.createElement('div');
-        el.className = 't3-hs';
+        el.className = 't3-hs' + (l.lp ? ' lp-' + l.lp : '');
         if (l.auto) { el.style.opacity = '.65'; el.title = 'Bola kembali otomatis — klik di titik yang pas lalu pilih lokasi ini untuk memindahnya'; }
         el.innerHTML = '<div><div class="ball"></div><span class="lb"></span></div>';
-        el.querySelector('.ball').style.backgroundImage = 'url("' + THUMB(l.to) + '")';
+        el.querySelector('.ball').style.backgroundImage = 'url("' + BALLS[l.to] + '")';
         el.querySelector('.lb').textContent = (NAMES[l.to] || l.to) + (l.auto ? ' (otomatis)' : '');
         el.addEventListener('mousedown', e => e.stopPropagation());
         hc.createHotspot(el, at(l));
