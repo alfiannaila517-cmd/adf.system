@@ -72,7 +72,7 @@ $expenseByDivision = $db->fetchAll("
     INNER JOIN divisions d ON cb.division_id = d.id
     LEFT JOIN categories c ON cb.category_id = c.id
     WHERE cb.transaction_date = :report_date
-        AND cb.transaction_type = 'expense'
+        AND cb.transaction_type = 'expense' AND COALESCE(cb.source_type, '') <> 'cash_transfer'
     ORDER BY d.division_name, cb.transaction_time
 ", ['report_date' => $report_date]);
 

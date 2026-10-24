@@ -141,7 +141,7 @@ $totalIncome = 0;
 $totalExpense = 0;
 foreach ($transactions as $t) {
     if ($t['transaction_type'] === 'income') $totalIncome += $t['amount'];
-    else $totalExpense += $t['amount'];
+    elseif (($t['source_type'] ?? '') !== 'cash_transfer') $totalExpense += $t['amount']; // Setor Tunai bukan pengeluaran (sama dengan halaman Buku Kas)
 }
 $saldo = $totalIncome - $totalExpense;
 

@@ -48,6 +48,104 @@ function notifySlipProcessed($db, $periodId, $periodLabel)
     }
 }
 
+/**
+ * Hitung angka turunan satu slip dengan rumus yang SAMA dengan tampilan halaman (lihat loop tampilan di bawah):
+ * gaji pokok prorata jam + lembur + Extra hari (>26 hari, extra_hours tersimpan) + service/tunjangan/bonus/lain
+ * − potongan; uang makan tidak dihitung. Dulu tombol Bayar/Proses memakai rumus lain tanpa Extra → kas lebih kecil dari slip.
+ */
+function psSlipNet(array $s, float $monthlyTargetHours): array
+{
+    $base = (float)$s['base_salary'];
+    $hourly = $base > 0 ? $base / $monthlyTargetHours : 0;
+    $wh = (float)$s['work_hours'];
+    $actual = ($wh >= $monthlyTargetHours) ? $base : round($wh * $hourly, 2);
+    $ot = round((float)$s['overtime_hours'] * $hourly, 2);
+    $extra = round((float)($s['extra_hours'] ?? 0) * $hourly, 2);
+    $earn = $actual + $ot + $extra + (float)($s['incentive'] ?? 0) + (float)($s['allowance'] ?? 0) + (float)($s['bonus'] ?? 0) + (float)($s['other_income'] ?? 0);
+    $ded = (float)($s['deduction_loan'] ?? 0) + (float)($s['deduction_absence'] ?? 0) + (float)($s['deduction_tax'] ?? 0) + (float)($s['deduction_bpjs'] ?? 0) + (float)($s['deduction_other'] ?? 0);
+    $round = applyPayrollRounding($earn - $ded);
+    return ['actual_base' => $actual, 'overtime_rate' => $hourly, 'overtime_amount' => $ot, 'total_earnings' => $earn,
+        'total_deductions' => $ded, 'net_salary' => $round['net'], 'rounding_adjustment' => $round['adjustment']];
+}
+
+/** Tulis hasil psSlipNet ke slip (hanya slip yang belum dibayar) */
+function psSaveSlipNet($db, array $s, float $monthlyTargetHours): float
+{
+    $c = psSlipNet($s, $monthlyTargetHours);
+    dbExec($db, "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=?, uang_makan=0 WHERE id=? AND is_paid=0",
+        [$c['actual_base'], $c['overtime_rate'], $c['overtime_amount'], $c['total_earnings'], $c['total_deductions'], $c['net_salary'], $c['rounding_adjustment'], $s['id']]);
+    return $c['net_salary'];
+}
+
+/**
+ * Catat pembayaran gaji ke Buku Kas untuk slip yang BELUM dibayar ($slipIds = null → semua slip periode), dalam satu
+ * transaksi: kunci slip (FOR UPDATE), tandai is_paid=1, satu baris kas pengeluaran sebesar total slip itu.
+ * Slip yang sudah dibayar dilewati → tidak pernah tercatat dua kali (approve lalu bayar terpilih, klik ganda, approve ulang).
+ * Referensi: "PAYROLL-<periode>" untuk pembayaran pertama, berikutnya "PAYROLL-<periode>-<id slip>" (dipakai Reset).
+ * @return array{total: float, count: int, names: string[]}
+ */
+function psBookSlips($db, array $period, ?array $slipIds, string $periodLabel): array
+{
+    $pdo = $db->getConnection();
+    $pid = (int)$period['id'];
+    $pdo->beginTransaction();
+    try {
+        $sql = "SELECT id, employee_name, net_salary FROM payroll_slips WHERE period_id = ? AND is_paid = 0";
+        $params = [$pid];
+        if ($slipIds !== null) {
+            $slipIds = array_values(array_filter(array_map('intval', $slipIds)));
+            if (!$slipIds) {
+                $pdo->commit();
+                return ['total' => 0.0, 'count' => 0, 'names' => []];
+            }
+            $sql .= ' AND id IN (' . implode(',', array_fill(0, count($slipIds), '?')) . ')';
+            $params = array_merge($params, $slipIds);
+        }
+        $st = $pdo->prepare($sql . ' FOR UPDATE');
+        $st->execute($params);
+        $rows = $st->fetchAll(\PDO::FETCH_ASSOC);
+        if (!$rows) {
+            $pdo->commit();
+            return ['total' => 0.0, 'count' => 0, 'names' => []];
+        }
+        $ids = array_map('intval', array_column($rows, 'id'));
+        $total = array_sum(array_map('floatval', array_column($rows, 'net_salary')));
+        $names = array_column($rows, 'employee_name');
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $pdo->prepare("UPDATE payroll_slips SET is_paid = 1 WHERE id IN ($in)")->execute($ids);
+
+        if ($total > 0) {
+            $hasMain = $pdo->prepare("SELECT 1 FROM cash_book WHERE reference_number = ? LIMIT 1");
+            $hasMain->execute(['PAYROLL-' . $pid]);
+            $ref = $hasMain->fetchColumn() ? 'PAYROLL-' . $pid . '-' . implode('_', $ids) : 'PAYROLL-' . $pid;
+            $allSlips = (int)$pdo->query("SELECT COUNT(*) FROM payroll_slips WHERE period_id = " . $pid)->fetchColumn();
+            $description = count($ids) === $allSlips && $ref === 'PAYROLL-' . $pid
+                ? 'Payroll ' . $periodLabel . ' - Bank Transfer'
+                : 'Gaji ' . implode(', ', $names) . ' - ' . $periodLabel;
+            if (mb_strlen($description) > 200) {
+                $description = 'Gaji ' . count($ids) . ' staff - ' . $periodLabel;
+            }
+            // Kategori pengeluaran gaji (dulu "... OR id = 1" tanpa urutan → sering kategori 1 = Sales Income/pemasukan)
+            $cat = $pdo->query("SELECT id FROM categories WHERE category_type = 'expense'
+                    AND (LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%')
+                    ORDER BY id LIMIT 1")->fetchColumn()
+                ?: $pdo->query("SELECT id FROM categories WHERE category_type = 'expense' ORDER BY id LIMIT 1")->fetchColumn();
+            $div = $pdo->query("SELECT id FROM divisions ORDER BY (LOWER(division_name) LIKE '%hotel%') DESC, id LIMIT 1")->fetchColumn();
+            $txNum = 'PAY-' . date('Ymd') . '-' . ($ref === 'PAYROLL-' . $pid ? $pid : substr(md5($ref), 0, 6));
+            $pdo->prepare("INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, transaction_type, amount, description, reference_number, payment_method, status, created_by)
+                VALUES (CURDATE(), CURTIME(), ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)")
+                ->execute([$txNum, $div ?: 1, $cat ?: 1, $total, $description, $ref, $_SESSION['user_id'] ?? null]);
+        }
+        $pdo->commit();
+        return ['total' => $total, 'count' => count($ids), 'names' => $names];
+    } catch (\Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
 
 
 $auth = new Auth();
@@ -431,7 +529,8 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
 {
     $monthlyTargetHours = getPayrollBusinessSettings($db)['monthly_target_hours'];
     // Only sync slips that are NOT manually edited (hours_locked = 0)
-    $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary, hours_locked, work_hours, overtime_hours FROM payroll_slips WHERE period_id = ? AND hours_locked = 0", [$periodId]);
+    // Slip yang sudah dibayar (is_paid) dikunci: uangnya sudah tercatat di kas, jangan berubah karena absen baru
+    $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary, hours_locked, work_hours, overtime_hours FROM payroll_slips WHERE period_id = ? AND hours_locked = 0 AND is_paid = 0", [$periodId]);
     foreach ($slipsToSync as $slip) {
         // Pull latest attendance hours from fingerprint/GPS data
         $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
@@ -545,6 +644,12 @@ if (!$period && isset($_POST['create_period'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     header('Content-Type: application/json');
     $slip_id = (int)$_POST['slip_id'];
+    // Slip lunas dikunci (uangnya sudah tercatat di kas); slip wajib milik periode yang sedang dibuka
+    $slipChk = $db->fetchOne("SELECT is_paid FROM payroll_slips WHERE id = ?" . ($period ? " AND period_id = " . (int)$period['id'] : ''), [$slip_id]);
+    if (!$slipChk || !empty($slipChk['is_paid'])) {
+        echo json_encode(['status' => 'error', 'message' => !$slipChk ? 'Slip tidak ditemukan di periode ini.' : 'Slip ini sudah dibayar dan dikunci. Untuk koreksi, reset periode (owner/admin).']);
+        exit;
+    }
 
     // base_salary HANYA boleh diedit dari Employee Data — abaikan POST,
     // ambil nilai master terkini dari payroll_employees (fallback ke slip lama).
@@ -805,7 +910,7 @@ if ($period) {
     // tidak peduli hours_locked atau status frozen.
     $slips = $db->fetchAll(
         "
-        SELECT s.*, e.employee_code, e.department,
+        SELECT s.*, e.employee_code, e.department, s.base_salary AS slip_base_salary,
                COALESCE(e.base_salary, s.base_salary, 0) AS base_salary
         FROM payroll_slips s 
         JOIN payroll_employees e ON s.employee_id = e.id 
@@ -835,6 +940,12 @@ if ($period) {
     // + bonus + other_income - (loan+absence+tax+bpjs+other).
     // Untuk periode FROZEN tetap di-rekalkulasi UNTUK TAMPILAN tapi tidak menulis ke DB.
     foreach ($slips as $i => $s) {
+        if (!empty($s['is_paid'])) {
+            // Slip LUNAS dikunci: tampilkan angka yang dibayar (tersimpan), jangan dihitung ulang dari gaji/absen terbaru
+            $slips[$i]['base_salary']  = (float)$s['slip_base_salary']; // gaji pokok saat dibayar, bukan master terbaru
+            $slips[$i]['extra_amount'] = round((float)($s['extra_hours'] ?? 0) * (float)($s['overtime_rate'] ?? 0), 2);
+            continue;
+        }
         $masterBase = (float)$s['base_salary']; // sudah COALESCE master
         $wh = (float)$s['work_hours'];
         $oh = (float)$s['overtime_hours'];
@@ -1033,35 +1144,9 @@ $svcCfg = psServiceConfig($db);
 // Handle Save/Proses Button (recalculate all slips and update period net total)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
     if ($period) {
-        $slips_recalc = $db->fetchAll("SELECT * FROM payroll_slips WHERE period_id = ?", [$period['id']]);
-        foreach ($slips_recalc as $slip) {
-            $base_salary = (float)$slip['base_salary'];
-            $work_hours = (float)$slip['work_hours'];
-            $overtime_hours = (float)$slip['overtime_hours'];
-            $incentive = (float)$slip['incentive'];
-            $allowance = (float)$slip['allowance'];
-            $bonus = (float)$slip['bonus'];
-            $other = (float)$slip['other_income'];
-            $uang_makan = isset($slip['uang_makan']) ? (float)$slip['uang_makan'] : 0;
-            $loan = (float)$slip['deduction_loan'];
-            $absence = (float)$slip['deduction_absence'];
-            $tax = (float)$slip['deduction_tax'];
-            $bpjs = (float)$slip['deduction_bpjs'];
-            $ded_other = (float)$slip['deduction_other'];
-            $hourly_rate = $base_salary / $monthlyTargetHours;
-            $actual_base = ($work_hours >= $monthlyTargetHours) ? $base_salary : $work_hours * $hourly_rate;
-            $overtime_rate = $hourly_rate;
-            $overtime_amount = $overtime_hours * $overtime_rate;
-            $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
-            $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
-            $net_salary = $total_earnings - $total_deductions;
-            $round = applyPayrollRounding($net_salary);
-            $net_salary = $round['net'];
-            dbExec(
-                $db,
-                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=?, uang_makan=? WHERE id=?",
-                [$actual_base, $overtime_rate, $overtime_amount, $total_earnings, $total_deductions, $net_salary, $round['adjustment'], $uang_makan, $slip['id']]
-            );
+        // Rumus sama dengan tampilan (termasuk Extra hari); slip yang sudah dibayar tidak diubah
+        foreach ($db->fetchAll("SELECT * FROM payroll_slips WHERE period_id = ? AND is_paid = 0", [$period['id']]) ?: [] as $slip) {
+            psSaveSlipNet($db, $slip, (float)$monthlyTargetHours);
         }
         $period_id = $period['id'];
         dbExec($db, "UPDATE payroll_periods p LEFT JOIN ( SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ? ) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$period_id, $period_id]);
@@ -1086,6 +1171,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_period'])) {
 // Handle Approve Period (Owner) - Record to Cashbook
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
     try {
+        if (!$period || in_array($period['status'], ['approved', 'paid'], true)) {
+            setFlash('error', 'Periode ini sudah disetujui — tidak dicatat ulang ke kas.');
+            header("Location: process.php?month=$month&year=$year");
+            exit;
+        }
+        // Angka terbaru (rumus tampilan) untuk slip yang belum dibayar, lalu catat ke kas sekali
+        foreach ($db->fetchAll("SELECT * FROM payroll_slips WHERE period_id = ? AND is_paid = 0", [$period['id']]) ?: [] as $sl) {
+            psSaveSlipNet($db, $sl, (float)$monthlyTargetHours);
+        }
         dbExec(
             $db,
             "UPDATE payroll_periods SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?",
@@ -1093,27 +1187,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
         );
 
         $periodLabel = $months[$period['period_month']] . ' ' . $period['period_year'];
+        $booked = psBookSlips($db, $period, null, $periodLabel);
         notifySlipProcessed($db, $period['id'], $periodLabel);
-        $description = 'Payroll ' . $periodLabel . ' - Bank Transfer';
-        $amount = $period['total_net'];
-
-        $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
-        $accountId = $bankAccount ? $bankAccount['id'] : null;
-
-        // Record to cashbook (non-blocking)
-        try {
-            $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
-            $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
-            $txNum = 'PAY-' . date('Ymd') . '-' . $period['id'];
-            dbExec(
-                $db,
-                "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
-                 VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
-                [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $amount, $description, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
-            );
-        } catch (\Throwable $cbErr) {
-            error_log('Cashbook record skipped (approve): ' . $cbErr->getMessage());
-        }
+        $amount = $booked['total'];
 
         setFlash('success', 'Payroll approved! Rp ' . number_format($amount, 0, ',', '.') . ' recorded to cashbook.');
     } catch (\Throwable $e) {
@@ -1139,74 +1215,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_paid'])) {
 // Handle Quick Pay — Save + Approve + Record Cashbook + Mark Paid in one step
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
     try {
-        // 1. Recalculate ALL slips from their individual fields (fix any stale totals)
-        $allSlips = $db->fetchAll("SELECT * FROM payroll_slips WHERE period_id = ?", [$period['id']]) ?: [];
-        $totalNet = 0;
-        foreach ($allSlips as $sl) {
-            $bs = (float)$sl['base_salary'];
-            $wh = (float)$sl['work_hours'];
-            $hr = $bs / $monthlyTargetHours;
-            $ab = ($wh >= $monthlyTargetHours) ? $bs : round($wh * $hr, 2);
-            $oH = (float)$sl['overtime_hours'];
-            $oA = round($oH * $hr, 2);
-            $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
-            $tD = (float)($sl['deduction_loan'] ?? 0) + (float)($sl['deduction_absence'] ?? 0) + (float)($sl['deduction_tax'] ?? 0) + (float)($sl['deduction_bpjs'] ?? 0) + (float)($sl['deduction_other'] ?? 0);
-            $nS = $tE - $tD;
-            $round = applyPayrollRounding($nS);
-            $nS = $round['net'];
+        if (!$period) {
+            throw new \RuntimeException('Periode tidak ditemukan');
+        }
+        // 1. Angka terbaru (rumus tampilan, termasuk Extra hari) untuk slip yang BELUM dibayar
+        foreach ($db->fetchAll("SELECT * FROM payroll_slips WHERE period_id = ? AND is_paid = 0", [$period['id']]) ?: [] as $sl) {
+            psSaveSlipNet($db, $sl, (float)$monthlyTargetHours);
+        }
+
+        // 2. Update period totals (semua slip, termasuk yang sudah dibayar sebelumnya)
+        dbExec($db, "UPDATE payroll_periods p LEFT JOIN (SELECT period_id, SUM(total_earnings) gross, SUM(total_deductions) ded, SUM(net_salary) net, COUNT(id) cnt FROM payroll_slips WHERE period_id = ?) s ON p.id = s.period_id
+            SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$period['id'], $period['id']]);
+
+        // 3. Approved (bila belum) + catat ke kas HANYA sisa yang belum dibayar (dulu: total penuh lagi setelah bayar sebagian)
+        if (!in_array($period['status'], ['approved', 'paid'], true)) {
             dbExec(
                 $db,
-                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=? WHERE id=?",
-                [$ab, $hr, $oA, $tE, $tD, $nS, $round['adjustment'], $sl['id']]
+                "UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?",
+                [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]
             );
-            $totalNet += $nS;
         }
-
-        // 2. Update period totals
-        dbExec(
-            $db,
-            "UPDATE payroll_periods SET total_net = ?, total_employees = ? WHERE id = ?",
-            [$totalNet, count($allSlips), $period['id']]
-        );
-
-        // 3. Skip to approved + cashbook
-        dbExec(
-            $db,
-            "UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?",
-            [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]
-        );
-
         $periodLabel = $months[$period['period_month']] . ' ' . $period['period_year'];
-        $description = 'Payroll ' . $periodLabel . ' - Bank Transfer';
-        $amount = $totalNet ?: $period['total_net'];
+        $booked = psBookSlips($db, $period, null, $periodLabel);
+        $amount = $booked['total'];
 
-        $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
-        $accountId = $bankAccount ? $bankAccount['id'] : null;
-
-        // Record to cashbook (non-blocking)
-        try {
-            $existing = $db->fetchOne("SELECT id FROM cash_book WHERE reference_number = ?", ['PAYROLL-' . $period['id']]);
-            if (!$existing) {
-                $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
-                $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
-                $txNum = 'PAY-' . date('Ymd') . '-' . $period['id'];
-                dbExec(
-                    $db,
-                    "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
-                     VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
-                    [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $amount, $description, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
-                );
-            }
-        } catch (\Throwable $cbErr) {
-            error_log('Cashbook record skipped (quick_pay): ' . $cbErr->getMessage());
-        }
-
-        // 4. Mark as paid + mark all slips as is_paid
+        // 4. Mark as paid
         dbExec($db, "UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
-        dbExec($db, "UPDATE payroll_slips SET is_paid = 1 WHERE period_id = ?", [$period['id']]);
         notifySlipProcessed($db, $period['id'], $periodLabel);
 
-        setFlash('success', '✅ Payroll dibayar! Rp ' . number_format($amount, 0, ',', '.') . ' tercatat di cashbook. Slip gaji tersedia di Staff Portal.');
+        setFlash('success', $booked['count']
+            ? '✅ Payroll dibayar! Rp ' . number_format($amount, 0, ',', '.') . ' tercatat di cashbook. Slip gaji tersedia di Staff Portal.'
+            : '✅ Semua slip sudah dibayar sebelumnya — tidak ada yang dicatat ulang. Periode ditandai lunas.');
     } catch (\Throwable $e) {
         setFlash('error', 'Error: ' . $e->getMessage());
     }
@@ -1226,26 +1265,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
     }
 
     try {
-        // Recalculate selected slips before payment
+        if (!$period) {
+            throw new \RuntimeException('Periode tidak ditemukan');
+        }
+        // Angka terbaru (rumus tampilan) untuk slip terpilih yang belum dibayar & milik periode ini
         foreach ($ids as $sid) {
-            $sl = $db->fetchOne("SELECT * FROM payroll_slips WHERE id = ?", [$sid]);
-            if (!$sl) continue;
-            $bs = (float)$sl['base_salary'];
-            $wh = (float)$sl['work_hours'];
-            $hr = $bs / $monthlyTargetHours;
-            $ab = ($wh >= $monthlyTargetHours) ? $bs : round($wh * $hr, 2);
-            $oH = (float)$sl['overtime_hours'];
-            $oA = round($oH * $hr, 2);
-            $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
-            $tD = (float)($sl['deduction_loan'] ?? 0) + (float)($sl['deduction_absence'] ?? 0) + (float)($sl['deduction_tax'] ?? 0) + (float)($sl['deduction_bpjs'] ?? 0) + (float)($sl['deduction_other'] ?? 0);
-            $nS = $tE - $tD;
-            $round = applyPayrollRounding($nS);
-            $nS = $round['net'];
-            dbExec(
-                $db,
-                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, rounding_adjustment=? WHERE id=?",
-                [$ab, $hr, $oA, $tE, $tD, $nS, $round['adjustment'], $sid]
-            );
+            $sl = $db->fetchOne("SELECT * FROM payroll_slips WHERE id = ? AND period_id = ? AND is_paid = 0", [$sid, $period['id']]);
+            if ($sl) {
+                psSaveSlipNet($db, $sl, (float)$monthlyTargetHours);
+            }
         }
 
         // Ensure period is at least approved (so portal can see it)
@@ -1265,43 +1293,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
             notifySlipProcessed($db, $period['id'], $months[$period['period_month']] . ' ' . $period['period_year']);
         }
 
-        // Mark selected slips as paid
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $params = array_merge($ids, [$period['id']]);
-        dbExec($db, "UPDATE payroll_slips SET is_paid = 1 WHERE id IN ($placeholders) AND period_id = ?", $params);
-
-        // Calculate total for selected
-        $selectedSlips = $db->fetchAll("SELECT net_salary, employee_name FROM payroll_slips WHERE id IN ($placeholders)", $ids);
-        $totalPaid = 0;
-        $names = [];
-        foreach ($selectedSlips as $s) {
-            $totalPaid += (float)$s['net_salary'];
-            $names[] = $s['employee_name'];
-        }
-
-        // Record to cashbook
+        // Tandai lunas + catat ke kas (hanya slip terpilih yang belum dibayar; satu transaksi)
         $periodLabel = $months[$period['period_month']] . ' ' . $period['period_year'];
-        $description = 'Gaji ' . implode(', ', $names) . ' - ' . $periodLabel;
-        if (strlen($description) > 200) $description = 'Gaji ' . count($names) . ' staff - ' . $periodLabel;
-
-        $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
-        $accountId = $bankAccount ? $bankAccount['id'] : null;
-
-        $ref = 'PAYROLL-' . $period['id'] . '-' . implode('_', $ids);
-        // Record to cashbook (non-blocking)
-        try {
-            $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
-            $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
-            $txNum = 'PAY-' . date('Ymd') . '-' . substr(md5($ref), 0, 6);
-            dbExec(
-                $db,
-                "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
-                 VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
-                [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $totalPaid, $description, $ref, $_SESSION['user_id']]
-            );
-        } catch (\Throwable $cbErr) {
-            error_log('Cashbook record skipped (quick_pay_selected): ' . $cbErr->getMessage());
-        }
+        $booked = psBookSlips($db, $period, $ids, $periodLabel);
+        $totalPaid = $booked['total'];
+        $ids = $booked['count'] ? array_fill(0, $booked['count'], 0) : []; // untuk jumlah di pesan
 
         // Check if ALL slips in this period are now paid
         $unpaid = $db->fetchOne("SELECT COUNT(*) as c FROM payroll_slips WHERE period_id = ? AND is_paid = 0", [$period['id']]);
@@ -1309,7 +1305,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
             dbExec($db, "UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
         }
 
-        setFlash('success', '✅ ' . count($ids) . ' staff dibayar! Rp ' . number_format($totalPaid, 0, ',', '.') . ' tercatat. Slip gaji tersedia di Staff Portal.');
+        setFlash('success', count($ids)
+            ? '✅ ' . count($ids) . ' staff dibayar! Rp ' . number_format($totalPaid, 0, ',', '.') . ' tercatat. Slip gaji tersedia di Staff Portal.'
+            : 'Staff terpilih sudah dibayar sebelumnya — tidak dicatat ulang.');
     } catch (\Throwable $e) {
         setFlash('error', 'Error: ' . $e->getMessage());
     }
@@ -1358,8 +1356,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
     $removed = 0;
     foreach ($existingSlips as $slip) {
         if (!in_array($slip['employee_id'], $activeEmpIds)) {
-            dbExec($db, "DELETE FROM payroll_slips WHERE id = ?", [$slip['id']]);
-            $removed++;
+            // slip yang sudah dibayar tetap disimpan (gajinya sudah tercatat di kas)
+            $removed += dbExec($db, "DELETE FROM payroll_slips WHERE id = ? AND is_paid = 0", [$slip['id']])->rowCount();
         }
     }
 

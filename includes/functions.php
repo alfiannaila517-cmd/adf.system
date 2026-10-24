@@ -262,6 +262,41 @@ function getGet($key = null, $default = null)
     return $_GET[$key] ?? $default;
 }
 
+/**
+ * Transaksi Buku Kas buatan sistem yang TIDAK boleh diubah/dihapus dari Buku Kas, karena data sumbernya (invoice, slip
+ * gaji, tagihan, Gudang) tidak ikut berubah → saldo & status jadi tidak cocok (mis. invoice tetap "lunas" padahal kasnya
+ * hilang, lalu hapus invoice memotong saldo lagi). Mengembalikan pesan penolakan, atau null bila boleh.
+ */
+function cashbookSystemLockReason(array $tx, $db): ?string
+{
+    $src = (string)($tx['source_type'] ?? '');
+    $ref = (string)($tx['reference_number'] ?? '');
+    $id = (int)($tx['id'] ?? 0);
+    if ($src === 'invoice_payment' || $src === 'cafe_invoice') {
+        return 'Transaksi ini dari pembayaran Invoice. Ubah/hapus lewat menu Invoice (supaya status invoice ikut benar).';
+    }
+    if ($src === 'weekly_payroll' || str_starts_with($ref, 'PAYROLL-')) {
+        return 'Transaksi ini dari Penggajian. Koreksi lewat menu Penggajian (reset periode oleh owner/admin).';
+    }
+    if (str_starts_with($src, 'gudang_') || $src === 'ambil_gudang') {
+        return 'Transaksi ini dari Gudang Nasita (tagihan/suplai/retur). Koreksi lewat menu Gudang / Tagihan.';
+    }
+    if ($src === 'cash_transfer') {
+        return 'Transaksi Setor Tunai tidak bisa diubah dari sini. Gunakan halaman Ringkasan Setor Tunai.';
+    }
+    try {
+        if ($id > 0 && $db->fetchOne("SELECT 1 FROM bill_payments WHERE cashbook_id = ? LIMIT 1", [$id])) {
+            return 'Transaksi ini dari pembayaran Tagihan. Koreksi lewat menu Tagihan (supaya sisa tagihan ikut benar).';
+        }
+    } catch (Throwable $e) { /* tabel bill_payments belum ada di bisnis ini */ }
+    try {
+        if ($id > 0 && $db->fetchOne("SELECT 1 FROM cafe_invoices WHERE cash_book_id = ? LIMIT 1", [$id])) {
+            return 'Transaksi ini dari pembayaran Invoice. Ubah/hapus lewat menu Invoice (supaya status invoice ikut benar).';
+        }
+    } catch (Throwable $e) { /* bukan bisnis kafe */ }
+    return null;
+}
+
 function setFlash($key, $message)
 {
     if (session_status() === PHP_SESSION_NONE) {

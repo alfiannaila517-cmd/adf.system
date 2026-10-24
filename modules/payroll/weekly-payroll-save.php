@@ -103,35 +103,58 @@ try {
             $gajiCatId = $gajiCat['id'];
         }
 
-        // Insert into cash_book
-        $desc = "Gaji Mingguan {$rec['employee_name']} - {$periodLabel}";
-        if ($rec['position']) $desc .= " ({$rec['position']})";
-
-        $cbData = [
-            'transaction_date' => date('Y-m-d'),
-            'transaction_time' => date('H:i:s'),
-            'division_id' => $gajiDivId,
-            'category_id' => $gajiCatId,
-            'category_name' => 'Gaji Mingguan',
-            'transaction_type' => 'expense',
-            'amount' => $rec['total_salary'],
-            'description' => $desc,
-            'payment_method' => 'cash',
-            'created_by' => $userId,
-            'source_type' => 'weekly_payroll',
-            'source_id' => $rec['id'],
-            'reference_no' => 'WP-' . $rec['id'],
-            'is_editable' => 0
-        ];
-
-        $cbId = $db->insert('cash_book', $cbData);
-
-        // Mark as synced
-        $pdo->prepare("UPDATE payroll_weekly SET cashbook_synced = 1, status = 'paid' WHERE id = ?")->execute([$rec['id']]);
+        // Yang dicatat = total sekarang − yang SUDAH tercatat di kas untuk catatan ini. Dulu: edit setelah sinkron
+        // membuka sinkron lagi dan total PENUH dicatat ulang (1 jt + 1,5 jt = 2,5 jt untuk gaji 1,5 jt).
+        $pdo->beginTransaction();
+        try {
+            // kunci: hanya satu permintaan yang lolos (klik ganda tidak mencatat dua kali)
+            $lock = $pdo->prepare("UPDATE payroll_weekly SET cashbook_synced = 1, status = 'paid' WHERE id = ? AND cashbook_synced = 0");
+            $lock->execute([$rec['id']]);
+            if ($lock->rowCount() !== 1) {
+                throw new Exception('Sudah masuk buku kas sebelumnya.');
+            }
+            $bookedSt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE source_type = 'weekly_payroll' AND source_id = ? AND transaction_type = 'expense'");
+            $bookedSt->execute([$rec['id']]);
+            $already = (float)$bookedSt->fetchColumn();
+            $toBook = round((float)$rec['total_salary'] - $already, 2);
+            if ($toBook < 0) {
+                throw new Exception('Total gaji (Rp ' . number_format((float)$rec['total_salary'], 0, ',', '.') . ') lebih kecil dari yang sudah tercatat di kas (Rp ' . number_format($already, 0, ',', '.') . '). Koreksi selisihnya lewat Buku Kas.');
+            }
+            $cbId = null;
+            if ($toBook > 0) {
+                $desc = "Gaji Mingguan {$rec['employee_name']} - {$periodLabel}" . ($already > 0 ? ' (tambahan)' : '');
+                if ($rec['position']) $desc .= " ({$rec['position']})";
+                $cbId = $db->insert('cash_book', [
+                    'transaction_date' => date('Y-m-d'),
+                    'transaction_time' => date('H:i:s'),
+                    'division_id' => $gajiDivId,
+                    'category_id' => $gajiCatId,
+                    'category_name' => 'Gaji Mingguan',
+                    'transaction_type' => 'expense',
+                    'amount' => $toBook,
+                    'description' => $desc,
+                    'payment_method' => 'cash',
+                    'created_by' => $userId,
+                    'source_type' => 'weekly_payroll',
+                    'source_id' => $rec['id'],
+                    'reference_no' => 'WP-' . $rec['id'],
+                    'is_editable' => 0
+                ]);
+                if (!$cbId) {
+                    throw new Exception('Gagal mencatat ke Buku Kas.');
+                }
+            }
+            $pdo->commit();
+        } catch (Exception $txErr) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $txErr;
+        }
 
         echo json_encode([
             'success' => true,
-            'message' => "Gaji {$rec['employee_name']} Rp " . number_format($rec['total_salary'], 0, ',', '.') . " masuk ke Buku Kas",
+            'message' => $toBook > 0
+                ? "Gaji {$rec['employee_name']} Rp " . number_format($toBook, 0, ',', '.') . ($already > 0 ? ' (tambahan)' : '') . " masuk ke Buku Kas"
+                : "Gaji {$rec['employee_name']} sudah tercatat penuh di Buku Kas",
             'cashbook_id' => $cbId
         ]);
 

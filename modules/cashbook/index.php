@@ -3184,7 +3184,7 @@ echo getPrintCSS();
                                         <?php endif; ?>
                                         <?php if ($auth->canDelete('cashbook')): ?>
                                             <a href="delete.php?id=<?php echo $trans['id']; ?>"
-                                                onclick="return confirm('Yakin ingin menghapus transaksi ini?')"
+                                                onclick="return cbDeleteTx(<?php echo (int)$trans['id']; ?>)"
                                                 class="cb-action-btn delete"
                                                 title="Hapus">
                                                 <i data-feather="trash-2"></i>
@@ -3211,7 +3211,7 @@ echo getPrintCSS();
                                                 <a href="edit.php?id=<?php echo (int)$sub['id']; ?>" class="cb-action-btn edit" title="Edit"><i data-feather="edit-2"></i></a>
                                             <?php endif; ?>
                                             <?php if ($auth->canDelete('cashbook')): ?>
-                                                <a href="delete.php?id=<?php echo (int)$sub['id']; ?>" onclick="return confirm('Yakin ingin menghapus transaksi ini?')" class="cb-action-btn delete" title="Hapus"><i data-feather="trash-2"></i></a>
+                                                <a href="delete.php?id=<?php echo (int)$sub['id']; ?>" onclick="return cbDeleteTx(<?php echo (int)$sub['id']; ?>)" class="cb-action-btn delete" title="Hapus"><i data-feather="trash-2"></i></a>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -3347,6 +3347,22 @@ echo getPrintCSS();
 
 <!-- JavaScript for Print Handling -->
 <script>
+    // Hapus transaksi lewat POST (dulu link GET biasa → bisa terpicu dari link luar)
+    function cbDeleteTx(id) {
+        if (!confirm(<?php echo json_encode((($_SESSION['user_language'] ?? 'id') === 'en') ? 'Delete this transaction?' : 'Yakin ingin menghapus transaksi ini?'); ?>)) return false;
+        const f = document.createElement('form');
+        f.method = 'POST';
+        f.action = 'delete.php';
+        const i = document.createElement('input');
+        i.type = 'hidden';
+        i.name = 'id';
+        i.value = id;
+        f.appendChild(i);
+        document.body.appendChild(f);
+        f.submit();
+        return false;
+    }
+
     // Check if print parameter is in URL
     const urlParams = new URLSearchParams(window.location.search);
     const isPrint = urlParams.has('print') || window.location.search.includes('print=1');

@@ -129,8 +129,20 @@ if (isset($_GET['ajax'])) {
             echo json_encode(['success' => false, 'message' => 'Rekening tidak sesuai dengan metode pembayaran yang dipilih']);
             exit;
         }
+        if ((float)$inv['total_amount'] <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Total invoice harus lebih dari 0']);
+            exit;
+        }
         try {
             $db->beginTransaction();
+            // Kunci dulu: hanya satu permintaan yang bisa mengubah unpaid → paid (klik ganda / dua tab tidak mencatat kas dua kali)
+            $claim = $pdo->prepare("UPDATE cafe_invoices SET status = 'paid' WHERE id = ? AND status = 'unpaid'");
+            $claim->execute([$invId]);
+            if ($claim->rowCount() !== 1) {
+                $db->rollback();
+                echo json_encode(['success' => false, 'message' => 'Invoice sudah dibayar']);
+                exit;
+            }
             $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) = 'invoice cafe' AND category_type = 'income'");
             if (!$cat) {
                 $db->insert('categories', ['category_name' => 'Invoice Cafe', 'category_type' => 'income', 'division_id' => $defaultDivision, 'is_active' => 1]);
@@ -150,21 +162,20 @@ if (isset($_GET['ajax'])) {
                 'cash_account_id' => $cashAccountId,
                 'created_by' => $_SESSION['user_id'],
                 'source_type' => 'invoice_payment',
-                'is_editable' => 1
+                'source_id' => $invId,
+                'is_editable' => 0 // dikunci: ubah/hapus lewat menu Invoice supaya status invoice & kas tetap cocok
             ]);
-            $db->update('cafe_invoices', [
-                'status' => 'paid',
-                'payment_method' => $paymentMethod,
-                'cash_account_id' => $cashAccountId,
-                'cash_book_id' => $cbId,
-                'paid_at' => date('Y-m-d H:i:s'),
-                'paid_by' => $_SESSION['user_id']
-            ], 'id = :id', ['id' => $invId]);
+            if (!$cbId) {
+                throw new Exception('Gagal mencatat ke Buku Kas');
+            }
+            $pdo->prepare("UPDATE cafe_invoices SET payment_method = ?, cash_account_id = ?, cash_book_id = ?, paid_at = ?, paid_by = ? WHERE id = ?")
+                ->execute([$paymentMethod, $cashAccountId, $cbId, date('Y-m-d H:i:s'), $_SESSION['user_id'], $invId]);
             if ($cashAccountId) {
                 try {
                     $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$inv['total_amount'], $cashAccountId]);
-                    $masterDb->prepare("INSERT INTO cash_account_transactions (account_id, business_id, transaction_type, amount, description, reference_type, reference_id, created_at) VALUES (?, ?, 'credit', ?, ?, 'cafe_invoice', ?, NOW())")
-                        ->execute([$cashAccountId, $businessId, $inv['total_amount'], 'Bayar ' . $inv['invoice_number'], $invId]);
+                    // kolom sama dengan Buku Kas (cashbook/add.php); dulu kolom salah → mutasi rekening tidak pernah tercatat
+                    $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_date, description, amount, transaction_type, created_by) VALUES (?, ?, ?, ?, 'income', ?)")
+                        ->execute([$cashAccountId, date('Y-m-d'), 'Bayar ' . $inv['invoice_number'], $inv['total_amount'], $_SESSION['user_id']]);
                 } catch (Exception $e) {
                     error_log("Cash account update: " . $e->getMessage());
                 }
@@ -210,17 +221,20 @@ if (isset($_GET['ajax'])) {
             // If the invoice was already paid, reverse its cashbook entry & account balance
             // so deleting it never leaves stale/incorrect money in the bukukas.
             if ($inv['status'] === 'paid') {
-                if (!empty($inv['cash_book_id'])) {
-                    $db->delete('cash_book', 'id = :id', ['id' => $inv['cash_book_id']]);
-                }
-                if (!empty($inv['cash_account_id'])) {
-                    try {
-                        $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?")
-                            ->execute([$inv['total_amount'], $inv['cash_account_id']]);
-                        $masterDb->prepare("DELETE FROM cash_account_transactions WHERE reference_type = 'cafe_invoice' AND reference_id = ?")
-                            ->execute([$invId]);
-                    } catch (Exception $e) {
-                        error_log("Cash account reverse: " . $e->getMessage());
+                // Balik saldo HANYA bila baris kasnya masih ada, sebesar nominal di baris itu
+                // (dulu: kas dihapus dulu di Buku Kas lalu invoice dihapus → saldo terpotong dua kali)
+                $cbRow = !empty($inv['cash_book_id']) ? $db->fetchOne("SELECT id, amount FROM cash_book WHERE id = ?", [$inv['cash_book_id']]) : null;
+                if ($cbRow) {
+                    $db->delete('cash_book', 'id = :id', ['id' => $cbRow['id']]);
+                    if (!empty($inv['cash_account_id'])) {
+                        try {
+                            $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?")
+                                ->execute([$cbRow['amount'], $inv['cash_account_id']]);
+                            $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id = ? AND description = ? ORDER BY id DESC LIMIT 1")
+                                ->execute([$inv['cash_account_id'], 'Bayar ' . $inv['invoice_number']]);
+                        } catch (Exception $e) {
+                            error_log("Cash account reverse: " . $e->getMessage());
+                        }
                     }
                 }
             }
@@ -370,6 +384,9 @@ if (isPost() && getPost('action') === 'create_invoice') {
                 $validItems[] = ['name' => $name, 'qty' => $qty, 'price' => $price, 'subtotal' => $lineTotal];
             }
             if (empty($validItems)) throw new Exception('Tidak ada item valid');
+            // Diskon 0 … subtotal, pajak 0 … 100% (diskon negatif / lebih besar dari subtotal dulu bisa membuat total negatif)
+            $discount = min(max(0, $discount), $subtotal);
+            $taxPercent = min(max(0, $taxPercent), 100);
             $taxAmount = round($subtotal * $taxPercent / 100);
             $totalAmount = $subtotal - $discount + $taxAmount;
             $invId = $db->insert('cafe_invoices', [

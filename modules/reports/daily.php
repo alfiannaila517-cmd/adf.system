@@ -103,7 +103,7 @@ try {
     $stmt = $db->getConnection()->prepare("
         SELECT COALESCE(SUM(amount), 0) as total
         FROM cash_book 
-        WHERE transaction_type = 'expense'
+        WHERE transaction_type = 'expense' AND COALESCE(source_type, '') <> 'cash_transfer'
     ");
     $stmt->execute();
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -150,7 +150,7 @@ try {
     // Daily-filtered expense
     $dailyExpenseFiltered = $db->fetchOne(
         "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'expense' AND transaction_date BETWEEN ? AND ?",
+         WHERE transaction_type = 'expense' AND transaction_date BETWEEN ? AND ? AND COALESCE(source_type, '') <> 'cash_transfer'",
         [$filterStart, $filterEnd]
     );
     $filteredExpense = $dailyExpenseFiltered['total'] ?? 0;
@@ -263,9 +263,9 @@ $dailySummary = $db->fetchAll("
     SELECT 
         DATE(cb.transaction_date) as date,
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense' THEN cb.amount ELSE 0 END), 0) as total_expense,
+        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense' AND COALESCE(cb.source_type, '') <> 'cash_transfer' THEN cb.amount ELSE 0 END), 0) as total_expense,
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) - 
-        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense' THEN cb.amount ELSE 0 END), 0) as net_balance,
+        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense' AND COALESCE(cb.source_type, '') <> 'cash_transfer' THEN cb.amount ELSE 0 END), 0) as net_balance,
         COUNT(*) as transaction_count
     FROM cash_book cb
     WHERE $whereClause
@@ -340,7 +340,7 @@ $expenseDetails = $db->fetchAll("
     LEFT JOIN purchase_orders_header poh ON cb.source_type = 'purchase_order' AND cb.reference_no = poh.po_number
     LEFT JOIN suppliers s ON poh.supplier_id = s.id
     LEFT JOIN purchase_orders_detail pod ON poh.id = pod.po_header_id
-    WHERE $whereClause AND cb.transaction_type = 'expense'
+    WHERE $whereClause AND cb.transaction_type = 'expense' AND COALESCE(cb.source_type, '') <> 'cash_transfer'
     GROUP BY cb.id
     ORDER BY cb.transaction_date, cb.transaction_time
 ", $params);

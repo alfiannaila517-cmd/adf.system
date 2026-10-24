@@ -56,8 +56,10 @@ try {
     }
 
     // Get bill details
+    // FOR UPDATE: baris tagihan dikunci sampai transaksi selesai → dua klik "Bayar" bersamaan tidak sama-sama
+    // lolos cek sisa tagihan (dulu sisa Rp 1 jt bisa terbayar 2×)
     $bill = $db->fetchOne(
-        "SELECT * FROM monthly_bills WHERE id = ? LIMIT 1",
+        "SELECT * FROM monthly_bills WHERE id = ? LIMIT 1 FOR UPDATE",
         [$billId]
     );
 
@@ -142,7 +144,7 @@ try {
     $cbResult = $db->query(
         "INSERT INTO cash_book 
         (division_id, category_id, transaction_type, transaction_date, transaction_time, amount, description, payment_method, cash_account_id, is_editable, created_by)
-        VALUES (?, ?, 'expense', DATE(?), TIME(NOW()), ?, ?, ?, ?, 1, ?)",
+        VALUES (?, ?, 'expense', DATE(?), TIME(NOW()), ?, ?, ?, ?, 0, ?)", // is_editable 0: koreksi lewat menu Tagihan
         [
             $divisionId,
             $categoryId,

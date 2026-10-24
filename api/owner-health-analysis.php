@@ -50,7 +50,7 @@ try {
     $currentMonth = $db->fetchOne(
         "SELECT 
             COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
-            COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as expense
+            COALESCE(SUM(CASE WHEN transaction_type = 'expense' AND COALESCE(source_type, '') <> 'cash_transfer' THEN amount ELSE 0 END), 0) as expense
          FROM cash_book 
          WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month" . $branchWhere,
         array_merge(['month' => $thisMonth], $params)
@@ -60,7 +60,7 @@ try {
     $previousMonth = $db->fetchOne(
         "SELECT 
             COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
-            COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as expense
+            COALESCE(SUM(CASE WHEN transaction_type = 'expense' AND COALESCE(source_type, '') <> 'cash_transfer' THEN amount ELSE 0 END), 0) as expense
          FROM cash_book 
          WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month" . $branchWhere,
         array_merge(['month' => $lastMonth], $params)
@@ -70,7 +70,7 @@ try {
     $last3MonthsData = $db->fetchOne(
         "SELECT 
             COALESCE(AVG(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as avg_income,
-            COALESCE(AVG(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as avg_expense
+            COALESCE(AVG(CASE WHEN transaction_type = 'expense' AND COALESCE(source_type, '') <> 'cash_transfer' THEN amount ELSE 0 END), 0) as avg_expense
          FROM cash_book 
          WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)" . $branchWhere,
         $params

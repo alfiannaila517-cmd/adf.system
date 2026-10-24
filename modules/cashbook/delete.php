@@ -23,7 +23,13 @@ if (!$auth->canDelete('cashbook')) {
 }
 
 $currentUser = $auth->getCurrentUser();
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+// Hapus hanya lewat POST (tombol Hapus di Buku Kas mengirim form) — link GET dari luar tidak bisa menghapus
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $_SESSION['error'] = 'Gunakan tombol Hapus di daftar Buku Kas.';
+    header('Location: index.php');
+    exit;
+}
+$id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
 
 if ($id <= 0) {
     $_SESSION['error'] = 'ID transaksi tidak valid';
@@ -58,6 +64,12 @@ if (!$transaction) {
 // on the "Ringkasan Setor Tunai" page instead.
 if (isset($transaction['source_type']) && $transaction['source_type'] === 'cash_transfer') {
     $_SESSION['error'] = '⛔ Transaksi Setor Tunai tidak bisa dihapus dari sini. Gunakan fitur arsip di halaman Ringkasan Setor Tunai.';
+    header('Location: index.php');
+    exit;
+}
+// Transaksi buatan sistem lain (invoice, gaji, Gudang, tagihan) juga tidak boleh dihapus dari sini
+if ($lockMsg = cashbookSystemLockReason($transaction, $db)) {
+    $_SESSION['error'] = '⛔ ' . $lockMsg;
     header('Location: index.php');
     exit;
 }

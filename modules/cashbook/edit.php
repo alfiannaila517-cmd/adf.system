@@ -68,6 +68,12 @@ if (isset($transaction['is_editable']) && $transaction['is_editable'] == 0) {
     header('Location: index.php');
     exit;
 }
+// Transaksi buatan sistem yang tercatat bisa-diedit (mis. pembayaran tagihan/invoice lama) tetap dikunci
+if ($lockMsg = cashbookSystemLockReason($transaction, $db)) {
+    $_SESSION['error'] = '❌ ' . $lockMsg;
+    header('Location: index.php');
+    exit;
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

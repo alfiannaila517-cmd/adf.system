@@ -93,9 +93,9 @@ $dailySummary = $db->fetchAll("
     SELECT 
         DATE(cb.transaction_date) as date,
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as total_expense,
+        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense'{$ownerCapitalExcludeCondition} AND COALESCE(cb.source_type, '') <> 'cash_transfer' THEN cb.amount ELSE 0 END), 0) as total_expense,
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) - 
-        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as net_balance,
+        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense'{$ownerCapitalExcludeCondition} AND COALESCE(cb.source_type, '') <> 'cash_transfer' THEN cb.amount ELSE 0 END), 0) as net_balance,
         COUNT(*) as transaction_count
     FROM cash_book cb
     WHERE $whereClause
@@ -132,7 +132,7 @@ $biggestExpense = $db->fetchOne("
     SELECT d.division_name, SUM(cb.amount) as total_amount
     FROM cash_book cb
     JOIN divisions d ON cb.division_id = d.id
-    WHERE $whereClause AND cb.transaction_type = 'expense'
+    WHERE $whereClause AND cb.transaction_type = 'expense' AND COALESCE(cb.source_type, '') <> 'cash_transfer'
     GROUP BY d.id, d.division_name
     ORDER BY total_amount DESC
     LIMIT 1
