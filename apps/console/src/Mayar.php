@@ -89,6 +89,25 @@ final class Mayar
         return (array)(self::request('GET', '/invoices/' . rawurlencode($id))['data'] ?? []);
     }
 
+    /**
+     * QRIS dinamis untuk satu nominal (docs: api-reference-v2/qrcode/createdynamicqrcode). Tanpa id / status —
+     * pembayarannya dicocokkan lewat transactions() (nominal + metode QRIS + waktu). @return array{url:string, qrString:string}
+     */
+    public static function createQr(int $amount): array
+    {
+        $d = (array)(self::request('POST', '/qr-codes/create', ['amount' => $amount])['data'] ?? []);
+        if (empty($d['qrString']) && empty($d['url'])) {
+            throw new RuntimeException('Jawaban Mayar tidak berisi kode QRIS.');
+        }
+        return ['url' => (string)($d['url'] ?? ''), 'qrString' => (string)($d['qrString'] ?? '')];
+    }
+
+    /** Transaksi masuk sejak $startMs (epoch milidetik), maks. 50 terbaru (docs: api-reference-v2/transaction/paidtransaction) */
+    public static function transactions(int $startMs): array
+    {
+        return (array)(self::request('GET', '/transactions?limit=50&startAt=' . $startMs)['data'] ?? []);
+    }
+
     /** Daftarkan alamat webhook akun Mayar ini */
     public static function registerWebhook(string $url): void
     {

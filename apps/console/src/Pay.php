@@ -6,43 +6,22 @@ declare(strict_types=1);
  * Pembayaran online lewat Console (Mayar) — pengganti Pakasir yang dulu dipanggil langsung oleh tiap sistem klien.
  *   forPeriod()  tagihan langganan sistem bisnis (periode YYYY-MM / susulan, atau MANUAL-CI<id> = invoice manual)
  *   forInvoice() link "Bayar sekarang" di invoice publik
+ *     → keduanya membuat checkout ADF sendiri (gateway 'mayar_qr'): halaman /bayar.php dengan QRIS dinamis Mayar,
+ *       nominal + kode unik (Mayar QR dinamis tidak punya id/status, jadi dicocokkan lewat nominal di daftar transaksi)
+ *   hostedFor()  cadangan "Metode lain (VA / e-wallet)": invoice Mayar biasa (gateway 'mayar'), nominal asli
  *   settle()     tandai lunas: tagihan / invoice → paid, + baris orders (Transaksi & Keuangan), Telegram
- *   check()      cek ulang status ke Mayar (webhook, tombol cek, atau saat sistem klien sinkron)
- * Satu link dipakai ulang selama masih berlaku dan jumlahnya sama.
+ *   check()      cek ulang status ke Mayar (halaman bayar, webhook, atau saat sistem klien sinkron)
  */
 final class Pay
 {
+    /** Kode unik QRIS: Rp 1 … Rp 299 ditambahkan ke nominal agar tiap tagihan yang menunggu punya nominal berbeda */
+    private const CODE_MAX = 299;
+    /** Masa berlaku halaman QRIS (jam) */
+    private const QR_TTL_HOURS = 20;
+
     private static function db(): PDO
     {
         return Biz::db();
-    }
-
-    /** Link aktif yang bisa dipakai ulang */
-    private static function reusable(string $type, string $ref, float $amount): ?array
-    {
-        $st = self::db()->prepare("SELECT * FROM payment_links WHERE ref_type = ? AND ref = ? AND status = 'pending' AND amount = ?
-            AND (expires_at IS NULL OR expires_at > DATE_ADD(NOW(), INTERVAL 1 HOUR)) ORDER BY id DESC LIMIT 1");
-        $st->execute([$type, $ref, $amount]);
-        return $st->fetch() ?: null;
-    }
-
-    private static function create(string $type, string $ref, ?int $bizId, string $desc, float $amount, array $cust, int $ttlDays = 3): array
-    {
-        if ($amount < 1000) {
-            throw new RuntimeException('Jumlah terlalu kecil untuk dibayar online.');
-        }
-        if ($link = self::reusable($type, $ref, $amount)) {
-            return $link;
-        }
-        $exp = time() + $ttlDays * 86400;
-        // Email ke Mayar = alamat ADF khusus (tagihan@adfsystem.store → Gmail lewat Email Routing; BUKAN email akun Mayar,
-        // yang ditolak Mayar): email Mayar masuk ke ADF, pelanggan cukup menerima email dari sistem ADF.
-        // HP = nomor pelanggan (bila ada), supaya pengingat WA Mayar sampai ke yang membayar.
-        $own = Invoice::settings();
-        $m = Mayar::createInvoice((string)($cust['name'] ?? ''), (string)Secrets::get('MAYAR_CUSTOMER_EMAIL', 'tagihan@adfsystem.store'), (string)(($cust['phone'] ?? '') ?: $own['whatsapp']), $desc, (int)round($amount), $exp, ['ref_type' => $type, 'ref' => $ref]);
-        self::db()->prepare('INSERT INTO payment_links (gateway, ref_type, ref, business_id, description, amount, gateway_id, gateway_txn, link, expires_at) VALUES (\'mayar\', ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$type, $ref, $bizId, mb_substr($desc, 0, 200), $amount, $m['id'], $m['transactionId'] ?: null, $m['link'], date('Y-m-d H:i:s', $m['expiredAt'] ? intdiv($m['expiredAt'], 1000) : $exp)]);
-        return self::find((int)self::db()->lastInsertId());
     }
 
     private static function find(int $id): array
@@ -52,17 +31,121 @@ final class Pay
         return $st->fetch() ?: throw new RuntimeException('Link pembayaran tidak ditemukan.');
     }
 
-    /** Kontak penagihan sebuah bisnis: email langganan / email & HP grup */
+    public static function byToken(string $token): ?array
+    {
+        if (!preg_match('/^[a-f0-9]{24}$/', $token)) {
+            return null;
+        }
+        $st = self::db()->prepare('SELECT * FROM payment_links WHERE token = ?');
+        $st->execute([$token]);
+        return $st->fetch() ?: null;
+    }
+
+    public static function pageUrl(array $link): string
+    {
+        return 'https://' . ($_SERVER['HTTP_HOST'] ?? 'console.adfsystem.store') . '/bayar.php?t=' . $link['token'];
+    }
+
+    /** Kontak penagihan per bisnis (Pengaturan langganan), bukan kontak grup */
     private static function contact(array $sub): array
     {
-        $biz = Biz::business((int)$sub['business_id']);
-        $c = $biz ? Biz::client((int)$biz['client_id']) : null;
-        // Kontak per bisnis (Pengaturan langganan), bukan kontak grup
         return ['name' => SubSync::clientName($sub), 'email' => (string)($sub['notify_email'] ?? ''), 'phone' => (string)($sub['notify_phone'] ?? '')];
     }
 
+    /** Kontak untuk sebuah link (dipakai saat membuat invoice Mayar cadangan) */
+    private static function contactFor(array $link): array
+    {
+        if ($link['ref_type'] === 'invoice' && ($inv = Invoice::find((int)$link['ref']))) {
+            return ['name' => (string)($inv['customer_company'] ?: $inv['customer_name']), 'email' => (string)$inv['customer_email'], 'phone' => (string)$inv['customer_phone']];
+        }
+        $sub = $link['business_id'] ? Biz::subscription((int)$link['business_id']) : null;
+        return $sub ? self::contact($sub + ['business_name' => Biz::business((int)$link['business_id'])['name'] ?? '']) : ['name' => '', 'email' => '', 'phone' => ''];
+    }
+
     /**
-     * Link bayar untuk satu tagihan dari sistem bisnis. Jumlah dihitung Console (bukan dari klien):
+     * Checkout ADF (QRIS dinamis Mayar + kode unik). Dipakai ulang selama masih berlaku untuk tagihan & nominal yang sama.
+     */
+    private static function checkout(string $type, string $ref, ?int $bizId, string $desc, float $amount): array
+    {
+        if ($amount < 1000) {
+            throw new RuntimeException('Jumlah terlalu kecil untuk dibayar online (minimal Rp 1.000).');
+        }
+        $db = self::db();
+        $st = $db->prepare("SELECT * FROM payment_links WHERE gateway = 'mayar_qr' AND ref_type = ? AND ref = ? AND status = 'pending' AND base_amount = ?
+            AND expires_at > DATE_ADD(NOW(), INTERVAL 30 MINUTE) ORDER BY id DESC LIMIT 1");
+        $st->execute([$type, $ref, $amount]);
+        if ($row = $st->fetch()) {
+            return $row;
+        }
+        // Kode unik yang belum dipakai tagihan QRIS lain yang masih menunggu (2 hari terakhir)
+        $used = array_map('intval', $db->query("SELECT amount FROM payment_links WHERE gateway = 'mayar_qr' AND status = 'pending' AND created_at > DATE_SUB(NOW(), INTERVAL 2 DAY)")->fetchAll(PDO::FETCH_COLUMN));
+        $code = 0;
+        foreach (range(1, self::CODE_MAX) as $_) {
+            $try = random_int(1, self::CODE_MAX);
+            if (!in_array((int)$amount + $try, $used, true)) {
+                $code = $try;
+                break;
+            }
+        }
+        if (!$code) {
+            throw new RuntimeException('Terlalu banyak pembayaran QRIS yang menunggu, coba beberapa saat lagi.');
+        }
+        $total = (int)$amount + $code;
+        $qr = Mayar::createQr($total);
+        $token = bin2hex(random_bytes(12));
+        $db->prepare("INSERT INTO payment_links (gateway, ref_type, ref, business_id, description, amount, base_amount, gateway_id, token, link, qr_string, qr_image, expires_at)
+                VALUES ('mayar_qr', ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, DATE_ADD(NOW(), INTERVAL " . self::QR_TTL_HOURS . " HOUR))")
+            ->execute([$type, $ref, $bizId, mb_substr($desc, 0, 200), $total, $amount, 'QR-' . $token, $token, $qr['qrString'] ?: null, $qr['url'] ?: null]);
+        $row = self::find((int)$db->lastInsertId());
+        $db->prepare('UPDATE payment_links SET link = ? WHERE id = ?')->execute([self::pageUrl($row), (int)$row['id']]);
+        return self::find((int)$row['id']);
+    }
+
+    /** QR kedaluwarsa → buat checkout baru untuk tagihan yang sama (bila tagihannya masih belum dibayar) */
+    public static function renew(array $link): array
+    {
+        if ($link['ref_type'] === 'invoice') {
+            $inv = Invoice::find((int)$link['ref']);
+            if (!$inv || $inv['status'] !== 'unpaid') {
+                throw new RuntimeException('Tagihan ini sudah tidak menunggu pembayaran.');
+            }
+            return self::checkout('invoice', (string)$inv['id'], $link['business_id'] !== null ? (int)$link['business_id'] : null, (string)$link['description'], Invoice::totals($inv)['total']);
+        }
+        $st = self::db()->prepare('SELECT status FROM subscription_charges WHERE business_id = ? AND ref = ?');
+        $st->execute([(int)$link['business_id'], $link['ref']]);
+        if (in_array($st->fetchColumn(), ['paid', 'cancelled'], true)) {
+            throw new RuntimeException('Tagihan ini sudah tidak menunggu pembayaran.');
+        }
+        return self::checkout((string)$link['ref_type'], (string)$link['ref'], (int)$link['business_id'], (string)$link['description'], (float)($link['base_amount'] ?? $link['amount']));
+    }
+
+    /** Invoice Mayar biasa (halaman Mayar: VA, e-wallet, QRIS) — cadangan dari halaman bayar ADF */
+    public static function hostedFor(array $qrLink): array
+    {
+        $type = (string)$qrLink['ref_type'];
+        $ref = (string)$qrLink['ref'];
+        $amount = (float)($qrLink['base_amount'] ?? $qrLink['amount']);
+        $st = self::db()->prepare("SELECT * FROM payment_links WHERE gateway = 'mayar' AND ref_type = ? AND ref = ? AND status = 'pending' AND amount = ?
+            AND (expires_at IS NULL OR expires_at > DATE_ADD(NOW(), INTERVAL 1 HOUR)) ORDER BY id DESC LIMIT 1");
+        $st->execute([$type, $ref, $amount]);
+        if ($row = $st->fetch()) {
+            return $row;
+        }
+        $cust = self::contactFor($qrLink);
+        $exp = time() + 3 * 86400;
+        // Email ke Mayar = alamat ADF khusus (tagihan@adfsystem.store → Gmail lewat Email Routing; BUKAN email akun Mayar,
+        // yang ditolak Mayar): email Mayar masuk ke ADF, pelanggan cukup menerima email dari sistem ADF.
+        // HP = nomor pelanggan (bila ada), supaya pengingat WA Mayar sampai ke yang membayar.
+        $m = Mayar::createInvoice((string)$cust['name'], (string)Secrets::get('MAYAR_CUSTOMER_EMAIL', 'tagihan@adfsystem.store'), (string)($cust['phone'] ?: Invoice::settings()['whatsapp']),
+            (string)$qrLink['description'], (int)round($amount), $exp, ['ref_type' => $type, 'ref' => $ref]);
+        self::db()->prepare("INSERT INTO payment_links (gateway, ref_type, ref, business_id, description, amount, gateway_id, gateway_txn, link, expires_at) VALUES ('mayar', ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            ->execute([$type, $ref, $qrLink['business_id'], (string)$qrLink['description'], $amount, $m['id'], $m['transactionId'] ?: null, $m['link'],
+                date('Y-m-d H:i:s', $m['expiredAt'] ? intdiv($m['expiredAt'], 1000) : $exp)]);
+        return self::find((int)self::db()->lastInsertId());
+    }
+
+    /**
+     * Checkout untuk satu tagihan dari sistem bisnis. Jumlah dihitung Console (bukan dari klien):
      * MANUAL-CI<id> = total invoice; periode = tagihan di buku tagihan, atau biaya dasar langganan bila belum ada.
      */
     public static function forPeriod(array $sub, string $period, string $desc = ''): array
@@ -73,7 +156,7 @@ final class Pay
             if (!$inv || (int)$inv['business_id'] !== $bid || $inv['status'] !== 'unpaid') {
                 throw new RuntimeException('Tagihan manual tidak ditemukan atau sudah lunas.');
             }
-            return self::create('invoice', (string)$inv['id'], $bid, $inv['number'] . ' · ' . ($inv['items'][0]['description'] ?? 'Tagihan'), Invoice::totals($inv)['total'], self::contact($sub));
+            return self::checkout('invoice', (string)$inv['id'], $bid, $inv['number'] . ' · ' . ($inv['items'][0]['description'] ?? 'Tagihan'), Invoice::totals($inv)['total']);
         }
         $st = self::db()->prepare('SELECT * FROM subscription_charges WHERE business_id = ? AND ref = ?');
         $st->execute([$bid, $period]);
@@ -82,17 +165,16 @@ final class Pay
             throw new RuntimeException('Tagihan ' . $period . ' sudah ' . ($ch['status'] === 'paid' ? 'lunas' : 'dibatalkan') . '.');
         }
         $amount = $ch ? Biz::chargeTotal($ch) : (float)$sub['base_fee'];
-        return self::create('charge', $period, $bid, ($desc !== '' ? $desc : 'Langganan ' . $period) . ' · ' . SubSync::clientName($sub), $amount, self::contact($sub));
+        return self::checkout('charge', $period, $bid, ($desc !== '' ? $desc : 'Langganan ' . $period) . ' · ' . SubSync::clientName($sub), $amount);
     }
 
-    /** Link "Bayar sekarang" untuk invoice (link publik) */
+    /** Checkout "Bayar sekarang" untuk invoice (link publik) */
     public static function forInvoice(array $inv): array
     {
         if ($inv['status'] !== 'unpaid') {
             throw new RuntimeException('Invoice ini tidak dalam status belum dibayar.');
         }
-        $cust = ['name' => (string)($inv['customer_company'] ?: $inv['customer_name']), 'email' => (string)$inv['customer_email'], 'phone' => (string)$inv['customer_phone']];
-        return self::create('invoice', (string)$inv['id'], $inv['business_id'] ? (int)$inv['business_id'] : null, $inv['number'] . ' · ' . ($inv['items'][0]['description'] ?? 'Invoice'), Invoice::totals($inv)['total'], $cust, 7);
+        return self::checkout('invoice', (string)$inv['id'], $inv['business_id'] ? (int)$inv['business_id'] : null, $inv['number'] . ' · ' . ($inv['items'][0]['description'] ?? 'Invoice'), Invoice::totals($inv)['total']);
     }
 
     /** Cek status ke Mayar; lunas → settle(). Return true bila (sudah) lunas. */
@@ -102,6 +184,9 @@ final class Pay
             return true;
         }
         self::db()->prepare('UPDATE payment_links SET checked_at = NOW() WHERE id = ?')->execute([(int)$link['id']]);
+        if ($link['gateway'] === 'mayar_qr') {
+            return self::checkQr($link);
+        }
         $d = Mayar::invoice((string)$link['gateway_id']);
         $status = strtolower((string)($d['status'] ?? ''));
         if ($status === 'paid') {
@@ -114,7 +199,31 @@ final class Pay
         return false;
     }
 
-    /** Tandai lunas (idempoten): tagihan / invoice, baris orders, Telegram */
+    /**
+     * QRIS dinamis: cari transaksi QRIS dengan nominal persis (termasuk kode unik) yang masuk setelah QR dibuat.
+     * Transaksi yang sudah dipakai link lain (gateway_txn) dilewati.
+     */
+    private static function checkQr(array $link): bool
+    {
+        $since = (strtotime((string)$link['created_at']) - 120) * 1000;
+        $usedTxn = array_flip(self::db()->query("SELECT gateway_txn FROM payment_links WHERE gateway_txn IS NOT NULL AND status = 'paid'")->fetchAll(PDO::FETCH_COLUMN));
+        foreach (Mayar::transactions($since) as $t) {
+            $amt = (int)round((float)($t['amount'] ?? $t['credit'] ?? 0));
+            $txn = (string)($t['transactionId'] ?? $t['paymentLinkTransactionId'] ?? $t['id'] ?? '');
+            $method = strtolower((string)($t['paymentMethod'] ?? ''));
+            $at = (int)($t['createdAt'] ?? 0);
+            if ($amt === (int)round((float)$link['amount']) && ($method === '' || str_contains($method, 'qris')) && $at >= $since && !isset($usedTxn[$txn])) {
+                self::settle($link, $txn);
+                return true;
+            }
+        }
+        if ($link['expires_at'] && strtotime((string)$link['expires_at']) < time() - 6 * 3600) {
+            self::db()->prepare("UPDATE payment_links SET status = 'expired' WHERE id = ? AND status = 'pending'")->execute([(int)$link['id']]);
+        }
+        return false;
+    }
+
+    /** Tandai lunas (idempoten): tagihan / invoice, baris orders, Telegram; link lain untuk tagihan yang sama ditutup */
     public static function settle(array $link, string $txn = ''): void
     {
         $db = self::db();
@@ -123,6 +232,8 @@ final class Pay
         if (!$upd->rowCount()) {
             return; // sudah diproses sebelumnya
         }
+        $db->prepare("UPDATE payment_links SET status = 'expired' WHERE ref_type = ? AND ref = ? AND id <> ? AND status = 'pending'")
+            ->execute([$link['ref_type'], $link['ref'], (int)$link['id']]);
         $bid = $link['business_id'] !== null ? (int)$link['business_id'] : null;
         $biz = $bid ? Biz::business($bid) : null;
         $now = date('Y-m-d H:i:s');
@@ -138,14 +249,14 @@ final class Pay
             } else {
                 // Sistem bisnis tanpa buku tagihan (tarif tetap) → catat tagihan periode itu sebagai lunas
                 $db->prepare("INSERT INTO subscription_charges (business_id, kind, ref, period, base_fee, note, status, paid_at) VALUES (?, 'recurring', ?, ?, ?, 'Dibayar online (Mayar)', 'paid', ?)")
-                    ->execute([$bid, $link['ref'], substr((string)$link['ref'], 0, 7), (float)$link['amount'], $now]);
+                    ->execute([$bid, $link['ref'], substr((string)$link['ref'], 0, 7), (float)($link['base_amount'] ?? $link['amount']), $now]);
             }
         }
         $db->prepare("INSERT INTO orders (order_id, txn_id, product_title, amount, name, status, source, payment_method, client_id, business_id, created_at, completed_at)
-                VALUES (?, ?, ?, ?, ?, 'completed', ?, 'mayar', ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = 'completed', completed_at = VALUES(completed_at)")
+                VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = 'completed', completed_at = VALUES(completed_at)")
             ->execute(['MYR-' . $link['gateway_id'], $txn ?: null, (string)$link['description'], (float)$link['amount'], $biz['name'] ?? (string)$link['description'],
-                $link['ref_type'] === 'order' ? 'checkout' : 'subscription', $biz['client_id'] ?? null, $bid, $link['created_at'], $now]);
-        Telegram::send('💰 <b>Pembayaran masuk (Mayar)</b>' . "\n" . Telegram::esc((string)$link['description']) . "\n<b>" . Telegram::esc(Invoice::rp((float)$link['amount'])) . '</b>');
+                $link['ref_type'] === 'order' ? 'checkout' : 'subscription', $link['gateway'] === 'mayar_qr' ? 'qris' : 'mayar', $biz['client_id'] ?? null, $bid, $link['created_at'], $now]);
+        Telegram::send('💰 <b>Pembayaran masuk (Mayar' . ($link['gateway'] === 'mayar_qr' ? ' · QRIS' : '') . ')</b>' . "\n" . Telegram::esc((string)$link['description']) . "\n<b>" . Telegram::esc(Invoice::rp((float)$link['amount'])) . '</b>');
     }
 
     /** Cek link yang masih menunggu untuk satu bisnis (dipanggil saat sistem klien sinkron; tiap link maks. 1×/2 menit) */
@@ -166,20 +277,29 @@ final class Pay
         }
     }
 
-    /** Webhook: cocokkan id dari payload; bila tidak ada yang cocok, cek link menunggu 7 hari terakhir. Return jumlah yang lunas. */
+    /**
+     * Webhook: cocokkan id dari payload, lalu nominal (QRIS dinamis); bila tidak ada yang cocok, cek link menunggu 7 hari
+     * terakhir. Isi payload tidak dipercaya — semua dicek ulang ke API Mayar. Return jumlah yang lunas.
+     */
     public static function webhook(array $payload): int
     {
         $d = (array)($payload['data'] ?? []);
+        $db = self::db();
         $ids = array_values(array_filter(array_unique(array_map('strval', [$d['id'] ?? '', $d['transactionId'] ?? '', $d['paymentLinkId'] ?? '', $d['productId'] ?? '', $d['invoiceId'] ?? '']))));
         $links = [];
         if ($ids) {
             $in = implode(',', array_fill(0, count($ids), '?'));
-            $st = self::db()->prepare("SELECT * FROM payment_links WHERE status = 'pending' AND (gateway_id IN ({$in}) OR gateway_txn IN ({$in}))");
+            $st = $db->prepare("SELECT * FROM payment_links WHERE status = 'pending' AND (gateway_id IN ({$in}) OR gateway_txn IN ({$in}))");
             $st->execute([...$ids, ...$ids]);
             $links = $st->fetchAll();
         }
+        if (!$links && !empty($d['amount'])) {
+            $st = $db->prepare("SELECT * FROM payment_links WHERE status = 'pending' AND gateway = 'mayar_qr' AND amount = ? AND created_at > DATE_SUB(NOW(), INTERVAL 2 DAY)");
+            $st->execute([(float)$d['amount']]);
+            $links = $st->fetchAll();
+        }
         if (!$links) {
-            $links = self::db()->query("SELECT * FROM payment_links WHERE status = 'pending' AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY) ORDER BY id DESC LIMIT 15")->fetchAll();
+            $links = $db->query("SELECT * FROM payment_links WHERE status = 'pending' AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY) ORDER BY id DESC LIMIT 15")->fetchAll();
         }
         $n = 0;
         foreach ($links as $l) {
