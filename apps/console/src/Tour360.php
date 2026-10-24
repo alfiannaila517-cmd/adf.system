@@ -168,7 +168,8 @@ final class Tour360
         if (!$pano) {
             return self::addFlat($pdo, $src, $info[2], $file['tmp_name'], $id, $nameId, $nameEn, $scenes);
         }
-        foreach ([8192 => 84, 4096 => 82] as $size => $q) {
+        // kualitas JPEG tinggi: detail tetap tajam saat di-zoom
+        foreach ([8192 => 92, 4096 => 88] as $size => $q) {
             $tw = min($size, $w);
             $im = imagecreatetruecolor($tw, (int)($tw / 2));
             imagecopyresampled($im, $src, 0, 0, 0, 0, $tw, (int)($tw / 2), $w, $h);
@@ -203,7 +204,7 @@ final class Tour360
         $dir = self::upDir();
         $im = imagecreatetruecolor($fw, $fh);
         imagecopyresampled($im, $src, 0, 0, 0, 0, $fw, $fh, $w, $h);
-        imagejpeg($im, "{$dir}/{$id}-full.jpg", 86);
+        imagejpeg($im, "{$dir}/{$id}-full.jpg", 92);
         // gambar kecil 2:1 dari tengah foto
         $cw = min($w, $h * 2);
         $ch = (int)($cw / 2);
