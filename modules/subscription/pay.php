@@ -58,6 +58,12 @@ if (!$inv) {
 if ($inv['status'] === 'unpaid' && adfsub_config($pdo)['gateway'] === 'console') {
     $link = adfsub_console_payment($pdo, $period);
     if ($link) {
+        // Halaman bayar ADF: setelah lunas kembali ke menu Tagihan Langganan sistem ini (pesan "Pembayaran berhasil")
+        if (str_contains($link, '/bayar.php?t=')) {
+            $https = ($_SERVER['HTTPS'] ?? '') === 'on' || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+            $backUrl = ($https ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? '') . rtrim(dirname((string) $_SERVER['SCRIPT_NAME']), '/') . '/index.php?paid=1';
+            $link .= '&back=' . rawurlencode($backUrl);
+        }
         header('Location: ' . $link);
         exit;
     }
