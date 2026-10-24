@@ -91,7 +91,21 @@ final class Pay
             throw new RuntimeException('Terlalu banyak pembayaran QRIS yang menunggu, coba beberapa saat lagi.');
         }
         $total = (int)$amount + $code;
-        $qr = Mayar::createQr($total);
+        // QR Mayar sempat gagal < 30 menit lalu → langsung halaman Mayar biasa (tanpa menunggu batas waktu lagi)
+        $down = sys_get_temp_dir() . '/adf-mayar-qr-down';
+        $fallback = fn () => self::hostedFor(['ref_type' => $type, 'ref' => $ref, 'business_id' => $bizId, 'description' => $desc, 'amount' => $amount, 'base_amount' => $amount]);
+        if (is_file($down) && filemtime($down) > time() - 1800) {
+            return $fallback();
+        }
+        try {
+            $qr = Mayar::createQr($total);
+            @unlink($down);
+        } catch (Throwable $e) {
+            @touch($down);
+            // QRIS dinamis Mayar tidak menjawab / ditolak → langsung halaman bayar Mayar biasa (nominal asli), klien tetap bisa bayar
+            error_log('Mayar QR gagal, pakai halaman Mayar: ' . $e->getMessage());
+            return $fallback();
+        }
         $token = bin2hex(random_bytes(12));
         $db->prepare("INSERT INTO payment_links (gateway, ref_type, ref, business_id, description, amount, base_amount, gateway_id, token, link, qr_string, qr_image, expires_at)
                 VALUES ('mayar_qr', ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, DATE_ADD(NOW(), INTERVAL " . self::QR_TTL_HOURS . " HOUR))")

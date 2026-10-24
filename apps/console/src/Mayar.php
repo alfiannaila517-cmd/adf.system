@@ -26,7 +26,7 @@ final class Mayar
     }
 
     /** @return array jawaban JSON Mayar (statusCode, messages, data) */
-    private static function request(string $method, string $path, array $body = []): array
+    private static function request(string $method, string $path, array $body = [], int $timeout = 25): array
     {
         if (!self::configured()) {
             throw new RuntimeException('Mayar belum diatur (Pengaturan → Payment Gateway).');
@@ -36,7 +36,8 @@ final class Mayar
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . Secrets::get('MAYAR_API_KEY'), 'Content-Type: application/json', 'Accept: application/json'],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 25,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_TIMEOUT => $timeout,
         ] + ($method === 'POST' ? [CURLOPT_POSTFIELDS => json_encode($body)] : []));
         $raw = curl_exec($ch);
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -95,7 +96,7 @@ final class Mayar
      */
     public static function createQr(int $amount): array
     {
-        $d = (array)(self::request('POST', '/qr-codes/create', ['amount' => $amount])['data'] ?? []);
+        $d = (array)(self::request('POST', '/qr-codes/create', ['amount' => $amount], 12)['data'] ?? []);
         if (empty($d['qrString']) && empty($d['url'])) {
             throw new RuntimeException('Jawaban Mayar tidak berisi kode QRIS.');
         }
