@@ -62,7 +62,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `cafe_invoice_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 // Load company info
-$companyName = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='company_name'")['setting_value'] ?? 'Bens Cafe';
+$companyName = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='company_name'")['setting_value'] ?? (getActiveBusinessConfig()['name'] ?? 'Cafe');
 $companyAddress = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='company_address'")['setting_value'] ?? '';
 $companyPhone = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='company_phone'")['setting_value'] ?? '';
 $companyEmail = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key='company_email'")['setting_value'] ?? '';
@@ -443,7 +443,7 @@ $stats = $db->fetchOne("SELECT
     SUM(CASE WHEN status='paid' AND DATE(paid_at) = CURDATE() THEN total_amount ELSE 0 END) as today_paid
 FROM cafe_invoices");
 
-$pageTitle = 'Invoice Bens Cafe';
+$pageTitle = 'Invoice ' . (getActiveBusinessConfig()['name'] ?? 'Cafe'); // dipakai Bens Cafe & Eat Meet
 include '../../includes/header.php';
 $successMsg = getFlash('success');
 $errorMsg = getFlash('error');
@@ -1675,7 +1675,7 @@ $businessIcon = defined('BUSINESS_ICON') ? BUSINESS_ICON : 'C';
             <label class="cf-label">Nomor Rekening</label>
             <input type="text" id="bankAccountNumber" class="cf-input" placeholder="Contoh: 1234567890" style="margin-bottom:10px;" value="<?php echo htmlspecialchars($invBankAccountNumber); ?>">
             <label class="cf-label">Atas Nama</label>
-            <input type="text" id="bankAccountHolder" class="cf-input" placeholder="Contoh: PT Bens Cafe Indonesia" style="margin-bottom:10px;" value="<?php echo htmlspecialchars($invBankAccountHolder); ?>">
+            <input type="text" id="bankAccountHolder" class="cf-input" placeholder="Contoh: <?php echo htmlspecialchars($companyName); ?>" style="margin-bottom:10px;" value="<?php echo htmlspecialchars($invBankAccountHolder); ?>">
             <div style="display:flex;justify-content:flex-end;">
                 <button onclick="saveBankInfo()" class="btn-cafe btn-sm btn-pay" id="bankSaveBtn">Simpan Rekening</button>
             </div>

@@ -314,7 +314,7 @@ if (isPost()) {
                 $bizIdToSlugMap = []; // 4 => eat-meet
 
                 // Known overrides first
-                $knownSlugs = ['BENSCAFE' => 'bens-cafe', 'NARAYANAHOTEL' => 'narayana-hotel', 'DEMO' => 'demo'];
+                $knownSlugs = ['BENSCAFE' => 'bens-cafe', 'EAT_MEET' => 'eaat-meet', 'EAAT_MEET' => 'eaat-meet', 'NARAYANAHOTEL' => 'narayana-hotel', 'DEMO' => 'demo'];
 
                 foreach ($allBizRows as $br) {
                     // Determine slug: use DB slug column if set, then known overrides, then derive

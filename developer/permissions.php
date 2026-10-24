@@ -75,7 +75,8 @@ try {
 
         foreach ($bizRows as $biz) {
             $nameNorm = strtolower((string)($biz['business_name'] ?? ''));
-            if (strpos($nameNorm, 'bens') !== false) {
+            // Bens Cafe & Eat Meet = bisnis kafe yang sama aturannya (menu tetap hanya tampil bila modul cafe-invoice aktif)
+            if (strpos($nameNorm, 'bens') !== false || strpos($nameNorm, 'eat') !== false) {
                 $cfgStmt->execute([(int)$biz['id'], (int)$cafeInvoiceMenuIdRow['id']]);
             }
         }

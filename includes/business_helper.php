@@ -12,6 +12,8 @@ function businessCodeToSlug($code)
 {
     $knownSlugs = [
         'BENSCAFE' => 'bens-cafe',
+        'EAT_MEET' => 'eaat-meet', // slug resmi Eat Meet (dipakai daftar outlet Gudang, stok, tagihan)
+        'EAAT_MEET' => 'eaat-meet',
         'NARAYANAHOTEL' => 'narayana-hotel',
         'CQC' => 'cqc',
         'DEMO' => 'demo',
@@ -220,8 +222,10 @@ function getAvailableBusinesses()
                 $businessId = pathinfo($file, PATHINFO_FILENAME);
                 $config = require $businessesPath . $file;
 
+                // Tidak ada di database master → sembunyikan dari daftar, TAPI file tidak dihapus.
+                // (Dulu di-unlink: membuka sistem di laptop yang database lokalnya tidak punya Eat Meet/Gudang
+                // ikut menghapus config mereka, lalu penghapusan itu terbawa ke git dan ke server.)
                 if ($activeDbs !== null && !empty($config['database']) && !isset($activeDbs[$config['database']])) {
-                    @unlink($businessesPath . $file);
                     continue;
                 }
 

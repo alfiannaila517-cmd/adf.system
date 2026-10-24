@@ -19,6 +19,8 @@ function getBusinessCodeToSlugMap($pdo = null)
     // Static hardcoded fallback + dynamic from DB
     $map = [
         'BENSCAFE'      => 'bens-cafe',
+        'EAT_MEET'      => 'eaat-meet',
+        'EAAT_MEET'     => 'eaat-meet',
         'NARAYANAHOTEL' => 'narayana-hotel',
         'CQC'           => 'cqc',
         'DEMO'          => 'demo',
