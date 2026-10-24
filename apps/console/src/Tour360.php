@@ -184,21 +184,30 @@ final class Tour360
         }
     }
 
-    /** Tambah penghubung (bola foto) di lokasi $from menuju $to pada yaw/pitch */
-    public static function addLink(PDO $pdo, string $from, string $to, float $yaw, float $pitch): void
+    /**
+     * Tambah penghubung (bola foto) di lokasi $from menuju $to pada yaw/pitch. $back: lokasi tujuan yang belum punya
+     * bola ke $from otomatis diberi bola kembali di arah berlawanan (yaw + 180°, pitch dibalik) — bisa dipindah nanti.
+     * @return bool true bila bola kembali ikut dibuat
+     */
+    public static function addLink(PDO $pdo, string $from, string $to, float $yaw, float $pitch, bool $back = true): bool
     {
         $scenes = self::load($pdo);
         if ($from === $to || !in_array($to, array_column($scenes, 'id'), true)) {
             throw new RuntimeException('Pilih lokasi tujuan yang lain.');
         }
+        $made = false;
         foreach ($scenes as &$s) {
             if ($s['id'] === $from) {
                 $s['links'] = array_values(array_filter($s['links'] ?? [], fn ($l) => $l['to'] !== $to)); // satu bola per tujuan
                 $s['links'][] = ['to' => $to, 'yaw' => round($yaw, 1), 'pitch' => round($pitch, 1)];
+            } elseif ($back && $s['id'] === $to && !in_array($from, array_column($s['links'] ?? [], 'to'), true)) {
+                $s['links'][] = ['to' => $from, 'yaw' => round(fmod($yaw + 360, 360) - 180, 1), 'pitch' => round(max(-40, min(40, -$pitch)), 1)];
+                $made = true;
             }
         }
         unset($s);
         self::save($pdo, $scenes);
+        return $made;
     }
 
     public static function removeLink(PDO $pdo, string $from, string $to): void

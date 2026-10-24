@@ -46,8 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cur = '';
                 flash('Lokasi dihapus.');
             } elseif ($action === 'link_add') {
-                Tour360::addLink($pdo, $cur, (string)($_POST['to'] ?? ''), (float)($_POST['yaw'] ?? 0), (float)($_POST['pitch'] ?? 0));
-                flash('Penghubung dipasang.');
+                $to = (string)($_POST['to'] ?? '');
+                $back = Tour360::addLink($pdo, $cur, $to, (float)($_POST['yaw'] ?? 0), (float)($_POST['pitch'] ?? 0), !empty($_POST['back']));
+                $toName = array_column(array_map(fn ($s) => ['id' => $s['id'], 'n' => $s['name']['id']], Tour360::load($pdo)), 'n', 'id')[$to] ?? $to;
+                flash('Penghubung dipasang.' . ($back ? " Bola kembali juga dipasang di \"{$toName}\" — buka lokasi itu untuk memindah posisinya bila kurang pas." : ''));
             } elseif ($action === 'link_del') {
                 Tour360::removeLink($pdo, $cur, (string)($_POST['to'] ?? ''));
                 flash('Penghubung dihapus.');
@@ -73,6 +75,15 @@ if (!isset($names[$cur])) {
     $cur = $scenes[0]['id'];
 }
 $scene = array_values(array_filter($scenes, fn ($s) => $s['id'] === $cur))[0];
+// Bola kembali otomatis di lokasi ini (dihitung juga oleh website): arah berlawanan dari penghubung lokasi lain ke sini
+$autoBack = [];
+foreach ($scenes as $o) {
+    foreach ($o['links'] ?? [] as $l) {
+        if ($l['to'] === $cur && $o['id'] !== $cur && !in_array($o['id'], array_column($scene['links'] ?? [], 'to'), true)) {
+            $autoBack[] = ['to' => $o['id'], 'yaw' => fmod((float)$l['yaw'] + 360, 360) - 180, 'pitch' => max(-40, min(40, -(float)$l['pitch']))];
+        }
+    }
+}
 $img = fn (string $s, string $z) => '/tour360-img.php?id=' . $id . '&s=' . rawurlencode($s) . '&z=' . $z;
 $problem = Tour360::problem();
 $limit = ini_get('upload_max_filesize') . ' / ' . ini_get('post_max_size');
@@ -153,6 +164,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
                         <button class="btn sm">Pasang</button>
                         <button type="button" class="btn ghost sm" id="linkCancel">Batal</button>
                     </div>
+                    <label style="display:flex;gap:6px;align-items:center;margin:6px 0 0;font-size:11.5px;color:var(--ink)"><input type="checkbox" name="back" value="1" checked style="width:auto"> Pasang juga bola kembali di lokasi tujuan (bila belum ada)</label>
                     <?php if (count($scenes) < 2): ?><div class="muted" style="font-size:11px;margin-top:4px">Tambah lokasi lain dulu (form kiri).</div><?php endif; ?>
                 </form>
             </div>
@@ -176,7 +188,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
         <div class="card">
             <h2>Penghubung dari lokasi ini <span class="muted" style="text-transform:none;letter-spacing:0">· <?= count($scene['links'] ?? []) ?></span></h2>
             <?php if (empty($scene['links'])): ?>
-                <p class="muted" style="margin:0;font-size:12px">Belum ada. Klik di foto (mis. di arah kolam atau resto) lalu pilih lokasi tujuannya. Untuk dua arah, buka lokasi tujuan dan pasang juga penghubung kembali ke sini.</p>
+                <p class="muted" style="margin:0;font-size:12px">Belum ada. Klik di foto (mis. di arah kolam atau resto) lalu pilih lokasi tujuannya. Bola kembali di lokasi tujuan dibuat otomatis; untuk memindahnya, buka lokasi itu, klik di titik yang pas, lalu pilih lokasi ini lagi.</p>
             <?php else: ?>
                 <table class="sm">
                     <?php foreach ($scene['links'] as $l): ?>
@@ -214,6 +226,7 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     const IMG = <?= json_encode($img($cur, 'ZZ'), JSON_UNESCAPED_SLASHES) ?>;
     const THUMB = id => <?= json_encode('/tour360-img.php?id=' . $id . '&z=thumb&s=', JSON_UNESCAPED_SLASHES) ?> + encodeURIComponent(id);
     const ADMIN = <?= $isAdmin ? 'true' : 'false' ?>;
+    const BACK = <?= json_encode($autoBack, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
     const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
     const pano = document.getElementById('pano');
 
@@ -227,12 +240,16 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     const hc = scene.hotspotContainer();
 
     // Penghubung yang sudah ada (Marzipano menimpa transform elemen hotspot → isi dibungkus div dalam)
-    (SCENE.links || []).forEach(l => {
+    // + bola kembali otomatis (sama dengan website): lokasi lain menuju sini, sini belum punya penghubung ke sana
+    const links = (SCENE.links || []).slice();
+    BACK.forEach(l => { if (!links.some(x => x.to === l.to)) links.push(Object.assign({ auto: true }, l)); });
+    links.forEach(l => {
         const el = document.createElement('div');
         el.className = 't3-hs';
+        if (l.auto) { el.style.opacity = '.65'; el.title = 'Bola kembali otomatis — klik di titik yang pas lalu pilih lokasi ini untuk memindahnya'; }
         el.innerHTML = '<div><div class="ball"></div><span class="lb"></span></div>';
         el.querySelector('.ball').style.backgroundImage = 'url("' + THUMB(l.to) + '")';
-        el.querySelector('.lb').textContent = NAMES[l.to] || l.to;
+        el.querySelector('.lb').textContent = (NAMES[l.to] || l.to) + (l.auto ? ' (otomatis)' : '');
         el.addEventListener('mousedown', e => e.stopPropagation());
         hc.createHotspot(el, { yaw: rad(l.yaw), pitch: rad(l.pitch) });
     });
