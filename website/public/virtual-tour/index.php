@@ -28,7 +28,8 @@ try {
     $music = '';
 }
 if (!$scenes) {
-    $scenes = [['id' => 'aerial', 'name' => ['id' => 'Pemandangan Udara Karimunjawa', 'en' => 'Karimunjawa Aerial View'], 'base' => 'img/aerial', 'view' => ['yaw' => 25, 'pitch' => 12, 'fov' => 100], 'links' => []]];
+    $scenes = [['id' => 'aerial', 'name' => ['id' => 'Pemandangan Udara Karimunjawa', 'en' => 'Karimunjawa Aerial View'], 'base' => 'img/aerial', 'view' => ['yaw' => 25, 'pitch' => 12, 'fov' => 100], 'links' => [],
+        'tiles' => ['path' => 'img/aerial-tiles', 'face' => 3072, 'levels' => [512, 1536, 3072], 'v' => 1]]]; // tiles HD dari foto asli 12.000 px
 }
 ?>
 <!doctype html>
@@ -204,6 +205,14 @@ if (!$scenes) {
                 geometry = new Marzipano.FlatGeometry([{ width: s.w, height: s.h, tileWidth: s.w, tileHeight: s.h }]);
                 view = new Marzipano.FlatView({ x: .5, y: .5, zoom: 99, mediaAspectRatio: s.w / s.h },
                     Marzipano.util.compose(Marzipano.FlatView.limit.resolution(s.w), Marzipano.FlatView.limit.letterbox()));
+            } else if (s.tiles && s.tiles.levels) {
+                // Tiles HD (dibuat Console): kubus 6 sisi × kotak 512 px per tingkat — hanya bagian yang dilihat yang dimuat,
+                // tetap tajam saat di-zoom (juga di HP). Tingkat 0 = pratinjau kecil yang langsung tampil.
+                const T = s.tiles, v = '?v=' + (T.v || 1);
+                source = Marzipano.ImageUrlSource.fromString(T.path + '/{z}/{f}/{y}/{x}.jpg' + v, { cubeMapPreviewUrl: T.path + '/preview.jpg' + v });
+                geometry = new Marzipano.CubeGeometry([{ tileSize: 256, size: 256, fallbackOnly: true }].concat(T.levels.map(sz => ({ tileSize: 512, size: sz }))));
+                view = new Marzipano.RectilinearView({ yaw: rad(s.view.yaw), pitch: rad(s.view.pitch), fov: rad(s.view.fov) },
+                    Marzipano.RectilinearView.limit.traditional(T.face, rad(120)));
             } else {
                 // dua tingkat: 4096 (HP) & 8192 (komputer) — Marzipano memilih sesuai kemampuan perangkat
                 source = new Marzipano.ImageUrlSource(t => ({ url: s.base + '-' + (t.z === 0 ? 4096 : 8192) + '.jpg' }));
