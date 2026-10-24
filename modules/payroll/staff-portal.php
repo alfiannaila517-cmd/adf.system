@@ -5179,6 +5179,7 @@ header('Expires: 0');
             <div class="ip-done-text">Terinstall!</div>
             <div class="ip-done-sub">Cek home screen atau daftar aplikasi (app drawer)</div>
             <div class="ip-done-sub" style="margin-top:6px;font-size:10px;opacity:.5;">Jika tidak muncul di home screen, swipe up → cari "Staff Portal"</div>
+            <div class="ip-done-sub" style="margin-top:6px;font-size:10px;opacity:.7;">HP Xiaomi / POCO / Redmi: Pengaturan → Aplikasi → Chrome → Izin lainnya → <b>Pintasan layar utama</b> → Izinkan, lalu install lagi</div>
         </div>
     </div>
 
@@ -9443,16 +9444,31 @@ header('Expires: 0');
             });
 
             function showManualGuide() {
-                // Langkah berbeda: iPhone (Safari) vs Android (Chrome)
+                // Langkah berbeda: iPhone (Safari) vs Android (Chrome). Browser yang tidak bisa memasang aplikasi:
+                // browser di dalam WhatsApp/Facebook/Instagram (WebView "; wv)") dan Mi Browser bawaan Xiaomi/POCO/Redmi → buka di Chrome dulu.
+                const ua = navigator.userAgent;
+                const badBrowser = !isIOS && (/; wv\)|FBAN|FBAV|Instagram|Line\//.test(ua) || /MiuiBrowser|XiaoMi\//i.test(ua));
                 const st = isIOS ? [
                     ['Tap tombol Bagikan', 'Kotak dengan panah ke atas di bawah layar Safari'],
                     ['Pilih "Tambah ke Layar Utama"', 'Geser ke bawah bila belum terlihat'],
                     ['Tap "Tambah"', 'Ikon aplikasi muncul di layar HP']
+                ] : badBrowser ? [
+                    ['Buka halaman ini di Chrome', 'Browser ini (WhatsApp / Mi Browser) tidak bisa memasang aplikasi. Tap ⋮ → "Buka di Chrome", atau salin alamat di bawah ke Chrome'],
+                    ['Di Chrome: tap menu ⋮', '3 titik di kanan atas → "Instal aplikasi" / "Tambahkan ke layar utama"'],
+                    ['Tap "Instal"', 'Ikon aplikasi muncul di layar HP']
                 ] : [
                     ['Tap menu ⋮', '3 titik di kanan atas Chrome'],
                     ['Pilih "Instal aplikasi"', 'Atau "Tambahkan ke layar utama"'],
                     ['Tap "Instal"', 'Ikon aplikasi muncul di layar HP']
                 ];
+                // HP Xiaomi / POCO / Redmi: Chrome perlu izin "Pintasan layar utama" — tanpa itu ikon tidak muncul walau "berhasil"
+                const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+                const extra = isIOS ? '' : `
+                <div style="text-align:left;background:rgba(240,180,41,.1);border:1px solid rgba(240,180,41,.3);border-radius:12px;padding:10px 12px;margin:0 0 16px;">
+                    <div style="color:#f0b429;font-size:12px;font-weight:700;margin-bottom:4px;">HP Xiaomi / POCO / Redmi: ikon tidak muncul?</div>
+                    <div style="color:rgba(255,255,255,.7);font-size:11px;line-height:1.5;">Pengaturan HP → Aplikasi → Kelola aplikasi → <b>Chrome</b> → <b>Izin lainnya</b> → <b>Pintasan layar utama</b> → Izinkan. Lalu ulangi langkah di atas.</div>
+                    ${badBrowser ? `<div style="margin-top:8px;display:flex;gap:6px;"><input readonly value="${esc(location.href)}" style="flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:6px 8px;font-size:11px;" onclick="this.select()"><button type="button" onclick="navigator.clipboard&&navigator.clipboard.writeText(location.href).then(()=>{this.textContent='Tersalin ✓'})" style="background:#f0b429;border:0;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;color:#0d1f3c;">Salin</button></div>` : ''}
+                </div>`;
                 // Create fullscreen guide overlay
                 const ov = document.createElement('div');
                 ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(5,10,24,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;animation:faceIn .3s ease;';
@@ -9460,7 +9476,7 @@ header('Expires: 0');
             <div style="text-align:center;max-width:320px;">
                 <div style="font-size:56px;margin-bottom:16px;">📲</div>
                 <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 8px;">Pasang Aplikasi</h3>
-                <p style="color:rgba(255,255,255,.5);font-size:12px;margin:0 0 28px;">Ikuti langkah berikut di ${isIOS ? 'Safari' : 'Chrome'}:</p>
+                <p style="color:rgba(255,255,255,.5);font-size:12px;margin:0 0 28px;">Ikuti langkah berikut${badBrowser ? '' : ' di ' + (isIOS ? 'Safari' : 'Chrome')}:</p>
                 <div style="text-align:left;">
                     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:20px;">
                         <div style="width:32px;height:32px;background:linear-gradient(135deg,#f0b429,#e09800);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#0d1f3c;flex-shrink:0;">1</div>
@@ -9484,6 +9500,7 @@ header('Expires: 0');
                         </div>
                     </div>
                 </div>
+                ${extra}
                 <button onclick="this.closest('div[style]').parentElement.remove();" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;padding:12px 32px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;width:100%;">Mengerti</button>
             </div>
         `;
