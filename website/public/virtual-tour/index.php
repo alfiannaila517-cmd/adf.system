@@ -151,26 +151,42 @@ if (!$scenes) {
         const built = {};
         let current = null;
 
+        const isFlat = s => s.type === 'flat';
+        // posisi bola kembali otomatis di b menuju a (sama dengan Console Tour360::backPos)
+        function backPos(a, l, b) {
+            if (isFlat(b)) return { x: .5, y: .85 };
+            if (isFlat(a)) return { yaw: b.view.yaw, pitch: Math.min(40, b.view.pitch + 15) };
+            return { yaw: ((l.yaw + 360) % 360) - 180, pitch: Math.max(-40, Math.min(40, -l.pitch)) };
+        }
+
         function build(s) {
             if (built[s.id]) return built[s.id];
-            // dua tingkat: 4096 (HP) & 8192 (komputer) — Marzipano memilih sesuai kemampuan perangkat
-            const source = new Marzipano.ImageUrlSource(t => ({ url: s.base + '-' + (t.z === 0 ? 4096 : 8192) + '.jpg' }));
-            const geometry = new Marzipano.EquirectGeometry([{ width: 4096 }, { width: 8192 }]);
-            const view = new Marzipano.RectilinearView({ yaw: rad(s.view.yaw), pitch: rad(s.view.pitch), fov: rad(s.view.fov) }, limiter);
+            let source, geometry, view;
+            if (isFlat(s)) {
+                // foto biasa: satu gambar utuh, muat penuh di layar, bisa di-zoom sampai resolusi asli
+                source = new Marzipano.ImageUrlSource(() => ({ url: s.base + '-full.jpg' }));
+                geometry = new Marzipano.FlatGeometry([{ width: s.w, height: s.h, tileWidth: s.w, tileHeight: s.h }]);
+                view = new Marzipano.FlatView({ x: .5, y: .5, zoom: 99, mediaAspectRatio: s.w / s.h },
+                    Marzipano.util.compose(Marzipano.FlatView.limit.resolution(s.w), Marzipano.FlatView.limit.letterbox()));
+            } else {
+                // dua tingkat: 4096 (HP) & 8192 (komputer) — Marzipano memilih sesuai kemampuan perangkat
+                source = new Marzipano.ImageUrlSource(t => ({ url: s.base + '-' + (t.z === 0 ? 4096 : 8192) + '.jpg' }));
+                geometry = new Marzipano.EquirectGeometry([{ width: 4096 }, { width: 8192 }]);
+                view = new Marzipano.RectilinearView({ yaw: rad(s.view.yaw), pitch: rad(s.view.pitch), fov: rad(s.view.fov) }, limiter);
+            }
             const scene = viewer.createScene({ source, geometry, view, pinFirstLevel: true });
             const hc = scene.hotspotContainer();
-            // logo bulat menempel di bawah (nadir)
-            const nadir = document.createElement('div');
-            nadir.className = 'nadir';
-            nadir.innerHTML = '<div></div>'; // Marzipano menimpa transform elemen luar → isi di elemen dalam
-            hc.createHotspot(nadir, { yaw: 0, pitch: Math.PI / 2 }, { perspective: { radius: 1100 } }); // Marzipano: pitch positif = ke bawah
-            // titik pindah ke lokasi lain + bola kembali otomatis: lokasi lain menuju sini tapi sini belum punya
-            // penghubung ke sana → arah berlawanan (yaw + 180°, pitch dibalik: dari drone ke bawah = dari darat ke atas)
+            if (!isFlat(s)) {
+                // logo bulat menempel di bawah (nadir)
+                const nadir = document.createElement('div');
+                nadir.className = 'nadir';
+                nadir.innerHTML = '<div></div>'; // Marzipano menimpa transform elemen luar → isi di elemen dalam
+                hc.createHotspot(nadir, { yaw: 0, pitch: Math.PI / 2 }, { perspective: { radius: 1100 } }); // Marzipano: pitch positif = ke bawah
+            }
+            // titik pindah ke lokasi lain + bola kembali otomatis (lokasi lain menuju sini tapi sini belum punya penghubung ke sana)
             const links = s.links.slice();
             SCENES.forEach(o => (o.links || []).forEach(l => {
-                if (l.to === s.id && o.id !== s.id && !links.some(x => x.to === o.id)) {
-                    links.push({ to: o.id, yaw: ((l.yaw + 360) % 360) - 180, pitch: Math.max(-40, Math.min(40, -l.pitch)) });
-                }
+                if (l.to === s.id && o.id !== s.id && !links.some(x => x.to === o.id)) links.push(Object.assign({ to: o.id }, backPos(o, l, s)));
             }));
             links.forEach(l => {
                 const to = SCENES.find(x => x.id === l.to);
@@ -180,7 +196,7 @@ if (!$scenes) {
                 el.innerHTML = '<div><div class="ball" style="background-image:url(' + thumb(to) + ')"></div><span class="lb"></span></div>';
                 el.querySelector('.lb').dataset.scene = to.id;
                 el.addEventListener('click', () => go(to.id));
-                hc.createHotspot(el, { yaw: rad(l.yaw), pitch: rad(l.pitch) });
+                hc.createHotspot(el, isFlat(s) ? { x: +l.x, y: +l.y } : { yaw: rad(l.yaw), pitch: rad(l.pitch) });
             });
             return (built[s.id] = { s, scene, view });
         }
@@ -188,7 +204,9 @@ if (!$scenes) {
         const autorotate = Marzipano.autorotate({ yawSpeed: 0.03, targetPitch: 0, targetFov: Math.PI / 2 });
         let rotating = true;
         let introOn = false; // selama efek pembuka, putar otomatis ditunda
-        function startRotate() { if (rotating && !introOn) { viewer.setIdleMovement(3000, autorotate); viewer.startMovement(autorotate); } }
+        function startRotate() {
+            if (current && isFlat(current)) { viewer.stopMovement(); viewer.setIdleMovement(Infinity); return; } // foto biasa tidak diputar
+            if (rotating && !introOn) { viewer.setIdleMovement(3000, autorotate); viewer.startMovement(autorotate); } }
 
         function go(id) {
             const s = SCENES.find(x => x.id === id) || SCENES[0];
@@ -225,7 +243,11 @@ if (!$scenes) {
             this.classList.toggle('on', rotating);
             if (rotating) startRotate(); else { viewer.stopMovement(); viewer.setIdleMovement(Infinity); }
         };
-        const zoom = f => { const v = built[current.id].view; v.setFov(Math.min(rad(120), Math.max(rad(30), v.fov() * f))); };
+        const zoom = f => {
+            const v = built[current.id].view;
+            if (isFlat(current)) v.setZoom(v.zoom() * f); // foto biasa: batas zoom diatur limiter (muat layar … resolusi asli)
+            else v.setFov(Math.min(rad(120), Math.max(rad(30), v.fov() * f)));
+        };
         document.getElementById('bIn').onclick = () => zoom(0.8);
         document.getElementById('bOut').onclick = () => zoom(1.25);
         document.getElementById('bFull').onclick = () => {
@@ -239,7 +261,7 @@ if (!$scenes) {
             g.style.display = '';
             let on = false, last = null;
             const onOri = e => {
-                if (e.alpha == null) return;
+                if (e.alpha == null || isFlat(current)) return;
                 const cur = { a: e.alpha, b: e.beta };
                 if (last) {
                     const v = built[current.id].view;
@@ -269,6 +291,7 @@ if (!$scenes) {
         if (location.search.includes('debug=1')) {
             document.getElementById('pano').addEventListener('click', e => {
                 const c = built[current.id].view.screenToCoordinates({ x: e.clientX, y: e.clientY });
+                if (isFlat(current)) { hint.textContent = 'x ' + c.x.toFixed(3) + ' · y ' + c.y.toFixed(3); hint.classList.remove('off'); return; }
                 console.log('yaw', (c.yaw * 180 / Math.PI).toFixed(1), 'pitch', (c.pitch * 180 / Math.PI).toFixed(1));
                 hint.textContent = 'yaw ' + (c.yaw * 180 / Math.PI).toFixed(1) + ' · pitch ' + (c.pitch * 180 / Math.PI).toFixed(1);
                 hint.classList.remove('off');
@@ -372,7 +395,7 @@ if (!$scenes) {
         }
 
         const first = SCENES.find(x => x.id === location.hash.slice(1)) || SCENES[0];
-        const wantIntro = !(q.has('yaw') || q.has('pitch') || q.has('fov')) && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const wantIntro = !isFlat(first) && !(q.has('yaw') || q.has('pitch') || q.has('fov')) && !matchMedia('(prefers-reduced-motion: reduce)').matches;
         introOn = wantIntro;
         go(first.id);
         if (wantIntro) {
