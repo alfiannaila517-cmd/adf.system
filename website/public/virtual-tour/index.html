@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Tour 360° · Narayana Hotel Karimunjawa</title>
+    <meta name="description" content="Jelajahi Narayana Hotel Karimunjawa dalam 360° — lihat pulau, laut, dan resort dari udara.">
+    <meta property="og:title" content="Tour 360° Narayana Hotel Karimunjawa">
+    <meta property="og:image" content="img/aerial-4096.jpg">
+    <link rel="icon" href="img/logo-round.png">
+    <style>
+        :root { --gold: #b4975a; --gold2: #ecc46b; --glass: rgba(42, 30, 14, .62); --ink: #fff; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0b0b; font-family: 'Lato', 'Segoe UI', system-ui, sans-serif; color: var(--ink); }
+        #pano { position: absolute; inset: 0; }
+
+        /* header */
+        .hd { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: linear-gradient(to bottom, rgba(0, 0, 0, .55), transparent); z-index: 5; pointer-events: none; }
+        .hd > * { pointer-events: auto; }
+        .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; }
+        .brand img { width: 46px; height: 46px; border-radius: 50%; box-shadow: 0 4px 14px rgba(0, 0, 0, .4); }
+        .brand b { display: block; font-size: 14px; letter-spacing: .14em; text-transform: uppercase; }
+        .brand small { display: block; font-size: 11px; color: var(--gold2); letter-spacing: .06em; }
+        .sp { flex: 1; }
+        .lang { display: flex; border: 1px solid rgba(255, 255, 255, .35); border-radius: 99px; overflow: hidden; }
+        .lang button { border: 0; background: transparent; color: #fff; font-size: 11px; font-weight: 700; padding: 6px 11px; cursor: pointer; }
+        .lang button.on { background: var(--gold); }
+        .book { border: 1px solid var(--gold2); color: var(--gold2); text-decoration: none; font-size: 12px; font-weight: 700; letter-spacing: .14em; padding: 10px 18px; text-transform: uppercase; background: rgba(0, 0, 0, .25); }
+        .book:hover { background: var(--gold); color: #fff; border-color: var(--gold); }
+
+        /* judul titik */
+        .title { position: absolute; left: 18px; bottom: 92px; z-index: 5; max-width: 70vw; text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+        .title small { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold2); }
+        .title h1 { margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: .02em; }
+
+        /* bar tombol bawah */
+        .bar { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 5; display: flex; gap: 4px; padding: 6px 8px; border-radius: 14px; background: var(--glass); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+        .bar button { width: 42px; height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--gold2); cursor: pointer; display: grid; place-items: center; }
+        .bar button:hover, .bar button.on { background: rgba(236, 196, 107, .16); }
+        .bar svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        .bar .sep { width: 1px; background: rgba(255, 255, 255, .15); margin: 6px 3px; }
+
+        /* daftar titik (bila lebih dari satu) */
+        .scenes { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 6; display: none; gap: 10px; padding: 10px; border-radius: 14px; background: var(--glass); backdrop-filter: blur(8px); max-width: 92vw; overflow-x: auto; }
+        .scenes.show { display: flex; }
+        .scenes a { flex: 0 0 auto; width: 118px; text-decoration: none; color: #fff; font-size: 11.5px; text-align: center; }
+        .scenes a img { width: 118px; height: 66px; object-fit: cover; border-radius: 8px; border: 2px solid transparent; display: block; margin-bottom: 4px; }
+        .scenes a.on img { border-color: var(--gold2); }
+
+        /* hotspot pindah lokasi: bola foto + label */
+        .hs { width: 0; height: 0; cursor: pointer; }
+        .hs > div { position: relative; left: -60px; top: -39px; width: 120px; text-align: center; }
+        .hs .ball { width: 78px; height: 78px; border-radius: 50%; border: 3px solid #fff; background-size: cover; background-position: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .45); transition: transform .2s; margin: 0 auto; }
+        .hs:hover .ball { transform: scale(1.12); }
+        .hs .lb { margin-top: 6px; display: inline-block; padding: 3px 10px; border-radius: 99px; background: rgba(0, 0, 0, .55); font-size: 12px; font-weight: 700; white-space: nowrap; }
+
+        /* logo penutup bawah (nadir) */
+        .nadir { width: 0; height: 0; pointer-events: none; }
+        .nadir > div { position: relative; left: -260px; top: -260px; width: 520px; height: 520px; border-radius: 50%; background: url(img/logo-round.png) center / cover no-repeat; }
+
+        /* petunjuk */
+        .hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4; padding: 12px 18px; border-radius: 12px; background: rgba(0, 0, 0, .5); font-size: 13px; text-align: center; transition: opacity .6s; pointer-events: none; }
+        .hint.off { opacity: 0; }
+        .credit { position: absolute; right: 14px; bottom: 10px; z-index: 5; font-size: 10px; color: rgba(255, 255, 255, .65); }
+
+        @media (max-width: 640px) {
+            .brand b { font-size: 12px; } .brand small { display: none; } .brand img { width: 40px; height: 40px; }
+            .book { padding: 8px 11px; font-size: 10.5px; letter-spacing: .08em; }
+            .title { bottom: 84px; } .title h1 { font-size: 18px; }
+            .bar button { width: 38px; }
+            .credit { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="pano"></div>
+
+    <div class="hd">
+        <a class="brand" href="/" title="Narayana Hotel Karimunjawa"><img src="img/logo-round.png" alt="Narayana"><span><b>Narayana</b><small>Hotel Karimunjawa</small></span></a>
+        <span class="sp"></span>
+        <div class="lang"><button type="button" data-l="id" class="on">ID</button><button type="button" data-l="en">EN</button></div>
+        <a class="book" href="/booking.php" data-t="book">Pesan Sekarang</a>
+    </div>
+
+    <div class="title"><small data-t="tour">Tour 360°</small><h1 id="sceneName"></h1></div>
+
+    <div class="scenes" id="sceneList"></div>
+
+    <div class="bar">
+        <button type="button" id="bPrev" title="Sebelumnya" data-tt="prev"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg></button>
+        <button type="button" id="bList" title="Daftar lokasi" data-tt="list"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg></button>
+        <button type="button" id="bNext" title="Berikutnya" data-tt="next"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg></button>
+        <span class="sep"></span>
+        <button type="button" id="bRotate" class="on" title="Putar otomatis" data-tt="rotate"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7" /><path d="M20 4v5h-5" /></svg></button>
+        <button type="button" id="bIn" title="Perbesar" data-tt="zin"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M11 8v6M8 11h6M20 20l-4-4" /></svg></button>
+        <button type="button" id="bOut" title="Perkecil" data-tt="zout"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M8 11h6M20 20l-4-4" /></svg></button>
+        <button type="button" id="bGyro" title="Gerakkan HP" data-tt="gyro" style="display:none"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2" /><path d="M3 9a9 9 0 0 0 0 6M21 9a9 9 0 0 1 0 6" /></svg></button>
+        <button type="button" id="bFull" title="Layar penuh" data-tt="full"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg></button>
+    </div>
+
+    <div class="hint" id="hint" data-t="hint">Geser untuk melihat sekeliling</div>
+    <div class="credit">© Narayana Hotel Karimunjawa</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marzipano@0.10.2/dist/marzipano.js"></script>
+    <script>
+        /*
+         * Daftar titik 360°. Tambah titik baru: salin satu objek, isi gambar (img/<id>-4096.jpg & -8192.jpg, equirectangular 2:1)
+         * dan pasang "links" (titik pindah) di titik lain — yaw/pitch dalam derajat (pitch positif = ke bawah), dibaca dari ?debug=1 (klik → posisi).
+         */
+        const SCENES = [{
+            id: 'aerial',
+            name: { id: 'Pemandangan Udara Karimunjawa', en: 'Karimunjawa Aerial View' },
+            view: { yaw: 25, pitch: 12, fov: 100 },
+            links: [
+                // contoh: { to: 'lobby', yaw: 40, pitch: -18 },
+            ],
+        }];
+
+        const T = {
+            id: { book: 'Pesan Sekarang', tour: 'Tour 360°', hint: 'Geser untuk melihat sekeliling', prev: 'Sebelumnya', next: 'Berikutnya', list: 'Daftar lokasi', rotate: 'Putar otomatis', zin: 'Perbesar', zout: 'Perkecil', gyro: 'Gerakkan HP', full: 'Layar penuh' },
+            en: { book: 'Book Now', tour: '360° Tour', hint: 'Drag to look around', prev: 'Previous', next: 'Next', list: 'Locations', rotate: 'Auto rotate', zin: 'Zoom in', zout: 'Zoom out', gyro: 'Move your phone', full: 'Fullscreen' },
+        };
+        let lang = (localStorage.getItem('nrLang') || navigator.language || 'id').startsWith('en') ? 'en' : 'id';
+
+        const rad = d => d * Math.PI / 180;
+        const viewer = new Marzipano.Viewer(document.getElementById('pano'), { controls: { mouseViewMode: 'drag' } });
+        const limiter = Marzipano.RectilinearView.limit.traditional(8192, rad(120));
+        const built = {};
+        let current = null;
+
+        function build(s) {
+            if (built[s.id]) return built[s.id];
+            // dua tingkat: 4096 (HP) & 8192 (komputer) — Marzipano memilih sesuai kemampuan perangkat
+            const source = new Marzipano.ImageUrlSource(t => ({ url: 'img/' + s.id + '-' + (t.z === 0 ? 4096 : 8192) + '.jpg' }));
+            const geometry = new Marzipano.EquirectGeometry([{ width: 4096 }, { width: 8192 }]);
+            const view = new Marzipano.RectilinearView({ yaw: rad(s.view.yaw), pitch: rad(s.view.pitch), fov: rad(s.view.fov) }, limiter);
+            const scene = viewer.createScene({ source, geometry, view, pinFirstLevel: true });
+            const hc = scene.hotspotContainer();
+            // logo bulat menempel di bawah (nadir)
+            const nadir = document.createElement('div');
+            nadir.className = 'nadir';
+            nadir.innerHTML = '<div></div>'; // Marzipano menimpa transform elemen luar → isi di elemen dalam
+            hc.createHotspot(nadir, { yaw: 0, pitch: Math.PI / 2 }, { perspective: { radius: 1100 } }); // Marzipano: pitch positif = ke bawah
+            // titik pindah ke lokasi lain
+            s.links.forEach(l => {
+                const to = SCENES.find(x => x.id === l.to);
+                if (!to) return;
+                const el = document.createElement('div');
+                el.className = 'hs';
+                el.innerHTML = '<div><div class="ball" style="background-image:url(img/' + to.id + '-4096.jpg)"></div><span class="lb"></span></div>';
+                el.querySelector('.lb').dataset.scene = to.id;
+                el.addEventListener('click', () => go(to.id));
+                hc.createHotspot(el, { yaw: rad(l.yaw), pitch: rad(l.pitch) });
+            });
+            return (built[s.id] = { s, scene, view });
+        }
+
+        const autorotate = Marzipano.autorotate({ yawSpeed: 0.03, targetPitch: 0, targetFov: Math.PI / 2 });
+        let rotating = true;
+        function startRotate() { if (rotating) { viewer.setIdleMovement(3000, autorotate); viewer.startMovement(autorotate); } }
+
+        function go(id) {
+            const s = SCENES.find(x => x.id === id) || SCENES[0];
+            const b = build(s);
+            b.scene.switchTo({ transitionDuration: 900 });
+            current = s;
+            history.replaceState(null, '', '#' + s.id);
+            label();
+            startRotate();
+        }
+
+        function label() {
+            document.documentElement.lang = lang;
+            document.getElementById('sceneName').textContent = current ? current.name[lang] : '';
+            document.querySelectorAll('[data-t]').forEach(el => { el.textContent = T[lang][el.dataset.t]; });
+            document.querySelectorAll('[data-tt]').forEach(el => { el.title = T[lang][el.dataset.tt]; });
+            document.querySelectorAll('.hs .lb').forEach(el => { const s = SCENES.find(x => x.id === el.dataset.scene); el.textContent = s ? s.name[lang] : ''; });
+            document.querySelectorAll('.lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
+            const list = document.getElementById('sceneList');
+            list.innerHTML = SCENES.map(s => '<a href="#' + s.id + '" data-id="' + s.id + '" class="' + (current && s.id === current.id ? 'on' : '') + '"><img src="img/' + s.id + '-4096.jpg" alt="">' + s.name[lang] + '</a>').join('');
+        }
+
+        // tombol
+        const multi = SCENES.length > 1;
+        ['bPrev', 'bNext', 'bList'].forEach(id => { if (!multi) document.getElementById(id).style.display = 'none'; });
+        if (!multi) document.querySelector('.bar .sep').style.display = 'none';
+        const step = d => { const i = SCENES.findIndex(x => x.id === current.id); go(SCENES[(i + d + SCENES.length) % SCENES.length].id); };
+        document.getElementById('bPrev').onclick = () => step(-1);
+        document.getElementById('bNext').onclick = () => step(1);
+        document.getElementById('bList').onclick = () => document.getElementById('sceneList').classList.toggle('show');
+        document.getElementById('sceneList').addEventListener('click', e => { const a = e.target.closest('a'); if (a) { e.preventDefault(); go(a.dataset.id); document.getElementById('sceneList').classList.remove('show'); } });
+        document.getElementById('bRotate').onclick = function () {
+            rotating = !rotating;
+            this.classList.toggle('on', rotating);
+            if (rotating) startRotate(); else { viewer.stopMovement(); viewer.setIdleMovement(Infinity); }
+        };
+        const zoom = f => { const v = built[current.id].view; v.setFov(Math.min(rad(120), Math.max(rad(30), v.fov() * f))); };
+        document.getElementById('bIn').onclick = () => zoom(0.8);
+        document.getElementById('bOut').onclick = () => zoom(1.25);
+        document.getElementById('bFull').onclick = () => {
+            const d = document;
+            if (!d.fullscreenElement) (d.documentElement.requestFullscreen || d.documentElement.webkitRequestFullscreen || (() => {})).call(d.documentElement);
+            else (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+        };
+        // gerak HP (giroskop) — hanya di perangkat yang mendukung
+        if (window.DeviceOrientationEvent && 'ontouchstart' in window) {
+            const g = document.getElementById('bGyro');
+            g.style.display = '';
+            let on = false, last = null;
+            const onOri = e => {
+                if (e.alpha == null) return;
+                const cur = { a: e.alpha, b: e.beta };
+                if (last) {
+                    const v = built[current.id].view;
+                    let da = cur.a - last.a; if (da > 180) da -= 360; if (da < -180) da += 360;
+                    v.setYaw(v.yaw() - rad(da));
+                    v.setPitch(Math.max(rad(-89), Math.min(rad(89), v.pitch() + rad(cur.b - last.b))));
+                }
+                last = cur;
+            };
+            g.onclick = async () => {
+                if (!on && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    try { if (await DeviceOrientationEvent.requestPermission() !== 'granted') return; } catch (e) { return; }
+                }
+                on = !on;
+                g.classList.toggle('on', on);
+                last = null;
+                if (on) { viewer.stopMovement(); window.addEventListener('deviceorientation', onOri); } else window.removeEventListener('deviceorientation', onOri);
+            };
+        }
+        document.querySelectorAll('.lang button').forEach(b => b.onclick = () => { lang = b.dataset.l; try { localStorage.setItem('nrLang', lang); } catch (e) {} label(); });
+        // petunjuk hilang saat mulai digeser
+        const hint = document.getElementById('hint');
+        const hideHint = () => hint.classList.add('off');
+        document.getElementById('pano').addEventListener('pointerdown', hideHint, { once: true });
+        setTimeout(hideHint, 5000);
+        // ?debug=1: klik untuk melihat yaw/pitch (memasang titik pindah)
+        if (location.search.includes('debug=1')) {
+            document.getElementById('pano').addEventListener('click', e => {
+                const c = built[current.id].view.screenToCoordinates({ x: e.clientX, y: e.clientY });
+                console.log('yaw', (c.yaw * 180 / Math.PI).toFixed(1), 'pitch', (c.pitch * 180 / Math.PI).toFixed(1));
+                hint.textContent = 'yaw ' + (c.yaw * 180 / Math.PI).toFixed(1) + ' · pitch ' + (c.pitch * 180 / Math.PI).toFixed(1);
+                hint.classList.remove('off');
+            });
+        }
+
+        // ?yaw=&pitch=&fov= (derajat) membuka sudut pandang tertentu — untuk membagikan tampilan
+        const q = new URLSearchParams(location.search);
+        if (q.has('yaw') || q.has('pitch') || q.has('fov')) {
+            const s0 = SCENES.find(x => x.id === location.hash.slice(1)) || SCENES[0];
+            s0.view = { yaw: +(q.get('yaw') ?? s0.view.yaw), pitch: +(q.get('pitch') ?? s0.view.pitch), fov: +(q.get('fov') ?? s0.view.fov) };
+            rotating = false;
+            document.getElementById('bRotate').classList.remove('on');
+        }
+        go(location.hash.slice(1) || SCENES[0].id);
+    </script>
+</body>
+
+</html>
