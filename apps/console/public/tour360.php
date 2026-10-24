@@ -93,7 +93,7 @@ $balls = [];
 foreach ($scenes as $s) {
     $balls[$s['id']] = '/tour360-img.php?id=' . $id . '&s=' . rawurlencode($s['id']) . '&z=ball&v=' . substr(md5((string)($s['ball'] ?? '')), 0, 8);
 }
-const T3_LP = ['' => 'Nama di bawah', 't' => 'Nama di atas', 'l' => 'Nama di kiri', 'r' => 'Nama di kanan'];
+const T3_LP = ['' => 'Nama di atas', 'l' => 'Nama di kiri', 'r' => 'Nama di kanan']; // bola bertiang: nama tidak di bawah (tertutup tiang)
 $img = fn (string $s, string $z) => '/tour360-img.php?id=' . $id . '&s=' . rawurlencode($s) . '&z=' . $z;
 $problem = Tour360::problem();
 $limit = ini_get('upload_max_filesize') . ' / ' . ini_get('post_max_size');
@@ -123,13 +123,15 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     .t3-list img { width: 64px; height: 40px; object-fit: cover; border-radius: 6px; flex: none; background: #ccc; }
     .t3-list small { display: block; color: var(--ink2); font-size: 11px; }
     #pano { position: relative; width: 100%; height: min(62vh, 560px); border-radius: 10px; overflow: hidden; background: #111; cursor: crosshair; }
-    /* bola = titik tengah; nama menempel di bawah / atas (lp-t) / kiri (lp-l) / kanan (lp-r) — sama dengan website */
-    .t3-hs > div { position: relative; width: 46px; height: 46px; transform: translate(-50%, -50%); cursor: default; }
-    .t3-hs .ball { width: 100%; height: 100%; border-radius: 50%; border: 3px solid #fff; background: #fff center/cover no-repeat; box-shadow: 0 2px 8px rgba(0,0,0,.5); box-sizing: border-box; }
-    .t3-hs .lb { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 4px; padding: 2px 8px; border-radius: 99px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; }
-    .t3-hs.lp-t .lb { top: auto; bottom: 100%; margin: 0 0 4px; }
-    .t3-hs.lp-l .lb { left: auto; right: 100%; top: 50%; transform: translateY(-50%); margin: 0 6px 0 0; }
-    .t3-hs.lp-r .lb { left: 100%; top: 50%; transform: translateY(-50%); margin: 0 0 0 6px; }
+    /* bola bertiang (sama dengan website): titik penghubung = ujung bawah tiang; bola di atas; nama kecil di atas / kiri (lp-l) / kanan (lp-r) */
+    .t3-hs { width: 0; height: 0; }
+    .t3-hs .pin { position: absolute; left: -18px; bottom: 0; width: 36px; height: 88px; cursor: default; }
+    .t3-hs .ball { position: absolute; left: 0; top: 0; width: 36px; height: 36px; border-radius: 50%; border: 2px solid #fff; background: #fff center/cover no-repeat; box-shadow: 0 3px 10px rgba(0,0,0,.45); box-sizing: border-box; }
+    .t3-hs .pole { position: absolute; left: 17px; top: 36px; width: 2px; height: 48px; background: linear-gradient(rgba(255,255,255,.95), rgba(255,255,255,.4)); }
+    .t3-hs .base { position: absolute; left: 14px; bottom: -4px; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.3); }
+    .t3-hs .lb { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 4px; padding: 1px 7px; border-radius: 99px; background: rgba(0,0,0,.35); color: rgba(255,255,255,.88); font-size: 10px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; }
+    .t3-hs.lp-l .lb { left: auto; right: 100%; bottom: auto; top: 18px; transform: translateY(-50%); margin: 0 6px 0 0; }
+    .t3-hs.lp-r .lb { left: 100%; bottom: auto; top: 18px; transform: translateY(-50%); margin: 0 0 0 6px; }
     .t3-ballprev { width: 64px; height: 64px; border-radius: 50%; border: 3px solid #fff; background: #fff center/cover no-repeat; box-shadow: 0 2px 8px rgba(0,0,0,.35); flex: none; }
     .t3-new > div { transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 50%; border: 3px solid #fff; background: var(--brand); box-shadow: 0 0 0 4px rgba(255,255,255,.35); }
     #linkBox { display: none; position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 5; background: var(--card, #fff); color: var(--ink); padding: 10px; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.35); width: min(420px, calc(100% - 24px)); }
@@ -214,11 +216,11 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
                                 <?php if ($isAdmin): ?>
                                     <form method="post" style="display:inline;margin:0"><?= csrf_field() ?><input type="hidden" name="action" value="link_label"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><input type="hidden" name="to" value="<?= e($l['to']) ?>">
                                         <select name="lp" onchange="this.form.submit()" style="width:auto;padding:3px 6px;font-size:12px" title="Letak nama di sebelah bola (supaya tidak bertumpuk)">
-                                            <?php foreach (T3_LP as $k => $lbl): ?><option value="<?= $k ?>" <?= ($l['lp'] ?? '') === $k ? 'selected' : '' ?>><?= $lbl ?></option><?php endforeach; ?>
+                                            <?php foreach (T3_LP as $k => $lbl): ?><option value="<?= $k ?>" <?= (in_array($l['lp'] ?? '', ['l', 'r'], true) ? $l['lp'] : '') === $k ? 'selected' : '' ?>><?= $lbl ?></option><?php endforeach; ?>
                                         </select></form>
                                 <?php endif; ?>
                                 <?php if (!$flat): ?><button type="button" class="btn ghost sm" data-look="<?= (float)$l['yaw'] ?>,<?= (float)$l['pitch'] ?>">Lihat</button><?php endif; ?>
-                                <?php if ($isAdmin && empty($l['auto'])): ?><form method="post" style="display:inline;margin:0"><?= csrf_field() ?><input type="hidden" name="action" value="link_del"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><input type="hidden" name="to" value="<?= e($l['to']) ?>"><button class="btn ghost sm" style="color:var(--bad)">Hapus</button></form><?php endif; ?>
+                                <?php if ($isAdmin): ?><form method="post" style="display:inline;margin:0" <?= !empty($l['auto']) ? 'title="Sembunyikan bola kembali otomatis ini"' : '' ?>><?= csrf_field() ?><input type="hidden" name="action" value="link_del"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><input type="hidden" name="to" value="<?= e($l['to']) ?>"><button class="btn ghost sm" style="color:var(--bad)">Hapus</button></form><?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -300,9 +302,9 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
     BACK.forEach(l => { if (!links.some(x => x.to === l.to)) links.push(Object.assign({ auto: true }, l)); });
     links.forEach(l => {
         const el = document.createElement('div');
-        el.className = 't3-hs' + (l.lp ? ' lp-' + l.lp : '');
+        el.className = 't3-hs' + (l.lp === 'l' || l.lp === 'r' ? ' lp-' + l.lp : '');
         if (l.auto) { el.style.opacity = '.65'; el.title = 'Bola kembali otomatis — klik di titik yang pas lalu pilih lokasi ini untuk memindahnya'; }
-        el.innerHTML = '<div><div class="ball"></div><span class="lb"></span></div>';
+        el.innerHTML = '<div class="pin"><span class="lb"></span><div class="ball"></div><i class="pole"></i><i class="base"></i></div>';
         el.querySelector('.ball').style.backgroundImage = 'url("' + BALLS[l.to] + '")';
         el.querySelector('.lb').textContent = (NAMES[l.to] || l.to) + (l.auto ? ' (otomatis)' : '');
         el.addEventListener('mousedown', e => e.stopPropagation());

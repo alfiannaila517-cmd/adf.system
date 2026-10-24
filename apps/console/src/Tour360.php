@@ -11,7 +11,8 @@ declare(strict_types=1);
  * Foto biasa (bukan 360°): type "flat", w, h, gambar <base>-full.jpg (sisi terpanjang ≤ 4096) + -thumb.jpg;
  *         penghubungnya [{to, x, y}] — posisi di foto 0…1 dari kiri-atas.
  * Opsional: ball = alamat gambar bola sendiri "/uploads/tour360/<id>-ball.png?v=…" (mis. logo) — tanpa ini bola memakai gambar kecil;
- *         link.lp = letak nama di sebelah bola: t (atas) / l (kiri) / r (kanan); kosong = bawah.
+ *         link.lp = letak nama di sebelah bola: l (kiri) / r (kanan); kosong atau t = di atas bola (bola bertiang);
+ *         hide = id lokasi yang bola kembali otomatisnya disembunyikan (dihapus admin).
  */
 final class Tour360
 {
@@ -108,7 +109,8 @@ final class Tour360
         if (!$here) {
             return [];
         }
-        $have = array_column($here['links'] ?? [], 'to');
+        // yang sudah punya penghubung sendiri, atau sengaja dihapus admin (hide), tidak dibuatkan bola otomatis
+        $have = array_merge(array_column($here['links'] ?? [], 'to'), $here['hide'] ?? []);
         $out = [];
         foreach ($scenes as $o) {
             foreach ($o['links'] ?? [] as $l) {
@@ -374,6 +376,7 @@ final class Tour360
             if ($s['id'] === $from) {
                 $s['links'] = array_values(array_filter($s['links'] ?? [], fn ($l) => $l['to'] !== $to)); // satu bola per tujuan
                 $s['links'][] = $link;
+                $s['hide'] = array_values(array_diff($s['hide'] ?? [], [$to])); // dipasang lagi → tidak disembunyikan
             } elseif ($back && $s['id'] === $to && !in_array($from, array_column($s['links'] ?? [], 'to'), true)) {
                 $s['links'][] = ['to' => $from] + self::backPos($byId[$from], $link, $s);
                 $made = true;
@@ -384,12 +387,17 @@ final class Tour360
         return $made;
     }
 
+    /**
+     * Hapus bola di $from menuju $to. Dicatat juga di "hide" supaya bola kembali OTOMATIS (dari penghubung $to → $from)
+     * tidak muncul lagi — dulu bola yang dihapus langsung muncul kembali sebagai bola otomatis.
+     */
     public static function removeLink(PDO $pdo, string $from, string $to): void
     {
         $scenes = self::load($pdo);
         foreach ($scenes as &$s) {
             if ($s['id'] === $from) {
                 $s['links'] = array_values(array_filter($s['links'] ?? [], fn ($l) => $l['to'] !== $to));
+                $s['hide'] = array_values(array_unique(array_merge($s['hide'] ?? [], [$to])));
             }
         }
         unset($s);
