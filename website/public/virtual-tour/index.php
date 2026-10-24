@@ -323,10 +323,10 @@ if (!$scenes) {
         document.getElementById('bIn').onclick = () => zoom(0.8);
         document.getElementById('bOut').onclick = () => zoom(1.25);
         /*
-         * Musik latar. File MP3 dari Console bila ada; selain itu musik "pulau" bawaan yang DIBUAT di browser (Web Audio,
-         * tanpa file / tanpa hak cipta): ombak pantai (noise disaring, mengalun 7–11 dtk) + pad akor hangat
-         * (Fmaj7 → Em7 → Dm7 → Cmaj7, 8 dtk per akor) + petikan pentatonik mirip kalimba dengan gema lembut.
-         * Browser melarang suara sebelum disentuh → mulai pelan pada sentuhan/geser pertama. Pilihan mati/nyala diingat.
+         * Musik latar. File MP3 dari Console bila ada; selain itu GAMELAN gaya Bali/Jawa bawaan yang DIBUAT di browser
+         * (Web Audio, tanpa file / tanpa hak cipta): laras pelog selisir, saron (balungan 16 ketukan, 2 gending bergantian),
+         * gangsa/bonang hiasan 2x, bilah berpasangan berdenyut ('ombak' khas Bali), kenong, kempul, gong ageng, suling, reverb.
+         * Browser melarang suara sebelum disentuh -> mulai pelan pada ketukan pertama. Pilihan mati/nyala & volume diingat.
          */
         const MUSIC_URL = <?= json_encode($music, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
         const musicBtn = document.getElementById('bMusic');
@@ -334,82 +334,121 @@ if (!$scenes) {
         let musicVol = (() => { try { const v = parseInt(localStorage.getItem('nrTourVol') ?? '', 10); return isNaN(v) ? 60 : v; } catch (e) { return 60; } })() / 100;
         let player = null;
 
-        function islandMusic() {
+        function gamelanMusic() {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const master = ctx.createGain();
             master.gain.value = 0;
             master.connect(ctx.destination);
-            // gema lembut untuk petikan & pad
-            const delay = ctx.createDelay(2), fb = ctx.createGain(), wet = ctx.createGain();
-            delay.delayTime.value = 0.42; fb.gain.value = 0.33; wet.gain.value = 0.3;
-            delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(master);
 
-            // ombak: noise "coklat" stereo 8 dtk berulang → lowpass → gain yang mengalun
-            const len = ctx.sampleRate * 8, buf = ctx.createBuffer(2, len, ctx.sampleRate);
+            // ruang/gema: reverb buatan (impulse noise yang meluruh 3 dtk) — suasana pendopo terbuka
+            const ir = ctx.createBuffer(2, ctx.sampleRate * 3, ctx.sampleRate);
             for (let c = 0; c < 2; c++) {
-                const d = buf.getChannelData(c);
+                const d = ir.getChannelData(c);
+                for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+            }
+            const verb = ctx.createConvolver(), verbG = ctx.createGain(), dry = ctx.createGain();
+            verb.buffer = ir; verbG.gain.value = 0.42; dry.gain.value = 0.85;
+            verb.connect(verbG); verbG.connect(master); dry.connect(master);
+            const out = ctx.createGain(); // semua instrumen → kering + reverb
+            out.connect(dry); out.connect(verb);
+
+            // ombak pantai sangat samar di belakang
+            const len = ctx.sampleRate * 8, nb = ctx.createBuffer(2, len, ctx.sampleRate);
+            for (let c = 0; c < 2; c++) {
+                const d = nb.getChannelData(c);
                 let last = 0;
                 for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }
             }
             const noise = ctx.createBufferSource(), wlp = ctx.createBiquadFilter(), wg = ctx.createGain();
-            noise.buffer = buf; noise.loop = true;
-            wlp.type = 'lowpass'; wlp.frequency.value = 500;
-            wg.gain.value = 0.06;
-            noise.connect(wlp); wlp.connect(wg); wg.connect(master);
-            noise.start();
+            noise.buffer = nb; noise.loop = true; wlp.type = 'lowpass'; wlp.frequency.value = 450; wg.gain.value = 0.035;
+            noise.connect(wlp); wlp.connect(wg); wg.connect(master); noise.start();
 
-            // pad akor (MIDI): Fmaj7, Em7, Dm7, Cmaj7
-            const CHORDS = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]];
-            const SCALE = [72, 74, 76, 79, 81, 84, 86, 88]; // C mayor pentatonik
             const hz = m => 440 * Math.pow(2, (m - 69) / 12);
-            const padLp = ctx.createBiquadFilter(), padG = ctx.createGain();
-            padLp.type = 'lowpass'; padLp.frequency.value = 1100; padG.gain.value = 0.045;
-            padLp.connect(padG); padG.connect(master); padG.connect(delay);
-
-            function chord(t, notes) {
-                notes.forEach(m => [['sine', 0], ['triangle', 5]].forEach(([type, cents]) => {
-                    const o = ctx.createOscillator(), g = ctx.createGain();
-                    o.type = type; o.frequency.value = hz(m); o.detune.value = cents;
+            // Bilah logam (saron/gangsa): parsial tak harmonis khas metalofon + PASANGAN bilah sedikit lebih tinggi
+            // (pengumbang–pengisep) → getaran "ombak" ±6 Hz yang membuat gamelan Bali berkilau
+            function bar(t, freq, dur, gain, ombak = 6, partials = [[1, 1], [2.76, 0.32], [5.4, 0.12], [8.93, 0.05]]) {
+                [0, ombak].forEach((off, k) => {
+                    const g = ctx.createGain();
                     g.gain.setValueAtTime(0, t);
-                    g.gain.linearRampToValueAtTime(0.5, t + 2.5);
-                    g.gain.setValueAtTime(0.5, t + 6.5);
-                    g.gain.linearRampToValueAtTime(0, t + 10);
-                    o.connect(g); g.connect(padLp);
-                    o.start(t); o.stop(t + 10.2);
-                }));
-            }
-            function pluck(t, m) {
-                const g = ctx.createGain();
-                g.gain.setValueAtTime(0, t);
-                g.gain.linearRampToValueAtTime(0.07, t + 0.006);
-                g.gain.exponentialRampToValueAtTime(0.0008, t + 1.6);
-                [[1, 'triangle'], [2, 'sine']].forEach(([mul, type]) => {
-                    const o = ctx.createOscillator();
-                    o.type = type; o.frequency.value = hz(m) * mul;
-                    o.connect(g); o.start(t); o.stop(t + 1.7);
+                    g.gain.linearRampToValueAtTime(gain * (k ? 0.8 : 1), t + 0.004);
+                    g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+                    g.connect(out);
+                    partials.forEach(([ratio, amp], i) => {
+                        const o = ctx.createOscillator(), pg = ctx.createGain();
+                        o.type = 'sine'; o.frequency.value = (freq + off) * ratio;
+                        pg.gain.setValueAtTime(amp, t);
+                        pg.gain.exponentialRampToValueAtTime(0.0005, t + dur / (1 + i * 1.6)); // parsial tinggi lebih cepat hilang
+                        o.connect(pg); pg.connect(g);
+                        o.start(t); o.stop(t + dur + 0.05);
+                    });
                 });
-                g.connect(master); g.connect(delay);
             }
-            function wave(t) {
-                const dur = 7 + Math.random() * 4;
-                wg.gain.setValueAtTime(0.05, t);
-                wg.gain.linearRampToValueAtTime(0.22 + Math.random() * 0.1, t + dur * 0.45);
-                wg.gain.linearRampToValueAtTime(0.05, t + dur);
-                wlp.frequency.setValueAtTime(420, t);
-                wlp.frequency.linearRampToValueAtTime(1200, t + dur * 0.45);
-                wlp.frequency.linearRampToValueAtTime(450, t + dur);
-                return dur;
+            // Gong / kempul: nada rendah panjang dengan "wawa" (dua nada berdekatan berdenyut) + dengung
+            function gong(t, freq, dur, gain) {
+                const g = ctx.createGain(), lp = ctx.createBiquadFilter();
+                lp.type = 'lowpass'; lp.frequency.value = 900;
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(gain, t + 0.05);
+                g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+                lp.connect(g); g.connect(out);
+                [[1, 1], [1.009, 0.8], [2.02, 0.25], [2.9, 0.1]].forEach(([r, a]) => {
+                    const o = ctx.createOscillator(), pg = ctx.createGain();
+                    o.type = 'sine'; o.frequency.setValueAtTime(freq * r * 1.012, t);
+                    o.frequency.exponentialRampToValueAtTime(freq * r, t + 0.6); // sedikit "turun" saat dipukul
+                    pg.gain.value = a; o.connect(pg); pg.connect(lp);
+                    o.start(t); o.stop(t + dur + 0.05);
+                });
+            }
+            // Suling bambu: nada panjang dengan vibrato + desah napas
+            function suling(t, freq, dur, gain) {
+                const g = ctx.createGain(), o = ctx.createOscillator(), o2 = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+                o.type = 'sine'; o2.type = 'triangle'; o.frequency.value = freq; o2.frequency.value = freq;
+                lfo.frequency.value = 5.2; lg.gain.value = freq * 0.006;
+                lfo.connect(lg); lg.connect(o.frequency); lg.connect(o2.frequency);
+                const g2 = ctx.createGain(); g2.gain.value = 0.25; o2.connect(g2); g2.connect(g); o.connect(g);
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(gain, t + 0.35);
+                g.gain.setValueAtTime(gain, t + dur - 0.6);
+                g.gain.linearRampToValueAtTime(0, t + dur);
+                const br = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), bg = ctx.createGain();
+                br.buffer = nb; bp.type = 'bandpass'; bp.frequency.value = freq * 2; bp.Q.value = 4; bg.gain.value = gain * 0.5;
+                br.connect(bp); bp.connect(bg); bg.connect(g);
+                g.connect(out);
+                [o, o2, lfo, br].forEach(n => { n.start(t); n.stop(t + dur + 0.05); });
             }
 
-            // penjadwal: melihat 1 dtk ke depan tiap 250 ms (72 bpm, petikan acak di ketukan)
-            let nChord = ctx.currentTime + 0.1, nBeat = nChord + 1.5, nWave = nChord, ci = 0, timer = null;
+            // Laras pelog gaya Bali (selisir) ≈ E F G B C: dong deng dung dang ding
+            const N = [64, 65, 67, 71, 72];
+            const P = (i) => N[((i % 5) + 5) % 5] + 12 * Math.floor(i / 5); // indeks nada lintas oktaf
+            // Balungan: dua putaran 16 ketukan, berakhir di nada gong (dong). Angka = indeks nada (0 = dong).
+            const GENDING = [
+                [4, 3, 2, 1, 0, 1, 2, 3, 4, 6, 4, 3, 2, 1, 0, 0],
+                [2, 3, 4, 3, 2, 1, 2, 0, 1, 2, 3, 4, 3, 2, 1, 0],
+            ];
+            const BEAT = 60 / 66; // ±66 ketukan per menit — tenang
+            let nBeat = ctx.currentTime + 0.2, beat = 0, cycle = 0, timer = null;
             function tick() {
-                const ahead = ctx.currentTime + 1;
-                while (nChord < ahead) { chord(nChord, CHORDS[ci % 4]); ci++; nChord += 8; }
-                while (nWave < ahead) nWave += wave(nWave);
+                const ahead = ctx.currentTime + 1.2;
                 while (nBeat < ahead) {
-                    if (Math.random() < 0.42) pluck(nBeat, SCALE[Math.floor(Math.random() * SCALE.length)]);
-                    nBeat += 60 / 72 * (Math.random() < 0.2 ? 0.5 : 1);
+                    const g = GENDING[cycle % 2], pos = beat % 16, cur = g[pos], next = g[(pos + 1) % 16];
+                    const t = nBeat;
+                    // saron: melodi pokok (oktaf tengah)
+                    bar(t, hz(P(cur)), 2.6, 0.11);
+                    // gangsa/bonang: hiasan 2× lebih cepat di oktaf atas, mengarah ke nada berikutnya
+                    const mid = cur + Math.sign(next - cur || 1);
+                    bar(t + BEAT / 2, hz(P(mid) + 12), 1.1, 0.045, 7, [[1, 1], [2.76, 0.25], [5.4, 0.08]]);
+                    if (Math.random() < 0.5) bar(t + BEAT * 0.75, hz(P(next) + 12), 0.9, 0.03, 7, [[1, 1], [2.76, 0.2]]);
+                    // kenong (tiap 4 ketukan) & kempul (ketukan 8)
+                    if (pos % 4 === 3) bar(t, hz(P(cur) - 12), 3.2, 0.07, 3, [[1, 1], [2.3, 0.2], [3.1, 0.06]]);
+                    if (pos === 7) gong(t, hz(P(cur) - 24), 3.5, 0.16);
+                    // gong ageng di ketukan terakhir putaran
+                    if (pos === 15) gong(t, 69, 7.5, 0.3);
+                    // suling: sesekali nada panjang di awal putaran
+                    if (pos === 0 && cycle % 2 === 1) suling(t, hz(P(cur) + 12), BEAT * 3.6, 0.035);
+                    if (pos === 8 && cycle % 3 === 2) suling(t, hz(P(g[9]) + 12), BEAT * 3, 0.03);
+                    beat++;
+                    if (beat % 16 === 0) cycle++;
+                    nBeat += BEAT;
                 }
             }
             const level = () => 1.0 * musicVol; // volume slider 0…1
@@ -417,7 +456,7 @@ if (!$scenes) {
                 running: () => ctx.state === 'running',
                 play() {
                     const p = ctx.resume(); // harus di dalam ketukan pengguna (aturan browser)
-                    if (!timer) { tick(); timer = setInterval(tick, 250); }
+                    if (!timer) { nBeat = Math.max(nBeat, ctx.currentTime + 0.2); tick(); timer = setInterval(tick, 250); }
                     master.gain.cancelScheduledValues(ctx.currentTime);
                     master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
                     master.gain.linearRampToValueAtTime(level(), ctx.currentTime + 3);
@@ -470,7 +509,7 @@ if (!$scenes) {
         function musicStart() {
             if (!musicWanted || document.hidden) return;
             try {
-                player = player || (MUSIC_URL ? filePlayer(MUSIC_URL) : islandMusic());
+                player = player || (MUSIC_URL ? filePlayer(MUSIC_URL) : gamelanMusic());
                 Promise.resolve(player.play()).then(setMusicUi, setMusicUi);
             } catch (e) { /* tanpa dukungan audio */ }
             setTimeout(setMusicUi, 300);
