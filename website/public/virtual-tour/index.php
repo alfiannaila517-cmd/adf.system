@@ -159,8 +159,15 @@ if (!$scenes) {
             nadir.className = 'nadir';
             nadir.innerHTML = '<div></div>'; // Marzipano menimpa transform elemen luar → isi di elemen dalam
             hc.createHotspot(nadir, { yaw: 0, pitch: Math.PI / 2 }, { perspective: { radius: 1100 } }); // Marzipano: pitch positif = ke bawah
-            // titik pindah ke lokasi lain
-            s.links.forEach(l => {
+            // titik pindah ke lokasi lain + bola kembali otomatis: lokasi lain menuju sini tapi sini belum punya
+            // penghubung ke sana → arah berlawanan (yaw + 180°, pitch dibalik: dari drone ke bawah = dari darat ke atas)
+            const links = s.links.slice();
+            SCENES.forEach(o => (o.links || []).forEach(l => {
+                if (l.to === s.id && o.id !== s.id && !links.some(x => x.to === o.id)) {
+                    links.push({ to: o.id, yaw: ((l.yaw + 360) % 360) - 180, pitch: Math.max(-40, Math.min(40, -l.pitch)) });
+                }
+            }));
+            links.forEach(l => {
                 const to = SCENES.find(x => x.id === l.to);
                 if (!to) return;
                 const el = document.createElement('div');
