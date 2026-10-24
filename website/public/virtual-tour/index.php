@@ -72,16 +72,18 @@ if (!$scenes) {
         .scenes a img { width: 118px; height: 66px; object-fit: cover; border-radius: 8px; border: 2px solid transparent; display: block; margin-bottom: 4px; }
         .scenes a.on img { border-color: var(--gold2); }
 
-        /* hotspot pindah lokasi: bola foto + label */
+        /* hotspot pindah lokasi: "tiang bendera" — titik penghubung = ujung bawah tiang (titik di tanah), bola foto di atas,
+           nama kecil agak transparan di atas bola / kiri (lp-l) / kanan (lp-r) — diatur di Console */
         .hs { width: 0; height: 0; cursor: pointer; }
-        /* bola = titik tengah; nama di bawah / atas (lp-t) / kiri (lp-l) / kanan (lp-r) — diatur di Console */
-        .hs > div { position: relative; left: -24px; top: -24px; width: 48px; height: 48px; }
-        .hs .ball { width: 100%; height: 100%; box-sizing: border-box; border-radius: 50%; border: 2px solid #fff; background: #fff center / cover no-repeat; box-shadow: 0 4px 14px rgba(0, 0, 0, .45); transition: transform .2s; }
+        .hs .pin { position: absolute; left: -20px; bottom: 0; width: 40px; height: 96px; }
+        .hs .ball { position: absolute; left: 0; top: 0; width: 40px; height: 40px; box-sizing: border-box; border-radius: 50%; border: 2px solid #fff; background: #fff center / cover no-repeat; box-shadow: 0 4px 14px rgba(0, 0, 0, .45); transition: transform .2s; }
         .hs:hover .ball { transform: scale(1.15); }
-        .hs .lb { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 4px; padding: 2px 8px; border-radius: 99px; background: rgba(0, 0, 0, .55); font-size: 11px; font-weight: 700; white-space: nowrap; }
-        .hs.lp-t .lb { top: auto; bottom: 100%; margin: 0 0 4px; }
-        .hs.lp-l .lb { left: auto; right: 100%; top: 50%; transform: translateY(-50%); margin: 0 6px 0 0; }
-        .hs.lp-r .lb { left: 100%; top: 50%; transform: translateY(-50%); margin: 0 0 0 6px; }
+        .hs .pole { position: absolute; left: 19px; top: 40px; width: 2px; height: 52px; background: linear-gradient(rgba(255, 255, 255, .95), rgba(255, 255, 255, .35)); box-shadow: 0 0 4px rgba(0, 0, 0, .35); }
+        .hs .base { position: absolute; left: 16px; bottom: -4px; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .28); animation: hsPulse 2.2s ease-out infinite; }
+        @keyframes hsPulse { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .5); } 100% { box-shadow: 0 0 0 9px rgba(255, 255, 255, 0); } }
+        .hs .lb { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 5px; padding: 1px 8px; border-radius: 99px; background: rgba(0, 0, 0, .32); color: rgba(255, 255, 255, .88); font-size: 10px; font-weight: 600; letter-spacing: .04em; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, .5); }
+        .hs.lp-l .lb { left: auto; right: 100%; bottom: auto; top: 20px; transform: translateY(-50%); margin: 0 6px 0 0; }
+        .hs.lp-r .lb { left: 100%; bottom: auto; top: 20px; transform: translateY(-50%); margin: 0 0 0 6px; }
 
         /* efek pembuka: bola dunia (little planet) → tampilan biasa */
         #intro { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; transition: opacity .5s; cursor: pointer; }
@@ -101,7 +103,11 @@ if (!$scenes) {
             .book { padding: 8px 11px; font-size: 10.5px; letter-spacing: .08em; }
             .title { bottom: 84px; } .title h1 { font-size: 18px; }
             .bar button { width: 38px; }
-            .hs > div { left: -21px; top: -21px; width: 42px; height: 42px; }
+            .hs .pin { left: -17px; width: 34px; height: 82px; }
+            .hs .ball { width: 34px; height: 34px; }
+            .hs .pole { left: 16px; top: 34px; height: 44px; }
+            .hs .base { left: 13px; }
+            .hs.lp-l .lb, .hs.lp-r .lb { top: 17px; }
             .credit { display: none; }
         }
     </style>
@@ -189,19 +195,21 @@ if (!$scenes) {
             }
             // titik pindah ke lokasi lain + bola kembali otomatis (lokasi lain menuju sini tapi sini belum punya penghubung ke sana)
             const links = s.links.slice();
+            const hidden = s.hide || []; // bola kembali otomatis yang dihapus admin di Console
             SCENES.forEach(o => (o.links || []).forEach(l => {
-                if (l.to === s.id && o.id !== s.id && !links.some(x => x.to === o.id)) links.push(Object.assign({ to: o.id }, backPos(o, l, s)));
+                if (l.to === s.id && o.id !== s.id && !hidden.includes(o.id) && !links.some(x => x.to === o.id)) links.push(Object.assign({ to: o.id }, backPos(o, l, s)));
             }));
             links.forEach(l => {
                 const to = SCENES.find(x => x.id === l.to);
                 if (!to) return;
                 const el = document.createElement('div');
-                el.className = 'hs' + (/^[tlr]$/.test(l.lp || '') ? ' lp-' + l.lp : '');
+                el.className = 'hs' + (l.lp === 'l' || l.lp === 'r' ? ' lp-' + l.lp : '');
                 // gambar bola: gambar sendiri dari Console (mis. logo) atau potongan foto lokasi
-                el.innerHTML = '<div><div class="ball"></div><span class="lb"></span></div>';
+                el.innerHTML = '<div class="pin"><span class="lb"></span><div class="ball"></div><i class="pole"></i><i class="base"></i></div>';
                 el.querySelector('.ball').style.backgroundImage = 'url("' + (to.ball || thumb(to)) + '")';
                 el.querySelector('.lb').dataset.scene = to.id;
-                el.addEventListener('click', () => go(to.id));
+                // klik → zoom ke arah bola, lalu pindah lokasi (foto biasa: langsung pindah)
+                el.addEventListener('click', () => go(to.id, isFlat(s) ? null : l));
                 hc.createHotspot(el, isFlat(s) ? { x: +l.x, y: +l.y } : { yaw: rad(l.yaw), pitch: rad(l.pitch) });
             });
             return (built[s.id] = { s, scene, view });
@@ -214,10 +222,38 @@ if (!$scenes) {
             if (current && isFlat(current)) { viewer.stopMovement(); viewer.setIdleMovement(Infinity); return; } // foto biasa tidak diputar
             if (rotating && !introOn) { viewer.setIdleMovement(3000, autorotate); viewer.startMovement(autorotate); } }
 
-        function go(id) {
+        /*
+         * Pindah lokasi. Dari bola penghubung (from = {yaw, pitch}): kamera ZOOM MASUK ke arah bola (0,65 dtk), lalu lokasi
+         * baru tampil sedikit diperbesar dan pelan-pelan melebar ke tampilan awalnya — terasa seperti "masuk" ke tempat itu.
+         */
+        let moving = false;
+        function go(id, from) {
             const s = SCENES.find(x => x.id === id) || SCENES[0];
+            if (from && current && !isFlat(current) && built[current.id]) {
+                if (moving) return;
+                moving = true;
+                viewer.stopMovement();
+                viewer.setIdleMovement(Infinity);
+                built[current.id].scene.lookTo({ yaw: rad(from.yaw), pitch: rad(from.pitch), fov: rad(28) }, { transitionDuration: 650 }, () => {
+                    moving = false;
+                    show(s, true);
+                });
+                return;
+            }
+            show(s, false);
+        }
+
+        function show(s, zoomed) {
             const b = build(s);
-            b.scene.switchTo({ transitionDuration: 900 });
+            if (!isFlat(s)) {
+                // selalu mulai dari tampilan awal lokasi (kunjungan ulang tidak melanjutkan sudut terakhir)
+                const target = { yaw: rad(s.view.yaw), pitch: rad(s.view.pitch), fov: rad(s.view.fov) };
+                b.view.setParameters(zoomed ? { yaw: target.yaw, pitch: target.pitch, fov: Math.max(rad(30), target.fov * 0.55) } : target);
+                b.scene.switchTo({ transitionDuration: zoomed ? 700 : 900 });
+                if (zoomed) b.scene.lookTo(target, { transitionDuration: 1300 });
+            } else {
+                b.scene.switchTo({ transitionDuration: 700 });
+            }
             current = s;
             history.replaceState(null, '', '#' + s.id);
             label();
