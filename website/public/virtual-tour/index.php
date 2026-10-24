@@ -74,10 +74,14 @@ if (!$scenes) {
 
         /* hotspot pindah lokasi: bola foto + label */
         .hs { width: 0; height: 0; cursor: pointer; }
-        .hs > div { position: relative; left: -60px; top: -24px; width: 120px; text-align: center; }
-        .hs .ball { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #fff; background-size: cover; background-position: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .45); transition: transform .2s; margin: 0 auto; }
+        /* bola = titik tengah; nama di bawah / atas (lp-t) / kiri (lp-l) / kanan (lp-r) — diatur di Console */
+        .hs > div { position: relative; left: -24px; top: -24px; width: 48px; height: 48px; }
+        .hs .ball { width: 100%; height: 100%; box-sizing: border-box; border-radius: 50%; border: 2px solid #fff; background: #fff center / cover no-repeat; box-shadow: 0 4px 14px rgba(0, 0, 0, .45); transition: transform .2s; }
         .hs:hover .ball { transform: scale(1.15); }
-        .hs .lb { margin-top: 4px; display: inline-block; padding: 2px 8px; border-radius: 99px; background: rgba(0, 0, 0, .55); font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .hs .lb { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 4px; padding: 2px 8px; border-radius: 99px; background: rgba(0, 0, 0, .55); font-size: 11px; font-weight: 700; white-space: nowrap; }
+        .hs.lp-t .lb { top: auto; bottom: 100%; margin: 0 0 4px; }
+        .hs.lp-l .lb { left: auto; right: 100%; top: 50%; transform: translateY(-50%); margin: 0 6px 0 0; }
+        .hs.lp-r .lb { left: 100%; top: 50%; transform: translateY(-50%); margin: 0 0 0 6px; }
 
         /* efek pembuka: bola dunia (little planet) → tampilan biasa */
         #intro { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; transition: opacity .5s; cursor: pointer; }
@@ -97,7 +101,7 @@ if (!$scenes) {
             .book { padding: 8px 11px; font-size: 10.5px; letter-spacing: .08em; }
             .title { bottom: 84px; } .title h1 { font-size: 18px; }
             .bar button { width: 38px; }
-            .hs > div { top: -21px; } .hs .ball { width: 42px; height: 42px; }
+            .hs > div { left: -21px; top: -21px; width: 42px; height: 42px; }
             .credit { display: none; }
         }
     </style>
@@ -192,8 +196,10 @@ if (!$scenes) {
                 const to = SCENES.find(x => x.id === l.to);
                 if (!to) return;
                 const el = document.createElement('div');
-                el.className = 'hs';
-                el.innerHTML = '<div><div class="ball" style="background-image:url(' + thumb(to) + ')"></div><span class="lb"></span></div>';
+                el.className = 'hs' + (/^[tlr]$/.test(l.lp || '') ? ' lp-' + l.lp : '');
+                // gambar bola: gambar sendiri dari Console (mis. logo) atau potongan foto lokasi
+                el.innerHTML = '<div><div class="ball"></div><span class="lb"></span></div>';
+                el.querySelector('.ball').style.backgroundImage = 'url("' + (to.ball || thumb(to)) + '")';
                 el.querySelector('.lb').dataset.scene = to.id;
                 el.addEventListener('click', () => go(to.id));
                 hc.createHotspot(el, isFlat(s) ? { x: +l.x, y: +l.y } : { yaw: rad(l.yaw), pitch: rad(l.pitch) });
