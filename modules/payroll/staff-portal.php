@@ -8719,13 +8719,28 @@ header('Expires: 0');
         async function doFaceClock() {
             setFaceStatus('Menyimpan absensi...', 'Mengirim ke server');
 
-            // Pakai fix GPS dengan akurasi terbaik yang terkumpul selama scan, bukan sekadar fix terakhir
-            const gpsFix = faceGpsBest || faceGps;
+            // Pakai fix GPS dengan akurasi terbaik yang terkumpul selama scan, bukan sekadar fix terakhir.
+            // Wajah sering terverifikasi sebelum GPS dapat lokasi / masih kasar → cari dulu sampai masuk area (maks 20 detik)
+            let gpsFix = faceGps && spCheckArea(faceGps).ok ? faceGps : (faceGpsBest || faceGps);
+            if (navigator.geolocation && (!gpsFix || !spCheckArea(gpsFix).ok)) {
+                if (faceGpsWatcher) { navigator.geolocation.clearWatch(faceGpsWatcher); faceGpsWatcher = null; }
+                setFaceStatus('Mencari lokasi…', 'Pastikan Anda di area kantor');
+                try {
+                    gpsFix = await spLocate(20000, (p, area, sec) => {
+                        setFaceStatus('Mencari lokasi…', '±' + area.acc + ' m' + (area.near ? ' · ' + area.dist + ' m dari ' + area.near.name : '') + ' · ' + sec + ' dtk');
+                    });
+                } catch (e) {}
+                setFaceStatus('Menyimpan absensi...', 'Mengirim ke server');
+            }
 
             let address = '';
             if (gpsFix) {
                 try {
-                    const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + gpsFix.coords.latitude + '&lon=' + gpsFix.coords.longitude + '&format=json');
+                    // alamat hanya pelengkap: maks 2,5 detik supaya absen tidak tertahan
+                    const ctl = new AbortController();
+                    const tm = setTimeout(() => ctl.abort(), 2500);
+                    const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat=' + gpsFix.coords.latitude + '&lon=' + gpsFix.coords.longitude + '&format=json', { signal: ctl.signal });
+                    clearTimeout(tm);
                     const g = await r.json();
                     address = g.display_name || '';
                 } catch (e) {}
@@ -8821,6 +8836,56 @@ header('Expires: 0');
             });
         }
 
+        // Apakah posisi masuk area absen — aturan sama dengan server (staff-api.php face_clock):
+        // jarak ≤ radius + toleransi akurasi GPS (maks 50 m). Tanpa lokasi terdaftar / boleh di luar → selalu ok.
+        function spCheckArea(pos) {
+            const locs = faceConfig?.locations || [];
+            const acc = Math.round(pos.coords.accuracy);
+            if (!locs.length || faceConfig?.allow_outside) return { ok: true, acc, dist: null, near: null };
+            let near = null, dist = Infinity;
+            locs.forEach(l => {
+                const d = haversineDist(pos.coords.latitude, pos.coords.longitude, l.lat, l.lng);
+                if (d < dist) { dist = d; near = l; }
+            });
+            return { ok: dist <= near.radius + Math.min(acc, 50), acc, dist, near };
+        }
+
+        // Cari lokasi untuk absen: terus memantau GPS sampai maxMs dan SELESAI begitu posisi masuk area
+        // (titik pertama sering kasar ±100 m dari jaringan — dulu langsung ditolak). Bila sudah sangat presisi (≤ 15 m)
+        // tapi tetap di luar area → berhenti (memang di luar). Habis waktu → posisi terbaik (akurasi terkecil).
+        // onTick(pos, area, detik) untuk menampilkan jarak & akurasi selama mencari.
+        function spLocate(maxMs, onTick) {
+            return new Promise((resolve, reject) => {
+                let best = null, finished = false;
+                const t0 = Date.now();
+                const end = err => {
+                    if (finished) return;
+                    finished = true;
+                    navigator.geolocation.clearWatch(wid);
+                    clearTimeout(timer);
+                    best ? resolve(best) : reject(err || { code: 3 });
+                };
+                const wid = navigator.geolocation.watchPosition(pos => {
+                    const area = spCheckArea(pos);
+                    if (area.ok) { best = pos; onTick && onTick(pos, area, Math.round((Date.now() - t0) / 1000)); return end(); }
+                    if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+                    onTick && onTick(pos, area, Math.round((Date.now() - t0) / 1000));
+                    if (pos.coords.accuracy <= 15) end();
+                }, err => {
+                    // izin ditolak → berhenti; waktu habis / sinyal hilang sesaat → tetap menunggu sampai batas waktu sendiri
+                    if (err && err.code === 1) end(err);
+                }, { enableHighAccuracy: true, maximumAge: 0, timeout: maxMs });
+                const timer = setTimeout(() => end(), maxMs);
+            });
+        }
+
+        // Teks progres saat mencari lokasi
+        function spLocateText(pos, area, sec) {
+            const q = area.acc <= 20 ? '🟢' : (area.acc <= 50 ? '🟡' : '🔴');
+            return q + ' Akurasi ±' + area.acc + ' m' + (area.near ? ' · ' + area.dist + ' m dari ' + rmEsc(area.near.name) + ' (maks ' + area.near.radius + ' m)' : '') +
+                '<br><span style="opacity:.75">' + sec + ' detik — tunggu sebentar, akurasi biasanya membaik</span>';
+        }
+
         // Scan hari ini (diisi loadAbsen): dipakai untuk info "sudah absen" tanpa menunggu GPS.
         // Jeda minimal antar-scan sama dengan server: hotel 5 menit, kafe 15 menit (ubah di staff-api.php face_clock bila perlu 1 jam).
         let SP_SCAN = { done: 0, last: '' };
@@ -8862,25 +8927,19 @@ header('Expires: 0');
                 if (!navigator.geolocation) throw { kind: 'nogps' };
                 // Lokasi dari layar loading masih baru (≤ 2 menit) & cukup akurat → langsung pakai, tidak menunggu GPS lagi
                 // (hanya bila sudah di dalam area kantor — kalau tidak, cari GPS baru: mungkin staf baru saja masuk area)
-                let warm = SP_WARM_POS && Date.now() - SP_WARM_POS.timestamp < 120000 && SP_WARM_POS.coords.accuracy <= 50 ? SP_WARM_POS : null;
+                let warm = SP_WARM_POS && Date.now() - SP_WARM_POS.timestamp < 120000 ? SP_WARM_POS : null;
                 SP_WARM_POS = null;
-                const wLocs = faceConfig?.locations || [];
-                if (warm && wLocs.length && !faceConfig?.allow_outside && !wLocs.some(l => haversineDist(warm.coords.latitude, warm.coords.longitude, l.lat, l.lng) <= l.radius)) warm = null;
-                const pos = warm || await spGetPosition(9000);
+                if (warm && !spCheckArea(warm).ok) warm = null;
+                // Cari sampai 20 detik; selesai begitu masuk area. Layar menampilkan jarak & akurasi selama mencari.
+                const pos = warm || await spLocate(20000, (p, area, sec) => spAbsenUi('loading', 'Mencari lokasi…', spLocateText(p, area, sec)));
                 const lat = pos.coords.latitude, lng = pos.coords.longitude, acc = Math.round(pos.coords.accuracy);
 
                 // Pemeriksaan radius di HP (sama dengan server) supaya pesan jelas sebelum menyimpan
-                const locs = faceConfig?.locations || [];
-                if (locs.length && !faceConfig?.allow_outside) {
-                    let near = null, dist = Infinity;
-                    locs.forEach(l => {
-                        const d = haversineDist(lat, lng, l.lat, l.lng);
-                        if (d < dist) { dist = d; near = l; }
-                    });
-                    if (dist > near.radius + Math.min(acc, 50)) {
-                        spAbsenUi('err', 'Di luar area kantor', 'Anda ' + dist + ' m dari ' + rmEsc(near.name) + '. Absen hanya bisa dalam ' + near.radius + ' m.', retry);
-                        return;
-                    }
+                const area = spCheckArea(pos);
+                if (!area.ok) {
+                    spAbsenUi('err', 'Di luar area kantor', 'Anda ' + area.dist + ' m dari ' + rmEsc(area.near.name) + ' (akurasi GPS ±' + acc + ' m). Absen hanya bisa dalam ' + area.near.radius + ' m.' +
+                        (acc > 30 ? '<br><span style="opacity:.8">GPS kurang presisi: aktifkan Lokasi mode <b>akurasi tinggi</b>, nyalakan Wi-Fi, lalu coba lagi di dekat pintu/jendela.</span>' : ''), retry);
+                    return;
                 }
 
                 spAbsenUi('loading', 'Menyimpan absen…', '');
@@ -8922,8 +8981,8 @@ header('Expires: 0');
                     spAbsenUi('lock', 'Izin lokasi belum aktif', 'Aktifkan lokasi untuk aplikasi ini: ikon 🔒/ⓘ di samping alamat → Izin → Lokasi → Izinkan. Di iPhone: Pengaturan → Privasi → Layanan Lokasi → Safari → Saat Digunakan.', retry);
                 } else if (e && e.kind === 'nogps') {
                     spAbsenUi('err', 'GPS tidak tersedia', 'HP / browser ini tidak mendukung lokasi.', '<button type="button" class="spa-btn ghost" onclick="spAbsenClose()">Tutup</button>');
-                } else if (e && e.code === 3) {
-                    spAbsenUi('err', 'Sinyal GPS lemah', 'Pastikan Lokasi/GPS HP aktif, lalu coba lagi (lebih cepat di dekat jendela / luar ruangan).', retry);
+                } else if (e && (e.code === 3 || e.code === 2)) {
+                    spAbsenUi('err', 'Lokasi tidak ditemukan', 'HP belum mendapat lokasi dalam 20 detik. Pastikan <b>Lokasi/GPS HP menyala</b> (mode akurasi tinggi) dan Wi-Fi aktif, lalu coba lagi di dekat pintu/jendela.', retry);
                 } else {
                     spAbsenUi('err', 'Absen gagal', 'Periksa internet / GPS lalu coba lagi.', retry);
                 }
