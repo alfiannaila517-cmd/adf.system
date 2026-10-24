@@ -237,7 +237,8 @@
                         ['Hotel Services', 'Trips, transport & extras', BASE_URL . '/services.php', 'services', 'fa-bell-concierge'],
                         ['Book Your Stay', 'Check availability', bookingUrl(), 'booking', 'fa-calendar-check'],
                     ]],
-                    'explore' => ['label' => 'Explore', 'pages' => ['activities', 'destinations'], 'items' => [
+                    'explore' => ['label' => 'Explore', 'pages' => ['activities', 'destinations', 'tour360'], 'items' => [
+                        ['360° Virtual Tour', 'See the resort & islands in 360°', BASE_URL . '/virtual-tour/', 'tour360', 'fa-vr-cardboard'],
                         ['Experiences', 'Diving, snorkelling & more', BASE_URL . '/activities.php', 'activities', 'fa-water'],
                         ['Destinations', 'Islands & beaches nearby', BASE_URL . '/destinations.php', 'destinations', 'fa-map-location-dot'],
                         ['Gallery', 'Moments at Narayana', BASE_URL . '/#gallery', '', 'fa-images'],

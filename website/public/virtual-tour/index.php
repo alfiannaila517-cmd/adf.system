@@ -1,3 +1,27 @@
+<?php
+
+/**
+ * Tour 360° Narayana. Daftar lokasi diatur dari ADF Console (Narayana Website → Tour 360°), tersimpan di settings
+ * "web_tour360" (JSON) database hotel. Belum ada data → foto udara bawaan (img/aerial-*).
+ * Tiap lokasi: id, name {id,en}, base (awalan gambar: <base>-4096.jpg / -8192.jpg / -thumb.jpg), view {yaw,pitch,fov},
+ * links [{to, yaw, pitch}] (pitch positif = ke bawah).
+ */
+$_cfg = dirname(__DIR__) . '/config/config.php';
+if (!file_exists($_cfg)) $_cfg = dirname(__DIR__, 2) . '/config/config.php';
+require_once $_cfg;
+
+$scenes = [];
+try {
+    $st = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'web_tour360'");
+    $st->execute();
+    $scenes = json_decode((string)$st->fetchColumn(), true) ?: [];
+} catch (Throwable $e) {
+    $scenes = [];
+}
+if (!$scenes) {
+    $scenes = [['id' => 'aerial', 'name' => ['id' => 'Pemandangan Udara Karimunjawa', 'en' => 'Karimunjawa Aerial View'], 'base' => 'img/aerial', 'view' => ['yaw' => 25, 'pitch' => 12, 'fov' => 100], 'links' => []]];
+}
+?>
 <!doctype html>
 <html lang="id">
 
@@ -105,18 +129,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marzipano@0.10.2/dist/marzipano.js"></script>
     <script>
-        /*
-         * Daftar titik 360°. Tambah titik baru: salin satu objek, isi gambar (img/<id>-4096.jpg & -8192.jpg, equirectangular 2:1)
-         * dan pasang "links" (titik pindah) di titik lain — yaw/pitch dalam derajat (pitch positif = ke bawah), dibaca dari ?debug=1 (klik → posisi).
-         */
-        const SCENES = [{
-            id: 'aerial',
-            name: { id: 'Pemandangan Udara Karimunjawa', en: 'Karimunjawa Aerial View' },
-            view: { yaw: 25, pitch: 12, fov: 100 },
-            links: [
-                // contoh: { to: 'lobby', yaw: 40, pitch: -18 },
-            ],
-        }];
+        // Daftar lokasi dari Console (settings web_tour360); gambar = <base>-4096.jpg / -8192.jpg
+        const SCENES = <?= json_encode(array_values($scenes), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
 
         const T = {
             id: { book: 'Pesan Sekarang', tour: 'Tour 360°', hint: 'Geser untuk melihat sekeliling', prev: 'Sebelumnya', next: 'Berikutnya', list: 'Daftar lokasi', rotate: 'Putar otomatis', zin: 'Perbesar', zout: 'Perkecil', gyro: 'Gerakkan HP', full: 'Layar penuh' },
@@ -125,6 +139,8 @@
         let lang = (localStorage.getItem('nrLang') || navigator.language || 'id').startsWith('en') ? 'en' : 'id';
 
         const rad = d => d * Math.PI / 180;
+        // gambar kecil untuk bola & daftar lokasi: <base>-thumb.jpg (unggahan Console) atau versi 4096 (foto bawaan)
+        const thumb = s => s.thumb || (s.base + (s.base.startsWith('img/') ? '-4096.jpg' : '-thumb.jpg'));
         const viewer = new Marzipano.Viewer(document.getElementById('pano'), { controls: { mouseViewMode: 'drag' } });
         const limiter = Marzipano.RectilinearView.limit.traditional(8192, rad(120));
         const built = {};
@@ -133,7 +149,7 @@
         function build(s) {
             if (built[s.id]) return built[s.id];
             // dua tingkat: 4096 (HP) & 8192 (komputer) — Marzipano memilih sesuai kemampuan perangkat
-            const source = new Marzipano.ImageUrlSource(t => ({ url: 'img/' + s.id + '-' + (t.z === 0 ? 4096 : 8192) + '.jpg' }));
+            const source = new Marzipano.ImageUrlSource(t => ({ url: s.base + '-' + (t.z === 0 ? 4096 : 8192) + '.jpg' }));
             const geometry = new Marzipano.EquirectGeometry([{ width: 4096 }, { width: 8192 }]);
             const view = new Marzipano.RectilinearView({ yaw: rad(s.view.yaw), pitch: rad(s.view.pitch), fov: rad(s.view.fov) }, limiter);
             const scene = viewer.createScene({ source, geometry, view, pinFirstLevel: true });
@@ -149,7 +165,7 @@
                 if (!to) return;
                 const el = document.createElement('div');
                 el.className = 'hs';
-                el.innerHTML = '<div><div class="ball" style="background-image:url(img/' + to.id + '-4096.jpg)"></div><span class="lb"></span></div>';
+                el.innerHTML = '<div><div class="ball" style="background-image:url(' + thumb(to) + ')"></div><span class="lb"></span></div>';
                 el.querySelector('.lb').dataset.scene = to.id;
                 el.addEventListener('click', () => go(to.id));
                 hc.createHotspot(el, { yaw: rad(l.yaw), pitch: rad(l.pitch) });
@@ -179,7 +195,7 @@
             document.querySelectorAll('.hs .lb').forEach(el => { const s = SCENES.find(x => x.id === el.dataset.scene); el.textContent = s ? s.name[lang] : ''; });
             document.querySelectorAll('.lang button').forEach(b => b.classList.toggle('on', b.dataset.l === lang));
             const list = document.getElementById('sceneList');
-            list.innerHTML = SCENES.map(s => '<a href="#' + s.id + '" data-id="' + s.id + '" class="' + (current && s.id === current.id ? 'on' : '') + '"><img src="img/' + s.id + '-4096.jpg" alt="">' + s.name[lang] + '</a>').join('');
+            list.innerHTML = SCENES.map(s => '<a href="#' + s.id + '" data-id="' + s.id + '" class="' + (current && s.id === current.id ? 'on' : '') + '"><img src="' + thumb(s) + '" alt="">' + s.name[lang] + '</a>').join('');
         }
 
         // tombol
