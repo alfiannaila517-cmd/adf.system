@@ -80,7 +80,8 @@ if ($old) {
         // Dari tab Langganan bisnis: tagihan manual yang ditagih lewat sistem bisnis itu, pelanggan = data grup
         $c = Biz::client((int)$bb['client_id']);
         $bsub = Biz::subscription($billId);
-        $f += ['cust_name' => ($c['contact_name'] ?? '') ?: $bb['name'], 'cust_company' => $c['name'] ?? '', 'cust_email' => ($bsub['notify_email'] ?? '') ?: ($c['email'] ?? ''), 'cust_phone' => $c['phone'] ?? '', 'cust_address' => $c['address'] ?? ''];
+        // Kontak penagihan per bisnis (Pengaturan langganan bisnis itu), bukan kontak grup
+        $f += ['cust_name' => $bb['name'], 'cust_company' => $c['name'] ?? '', 'cust_email' => (string)($bsub['notify_email'] ?? ''), 'cust_phone' => (string)($bsub['notify_phone'] ?? ''), 'cust_address' => $c['address'] ?? ''];
         $f['client_id'] = (int)$bb['client_id'];
         $f['bill_business_id'] = $billId;
         $items = [['description' => '', 'note' => $bb['name'], 'qty' => 1, 'unit_price' => '', 'business_id' => $billId]];

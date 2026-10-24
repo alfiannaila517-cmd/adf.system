@@ -80,12 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             flash('Email notifikasi tidak valid.', 'err');
         } else {
-            $db->prepare('UPDATE subscriptions SET display_name = ?, base_fee = ?, per_guest_fee = ?, start_date = ?, due_date_override = ?, notify_email = ?,
-                    pakasir_slug = ?, pakasir_api_key = COALESCE(NULLIF(?, \'\'), pakasir_api_key), pakasir_webhook_secret = COALESCE(NULLIF(?, \'\'), pakasir_webhook_secret) WHERE business_id = ?')
+            $db->prepare('UPDATE subscriptions SET display_name = ?, base_fee = ?, per_guest_fee = ?, start_date = ?, due_date_override = ?, notify_email = ?, notify_phone = ? WHERE business_id = ?')
                 ->execute([
                     trim((string)($_POST['display_name'] ?? '')) ?: $biz['name'], $money($_POST['base_fee'] ?? 0), $money($_POST['per_guest_fee'] ?? 0),
                     $dateOrNull($_POST['start_date'] ?? ''), $dateOrNull($_POST['due_date_override'] ?? ''), $email ?: null,
-                    trim((string)($_POST['pakasir_slug'] ?? '')) ?: null, trim((string)($_POST['pakasir_api_key'] ?? '')), trim((string)($_POST['pakasir_webhook_secret'] ?? '')), $id,
+                    mb_substr(trim((string)($_POST['notify_phone'] ?? '')), 0, 40) ?: null, $id,
                 ]);
             Auth::audit('subscription.update', $biz['name']);
             flash('Langganan disimpan.');
@@ -588,6 +587,9 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                 <p style="margin:4px 0 0;font-size:12.5px">Sinkron terakhir: <b><?= $lastSync ? e(date('d M Y H:i', $lastSync)) : 'belum pernah' ?></b>. Selama belum tersambung, tagihan bulanan, tagihan manual, kunci sistem, dan pembayaran dari Console <b>tidak sampai</b> ke sistem bisnisnya (sistem itu masih membaca alamat lama). Sambungkan di bagian <a href="#sambungan">Sambungan sistem bisnis</a> di bawah.</p>
             </div>
         <?php endif; ?>
+        <?php if (trim((string)$sub['notify_email']) === ''): ?>
+            <div class="card" style="border-color:var(--warn);background:var(--warnbg);font-size:12.5px">⚠ <b>Email notifikasi penagihan</b> <?= e($biz['name']) ?> belum diisi — email tagihan bulanan &amp; kuitansi lunas tidak terkirim. Isi di <b>Pengaturan langganan</b> di bawah.</div>
+        <?php endif; ?>
         <p class="muted" style="margin:0 0 10px;font-size:12px"><b>Tagihan bulanan</b> = biaya langganan otomatis tiap bulan dari tarif di bawah. <b>Tagihan manual</b> = tagihan tambahan sekali bayar (setup, website, fitur). Keduanya muncul di menu Langganan sistem bisnis dan bisa dibayar online (Mayar). Ringkasan semua bisnis: menu <a href="/billing.php">Klien Langganan</a>; semua invoice: menu <a href="/invoices.php">Invoice</a>.</p>
         <div class="row2" style="margin-bottom:14px">
             <div class="card"><h2>Status sistem</h2>
@@ -694,13 +696,12 @@ if ($tab !== 'menu' && !isset($sections[$tab])) {
                     <div class="field"><label>Tarif per tamu (Rp)</label><input name="per_guest_fee" inputmode="numeric" value="<?= e(number_format((float)$sub['per_guest_fee'], 0, ',', '.')) ?>" <?= $dis ?>></div>
                     <div class="field"><label>Mulai langganan</label><input name="start_date" type="date" value="<?= e($sub['start_date']) ?>" <?= $dis ?>></div>
                     <div class="field"><label>Ubah jatuh tempo bulan ini</label><input name="due_date_override" type="date" value="<?= e($sub['due_date_override']) ?>" <?= $dis ?>></div>
-                    <div class="field"><label>Email penagihan</label><input name="notify_email" type="email" value="<?= e($sub['notify_email']) ?>" placeholder="mis. owner@narayanakarimunjawa.com" <?= $dis ?>><small class="muted" style="font-size:11px">Otomatis: tagihan bulanan baru &amp; kuitansi lunas. Juga tujuan bawaan tagihan manual.</small></div>
                 </div>
-                <h2 style="margin-top:8px">Pakasir (pembayaran online bisnis ini)</h2>
+                <h2 style="margin-top:8px">Kontak penagihan bisnis ini</h2>
+                <p class="muted" style="margin:-4px 0 8px;font-size:11.5px">Khusus <?= e($biz['name']) ?> — tiap bisnis bisa berbeda walau satu grup.</p>
                 <div class="row2">
-                    <div class="field"><label>Slug proyek</label><input name="pakasir_slug" value="<?= e($sub['pakasir_slug']) ?>" <?= $dis ?>></div>
-                    <div class="field"><label>API key <?= $sub['pakasir_api_key'] ? '<span class="pill ok">tersimpan</span>' : '' ?></label><input name="pakasir_api_key" type="password" placeholder="<?= $sub['pakasir_api_key'] ? 'kosongkan = tetap' : '' ?>" autocomplete="off" <?= $dis ?>></div>
-                    <div class="field"><label>Webhook secret <?= $sub['pakasir_webhook_secret'] ? '<span class="pill ok">tersimpan</span>' : '' ?></label><input name="pakasir_webhook_secret" type="password" placeholder="<?= $sub['pakasir_webhook_secret'] ? 'kosongkan = tetap' : '' ?>" autocomplete="off" <?= $dis ?>></div>
+                    <div class="field"><label>Email notifikasi penagihan</label><input name="notify_email" type="email" value="<?= e($sub['notify_email']) ?>" placeholder="mis. owner@narayanakarimunjawa.com" <?= $dis ?>><small class="muted" style="font-size:11px">Otomatis: tagihan bulanan baru &amp; kuitansi lunas. Juga tujuan tagihan manual.</small></div>
+                    <div class="field"><label>WhatsApp penagihan</label><input name="notify_phone" inputmode="tel" value="<?= e((string)($sub['notify_phone'] ?? '')) ?>" placeholder="mis. 0812…" <?= $dis ?>><small class="muted" style="font-size:11px">Pengingat bayar dari Mayar &amp; tombol Kirim WhatsApp.</small></div>
                 </div>
                 <?php if ($isAdmin): ?><button class="btn">Simpan pengaturan</button><?php endif; ?>
             </form>

@@ -193,7 +193,6 @@ foreach ($groups as $cid => $g):
             <a class="nm" href="/client.php?id=<?= (int)$cid ?>"><?= e($g['name']) ?></a>
             <?= $g['demo'] ? '<span class="pill gold">DEMO</span>' : '' ?>
             <span class="ct"><?= count($g['rows']) ?> bisnis</span>
-            <?php if ($isAdmin && !$g['demo'] && $gMonthly > 0): ?><a class="btn ghost sm" style="padding:2px 8px;font-size:11px" href="/invoice-edit.php?client=<?= (int)$cid ?>&period=<?= date('Y-m') ?>" title="Satu invoice berisi semua tagihan bulan ini untuk grup ini">Invoice <?= e(Invoice::date(date('Y-m-01'), false)) ?></a><?php endif; ?>
             <span class="tot"><?= Biz::rp($gMonthly) ?> <small>/ bulan</small></span>
         </div>
         <?php foreach ($list as $r): $bid = (int)$r['id']; [, $tIcon] = Biz::type((string)$r['type']); [$sk, $sl, $sc] = $r['state']; ?>

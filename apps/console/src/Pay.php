@@ -56,7 +56,8 @@ final class Pay
     {
         $biz = Biz::business((int)$sub['business_id']);
         $c = $biz ? Biz::client((int)$biz['client_id']) : null;
-        return ['name' => SubSync::clientName($sub), 'email' => (string)(($sub['notify_email'] ?? '') ?: ($c['email'] ?? '')), 'phone' => (string)($c['phone'] ?? '')];
+        // Kontak per bisnis (Pengaturan langganan), bukan kontak grup
+        return ['name' => SubSync::clientName($sub), 'email' => (string)($sub['notify_email'] ?? ''), 'phone' => (string)($sub['notify_phone'] ?? '')];
     }
 
     /**

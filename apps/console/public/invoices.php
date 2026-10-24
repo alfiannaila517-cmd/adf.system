@@ -77,13 +77,13 @@ View::start('Invoice', 'invoices', $me);
     <div class="card" style="margin:0"><h2>Belum dibayar</h2><div class="stat" style="color:<?= $sum['unpaid'] > 0 ? 'var(--warn)' : 'var(--ink)' ?>"><?= Invoice::rp($sum['unpaid']) ?></div><p class="muted" style="margin:4px 0 0;font-size:12px"><?= $sum['overdue'] > 0 ? Invoice::rp($sum['overdue']) . ' sudah lewat jatuh tempo' : 'tidak ada yang lewat jatuh tempo' ?></p></div>
     <div class="card" style="margin:0"><h2>Lunas bulan ini</h2><div class="stat" style="color:var(--ok)"><?= Invoice::rp($sum['paid_month']) ?></div><p class="muted" style="margin:4px 0 0;font-size:12px"><?= e(Invoice::date(date('Y-m-01'), false)) ?></p></div>
     <?php if ($isAdmin && $clients): ?>
-        <div class="card" style="margin:0"><h2>Invoice bulanan grup</h2>
+        <?php $billable = $db->query("SELECT b.id, b.name FROM businesses b JOIN subscriptions s ON s.business_id = b.id JOIN clients c ON c.id = b.client_id WHERE c.is_demo = 0 AND b.status <> 'archived' ORDER BY b.name")->fetchAll(); ?>
+        <div class="card" style="margin:0"><h2>Tagihan manual per bisnis</h2>
             <form method="get" action="/invoice-edit.php" style="display:flex;gap:6px;flex-wrap:wrap">
-                <select class="sm" name="client" style="flex:1"><?php foreach ($clients as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?></option><?php endforeach; ?></select>
-                <input class="sm" type="month" name="period" value="<?= date('Y-m') ?>">
+                <select class="sm" name="bill" style="flex:1"><?php foreach ($billable as $b): ?><option value="<?= (int)$b['id'] ?>"><?= e($b['name']) ?></option><?php endforeach; ?></select>
                 <button class="btn sm">Buat</button>
             </form>
-            <p class="muted" style="margin:6px 0 0;font-size:11.5px">Baris diisi otomatis dari paket & tambahan tiap bisnis.</p>
+            <p class="muted" style="margin:6px 0 0;font-size:11.5px">Ditagih lewat sistem bisnis itu; email &amp; WhatsApp dari Pengaturan langganan bisnisnya.</p>
         </div>
     <?php endif; ?>
 </div>
