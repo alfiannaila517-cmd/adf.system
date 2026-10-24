@@ -18,6 +18,15 @@ try {
 } catch (Throwable $e) {
     $scenes = [];
 }
+// Musik latar: file MP3 dari Console (settings web_tour360_music), kosong = musik bawaan yang dibuat di browser
+$music = '';
+try {
+    $st = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'web_tour360_music'");
+    $st->execute();
+    $music = (string)$st->fetchColumn();
+} catch (Throwable $e) {
+    $music = '';
+}
 if (!$scenes) {
     $scenes = [['id' => 'aerial', 'name' => ['id' => 'Pemandangan Udara Karimunjawa', 'en' => 'Karimunjawa Aerial View'], 'base' => 'img/aerial', 'view' => ['yaw' => 25, 'pitch' => 12, 'fov' => 100], 'links' => []]];
 }
@@ -136,6 +145,7 @@ if (!$scenes) {
         <button type="button" id="bIn" title="Perbesar" data-tt="zin"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M11 8v6M8 11h6M20 20l-4-4" /></svg></button>
         <button type="button" id="bOut" title="Perkecil" data-tt="zout"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M8 11h6M20 20l-4-4" /></svg></button>
         <button type="button" id="bGyro" title="Gerakkan HP" data-tt="gyro" style="display:none"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2" /><path d="M3 9a9 9 0 0 0 0 6M21 9a9 9 0 0 1 0 6" /></svg></button>
+        <button type="button" id="bMusic" title="Musik" data-tt="music"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" /><path class="w" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /><path class="x" d="M16 9l5 6M21 9l-5 6" style="display:none" /></svg></button>
         <button type="button" id="bFull" title="Layar penuh" data-tt="full"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg></button>
     </div>
 
@@ -148,8 +158,8 @@ if (!$scenes) {
         const SCENES = <?= json_encode(array_values($scenes), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
 
         const T = {
-            id: { book: 'Pesan Sekarang', tour: 'Tour 360°', hint: 'Geser untuk melihat sekeliling', prev: 'Sebelumnya', next: 'Berikutnya', list: 'Daftar lokasi', rotate: 'Putar otomatis', zin: 'Perbesar', zout: 'Perkecil', gyro: 'Gerakkan HP', full: 'Layar penuh' },
-            en: { book: 'Book Now', tour: '360° Tour', hint: 'Drag to look around', prev: 'Previous', next: 'Next', list: 'Locations', rotate: 'Auto rotate', zin: 'Zoom in', zout: 'Zoom out', gyro: 'Move your phone', full: 'Fullscreen' },
+            id: { book: 'Pesan Sekarang', tour: 'Tour 360°', hint: 'Geser untuk melihat sekeliling', prev: 'Sebelumnya', next: 'Berikutnya', list: 'Daftar lokasi', rotate: 'Putar otomatis', zin: 'Perbesar', zout: 'Perkecil', gyro: 'Gerakkan HP', full: 'Layar penuh', music: 'Musik' },
+            en: { book: 'Book Now', tour: '360° Tour', hint: 'Drag to look around', prev: 'Previous', next: 'Next', list: 'Locations', rotate: 'Auto rotate', zin: 'Zoom in', zout: 'Zoom out', gyro: 'Move your phone', full: 'Fullscreen', music: 'Music' },
         };
         let lang = (localStorage.getItem('nrLang') || navigator.language || 'id').startsWith('en') ? 'en' : 'id';
 
@@ -292,6 +302,154 @@ if (!$scenes) {
         };
         document.getElementById('bIn').onclick = () => zoom(0.8);
         document.getElementById('bOut').onclick = () => zoom(1.25);
+        /*
+         * Musik latar. File MP3 dari Console bila ada; selain itu musik "pulau" bawaan yang DIBUAT di browser (Web Audio,
+         * tanpa file / tanpa hak cipta): ombak pantai (noise disaring, mengalun 7–11 dtk) + pad akor hangat
+         * (Fmaj7 → Em7 → Dm7 → Cmaj7, 8 dtk per akor) + petikan pentatonik mirip kalimba dengan gema lembut.
+         * Browser melarang suara sebelum disentuh → mulai pelan pada sentuhan/geser pertama. Pilihan mati/nyala diingat.
+         */
+        const MUSIC_URL = <?= json_encode($music, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;
+        const musicBtn = document.getElementById('bMusic');
+        let musicWanted = (() => { try { return localStorage.getItem('nrTourMusic') !== '0'; } catch (e) { return true; } })();
+        let player = null;
+
+        function islandMusic() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const master = ctx.createGain();
+            master.gain.value = 0;
+            master.connect(ctx.destination);
+            // gema lembut untuk petikan & pad
+            const delay = ctx.createDelay(2), fb = ctx.createGain(), wet = ctx.createGain();
+            delay.delayTime.value = 0.42; fb.gain.value = 0.33; wet.gain.value = 0.3;
+            delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(master);
+
+            // ombak: noise "coklat" stereo 8 dtk berulang → lowpass → gain yang mengalun
+            const len = ctx.sampleRate * 8, buf = ctx.createBuffer(2, len, ctx.sampleRate);
+            for (let c = 0; c < 2; c++) {
+                const d = buf.getChannelData(c);
+                let last = 0;
+                for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }
+            }
+            const noise = ctx.createBufferSource(), wlp = ctx.createBiquadFilter(), wg = ctx.createGain();
+            noise.buffer = buf; noise.loop = true;
+            wlp.type = 'lowpass'; wlp.frequency.value = 500;
+            wg.gain.value = 0.06;
+            noise.connect(wlp); wlp.connect(wg); wg.connect(master);
+            noise.start();
+
+            // pad akor (MIDI): Fmaj7, Em7, Dm7, Cmaj7
+            const CHORDS = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]];
+            const SCALE = [72, 74, 76, 79, 81, 84, 86, 88]; // C mayor pentatonik
+            const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+            const padLp = ctx.createBiquadFilter(), padG = ctx.createGain();
+            padLp.type = 'lowpass'; padLp.frequency.value = 1100; padG.gain.value = 0.045;
+            padLp.connect(padG); padG.connect(master); padG.connect(delay);
+
+            function chord(t, notes) {
+                notes.forEach(m => [['sine', 0], ['triangle', 5]].forEach(([type, cents]) => {
+                    const o = ctx.createOscillator(), g = ctx.createGain();
+                    o.type = type; o.frequency.value = hz(m); o.detune.value = cents;
+                    g.gain.setValueAtTime(0, t);
+                    g.gain.linearRampToValueAtTime(0.5, t + 2.5);
+                    g.gain.setValueAtTime(0.5, t + 6.5);
+                    g.gain.linearRampToValueAtTime(0, t + 10);
+                    o.connect(g); g.connect(padLp);
+                    o.start(t); o.stop(t + 10.2);
+                }));
+            }
+            function pluck(t, m) {
+                const g = ctx.createGain();
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(0.07, t + 0.006);
+                g.gain.exponentialRampToValueAtTime(0.0008, t + 1.6);
+                [[1, 'triangle'], [2, 'sine']].forEach(([mul, type]) => {
+                    const o = ctx.createOscillator();
+                    o.type = type; o.frequency.value = hz(m) * mul;
+                    o.connect(g); o.start(t); o.stop(t + 1.7);
+                });
+                g.connect(master); g.connect(delay);
+            }
+            function wave(t) {
+                const dur = 7 + Math.random() * 4;
+                wg.gain.setValueAtTime(0.05, t);
+                wg.gain.linearRampToValueAtTime(0.22 + Math.random() * 0.1, t + dur * 0.45);
+                wg.gain.linearRampToValueAtTime(0.05, t + dur);
+                wlp.frequency.setValueAtTime(420, t);
+                wlp.frequency.linearRampToValueAtTime(1200, t + dur * 0.45);
+                wlp.frequency.linearRampToValueAtTime(450, t + dur);
+                return dur;
+            }
+
+            // penjadwal: melihat 1 dtk ke depan tiap 250 ms (72 bpm, petikan acak di ketukan)
+            let nChord = ctx.currentTime + 0.1, nBeat = nChord + 1.5, nWave = nChord, ci = 0, timer = null;
+            function tick() {
+                const ahead = ctx.currentTime + 1;
+                while (nChord < ahead) { chord(nChord, CHORDS[ci % 4]); ci++; nChord += 8; }
+                while (nWave < ahead) nWave += wave(nWave);
+                while (nBeat < ahead) {
+                    if (Math.random() < 0.42) pluck(nBeat, SCALE[Math.floor(Math.random() * SCALE.length)]);
+                    nBeat += 60 / 72 * (Math.random() < 0.2 ? 0.5 : 1);
+                }
+            }
+            return {
+                play() {
+                    ctx.resume();
+                    if (!timer) { tick(); timer = setInterval(tick, 250); }
+                    master.gain.cancelScheduledValues(ctx.currentTime);
+                    master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+                    master.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 3);
+                },
+                pause() {
+                    master.gain.cancelScheduledValues(ctx.currentTime);
+                    master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+                    master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
+                    setTimeout(() => { if (!musicWanted || document.hidden) { clearInterval(timer); timer = null; ctx.suspend(); } }, 900);
+                },
+            };
+        }
+
+        function filePlayer(url) {
+            const a = new Audio(url);
+            a.loop = true; a.volume = 0;
+            let fade = null;
+            const to = (v, ms, done) => {
+                clearInterval(fade);
+                const step = (v - a.volume) / (ms / 50);
+                fade = setInterval(() => {
+                    const nv = Math.min(1, Math.max(0, a.volume + step));
+                    a.volume = nv;
+                    if ((step >= 0 && nv >= v) || (step < 0 && nv <= v)) { clearInterval(fade); if (done) done(); }
+                }, 50);
+            };
+            return {
+                play() { a.play().catch(() => {}); to(0.5, 2500); },
+                pause() { to(0, 800, () => a.pause()); },
+            };
+        }
+
+        function setMusicUi() {
+            musicBtn.classList.toggle('on', musicWanted);
+            musicBtn.querySelector('.w').style.display = musicWanted ? '' : 'none';
+            musicBtn.querySelector('.x').style.display = musicWanted ? 'none' : '';
+        }
+        function musicStart() {
+            if (!musicWanted || document.hidden) return;
+            try { player = player || (MUSIC_URL ? filePlayer(MUSIC_URL) : islandMusic()); player.play(); } catch (e) { /* tanpa dukungan audio */ }
+        }
+        musicBtn.onclick = e => {
+            e.stopPropagation();
+            musicWanted = !musicWanted;
+            try { localStorage.setItem('nrTourMusic', musicWanted ? '1' : '0'); } catch (err) {}
+            setMusicUi();
+            if (musicWanted) musicStart(); else if (player) player.pause();
+        };
+        setMusicUi();
+        // sentuhan / geser / tombol pertama di halaman = izin browser untuk bunyi
+        const firstTouch = () => { ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.removeEventListener(ev, firstTouch, true)); musicStart(); };
+        ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, firstTouch, true));
+        // tab disembunyikan → pelan-pelan diam; kembali → lanjut
+        document.addEventListener('visibilitychange', () => { if (!player) return; if (document.hidden) player.pause(); else if (musicWanted) player.play(); });
+
         document.getElementById('bFull').onclick = () => {
             const d = document;
             if (!d.fullscreenElement) (d.documentElement.requestFullscreen || d.documentElement.webkitRequestFullscreen || (() => {})).call(d.documentElement);
