@@ -48,6 +48,11 @@ final class Mayar
         $json = json_decode((string)$raw, true);
         if (!is_array($json) || $code < 200 || $code >= 300 || (int)($json['statusCode'] ?? 200) >= 300) {
             $msg = is_array($json) ? (is_array($json['messages'] ?? null) ? implode(', ', $json['messages']) : (string)($json['messages'] ?? '')) : '';
+            // Isi balasan dicatat (log PHP) supaya penyebab penolakan bisa dilihat; potongan pendek ikut di pesan
+            error_log('Mayar ' . $method . ' ' . $path . ' HTTP ' . $code . ': ' . substr((string)$raw, 0, 800));
+            if ($msg === '') {
+                $msg = trim(substr(strip_tags((string)$raw), 0, 160));
+            }
             throw new RuntimeException('Mayar menolak (HTTP ' . $code . ')' . ($msg !== '' ? ': ' . $msg : ''));
         }
         return $json;
