@@ -54,6 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($action === 'ball') {
                 Tour360::setBall($pdo, $cur, $_FILES['ball'] ?? []);
                 flash('Gambar bola disimpan — tampil di semua bola yang menuju lokasi ini.');
+            } elseif ($action === 'music') {
+                Tour360::setMusic($pdo, $_FILES['music'] ?? []);
+                flash('Musik latar disimpan — tampil di website setelah halaman tour dimuat ulang.');
+            } elseif ($action === 'music_reset') {
+                Tour360::setMusic($pdo, null);
+                flash('Musik latar kembali ke musik bawaan (ombak + petikan santai).');
             } elseif ($action === 'ball_reset') {
                 Tour360::setBall($pdo, $cur, null);
                 flash('Bola kembali memakai foto lokasi.');
@@ -162,6 +168,22 @@ View::start('Tour 360° · ' . $biz['name'], 'clients', $me);
                     <div class="muted" id="addTxt" style="font-size:11.5px;margin-top:4px">Mengunggah… 0%</div>
                 </div>
             </form>
+            <?php $musicUrl = Tour360::music($pdo); ?>
+            <form method="post" enctype="multipart/form-data" class="card">
+                <h2>Musik latar</h2>
+                <?= csrf_field() ?><input type="hidden" name="action" value="music"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>">
+                <p class="muted" style="margin:0 0 8px;font-size:12px">
+                    <?= $musicUrl === ''
+                        ? 'Sekarang: <b>musik bawaan</b> — suara ombak pantai + pad hangat + petikan santai mirip kalimba (dibuat langsung di browser, bebas hak cipta).'
+                        : 'Sekarang: <b>file sendiri</b> <code>' . e(basename($musicUrl)) . '</code>.' ?>
+                    Pengunjung bisa mematikan lewat tombol 🔊; musik mulai pelan saat layar pertama kali disentuh.</p>
+                <input type="file" name="music" accept="audio/mpeg,.mp3" required style="margin-bottom:6px">
+                <div class="muted" style="font-size:11px;margin-bottom:8px">MP3 maks. 20 MB. Pakai musik yang memang boleh dipakai (milik sendiri / bebas royalti).</div>
+                <button class="btn sm">Pakai musik ini</button>
+            </form>
+            <?php if ($musicUrl !== ''): ?>
+                <form method="post" style="margin:-8px 0 14px;text-align:right"><?= csrf_field() ?><input type="hidden" name="action" value="music_reset"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="s" value="<?= e($cur) ?>"><button class="btn ghost sm">Kembali ke musik bawaan</button></form>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 

@@ -318,6 +318,47 @@ final class Tour360
         self::save($pdo, $scenes);
     }
 
+    /** Alamat musik latar (settings web_tour360_music), '' = musik bawaan yang dibuat di browser */
+    public static function music(PDO $pdo): string
+    {
+        $st = $pdo->prepare("SELECT setting_value FROM settings WHERE setting_key = 'web_tour360_music'");
+        $st->execute();
+        return (string)$st->fetchColumn();
+    }
+
+    /** Unggah musik latar MP3 (≤ 20 MB) ke uploads/tour360/music-<waktu>.mp3; $file null = kembali ke musik bawaan */
+    public static function setMusic(PDO $pdo, ?array $file): void
+    {
+        $old = self::music($pdo);
+        $url = '';
+        if ($file !== null) {
+            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                throw new RuntimeException(($file['error'] ?? 4) === UPLOAD_ERR_NO_FILE ? 'Pilih file musik dulu.' : 'Unggahan gagal (kode ' . (int)$file['error'] . ').');
+            }
+            if ($p = self::problem()) {
+                throw new RuntimeException($p);
+            }
+            if ((int)$file['size'] > 20 * 1048576) {
+                throw new RuntimeException('Musik maksimal 20 MB.');
+            }
+            $head = (string)file_get_contents($file['tmp_name'], false, null, 0, 3);
+            // MP3: tag ID3 atau frame sync 0xFFEx/0xFFFx
+            if ($head !== 'ID3' && !(strlen($head) >= 2 && ord($head[0]) === 0xFF && (ord($head[1]) & 0xE0) === 0xE0)) {
+                throw new RuntimeException('File musik harus MP3.');
+            }
+            $name = 'music-' . date('YmdHis') . '.mp3';
+            if (!move_uploaded_file($file['tmp_name'], self::upDir() . '/' . $name)) {
+                throw new RuntimeException('Musik tidak bisa disimpan.');
+            }
+            $url = '/uploads/tour360/' . $name;
+        }
+        $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) VALUES ('web_tour360_music', ?, 'text', 'Musik latar Tour 360° (dikelola ADF Console)')
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)")->execute([$url]);
+        if ($old !== '' && str_starts_with($old, '/uploads/tour360/music-')) {
+            @unlink(self::webDir() . $old);
+        }
+    }
+
     /** Jadikan lokasi pertama (dibuka saat tour dimuat) */
     public static function makeFirst(PDO $pdo, string $id): void
     {
